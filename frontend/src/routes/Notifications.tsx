@@ -1,6 +1,6 @@
 import { createSignal, For, onMount, Show } from "solid-js";
 import { A } from "@solidjs/router";
-import { apiCall } from "../api/client";
+import { apiCall, ApiError } from "../api/client";
 import type { NotificationItem } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
 import { useAuth } from "../state/auth";
@@ -62,6 +62,8 @@ export default function Notifications() {
   const [error, setError] = createSignal<string | null>(null);
   const [exhausted, setExhausted] = createSignal(false);
   const [failedMode, setFailedMode] = createSignal<NotificationsLoadMode | null>(null);
+  const [markingRead, setMarkingRead] = createSignal(false);
+  const [markReadError, setMarkReadError] = createSignal<string | null>(null);
 
   const load = async (mode: NotificationsLoadMode) => {
     if (busy()) return;
@@ -114,6 +116,28 @@ export default function Notifications() {
 
   const retry = () => void load(failedMode() ?? "refresh");
 
+  // Misskey-family responses carry no isRead, so there is no unread badge
+  // to clear optimistically: this calls the server and reloads the list.
+  // Older sessions lack the write:notifications scope and get a 403 — the
+  // fix is signing in again, not retrying.
+  const markAllRead = async () => {
+    if (markingRead()) return;
+    setMarkingRead(true);
+    setMarkReadError(null);
+    try {
+      await apiCall<undefined>("notifications/mark-all-as-read", {});
+      await load("refresh");
+    } catch (err) {
+      setMarkReadError(
+        err instanceof ApiError && (err.status === 403 || err.status === 401)
+          ? "Your session lacks the notification-write permission. Sign out and sign in again, then retry."
+          : err instanceof Error ? err.message : "Could not mark notifications as read.",
+      );
+    } finally {
+      setMarkingRead(false);
+    }
+  };
+
   onMount(() => {
     if (auth.token()) void load("initial");
     else setLoading(false);
@@ -125,8 +149,16 @@ export default function Notifications() {
         <h1>Notifications</h1>
         <Show when={auth.token()}>
           <button type="button" onClick={() => void load("refresh")} disabled={loading() || loadingMore()}>Refresh</button>
+          <button type="button" onClick={() => void markAllRead()} disabled={markingRead() || loading()}>
+            {markingRead() ? "Marking…" : "Mark all read"}
+          </button>
         </Show>
       </div>
+      <Show when={markReadError()}>
+        <div class="state" role="alert">
+          <div class="errorbox">{markReadError()}</div>
+        </div>
+      </Show>
       <Show when={auth.authReady()} fallback={<LoadingState />}>
         <Show when={auth.token()} fallback={
           <div class="state">

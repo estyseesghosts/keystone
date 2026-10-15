@@ -1,4 +1,4 @@
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, onMount, Show } from "solid-js";
 import { apiCall, ApiError } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
 import { useAuth } from "../state/auth";
@@ -11,6 +11,8 @@ export interface TimelineFeedProps {
   endpoint: string;
   title: string;
   showComposer: boolean;
+  /** Extra params merged into every page request (e.g. { antennaId }). */
+  extraParams?: Record<string, unknown>;
   /** When set, a 404 from the server renders this honest message instead of an error. */
   unsupportedMessage?: string;
 }
@@ -42,7 +44,10 @@ export default function TimelineFeed(props: TimelineFeedProps) {
     setError(null);
     try {
       const current = notes();
-      const params: Record<string, unknown> = { limit: PAGE_SIZE };
+      const params: Record<string, unknown> = {
+        limit: PAGE_SIZE,
+        ...(props.extraParams ?? {}),
+      };
       if (mode === "older" && current.length > 0) {
         params.untilId = current[current.length - 1].id;
       }
@@ -92,6 +97,26 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   const retry = () => void load(failedMode() ?? "refresh");
 
   onMount(() => {
+    void load("initial");
+  });
+
+  // The router may reuse this feed for a different source (e.g.
+  // /antennas/a -> /antennas/b): when the endpoint or extra params change
+  // by value, reset and reload instead of showing the previous feed.
+  let firstParamsRun = true;
+  createEffect(() => {
+    const fingerprint = JSON.stringify({
+      endpoint: props.endpoint,
+      extra: props.extraParams ?? {},
+    });
+    if (firstParamsRun) {
+      firstParamsRun = false;
+      return;
+    }
+    setNotes([]);
+    setExhausted(false);
+    setFailedMode(null);
+    setUnsupported(false);
     void load("initial");
   });
 

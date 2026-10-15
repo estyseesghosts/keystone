@@ -31,8 +31,10 @@ export default function Layout(props: { children: JSX.Element }) {
         <A class="navlink" href="/" end activeClass="active">Home</A>
         <A class="navlink" href="/local" activeClass="active">Local</A>
         <A class="navlink" href="/global" activeClass="active">Global</A>
+        <A class="navlink" href="/search" activeClass="active">Search</A>
         <Show when={auth.me()}>
           <A class="navlink" href="/drive" activeClass="active">Drive</A>
+          <A class="navlink" href="/antennas" activeClass="active">Antennas</A>
         </Show>
         <Show when={auth.me()}>
           <A class="navlink" href="/notifications" activeClass="active">Notifications</A>
