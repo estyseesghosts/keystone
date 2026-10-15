@@ -2,6 +2,7 @@ import { createContext, createSignal, onMount, useContext } from "solid-js";
 import type { JSX } from "solid-js";
 import {
   apiCall,
+  apiCallPublic,
   clearStoredToken,
   getToken,
   mintAppToken,
@@ -15,20 +16,20 @@ interface AuthStore {
   token: () => string | null;
   me: () => MeDetailed | null;
   authReady: () => boolean;
-  pendingGrant: () => boolean;
-  beginSignin: (username: string, password: string) => Promise<{ grantRequired: boolean }>;
-  grantKeystoneAccess: () => Promise<void>;
-  cancelGrant: () => void;
+  /** One-step sign-in: password -> scoped app session, no extra screens. */
+  signin: (username: string, password: string) => Promise<void>;
   signout: () => void;
 }
 
 const AuthContext = createContext<AuthStore>();
 
-// Temporary native credential from POST /api/signin-flow (Misskey-family
-// only). Held in module-level memory for the gen-token exchange and never
-// persisted: not in localStorage, not in a signal. Cleared (overwritten +
-// nulled) as soon as the scoped app token is minted, or when the flow is
-// cancelled / fails.
+// Native credential from POST /api/signin-flow (Misskey-family only). This
+// is the user's FULL-AUTHORITY account token (SigninService returns
+// `user.token` verbatim — permanent, not short-lived). It is held in this
+// module variable only for the duration of the gen-token exchange below and
+// never persisted: not in localStorage, not in a signal. Cleared
+// (overwritten + nulled) as soon as the scoped app token is minted, or when
+// the attempt fails.
 let pendingNativeCredential: string | null = null;
 
 function clearPendingNativeCredential(): void {
@@ -40,7 +41,6 @@ export function AuthProvider(props: { children: JSX.Element }) {
   const [token, setToken] = createSignal<string | null>(getToken());
   const [me, setMe] = createSignal<MeDetailed | null>(null);
   const [authReady, setAuthReady] = createSignal(false);
-  const [pendingGrant, setPendingGrant] = createSignal(false);
 
   const restore = async () => {
     const stored = getToken();
@@ -53,7 +53,9 @@ export function AuthProvider(props: { children: JSX.Element }) {
       setToken(stored);
       setMe(user);
     } catch {
-      // Token invalid/expired: drop it and show the logged-out state.
+      // Token invalid/expired: drop it and show the logged-out state. A
+      // failed check must never leave an unusable token saved as the
+      // active session.
       clearStoredToken();
       setToken(null);
       setMe(null);
@@ -66,57 +68,54 @@ export function AuthProvider(props: { children: JSX.Element }) {
     void restore();
   });
 
-  const beginSignin = async (
-    username: string,
-    password: string,
-  ): Promise<{ grantRequired: boolean }> => {
-    // Drop any stale pending credential before starting a new attempt.
+  const signin = async (username: string, password: string): Promise<void> => {
     clearPendingNativeCredential();
-    setPendingGrant(false);
     if (!IS_MISSKEY_FAMILY) {
       const res = await apiCall<SigninResponse>("signin", { username, password });
       setStoredToken(res.token);
       setToken(res.token);
       setMe(res.user);
-      return { grantRequired: false };
+      return;
     }
     // Misskey-family: native sign-in via signinFlow, which sends no stored
-    // token. The returned `i` is a temporary credential used only for the
-    // Keystone-owned gen-token exchange below.
+    // token. Keystone is the first-party client and the permission set is
+    // fixed and least-privilege, so a successful password check mints the
+    // scoped app token directly — there is no second approval screen.
     const flow = await signinFlow(username, password);
     if (!flow.finished) {
+      // The account needs a sign-in step Keystone does not implement
+      // (2FA / passkey / captcha, per the server's `next` hint). Say so
+      // plainly instead of sending the user to an instance page: the
+      // product requirement is that auth stays inside Keystone.
       throw new Error(
-        `Sign-in needs an extra step (${flow.next}). This account has 2FA/passkey/captcha enabled; finish it in the sizhuo instance UI first, then retry.`,
+        `This account needs an extra sign-in step ("${flow.next}") that Keystone does not support yet, so you cannot sign in with it here.`,
       );
     }
     pendingNativeCredential = flow.i;
-    setPendingGrant(true);
-    return { grantRequired: true };
-  };
-
-  const grantKeystoneAccess = async (): Promise<void> => {
-    const temp = pendingNativeCredential;
-    if (!temp) {
-      throw new Error("No pending sign-in. Enter your username and password first.");
-    }
     try {
-      const appToken = await mintAppToken(temp);
+      const appToken = await mintAppToken(pendingNativeCredential);
+      // Verify the scoped token BEFORE storing it: a failed check must
+      // not leave an unusable token saved as the active session.
+      const user = await apiCallPublic<MeDetailed>("i", { i: appToken });
       setStoredToken(appToken);
-      const user = await apiCall<MeDetailed>("i");
       setToken(appToken);
       setMe(user);
     } finally {
       clearPendingNativeCredential();
-      setPendingGrant(false);
     }
   };
 
-  const cancelGrant = (): void => {
-    clearPendingNativeCredential();
-    setPendingGrant(false);
-  };
-
   const signout = () => {
+    // Best-effort server-side revocation (`i/revoke-token` revokes the
+    // calling app token; unsupported servers 404). Local sign-out always
+    // clears Keystone session state regardless of the outcome.
+    const current = getToken();
+    if (current) {
+      apiCall<undefined>("i/revoke-token", {}).catch(() => {
+        // Ignore: offline, already-revoked, or unsupported endpoint.
+      });
+    }
+    clearPendingNativeCredential();
     clearStoredToken();
     setToken(null);
     setMe(null);
@@ -126,10 +125,7 @@ export function AuthProvider(props: { children: JSX.Element }) {
     token,
     me,
     authReady,
-    pendingGrant,
-    beginSignin,
-    grantKeystoneAccess,
-    cancelGrant,
+    signin,
     signout,
   };
   return <AuthContext.Provider value={store}>{props.children}</AuthContext.Provider>;

@@ -1,7 +1,7 @@
-import { createSignal, For, onMount, Show } from "solid-js";
-import { useParams } from "@solidjs/router";
-import { apiCall, ApiError } from "../api/client";
-import type { Note, UserDetailed } from "../api/types";
+import { createEffect, createSignal, For, onMount, Show } from "solid-js";
+import { A, useParams } from "@solidjs/router";
+import { apiCall, ApiError, isPermissionError } from "../api/client";
+import type { MeDetailed, Note, UserDetailed, UserLite } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
 import { useAuth } from "../state/auth";
 import ErrorState from "../components/ErrorState";
@@ -9,8 +9,164 @@ import LoadingState from "../components/LoadingState";
 import NoteCard from "../components/NoteCard";
 
 const PROFILE_NOTES_PAGE_SIZE = 20;
+const FOLLOW_PAGE_SIZE = 20;
 
 type ProfileNotesLoadMode = "initial" | "older" | "refresh";
+
+function FollowList(props: { userId: string; mode: "followers" | "following" }) {
+  const [users, setUsers] = createSignal<UserLite[]>([]);
+  const [loading, setLoading] = createSignal(true);
+  const [loadingMore, setLoadingMore] = createSignal(false);
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+  const [exhausted, setExhausted] = createSignal(false);
+
+  const load = async (older: boolean) => {
+    if (busy()) return;
+    if (older && exhausted()) return;
+    setBusy(true);
+    if (older) setLoadingMore(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const current = users();
+      const req: Record<string, unknown> = {
+        userId: props.userId,
+        limit: FOLLOW_PAGE_SIZE,
+      };
+      if (older && current.length > 0) req.untilId = current[current.length - 1].id;
+      const endpoint = props.mode === "followers" ? "users/followers" : "users/following";
+      const page = await apiCall<UserLite[]>(endpoint, req);
+      if (older) {
+        const seen = new Set(current.map((u) => u.id));
+        const fresh = page.filter((u) => !seen.has(u.id));
+        if (fresh.length === 0) setExhausted(true);
+        setUsers([...current, ...fresh]);
+      } else {
+        setUsers(page);
+        setExhausted(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load this list.");
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+      setBusy(false);
+    }
+  };
+
+  onMount(() => {
+    void load(false);
+  });
+
+  return (
+    <Show when={loading()} fallback={
+      <>
+        <Show when={error()}>
+          <div class="state" role="alert">
+            <div class="errorbox">{error()}</div>
+            <button type="button" onClick={() => void load(false)}>Try again</button>
+          </div>
+        </Show>
+        <Show when={users().length === 0 && !error()}>
+          <div class="state"><p>None yet.</p></div>
+        </Show>
+        <div class="feed">
+          <For each={users()}>
+            {(u) => (
+              <div class="notif">
+                <A class="action" href={`/users/${u.id}`}>
+                  {displayNameOf(u)} ({handleOf(u)})
+                </A>
+              </div>
+            )}
+          </For>
+        </div>
+        <Show when={!exhausted() && users().length > 0}>
+          <div class="pager">
+            <button type="button" onClick={() => void load(true)} disabled={loadingMore()}>
+              {loadingMore() ? "Loading…" : "Load older"}
+            </button>
+          </div>
+        </Show>
+      </>
+    }>
+      <LoadingState label={`Loading ${props.mode}…`} />
+    </Show>
+  );
+}
+
+function ProfileEditor(props: { me: MeDetailed; onSaved: (me: MeDetailed) => void }) {
+  const [name, setName] = createSignal(props.me.name ?? "");
+  const [description, setDescription] = createSignal(props.me.description ?? "");
+  const [location, setLocation] = createSignal(props.me.location ?? "");
+  const [birthday, setBirthday] = createSignal(props.me.birthday ?? "");
+  const [isLocked, setIsLocked] = createSignal(props.me.isLocked);
+  const [isBot, setIsBot] = createSignal((props.me as { isBot?: boolean }).isBot ?? false);
+  const [saving, setSaving] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+
+  const save = async () => {
+    if (saving()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      // Bounded common subset verified on Misskey-family and Pinetree
+      // (name/description/location/birthday + flags). Anything else is a
+      // separate slice — never send fields the contract does not cover.
+      const updated = await apiCall<MeDetailed>("i/update", {
+        name: name().trim(),
+        description: description().trim(),
+        location: location().trim(),
+        birthday: birthday().trim() === "" ? null : birthday().trim(),
+        isLocked: isLocked(),
+        isBot: isBot(),
+      });
+      props.onSaved(updated);
+    } catch (err) {
+      setError(
+        isPermissionError(err)
+          ? "Your session lacks the profile-edit permission. Sign out and sign in again, then retry."
+          : err instanceof Error ? err.message : "Could not save the profile.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div class="form">
+      <div class="field">
+        <label for="profile-name">Display name</label>
+        <input id="profile-name" type="text" value={name()} onInput={(e) => setName(e.currentTarget.value)} maxlength={50} />
+      </div>
+      <div class="field">
+        <label for="profile-description">Bio</label>
+        <textarea value={description()} onInput={(e) => setDescription(e.currentTarget.value)} maxlength={1500} aria-label="Bio" />
+      </div>
+      <div class="field">
+        <label for="profile-location">Location</label>
+        <input id="profile-location" type="text" value={location()} onInput={(e) => setLocation(e.currentTarget.value)} maxlength={50} />
+      </div>
+      <div class="field">
+        <label for="profile-birthday">Birthday (YYYY-MM-DD, blank to clear)</label>
+        <input id="profile-birthday" type="text" value={birthday()} onInput={(e) => setBirthday(e.currentTarget.value)} placeholder="YYYY-MM-DD" />
+      </div>
+      <div class="field">
+        <label><input type="checkbox" checked={isLocked()} onChange={(e) => setIsLocked(e.currentTarget.checked)} /> Locked account (approve followers)</label>
+      </div>
+      <div class="field">
+        <label><input type="checkbox" checked={isBot()} onChange={(e) => setIsBot(e.currentTarget.checked)} /> This is a bot account</label>
+      </div>
+      <Show when={error()}>
+        <div class="err" role="alert">{error()}</div>
+      </Show>
+      <button type="button" class="btn-primary" disabled={saving()} onClick={save}>
+        {saving() ? "Saving…" : "Save profile"}
+      </button>
+    </div>
+  );
+}
 
 export default function Profile() {
   const params = useParams();
@@ -27,20 +183,26 @@ export default function Profile() {
   const [notesUnsupported, setNotesUnsupported] = createSignal(false);
   const [notesExhausted, setNotesExhausted] = createSignal(false);
   const [notesFailedMode, setNotesFailedMode] = createSignal<ProfileNotesLoadMode | null>(null);
+  const [showFollowers, setShowFollowers] = createSignal(false);
+  const [showFollowing, setShowFollowing] = createSignal(false);
+  const [editing, setEditing] = createSignal(false);
 
-  const load = async () => {
+  const load = async (id: string) => {
     setLoading(true);
     setError(null);
     try {
-      setUser(await apiCall<UserDetailed>("users/show", { userId: params.id }));
+      // Authenticated fetch when signed in: follow/pending flags are only
+      // packed with a credential.
+      setUser(await apiCall<UserDetailed>("users/show", { userId: id }));
     } catch (err) {
+      setUser(null);
       setError(err instanceof Error ? err.message : "Could not load the profile.");
     } finally {
       setLoading(false);
     }
   };
 
-  const loadNotes = async (mode: ProfileNotesLoadMode) => {
+  const loadNotes = async (id: string, mode: ProfileNotesLoadMode) => {
     if (notesBusy()) return;
     if (mode === "older" && notesExhausted()) return;
     setNotesBusy(true);
@@ -50,7 +212,7 @@ export default function Profile() {
     try {
       const current = userNotes();
       const req: Record<string, unknown> = {
-        userId: params.id,
+        userId: id,
         limit: PROFILE_NOTES_PAGE_SIZE,
         withReplies: false,
       };
@@ -98,25 +260,58 @@ export default function Profile() {
     }
   };
 
-  const retryNotes = () => void loadNotes(notesFailedMode() ?? "refresh");
+  const retryNotes = () => void loadNotes(params.id ?? "", notesFailedMode() ?? "refresh");
+
+  const resetForId = (id: string) => {
+    if (!id) return;
+    // Direct navigation /users/a -> /users/b reuses this component.
+    setUser(null);
+    setUserNotes([]);
+    setNotesExhausted(false);
+    setNotesFailedMode(null);
+    setShowFollowers(false);
+    setShowFollowing(false);
+    setEditing(false);
+    void load(id);
+    void loadNotes(id, "initial");
+  };
 
   onMount(() => {
-    void load();
-    void loadNotes("initial");
+    resetForId(params.id ?? "");
   });
+
+  createEffect(() => {
+    const id = params.id ?? "";
+    if (!id) return;
+    const current = user();
+    if (!loading() && current && current.id !== id) resetForId(id);
+    if (!loading() && !current && !error()) resetForId(id);
+  });
+
+  /** Re-derive follow state from the server after every write. A successful
+   * following/create on a locked account yields a PENDING request, not an
+   * accepted follow — so the button state always comes from users/show,
+   * never from optimism. */
+  const refreshUser = async () => {
+    const id = params.id ?? "";
+    if (!id) return;
+    try {
+      setUser(await apiCall<UserDetailed>("users/show", { userId: id }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not refresh the profile.");
+    }
+  };
 
   const setFollow = async (follow: boolean) => {
     const current = user();
     if (!current || busy()) return;
     setBusy(true);
     try {
-      const updated = await apiCall<UserDetailed>(
+      await apiCall<UserDetailed>(
         follow ? "following/create" : "following/delete",
         { userId: current.id },
       );
-      // The follow endpoints return the followee as UserLite; keep our
-      // detailed view and flip the follow flag explicitly.
-      setUser((u) => (u ? { ...u, ...updated, isFollowing: follow } : u));
+      await refreshUser();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Follow action failed.");
     } finally {
@@ -124,8 +319,30 @@ export default function Profile() {
     }
   };
 
+  const cancelRequest = async () => {
+    const current = user();
+    if (!current || busy()) return;
+    setBusy(true);
+    try {
+      await apiCall<undefined>("following/requests/cancel", { userId: current.id });
+      await refreshUser();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not cancel the follow request.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const isSelf = () => !!auth.me() && auth.me()!.id === params.id;
   const canFollow = () => !!auth.token() && !isSelf();
+
+  const followState = (): "following" | "pending" | "none" => {
+    const current = user();
+    if (!current) return "none";
+    if (current.isFollowing) return "following";
+    if (current.hasPendingFollowRequestFromYou) return "pending";
+    return "none";
+  };
 
   return (
     <div>
@@ -150,6 +367,9 @@ export default function Profile() {
                   <div style={{ flex: 1 }}>
                     <h2>{displayNameOf(current())}</h2>
                     <div class="handle">{handleOf(current())}</div>
+                    <Show when={current().isLocked}>
+                      <div class="handle">Locked account</div>
+                    </Show>
                     <Show when={current().description}>
                       <p class="bio">{current().description}</p>
                     </Show>
@@ -159,18 +379,55 @@ export default function Profile() {
                       <span>{current().followersCount} followers</span>
                     </div>
                     <Show when={canFollow()}>
-                      <Show when={current().isFollowing} fallback={
-                        <button type="button" disabled={busy()} onClick={() => void setFollow(true)}>
-                          Follow
-                        </button>
+                      <Show when={followState() === "following"} fallback={
+                        <Show when={followState() === "pending"} fallback={
+                          <button type="button" disabled={busy()} onClick={() => void setFollow(true)}>
+                            Follow
+                          </button>
+                        }>
+                          <span class="handle" role="status">Follow request pending</span>
+                          <button type="button" disabled={busy()} onClick={() => void cancelRequest()}>
+                            Cancel request
+                          </button>
+                        </Show>
                       }>
                         <button type="button" disabled={busy()} onClick={() => void setFollow(false)}>
                           Unfollow
                         </button>
                       </Show>
                     </Show>
+                    <Show when={isSelf()}>
+                      <button type="button" onClick={() => setEditing((v) => !v)}>
+                        {editing() ? "Close editor" : "Edit profile"}
+                      </button>
+                      <Show when={editing() && auth.me()}>
+                        <ProfileEditor
+                          me={auth.me()!}
+                          onSaved={(updated) => {
+                            setEditing(false);
+                            setUser((u) => (u ? { ...u, ...updated } : u));
+                          }}
+                        />
+                      </Show>
+                    </Show>
                   </div>
                 </div>
+                <div class="pager">
+                  <button type="button" onClick={() => { setShowFollowers((v) => !v); setShowFollowing(false); }}>
+                    {showFollowers() ? "Hide followers" : "Followers"}
+                  </button>
+                  <button type="button" onClick={() => { setShowFollowing((v) => !v); setShowFollowers(false); }}>
+                    {showFollowing() ? "Hide following" : "Following"}
+                  </button>
+                </div>
+                <Show when={showFollowers()}>
+                  <div class="pagehead"><h1>Followers</h1></div>
+                  <FollowList userId={current().id} mode="followers" />
+                </Show>
+                <Show when={showFollowing()}>
+                  <div class="pagehead"><h1>Following</h1></div>
+                  <FollowList userId={current().id} mode="following" />
+                </Show>
                 <div class="pagehead"><h1>Notes</h1></div>
                 <Show when={notesUnsupported()} fallback={
                   <Show when={notesLoading()} fallback={
@@ -199,7 +456,7 @@ export default function Profile() {
                           <div class="pager">
                             <button
                               type="button"
-                              onClick={() => void loadNotes("older")}
+                              onClick={() => void loadNotes(current().id, "older")}
                               disabled={notesLoadingMore()}
                             >
                               {notesLoadingMore() ? "Loading…" : "Load older"}
@@ -223,7 +480,7 @@ export default function Profile() {
             )}
           </Show>
         }>
-          <ErrorState message={error() ?? "Could not load the profile."} onRetry={() => void load()} />
+          <ErrorState message={error() ?? "Could not load the profile."} onRetry={() => void load(params.id ?? "")} />
         </Show>
       }>
         <LoadingState label="Loading profile…" />

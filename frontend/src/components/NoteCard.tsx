@@ -1,9 +1,10 @@
-import { createSignal, For, Show } from "solid-js";
 import { A } from "@solidjs/router";
-import type { DriveFile, Note } from "../api/types";
+import { Show } from "solid-js";
+import type { Note } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
-import MfmRenderer from "./MfmRenderer";
+import NoteBody, { Avatar } from "./NoteBody";
 import { HeartIcon, ReplyIcon, RepostIcon } from "./icons";
+import ReactionPicker from "./ReactionPicker";
 
 function formatTime(iso: string): string {
   const t = new Date(iso).getTime();
@@ -15,99 +16,21 @@ function formatTime(iso: string): string {
   return new Date(t).toLocaleDateString();
 }
 
-function Avatar(props: { url: string | null; name: string }) {
-  return (
-    <Show
-      when={props.url}
-      fallback={<div class="avatar-fallback" aria-hidden="true">{props.name.slice(0, 1).toUpperCase()}</div>}
-    >
-      <img class="avatar" src={props.url!} alt="" loading="lazy" />
-    </Show>
-  );
-}
-
-function FileLink(props: { file: DriveFile }) {
-  return (
-    <a class="mediafile" href={props.file.url} target="_blank" rel="noopener noreferrer">
-      {props.file.name}
-    </a>
-  );
-}
-
-function MediaItem(props: { file: DriveFile }) {
-  const [revealed, setRevealed] = createSignal(!props.file.isSensitive);
-  const [failed, setFailed] = createSignal(false);
-  const isImage = () => props.file.type.startsWith("image/");
-  const isVideo = () => props.file.type.startsWith("video/");
-  const isAudio = () => props.file.type.startsWith("audio/");
-  return (
-    <Show
-      when={revealed()}
-      fallback={
-        <button type="button" class="mediafile" onClick={() => setRevealed(true)}>
-          Show sensitive media ({props.file.name})
-        </button>
-      }
-    >
-      <Show when={failed()} fallback={
-        <Show
-          when={isImage()}
-          fallback={
-            <Show
-              when={isVideo()}
-              fallback={
-                <Show when={isAudio()} fallback={<FileLink file={props.file} />}>
-                  <audio
-                    controls
-                    preload="metadata"
-                    src={props.file.url}
-                    onError={() => setFailed(true)}
-                  >
-                    Your browser cannot play this audio ({props.file.name})
-                  </audio>
-                </Show>
-              }
-            >
-              <video
-                controls
-                preload="metadata"
-                src={props.file.url}
-                onError={() => setFailed(true)}
-              >
-                Your browser cannot play this video ({props.file.name})
-              </video>
-            </Show>
-          }
-        >
-          <img
-            src={props.file.thumbnailUrl ?? props.file.url}
-            alt={props.file.name}
-            loading="lazy"
-            onError={() => setFailed(true)}
-          />
-        </Show>
-      }>
-        <FileLink file={props.file} />
-      </Show>
-    </Show>
-  );
-}
-
 export interface NoteCardProps {
   note: Note;
-  onToggleReaction?: (note: Note) => void;
+  /** Reaction toggle: `reaction` set to add, null to remove. */
+  onToggleReaction?: (note: Note, reaction: string | null) => void;
   reacting?: boolean;
   onRepost?: (note: Note) => void;
+  onUnrepost?: (note: Note) => void;
   reposting?: boolean;
   reposted?: boolean;
+  onChanged?: () => void;
   detail?: boolean;
 }
 
 export default function NoteCard(props: NoteCardProps) {
-  const [cwOpen, setCwOpen] = createSignal(false);
-  const hasCw = () => (props.note.cw?.length ?? 0) > 0;
-  const visible = () => !hasCw() || cwOpen();
-  const reacted = () => props.note.myReaction != null;
+  const loggedIn = () => props.onToggleReaction !== undefined;
 
   return (
     <article class="note">
@@ -129,41 +52,7 @@ export default function NoteCard(props: NoteCardProps) {
           </A>
         </div>
 
-        <Show when={hasCw()}>
-          <div class="cwbox">
-            <p>{props.note.cw}</p>
-            <button type="button" onClick={() => setCwOpen((v) => !v)}>
-              {cwOpen() ? "Hide" : "Show"}
-            </button>
-          </div>
-        </Show>
-
-        <Show when={visible()}>
-          <div class="notebody">
-            <MfmRenderer text={props.note.text} />
-          </div>
-          <Show when={props.note.files.length > 0}>
-            <div class="media">
-              <For each={props.note.files}>{(file) => <MediaItem file={file} />}</For>
-            </div>
-          </Show>
-          <Show when={props.note.renote}>
-            {(renoted) => (
-              <div class="renote-embed">
-                <div class="renote-head">
-                  <span class="name">{displayNameOf(renoted().user)}</span>
-                  <span class="handle">{handleOf(renoted().user)}</span>
-                </div>
-                <div class="notebody">
-                  <MfmRenderer text={renoted().text} />
-                </div>
-                <div class="renote-foot">
-                  <A href={`/notes/${renoted().id}`}>Open quoted note</A>
-                </div>
-              </div>
-            )}
-          </Show>
-        </Show>
+        <NoteBody note={props.note} canVote={loggedIn()} onChanged={props.onChanged} />
 
         <div class="noteactions">
           <A class="action" href={`/notes/${props.note.id}`} aria-label="Open note">
@@ -174,34 +63,44 @@ export default function NoteCard(props: NoteCardProps) {
               <RepostIcon /> {props.note.renoteCount}
             </span>
           }>
-            <button
-              type="button"
-              class={`action${props.reposted ? " active" : ""}`}
-              disabled={props.reposting || props.reposted}
-              aria-pressed={props.reposted}
-              onClick={() => props.onRepost?.(props.note)}
-              aria-label="Repost"
-              title="Repost"
-            >
-              <RepostIcon /> {props.note.renoteCount}
-            </button>
+            <Show when={props.reposted} fallback={
+              <button
+                type="button"
+                class="action"
+                disabled={props.reposting}
+                onClick={() => props.onRepost?.(props.note)}
+                aria-label="Repost"
+                title="Repost"
+              >
+                <RepostIcon /> {props.note.renoteCount}
+              </button>
+            }>
+              <button
+                type="button"
+                class="action active"
+                disabled={props.reposting}
+                onClick={() => props.onUnrepost?.(props.note)}
+                aria-pressed="true"
+                aria-label="Undo repost"
+                title="Undo repost"
+              >
+                <RepostIcon /> {props.note.renoteCount}
+              </button>
+            </Show>
           </Show>
-          <Show when={props.onToggleReaction}>
-            <button
-              type="button"
-              class={`action${reacted() ? " active" : ""}`}
-              disabled={props.reacting}
-              onClick={() => props.onToggleReaction?.(props.note)}
-              aria-label={reacted() ? "Remove reaction" : "React"}
-              title={reacted() ? `Reacted ${props.note.myReaction}` : "React"}
-            >
-              <HeartIcon filled={reacted()} /> {props.note.reactionCount}
-            </button>
-          </Show>
-          <Show when={!props.onToggleReaction}>
+          <Show when={props.onToggleReaction} fallback={
             <span class="action" aria-label="Reactions">
-              <HeartIcon filled={reacted()} /> {props.note.reactionCount}
+              <HeartIcon filled={props.note.myReaction != null} /> {props.note.reactionCount}
             </span>
+          }>
+            <ReactionPicker
+              counts={props.note.reactions}
+              myReaction={props.note.myReaction}
+              disabled={props.reacting}
+              onPick={(reaction) => props.onToggleReaction?.(props.note, reaction)}
+              onUnreact={() => props.onToggleReaction?.(props.note, null)}
+            />
+            <span class="action" aria-label="Reaction count">{props.note.reactionCount}</span>
           </Show>
         </div>
       </div>

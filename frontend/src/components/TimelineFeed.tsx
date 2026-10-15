@@ -95,11 +95,23 @@ export default function TimelineFeed(props: TimelineFeedProps) {
     void load("initial");
   });
 
-  const toggleReaction = async (note: Note) => {
+  const refreshNote = async (id: string) => {
+    // Reconcile interaction state from the server (counts, myReaction,
+    // renoteCount). A refresh failure keeps the current state — the next
+    // load corrects it.
+    try {
+      const fresh = await apiCall<Note>("notes/show", { noteId: id });
+      setNotes((current) => current.map((n) => (n.id === id ? fresh : n)));
+    } catch {
+      // Keep current state.
+    }
+  };
+
+  const toggleReaction = async (note: Note, reaction: string | null) => {
     if (!auth.token() || reactingId() !== null) return;
     setReactingId(note.id);
     try {
-      if (note.myReaction) {
+      if (reaction === null || note.myReaction) {
         await apiCall<undefined>("notes/reactions/delete", { noteId: note.id });
         setNotes((current) =>
           current.map((n) => {
@@ -113,19 +125,20 @@ export default function TimelineFeed(props: TimelineFeedProps) {
           }),
         );
       } else {
-        await apiCall<undefined>("notes/reactions/create", { noteId: note.id, reaction: "❤️" });
+        await apiCall<undefined>("notes/reactions/create", { noteId: note.id, reaction });
         setNotes((current) =>
           current.map((n) => {
             if (n.id !== note.id || n.myReaction) return n;
             return {
               ...n,
-              myReaction: "❤️",
-              reactions: { ...n.reactions, "❤️": (n.reactions["❤️"] ?? 0) + 1 },
+              myReaction: reaction,
+              reactions: { ...n.reactions, [reaction]: (n.reactions[reaction] ?? 0) + 1 },
               reactionCount: n.reactionCount + 1,
             };
           }),
         );
       }
+      await refreshNote(note.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Reaction failed.");
     } finally {
@@ -135,6 +148,28 @@ export default function TimelineFeed(props: TimelineFeedProps) {
 
   const prependNote = (note: Note) => {
     setNotes((current) => [note, ...current]);
+  };
+
+  const unrepost = async (note: Note) => {
+    if (!auth.token() || repostingId() !== null) return;
+    // notes/unrenote takes the ORIGINAL note's id and deletes my renotes
+    // of it (verified against Misskey notes/unrenote.ts).
+    if (!repostedIds().includes(note.id)) return;
+    setRepostingId(note.id);
+    try {
+      await apiCall<undefined>("notes/unrenote", { noteId: note.id });
+      setRepostedIds((ids) => ids.filter((id) => id !== note.id));
+      setNotes((current) => [
+        ...current.map((n) =>
+          n.id === note.id ? { ...n, renoteCount: Math.max(0, n.renoteCount - 1) } : n,
+        ),
+      ]);
+      await refreshNote(note.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Undo repost failed.");
+    } finally {
+      setRepostingId(null);
+    }
   };
 
   const repost = async (note: Note) => {
@@ -197,8 +232,10 @@ export default function TimelineFeed(props: TimelineFeedProps) {
                       onToggleReaction={auth.token() ? toggleReaction : undefined}
                       reacting={reactingId() === note.id}
                       onRepost={auth.token() ? repost : undefined}
+                      onUnrepost={auth.token() ? unrepost : undefined}
                       reposting={repostingId() === note.id}
                       reposted={repostedIds().includes(note.id)}
+                      onChanged={() => void refreshNote(note.id)}
                     />
                   )}
                 </For>

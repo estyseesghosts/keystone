@@ -1,4 +1,4 @@
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, onMount, Show } from "solid-js";
 import { A, useNavigate, useParams } from "@solidjs/router";
 import { apiCall } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
@@ -34,19 +34,20 @@ export default function NoteDetail() {
   const [repliesFailedMode, setRepliesFailedMode] = createSignal<RepliesLoadMode | null>(null);
   const [replyPosted, setReplyPosted] = createSignal(false);
 
-  const load = async () => {
+  const load = async (id: string) => {
     setLoading(true);
     setError(null);
     try {
-      setNote(await apiCall<Note>("notes/show", { noteId: params.id }));
+      setNote(await apiCall<Note>("notes/show", { noteId: id }));
     } catch (err) {
+      setNote(null);
       setError(err instanceof Error ? err.message : "Could not open the note.");
     } finally {
       setLoading(false);
     }
   };
 
-  const loadReplies = async (mode: RepliesLoadMode) => {
+  const loadReplies = async (id: string, mode: RepliesLoadMode) => {
     if (repliesBusy()) return;
     if (mode === "older" && repliesExhausted()) return;
     setRepliesBusy(true);
@@ -55,7 +56,7 @@ export default function NoteDetail() {
     setRepliesError(null);
     try {
       const current = replies();
-      const req: Record<string, unknown> = { noteId: params.id, limit: REPLIES_PAGE_SIZE };
+      const req: Record<string, unknown> = { noteId: id, limit: REPLIES_PAGE_SIZE };
       if (mode === "older" && current.length > 0) {
         req.untilId = current[current.length - 1].id;
       }
@@ -95,23 +96,51 @@ export default function NoteDetail() {
     }
   };
 
-  const retryReplies = () => void loadReplies(repliesFailedMode() ?? "initial");
+  const retryReplies = () => void loadReplies(params.id ?? "", repliesFailedMode() ?? "initial");
+
+  const resetForId = (id: string) => {
+    if (!id) return;
+    // Direct navigation /notes/a -> /notes/b reuses this component: reset
+    // page-specific state and reload instead of relying on mount only.
+    setNote(null);
+    setReplies([]);
+    setRepliesExhausted(false);
+    setReposted(false);
+    setQuoting(false);
+    setConfirmDelete(false);
+    setReplyPosted(false);
+    setRepliesFailedMode(null);
+    void load(id);
+    void loadReplies(id, "initial");
+  };
 
   onMount(() => {
-    void load();
-    void loadReplies("initial");
+    resetForId(params.id ?? "");
   });
 
-  const toggleReaction = async (target: Note) => {
+  // The router reuses this component when only :id changes: reload the
+  // note, replies, and page-specific state instead of relying on mount.
+  createEffect(() => {
+    const id = params.id ?? "";
+    if (!id) return;
+    const current = note();
+    if (!loading() && current && current.id !== id) resetForId(id);
+    if (!loading() && !current && !error()) resetForId(id);
+  });
+
+  const refresh = () => {
+    const current = note();
+    if (current) void load(current.id);
+  };
+
+  const toggleReaction = async (target: Note, reaction: string | null) => {
     if (!auth.token() || reacting()) return;
     setReacting(true);
     try {
-      if (target.myReaction) {
+      if (reaction === null || target.myReaction) {
         await apiCall<undefined>("notes/reactions/delete", { noteId: target.id });
-        setNote((n) => (n && n.id === target.id ? { ...n, myReaction: null } : n));
       } else {
-        await apiCall<undefined>("notes/reactions/create", { noteId: target.id, reaction: "❤️" });
-        setNote((n) => (n && n.id === target.id ? { ...n, myReaction: "❤️" } : n));
+        await apiCall<undefined>("notes/reactions/create", { noteId: target.id, reaction });
       }
       // Refresh counts from the server without losing the note on failure.
       try {
@@ -142,6 +171,25 @@ export default function NoteDetail() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Repost failed.");
+    } finally {
+      setReposting(false);
+    }
+  };
+
+  const unrepost = async (target: Note) => {
+    if (!auth.token() || reposting()) return;
+    if (!reposted()) return;
+    setReposting(true);
+    try {
+      await apiCall<undefined>("notes/unrenote", { noteId: target.id });
+      setReposted(false);
+      try {
+        setNote(await apiCall<Note>("notes/show", { noteId: target.id }));
+      } catch {
+        // Keep current state.
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Undo repost failed.");
     } finally {
       setReposting(false);
     }
@@ -179,7 +227,7 @@ export default function NoteDetail() {
     <div>
       <div class="pagehead">
         <h1>Note</h1>
-        <button type="button" onClick={() => void load()} disabled={loading()}>Refresh</button>
+        <button type="button" onClick={refresh} disabled={loading()}>Refresh</button>
       </div>
       <Show when={loading()} fallback={
         <Show when={error() && !note()} fallback={
@@ -200,8 +248,10 @@ export default function NoteDetail() {
                   onToggleReaction={auth.token() ? toggleReaction : undefined}
                   reacting={reacting()}
                   onRepost={auth.token() ? repost : undefined}
+                  onUnrepost={auth.token() ? unrepost : undefined}
                   reposting={reposting()}
                   reposted={reposted()}
+                  onChanged={refresh}
                   detail
                 />
                 <Show when={current().renote}>
@@ -220,7 +270,7 @@ export default function NoteDetail() {
                       renoteId={current().id}
                       onPosted={() => {
                         setQuoting(false);
-                        void load();
+                        refresh();
                       }}
                     />
                   </Show>
@@ -254,7 +304,7 @@ export default function NoteDetail() {
                         <div class="pager">
                           <button
                             type="button"
-                            onClick={() => void loadReplies("older")}
+                            onClick={() => void loadReplies(current().id, "older")}
                             disabled={repliesLoadingMore()}
                           >
                             {repliesLoadingMore() ? "Loading…" : "Load older replies"}
@@ -285,7 +335,7 @@ export default function NoteDetail() {
             )}
           </Show>
         }>
-          <ErrorState message={error() ?? "Could not open the note."} onRetry={() => void load()} />
+          <ErrorState message={error() ?? "Could not open the note."} onRetry={refresh} />
         </Show>
       }>
         <LoadingState label="Opening note…" />

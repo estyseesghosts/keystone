@@ -35,6 +35,11 @@ export interface UserDetailed extends UserLite {
   notesCount: number;
   isFollowing?: boolean;
   isFollowed?: boolean;
+  /** Present when the caller is authenticated. Distinguishes an accepted
+   * follow from a pending request on locked accounts: never infer
+   * acceptance from a successful following/create alone. */
+  hasPendingFollowRequestFromYou?: boolean;
+  hasPendingFollowRequestToYou?: boolean;
 }
 
 export interface MeDetailed extends UserDetailed {
@@ -60,6 +65,19 @@ export interface DriveFile {
 
 export type NoteVisibility = "public" | "home" | "followers" | "specified";
 
+export interface PollChoice {
+  text: string;
+  votes: number;
+  isVoted: boolean;
+}
+
+export interface Poll {
+  multiple: boolean;
+  expiresAt: string | null;
+  expiredAfter: number | null;
+  choices: PollChoice[];
+}
+
 export interface Note {
   id: string;
   createdAt: string;
@@ -81,6 +99,9 @@ export interface Note {
   renoteId: string | null;
   reply: Note | null;
   renote: Note | null;
+  /** Present on notes that carry a poll (Misskey-family; Pinetree rejects
+   * polls at create time, so this stays null there). */
+  poll: Poll | null;
   mentions: string[];
   visibleUserIds?: string[];
   tags: string[];
@@ -123,6 +144,40 @@ export interface CreateNoteParams {
   replyId?: string;
   renoteId?: string;
   localOnly?: boolean;
+  fileIds?: string[];
+  poll?: {
+    choices: string[];
+    multiple?: boolean;
+    expiredAfter?: number;
+    expiresAt?: number;
+  } | null;
+}
+
+export type AntennaSrc = "home" | "all" | "users" | "users_blacklist" | "list";
+
+export interface Antenna {
+  id: string;
+  name: string;
+  src: AntennaSrc;
+  userListId: string | null;
+  /** Keyword groups, verified against Misskey AntennaService: each inner
+   * array is an AND-group, groups are ORed (`some(and => and.every(...))`),
+   * matched against text+CW (case-insensitive unless caseSensitive).
+   * Keystone preserves the nested shape and never flattens it. */
+  keywords: string[][];
+  excludeKeywords: string[][];
+  users: string[];
+  caseSensitive: boolean;
+  localOnly: boolean;
+  excludeBots: boolean;
+  withReplies: boolean;
+  withFile: boolean;
+}
+
+export interface FollowRequest {
+  id: string;
+  follower: UserLite;
+  followee: UserLite;
 }
 
 export function handleOf(user: Pick<UserLite, "username" | "host">): string {

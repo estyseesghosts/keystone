@@ -45,14 +45,27 @@ export function tokenKeyFor(id: BackendId = BACKEND_ID): string {
 
 /** Minimal MiAuth permission set covering the implemented Keystone slice.
  * Verified against both backends' endpoint `kind` requirements:
- * read:account (i, timelines), write:notes (create/delete),
- * write:reactions, write:following, read:notifications. */
+ * read:account (i, timelines, antennas list/feed), write:notes
+ * (create/delete/unrenote), write:reactions, write:following (+
+ * read:following for incoming follow requests), read:notifications (+
+ * write:notifications for mark-all-read), read:drive + write:drive (Drive
+ * list/upload), write:account (antennas create/update/delete, profile edit),
+ * write:votes (poll voting).
+ *
+ * Tokens minted before a scope was added lack it: the server answers 403
+ * PERMISSION_DENIED and the UI tells the user to sign in again. */
 export const KEYSTONE_PERMISSIONS: string[] = [
   "read:account",
   "write:notes",
   "write:reactions",
   "write:following",
+  "read:following",
   "read:notifications",
+  "write:notifications",
+  "read:drive",
+  "write:drive",
+  "write:account",
+  "write:votes",
 ];
 
 export const KEYSTONE_APP_NAME = "Keystone";

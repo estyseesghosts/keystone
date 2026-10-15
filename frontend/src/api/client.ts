@@ -127,18 +127,26 @@ export async function apiCall<T>(
 // navigates to the instance-hosted MiAuth (/miauth/:session) or authorize
 // pages:
 //   1. POST /api/signin-flow {username, password} -> {finished:true,id,i}
-//      (`i` is the native user token: a temporary credential, never stored).
-//   2. Keystone shows its own permission screen (the list below).
-//   3. POST /api/miauth/gen-token {i: <native>, session, permission}
-//      (authenticated with the temporary credential) -> {token}.
-//   4. POST /api/miauth/:session/check {} -> {ok:true, token, user}.
-//   5. The scoped app token becomes the Keystone session; the temporary
-//      native credential is dropped from memory and never persisted.
+//      (`i` is the user's full-authority native token — the permanent
+//      account credential from SigninService, NOT a short-lived token.
+//      Keystone holds it in module memory only for step 3 and never
+//      persists it: not in localStorage, not in a signal.)
+//   2. POST /api/miauth/gen-token {i: <native>, session, permission}
+//      (authenticated with the native credential) -> {token}.
+//   3. POST /api/miauth/:session/check {} -> {ok:true, token, user}.
+//   4. The scoped app token becomes the Keystone session; the native
+//      credential is dropped from memory and never persisted.
+//
+// There is no separate "grant Keystone access" screen: Keystone is the
+// first-party client, the permission set is fixed and least-privilege, and
+// typing the password is the consent. The login form lists the requested
+// permissions as information, not as a second approval step.
 
 export interface SigninFinished {
   finished: true;
   id: string;
-  /** Native user token: temporary credential for step 3 only. */
+  /** Full-authority native user token: used only for the gen-token
+   * exchange below, held in memory, never persisted. */
   i: string;
 }
 
@@ -169,7 +177,7 @@ export interface MiauthCheckResponse {
   user?: unknown;
 }
 
-/** Exchange a temporary native credential for a scoped Keystone app token. */
+/** Exchange a native credential for a scoped Keystone app token. */
 export async function mintAppToken(nativeToken: string): Promise<string> {
   const session = newSessionId();
   await postJson<{ token: string }>("miauth/gen-token", {
@@ -186,4 +194,72 @@ export async function mintAppToken(nativeToken: string): Promise<string> {
     throw new Error("The server did not issue a Keystone token for this session.");
   }
   return check.token;
+}
+
+/** True when the server says the endpoint does not exist here (HTTP 404).
+ * Callers use this to render an honest "not available on this server"
+ * state instead of an error. */
+export function isUnsupportedError(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404;
+}
+
+/** True when the scoped token lacks the permission for this endpoint
+ * (HTTP 403 PERMISSION_DENIED). This happens to sessions minted before a
+ * scope was added — the fix is signing in again, not retrying. */
+export function isPermissionError(err: unknown): boolean {
+  return (
+    err instanceof ApiError &&
+    (err.status === 403 ||
+      (err.status === 401 && err.code === "PERMISSION_DENIED"))
+  );
+}
+
+/** Multipart Drive upload. `drive/files/create` is NOT JSON: the file and
+ * the credential ride as FormData fields (`file`, `i`). The browser sets
+ * the multipart boundary — never set Content-Type by hand here. */
+export async function uploadDriveFile<T>(
+  file: File,
+  opts: { isSensitive?: boolean; comment?: string } = {},
+): Promise<T> {
+  const token = getToken();
+  const form = new FormData();
+  if (token) form.append("i", token);
+  form.append("file", file, file.name);
+  if (opts.isSensitive !== undefined)
+    form.append("isSensitive", String(opts.isSensitive));
+  if (opts.comment !== undefined) form.append("comment", opts.comment);
+
+  let response: Response;
+  try {
+    response = await fetch("/api/drive/files/create", {
+      method: "POST",
+      body: form,
+    });
+  } catch (err) {
+    throw new Error(
+      `Could not reach the server (${err instanceof Error ? err.message : "network error"}). Is it running?`,
+    );
+  }
+  const raw = response.status === 204 ? "" : await response.text();
+  let payload: unknown;
+  if (raw) {
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      throw new ApiError(
+        `API returned invalid JSON (HTTP ${response.status})`,
+        response.status,
+      );
+    }
+  }
+  if (!response.ok) {
+    const apiError = payload as ApiErrorBody | undefined;
+    throw new ApiError(
+      apiError?.error?.message ?? `API error: HTTP ${response.status}`,
+      response.status,
+      apiError?.error?.code,
+      apiError?.error?.kind,
+    );
+  }
+  return payload as T;
 }

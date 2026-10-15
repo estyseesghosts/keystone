@@ -120,8 +120,12 @@ function renderNode(node: MfmNode): JSX.Element {
         <MentionLink acct={node.props.acct} username={node.props.username} host={node.props.host} />
       );
     case "hashtag":
-      // No note-search endpoint exists: render as styled text, not a link.
-      return <span class="hashtag">#{node.props.hashtag}</span>;
+      // Tag search lives behind notes/search-by-tag on the Search page.
+      return (
+        <A href={`/search?tag=${encodeURIComponent(node.props.hashtag)}`}>
+          <span class="hashtag">#{node.props.hashtag}</span>
+        </A>
+      );
     case "url":
       return (
         <ExternalLink url={node.props.url}>
