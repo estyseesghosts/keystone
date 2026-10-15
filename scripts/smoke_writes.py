@@ -46,6 +46,16 @@ def login(base, username, password):
     s, me = api(base, "i", {"i": c["token"]})
     return native, c["token"], me["id"]
 
+def show_my_reaction(base, token, nid, want, tries=6):
+    """Poll an authed notes/show until myReaction settles (read-after-write
+    can lag under rate limiting). Returns (ok, last_status)."""
+    for _ in range(tries):
+        time.sleep(2)
+        s2, sh = api(base, "notes/show", {"i": token, "noteId": nid})
+        if s2 == 200 and (sh or {}).get("myReaction") == want:
+            return True, s2
+    return False, s2
+
 for label, base, user in [("misskey", MISSKEY, "mk1"), ("sharkey", SHARKEY, "sk1")]:
     native, token, uid = login(base, user, "password123")
     time.sleep(1)
@@ -54,17 +64,13 @@ for label, base, user in [("misskey", MISSKEY, "mk1"), ("sharkey", SHARKEY, "sk1
     time.sleep(1)
     s, _ = api(base, "notes/reactions/create", {"i": token, "noteId": nid, "reaction": "❤️"})
     check(f"{label}: reactions/create empty-ok ({s})", s in (200, 204), f"got {s}")
-    time.sleep(2)
-    s2, sh = api(base, "notes/show", {"noteId": nid})
-    check(f"{label}: react reflected (myReaction==❤️)",
-          s2 == 200 and (sh or {}).get("myReaction") == "❤️", f"{s2} {(sh or {}).get('myReaction')}")
+    ok, s2 = show_my_reaction(base, token, nid, "❤")
+    check(f"{label}: react reflected (myReaction==❤ — server normalizes ❤️)", ok, f"{s2}")
     time.sleep(2)
     s, _ = api(base, "notes/reactions/delete", {"i": token, "noteId": nid})
     check(f"{label}: reactions/delete empty-ok ({s})", s in (200, 204), f"got {s}")
-    time.sleep(2)
-    s2, sh = api(base, "notes/show", {"noteId": nid})
-    check(f"{label}: unreact reflected (myReaction null)",
-          s2 == 200 and (sh or {}).get("myReaction") is None, f"{s2}")
+    ok, s2 = show_my_reaction(base, token, nid, None)
+    check(f"{label}: unreact reflected (myReaction null)", ok, f"{s2}")
     time.sleep(1)
     s, _ = api(base, "notes/delete", {"i": token, "noteId": nid})
     check(f"{label}: notes/delete empty-ok ({s})", s in (200, 204), f"got {s}")

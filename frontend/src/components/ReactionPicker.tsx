@@ -1,9 +1,11 @@
 import { createSignal, For, Show } from "solid-js";
 
-/** Common Unicode reactions. The server coerces unknown/foreign reactions
- * per its own rules; these are the safe everyday set. Custom emoji codes
- * can be typed exactly (e.g. :blobcat:) when the instance hosts them. */
-export const COMMON_REACTIONS = ["❤️", "👍", "😆", "🤔", "😮", "🎉", "💢", "😥", "😇", "🍮"];
+/** Common Unicode reactions. The server normalizes ❤️ (U+2764 U+FE0F) to ❤
+ * (U+2764), so the normalized form is listed first — optimistic client
+ * state then matches the reconciled server state exactly. Servers coerce
+ * other unknown reactions per their own rules. Custom emoji codes can be
+ * typed exactly (e.g. :blobcat:) when the instance hosts them. */
+export const COMMON_REACTIONS = ["❤", "👍", "😆", "🤔", "😮", "🎉", "💢", "😥", "😇", "🍮"];
 
 export default function ReactionPicker(props: {
   counts: Record<string, number>;

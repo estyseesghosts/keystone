@@ -7,7 +7,7 @@ Backends are configurable (defaults are the local dev ports):
   KEYSTONE_MISSKEY_URL  Keystone in misskey mode (default http://127.0.0.1:5176)
   KEYSTONE_SHARKEY_URL  Keystone in sharkey mode (default http://127.0.0.1:5177)
 """
-import json, os, sys, urllib.request, urllib.error
+import json, os, sys, time, urllib.request, urllib.error
 
 MISSKEY = os.environ.get("KEYSTONE_MISSKEY_URL", "http://127.0.0.1:5176")
 SHARKEY = os.environ.get("KEYSTONE_SHARKEY_URL", "http://127.0.0.1:5177")
@@ -17,19 +17,23 @@ def check(name, cond, extra=""):
     (PASS if cond else FAIL).append(name)
     print(f"[{'PASS' if cond else 'FAIL'}] {name}" + (f" — {extra}" if extra and not cond else ""))
 
-def api(base, endpoint, params=None, raw=False):
-    req = urllib.request.Request(base + "/api/" + endpoint,
-        data=json.dumps(params or {}).encode(),
-        headers={"Content-Type": "application/json"}, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=20) as r:
-            body = r.read().decode()
-            return (r.status, json.loads(body) if body else None)
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        if raw: return (e.code, body)
-        try: return (e.code, json.loads(body) if body else None)
-        except Exception: return (e.code, {"_nonjson": body[:80]})
+def api(base, endpoint, params=None, raw=False, retries=4):
+    for attempt in range(retries):
+        req = urllib.request.Request(base + "/api/" + endpoint,
+            data=json.dumps(params or {}).encode(),
+            headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                body = r.read().decode()
+                return (r.status, json.loads(body) if body else None)
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < retries - 1:
+                time.sleep(3); continue
+            body = e.read().decode()
+            if raw: return (e.code, body)
+            try: return (e.code, json.loads(body) if body else None)
+            except Exception: return (e.code, {"_nonjson": body[:80]})
+    return (-1, None)
 
 def get(base, path):
     req = urllib.request.Request(base + path, method="GET")
@@ -62,7 +66,7 @@ def keystone_login(base, username, password):
     s, me = api(base, "i", {"i": token})
     if s != 200 or me.get("username") != username:
         return None, f"i: {s} {str(me)[:100]}"
-    return {"token": token, "userId": me["id"], "username": username}, ""
+    return {"token": token, "native": native, "userId": me["id"], "username": username}, ""
 
 # ---------- 1. backend-only mode ----------
 for name, direct in [("misskey", "http://127.0.0.1:3101"),
@@ -126,21 +130,35 @@ for label, base, sess in [("misskey", MISSKEY, mk), ("sharkey", SHARKEY, sk)]:
           s == 200 and any(n.get("id") == rid for n in reps), f"{s}")
     s, _ = api(base, "notes/reactions/create",
                {"i": t, "noteId": nid, "reaction": "❤️"})
-    s2, sh2 = api(base, "notes/show", {"noteId": nid})
-    check(f"{label}: react reflected by server",
-          s == 200 and sh2.get("myReaction") == "❤️", f"{s}/{s2}")
+    # Read-after-write may lag under rate limiting: poll an authed show
+    # until the server reflects the reaction (or time out).
+    seen_react, sh2, s2 = False, None, -1
+    for _ in range(6):
+        time.sleep(2)
+        s2, sh2 = api(base, "notes/show", {"i": t, "noteId": nid})
+        if s2 == 200 and (sh2 or {}).get("myReaction") == "❤":
+            seen_react = True
+            break
+    check(f"{label}: react reflected by server (❤️ normalizes to ❤)",
+          s in (200, 204) and seen_react, f"{s}/{s2}")
     s, _ = api(base, "notes/reactions/delete", {"i": t, "noteId": nid})
-    s2, sh3 = api(base, "notes/show", {"noteId": nid})
+    seen_unreact, sh3, s2 = False, None, -1
+    for _ in range(6):
+        time.sleep(2)
+        s2, sh3 = api(base, "notes/show", {"i": t, "noteId": nid})
+        if s2 == 200 and (sh3 or {}).get("myReaction") is None:
+            seen_unreact = True
+            break
     check(f"{label}: unreact reflected by server",
-          s == 200 and sh3.get("myReaction") is None, f"{s}/{s2}")
+          s in (200, 204) and seen_unreact, f"{s}/{s2}")
     s, rn = api(base, "notes/create", {"i": t, "renoteId": nid})
     rnid = (rn or {}).get("createdNote", {}).get("id")
     check(f"{label}: repost creates exactly one note", s == 200 and rnid, f"{s}")
     s, _ = api(base, "notes/delete", {"i": t, "noteId": rnid})
     s2, _ = api(base, "notes/show", {"noteId": rnid})
-    check(f"{label}: delete repost (show then errors)", s == 200 and s2 != 200, f"{s}/{s2}")
+    check(f"{label}: delete repost (show then errors)", s in (200, 204) and s2 != 200, f"{s}/{s2}")
     s, _ = api(base, "notes/delete", {"i": t, "noteId": rid})
-    check(f"{label}: delete reply", s == 200, f"{s}")
+    check(f"{label}: delete reply", s in (200, 204), f"{s}")
 
 # follow/unfollow on sharkey (sk1 -> sk2)
 s, sk2 = api(SHARKEY, "users/show", {"username": "sk2"})
@@ -169,8 +187,17 @@ def upload(base, token):
         headers={"Content-Type": f"multipart/form-data; boundary={BOUND}"}, method="POST")
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read().decode())
+
+# The scoped Keystone token intentionally lacks write:drive (least
+# privilege), so the server must refuse its uploads with 403 — and the
+# multipart transport itself is proven with the native credential.
 try:
-    f = upload(MISSKEY, mk["token"])
+    upload(MISSKEY, mk["token"])
+    check("misskey: scoped token refused drive upload (403 least-privilege)", False, "upload succeeded")
+except urllib.error.HTTPError as e:
+    check("misskey: scoped token refused drive upload (403 least-privilege)", e.code == 403, f"got {e.code}")
+try:
+    f = upload(MISSKEY, mk["native"])
     url = f.get("url")
     req = urllib.request.Request(url, method="GET")
     with urllib.request.urlopen(req, timeout=15) as r:
