@@ -36,8 +36,10 @@ npm run dev                     # → Pinetree default 127.0.0.1:3000
 npm run build                   # production build (verified green)
 ```
 
-Login is Keystone-owned: username/password → Keystone permission screen →
-scoped app token. No redirect to instance-hosted pages, ever.
+Login is Keystone-owned and one step: username/password → scoped app
+token, no second approval screen, no redirect to instance-hosted pages,
+ever. Full start-from-zero instructions (backends, modes, accounts,
+verification): `docs/setup.md`.
 
 ## Layout
 

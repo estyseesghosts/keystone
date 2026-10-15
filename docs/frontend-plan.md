@@ -1,8 +1,9 @@
 # Frontend plan (MVP)
 
-**Status:** Built + verified 2026-10-15 against Misskey and Sharkey
-(see `../state/logs/2026-10-15-stonekey.md`). Tracks `AGENTS.md` §5 and
-`docs/api-surface.md`. Check boxes only with executed evidence.
+**Status:** Slices 0–6 built + API-verified 2026-10-16 against Misskey and
+Sharkey (see `../state/logs/2026-10-16-roadmap.md`). Tracks `AGENTS.md` §5,
+`docs/api-surface.md`, and `docs/keystone_roadmap.md`. Check boxes only with
+executed evidence.
 
 ## Slice 0 — Scaffold
 
@@ -54,9 +55,56 @@
 
 ## Deliberately deferred (do not build until scoped)
 
-Streaming/live updates, media upload UI (`drive/files/create` is multipart —
-backend verified working; UI deferred), full profile editor (`i/update`
-subset compatible), note search, follower/following lists, dark mode.
+Streaming/live updates (manual refresh + cursors everywhere by design —
+feeds never depend on a socket), full profile editor beyond the bounded
+`i/update` subset (`avatarId`/`bannerId`, decorations, fields[]),
+user-list management (blocks `list`-source antennas; that source is hidden
+until the subset lands), Drive folder navigation, dark mode.
+
+## Slice 4 — Reliability hardening (done, roadmap P0)
+
+- [x] One-step Misskey-family sign-in (redundant grant screen removed);
+  native `user.token` correctly treated as full-authority, memory-only;
+  scoped token verified with `i` before storing; honest unsupported-state
+  error for extra sign-in steps; best-effort `i/revoke-token` sign-out
+  that always clears local state
+- [x] `NoteBody`: single CW/media/poll/renote rendering path reused for
+  quote embeds (embedded CW + sensitive gates always apply; depth guard)
+- [x] Reaction picker (preset + custom emoji; ❤️→❤ normalization
+  accounted for), `notes/unrenote` undo, server reconciliation after
+  reactions/reposts/votes
+- [x] Follow state re-derived from `users/show` (following / pending /
+  none; request cancel); note/profile routes reload on `:id` change
+- [x] Smoke suites checked in (`scripts/`, env-configurable URLs) and
+  fully green: flows 44/44, writes 14/14
+
+## Slice 5 — Drive + composer attachments (done, roadmap P1 Keystone side)
+
+- [x] Multipart `uploadDriveFile` (`FormData`, no hand-set Content-Type);
+  `read:drive` + `write:drive` scopes
+- [x] `DriveBrowser`: upload (busy/per-file error/retry/dismiss), cursor
+  paging, media-type filter, attach-select mode, delete (two-step),
+  sensitive toggle; 403 → re-sign-in hint; Pinetree 404 → honest
+  upload-only (verified `drive/files` → `UNKNOWN_API_ENDPOINT` there)
+- [x] Composer attachments via `fileIds`; uploads survive failed posts
+- [x] `/drive` route + nav; contract suite 44/44 (upload/list/sensitive/
+  attach-after-reload/delete round-trips on both servers)
+
+## Slice 6 — Antennas, composer completion, search (done, roadmap P2–P4 Keystone side)
+
+- [x] Antennas list/create/edit/delete/feed (`/antennas`, `/antennas/:id`);
+  bounded filter set (home/all/users/users_blacklist, nested keyword
+  groups, common flags); `list` source hidden (needs user-list subset);
+  keyword semantics verified in server source; feed matching proven live
+- [x] Composer: CW (100-char cap), `specified` + recipient picker,
+  `localOnly`, polls (Misskey-family only; hidden on Pinetree), limit
+  from `meta.maxNoteTextLength` with fallback; state preserved on errors
+- [x] Poll voting with server refresh; profile editor (bounded `i/update`
+  subset); followers/following lists; `notifications/mark-all-as-read`;
+  `/search` (users authed, notes policy-aware, tags); hashtag links
+- [x] `docs/setup.md` (run Keystone with Misskey/Sharkey/Pinetree),
+  `docs/api-surface.md` capability contract, permission-denied paths
+  tested (pre-scope tokens 403 as designed)
 
 ## Verification per slice
 

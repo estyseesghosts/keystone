@@ -406,6 +406,12 @@ export default function Profile() {
                           onSaved={(updated) => {
                             setEditing(false);
                             setUser((u) => (u ? { ...u, ...updated } : u));
+                            // Keep the session user in sync so a reopened
+                            // editor shows the saved values.
+                            void auth.refreshMe().catch(() => {
+                              // Non-fatal: the profile view already shows
+                              // the server response.
+                            });
                           }}
                         />
                       </Show>

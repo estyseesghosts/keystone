@@ -1,4 +1,4 @@
-import { createSignal, onMount, Show } from "solid-js";
+import { createEffect, createSignal, onMount, Show } from "solid-js";
 import { useParams } from "@solidjs/router";
 import { apiCall, isUnsupportedError } from "../api/client";
 import type { Antenna } from "../api/types";
@@ -15,8 +15,7 @@ export default function AntennaFeed() {
   const [error, setError] = createSignal<string | null>(null);
   const [unsupported, setUnsupported] = createSignal(false);
 
-  const load = async () => {
-    const id = params.id ?? "";
+  const load = async (id: string) => {
     if (!id) return;
     setLoading(true);
     setError(null);
@@ -36,8 +35,15 @@ export default function AntennaFeed() {
   };
 
   onMount(() => {
-    if (auth.token()) void load();
+    if (auth.token()) void load(params.id ?? "");
     else setLoading(false);
+  });
+
+  // The router reuses this component across /antennas/:id navigations.
+  createEffect(() => {
+    const id = params.id ?? "";
+    if (!id || loading()) return;
+    if (antenna()?.id !== id) void load(id);
   });
 
   const id = () => params.id ?? "";
@@ -56,7 +62,7 @@ export default function AntennaFeed() {
             />
           }>
             <div class="pagehead"><h1>Antenna</h1></div>
-            <ErrorState message={error() ?? "Could not load the antenna."} onRetry={() => void load()} />
+            <ErrorState message={error() ?? "Could not load the antenna."} onRetry={() => void load(params.id ?? "")} />
           </Show>
         }>
           <div class="pagehead"><h1>Antenna</h1></div>

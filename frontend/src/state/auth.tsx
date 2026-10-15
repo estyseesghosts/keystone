@@ -18,6 +18,8 @@ interface AuthStore {
   authReady: () => boolean;
   /** One-step sign-in: password -> scoped app session, no extra screens. */
   signin: (username: string, password: string) => Promise<void>;
+  /** Re-read `i` into `me` (e.g. after a profile edit). */
+  refreshMe: () => Promise<void>;
   signout: () => void;
 }
 
@@ -126,6 +128,10 @@ export function AuthProvider(props: { children: JSX.Element }) {
     me,
     authReady,
     signin,
+    refreshMe: async () => {
+      if (!getToken()) return;
+      setMe(await apiCall<MeDetailed>("i"));
+    },
     signout,
   };
   return <AuthContext.Provider value={store}>{props.children}</AuthContext.Provider>;

@@ -304,12 +304,12 @@ export default function Antennas() {
                 onCancel={() => setCreating(false)}
               />
             </Show>
-            <Show when={editing()}>
+            <Show when={editing()} keyed>
               {(target) => (
                 <>
                   <div class="pagehead"><h1>Edit antenna</h1></div>
                   <AntennaForm
-                    initial={target()}
+                    initial={target}
                     saving={saving()}
                     error={formError()}
                     onSubmit={(body) => void update(body)}

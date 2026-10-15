@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, Show } from "solid-js";
 import { A, useSearchParams } from "@solidjs/router";
 import { apiCall, ApiError } from "../api/client";
 import type { Note, UserLite } from "../api/types";
@@ -25,6 +25,16 @@ export default function Search() {
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [noteSearchDisabled, setNoteSearchDisabled] = createSignal(false);
+
+  // Hashtag links route here (/search?tag=x). The router reuses this
+  // component across tag clicks, so sync the form from the URL.
+  createEffect(() => {
+    const t = searchParams.tag;
+    if (typeof t === "string" && t.length > 0) {
+      setQuery(t);
+      setTab("tags");
+    }
+  });
 
   const run = async () => {
     const q = query().trim().replace(/^#/, "");

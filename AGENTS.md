@@ -27,7 +27,8 @@ list does not apply to Misskey/Sharkey.
 - `keystone.md` — frontend brief: product, bootstrap, API wiring, scope, verification.
 - `solidjs.md` — SolidJS 1.x guide: signals, stores, effects, props, lists, checklist.
 - `docs/` — living frontend docs: `api-surface.md` (verified matrix),
-  `frontend-plan.md` (scope checklist), `stonekey_ui.md` + `stonekey_backend.md`
+  `frontend-plan.md` (scope checklist), `setup.md` (run Keystone with
+  Misskey/Sharkey/Pinetree), `stonekey_ui.md` + `stonekey_backend.md`
   (review findings — note corrected endpoints in `api-surface.md`), `mfm.md`,
   `router.md`. See `docs/README.md` for the index.
 - Backend checkouts live outside this repo (`/root/fedifedifedi/misskey`,
