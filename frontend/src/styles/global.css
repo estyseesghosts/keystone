@@ -540,6 +540,103 @@ select {
   letter-spacing: 0.04em;
 }
 
+/* Polls, reaction picker, drive, chips, antennas, search.
+   Black/white/grey only: borders, text, and muted tones. */
+
+.poll {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.pollopt {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.pollopt:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+
+.reactpicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 8px;
+  background: var(--bg);
+}
+
+.reactpicker button {
+  font-size: 18px;
+  padding: 4px 8px;
+}
+
+.reactcustom {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.reactcustom input {
+  flex: 1;
+  min-width: 0;
+}
+
+.drivefile {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  overflow-wrap: anywhere;
+}
+
+.drivefile img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 2px 6px 2px 10px;
+  font-size: 13px;
+}
+
+.chip button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 15px;
+  padding: 0 4px;
+  cursor: pointer;
+}
+
 /* Mobile: single column + bottom navigation bar + top account strip. */
 
 .mobile-account {

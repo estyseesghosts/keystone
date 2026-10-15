@@ -32,6 +32,9 @@ export default function Layout(props: { children: JSX.Element }) {
         <A class="navlink" href="/local" activeClass="active">Local</A>
         <A class="navlink" href="/global" activeClass="active">Global</A>
         <Show when={auth.me()}>
+          <A class="navlink" href="/drive" activeClass="active">Drive</A>
+        </Show>
+        <Show when={auth.me()}>
           <A class="navlink" href="/notifications" activeClass="active">Notifications</A>
         </Show>
         <div class="navspacer" />

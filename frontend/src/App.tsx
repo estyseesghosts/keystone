@@ -6,6 +6,7 @@ import Layout from "./components/Layout";
 import Home from "./routes/Home";
 import Local from "./routes/Local";
 import Global from "./routes/Global";
+import Drive from "./routes/Drive";
 import Notifications from "./routes/Notifications";
 import NoteDetail from "./routes/Note";
 import Profile from "./routes/Profile";
@@ -22,6 +23,7 @@ const App: Component = () => {
         <Route path="/" component={Home} />
         <Route path="/local" component={Local} />
         <Route path="/global" component={Global} />
+        <Route path="/drive" component={Drive} />
         <Route path="/notifications" component={Notifications} />
         <Route path="/notes/:id" component={NoteDetail} />
         <Route path="/users/:id" component={Profile} />
