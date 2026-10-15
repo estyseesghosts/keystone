@@ -1,57 +1,65 @@
 # Frontend plan (MVP)
 
-**Status:** Draft (2026-10-15, init — tracks `keystone.md` §§2,3,5,8,12)
-
-Slice order is deliberate: each slice is independently usable and verifiable.
-Do not start the next slice until the current one meets `keystone.md` §12
-for its scope. Check boxes only with executed evidence.
+**Status:** Built + verified 2026-10-15 against Misskey and Sharkey
+(see `../state/logs/2026-10-15-stonekey.md`). Tracks `AGENTS.md` §5 and
+`docs/api-surface.md`. Check boxes only with executed evidence.
 
 ## Slice 0 — Scaffold
 
-- [ ] `npm init solid@latest frontend` (SolidStart: No, `ts`, TypeScript: Yes)
-- [ ] `npm install`; `npm add @solidjs/router mfm-js`
-- [ ] Vite proxy for `/api` + `/files` → `http://127.0.0.1:3000`, Solid plugin intact
-- [ ] `npm run build` succeeds; `npm run dev` serves on `http://localhost:5173`
+- [x] SolidJS SPA (`frontend/`: Solid 1.x + `@solidjs/router`, `mfm-js`)
+- [x] Vite proxy for `/api` + `/files` (+ `/proxy`, `/streaming`) with
+      selectable backend target (`--mode misskey` / `--mode sharkey`;
+      `frontend/.env.misskey`, `frontend/.env.sharkey`)
+- [x] `npm run build` succeeds; dev serves per-mode ports
 
-## Slice 1 — Auth + shell
+## Slice 1 — Auth + shell (done, all three backends)
 
-- [ ] Typed `apiCall` helper (`src/api/client.ts`): `POST /api/${endpoint}`,
-      `i` body-field auth, empty/204 handling, safe JSON parse, `error.message`
-- [ ] Token signal + current-user signal; startup `i` restore; auth-failure
-      clears token; explicit sign-out (`localStorage` dev store, no passwords)
-- [ ] `App` root + `Layout` (left nav desktop / bottom nav mobile), routes:
-      `/login`, `/`, `/local`, `/notifications`, `/notes/:id`, `/users/:id`
-- [ ] Loading / empty / error / logged-out states; visible keyboard focus
+- [x] Typed `apiCall` helper (`src/api/client.ts`): `POST /api/${endpoint}`,
+      `i` body-field auth, empty/204 handling, safe JSON parse, `error.message`;
+      per-backend token keys (session isolation)
+- [x] Keystone-owned login: Pinetree `signin`; Misskey-family `signin-flow`
+      → Keystone permission screen → `miauth/gen-token` + check → scoped app
+      token (no redirects; temp credential never persisted)
+- [x] Token + current-user signals; startup `i` restore; auth-failure clears
+      token; explicit sign-out; mobile account strip separated from bottom nav
+- [x] `App` root + `Layout`, routes: `/login`, `/`, `/local`, `/global`,
+      `/notifications`, `/notes/:id`, `/users/:id`
+- [x] Loading / empty / error / logged-out states; visible keyboard focus
 
-## Slice 2 — Timelines + note view
+## Slice 2 — Timelines + note view (done)
 
-- [ ] Home (`notes/timeline`, auth) and local (`notes/local-timeline`, public):
-      limit ~20, `sinceId`/`untilId` "load older", manual refresh, no overlap,
-      failures don't wipe loaded data
-- [ ] Note detail (`notes/show`): reply/renote context as returned only —
-      never claim a complete thread; missing/invisible → API error path
-- [ ] `NoteCard` (avatar, name, handle, timestamp, text, CW, media, counts),
-      `MfmRenderer` (allow-listed `mfm-js` subset, safe fallback, no `innerHTML`)
+- [x] Home (`notes/timeline`, auth), local (`notes/local-timeline`, public),
+      global (`notes/global-timeline`, public — supported on both servers):
+      limit 20, `untilId` "load older" with dedupe, exhausted end-state,
+      retry-older (not refresh), failures keep loaded data
+- [x] Note detail (`notes/show`): parent reply + renoted context as returned,
+      direct replies via `notes/replies` (labeled partial, with paging);
+      missing/invisible → API error path
+- [x] `NoteCard` (avatar, name, handle, timestamp, text, CW, media by MIME
+      type with failure fallback, counts), profile links from avatar/name and
+      notification authors, mention resolution via cached `users/show`,
+      `MfmRenderer` (allow-listed `mfm-js` subset, safe fallback, no
+      `innerHTML`); quote embeds use a separate "Open quoted note" link
 
-## Slice 3 — Interactions
+## Slice 3 — Interactions (done)
 
-- [ ] Compose text note (`notes/create`, reply via `replyId`, renote via
-      `renoteId`); 3,000-char limit; `public` default; documented visibilities only
-- [ ] React/unreact (`notes/reactions/create|delete`, honor `myReaction`);
-      follow/unfollow (`following/create|delete`); delete own note (204 path)
-- [ ] Notifications (`i/notifications`) only after confirming response fields
-      against the manifest/implementation; basic profile edit (`i/update`
-      subset) deferred unless trivial
+- [x] Compose text note (`notes/create`, reply via `replyId`, renote via
+      `renoteId`, quote = text + `renoteId`); 3,000-char limit; `public` default
+      (`public`/`home`/`followers`)
+- [x] React/unreact (honor `myReaction`; counts re-verified from server);
+      repost single-fire with persistent state; follow/unfollow (response is
+      `UserLite`); delete own note (204 path)
+- [x] Profile timeline (`users/notes`); notifications with readable labels +
+      timestamps + paging (`i/notifications` has no `isRead` — no read styling)
 
-## Deliberately deferred (backend has no support — do not build)
+## Deliberately deferred (do not build until scoped)
 
-Profile timelines, follower/following lists, note search, global timeline,
-lists/antennas/clips/channels/polls/quotes/custom-emoji endpoints, Mastodon
-REST, streaming/live updates, media upload polish (`drive/files/create`
-`FormData` path may defer past Slice 3), dark mode.
+Streaming/live updates, media upload UI (`drive/files/create` is multipart —
+backend verified working; UI deferred), full profile editor (`i/update`
+subset compatible), note search, follower/following lists, dark mode.
 
 ## Verification per slice
 
-`keystone.md` §12 adapted to slice scope: build green, desktop + mobile,
-real backend flows, 204 handling, no console errors, no unsupported calls,
-no inert controls, no React dependencies.
+Build green, desktop + mobile, real Misskey + Sharkey flows, 204 handling, no
+console errors, no unsupported calls, no inert controls, no React
+dependencies. Latest evidence: `../state/logs/2026-10-15-stonekey.md`.

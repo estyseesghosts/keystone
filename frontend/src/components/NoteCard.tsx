@@ -26,9 +26,20 @@ function Avatar(props: { url: string | null; name: string }) {
   );
 }
 
+function FileLink(props: { file: DriveFile }) {
+  return (
+    <a class="mediafile" href={props.file.url} target="_blank" rel="noopener noreferrer">
+      {props.file.name}
+    </a>
+  );
+}
+
 function MediaItem(props: { file: DriveFile }) {
   const [revealed, setRevealed] = createSignal(!props.file.isSensitive);
+  const [failed, setFailed] = createSignal(false);
   const isImage = () => props.file.type.startsWith("image/");
+  const isVideo = () => props.file.type.startsWith("video/");
+  const isAudio = () => props.file.type.startsWith("audio/");
   return (
     <Show
       when={revealed()}
@@ -38,15 +49,45 @@ function MediaItem(props: { file: DriveFile }) {
         </button>
       }
     >
-      <Show
-        when={isImage()}
-        fallback={
-          <a class="mediafile" href={props.file.url} target="_blank" rel="noopener noreferrer">
-            {props.file.name}
-          </a>
-        }
-      >
-        <img src={props.file.thumbnailUrl ?? props.file.url} alt={props.file.name} loading="lazy" />
+      <Show when={failed()} fallback={
+        <Show
+          when={isImage()}
+          fallback={
+            <Show
+              when={isVideo()}
+              fallback={
+                <Show when={isAudio()} fallback={<FileLink file={props.file} />}>
+                  <audio
+                    controls
+                    preload="metadata"
+                    src={props.file.url}
+                    onError={() => setFailed(true)}
+                  >
+                    Your browser cannot play this audio ({props.file.name})
+                  </audio>
+                </Show>
+              }
+            >
+              <video
+                controls
+                preload="metadata"
+                src={props.file.url}
+                onError={() => setFailed(true)}
+              >
+                Your browser cannot play this video ({props.file.name})
+              </video>
+            </Show>
+          }
+        >
+          <img
+            src={props.file.thumbnailUrl ?? props.file.url}
+            alt={props.file.name}
+            loading="lazy"
+            onError={() => setFailed(true)}
+          />
+        </Show>
+      }>
+        <FileLink file={props.file} />
       </Show>
     </Show>
   );
@@ -70,11 +111,19 @@ export default function NoteCard(props: NoteCardProps) {
 
   return (
     <article class="note">
-      <Avatar url={props.note.user.avatarUrl} name={displayNameOf(props.note.user)} />
+      <A
+        class="avatarlink"
+        href={`/users/${props.note.user.id}`}
+        aria-label={`Open profile of ${displayNameOf(props.note.user)}`}
+      >
+        <Avatar url={props.note.user.avatarUrl} name={displayNameOf(props.note.user)} />
+      </A>
       <div class="note-main">
         <div class="note-head">
-          <span class="name">{displayNameOf(props.note.user)}</span>
-          <span class="handle">{handleOf(props.note.user)}</span>
+          <A class="namelink" href={`/users/${props.note.user.id}`}>
+            <span class="name">{displayNameOf(props.note.user)}</span>
+            <span class="handle">{handleOf(props.note.user)}</span>
+          </A>
           <A class="time" href={`/notes/${props.note.id}`}>
             {formatTime(props.note.createdAt)}
           </A>
@@ -100,7 +149,7 @@ export default function NoteCard(props: NoteCardProps) {
           </Show>
           <Show when={props.note.renote}>
             {(renoted) => (
-              <A class="renote-embed" href={`/notes/${renoted().id}`}>
+              <div class="renote-embed">
                 <div class="renote-head">
                   <span class="name">{displayNameOf(renoted().user)}</span>
                   <span class="handle">{handleOf(renoted().user)}</span>
@@ -108,7 +157,10 @@ export default function NoteCard(props: NoteCardProps) {
                 <div class="notebody">
                   <MfmRenderer text={renoted().text} />
                 </div>
-              </A>
+                <div class="renote-foot">
+                  <A href={`/notes/${renoted().id}`}>Open quoted note</A>
+                </div>
+              </div>
             )}
           </Show>
         </Show>
@@ -125,7 +177,8 @@ export default function NoteCard(props: NoteCardProps) {
             <button
               type="button"
               class={`action${props.reposted ? " active" : ""}`}
-              disabled={props.reposting}
+              disabled={props.reposting || props.reposted}
+              aria-pressed={props.reposted}
               onClick={() => props.onRepost?.(props.note)}
               aria-label="Repost"
               title="Repost"

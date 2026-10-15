@@ -1,7 +1,10 @@
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { JSX } from "solid-js";
+import { A } from "@solidjs/router";
 import { parse, toString } from "mfm-js";
 import type { MfmNode } from "mfm-js";
+import { apiCall } from "../api/client";
+import type { UserLite } from "../api/types";
 
 // Renders an allow-listed subset of the mfm-js AST as Solid elements.
 // Shapes validated against mfm-js 0.27.0 (built/index.d.ts). Unknown nodes
@@ -22,6 +25,46 @@ function ExternalLink(props: { url: string; children: JSX.Element }) {
       <a href={props.url} target="_blank" rel="noopener noreferrer">
         {props.children}
       </a>
+    </Show>
+  );
+}
+
+// Cache of mention acct string -> resolved userId (null = not found, so we
+// never link to a dead profile and never refetch a miss).
+const mentionCache = new Map<string, string | null>();
+
+function MentionLink(props: { acct: string; username: string; host: string | null }) {
+  const cached = mentionCache.get(props.acct);
+  const [userId, setUserId] = createSignal<string | null>(cached ?? null);
+  const [done, setDone] = createSignal(cached !== undefined);
+
+  onMount(() => {
+    if (mentionCache.has(props.acct)) return;
+    let alive = true;
+    onCleanup(() => {
+      alive = false;
+    });
+    const params: Record<string, unknown> = { username: props.username };
+    if (props.host) params.host = props.host;
+    apiCall<UserLite>("users/show", params).then(
+      (user) => {
+        if (!alive) return;
+        const id = user?.id ?? null;
+        mentionCache.set(props.acct, id);
+        if (id) setUserId(id);
+        setDone(true);
+      },
+      () => {
+        if (!alive) return;
+        mentionCache.set(props.acct, null);
+        setDone(true);
+      },
+    );
+  });
+
+  return (
+    <Show when={done() && userId()} fallback={<span class="mentiontag">@{props.acct}</span>}>
+      <A href={`/users/${userId()}`}>@{props.acct}</A>
     </Show>
   );
 }
@@ -73,8 +116,9 @@ function renderNode(node: MfmNode): JSX.Element {
         </blockquote>
       );
     case "mention":
-      // No user lookup here: render as styled text, not a dead link.
-      return <span class="mentiontag">@{node.props.acct}</span>;
+      return (
+        <MentionLink acct={node.props.acct} username={node.props.username} host={node.props.host} />
+      );
     case "hashtag":
       // No note-search endpoint exists: render as styled text, not a link.
       return <span class="hashtag">#{node.props.hashtag}</span>;

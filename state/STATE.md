@@ -1,79 +1,70 @@
 # STATE — resume pointer (mutable, keep current)
 
-**Phase:** 1 — build (2026-10-15; init complete)
-**Backend ref:** `pinetree/` @ `ff651d6` — binary built OK (`cargo build` green,
-warnings only; `CARGO_TARGET_DIR=.build/pinetree-target` due to tracked
-`.cargo/config.toml` pointing at `/root`, read-only on this machine)
-**Last session:** 2026-10-15 icons/git — vector icons, repost action, docs pins filled; committed + pushed (see logs)
+**Phase:** 2 — Misskey/Sharkey targets live (2026-10-15)
+**Backends:** Misskey `2026.10.1-alpha.0` @ `127.0.0.1:3101`
+(`KEYSTONE_BACKEND_ONLY=1`, web UI disabled, API verified) ·
+Sharkey `2025.4.7` @ `127.0.0.1:3102` (same mode) ·
+Pinetree default @ `127.0.0.1:3000`
+**Frontends:** Keystone misskey-mode `:5176`, sharkey-mode `:5177`
+(Vite `--mode misskey` / `--mode sharkey`); Pinetree-mode `:5173`
+**Last session:** 2026-10-15 stonekey — backend-only switch, Keystone-owned
+auth, all stonekey_ui P1/P2 fixes, smoke-verified both servers (see logs)
 
 ## Decisions since init
 
-- Vite accepted as build/dev tooling only (owner); AGENTS.md §1 stands.
-- Palette: black/white/grey only, no accent colors (owner; supersedes
-  `keystone.md` §2 pine-green brief — AGENTS.md §7 wins per source order).
-- Feeds: Home + Local fully; **Global route with honest fallback** (owner):
-  `/global` probes `notes/global-timeline` and shows a clear
-  "not supported by this server" state (backend 404s it) instead of fake data.
+- Targets are Misskey + Sharkey (backend-only) with Pinetree default kept;
+  `docs/api-surface.md` is the authoritative endpoint matrix (supersedes
+  `keystone.md` §§7–8 unsupported list for these backends).
+- Auth is Keystone-owned: no redirect to instance `/miauth/*` pages, ever.
+  Misskey-family login = `signin-flow` → Keystone permission screen →
+  `miauth/gen-token` + check → scoped app token (temp native credential never
+  stored). Doc correction: native route is `/api/signin-flow`, not `/api/signin`.
+- Cross-backend params limited to `{limit, sinceId, untilId}` (+ ids/text);
+  never Misskey-only `include*Renotes`; `i/notifications` has no `isRead`.
+- Palette: black/white/grey only, no accent colors (owner; `keystone.md` §2
+  pine-green brief superseded).
+- Feeds: Home + Local + Global (global exists on both servers);
+  profile notes via `users/notes`; replies via `notes/replies` (labeled partial).
 
 ## Current task
 
-Quotes wired and clickable (see `logs/2026-10-15-quotes.md`). Browser-visual
-pass still open; user re-testing after refresh.
-
-## Next actions
-
-## Next actions
-
-- [x] Backend binary built (`cargo build` green)
-- [x] `frontend/` scaffolded (create-solid `-v --ts -t bare`; Solid 1.x; +router, mfm-js, @types/node)
-- [x] Vite proxy `/api` + `/files`, monochrome `global.css`, `apiCall` helper
-- [x] Slices 1–3 built: auth shell, Home/Local/Global(honest 404 fallback),
-      note detail, profile, notifications, composer, reactions, follow
-- [x] `npx tsc --noEmit` clean, `npm run build` green
-- [x] Backend round-trip 24/24 green (see `logs/2026-10-15-build.md`);
-      dev servers running (below)
-- [ ] Browser pass: sign-in → timelines → post/reply/react → profile →
-      notifications on desktop + mobile widths; console-error check
+Stonekey slice landed + pushed. Next (explicitly scoped, each its own slice):
+streaming, media upload UI, broader feature support.
 
 ## Servers running (background, dev only)
 
-- Pinetree: `.build/pinetree-target/debug/pinetree --public-url=http://127.0.0.1:3000 --data-dir=./.data --listen=127.0.0.1:3000`
-- Frontend: `npm run dev` in `frontend/` → http://localhost:5173
-- Test accounts: alice / `alice-dev-password`, bob / `bob-dev-password`
+- Misskey: `node built/entry.js` in `/root/fedifedifedi/misskey/packages/backend`
+  (Node v24.22.0) with `MISSKEY_CONFIG_YML=/tmp/pinetree-interop/misskey.yml`,
+  `KEYSTONE_BACKEND_ONLY=1` → `127.0.0.1:3101`
+  (log `/tmp/pinetree-interop/misskey.log`)
+- Sharkey: `node built/boot/entry.js` in `/root/fedifedifedi/sharkey/packages/backend`
+  with `MISSKEY_CONFIG_YML=/tmp/pinetree-interop/sharkey.yml`,
+  `KEYSTONE_BACKEND_ONLY=1` → `127.0.0.1:3102`
+  (log `/tmp/pinetree-interop/sharkey.log`)
+- Keystone Vite: misskey-mode `:5176` (log `/tmp/keystone-vite-misskey.log`),
+  sharkey-mode `:5177` (log `/tmp/keystone-vite-sharkey.log`),
+  Pinetree-mode `:5173`
+- Test accounts: mk1 / `password123` (misskey), sk1 + sk2 / `password123` (sharkey)
+- Backend source patch: `KEYSTONE_BACKEND_ONLY` guard around
+  `clientServerService.createServer` registration in both
+  `packages/backend/src/server/ServerService.ts` (+ matching built output:
+  misskey `built/ServerService-BRIfgkyT.js`, sharkey
+  `built/server/ServerService.js`)
+- Smoke: `/tmp/keystone-smoke.py` + `/tmp/keystone-smoke2.py` all green
+  (see `logs/2026-10-15-stonekey.md`); `npm run build` green
 
 ## Blockers / open questions
 
 - License for this repo: not yet declared.
+- No browser in this environment: verification is API-transport probes +
+  static source checks (no screenshots, no console-error observation).
+  Items needing a real browser pass are marked **not yet verified** in the log.
 
 ## How to resume
 
 1. Read `AGENTS.md`, this file, then the latest `state/logs/` entry.
-2. Check `git status` and whether `frontend/` exists; backend binary is at
-   `.build/pinetree-target/debug/pinetree` (run with `--data-dir=./data`).
-3. Pick the top unchecked box above; update this file as you go.
-
-## Current task
-
-Docs slice (2026-10-15): version-matched router + mfm-js notes drafted as
-version-pending (`docs/router.md`, `docs/mfm.md`); pin versions after Slice 0.
-
-## Next actions
-
-- [ ] Confirm Vite-as-build-tool-only is acceptable (see AGENTS.md §1), or direct otherwise
-- [ ] Scaffold `frontend/` per `keystone.md` §3 (`npm init solid@latest`, router + mfm-js)
-- [ ] Pin versions in `docs/router.md` + `docs/mfm.md` from installed `package.json` / `*.d.ts` (see each file's Version pin section)
-- [ ] Wire `apiCall` helper + Vite proxy per `keystone.md` §6
-- [ ] Thinnest slice: login → home/local timelines → note detail (`docs/frontend-plan.md`)
-
-## Blockers / open questions
-
-- Router/MFM docs drafted version-pending per owner choice (two files, pin
-  later); filling Version pin sections is blocked on Slice 0 scaffold.
-- License for this repo: not yet declared.
-
-## How to resume
-
-1. Read `AGENTS.md`, this file, then the latest `state/logs/` entry.
-2. Check `git status` and whether `frontend/` exists; verify backend ref with
-   `git -C pinetree rev-parse --short HEAD`.
-3. Pick the top unchecked box above; update this file as you go.
+2. Check `git status`; backends via `curl -m 5 -X POST
+   http://127.0.0.1:3101/api/meta -H 'content-type: application/json' -d '{}'`
+   (and `:3102`); frontends `:5176` / `:5177`.
+3. Restarting a backend? Relaunch with the env above (misskey needs Node
+   v24.22.0 first on PATH — the system node v22 cannot load its `re2.node`).

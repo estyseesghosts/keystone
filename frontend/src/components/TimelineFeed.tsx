@@ -17,6 +17,8 @@ export interface TimelineFeedProps {
 
 const PAGE_SIZE = 20;
 
+type LoadMode = "initial" | "older" | "refresh";
+
 export default function TimelineFeed(props: TimelineFeedProps) {
   const auth = useAuth();
   const [notes, setNotes] = createSignal<Note[]>([]);
@@ -25,12 +27,15 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [unsupported, setUnsupported] = createSignal(false);
+  const [exhausted, setExhausted] = createSignal(false);
+  const [failedMode, setFailedMode] = createSignal<LoadMode | null>(null);
   const [reactingId, setReactingId] = createSignal<string | null>(null);
   const [repostingId, setRepostingId] = createSignal<string | null>(null);
   const [repostedIds, setRepostedIds] = createSignal<string[]>([]);
 
-  const load = async (mode: "initial" | "older" | "refresh") => {
+  const load = async (mode: LoadMode) => {
     if (busy()) return;
+    if (mode === "older" && exhausted()) return;
     setBusy(true);
     if (mode === "initial") setLoading(true);
     else setLoadingMore(true);
@@ -43,12 +48,39 @@ export default function TimelineFeed(props: TimelineFeedProps) {
       }
       const page = await apiCall<Note[]>(props.endpoint, params);
       setUnsupported(false);
-      setNotes(mode === "older" ? [...current, ...page] : page);
+      if (mode === "older") {
+        // Merge with dedupe by note id; a page that contributes zero new
+        // ids means the server has nothing older to offer.
+        const seen = new Set(current.map((n) => n.id));
+        const fresh: Note[] = [];
+        for (const n of page) {
+          if (!seen.has(n.id)) {
+            seen.add(n.id);
+            fresh.push(n);
+          }
+        }
+        if (fresh.length === 0) setExhausted(true);
+        setNotes([...current, ...fresh]);
+      } else {
+        const seen = new Set<string>();
+        setNotes(
+          page.filter((n) => {
+            if (seen.has(n.id)) return false;
+            seen.add(n.id);
+            return true;
+          }),
+        );
+        setExhausted(false);
+      }
+      setFailedMode(null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 404 && props.unsupportedMessage) {
         setUnsupported(true);
       } else {
+        // Pagination failures keep the already-loaded notes on screen; the
+        // failed mode is remembered so "Try again" retries the same cursor.
         setError(err instanceof Error ? err.message : "Could not load the timeline.");
+        setFailedMode(mode);
       }
     } finally {
       setLoading(false);
@@ -56,6 +88,8 @@ export default function TimelineFeed(props: TimelineFeedProps) {
       setBusy(false);
     }
   };
+
+  const retry = () => void load(failedMode() ?? "refresh");
 
   onMount(() => {
     void load("initial");
@@ -105,6 +139,9 @@ export default function TimelineFeed(props: TimelineFeedProps) {
 
   const repost = async (note: Note) => {
     if (!auth.token() || repostingId() !== null) return;
+    // Persistent repost state: a note already reposted in this view is a
+    // no-op, so double clicks can never create duplicates.
+    if (repostedIds().includes(note.id)) return;
     setRepostingId(note.id);
     try {
       const res = await apiCall<CreatedNoteResponse>("notes/create", { renoteId: note.id });
@@ -112,10 +149,7 @@ export default function TimelineFeed(props: TimelineFeedProps) {
         res.createdNote,
         ...current.map((n) => (n.id === note.id ? { ...n, renoteCount: n.renoteCount + 1 } : n)),
       ]);
-      setRepostedIds((ids) => [...ids, note.id]);
-      window.setTimeout(() => {
-        setRepostedIds((ids) => ids.filter((id) => id !== note.id));
-      }, 2000);
+      setRepostedIds((ids) => (ids.includes(note.id) ? ids : [...ids, note.id]));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Repost failed.");
     } finally {
@@ -148,11 +182,11 @@ export default function TimelineFeed(props: TimelineFeedProps) {
             <Show when={error() && notes().length > 0}>
               <div class="state" role="alert">
                 <div class="errorbox">{error()}</div>
-                <button type="button" onClick={() => void load("refresh")}>Try again</button>
+                <button type="button" onClick={retry}>Try again</button>
               </div>
             </Show>
             <Show when={error() && notes().length === 0}>
-              <ErrorState message={error() ?? "Could not load the timeline."} onRetry={() => void load("refresh")} />
+              <ErrorState message={error() ?? "Could not load the timeline."} onRetry={retry} />
             </Show>
             <Show when={notes().length > 0}>
               <div class="feed">
@@ -169,11 +203,15 @@ export default function TimelineFeed(props: TimelineFeedProps) {
                   )}
                 </For>
               </div>
-              <div class="pager">
-                <button type="button" onClick={() => void load("older")} disabled={loadingMore()}>
-                  {loadingMore() ? "Loading…" : "Load older"}
-                </button>
-              </div>
+              <Show when={!exhausted()} fallback={
+                <div class="state" role="status"><p>You're caught up.</p></div>
+              }>
+                <div class="pager">
+                  <button type="button" onClick={() => void load("older")} disabled={loadingMore()}>
+                    {loadingMore() ? "Loading…" : "Load older"}
+                  </button>
+                </div>
+              </Show>
             </Show>
             <Show when={!error() && notes().length === 0}>
               <div class="state"><p>No notes yet.</p></div>

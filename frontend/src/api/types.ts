@@ -1,5 +1,7 @@
-// Wire types for the Pinetree Misskey-compatible API (camelCase).
-// Definitive contract: ../../pinetree/docs/endpoint-manifest.md
+// Wire types for the Keystone API targets (Pinetree + Misskey/Sharkey,
+// all Misskey-compatible JSON POST at /api/{endpoint}, camelCase fields).
+// The shared endpoints used by Keystone behave the same across backends;
+// see docs/api-surface.md for the verified compatibility matrix.
 
 export interface UserLite {
   id: string;
@@ -101,12 +103,17 @@ export interface PinetreeNotification {
   id: string;
   createdAt: string;
   type: string;
-  isRead: boolean;
-  userId: string;
+  /** Pinetree packs `isRead`; Misskey/Sharkey omit it. */
+  isRead?: boolean;
+  userId?: string;
   user: UserLite | null;
   note: Note | null;
-  reaction: string;
+  reaction?: string | null;
 }
+
+/** Preferred alias: the same shape is served by all three backends
+ * (modulo the optional Pinetree-only `isRead`). */
+export type NotificationItem = PinetreeNotification;
 
 export interface CreateNoteParams {
   text?: string | null;

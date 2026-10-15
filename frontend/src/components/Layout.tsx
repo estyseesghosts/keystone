@@ -15,6 +15,17 @@ export default function Layout(props: { children: JSX.Element }) {
 
   return (
     <div class="layout">
+      <div class="mobile-account">
+        <A class="mobile-brand" href="/">Keystone</A>
+        <div class="mobile-account-spacer" />
+        <Show
+          when={auth.me()}
+          fallback={<A class="mobile-signin" href="/login">Sign in</A>}
+        >
+          <span class="who">{handleOf(auth.me()!)}</span>
+          <button type="button" onClick={signout}>Sign out</button>
+        </Show>
+      </div>
       <nav class="sitenav" aria-label="Main">
         <A class="brand" href="/">Keystone</A>
         <A class="navlink" href="/" end activeClass="active">Home</A>

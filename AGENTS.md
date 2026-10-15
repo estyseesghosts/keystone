@@ -1,9 +1,11 @@
-# AGENTS.md — Keystone (Pinetree web client)
+# AGENTS.md — Keystone (Misskey-family web client)
 
-Source of truth order: this file → `keystone.md` (scope/brief) →
-`solidjs.md` (UI model) → `pinetree/docs/endpoint-manifest.md` (frozen API
-contract). If they disagree, the earlier file wins for frontend decisions;
-the backend contract is never overridden — adapt the frontend instead.
+Source of truth order: this file → `keystone.md` (original Pinetree brief,
+historical) → `solidjs.md` (UI model) → `docs/api-surface.md` (verified
+endpoint matrix for Misskey/Sharkey/Pinetree). If they disagree, the earlier
+file wins for frontend decisions — except that `docs/api-surface.md` wins
+over `keystone.md` on backend capabilities: the Pinetree brief's unsupported
+list does not apply to Misskey/Sharkey.
 
 ## 1. Stack — SolidJS only
 
@@ -24,21 +26,24 @@ the backend contract is never overridden — adapt the frontend instead.
 
 - `keystone.md` — frontend brief: product, bootstrap, API wiring, scope, verification.
 - `solidjs.md` — SolidJS 1.x guide: signals, stores, effects, props, lists, checklist.
-- `pinetree/` — backend reference checkout. **Read-only: never edit.**
-  Refresh with `git pull` inside it; record the commit hash in the session log.
-  Key files: `docs/endpoint-manifest.md` (frozen), `docs/domain-types.md`,
-  `docs/wiki/Current-State.md`, `AGENTS.md`.
-- `docs/` — living frontend docs. See `docs/README.md` for the index.
+- `docs/` — living frontend docs: `api-surface.md` (verified matrix),
+  `frontend-plan.md` (scope checklist), `stonekey_ui.md` + `stonekey_backend.md`
+  (review findings — note corrected endpoints in `api-surface.md`), `mfm.md`,
+  `router.md`. See `docs/README.md` for the index.
+- Backend checkouts live outside this repo (`/root/fedifedifedi/misskey`,
+  `/root/fedifedifedi/sharkey`): both carry the `KEYSTONE_BACKEND_ONLY` patch
+  in `packages/backend/src/server/ServerService.ts` (+ built output).
 - `state/` — resume pointer plus append-only logs. See `state/README.md`.
-- `frontend/` — the SolidJS SPA (does not exist yet; scaffold per `keystone.md` §3).
+- `frontend/` — the SolidJS SPA (slices 0–3 built; see `docs/frontend-plan.md`).
 
 ## 3. Current phase
 
-Phase 0 — init (2026-10-15): scaffolding and workflow only. Next: scaffold
-`frontend/` per `keystone.md` §3, wire the typed `apiCall` helper (§6), then
-build the smallest working slice (login → timelines → note detail) before
-adding interactions. No streaming anywhere: the backend has no streaming
-route (`src/streaming` is a stub); use manual refresh + cursor pagination.
+Phase 2 — Misskey/Sharkey targets live (2026-10-15): Keystone runs against
+local Misskey (`:3101`) and Sharkey (`:3102`) backends in `KEYSTONE_BACKEND_ONLY=1`
+mode, plus Pinetree default. Auth is Keystone-owned (no instance redirects).
+Slices 0–3 built and smoke-verified on both servers; see `docs/frontend-plan.md`
+and `state/logs/2026-10-15-stonekey.md`. Next: streaming, media upload UI,
+broader feature support — each as an explicitly scoped slice.
 
 ## 4. State maintenance (required every session — this is the interruption protocol)
 
@@ -61,27 +66,34 @@ in under five minutes.
 
 ## 5. Backend contract rules
 
-- The frozen manifest (`pinetree/docs/endpoint-manifest.md`) is definitive.
-  Send only documented fields; unknown fields are rejected (400), unknown
-  endpoints 404. Never change backend contracts to fit frontend assumptions.
-- Transport: JSON `POST` to `/api/{endpoint}`; auth via the `i` body field
-  consistently. Successful writes may return **204 No Content** — do not call
-  `response.json()` unconditionally. See `keystone.md` §6 for the helper shape.
-- Supported first slice: `meta`, `signin`, `i`, `i/notifications`,
-  `notes/timeline`, `notes/local-timeline`, `notes/create`, `notes/show`,
-  `notes/delete`, `notes/reactions/create`, `notes/reactions/delete`,
-  `users/show`, `users/search`, `following/create`, `following/delete`,
-  `i/update` (documented subset only). Details: `docs/api-surface.md`.
-- **Do not build** on unsupported endpoints: `users/notes`, `users/followers`,
-  `users/following`, `notes/renotes`, `notes/replies`, `notes/global-timeline`,
-  `notes/search`, lists/antennas/clips/channels/polls/quotes/custom-emoji
-  endpoints, Mastodon REST. No profile timelines, follower lists, note search,
-  or global timeline. No fake live connection or aggressive polling.
-- Wire types use the API's camelCase fields (`createdAt`, `avatarUrl`,
-  `repliesCount`), not internal Rust names. See `pinetree/docs/domain-types.md`.
+- Targets: local Misskey (`127.0.0.1:3101`) and Sharkey (`127.0.0.1:3102`),
+  both in `KEYSTONE_BACKEND_ONLY=1` mode (web UI disabled; API/files/streaming
+  live); Pinetree (`127.0.0.1:3000`) remains the default target. The same
+  frontend switches via Vite mode (`--mode misskey` / `--mode sharkey`).
+  Authoritative matrix: `docs/api-surface.md` (verified 2026-10-15).
+- Transport (all three): JSON `POST` to `/api/{endpoint}`; auth via the `i`
+  body field consistently. Successful writes may return **204 No Content** —
+  do not call `response.json()` unconditionally. Misskey-family unknown POST
+  paths answer 404 non-JSON: keep the HTTP status on the thrown error.
+- Login: Pinetree `signin`; Misskey/Sharkey `POST /api/signin-flow`
+  (`/api/signin` does NOT exist there) → Keystone permission screen →
+  `miauth/gen-token` + `POST /api/miauth/:session/check` → scoped app token
+  (`read:account`, `write:notes`, `write:reactions`, `write:following`,
+  `read:notifications`). Never navigate to instance-hosted pages
+  (`/miauth/*`, authorize); never persist the temporary native credential.
+  Tokens are stored per-backend — a Misskey token is never sent to Sharkey.
+- Cross-backend params: send only `{limit, sinceId, untilId}` (+ ids/text like
+  `noteId`, `userId`, `replyId`, `renoteId`, `reaction`). Never send
+  `includeMyRenotes`/`includeRenotedMyNotes`/`includeLocalRenotes`
+  (Misskey-only; Sharkey 400s unknown fields). `i/notifications` has **no
+  `isRead`**; `following/create|delete` return `UserLite`; `users/notes`,
+  `notes/replies`, `notes/conversation`, `notes/global-timeline` exist on
+  both — profile timelines, reply threads, and global feed are supported.
 - Every button is either wired to a supported action or omitted/disabled with
   a reason. No inert controls, no hard-coded sample notes presented as real,
-  no fabricated file URLs (use API-returned media URLs only).
+  no fabricated file URLs (use API-returned media URLs only). Composer is
+  text-only: no upload button until upload is implemented end-to-end
+  (`drive/files/create` is multipart `FormData`, not JSON).
 
 ## 6. SolidJS rules (summary — `solidjs.md` is authoritative)
 
@@ -117,9 +129,9 @@ in under five minutes.
   timeline; mobile: single column + usable bottom nav (never hide the only nav).
 - Notes show avatar, display name, handle, timestamp, text, CW, media, and
   counts where provided. Clear loading/empty/error states, visible focus.
-- Routes: `/login`, `/` (home, auth-gated), `/local`, `/notifications`,
-  `/notes/:id`, `/users/:id` (via `userId`). Router: `@solidjs/router`
-  `<Router root={App}>`, internal links with `<A>`.
+- Routes: `/login`, `/` (home, auth-gated), `/local`, `/global`,
+  `/notifications`, `/notes/:id`, `/users/:id` (via `userId`). Router:
+  `@solidjs/router` `<Router root={App}>`, internal links with `<A>`.
 - Auth state: token + current-user signals only. Startup: if token exists call
   `i`; on auth failure clear token and show logged-out state. Explicit
   sign-out. `localStorage` token store is acceptable for development only
