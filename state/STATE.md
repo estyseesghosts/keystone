@@ -1,14 +1,36 @@
 # STATE — resume pointer (mutable, keep current)
 
-**Phase:** 2 — Misskey/Sharkey targets live (2026-10-15)
+**Phase:** 3 — Roadmap slices landed (2026-10-16)
 **Backends:** Misskey `2026.10.1-alpha.0` @ `127.0.0.1:3101`
 (`KEYSTONE_BACKEND_ONLY=1`, web UI disabled, API verified) ·
 Sharkey `2025.4.7` @ `127.0.0.1:3102` (same mode) ·
 Pinetree default @ `127.0.0.1:3000`
 **Frontends:** Keystone misskey-mode `:5176`, sharkey-mode `:5177`
 (Vite `--mode misskey` / `--mode sharkey`); Pinetree-mode `:5173`
-**Last session:** 2026-10-15 stonekey — backend-only switch, Keystone-owned
-auth, all stonekey_ui P1/P2 fixes, smoke-verified both servers (see logs)
+**Last session:** 2026-10-16 roadmap — all `docs/keystone_roadmap.md`
+Keystone-side work landed in 7 commits (see log); suites green, not pushed yet
+
+## Decisions since stonekey
+
+- One-step Misskey-family sign-in: the redundant Keystone grant screen is
+  gone (first-party client, fixed least-privilege set — the password is the
+  consent). Native `signin-flow` token documented as full-authority +
+  memory-only (verified in `SigninService.ts`: `user.token` verbatim).
+- Scoped permission set widened least-privilege-first: + `read:drive`,
+  `write:drive`, `write:account`, `write:votes`, `read:following`,
+  `write:notifications`. Pre-scope sessions 403 → UI shows re-sign-in hint.
+- New routes: `/drive`, `/antennas`, `/antennas/:id`, `/search` (nav gated
+  on signed-in where auth is required).
+- Reactions: server normalizes ❤️→❤ (verified live); client sends ❤ so
+  optimistic state matches reconciled state.
+- Credential-packed fields (`myReaction`, `poll`/`isVoted`, `files` on
+  non-public notes): always assert/read authenticated.
+- Pinetree gaps (verified 404/reject, UI degrades honestly): no
+  `drive/files` listing, no antennas endpoints, polls rejected. Pinetree
+  *server* implementation (Drive listing contract, antenna storage +
+  matching) is a separate-repo Rust project — explicitly out of this
+  session, recorded as the next workstream.
+- Streaming: deliberately unused; every feed has refresh + cursor paging.
 
 ## Decisions since init
 
@@ -28,8 +50,11 @@ auth, all stonekey_ui P1/P2 fixes, smoke-verified both servers (see logs)
 
 ## Current task
 
-Stonekey slice landed + pushed. Next (explicitly scoped, each its own slice):
-streaming, media upload UI, broader feature support.
+Roadmap slices landed locally (7 commits, ahead of origin/main — push
+pending final verification this session). Next (explicitly scoped, each
+its own slice): Pinetree server contracts (drive listing, antennas —
+Rust work in the pinetree repo), streaming client, human browser QA pass
+(visuals, focus, media playback, console errors at mobile + desktop).
 
 ## Servers running (background, dev only)
 

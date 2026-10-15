@@ -87,6 +87,7 @@ for label, base, user in [("misskey", MISSKEY, "mk1"), ("sharkey", SHARKEY, "sk1
     native, tok, err = login(base, user, "password123", FULL_PERMS)
     if not tok:
         check(f"{label}: login with full permission set", False, err)
+        check(f"{label}: BLOCK SKIPPED (no session)", False, "login failed")
         continue
     check(f"{label}: login with full permission set", True)
     time.sleep(1)
@@ -209,15 +210,17 @@ for label, base, user in [("misskey", MISSKEY, "mk1"), ("sharkey", SHARKEY, "sk1
     check(f"{label}: notifications/mark-all-as-read", s in (200, 204), f"{s}")
 
     # ---------- old-scope token gets an honest 403 ----------
-    _, oldtok, _ = login(base, user, "password123", MIN_PERMS)
+    _, oldtok, olderr = login(base, user, "password123", MIN_PERMS)
+    check(f"{label}: pre-scope login (for 403 path)", oldtok is not None, olderr)
     if oldtok:
         s, r = api(base, "drive/files", {"i": oldtok, "limit": 1})
         check(f"{label}: pre-scope token denied drive (403, re-sign hint path)",
               s == 403, f"{s}")
 
 # ---------- locked-account follow stays pending (sharkey: sk1 -> sk2) ----------
-_, sk1, _ = login(SHARKEY, "sk1", "password123", FULL_PERMS)
-native2, _, _ = login(SHARKEY, "sk2", "password123", FULL_PERMS)
+_, sk1, sk1err = login(SHARKEY, "sk1", "password123", FULL_PERMS)
+native2, _, sk2err = login(SHARKEY, "sk2", "password123", FULL_PERMS)
+check("sharkey: locked-follow setup logins", bool(sk1 and native2), f"{sk1err} {sk2err}")
 if sk1 and native2:
     s, sk2u = api(SHARKEY, "users/show", {"username": "sk2"})
     sk2id = (sk2u or {}).get("id")
