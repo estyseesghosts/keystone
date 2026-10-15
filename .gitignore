@@ -1,0 +1,12 @@
+# Keystone ignores
+# Backend reference checkout (read-only, refresh with git pull inside it)
+pinetree/
+# Local build artifacts (backend cargo target-dir override, etc.)
+.build/
+# Local dev server data (pinetree --data-dir)
+.data/
+# Frontend build output / deps (once frontend/ is scaffolded)
+frontend/node_modules/
+frontend/dist/
+# OS / editor noise
+.DS_Store
