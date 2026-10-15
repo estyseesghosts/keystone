@@ -4,7 +4,7 @@
 **Backend ref:** `pinetree/` @ `ff651d6` — binary built OK (`cargo build` green,
 warnings only; `CARGO_TARGET_DIR=.build/pinetree-target` due to tracked
 `.cargo/config.toml` pointing at `/root`, read-only on this machine)
-**Last session:** 2026-10-15 init — see `logs/2026-10-15-init.md`
+**Last session:** 2026-10-15 icons/git — vector icons, repost action, docs pins filled; committed + pushed (see logs)
 
 ## Decisions since init
 
