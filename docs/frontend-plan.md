@@ -50,8 +50,9 @@ executed evidence.
 - [x] Thread connector: a vertical line through the avatar column ties
       same-thread notes together (ancestor chain above the post, root
       replies below — the last reply's line stops at its avatar, avatars
-      paint above the line); nested levels keep their indented edge
-      connector instead
+      paint above the line, and card dividers come out inside thread
+      contexts so the column reads connected); nested levels keep their
+      indented edge connector instead
 - [x] `NoteCard` (avatar, name, handle, timestamp, text, CW, media by MIME
       type with failure fallback, counts), profile links from avatar/name and
       notification authors, mention resolution via cached `users/show`,

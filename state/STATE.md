@@ -98,7 +98,7 @@ approve-and-return round-trip still **not yet verified** (owner).
   resolved avatar + display name. Local-backend probe not run here (no
   backends on this machine); owner live-tests both on dvd.chat. See log
   `2026-10-16-re-quote-prefix.md`.
-- **Next (implemented 2026-10-16, UNCOMMITTED + browser/live-API QA
+- **Next (implemented 2026-10-16, PUSHED `bad20a2`, browser/live-API QA
   owner-handled):** `docs/replies.md` Slices A–C — ancestor chain via
   `notes/conversation` (oldest-first Thread section, incomplete marker,
   404 fallback to packed parent), per-branch `ReplyList`/`ReplyBranch`
@@ -109,10 +109,12 @@ approve-and-return round-trip still **not yet verified** (owner).
   `src/api/thread.ts` 19/19 checks, `tsc` + build green; API suites NOT
   re-run here (no backends on this machine). See log
   `2026-10-16-replies.md`.
-- **Plus (2026-10-16, UNCOMMITTED):** click-to-open posts (`NoteCard`
+- **Plus (2026-10-16, PUSHED `bad20a2`):** click-to-open posts (`NoteCard`
   body navigates to `/notes/:id` with link/button/media/selection
-  guards, pointer cursor; detail route excluded). `tsc` + build green;
-  browser click behavior **not yet verified** (owner). See log
+  guards, pointer cursor; detail route excluded) + avatar-column thread
+  connectors on the ancestor chain and root replies (nested levels keep
+  the indented edge connector). `tsc` + build green; browser click +
+  connector visuals **not yet verified** (owner). See log
   `2026-10-16-click-open.md`.
 
 ## Decisions since stonekey
