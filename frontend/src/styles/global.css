@@ -668,6 +668,45 @@ textarea::placeholder {
   text-decoration: none;
 }
 
+/* Mention chip content: resolved avatar + display name in one row. The
+ * name clips with an ellipsis inside the pill's max-width; the full
+ * @acct stays on the link title. */
+.mchip-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: inherit;
+}
+
+.mchip-avatar,
+.mchip-avatarmissing {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mchip-avatar {
+  object-fit: cover;
+}
+
+.mchip-avatarmissing {
+  background: var(--raise);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.mchip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Tag-block bubble `(#first +N)` + popup. The bubble never wraps the
  * header: long first tags clip with an ellipsis. The popup copies the
  * renote-menu surface; rows route internally to tag search. */

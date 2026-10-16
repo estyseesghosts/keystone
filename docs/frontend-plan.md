@@ -182,6 +182,17 @@ executed evidence.
       dvd.chat `notes/translate` on a real CW note returns the translated
       BODY only — no CW, no `-----` separator — so the upstream split
       shape does not hold on this fork
+- [x] Leading-`RE:` triple fix (2026-10-16, see
+      `../state/logs/2026-10-16-re-quote-prefix.md`): `RE:` recognized
+      leading-or-terminal (`RE_PREFIX_PATTERN`, same narrow rules);
+      per-marker suppression only when its own (textual) or the matching
+      structured card renders; stripped markers also suppress the
+      duplicate LinkCard; structured always wins; 45/45 checks, `tsc` +
+      build green; local-backend `ap/show` probe not run here (no
+      backends on this machine) — owner live-tests on dvd.chat
+- [x] Mention chips show resolved avatar + display name (full `@acct` on
+      title); unresolved rendering byte-identical; `mentionCache` keeps
+      the full `UserLite`
 - [x] Evidence: `tsc --noEmit` clean, `npm run build` green, 41/41 unit
       checks (esbuild-bundle + node: blocks, budgets, cuts, empty/error
       states — `/tmp/opencode/tags-fold-check.mjs`), live CW probe output

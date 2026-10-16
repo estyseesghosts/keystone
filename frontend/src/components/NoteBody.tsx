@@ -14,7 +14,7 @@ import ProfileCardLoader, { parseProfileUrl } from "./ProfileCard";
 import type { ProfileRef } from "./ProfileCard";
 import {
   getQuoteTarget,
-  parseTextualQuote,
+  parseTextualQuotes,
   registerSeenNote,
   resolveQuoteUri,
   statusLabelFor,
@@ -276,7 +276,11 @@ export default function NoteBody(props: NoteBodyProps) {
 
   // Embedded cards from bare URLs in the text: profile URLs unfurl into
   // profile cards, the first other URL gets the link card. A URL the
-  // quote card already covers (textual `RE:` fallback) never doubles up.
+  // quote card already covers never doubles up: the quote target's own
+  // URI, or any URL on a stripped `RE:` marker line (prefix or suffix).
+  // A marker that failed to resolve keeps its text AND its card — the
+  // fallback link is the only way to reach the target.
+  const strippedUris = createMemo(() => coveredMarkers().map((m) => m.uri));
   const cardUrls = createMemo((): string[] => {
     const text = props.note.text;
     if (!text) return [];
@@ -287,12 +291,14 @@ export default function NoteBody(props: NoteBodyProps) {
       return [];
     }
     const quoteUri = quote()?.uri;
+    const stripped = strippedUris();
     const urls: string[] = [];
     for (const node of nodes) {
       if (node.type !== "url") continue;
       const url = node.props.url;
       if (typeof url !== "string" || urls.includes(url)) continue;
       if (quoteUri && urisMatch(url, quoteUri)) continue;
+      if (stripped.some((u) => urisMatch(url, u))) continue;
       urls.push(url);
     }
     return urls;
@@ -331,29 +337,40 @@ export default function NoteBody(props: NoteBodyProps) {
     return !!href && /^https?:\/\//.test(href);
   });
 
-  // View transformation only: hide the exact terminal `RE:` suffix when its
-  // card rendered (textual), or when it exactly duplicates the structured
-  // target whose card (or stable unavailable fallback) renders. Persisted
-  // text is never mutated; a failed lookup keeps the suffix visible.
-  const textSuffix = createMemo(() => parseTextualQuote(props.note.text));
+  // View transformation only: hide a leading `RE:` marker, a terminal
+  // `RE:` suffix, or both — but only when the marker's card actually
+  // renders. A textual-fallback marker hides when its own resolved card
+  // shows; a marker duplicating the structured target hides when that
+  // card (or its stable unavailable fallback) renders. Persisted text is
+  // never mutated; a failed lookup keeps the marker visible.
+  const textMarkers = createMemo(() => parseTextualQuotes(props.note.text));
+  const coveredMarkers = createMemo(() => {
+    const target = quote();
+    if (!target || depth() !== 0) return [];
+    return textMarkers().filter((m) => {
+      if (target.source === "textual-fallback") {
+        return !!target.uri && urisMatch(m.uri, target.uri) && !!embeddedNote();
+      }
+      return (
+        structuredUrisOf(props.note).some((uri) => urisMatch(uri, m.uri)) &&
+        (!!embeddedNote() || showUnavailable())
+      );
+    });
+  });
   const visibleText = createMemo(() => {
     const text = props.note.text;
     if (text == null || depth() !== 0) return text;
-    const suffix = textSuffix();
-    if (!suffix) return text;
-    const target = quote();
-    if (!target) return text;
-    if (target.source === "textual-fallback") {
-      if (embeddedNote()) return text.slice(0, suffix.start).replace(/[ \t\r\n]+$/, "");
-      return text;
-    }
-    const duplicate = structuredUrisOf(props.note).some((uri) =>
-      urisMatch(uri, suffix.uri),
-    );
-    if (duplicate && (embeddedNote() || showUnavailable())) {
-      return text.slice(0, suffix.start).replace(/[ \t\r\n]+$/, "");
-    }
-    return text;
+    if (!quote()) return text;
+    const covered = coveredMarkers();
+    if (covered.length === 0) return text;
+    let out = text;
+    const sorted = [...covered].sort((a, b) => b.start - a.start);
+    for (const m of sorted) out = out.slice(0, m.start) + out.slice(m.end);
+    // A stripped leading marker sat on its own line; a stripped suffix
+    // ran to the end — trim only the edge(s) stripping touched.
+    if (covered.some((m) => m.start === 0)) out = out.replace(/^[ \t\r\n]+/, "");
+    if (covered.some((m) => m.end === text.length)) out = out.replace(/[ \t\r\n]+$/, "");
+    return out;
   });
 
   // Order of operations per note: full text → RE-suffix suppression (above)

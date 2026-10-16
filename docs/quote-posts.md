@@ -66,15 +66,17 @@ Pinetree may include the non-standard, optional `quoteAuthorizationStatus` field
 
 ### Textual `RE:` fallback
 
-When no structured quote target exists, parse the note's own text for a **terminal** fallback such as:
+When no structured quote target exists, parse the note's own text for a
+**leading or terminal** fallback such as:
 
 - `RE: https://example.social/notes/123`
-- a final `RE:` line separated from commentary by a newline;
+- a leading `RE:` line above the commentary, or a final `RE:` line
+  separated from commentary by a newline;
 - a recognized final HTML fallback already converted to text by the backend.
 
 Do not require a special class like `quote-inline`, a marker that the server generated it, or an API field identifying it as a fallback. User-authored `RE:` text is intentionally in scope.
 
-Keep the heuristic narrow: recognize an ending `RE:` followed by one absolute `http` or `https` URL, trim surrounding whitespace and ordinary trailing punctuation, and reject malformed URLs, credentials in URLs, and non-web schemes. Do not convert an arbitrary mid-sentence link or every URL into a quote. If there are multiple possible suffixes, use the final valid terminal suffix only. The regex/parser should operate on the note's text representation, not arbitrary remote HTML.
+Keep the heuristic narrow: recognize a leading or ending `RE:` followed by one absolute `http` or `https` URL on its own line, trim surrounding whitespace and ordinary trailing punctuation, and reject malformed URLs, credentials in URLs, and non-web schemes. Do not convert an arbitrary mid-sentence link or every URL into a quote. If markers appear at both ends with different URLs, the terminal suffix feeds the fallback card and each marker is suppressed only when its own card (or the matching structured card) renders — never two cards from one line pair. If there are multiple possible suffixes, use the final valid terminal suffix only. The regex/parser should operate on the note's text representation, not arbitrary remote HTML.
 
 A textual fallback has no ActivityPub authorization semantics. Parsing it in Keystone must not change the note sent to the backend, synthesize an authorization stamp, or cause a request to be sent to the quoted author.
 

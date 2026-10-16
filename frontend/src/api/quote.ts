@@ -68,11 +68,13 @@ function asBool(raw: unknown): boolean {
 export interface TextualQuoteMatch {
   /** Cleaned absolute http(s) URL. */
   uri: string;
-  /** Offset where the removable suffix starts (including the separator
-   * whitespace/newline before `RE:`), so suppressing it leaves no blank
-   * line. `end` is always the end of the original text. */
+  /** Removable range. The suffix range starts at the separator
+   * whitespace/newline before `RE:` and always runs to the end of the
+   * original text; the prefix range starts at 0 and runs past the
+   * marker's line break — suppressing either leaves no blank line. */
   start: number;
   end: number;
+  position: "prefix" | "suffix";
 }
 
 /** Trailing punctuation stripped from a candidate fallback URL: these are
@@ -119,15 +121,62 @@ export function cleanQuoteUrl(raw: string): string | null {
  * several suffixes could apply, the end anchor selects the final one. */
 const RE_SUFFIX_PATTERN = /(?:^|\s)RE:[ \t]*(\S+)[ \t]*$/;
 
+/** Match a leading `RE: <URL>` marker: the text opens with `RE:`
+ * (case-sensitive) followed by exactly one absolute URL on that line.
+ * Same narrow rules as the suffix (trailing punctuation trimmed,
+ * credentials/non-web/relative rejected); `RE: <url> plus commentary on
+ * the same line` never matches — one URL per marker line. */
+const RE_PREFIX_PATTERN = /^RE:[ \t]*(\S+)[ \t]*(?:\r?\n|$)/;
+
+function toSuffixMatch(text: string, match: RegExpExecArray): TextualQuoteMatch | null {
+  const uri = cleanQuoteUrl(match[1]);
+  if (!uri) return null;
+  return { uri, start: match.index, end: text.length, position: "suffix" };
+}
+
 export function parseTextualQuote(text: string | null): TextualQuoteMatch | null {
   if (!text) return null;
   const trimmedEnd = text.replace(/[ \t\r\n]+$/, "");
   if (trimmedEnd.length === 0) return null;
   const match = RE_SUFFIX_PATTERN.exec(trimmedEnd);
   if (!match || match[1] === undefined) return null;
+  return toSuffixMatch(text, match);
+}
+
+/** The leading `RE:` marker, if any. Null unless the text opens with a
+ * single clean absolute http(s) URL on the marker line. */
+export function parseLeadingQuote(text: string | null): TextualQuoteMatch | null {
+  if (!text) return null;
+  const match = RE_PREFIX_PATTERN.exec(text);
+  if (!match || match[1] === undefined) return null;
   const uri = cleanQuoteUrl(match[1]);
   if (!uri) return null;
-  return { uri, start: match.index, end: text.length };
+  return { uri, start: 0, end: match.index + match[0].length, position: "prefix" };
+}
+
+/** Every textual marker in the text, occurrence order: 0–2 matches. A
+ * lone `RE: <url>` whole text matches BOTH patterns — when the URIs agree
+ * (normalized) that collapses to one match over the union range, so
+ * render-time stripping never applies two overlapping ranges. Two
+ * different URIs return both markers; each is evaluated independently at
+ * render (structured-wins per marker), never guessed into two cards. */
+export function parseTextualQuotes(text: string | null): TextualQuoteMatch[] {
+  if (!text) return [];
+  const prefix = parseLeadingQuote(text);
+  const suffix = parseTextualQuote(text);
+  if (!prefix) return suffix ? [suffix] : [];
+  if (!suffix) return [prefix];
+  if (prefix.end > suffix.start && urisMatch(prefix.uri, suffix.uri)) {
+    return [
+      {
+        uri: suffix.uri,
+        start: Math.min(prefix.start, suffix.start),
+        end: Math.max(prefix.end, suffix.end),
+        position: "suffix",
+      },
+    ];
+  }
+  return [prefix, suffix];
 }
 
 /** True when two quote URIs identify the same target: exact match first,
@@ -185,7 +234,9 @@ export function getQuoteTarget(note: Note): QuoteTarget | null {
 
   // Textual fallback only when no structured relationship exists. It has
   // no ActivityPub authorization semantics, so it never carries a status.
-  const textual = parseTextualQuote(note.text);
+  // The terminal suffix is preferred (legacy); a leading marker feeds the
+  // same fallback source when no suffix matches.
+  const textual = parseTextualQuote(note.text) ?? parseLeadingQuote(note.text);
   if (textual) {
     return { uri: textual.uri, source: "textual-fallback" };
   }

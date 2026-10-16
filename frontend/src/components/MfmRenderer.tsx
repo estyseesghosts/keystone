@@ -5,6 +5,7 @@ import { parse, toString } from "mfm-js";
 import type { MfmNode } from "mfm-js";
 import { apiCall } from "../api/client";
 import type { UserLite } from "../api/types";
+import { displayNameOf } from "../api/types";
 
 // Renders an allow-listed subset of the mfm-js AST as Solid elements.
 // Shapes validated against mfm-js 0.27.0 (built/index.d.ts). Unknown nodes
@@ -37,13 +38,13 @@ function displayUrl(url: string): string {
   return bare.length > 42 ? `${bare.slice(0, 41)}…` : bare;
 }
 
-// Cache of mention acct string -> resolved userId (null = not found, so we
+// Cache of mention acct string -> resolved user (null = not found, so we
 // never link to a dead profile and never refetch a miss).
-const mentionCache = new Map<string, string | null>();
+const mentionCache = new Map<string, UserLite | null>();
 
 function MentionLink(props: { acct: string; username: string; host: string | null }) {
   const cached = mentionCache.get(props.acct);
-  const [userId, setUserId] = createSignal<string | null>(cached ?? null);
+  const [user, setUser] = createSignal<UserLite | null>(cached ?? null);
   const [done, setDone] = createSignal(cached !== undefined);
 
   onMount(() => {
@@ -55,11 +56,11 @@ function MentionLink(props: { acct: string; username: string; host: string | nul
     const params: Record<string, unknown> = { username: props.username };
     if (props.host) params.host = props.host;
     apiCall<UserLite>("users/show", params).then(
-      (user) => {
+      (found) => {
         if (!alive) return;
-        const id = user?.id ?? null;
-        mentionCache.set(props.acct, id);
-        if (id) setUserId(id);
+        const kept = found?.id ? found : null;
+        mentionCache.set(props.acct, kept);
+        if (kept) setUser(kept);
         setDone(true);
       },
       () => {
@@ -70,11 +71,27 @@ function MentionLink(props: { acct: string; username: string; host: string | nul
     );
   });
 
-  // mfm-js packs the leading "@" into `acct` already ("@user@host"),
-  // so it renders verbatim — prepending another "@" doubles it.
+  // mfm-js packs the leading "@" into `acct` already ("@user@host").
+  // The chip shows the resolved avatar + display name (the full acct
+  // stays on `title` for disambiguation); unresolved mentions keep the
+  // verbatim acct text with no link, as before.
   return (
-    <Show when={done() && userId()} fallback={<span class="mentiontag">{props.acct}</span>}>
-      <A href={`/users/${userId()}`}>{props.acct}</A>
+    <Show when={done() && user()} fallback={<span class="mentiontag">{props.acct}</span>}>
+      {(resolved) => (
+        <A href={`/users/${resolved().id}`} class="mchip-user" title={props.acct}>
+          <Show
+            when={resolved().avatarUrl}
+            fallback={
+              <span class="mchip-avatarmissing" aria-hidden="true">
+                {displayNameOf(resolved()).slice(0, 1).toUpperCase()}
+              </span>
+            }
+          >
+            <img class="mchip-avatar" src={resolved().avatarUrl!} alt="" loading="lazy" />
+          </Show>
+          <span class="mchip-name">{displayNameOf(resolved())}</span>
+        </A>
+      )}
     </Show>
   );
 }
