@@ -1,6 +1,10 @@
 # STATE — resume pointer (mutable, keep current)
 
-**HEAD:** `0b39c02` (pushed 2026-10-16) — mutes & blocks + word-mute parity
+**HEAD:** `bb941c5` (2026-10-16) — cherry-picked worktree-remote-emoji-referrer
+fixes `bbd5565`/`bb941c5` (orig `b1fac93`/`fa4d29e`): no-Referer on host
+listing fetch + emoji `<img>`; `npm run build` green (see logs
+`2026-10-16-emoji-referrer.md`, `2026-10-16-emoji-img-referrer.md`).
+Prior `0b39c02` (pushed 2026-10-16) — mutes & blocks + word-mute parity
 (see logs `2026-10-16-mutes-blocks.md`, `2026-10-16-wordmute-parity.md`);
 tree clean except owner artifacts (screenshots, `.serena/`, `kobalte.md`,
 `scripts/smoke_parity.py`, all untracked).
