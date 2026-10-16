@@ -274,13 +274,36 @@ export default function NoteBody(props: NoteBodyProps) {
   });
   const unavailableNoteId = createMemo(() => quote()?.noteId ?? null);
 
+  // View transformation only: hide a leading `RE:` marker, a terminal
+  // `RE:` suffix, or both — but only when the marker's card actually
+  // renders. A textual-fallback marker hides when its own resolved card
+  // shows; a marker duplicating the structured target hides when that
+  // card (or its stable unavailable fallback) renders. Persisted text is
+  // never mutated; a failed lookup keeps the marker visible.
+  //
+  // Declared before cardUrls/visibleText: memos compute eagerly on
+  // creation, so a later memo cannot read one declared below it (TDZ).
+  const textMarkers = createMemo(() => parseTextualQuotes(props.note.text));
+  const coveredMarkers = createMemo(() => {
+    const target = quote();
+    if (!target || depth() !== 0) return [];
+    return textMarkers().filter((m) => {
+      if (target.source === "textual-fallback") {
+        return !!target.uri && urisMatch(m.uri, target.uri) && !!embeddedNote();
+      }
+      return (
+        structuredUrisOf(props.note).some((uri) => urisMatch(uri, m.uri)) &&
+        (!!embeddedNote() || showUnavailable())
+      );
+    });
+  });
+  const strippedUris = createMemo(() => coveredMarkers().map((m) => m.uri));
   // Embedded cards from bare URLs in the text: profile URLs unfurl into
   // profile cards, the first other URL gets the link card. A URL the
   // quote card already covers never doubles up: the quote target's own
   // URI, or any URL on a stripped `RE:` marker line (prefix or suffix).
   // A marker that failed to resolve keeps its text AND its card — the
   // fallback link is the only way to reach the target.
-  const strippedUris = createMemo(() => coveredMarkers().map((m) => m.uri));
   const cardUrls = createMemo((): string[] => {
     const text = props.note.text;
     if (!text) return [];
@@ -337,26 +360,6 @@ export default function NoteBody(props: NoteBodyProps) {
     return !!href && /^https?:\/\//.test(href);
   });
 
-  // View transformation only: hide a leading `RE:` marker, a terminal
-  // `RE:` suffix, or both — but only when the marker's card actually
-  // renders. A textual-fallback marker hides when its own resolved card
-  // shows; a marker duplicating the structured target hides when that
-  // card (or its stable unavailable fallback) renders. Persisted text is
-  // never mutated; a failed lookup keeps the marker visible.
-  const textMarkers = createMemo(() => parseTextualQuotes(props.note.text));
-  const coveredMarkers = createMemo(() => {
-    const target = quote();
-    if (!target || depth() !== 0) return [];
-    return textMarkers().filter((m) => {
-      if (target.source === "textual-fallback") {
-        return !!target.uri && urisMatch(m.uri, target.uri) && !!embeddedNote();
-      }
-      return (
-        structuredUrisOf(props.note).some((uri) => urisMatch(uri, m.uri)) &&
-        (!!embeddedNote() || showUnavailable())
-      );
-    });
-  });
   const visibleText = createMemo(() => {
     const text = props.note.text;
     if (text == null || depth() !== 0) return text;
