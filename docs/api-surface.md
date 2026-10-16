@@ -88,6 +88,7 @@ hint, never a bare error.
 | Antennas create/update/delete | `antennas/create`, `antennas/update`, `antennas/delete` | Auth, `kind write:account`. Required create fields: `name`, `src` (`home`/`all`/`users`/`users_blacklist`; `list` omitted — needs the user-list subset), `keywords`, `excludeKeywords` (nested AND-groups OR-ed, verified in AntennaService), `users` (acct strings), `caseSensitive`, `withReplies`, `withFile`; optional `localOnly`, `excludeBots`, `userListId` |
 | Edit profile | `i/update` | Auth, `kind write:account`; bounded common subset: `name`, `description`, `location`, `birthday`, `isLocked`, `isBot` (+ `avatarId`/`bannerId` deferred) |
 | Revoke session | `i/revoke-token` | No params revokes the calling app token; best-effort at sign-out (unsupported servers 404 — local state clears regardless) |
+| Link preview | `url-preview` | **Absent on Sharkey 2025.4.7** (verified 404, same shape as bogus endpoints — the route is not registered). Keystone fetches OpenGraph tags client-side instead (direct, then CORS proxy, then basic domain card). **Pinetree workstream:** implement a first-party `url-preview`-compatible endpoint (`{url}` → `{title?, description?, siteName?, image?, icon?}`) and swap the client fetcher to it |
 
 Timelines: `limit` ~20, `sinceId`/`untilId` cursors. Cross-backend rule: send
 only `{limit, sinceId, untilId}` (+ endpoint-specific ids like

@@ -44,6 +44,13 @@ approve-and-return round-trip still **not yet verified** (owner).
 - 2026-10-16 (mention-at): mentions rendered `@@user` because mfm-js
   already packs the leading `@` into `acct`; renderer now uses it
   verbatim (see log `2026-10-16-mention-at.md`). tsc + build green.
+- 2026-10-16 (embed-cards): pasted URLs unfurl below the note text —
+  profile URLs become rich profile cards (avatar/bio/counts/follow),
+  first other URL becomes a link card via client-side OpenGraph fetch
+  (direct, then proxy, then basic domain card). `url-preview` verified
+  absent on Sharkey; Pinetree endpoint noted as the later workstream
+  (see log `2026-10-16-embed-cards.md`). tsc + build green; visual
+  browser QA **not yet verified** (owner).
 
 ## Decisions since stonekey
 

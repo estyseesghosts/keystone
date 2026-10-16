@@ -1,9 +1,14 @@
 import { createEffect, createMemo, createResource, createSignal, For, Show } from "solid-js";
 import { A } from "@solidjs/router";
+import { parse } from "mfm-js";
+import type { MfmNode } from "mfm-js";
 import type { DriveFile, Note } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
 import { apiCall } from "../api/client";
 import MfmRenderer from "./MfmRenderer";
+import LinkCard from "./LinkCard";
+import ProfileCardLoader, { parseProfileUrl } from "./ProfileCard";
+import type { ProfileRef } from "./ProfileCard";
 import {
   getQuoteTarget,
   parseTextualQuote,
@@ -240,6 +245,46 @@ export default function NoteBody(props: NoteBodyProps) {
   });
   const unavailableNoteId = createMemo(() => quote()?.noteId ?? null);
 
+  // Embedded cards from bare URLs in the text: profile URLs unfurl into
+  // profile cards, the first other URL gets the link card. A URL the
+  // quote card already covers (textual `RE:` fallback) never doubles up.
+  const cardUrls = createMemo((): string[] => {
+    const text = props.note.text;
+    if (!text) return [];
+    let nodes: MfmNode[];
+    try {
+      nodes = parse(text);
+    } catch {
+      return [];
+    }
+    const quoteUri = quote()?.uri;
+    const urls: string[] = [];
+    for (const node of nodes) {
+      if (node.type !== "url") continue;
+      const url = node.props.url;
+      if (typeof url !== "string" || urls.includes(url)) continue;
+      if (quoteUri && urisMatch(url, quoteUri)) continue;
+      urls.push(url);
+    }
+    return urls;
+  });
+
+  const profileRefs = createMemo((): ProfileRef[] => {
+    const refs: ProfileRef[] = [];
+    for (const url of cardUrls()) {
+      const ref = parseProfileUrl(url);
+      if (ref) refs.push(ref);
+    }
+    return refs;
+  });
+
+  const linkUrl = createMemo((): string | null => {
+    for (const url of cardUrls()) {
+      if (!parseProfileUrl(url)) return url;
+    }
+    return null;
+  });
+
   // Compact link for quotes nested inside an embed: the embed never fetches
   // or expands, it only links out. Textual fallbacks need no extra link —
   // the embedded text already carries the URL as a normal link.
@@ -304,6 +349,12 @@ export default function NoteBody(props: NoteBodyProps) {
         </Show>
         <Show when={props.note.poll}>
           <PollBlock note={props.note} canVote={props.canVote} onChanged={props.onChanged} />
+        </Show>
+        <For each={profileRefs()}>
+          {(ref) => <ProfileCardLoader ref={ref} />}
+        </For>
+        <Show when={linkUrl()}>
+          {(url) => <LinkCard url={url()} />}
         </Show>
         <Show when={quote()}>
           <Show when={depth() === 0} fallback={
