@@ -646,7 +646,11 @@ textarea::placeholder {
 .mchip {
   display: inline-block;
   max-width: 280px;
-  vertical-align: baseline;
+  /* middle, not baseline: overflow:hidden (for the ellipsis) moves an
+   * inline-block's baseline to its bottom edge, which would perch the
+   * whole pill on the text baseline and stretch the line upward.
+   * Middle keeps the pill centered inside the line box instead. */
+  vertical-align: middle;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -657,7 +661,7 @@ textarea::placeholder {
   /* Tighter than the body 1.45: pill border + text must fit inside one
    * line box, otherwise any chipped line stands taller than its
    * neighbors (see docs/spacing.png). */
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
 .mchip a {

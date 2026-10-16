@@ -159,8 +159,10 @@ executed evidence.
 - [x] Inline chips (`MfmRenderer` + `global.css` `.mchip`): @mentions
       (verbatim acct, existing resolution) and bare/labeled URLs (truncated
       display, full target, existing safety) as pills; lone hashtags
-      explicitly NOT chips; `.mchip` line-height 1.25 so chipped lines
-      keep the surrounding line rhythm (`docs/spacing.png`)
+      explicitly NOT chips; `.mchip` rhythm (`vertical-align: middle` —
+      `overflow:hidden` re-baselines inline-blocks — plus tight
+      line-height) so chipped lines keep the surrounding line rhythm
+      (`docs/spacing.png`, follow-up `2026-10-16-chip-spacing.md`)  
 - [x] Timeline fold (`src/api/fold.ts` `foldMfm`, 750 budget, mentions/
       links uncounted, hashtags counted, text/plain-only word-boundary
       cut, never-sliced tags, post-cut zero-count drop): threaded
