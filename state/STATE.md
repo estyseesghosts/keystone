@@ -31,6 +31,11 @@ approve-and-return round-trip still **not yet verified** (owner).
   snap-scroll strip; a lone image/video keeps fit-to-width and never
   scrolls (see log `2026-10-16-media-strip.md`). Build green; visual
   browser QA **not yet verified** (owner).
+- 2026-10-16 (drive-groups): Drive grouped into Images/Videos/Audio/Files;
+  mosaic tiles for images/video (+inline preview), miniplayer audio rows
+  with tags/duration when available (see log
+  `2026-10-16-drive-groups.md`). tsc + build green; visual browser QA
+  **not yet verified** (owner).
 
 ## Decisions since stonekey
 

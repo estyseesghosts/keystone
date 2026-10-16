@@ -1196,6 +1196,147 @@ button.rxn:not(:disabled):hover {
   flex-shrink: 0;
 }
 
+/* Drive groups: Images / Videos / Audio / Files sections. */
+.drivesec {
+  padding: 4px 16px 8px;
+}
+
+.drivesec-head {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 12px 0 8px;
+}
+
+/* Tile mosaic for the Images and Videos sections. */
+.mosaic {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.tile {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tile-selected {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+.tile-view {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.tile-view img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.tile video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: #000;
+}
+
+.tile-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tile-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
+.tile-duration {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 6px;
+  border-top: 1px solid var(--border);
+}
+
+.tile-actions button {
+  font-size: 12px;
+  padding: 2px 6px;
+}
+
+/* Miniplayer rows for the Audio section. */
+.audiorow {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 0 0 8px;
+  display: flex;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+
+.audio-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.audio-title {
+  font-weight: 600;
+}
+
+.audiorow audio {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.audio-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.audio-actions button {
+  font-size: 12px;
+  padding: 2px 6px;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
