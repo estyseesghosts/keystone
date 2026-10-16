@@ -27,6 +27,10 @@ serves 200, `npm run build` green, public Sharkey `dvd.chat` (`2025.4.7`)
 verified live (meta 200, miauth page 200, CORS `*`). Docs-only changes
 (README quickstart, `docs/setup.md` §7); no code changes. Browser
 approve-and-return round-trip still **not yet verified** (owner).
+- 2026-10-16 (media-strip): 2+ images/videos render as a horizontal
+  snap-scroll strip; a lone image/video keeps fit-to-width and never
+  scrolls (see log `2026-10-16-media-strip.md`). Build green; visual
+  browser QA **not yet verified** (owner).
 
 ## Decisions since stonekey
 

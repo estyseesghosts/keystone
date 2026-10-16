@@ -659,6 +659,30 @@ textarea::placeholder {
   margin: 8px 0;
 }
 
+/* Multi-attachment strip: horizontal snap-scroll, one item per snap.
+ * Applied only when a note carries 2+ images/videos — a lone image or
+ * video keeps the fit-to-width rules below and never scrolls. */
+.media-strip {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scroll-snap-type: x proximity;
+}
+
+.media-strip > * {
+  flex-shrink: 0;
+}
+
+.media-strip img,
+.media-strip video {
+  flex: 0 0 auto;
+  height: 220px;
+  width: auto;
+  max-width: 85%;
+  object-fit: cover;
+  scroll-snap-align: start;
+}
+
 .media img,
 .media video {
   max-width: 100%;

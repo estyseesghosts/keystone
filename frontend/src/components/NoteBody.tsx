@@ -168,6 +168,13 @@ export default function NoteBody(props: NoteBodyProps) {
   const hasCw = () => (props.note.cw?.length ?? 0) > 0;
   const visible = () => !hasCw() || cwOpen();
 
+  // Strip layout only for 2+ images/videos: a lone image or video keeps the
+  // fit-to-width `.media` rules and is never horizontally scrollable.
+  const isStrip = () =>
+    props.note.files.filter(
+      (f) => f.type.startsWith("image/") || f.type.startsWith("video/"),
+    ).length > 1;
+
   // Single source of truth for quote-card rendering at this level.
   const quote = createMemo(() => getQuoteTarget(props.note));
   const statusLabel = createMemo(() =>
@@ -291,7 +298,7 @@ export default function NoteBody(props: NoteBodyProps) {
           <MfmRenderer text={visibleText()} />
         </div>
         <Show when={props.note.files.length > 0}>
-          <div class="media">
+          <div class={isStrip() ? "media media-strip" : "media"}>
             <For each={props.note.files}>{(file) => <MediaItem file={file} />}</For>
           </div>
         </Show>
