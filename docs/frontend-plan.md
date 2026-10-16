@@ -34,9 +34,24 @@ executed evidence.
       global (`notes/global-timeline`, public — supported on both servers):
       limit 20, `untilId` "load older" with dedupe, exhausted end-state,
       retry-older (not refresh), failures keep loaded data
-- [x] Note detail (`notes/show`): parent reply + renoted context as returned,
-      direct replies via `notes/replies` (labeled partial, with paging);
+- [x] Note detail (`notes/show`): ancestor chain via `notes/conversation`
+      (oldest-first `Thread` section above the note, neutral marker when
+      context is incomplete, 404 falls back to the packed one-level
+      parent); every direct reply via a per-branch `ReplyList` /
+      `ReplyBranch` tree (`notes/replies`, newest-first, paged to
+      exhaustion so an opened post shows all its replies, lazy nested
+      expansion, per-branch error/cursor/dedupe, cycle + depth guards);
+      every reply card links to its own detail view with its full thread;
       missing/invisible → API error path
+- [x] Click-to-open: the post body anywhere outside the detail route
+      navigates to `/notes/:id` (links, buttons, inputs, media controls,
+      menus, and text selections keep their own behavior; keyboard path
+      stays on the time / reply-count / Open-post links)
+- [x] Thread connector: a vertical line through the avatar column ties
+      same-thread notes together (ancestor chain above the post, root
+      replies below — the last reply's line stops at its avatar, avatars
+      paint above the line); nested levels keep their indented edge
+      connector instead
 - [x] `NoteCard` (avatar, name, handle, timestamp, text, CW, media by MIME
       type with failure fallback, counts), profile links from avatar/name and
       notification authors, mention resolution via cached `users/show`,
@@ -199,6 +214,42 @@ executed evidence.
       recorded (see `../state/logs/2026-10-16-tag-bubbles-fold-scroll.md`).
       Browser behavior (bubble/popup, chips, fold vs detail, stall-free
       scroll on all four sites) not yet verified — owner live-testing.
+
+## Branched replies (built 2026-10-16, `docs/replies.md`; live-API + browser QA pending)
+
+- [x] Ancestor context (`routes/Note.tsx` + `src/api/thread.ts`
+      `orderAncestors`): `notes/conversation` paged with `limit`/`offset`
+      (no-growth + 512-walk guards so an offset-ignoring server can't
+      loop), chain walked from the displayed note's `replyId` and rendered
+      oldest-first above it; neutral "Earlier reply context unavailable"
+      marker when a parent is deleted/private/omitted (never an id/URI);
+      404 falls back to the packed one-level `reply`; ancestor failures
+      never replace the selected note (region-local retry)
+- [x] Lazy branches (`src/components/ReplyList.tsx` `ReplyList` +
+      `ReplyBranch`): root list expanded by default and paged to
+      exhaustion (`untilId`, id-dedupe, per-branch loading/error/retry/
+      cursor state), so an opened post shows every direct reply
+      newest-first; nested lists mount only on Show-replies expand
+      (control always shown — counts can be stale), queries always use
+      `appearNoteOf` ids, server order preserved, cycle guard +
+      explicit too-deep state at depth 32, bounded CSS indent with
+      connector (indent stops past four levels, depth unlimited)
+- [x] Replying + navigation: composer still targets the displayed note's
+      id (`replyId = A.id`); posted replies prepend instantly via
+      `injected` without refetching; clicking a branch card body opens
+      that reply's own detail view (time/reply-count links kept for
+      keyboard users; links, buttons, inputs, media controls, and text
+      selections keep their own behavior); route-param-driven reload
+      with a generation guard, so a slow response for an old `:id` can
+      never paint the new thread; Refresh reloads note + context +
+      branches; poll votes reconcile quietly without collapsing branches
+- [x] Evidence: `tsc --noEmit` clean, `npm run build` green, 19/19
+      `thread.ts` checks (esbuild-bundle + node: merge order/dedupe/
+      identity, chain ordering, gaps, cycles, 512 bound —
+      `/tmp/opencode/thread-check.mjs`). No backends on this machine, so
+      API suites were NOT re-run; browser behavior (expansion, keyboard,
+      mobile indent, paging, retry, `:id` switching) not yet verified —
+      owner.
 
 ## Deliberately deferred (do not build until scoped)
 

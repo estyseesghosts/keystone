@@ -98,6 +98,22 @@ approve-and-return round-trip still **not yet verified** (owner).
   resolved avatar + display name. Local-backend probe not run here (no
   backends on this machine); owner live-tests both on dvd.chat. See log
   `2026-10-16-re-quote-prefix.md`.
+- **Next (implemented 2026-10-16, UNCOMMITTED + browser/live-API QA
+  owner-handled):** `docs/replies.md` Slices A–C — ancestor chain via
+  `notes/conversation` (oldest-first Thread section, incomplete marker,
+  404 fallback to packed parent), per-branch `ReplyList`/`ReplyBranch`
+  (`notes/replies` newest-first paged to exhaustion so an opened post
+  shows every reply; lazy Show/Hide; per-branch error/cursor/dedupe;
+  cycle + depth-32 guards), posted replies prepend via `injected`
+  without refetch, route-param-driven reload with generation guard.
+  `src/api/thread.ts` 19/19 checks, `tsc` + build green; API suites NOT
+  re-run here (no backends on this machine). See log
+  `2026-10-16-replies.md`.
+- **Plus (2026-10-16, UNCOMMITTED):** click-to-open posts (`NoteCard`
+  body navigates to `/notes/:id` with link/button/media/selection
+  guards, pointer cursor; detail route excluded). `tsc` + build green;
+  browser click behavior **not yet verified** (owner). See log
+  `2026-10-16-click-open.md`.
 
 ## Decisions since stonekey
 
@@ -190,6 +206,13 @@ Previously scoped next: human browser QA pass (owner-handled).
   collapse; `collapseReposts` extracted pure + 16/16 checks, tsc + build
   green (see log `2026-10-16-repost-collapse.md`). Committed + pushed
   as `7d0392d`.
+- 2026-10-16 (user-hover): hover/focus profile popup on note avatars +
+  names (`UserHoverCard.tsx` + `.hovercard` styles, wired in `NoteCard`):
+  banner header (profile2.png), avatar-overlap + Follow + name/handle/bio +
+  compact counts (profile.png), `users/show` cached per session, Lite
+  fallback + retry, desktop-hover only. `tsc` + build green; browser QA
+  **not yet verified** (owner). See log `2026-10-16-user-hover.md`.
+  Uncommitted.
 
 ## Servers running (background, dev only)
 

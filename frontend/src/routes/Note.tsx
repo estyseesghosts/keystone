@@ -1,19 +1,20 @@
-import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import { A, useNavigate, useParams } from "@solidjs/router";
-import { apiCall } from "../api/client";
+import { apiCall, isUnsupportedError } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
 import { appearNoteOf, withReaction } from "../api/types";
+import {
+  CONVERSATION_PAGE_SIZE,
+  MAX_ANCESTOR_WALK,
+  orderAncestors,
+} from "../api/thread";
 import { captureNote } from "../api/stream";
 import { useAuth } from "../state/auth";
 import Composer from "../components/Composer";
 import ErrorState from "../components/ErrorState";
-import InfiniteSentinel from "../components/InfiniteSentinel";
 import NoteCard from "../components/NoteCard";
+import ReplyList from "../components/ReplyList";
 import { NoteSkeletonList } from "../components/Skeleton";
-
-const REPLIES_PAGE_SIZE = 20;
-
-type RepliesLoadMode = "initial" | "older";
 
 export default function NoteDetail() {
   const params = useParams();
@@ -28,112 +29,135 @@ export default function NoteDetail() {
   const [quoting, setQuoting] = createSignal(false);
   const [reposting, setReposting] = createSignal(false);
   const [reposted, setReposted] = createSignal(false);
-  const [replies, setReplies] = createSignal<Note[]>([]);
-  const [repliesLoading, setRepliesLoading] = createSignal(true);
-  const [repliesLoadingMore, setRepliesLoadingMore] = createSignal(false);
-  const [repliesBusy, setRepliesBusy] = createSignal(false);
-  const [repliesError, setRepliesError] = createSignal<string | null>(null);
-  const [repliesExhausted, setRepliesExhausted] = createSignal(false);
-  const [repliesFailedMode, setRepliesFailedMode] = createSignal<RepliesLoadMode | null>(null);
   const [replyPosted, setReplyPosted] = createSignal(false);
+  // Ancestor chain above the selected note (oldest-first), loaded from
+  // `notes/conversation` for the displayed/original note.
+  const [ancestors, setAncestors] = createSignal<Note[]>([]);
+  const [ancestorsLoading, setAncestorsLoading] = createSignal(true);
+  const [ancestorsError, setAncestorsError] = createSignal<string | null>(null);
+  const [ancestorsIncomplete, setAncestorsIncomplete] = createSignal(false);
+  // Locally posted replies render first in the root list without
+  // refetching the branch (see `ReplyList` `injected`).
+  const [injected, setInjected] = createSignal<Note[]>([]);
+
+  // Route generation: a navigation invalidates every in-flight request
+  // for the previous id so delayed responses can never overwrite the
+  // newly selected thread.
+  let routeSeq = 0;
 
   const load = async (id: string) => {
+    const my = routeSeq;
     setLoading(true);
     setError(null);
     try {
-      setNote(await apiCall<Note>("notes/show", { noteId: id }));
+      const found = await apiCall<Note>("notes/show", { noteId: id });
+      if (my !== routeSeq) return;
+      setNote(found);
+      void loadAncestors(appearNoteOf(found), found, my);
     } catch (err) {
+      if (my !== routeSeq) return;
       setNote(null);
       setError(err instanceof Error ? err.message : "Could not open the note.");
     } finally {
-      setLoading(false);
+      if (my === routeSeq) setLoading(false);
     }
   };
 
-  const loadReplies = async (id: string, mode: RepliesLoadMode) => {
-    if (repliesBusy()) return;
-    if (mode === "older" && repliesExhausted()) return;
-    setRepliesBusy(true);
-    if (mode === "initial") setRepliesLoading(true);
-    else setRepliesLoadingMore(true);
-    setRepliesError(null);
+  const loadAncestors = async (displayed: Note, pageNote: Note, my: number) => {
+    setAncestorsLoading(true);
+    setAncestorsError(null);
     try {
-      const current = replies();
-      const req: Record<string, unknown> = { noteId: id, limit: REPLIES_PAGE_SIZE };
-      if (mode === "older" && current.length > 0) {
-        req.untilId = current[current.length - 1].id;
-      }
-      const page = await apiCall<Note[]>("notes/replies", req);
-      if (mode === "older") {
-        const seen = new Set(current.map((n) => n.id));
-        const fresh: Note[] = [];
+      const seen = new Set<string>();
+      const collected: Note[] = [];
+      let offset = 0;
+      for (;;) {
+        const page = await apiCall<Note[]>("notes/conversation", {
+          noteId: displayed.id,
+          limit: CONVERSATION_PAGE_SIZE,
+          offset,
+        });
+        if (my !== routeSeq) return;
+        let grew = false;
         for (const n of page) {
           if (!seen.has(n.id)) {
             seen.add(n.id);
-            fresh.push(n);
+            collected.push(n);
+            grew = true;
           }
         }
-        if (fresh.length === 0) setRepliesExhausted(true);
-        setReplies([...current, ...fresh]);
-      } else {
-        const seen = new Set<string>();
-        setReplies(
-          page.filter((n) => {
-            if (seen.has(n.id)) return false;
-            seen.add(n.id);
-            return true;
-          }),
-        );
-        setRepliesExhausted(false);
+        if (page.length < CONVERSATION_PAGE_SIZE) break;
+        // A server that ignores `offset` repeats the same page: stop
+        // instead of looping forever. The walk itself is bounded too.
+        if (!grew || collected.length >= MAX_ANCESTOR_WALK) break;
+        offset += page.length;
       }
-      setRepliesFailedMode(null);
+      if (my !== routeSeq) return;
+      const ordered = orderAncestors(displayed.replyId, collected);
+      setAncestors(ordered.ancestors);
+      setAncestorsIncomplete(ordered.incomplete);
     } catch (err) {
-      // A replies failure never touches the parent note; already-loaded
-      // replies stay visible and retry reuses the same cursor.
-      setRepliesError(err instanceof Error ? err.message : "Could not load replies.");
-      setRepliesFailedMode(mode);
+      if (my !== routeSeq) return;
+      if (isUnsupportedError(err)) {
+        // No conversation endpoint on this server: fall back to the
+        // one-level parent packed on `notes/show`, as before.
+        const parent = pageNote.reply;
+        setAncestors(parent ? [parent] : []);
+        setAncestorsIncomplete(
+          !!displayed.replyId && (!parent || !!parent.replyId),
+        );
+      } else {
+        // An ancestor failure never touches the selected note; retry
+        // reloads only the context.
+        setAncestorsError(
+          err instanceof Error ? err.message : "Could not load reply context.",
+        );
+      }
     } finally {
-      setRepliesLoading(false);
-      setRepliesLoadingMore(false);
-      setRepliesBusy(false);
+      if (my === routeSeq) setAncestorsLoading(false);
     }
   };
 
-  const retryReplies = () => void loadReplies(params.id ?? "", repliesFailedMode() ?? "initial");
+  const retryAncestors = () => {
+    const current = note();
+    if (current) void loadAncestors(appearNoteOf(current), current, routeSeq);
+  };
 
   const resetForId = (id: string) => {
     if (!id) return;
-    // Direct navigation /notes/a -> /notes/b reuses this component: reset
-    // page-specific state and reload instead of relying on mount only.
+    // Direct navigation /notes/a -> /notes/b reuses this component: bump
+    // the generation, reset page-specific state, and reload instead of
+    // relying on mount only.
+    routeSeq++;
     setNote(null);
-    setReplies([]);
-    setRepliesExhausted(false);
+    setAncestors([]);
+    setAncestorsIncomplete(false);
+    setAncestorsError(null);
+    setInjected([]);
     setReposted(false);
     setQuoting(false);
     setConfirmDelete(false);
     setReplyPosted(false);
-    setRepliesFailedMode(null);
     void load(id);
-    void loadReplies(id, "initial");
   };
 
-  onMount(() => {
-    resetForId(params.id ?? "");
-  });
-
-  // The router reuses this component when only :id changes: reload the
-  // note, replies, and page-specific state instead of relying on mount.
+  // The router reuses this component when only :id changes, so the
+  // route param itself drives (re)loading — not mount, and not the
+  // loaded note. Any :id change resets immediately (bumping the
+  // generation, which discards in-flight responses for the old id), so
+  // a slow request can never paint the previous thread.
+  let loadedRoute: string | null = null;
   createEffect(() => {
     const id = params.id ?? "";
-    if (!id) return;
-    const current = note();
-    if (!loading() && current && current.id !== id) resetForId(id);
-    if (!loading() && !current && !error()) resetForId(id);
+    if (!id || id === loadedRoute) return;
+    loadedRoute = id;
+    resetForId(id);
   });
 
   const refresh = () => {
-    const current = note();
-    if (current) void load(current.id);
+    // Manual refresh is the fallback for remote changes: reload the
+    // selected note, its ancestors, and (by remount) its reply branches.
+    const id = params.id ?? "";
+    if (id) resetForId(id);
   };
 
   // Quiet server reconciliation for streamed updates (no loading flash).
@@ -253,11 +277,25 @@ export default function NoteDetail() {
   };
 
   const onReplyPosted = (created: Note) => {
+    // A successful post appears instantly at the top of the root branch
+    // (newest-first) without disturbing loaded branches; the composer
+    // already targets the displayed note's id as `replyId`.
     setReplyPosted(true);
-    setReplies((current) =>
+    setInjected((current) =>
       current.some((n) => n.id === created.id) ? current : [created, ...current],
     );
     setNote((n) => (n ? { ...n, repliesCount: n.repliesCount + 1 } : n));
+  };
+
+  // Ids from the thread root through the displayed note (inclusive): the
+  // root branch's cycle guard. Ancestors render oldest-first above.
+  const threadPath = () => {
+    const current = note();
+    if (!current) return [];
+    return [
+      ...ancestors().map((a) => appearNoteOf(a).id),
+      appearNoteOf(current).id,
+    ];
   };
 
   const remove = async () => {
@@ -296,9 +334,47 @@ export default function NoteDetail() {
                     <div class="errorbox">{error()}</div>
                   </div>
                 </Show>
-                <Show when={current().reply}>
-                  <div class="pagehead"><h1>Replied to</h1></div>
-                  <NoteCard note={current().reply!} foldText={false} />
+                <Show
+                  when={
+                    ancestorsLoading() ||
+                    ancestors().length > 0 ||
+                    ancestorsError()
+                  }
+                >
+                  <div class="pagehead">
+                    <h1>Thread</h1>
+                  </div>
+                </Show>
+                <Show when={ancestorsLoading() && ancestors().length === 0}>
+                  <NoteSkeletonList count={1} label="Loading reply context…" />
+                </Show>
+                <Show when={ancestors().length > 0}>
+                  <div class="feed thread-ancestors">
+                    <For each={ancestors()}>
+                      {(ancestor) => (
+                        <NoteCard note={ancestor} foldText={false} />
+                      )}
+                    </For>
+                  </div>
+                </Show>
+                <Show
+                  when={
+                    !ancestorsLoading() &&
+                    !ancestorsError() &&
+                    ancestorsIncomplete()
+                  }
+                >
+                  <div class="state" role="status">
+                    <p>Earlier reply context unavailable.</p>
+                  </div>
+                </Show>
+                <Show when={ancestorsError()}>
+                  <ErrorState
+                    message={
+                      ancestorsError() ?? "Could not load reply context."
+                    }
+                    onRetry={retryAncestors}
+                  />
                 </Show>
                 <NoteCard
                   note={current()}
@@ -308,7 +384,7 @@ export default function NoteDetail() {
                   onQuote={auth.token() ? () => setQuoting(true) : undefined}
                   reposting={reposting()}
                   reposted={reposted()}
-                  onChanged={refresh}
+                  onChanged={refreshPage}
                   detail
                   foldText={false}
                 />
@@ -332,51 +408,20 @@ export default function NoteDetail() {
                   </Show>
                 </Show>
                 <div class="pagehead"><h1>Replies</h1></div>
-                <div class="state"><p>Direct replies (may be partial).</p></div>
+                <div class="state">
+                  <p>
+                    Every direct reply, newest first. Expand a reply to
+                    see its own replies, or open it for its full thread.
+                  </p>
+                </div>
                 <Show when={replyPosted()}>
                   <div class="state" role="status"><p>Reply posted.</p></div>
                 </Show>
-                <Show when={repliesLoading()} fallback={
-                  <>
-                    <Show when={repliesError() && replies().length > 0}>
-                      <div class="state" role="alert">
-                        <div class="errorbox">{repliesError()}</div>
-                        <button type="button" onClick={retryReplies}>Try again</button>
-                      </div>
-                    </Show>
-                    <Show when={repliesError() && replies().length === 0}>
-                      <ErrorState
-                        message={repliesError() ?? "Could not load replies."}
-                        onRetry={retryReplies}
-                      />
-                    </Show>
-                    <Show when={replies().length > 0}>
-                      <div class="feed">
-                        <For each={replies()}>
-                          {(reply) => <NoteCard note={reply} />}
-                        </For>
-                      </div>
-                      <Show when={!repliesExhausted()} fallback={
-                        <div class="state" role="status"><p>You're caught up.</p></div>
-                      }>
-                        <Show when={repliesLoadingMore()}>
-                          <NoteSkeletonList count={2} label="Loading older replies…" />
-                        </Show>
-                        <InfiniteSentinel
-                          canLoad={() =>
-                            !repliesBusy() && !repliesLoading() && !repliesExhausted() && replies().length > 0
-                          }
-                          onLoad={() => void loadReplies(current().id, "older")}
-                        />
-                      </Show>
-                    </Show>
-                    <Show when={!repliesError() && replies().length === 0}>
-                      <div class="state"><p>No replies yet.</p></div>
-                    </Show>
-                  </>
-                }>
-                  <NoteSkeletonList count={2} label="Loading replies…" />
-                </Show>
+                <ReplyList
+                  parent={current()}
+                  pathIds={threadPath()}
+                  injected={injected()}
+                />
                 <Show when={isOwn()}>
                   <div class="pager">
                     <Show when={confirmDelete()} fallback={

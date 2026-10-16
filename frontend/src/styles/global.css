@@ -926,6 +926,121 @@ textarea::placeholder {
   margin-top: 4px;
 }
 
+/* Hover profile popup (avatar/name in notes): banner header, avatar
+ * overlapping the banner edge, Follow right, name/handle/bio/counts.
+ * Black/white/grey only — the banner and avatar are user content, like
+ * note media. Desktop pointers only: touch keeps tap-to-profile. */
+
+.hoverwrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.hovercard {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  display: block;
+  width: 300px;
+  max-width: min(300px, calc(100vw - 32px));
+  background: var(--bg);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  overflow: hidden;
+  text-align: left;
+  font-weight: 400;
+}
+
+.hovercard-banner {
+  display: block;
+  width: 100%;
+  height: 88px;
+  object-fit: cover;
+  background: var(--bg-soft);
+}
+
+.hovercard-body {
+  display: block;
+  padding: 12px 12px 10px;
+}
+
+.hovercard-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.hovercard-row .spacer {
+  flex: 1;
+}
+
+.hovercard-ava .avatar,
+.hovercard-ava .avatar-fallback {
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
+  border: 2px solid var(--bg);
+}
+
+/* Avatar rides up over the banner's bottom edge; the Follow button stays
+ * below the banner on the right. Without a banner there is no overlap. */
+.hovercard-overlap {
+  padding-top: 0;
+}
+
+.hovercard-overlap .hovercard-row {
+  margin-top: -28px;
+}
+
+.hovercard-overlap .hovercard-follow {
+  margin-top: 32px;
+}
+
+.hovercard-follow {
+  flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.hovercard-name {
+  display: block;
+  margin-top: 8px;
+  font-weight: 700;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hovercard-bio {
+  display: block;
+  margin: 8px 0 0;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.hovercard-stats {
+  display: block;
+  margin-top: 8px;
+}
+
+.hovercard-err {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+@media (hover: none) {
+  .hovercard {
+    display: none;
+  }
+}
+
 .renote-embed {
   display: block;
   border: 1px solid var(--border);
@@ -1808,4 +1923,110 @@ button.rxn:not(:disabled):hover {
   .name {
     max-width: 140px;
   }
+}
+
+/* Reply tree (note detail view): the opened post lists every direct
+ * reply newest-first (paged to exhaustion, like the reference client),
+ * and each reply expands its own children in place. Indentation is
+ * bounded in CSS — nesting depth itself is unlimited. Black/white/grey
+ * only; keyboard focus follows the global visible-focus rule. */
+
+.reply-toggle-row {
+  padding: 2px 16px 10px 68px;
+}
+
+.reply-toggle {
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.reply-toggle:not(:disabled):hover {
+  color: var(--text);
+}
+
+.reply-toggle:not(:disabled):active {
+  background: none;
+}
+
+/* Nested levels indent with a branch connector. Past four levels the
+ * connector continues but no further indent is added, so deep threads
+ * stay usable on narrow screens. */
+.reply-nested {
+  margin-left: 16px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.reply-nested .reply-nested .reply-nested .reply-nested .reply-nested {
+  margin-left: 0;
+  padding-left: 8px;
+}
+
+@media (max-width: 720px) {
+  .reply-toggle-row {
+    padding-left: 64px;
+  }
+
+  .reply-nested {
+    margin-left: 10px;
+    padding-left: 8px;
+  }
+}
+
+/* Click-to-open posts: cards outside the detail route navigate to
+ * `/notes/:id` when the post body itself is clicked (links, buttons,
+ * inputs, and media controls keep their own behavior). The pointer
+ * cursor marks the affordance, like the reference client. */
+.note-openable {
+  cursor: pointer;
+}
+
+/* Thread connector (reference client): a vertical line through the
+ * avatar column ties same-thread notes together — the ancestor chain
+ * above the post and the sequential replies below it. Nested levels
+ * keep their indented edge connector instead. Avatars paint above the
+ * line; the last reply's line stops at its avatar. */
+.feed > .reply-branch {
+  position: relative;
+}
+
+.feed > .reply-branch::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 35px;
+  width: 2px;
+  background: var(--border);
+}
+
+.feed > .reply-branch:last-child::before {
+  bottom: auto;
+  height: 34px;
+}
+
+.feed > .reply-branch .avatar,
+.feed > .reply-branch .avatar-fallback,
+.thread-ancestors .avatar,
+.thread-ancestors .avatar-fallback {
+  position: relative;
+}
+
+.thread-ancestors > .note {
+  position: relative;
+}
+
+.thread-ancestors > .note::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 35px;
+  width: 2px;
+  background: var(--border);
 }

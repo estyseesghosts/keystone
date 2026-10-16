@@ -1,8 +1,9 @@
-import { A } from "@solidjs/router";
+import { A, useNavigate } from "@solidjs/router";
 import { createEffect, onCleanup, createMemo, createSignal, For, Show } from "solid-js";
 import type { Note, UserLite } from "../api/types";
 import { appearNoteOf, displayNameOf, handleOf, isPureRenote } from "../api/types";
 import NoteBody, { Avatar } from "./NoteBody";
+import UserHover from "./UserHoverCard";
 import TagBubble from "./TagBubble";
 import { parseTagBlocks } from "../api/tags";
 import { formatTime } from "./time";
@@ -78,6 +79,31 @@ export default function NoteCard(props: NoteCardProps) {
   // pure-renote wrapper, so handlers receive the original there.
   const pure = () => isPureRenote(props.note);
   const shown = () => appearNoteOf(props.note);
+  const navigate = useNavigate();
+  // Clicking the post opens its detail view, like the reference client —
+  // except on the detail route itself (already there). Clicks that start
+  // in interactive content (links, buttons, inputs, media controls,
+  // menus, dialogs) keep their own behavior, as do text selections and
+  // modified clicks. Keyboard users already have the time, reply-count,
+  // and Open-post links, so the card takes no tab stop of its own.
+  const openDetail = (e: MouseEvent) => {
+    if (props.detail) return;
+    if (e.defaultPrevented) return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    const target = e.target as HTMLElement | null;
+    if (
+      target?.closest?.(
+        'a,button,input,textarea,select,audio,video,[role="menu"],[role="dialog"]',
+      )
+    )
+      return;
+    try {
+      if (window.getSelection()?.toString()) return;
+    } catch {
+      // Selection unreadable: fall through to navigation.
+    }
+    navigate(`/notes/${shown().id}`);
+  };
   const [menuOpen, setMenuOpen] = createSignal(false);
   // Tag bubble from the FULL original text — never from a server
   // translation (the translator mangles tags). Lone hashtags stay inline
@@ -102,7 +128,10 @@ export default function NoteCard(props: NoteCardProps) {
   });
 
   return (
-    <article class="note">
+    <article
+      class={props.detail ? "note" : "note note-openable"}
+      onClick={openDetail}
+    >
       <Show when={pure()}>
         <RepostBanner
           users={
@@ -112,19 +141,23 @@ export default function NoteCard(props: NoteCardProps) {
           }
         />
       </Show>
-      <A
-        class="avatarlink"
-        href={`/users/${shown().user.id}`}
-        aria-label={`Open profile of ${displayNameOf(shown().user)}`}
-      >
-        <Avatar url={shown().user.avatarUrl} name={displayNameOf(shown().user)} />
-      </A>
+      <UserHover user={shown().user}>
+        <A
+          class="avatarlink"
+          href={`/users/${shown().user.id}`}
+          aria-label={`Open profile of ${displayNameOf(shown().user)}`}
+        >
+          <Avatar url={shown().user.avatarUrl} name={displayNameOf(shown().user)} />
+        </A>
+      </UserHover>
       <div class="note-main">
         <div class="note-head">
-          <A class="namelink" href={`/users/${shown().user.id}`}>
-            <span class="name">{displayNameOf(shown().user)}</span>
-            <span class="handle">{handleOf(shown().user)}</span>
-          </A>
+          <UserHover user={shown().user}>
+            <A class="namelink" href={`/users/${shown().user.id}`}>
+              <span class="name">{displayNameOf(shown().user)}</span>
+              <span class="handle">{handleOf(shown().user)}</span>
+            </A>
+          </UserHover>
           <A class="time" href={`/notes/${shown().id}`}>
             {formatTime(shown().createdAt)}
           </A>
