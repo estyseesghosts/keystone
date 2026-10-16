@@ -145,6 +145,48 @@ executed evidence.
       (toggle, logged-out, no-endpoint server) not yet verified — owner
       live-testing on dvd.chat.
 
+## Tag bubbles + chips + fold + infinite scroll (built 2026-10-16; browser QA owner-handled on dvd.chat)
+
+- [x] Tag blocks (`src/api/tags.ts` `parseTagBlocks`): 2+ consecutive
+      top-level hashtags (whitespace/newline + unicode/custom emoji are
+      spacers, anything else ends the run); every block pruned view-only
+      via sequential-`indexOf` raw ranges; bubble/popup set is the pruned
+      tags only (`blockedTags`, first-seen dedupe) — lone hashtags stay
+      inline with their long-standing rendering and never enter the
+      bubble; `NoteCard` header + quote head carry the `(#first +N)`
+      bubble with an outside-click/Escape popup of `/search?tag=` rows
+      (renote-menu dismiss pattern, monochrome chip language)
+- [x] Inline chips (`MfmRenderer` + `global.css` `.mchip`): @mentions
+      (verbatim acct, existing resolution) and bare/labeled URLs (truncated
+      display, full target, existing safety) as pills; lone hashtags
+      explicitly NOT chips; `.mchip` line-height 1.25 so chipped lines
+      keep the surrounding line rhythm (`docs/spacing.png`)
+- [x] Timeline fold (`src/api/fold.ts` `foldMfm`, 750 budget, mentions/
+      links uncounted, hashtags counted, text/plain-only word-boundary
+      cut, never-sliced tags, post-cut zero-count drop): threaded
+      `foldText` (default true) `NoteCard → NoteBody → TranslatableText`,
+      which folds the displayed original-or-translation with `…` + `Open
+      post` link and no inline expand; detail main + parent unfolded,
+      depth > 0 never folds, notifications unfolded
+- [x] Infinite scroll everywhere paged (shared `InfiniteSentinel`, 800px
+      preload, guards mirror each loader, Try-again keeps remembered
+      cursor, skeletons + You're-caught-up kept; `FollowList` retry
+      upgraded from reset-to-initial, replies gained skeleton + end
+      state): `TimelineFeed`, `Profile` notes + follow lists,
+      `Notifications`, `Note` replies. All `Load older` buttons/strings
+      deleted; `Search` untouched (single-shot); Drive keeps its own
+      sentinel
+- [x] CW translation probe (one round, deferred with no code change):
+      dvd.chat `notes/translate` on a real CW note returns the translated
+      BODY only — no CW, no `-----` separator — so the upstream split
+      shape does not hold on this fork
+- [x] Evidence: `tsc --noEmit` clean, `npm run build` green, 41/41 unit
+      checks (esbuild-bundle + node: blocks, budgets, cuts, empty/error
+      states — `/tmp/opencode/tags-fold-check.mjs`), live CW probe output
+      recorded (see `../state/logs/2026-10-16-tag-bubbles-fold-scroll.md`).
+      Browser behavior (bubble/popup, chips, fold vs detail, stall-free
+      scroll on all four sites) not yet verified — owner live-testing.
+
 ## Deliberately deferred (do not build until scoped)
 
 Streaming Stage B (verify the same client against pinetree `/streaming`

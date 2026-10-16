@@ -19,7 +19,9 @@
 //   component (one module-level cache keyed by note id dedupes feeds).
 
 import { createMemo, createResource, createSignal, onMount, Show } from "solid-js";
+import { A } from "@solidjs/router";
 import MfmRenderer from "./MfmRenderer";
+import { foldMfm } from "../api/fold";
 import {
   decideTranslation,
   hasTranslatableText,
@@ -34,6 +36,11 @@ export default function TranslatableText(props: {
   /** False while a content warning hides the text: no request fires until
    * the viewer reveals it (translate the revealed text, not the warning). */
   visible: boolean;
+  /** Fold long text to the feed budget (default true). The folded text is
+   * whatever is displayed — original or translation, recounted with the
+   * same rules when it arrives (a fold-point shift on arrival is
+   * accepted). Tag extraction still uses the original elsewhere. */
+  foldText?: boolean;
 }) {
   const [capable, setCapable] = createSignal(false);
   const [forceOriginal, setForceOriginal] = createSignal(false);
@@ -71,6 +78,15 @@ export default function TranslatableText(props: {
       !forceOriginal() && decision() ? decision()!.text : props.text,
   );
 
+  // Fold the displayed text (no inline expand — the reader opens the
+  // post). Quoted embeds never reach here folded (NoteBody forces no
+  // fold at depth > 0); the detail route passes foldText={false}.
+  const folded = createMemo(() => {
+    const text = displayText();
+    if (props.foldText === false || text == null) return { text, truncated: false };
+    return foldMfm(text);
+  });
+
   return (
     <>
       <Show when={decision()}>
@@ -88,7 +104,10 @@ export default function TranslatableText(props: {
         )}
       </Show>
       <div class="trans-text">
-        <MfmRenderer text={displayText()} />
+        <MfmRenderer text={folded().text} />
+        <Show when={folded().truncated}>
+          <span class="foldmore">… <A href={`/notes/${props.noteId}`}>Open post</A></span>
+        </Show>
       </div>
     </>
   );

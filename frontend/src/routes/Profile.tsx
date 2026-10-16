@@ -5,6 +5,7 @@ import type { MeDetailed, Note, UserDetailed, UserLite } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
 import { useAuth } from "../state/auth";
 import ErrorState from "../components/ErrorState";
+import InfiniteSentinel from "../components/InfiniteSentinel";
 import NoteCard from "../components/NoteCard";
 import { NoteSkeletonList, ProfileSkeleton, RowSkeletonList } from "../components/Skeleton";
 import ProfileEditor from "../components/ProfileEditor";
@@ -13,6 +14,7 @@ const PROFILE_NOTES_PAGE_SIZE = 20;
 const FOLLOW_PAGE_SIZE = 20;
 
 type ProfileNotesLoadMode = "initial" | "older" | "refresh";
+type FollowLoadMode = "initial" | "older";
 
 function FollowList(props: { userId: string; mode: "followers" | "following" }) {
   const [users, setUsers] = createSignal<UserLite[]>([]);
@@ -21,9 +23,11 @@ function FollowList(props: { userId: string; mode: "followers" | "following" }) 
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [exhausted, setExhausted] = createSignal(false);
+  const [failedMode, setFailedMode] = createSignal<FollowLoadMode | null>(null);
 
-  const load = async (older: boolean) => {
+  const load = async (mode: FollowLoadMode) => {
     if (busy()) return;
+    const older = mode === "older";
     if (older && exhausted()) return;
     setBusy(true);
     if (older) setLoadingMore(true);
@@ -47,8 +51,10 @@ function FollowList(props: { userId: string; mode: "followers" | "following" }) 
         setUsers(page);
         setExhausted(false);
       }
+      setFailedMode(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load this list.");
+      setFailedMode(mode);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -56,8 +62,10 @@ function FollowList(props: { userId: string; mode: "followers" | "following" }) 
     }
   };
 
+  const retry = () => void load(failedMode() ?? "initial");
+
   onMount(() => {
-    void load(false);
+    void load("initial");
   });
 
   return (
@@ -66,7 +74,7 @@ function FollowList(props: { userId: string; mode: "followers" | "following" }) 
         <Show when={error()}>
           <div class="state" role="alert">
             <div class="errorbox">{error()}</div>
-            <button type="button" onClick={() => void load(false)}>Try again</button>
+            <button type="button" onClick={retry}>Try again</button>
           </div>
         </Show>
         <Show when={users().length === 0 && !error()}>
@@ -83,12 +91,20 @@ function FollowList(props: { userId: string; mode: "followers" | "following" }) 
             )}
           </For>
         </div>
-        <Show when={!exhausted() && users().length > 0}>
-          <div class="pager">
-            <button type="button" onClick={() => void load(true)} disabled={loadingMore()}>
-              {loadingMore() ? "Loading…" : "Load older"}
-            </button>
-          </div>
+        <Show when={loadingMore()}>
+          <RowSkeletonList count={2} label={`Loading older ${props.mode}…`} />
+        </Show>
+        <Show when={!exhausted() && users().length > 0} fallback={
+          <Show when={users().length > 0}>
+            <div class="state" role="status"><p>You're caught up.</p></div>
+          </Show>
+        }>
+          <InfiniteSentinel
+            canLoad={() =>
+              !busy() && !loading() && !exhausted() && users().length > 0
+            }
+            onLoad={() => void load("older")}
+          />
         </Show>
       </>
     }>
@@ -388,15 +404,16 @@ export default function Profile() {
                         <Show when={!notesExhausted()} fallback={
                           <div class="state" role="status"><p>You're caught up.</p></div>
                         }>
-                          <div class="pager">
-                            <button
-                              type="button"
-                              onClick={() => void loadNotes(current().id, "older")}
-                              disabled={notesLoadingMore()}
-                            >
-                              {notesLoadingMore() ? "Loading…" : "Load older"}
-                            </button>
-                          </div>
+                          <Show when={notesLoadingMore()}>
+                            <NoteSkeletonList count={2} label="Loading older notes…" />
+                          </Show>
+                          <InfiniteSentinel
+                            canLoad={() =>
+                              !notesBusy() && !notesLoading() && !notesExhausted()
+                              && !notesUnsupported() && userNotes().length > 0
+                            }
+                            onLoad={() => void loadNotes(current().id, "older")}
+                          />
                         </Show>
                       </Show>
                       <Show when={!notesError() && userNotes().length === 0}>

@@ -3,6 +3,8 @@ import { createEffect, onCleanup, createMemo, createSignal, For, Show } from "so
 import type { Note, UserLite } from "../api/types";
 import { appearNoteOf, displayNameOf, handleOf, isPureRenote } from "../api/types";
 import NoteBody, { Avatar } from "./NoteBody";
+import TagBubble from "./TagBubble";
+import { parseTagBlocks } from "../api/tags";
 import { formatTime } from "./time";
 import { HeartIcon, ReplyIcon, RepostIcon } from "./icons";
 import { EmojiButton, LikeButton, ReactionChips, HEART_REACTION, isHeartReaction } from "./ReactionPicker";
@@ -62,6 +64,9 @@ export interface NoteCardProps {
   renoters?: UserLite[];
   onChanged?: () => void;
   detail?: boolean;
+  /** Fold long post text in feeds (default true). The note-detail route
+   * passes false for full text. Depth > 0 (quoted embeds) never folds. */
+  foldText?: boolean;
 }
 
 export default function NoteCard(props: NoteCardProps) {
@@ -74,6 +79,10 @@ export default function NoteCard(props: NoteCardProps) {
   const pure = () => isPureRenote(props.note);
   const shown = () => appearNoteOf(props.note);
   const [menuOpen, setMenuOpen] = createSignal(false);
+  // Tag bubble from the FULL original text — never from a server
+  // translation (the translator mangles tags). Lone hashtags stay inline
+  // and out of the bubble; only pruned block tags are listed.
+  const tags = createMemo(() => parseTagBlocks(shown().text ?? ""));
 
   // The renote menu closes on outside click or Escape.
   createEffect(() => {
@@ -119,9 +128,13 @@ export default function NoteCard(props: NoteCardProps) {
           <A class="time" href={`/notes/${shown().id}`}>
             {formatTime(shown().createdAt)}
           </A>
+          <span class="spacer" aria-hidden="true" />
+          <Show when={tags().blocks.length > 0}>
+            <TagBubble tags={tags().blockedTags} />
+          </Show>
         </div>
 
-        <NoteBody note={shown()} canVote={loggedIn()} onChanged={props.onChanged} />
+        <NoteBody note={shown()} canVote={loggedIn()} onChanged={props.onChanged} foldText={props.foldText} />
 
         <ReactionChips
           note={shown()}

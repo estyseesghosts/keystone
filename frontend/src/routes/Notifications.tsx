@@ -7,6 +7,7 @@ import { subscribeChannel, useStreamState } from "../api/stream";
 import type { ChannelHandle } from "../api/stream";
 import { useAuth } from "../state/auth";
 import ErrorState from "../components/ErrorState";
+import InfiniteSentinel from "../components/InfiniteSentinel";
 import LoadingState from "../components/LoadingState";
 import MfmRenderer from "../components/MfmRenderer";
 import { NotificationSkeletonList } from "../components/Skeleton";
@@ -285,14 +286,15 @@ export default function Notifications() {
                 <Show when={!exhausted()} fallback={
                   <div class="state" role="status"><p>You're caught up.</p></div>
                 }>
-                  <div class="pager">
-                    <button type="button" onClick={() => void load("older")} disabled={loadingMore()}>
-                      {loadingMore() ? "Loading…" : "Load older"}
-                    </button>
-                  </div>
                   <Show when={loadingMore()}>
                     <NotificationSkeletonList count={2} label="Loading older notifications…" />
                   </Show>
+                  <InfiniteSentinel
+                    canLoad={() =>
+                      !busy() && !loading() && !exhausted() && items().length > 0
+                    }
+                    onLoad={() => void load("older")}
+                  />
                 </Show>
               </Show>
             }>

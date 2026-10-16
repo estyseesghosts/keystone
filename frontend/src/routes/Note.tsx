@@ -7,6 +7,7 @@ import { captureNote } from "../api/stream";
 import { useAuth } from "../state/auth";
 import Composer from "../components/Composer";
 import ErrorState from "../components/ErrorState";
+import InfiniteSentinel from "../components/InfiniteSentinel";
 import NoteCard from "../components/NoteCard";
 import { NoteSkeletonList } from "../components/Skeleton";
 
@@ -297,7 +298,7 @@ export default function NoteDetail() {
                 </Show>
                 <Show when={current().reply}>
                   <div class="pagehead"><h1>Replied to</h1></div>
-                  <NoteCard note={current().reply!} />
+                  <NoteCard note={current().reply!} foldText={false} />
                 </Show>
                 <NoteCard
                   note={current()}
@@ -309,6 +310,7 @@ export default function NoteDetail() {
                   reposted={reposted()}
                   onChanged={refresh}
                   detail
+                  foldText={false}
                 />
                 {/* Quotes render inside the card above via NoteBody's embedded
                   quote card; a second full card here would duplicate it. */}
@@ -354,16 +356,18 @@ export default function NoteDetail() {
                           {(reply) => <NoteCard note={reply} />}
                         </For>
                       </div>
-                      <Show when={!repliesExhausted()}>
-                        <div class="pager">
-                          <button
-                            type="button"
-                            onClick={() => void loadReplies(current().id, "older")}
-                            disabled={repliesLoadingMore()}
-                          >
-                            {repliesLoadingMore() ? "Loading…" : "Load older replies"}
-                          </button>
-                        </div>
+                      <Show when={!repliesExhausted()} fallback={
+                        <div class="state" role="status"><p>You're caught up.</p></div>
+                      }>
+                        <Show when={repliesLoadingMore()}>
+                          <NoteSkeletonList count={2} label="Loading older replies…" />
+                        </Show>
+                        <InfiniteSentinel
+                          canLoad={() =>
+                            !repliesBusy() && !repliesLoading() && !repliesExhausted() && replies().length > 0
+                          }
+                          onLoad={() => void loadReplies(current().id, "older")}
+                        />
                       </Show>
                     </Show>
                     <Show when={!repliesError() && replies().length === 0}>

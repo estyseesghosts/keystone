@@ -6,6 +6,8 @@ import type { DriveFile, Note } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
 import { apiCall } from "../api/client";
 import TranslatableText from "./TranslatableText";
+import TagBubble from "./TagBubble";
+import { parseTagBlocks } from "../api/tags";
 import { formatTime } from "./time";
 import LinkCard from "./LinkCard";
 import ProfileCardLoader, { parseProfileUrl } from "./ProfileCard";
@@ -28,6 +30,23 @@ function Avatar(props: { url: string | null; name: string }) {
     >
       <img class="avatar" src={props.url!} alt="" loading="lazy" />
     </Show>
+  );
+}
+
+/** Quoted-note header: avatar + name + handle · time, with the tag-block
+ * bubble on the right from the quoted note's full original text. */
+function QuoteHead(props: { note: Note }) {
+  const tags = createMemo(() => parseTagBlocks(props.note.text ?? ""));
+  return (
+    <div class="renote-head">
+      <Avatar url={props.note.user.avatarUrl} name={displayNameOf(props.note.user)} />
+      <span class="name">{displayNameOf(props.note.user)}</span>
+      <span class="handle">{handleOf(props.note.user)} · {formatTime(props.note.createdAt)}</span>
+      <span class="spacer" aria-hidden="true" />
+      <Show when={tags().blocks.length > 0}>
+        <TagBubble tags={tags().blockedTags} />
+      </Show>
+    </div>
   );
 }
 
@@ -156,6 +175,9 @@ export interface NoteBodyProps {
   /** Embed depth: top-level notes render at 0, quoted notes at 1.
    * Deeper nesting collapses to a link so embeds can never recurse. */
   depth?: number;
+  /** Fold long text on timelines (default true). Depth > 0 never folds —
+   * the 4-line clamp already governs quotes. */
+  foldText?: boolean;
 }
 
 /** The single rendering path for note content: CW gate, text, media, poll,
@@ -334,6 +356,14 @@ export default function NoteBody(props: NoteBodyProps) {
     return text;
   });
 
+  // Order of operations per note: full text → RE-suffix suppression (above)
+  // → tag-block prune (here) → fold of the displayed text (TranslatableText
+  // below). Pruned-block ranges never reach the renderer, so a bubble tag
+  // and an inline chip can never double-cover one tag.
+  const tagParse = createMemo(() => parseTagBlocks(visibleText() ?? ""));
+  const prunedText = createMemo(() => tagParse().prunedText);
+  const folds = () => props.foldText !== false && depth() === 0;
+
   return (
     <>
       <Show when={hasCw()}>
@@ -349,8 +379,9 @@ export default function NoteBody(props: NoteBodyProps) {
         <div class="notebody">
           <TranslatableText
             noteId={props.note.id}
-            text={visibleText()}
+            text={prunedText()}
             visible={visible()}
+            foldText={folds()}
           />
         </div>
         <Show when={props.note.files.length > 0}>
@@ -390,11 +421,7 @@ export default function NoteBody(props: NoteBodyProps) {
             <Show when={embeddedNote()}>
               {(embedded) => (
                 <div class="renote-embed">
-                  <div class="renote-head">
-                    <Avatar url={embedded().user.avatarUrl} name={displayNameOf(embedded().user)} />
-                    <span class="name">{displayNameOf(embedded().user)}</span>
-                    <span class="handle">{handleOf(embedded().user)} · {formatTime(embedded().createdAt)}</span>
-                  </div>
+                  <QuoteHead note={embedded()} />
                   <Show when={statusLabel()}>
                     {(label) => <div class="handle quote-status">{label()}</div>}
                   </Show>

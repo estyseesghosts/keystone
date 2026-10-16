@@ -80,14 +80,18 @@ approve-and-return round-trip still **not yet verified** (owner).
   observed live (dvd.chat translator is not DeepL) and recorded, not
   client-fixable. 39/39 policy checks, `tsc` + build green; browser QA
   **not yet verified** (owner).
-- **Next (handoff written, not yet started):**
+- **Next (implemented 2026-10-16, browser QA owner-handled):**
   `docs/tag-bubbles-fold-scroll-handoff.md` — tag-block prune + `(#tag
-  +N)` header bubble + full-list popup (emoji spacers count as
-  consecutive), monochrome inline chips for mentions/lone-tags/links,
-  750-char timeline fold (links/mentions uncounted, hashtags counted),
-  infinite scroll on all four paged sites (800px preload sentinel), CW
-  translation as a time-boxed probe (deferrable). Functionality only —
-  no Beeline visuals.
+  +N)` header bubble + popup over the PRUNED tags only (lone hashtags
+  stay inline, unchippped, out of the bubble), monochrome inline chips
+  for mentions/links only, 750-char timeline fold (links/mentions
+  uncounted, hashtags counted, `Open post` link, detail unfolded),
+  infinite scroll on all four paged sites (shared 800px sentinel; Drive
+  keeps its own), CW translation probed once on dvd.chat (body-only
+  result, no CW/separator → deferred, no code). Functionality only —
+  no Beeline visuals. See log `2026-10-16-tag-bubbles-fold-scroll.md`:
+  `tsc` + build green, 41/41 unit checks; browser QA **not yet verified**
+  (owner live-testing on dvd.chat).
 
 ## Decisions since stonekey
 

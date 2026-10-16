@@ -29,6 +29,14 @@ function ExternalLink(props: { url: string; children: JSX.Element }) {
   );
 }
 
+/** Compact display for a bare URL inside a chip: protocol stripped,
+// truncated with an ellipsis past 42 characters. The link target is
+// always the full URL. */
+function displayUrl(url: string): string {
+  const bare = url.replace(/^https?:\/\//, "");
+  return bare.length > 42 ? `${bare.slice(0, 41)}…` : bare;
+}
+
 // Cache of mention acct string -> resolved userId (null = not found, so we
 // never link to a dead profile and never refetch a miss).
 const mentionCache = new Map<string, string | null>();
@@ -118,27 +126,41 @@ function renderNode(node: MfmNode): JSX.Element {
         </blockquote>
       );
     case "mention":
+      // Chip linking to the resolved profile. The MentionLink resolution
+      // is verbatim (no link to dead profiles, no refetch of misses); the
+      // chip text stays the verbatim @acct.
       return (
-        <MentionLink acct={node.props.acct} username={node.props.username} host={node.props.host} />
+        <span class="mchip">
+          <MentionLink acct={node.props.acct} username={node.props.username} host={node.props.host} />
+        </span>
       );
     case "hashtag":
       // Tag search lives behind notes/search-by-tag on the Search page.
+      // Lone hashtags keep their long-standing rendering — no chip.
       return (
         <A href={`/search?tag=${encodeURIComponent(node.props.hashtag)}`}>
           <span class="hashtag">#{node.props.hashtag}</span>
         </A>
       );
     case "url":
+      // Bare URL chip: truncated display text, full URL target, same
+      // ExternalLink safety (http(s)-only, unsafe URLs degrade to text).
       return (
-        <ExternalLink url={node.props.url}>
-          <>{node.props.url}</>
-        </ExternalLink>
+        <span class="mchip">
+          <ExternalLink url={node.props.url}>
+            <>{displayUrl(node.props.url)}</>
+          </ExternalLink>
+        </span>
       );
     case "link":
+      // Labeled-link chip: author-written label kept whole (CSS ellipsis
+      // caps it at the chip max-width), same outbound safety as above.
       return (
-        <ExternalLink url={node.props.url}>
-          <For each={node.children}>{renderNode}</For>
-        </ExternalLink>
+        <span class="mchip">
+          <ExternalLink url={node.props.url}>
+            <For each={node.children}>{renderNode}</For>
+          </ExternalLink>
+        </span>
       );
     case "emojiCode":
       // No custom-emoji lookup endpoint: show the source code literally.
