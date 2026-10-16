@@ -1,5 +1,10 @@
 # STATE — resume pointer (mutable, keep current)
 
+**HEAD:** `740abde` (pushed 2026-10-16) — stacked slices: settings pages,
+appearance, global text scaling, adaptive layout, no-hscroll + rail
+sidebar + account footer, profile tabs, emoji rendering. Tree clean at
+push (`tsc` + build green); browser QA pending throughout (owner).
+
 **Phase:** 4 — Visual polish (2026-10-16): sidebar icons + collapsible nav,
 system-theme dark mode (owner override of the AGENTS.md §7 no-dark-mode
 guard), composer card, button polish. See log `2026-10-16-polish.md`.
