@@ -134,6 +134,9 @@ approve-and-return round-trip still **not yet verified** (owner).
   switch, floating composer with per-backend drafts + rail entry. `tsc`
   + build green, 8/8 drafts checks; browser QA **not yet verified**
   (owner). See log `2026-10-16-composer-v2.md`.
+- **Plus (docs 2026-10-16):** README + router + plan refreshed to the
+  tree (all 17 routes, appearance, streaming, external auth). See log
+  `2026-10-16-docs-refresh.md`.
 - **Next (implemented 2026-10-16, uncommitted, browser QA owner-handled):**
   RESPONSIVE rail sidebar (competitor behavior, Keystone look) — toggle
   deleted, icon rail driven by viewport width (721–1000px band), rail

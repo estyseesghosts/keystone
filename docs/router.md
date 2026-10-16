@@ -29,11 +29,20 @@ From `keystone.md` §8 / `AGENTS.md` §7:
 | `/global` | `routes/Global.tsx` | public | `notes/global-timeline`, honest 404 fallback (owner decision 2026-10-15 — exception to the no-global-timeline rule; no fake data) |
 | `/notifications` | `routes/Notifications.tsx` | gated | `i/notifications` (confirm fields vs manifest before rendering each kind) |
 | `/notes/:id` | `routes/Note.tsx` | public fetch, auth for actions | `notes/show` (`noteId` from `:id`); reply/renote context as returned only |
-| `/users/:id` | `routes/Profile.tsx` | public fetch | `users/show` with `userId` = `:id` (exactly one selector) |
+| `/users/:id` | `routes/Profile.tsx` | public fetch | `users/show` with `userId` = `:id` (exactly one selector); header (banner, avatar, counters, MFM bio), tabs via `users/notes` flags |
+| `/users/:id/followers`, `/users/:id/following` | `routes/Profile.tsx` (`FollowersPage`, `FollowingPage`) | public fetch | shared `FollowList` (`users/followers`, `users/following`), cursor-paged; 403 → honest "not visible", pre-scope 403 → re-sign-in hint |
+| `/drive` | `routes/Drive.tsx` | gated | multipart upload + `drive/files` listing (Pinetree 404 → honest upload-only) |
+| `/antennas`, `/antennas/:id` | `routes/Antennas.tsx`, `routes/AntennaFeed.tsx` | gated | `antennas/*` CRUD + feed (Pinetree 404 → honest unavailable) |
+| `/search` | `routes/Search.tsx` | public (users search authed when signed in) | `users/search`, `notes/search` (policy-aware), `notes/search-by-tag`; hashtag links land here (`?tag=`) |
+| `/settings` | `routes/Settings.tsx` (index) | public | section list only — no data fetch |
+| `/settings/account` | `routes/Settings.tsx` (`AccountSettings`) | gated | session info + sign out (no endpoint beyond `i` restore) |
+| `/settings/display` | `routes/Settings.tsx` (`DisplaySettings`) | public | device-local appearance: colour mode + text size (no endpoint) |
+| `/settings/reactions` | `routes/Settings.tsx` (`ReactionsSettings`) | public | device-local like/favorite emoji prefs (no endpoint) |
 
-No other routes in v1. Do not build profile timelines, follower lists,
-note search, or global timeline — backend has no support
-(`docs/api-surface.md`).
+Scope grows by explicit slice only: profile timelines, follower lists,
+note search, and global timeline were added after the backend matrix
+(`docs/api-surface.md`) confirmed them — never assume an endpoint
+exists; 404 stays an honest unavailable state.
 
 ## Setup pattern (to verify against installed version)
 
@@ -57,8 +66,8 @@ frontend — do not upgrade/downgrade the router to match this doc.
 
 ## Layout
 
-- `App` root + `Layout`: desktop compact left nav + ~600px timeline column; mobile single column + usable bottom nav (never hide the only nav).
-- Visual: follow `AGENTS.md` §7 (black/white/grey, light-mode-only, no accent/theme infrastructure). `keystone.md` §2 still mentions a pine-green accent — `AGENTS.md` wins until reconciled.
+- `App` root + `Layout`: desktop labeled nav + icon rail under 1000px + ~600px timeline column; mobile single column + usable bottom nav (never hide the only nav).
+- Visual: follow `AGENTS.md` §7 (black/white/grey, no accent colors). Theme is explicit: light / dark / follow-system setting plus system `prefers-color-scheme` default (owner overrides of the earlier light-only rule — see `state/STATE.md`); `keystone.md` §2 still mentions a pine-green accent — `AGENTS.md` wins until reconciled.
 - Loading / empty / error / logged-out states on every route; visible keyboard focus.
 
 ## Anti-patterns

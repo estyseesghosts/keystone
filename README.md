@@ -1,33 +1,48 @@
 # Keystone — minimalist Misskey-family web client (SolidJS)
 
 One SolidJS SPA that talks to local **Misskey**, **Sharkey**, or **Pinetree**
-backends through a Vite dev-proxy. Black/white/grey feed, light mode by
-default with system-theme dark mode (`prefers-color-scheme`), no accent
-colors. Stack: SolidJS 1.x + `@solidjs/router` + `mfm-js`, Vite build tooling
-only — no React, no SSR, no component library (see `AGENTS.md`).
+backends through a Vite dev-proxy (or direct to a public instance as an
+external MiAuth client). Black/white/grey, no accent colors; explicit
+colour mode (light / dark / follow system) plus global text size
+(50–400%, layout adapts). Stack: SolidJS 1.x + `@solidjs/router` +
+`mfm-js`, Vite build tooling only — no React, no SSR, no component
+library (see `AGENTS.md`).
 
 ## What you get
 
-- Home / Local / Global timelines with refresh, cursor paging, end-of-feed
-- Note view (reply context, direct replies), profile + its notes, notifications
-- Compose: plain text (limit from `meta.maxNoteTextLength`, 3000 fallback),
-  CW, visibility (`public`/`home`/`followers`/`specified` + recipient picker),
-  `localOnly`, attachments via Drive `fileIds`, polls (Misskey-family only)
-- React / unreact, repost + undo, poll votes, follow / unfollow / cancel-request,
-  followers/following lists, delete own note, bounded profile editor
-- Drive browser (upload, filter, sensitive toggle, delete, attach-select),
-  antennas (CRUD + live feed), user/tag search, hashtag links
-- Live updates on Misskey/Sharkey (native-WebSocket Stage A client: timeline
-  prepend, reaction/poll reconcile, delete in place, "N new" notification
-  count + status badge). Pinetree has no `/streaming` route — client stays
-  disabled there, feeds work via refresh + paging
-- Auth is Keystone-owned, one step: username/password → scoped least-privilege
-  app token. No redirects to instance pages, no second approval screen. Tokens
-  are stored per backend and never sent cross-origin
+- Home / Local / Global timelines with refresh, cursor paging,
+  infinite scroll, end-of-feed; live updates on Misskey/Sharkey
+  (native-WebSocket Stage A client — timeline prepend, reaction/poll
+  reconcile, delete in place, "N new" notification count + status
+  badge; disabled on Pinetree, feeds work via refresh + paging)
+- Note view (ancestor thread, paged reply branches, click-to-open),
+  profiles (banner header, counters → followers/following pages, MFM
+  bio, Posts / All / Media tabs), notifications
+- Compose: text (limit from `meta.maxNoteTextLength`, 3000 fallback),
+  CW, visibility (`public`/`home`/`followers`/`specified` + recipient
+  picker), `localOnly`, attachments via Drive `fileIds`, polls
+  (Misskey-family only), floating composer with per-backend drafts
+- React / unreact (Misskey-style chips + likes), repost / quote + undo,
+  repost collapsing, poll votes, follow / unfollow / cancel-request,
+  delete own note, bounded profile editor (on your own profile page)
+- Drive browser (upload, grouped Images/Videos/Audio/Files, sensitive
+  toggle, delete, attach-select), antennas (CRUD + live feed),
+  user/tag search, hashtag links, mention chips, quote embeds,
+  auto-translation where the server offers it
+- Auth is Keystone-owned: internal one-step username/password →
+  scoped least-privilege app token (no redirects, no second screen),
+  or external MiAuth (never sees your password; direct-to-instance
+  traffic). Tokens stored per backend/host, never sent cross-origin.
+  Multi-account switching from the account menu
+- Client settings pages (`/settings` → account / display): session
+  info + sign out, colour mode, text size. Sidebar is labeled nav on
+  wide screens, icon rail under 1000px, bottom bar on mobile
 
 What is *not* here yet: full profile editor (`avatarId`/`bannerId`,
-decorations), Drive folder navigation, user-list management, streaming Stage B
-vs Pinetree. See `docs/frontend-plan.md` for the built vs deferred checklist.
+decorations, fields[]), Drive folder navigation, user-list management
+(blocks `list`-source antennas), streaming Stage B vs Pinetree, a pinned-notes
+source for a Featured profile tab. See `docs/frontend-plan.md` for the
+built vs deferred checklist.
 
 ## Quickstart
 

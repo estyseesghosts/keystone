@@ -25,7 +25,9 @@ executed evidence.
 - [x] Token + current-user signals; startup `i` restore; auth-failure clears
       token; explicit sign-out; mobile account strip separated from bottom nav
 - [x] `App` root + `Layout`, routes: `/login`, `/`, `/local`, `/global`,
-      `/notifications`, `/notes/:id`, `/users/:id`
+      `/notifications`, `/notes/:id`, `/users/:id` (+ followers/following
+      sub-routes), `/drive`, `/antennas` (+ feed), `/search`, `/settings`
+      (+ account/display pages)
 - [x] Loading / empty / error / logged-out states; visible keyboard focus
 
 ## Slice 2 — Timelines + note view (done)
