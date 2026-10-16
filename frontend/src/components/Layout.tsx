@@ -1,4 +1,4 @@
-import { createSignal, Show } from "solid-js";
+import { Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { A } from "@solidjs/router";
 import { useAuth } from "../state/auth";
@@ -8,7 +8,6 @@ import FloatingComposer from "./FloatingComposer";
 import {
   AntennaIcon,
   BellIcon,
-  CollapseIcon,
   DriveIcon,
   GlobalIcon,
   HomeIcon,
@@ -17,16 +16,6 @@ import {
   PencilIcon,
   SearchIcon,
 } from "./icons";
-
-const COLLAPSE_KEY = "keystone_nav_collapsed";
-
-function readCollapsed(): boolean {
-  try {
-    return localStorage.getItem(COLLAPSE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
 
 function NavItem(props: {
   href: string;
@@ -52,19 +41,6 @@ function NavItem(props: {
 export default function Layout(props: { children: JSX.Element }) {
   const auth = useAuth();
   const postbox = usePostbox();
-  const [collapsed, setCollapsed] = createSignal(readCollapsed());
-
-  const toggleCollapsed = () => {
-    setCollapsed((v) => {
-      const next = !v;
-      try {
-        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
-      } catch {
-        // Storage unavailable: collapse lasts for this session only.
-      }
-      return next;
-    });
-  };
 
   return (
     <div class="layout">
@@ -75,12 +51,11 @@ export default function Layout(props: { children: JSX.Element }) {
           when={auth.me()}
           fallback={<A class="mobile-signin" href="/login">Sign in</A>}
         >
-          <AccountCard avatarOnly />
+          <AccountCard />
         </Show>
       </div>
       <nav
         class="sitenav"
-        classList={{ collapsed: collapsed() }}
         aria-label="Main"
       >
         <A class="brand" href="/" title="Keystone" aria-label="Keystone home">
@@ -117,19 +92,6 @@ export default function Layout(props: { children: JSX.Element }) {
           </button>
         </Show>
         <div class="navspacer" />
-        <button
-          type="button"
-          class="navlink navbutton collapse-toggle"
-          onClick={toggleCollapsed}
-          title={collapsed() ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={collapsed() ? "Expand sidebar" : "Collapse sidebar"}
-          aria-pressed={collapsed()}
-        >
-          <span class="navicon">
-            <CollapseIcon expanded={!collapsed()} />
-          </span>
-          <span class="navlabel">Collapse</span>
-        </button>
         <div class="navuser">
           <Show
             when={auth.me()}

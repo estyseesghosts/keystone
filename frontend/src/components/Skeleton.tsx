@@ -105,7 +105,7 @@ export function RowSkeletonList(props: { count?: number; label?: string }) {
 export function MosaicSkeleton(props: { count?: number; label?: string }) {
   return (
     <Status label={props.label ?? "Loading media…"}>
-      <div class="mosaic" style={{ padding: "4px 16px 8px" }}>
+      <div class="mosaic" style={{ padding: "0.27em 1.07em 0.53em" }}>
         <For each={repeat(props.count ?? 6)}>
           {() => <span class="skel" style={{ width: "100%", "aspect-ratio": "1" }} />}
         </For>
@@ -118,7 +118,7 @@ export function MosaicSkeleton(props: { count?: number; label?: string }) {
 export function AudioSkeletonList(props: { count?: number; label?: string }) {
   return (
     <Status label={props.label ?? "Loading audio…"}>
-      <div style={{ padding: "4px 16px 8px" }}>
+      <div style={{ padding: "0.27em 1.07em 0.53em" }}>
         <For each={repeat(props.count ?? 2)}>
           {() => (
             <div class="audiorow">

@@ -454,8 +454,8 @@ export default function DriveBrowser(props: DriveBrowserProps) {
 
   return (
     <div>
-      <div class="row" style={{ padding: "12px 16px" }}>
-        <label class="btn-primary" style={{ padding: "6px 12px", border: "1px solid var(--text)", "border-radius": "6px", cursor: "pointer" }}>
+      <div class="row" style={{ padding: "0.8em 1.07em" }}>
+        <label class="btn-primary" style={{ padding: "0.4em 0.8em", border: "1px solid var(--text)", "border-radius": "6px", cursor: "pointer" }}>
           Upload
           <input
             type="file"
@@ -474,7 +474,7 @@ export default function DriveBrowser(props: DriveBrowserProps) {
       </div>
 
       <Show when={uploads().length > 0}>
-        <div style={{ padding: "0 16px" }}>
+        <div style={{ padding: "0 1.07em" }}>
           <For each={uploads()}>
             {(u) => (
               <div class="drivefile" role={u.status === "error" ? "alert" : "status"}>

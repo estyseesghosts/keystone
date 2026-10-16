@@ -17,6 +17,7 @@ import { createResource, createSignal, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { apiCall, ApiError } from "../api/client";
 import { displayNameOf, handleOf } from "../api/types";
+import { DisplayName } from "./EmojiPicker";
 import type { UserDetailed } from "../api/types";
 import { useAuth } from "../state/auth";
 import { Avatar } from "./NoteBody";
@@ -281,7 +282,7 @@ function DetailedCard(props: { initial: UserDetailed }) {
           <Avatar url={user().avatarUrl} name={displayNameOf(user())} />
         </A>
         <div class="profilecard-id">
-          <span class="name">{displayNameOf(user())}</span>
+          <span class="name"><DisplayName name={displayNameOf(user())} packed={user().emojis} /></span>
           <span class="handle">{handleOf(user())}</span>
         </div>
         <span class="spacer" />
@@ -290,7 +291,7 @@ function DetailedCard(props: { initial: UserDetailed }) {
         </Show>
       </div>
       <Show when={user().description}>
-        <p class="bio">{user().description}</p>
+        <p class="bio"><DisplayName name={user().description ?? ""} packed={user().emojis} /></p>
       </Show>
       <StatsLine
         followers={user().followersCount}

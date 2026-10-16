@@ -3,6 +3,7 @@ import { A, useSearchParams } from "@solidjs/router";
 import { apiCall, ApiError } from "../api/client";
 import type { Note, UserLite } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
+import { DisplayName } from "../components/EmojiPicker";
 import NoteCard from "../components/NoteCard";
 import { NoteSkeletonList, RowSkeletonList } from "../components/Skeleton";
 
@@ -78,7 +79,7 @@ export default function Search() {
   return (
     <div>
       <div class="pagehead"><h1>Search</h1></div>
-      <div class="pager" style={{ gap: "8px" }}>
+      <div class="pager" style={{ gap: "0.53em" }}>
         <button
           type="button"
           onClick={() => setTab("users")}
@@ -106,7 +107,7 @@ export default function Search() {
       </div>
       <form
         class="row"
-        style={{ padding: "0 16px 12px" }}
+        style={{ padding: "0 1.07em 0.8em" }}
         onSubmit={(e) => {
           e.preventDefault();
           void run();
@@ -149,7 +150,7 @@ export default function Search() {
             {(u) => (
               <div class="drivefile">
                 <div style={{ flex: 1 }}>
-                  <A href={`/users/${u.id}`}><strong>{displayNameOf(u)}</strong></A>
+                  <A href={`/users/${u.id}`}><strong><DisplayName name={displayNameOf(u)} packed={u.emojis} /></strong></A>
                   <div class="handle">{handleOf(u)}</div>
                 </div>
               </div>

@@ -10,6 +10,11 @@
   --border: #e3e3e3;
   --edge: #d4d4d4;
   --border-strong: #111111;
+  color-scheme: light;
+  /* Prose text multiplier (0.5–4x, Appearance settings). Only the
+   * scaled-prose rule below reads it — chrome stays fixed, so text
+   * sizing is never a full-UI zoom. */
+  --text-scale: 1;
 }
 
 /* Dark mode follows the system theme (owner override 2026-10-16 of the
@@ -31,6 +36,36 @@
   }
 }
 
+/* Explicit colour-mode override (Appearance settings). The attribute
+ * selector beats the bare `:root` in the media query above, so an
+ * explicit choice always wins; with no attribute the system theme
+ * governs. Keep both sets in sync with the palettes above. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-soft: #f6f6f6;
+  --raise: #ececec;
+  --text: #111111;
+  --muted: #666666;
+  --faint: #999999;
+  --border: #e3e3e3;
+  --edge: #d4d4d4;
+  --border-strong: #111111;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111111;
+  --bg-soft: #1b1b1b;
+  --raise: #262626;
+  --text: #ededed;
+  --muted: #a8a8a8;
+  --faint: #7a7a7a;
+  --border: #2b2b2b;
+  --edge: #3d3d3d;
+  --border-strong: #ededed;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -40,8 +75,18 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 15px;
+  font-size: calc(15px * var(--text-scale, 1));
   line-height: 1.45;
+}
+
+/* The app never needs page-level horizontal scrolling: rows wrap,
+ * popups are capped, bars scroll internally. Clip any stray overflow
+ * (absolute popups near viewport edges) instead of handing the whole
+ * viewport a scrollbar. `clip`, not `hidden`, so sticky positioning
+ * keeps working. */
+html,
+body {
+  overflow-x: clip;
 }
 
 a {
@@ -60,7 +105,7 @@ button {
   background: var(--raise);
   border: 1px solid var(--edge);
   border-radius: 8px;
-  padding: 6px 12px;
+  padding: 0.4em 0.8em;
   cursor: pointer;
 }
 
@@ -97,7 +142,7 @@ select {
   background: var(--bg);
   border: 1px solid var(--faint);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 0.53em 0.67em;
   width: 100%;
 }
 
@@ -118,31 +163,40 @@ textarea::placeholder {
 }
 
 .sitenav {
-  width: 220px;
+  /* Adaptive width: fits the longest nav label instead of truncating
+   * it (up to a cap — beyond that the label ellipsis applies), with a
+   * 220px floor so 1x is unchanged. Internal vertical scroll keeps
+   * every item (down to the account card) reachable when tall text
+   * exceeds the viewport. Collapsed stays a fixed 68px icon rail. */
+  width: max-content;
+  min-width: 220px;
+  max-width: min(420px, 40vw);
   flex-shrink: 0;
   border-right: 1px solid var(--border);
-  padding: 20px 16px;
+  padding: 1.33em 1.07em;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.27em;
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .brand {
   font-weight: 700;
-  font-size: 20px;
+  font-size: calc(20px * var(--text-scale, 1));
   text-decoration: none;
-  margin-bottom: 16px;
+  margin-bottom: 0.8em;
   color: var(--text);
 }
 
 .navlink {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 0.67em;
+  padding: 0.53em 0.67em;
   border-radius: 8px;
   text-decoration: none;
   color: var(--text);
@@ -163,6 +217,15 @@ textarea::placeholder {
   align-items: center;
 }
 
+/* Long labels (e.g. Notifications at large text) truncate inside the
+ * fixed-width sidebar instead of overflowing into the feed. */
+.navlabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 /* Buttons styled as nav items (collapse toggle, sign out). */
 .navlink.navbutton {
   background: none;
@@ -176,40 +239,58 @@ textarea::placeholder {
   display: none;
 }
 
-/* Collapsed sidebar: icons only (desktop). */
-.sitenav.collapsed {
-  width: 68px;
-  padding: 20px 12px;
-}
+/* Narrow-desktop rail: icons only, chosen by available space — no
+ * toggle, the layout responds to the viewport (reference-client
+ * style). Desktop-only band: the ≤720px bottom bar further below
+ * re-overrides everything, so these rules never leak into mobile. */
+@media (min-width: 721px) and (max-width: 1000px) {
+  .sitenav {
+    width: 68px;
+    min-width: 0;
+    max-width: none;
+    padding: 1.33em 0.8em;
+  }
 
-.sitenav.collapsed .brand {
-  text-align: center;
-}
+  .sitenav .brand {
+    text-align: center;
+  }
 
-.sitenav.collapsed .brand-full {
-  display: none;
-}
+  .sitenav .brand-full {
+    display: none;
+  }
 
-.sitenav.collapsed .brand-short {
-  display: inline;
-}
+  .sitenav .brand-short {
+    display: inline;
+  }
 
-.sitenav.collapsed .navlink {
-  justify-content: center;
-  padding: 8px;
-}
+  .sitenav .navlink {
+    justify-content: center;
+    padding: 0.53em;
+    /* Height parity with expanded buttons: expanded height is the
+     * 0.53em + 0.53em vertical padding plus the taller of the 16px icon
+     * and the label's text line (1.45 x 15px x scale). This floor is
+     * exactly that sum (0.53 + 0.53 + 1.45 = 2.51em against the same
+     * 15px-scaled base), so rail icon-only buttons match expanded ones
+     * at every scale with no jump or shrink across the breakpoint.
+     * Update this if navlink padding, icon size, or line-height ever
+     * changes. */
+    min-height: 2.51em;
+  }
 
-.sitenav.collapsed .navlabel {
-  display: none;
-}
+  .sitenav .navlabel {
+    display: none;
+  }
 
-.sitenav.collapsed .accountcard {
-  justify-content: center;
-  padding: 8px;
-}
+  .sitenav .accountcard {
+    justify-content: center;
+    padding: 0.53em;
+  }
 
-.sitenav.collapsed .accountcard-text {
-  display: none;
+  /* Rail stays avatar-only: name/handle show in the expanded sidebar
+   * footer alone (competitor-style). */
+  .sitenav .accountcard-text {
+    display: none;
+  }
 }
 
 .navspacer {
@@ -218,10 +299,10 @@ textarea::placeholder {
 
 .navuser {
   border-top: 1px solid var(--border);
-  padding-top: 12px;
+  padding-top: 0.8em;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.53em;
 }
 
 /* Account card: rounded-rect profile button + dropdown menu. */
@@ -233,9 +314,9 @@ textarea::placeholder {
 .accountcard {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.67em;
   width: 100%;
-  padding: 8px 10px;
+  padding: 0.53em 0.67em;
   background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -255,14 +336,14 @@ textarea::placeholder {
 
 .accountcard-name {
   font-weight: 700;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .accountcard-handle {
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -296,12 +377,12 @@ textarea::placeholder {
   background: none;
   border: none;
   width: auto;
-  padding: 2px;
+  padding: 0.13em;
 }
 
 .accountcard-signin {
-  font-size: 14px;
-  padding: 8px 10px;
+  font-size: calc(14px * var(--text-scale, 1));
+  padding: 0.57em 0.71em;
 }
 
 .accountmenu {
@@ -309,20 +390,24 @@ textarea::placeholder {
   bottom: calc(100% + 8px);
   left: 0;
   min-width: 220px;
-  max-width: 280px;
+  /* Never bleed past the sidebar edge (the nav scrolls internally,
+   * so an over-wide menu would clip or force a scrollbar): cap at the
+   * sidebar width. Rows already ellipsis, so nothing is lost. */
+  max-width: min(280px, 100%);
   width: max-content;
   z-index: 30;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.13em;
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 12px;
-  padding: 4px;
+  padding: 0.27em;
 }
 
-/* In the mobile top strip the menu drops down instead of up. */
-.accountcard-wrap.mobile .accountmenu {
+/* In the mobile top strip the menu drops down instead of up (scoped to
+ * the strip container — the card itself carries no mobile variant). */
+.mobile-account .accountmenu {
   bottom: auto;
   top: calc(100% + 8px);
   left: auto;
@@ -332,11 +417,11 @@ textarea::placeholder {
 .accountmenu-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.67em;
   background: none;
   border: none;
   text-align: left;
-  padding: 8px 10px;
+  padding: 0.53em 0.67em;
   border-radius: 8px;
   white-space: nowrap;
   width: 100%;
@@ -355,34 +440,34 @@ textarea::placeholder {
 
 .accountmenu-sep {
   border-top: 1px solid var(--border);
-  margin: 4px 2px;
+  margin: 0.27em 0.13em;
 }
 
 .accountswitch {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.13em;
   border-top: 1px solid var(--border);
-  margin-top: 2px;
-  padding: 4px 2px 2px;
+  margin-top: 0.13em;
+  padding: 0.27em 0.13em 0.13em;
 }
 
 .accountswitch-row {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0.13em;
 }
 
 .accountswitch-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.53em;
   flex: 1;
   min-width: 0;
   background: none;
   border: none;
   text-align: left;
-  padding: 6px 8px;
+  padding: 0.4em 0.53em;
   border-radius: 8px;
 }
 
@@ -398,7 +483,7 @@ textarea::placeholder {
 }
 
 .accountswitch-name {
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -406,7 +491,7 @@ textarea::placeholder {
 }
 
 .accountswitch-handle {
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -415,7 +500,7 @@ textarea::placeholder {
 
 .accountswitch-check {
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   flex-shrink: 0;
 }
 
@@ -423,8 +508,8 @@ textarea::placeholder {
   background: none;
   border: none;
   color: var(--muted);
-  font-size: 16px;
-  padding: 4px 8px;
+  font-size: calc(16px * var(--text-scale, 1));
+  padding: 0.25em 0.5em;
   flex-shrink: 0;
 }
 
@@ -447,36 +532,149 @@ textarea::placeholder {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 700;
   color: var(--muted);
 }
 
 .accountswitch-add {
-  font-size: 13px;
-  padding: 6px 8px;
+  font-size: calc(13px * var(--text-scale, 1));
+  padding: 0.46em 0.62em;
 }
 
 /* Login method tabs + settings blocks. */
 
 .loginmodes {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px 0;
+  gap: 0.53em;
+  padding: 0.8em 1.07em 0;
 }
 
 .settings-block {
-  padding: 16px;
+  padding: 1.07em;
   border-bottom: 1px solid var(--border);
 }
 
 .settings-block h2 {
-  font-size: 15px;
-  margin: 0 0 8px;
+  font-size: calc(15px * var(--text-scale, 1));
+  margin: 0 0 0.53em;
 }
 
 .settings-block .form {
-  padding: 12px 0 0;
+  padding: 0.8em 0 0;
+}
+
+/* Settings section list (index page): full-width rows with a title,
+ * hint, and chevron — monochrome, keyboard-focusable links. */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  padding: 1.07em;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+}
+
+.settings-row:hover {
+  background: var(--bg-soft);
+}
+
+.settings-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.13em;
+}
+
+.settings-row-title {
+  font-weight: 700;
+}
+
+.settings-row-hint {
+  color: var(--muted);
+  font-size: calc(13px * var(--text-scale, 1));
+}
+
+.settings-row-chevron {
+  color: var(--muted);
+  font-size: calc(20px * var(--text-scale, 1));
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Appearance settings: native radios + range, monochrome via
+ * accent-color; the global visible-focus rule applies. */
+.appearance fieldset {
+  border: none;
+  margin: 0 0 1.07em;
+  padding: 0;
+}
+
+.appearance fieldset:last-child {
+  margin-bottom: 0;
+}
+
+.appearance legend {
+  font-weight: 700;
+  font-size: calc(14px * var(--text-scale, 1));
+  padding: 0;
+  margin-bottom: 0.57em;
+}
+
+.radio-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.53em;
+}
+
+.radio-rows label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.53em;
+  cursor: pointer;
+}
+
+.radio-rows input[type="radio"] {
+  width: auto;
+  accent-color: var(--text);
+}
+
+.scale-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8em;
+  margin: 0.53em 0;
+}
+
+.scale-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--text);
+}
+
+.scale-row output {
+  font-variant-numeric: tabular-nums;
+  min-width: 3.2em;
+  text-align: right;
+}
+
+.scale-row .spacer {
+  flex: 1;
+}
+
+.settings-preview {
+  margin: 0.8em 0 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.53em 0.67em;
 }
 
 .maincol {
@@ -484,7 +682,7 @@ textarea::placeholder {
   max-width: 600px;
   border-right: 1px solid var(--border);
   min-height: 100vh;
-  padding-bottom: 48px;
+  padding-bottom: 3.2em;
 }
 
 .pagehead {
@@ -492,22 +690,23 @@ textarea::placeholder {
   top: 0;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
-  padding: 12px 16px;
+  padding: 0.8em 1.07em;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.8em;
   z-index: 5;
 }
 
 .pagehead h1 {
-  font-size: 17px;
+  font-size: calc(17px * var(--text-scale, 1));
   margin: 0;
   flex: 1;
+  min-width: 0;
 }
 
 /* Live-connection status: grey secondary text, never an accent color. */
 .streamstate {
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   color: var(--muted);
   white-space: nowrap;
 }
@@ -521,10 +720,10 @@ textarea::placeholder {
 
 .note {
   border-bottom: 1px solid var(--border);
-  padding: 12px 16px;
+  padding: 0.8em 1.07em;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 0.8em;
 }
 
 .note-main {
@@ -535,7 +734,7 @@ textarea::placeholder {
 .note-head {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 0.4em;
   flex-wrap: wrap;
 }
 
@@ -557,7 +756,7 @@ textarea::placeholder {
 .namelink {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 0.4em;
   min-width: 0;
   text-decoration: none;
   color: inherit;
@@ -582,13 +781,13 @@ textarea::placeholder {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 220px;
+  max-width: 14.67em;
 }
 
 .handle,
 .time {
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .time {
@@ -596,7 +795,7 @@ textarea::placeholder {
 }
 
 .notebody {
-  margin: 4px 0 8px;
+  margin: 0.27em 0 0.53em;
   overflow-wrap: break-word;
   white-space: pre-wrap;
 }
@@ -607,8 +806,8 @@ textarea::placeholder {
 
 .notebody blockquote {
   border-left: 2px solid var(--border-strong);
-  margin: 8px 0;
-  padding: 4px 0 4px 12px;
+  margin: 0.53em 0;
+  padding: 0.27em 0 0.27em 0.8em;
   color: var(--text);
 }
 
@@ -616,7 +815,7 @@ textarea::placeholder {
   background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: 0.53em 0.67em;
   overflow-x: auto;
 }
 
@@ -624,13 +823,24 @@ textarea::placeholder {
   background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 0 4px;
+  padding: 0 0.27em;
 }
 
 .notebody pre code {
   border: none;
   padding: 0;
   background: none;
+}
+
+/* Global text scaling (Appearance text size): EVERY font-size in the
+ * client multiplies by --text-scale (0.5–4x), so text scales uniformly
+ * app-wide. Spacing (padding/gap/margins) is em-based against each
+ * element's own text size, so rhythm breathes with the text and 1x
+ * matches the original pixels exactly; fixed geometry (widths, avatars,
+ * media, borders, radii, positioned offsets) stays put. Unitless
+ * line-heights scale proportionally on their own. */
+.hovercard-bio {
+  font-size: calc(14px * var(--text-scale, 1));
 }
 
 .mentiontag,
@@ -645,7 +855,7 @@ textarea::placeholder {
  * Lone hashtags are NOT chips and keep the .hashtag rendering above. */
 .mchip {
   display: inline-block;
-  max-width: 280px;
+  max-width: 18.67em;
   /* middle, not baseline: overflow:hidden (for the ellipsis) moves an
    * inline-block's baseline to its bottom edge, which would perch the
    * whole pill on the text baseline and stretch the line upward.
@@ -657,7 +867,7 @@ textarea::placeholder {
   border: 1px solid var(--border);
   background: var(--bg-soft);
   border-radius: 999px;
-  padding: 0 10px;
+  padding: 0 0.67em;
   /* Tighter than the body 1.45: pill border + text must fit inside one
    * line box, otherwise any chipped line stands taller than its
    * neighbors (see docs/spacing.png). */
@@ -674,7 +884,7 @@ textarea::placeholder {
 .mchip-user {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.4em;
   max-width: 100%;
   color: inherit;
 }
@@ -696,7 +906,7 @@ textarea::placeholder {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale, 1));
   font-weight: 700;
   color: var(--muted);
 }
@@ -724,12 +934,12 @@ textarea::placeholder {
 .tagbubble {
   display: inline-flex;
   align-items: baseline;
-  max-width: 180px;
+  max-width: 13.85em;
   background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 2px 10px;
-  font-size: 13px;
+  padding: 0.15em 0.77em;
+  font-size: calc(13px * var(--text-scale, 1));
   cursor: pointer;
 }
 
@@ -746,17 +956,17 @@ textarea::placeholder {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.13em;
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 8px;
-  padding: 4px;
-  min-width: 148px;
-  max-width: 240px;
+  padding: 0.27em;
+  min-width: 9.87em;
+  max-width: 16em;
 }
 
 .tagpop a {
-  padding: 8px 10px;
+  padding: 0.53em 0.67em;
   border-radius: 6px;
   text-decoration: none;
   overflow: hidden;
@@ -771,7 +981,7 @@ textarea::placeholder {
 /* Folded-post tail: `…` plus the explicit "Open post" link. */
 .foldmore {
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .foldmore a {
@@ -781,21 +991,21 @@ textarea::placeholder {
 .cwbox {
   border: 1px solid var(--border-strong);
   border-radius: 6px;
-  padding: 8px 10px;
-  margin: 8px 0;
+  padding: 0.53em 0.67em;
+  margin: 0.53em 0;
 }
 
 .cwbox p {
-  margin: 0 0 8px;
+  margin: 0 0 0.62em;
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .media {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 8px 0;
+  gap: 0.53em;
+  margin: 0.53em 0;
 }
 
 /* Multi-attachment strip: horizontal snap-scroll, one item per snap.
@@ -835,10 +1045,10 @@ textarea::placeholder {
 }
 
 .mediafile {
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 0.46em 0.77em;
   text-decoration: none;
 }
 
@@ -848,7 +1058,7 @@ textarea::placeholder {
   display: block;
   border: 1px solid var(--border);
   border-radius: 6px;
-  margin: 8px 0;
+  margin: 0.53em 0;
   overflow: hidden;
   color: inherit;
   text-decoration: none;
@@ -865,14 +1075,14 @@ textarea::placeholder {
 .linkcard-meta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
+  gap: 0.13em;
+  padding: 0.53em 0.67em;
 }
 
 .linkcard-site {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.4em;
 }
 
 .linkcard-icon {
@@ -896,14 +1106,14 @@ textarea::placeholder {
 }
 
 .linkcard-url {
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   overflow-wrap: break-word;
 }
 
 .profilecard-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.67em;
 }
 
 .profilecard-head .spacer {
@@ -917,13 +1127,13 @@ textarea::placeholder {
 }
 
 .profilecard .bio {
-  margin: 8px 0;
+  margin: 0.53em 0;
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
 
 .profilecard-stats {
-  margin-top: 4px;
+  margin-top: 0.31em;
 }
 
 /* Hover profile popup (avatar/name in notes): banner header, avatar
@@ -962,13 +1172,13 @@ textarea::placeholder {
 
 .hovercard-body {
   display: block;
-  padding: 12px 12px 10px;
+  padding: 0.8em 0.8em 0.67em;
 }
 
 .hovercard-row {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 0.53em;
 }
 
 .hovercard-row .spacer {
@@ -979,7 +1189,7 @@ textarea::placeholder {
 .hovercard-ava .avatar-fallback {
   width: 56px;
   height: 56px;
-  font-size: 20px;
+  font-size: calc(20px * var(--text-scale, 1));
   border: 2px solid var(--bg);
 }
 
@@ -1002,12 +1212,12 @@ textarea::placeholder {
   display: inline-flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: 0.27em;
 }
 
 .hovercard-name {
   display: block;
-  margin-top: 8px;
+  margin-top: 0.53em;
   font-weight: 700;
   text-decoration: none;
   overflow: hidden;
@@ -1017,21 +1227,21 @@ textarea::placeholder {
 
 .hovercard-bio {
   display: block;
-  margin: 8px 0 0;
-  font-size: 14px;
+  margin: 0.57em 0 0;
+  font-size: calc(14px * var(--text-scale, 1));
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
 
 .hovercard-stats {
   display: block;
-  margin-top: 8px;
+  margin-top: 0.62em;
 }
 
 .hovercard-err {
   display: block;
-  margin-top: 8px;
-  font-size: 13px;
+  margin-top: 0.62em;
+  font-size: calc(13px * var(--text-scale, 1));
   color: var(--muted);
 }
 
@@ -1045,8 +1255,8 @@ textarea::placeholder {
   display: block;
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 16px;
-  margin: 8px 0;
+  padding: 1.07em;
+  margin: 0.53em 0;
   color: inherit;
   /* Clips flush quoted media to the card radius (bottom corners round,
    * top edge sits square under the quoted text). */
@@ -1055,9 +1265,9 @@ textarea::placeholder {
 
 .renote-embed .renote-head {
   display: flex;
-  gap: 8px;
+  gap: 0.53em;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 0.53em;
 }
 
 /* Quoted header avatar: same shape as elsewhere, smaller. */
@@ -1065,7 +1275,7 @@ textarea::placeholder {
 .renote-embed .renote-head .avatar-fallback {
   width: 24px;
   height: 24px;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
 }
 
 .renote-embed .notebody {
@@ -1090,7 +1300,7 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 0;
-  margin: 12px -16px -16px;
+  margin: 0.8em -1.07em -1.07em;
 }
 
 .renote-embed .media-quote img,
@@ -1104,10 +1314,14 @@ textarea::placeholder {
   margin: 0;
 }
 
-.renote-embed .media-quote audio,
+.renote-embed .media-quote audio {
+  margin: 0.53em 1.07em 1.07em;
+  max-width: calc(100% - 2.13em);
+}
+
 .renote-embed .media-quote .mediafile {
-  margin: 8px 16px 16px;
-  max-width: calc(100% - 32px);
+  margin: 0.62em 1.23em 1.23em;
+  max-width: calc(100% - 2.46em);
 }
 
 /* Auto-translation toggle line: one grey line under the note header.
@@ -1115,11 +1329,11 @@ textarea::placeholder {
 .transline {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 0.46em;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   color: var(--muted);
-  margin-bottom: 4px;
+  margin-bottom: 0.31em;
 }
 
 .trans-toggle {
@@ -1137,8 +1351,8 @@ textarea::placeholder {
 }
 
 .renote-foot {
-  margin-top: 6px;
-  font-size: 13px;
+  margin-top: 0.46em;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .renote-foot a {
@@ -1148,8 +1362,8 @@ textarea::placeholder {
 /* Quote-post states: same grey palette, no accent colors. The
  * authorization label is informational only — it never hides the card. */
 .quote-status {
-  font-size: 13px;
-  margin-bottom: 2px;
+  font-size: calc(13px * var(--text-scale, 1));
+  margin-bottom: 0.15em;
 }
 
 .quote-unavailable {
@@ -1157,8 +1371,8 @@ textarea::placeholder {
 }
 
 .quote-resolving {
-  font-size: 13px;
-  margin: 8px 0;
+  font-size: calc(13px * var(--text-scale, 1));
+  margin: 0.62em 0;
 }
 
 /* Pure reposts render retweet-style: a full-width banner naming the
@@ -1167,10 +1381,11 @@ textarea::placeholder {
 .renote-banner {
   flex: 1 1 100%;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 0.46em;
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .renote-banner svg {
@@ -1197,19 +1412,19 @@ textarea::placeholder {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.13em;
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 8px;
-  padding: 4px;
-  min-width: 148px;
+  padding: 0.27em;
+  min-width: 9.87em;
 }
 
 .renotemenu button {
   background: none;
   border: none;
   text-align: left;
-  padding: 8px 10px;
+  padding: 0.53em 0.67em;
   border-radius: 6px;
   white-space: nowrap;
 }
@@ -1220,19 +1435,20 @@ textarea::placeholder {
 
 .noteactions {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 0.53em;
   align-items: center;
-  margin-top: 4px;
+  margin-top: 0.31em;
 }
 
 .action {
   border: 1px solid transparent;
   background: none;
   color: var(--muted);
-  padding: 4px 8px;
-  font-size: 13px;
+  padding: 0.31em 0.62em;
+  font-size: calc(13px * var(--text-scale, 1));
   display: inline-flex;
-  gap: 4px;
+  gap: 0.31em;
   align-items: center;
   text-decoration: none;
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -1280,17 +1496,17 @@ textarea::placeholder {
   border-radius: 0;
   background: transparent;
   margin: 0;
-  padding: 12px 16px;
+  padding: 0.8em 1.07em;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.67em;
 }
 
 /* Main text blends into the card; the card edge is the boundary. */
 .composer > textarea {
   border: none;
   background: transparent;
-  padding: 4px 2px;
+  padding: 0.27em 0.13em;
   min-height: 72px;
   resize: vertical;
 }
@@ -1299,10 +1515,10 @@ textarea::placeholder {
 .composer .toolbar {
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  padding-top: 10px;
-  padding-bottom: 10px;
+  padding-top: 0.67em;
+  padding-bottom: 0.67em;
   flex-wrap: wrap;
-  row-gap: 8px;
+  row-gap: 0.53em;
 }
 
 .composer .toolbar select {
@@ -1346,9 +1562,9 @@ textarea::placeholder {
 .composer .toolbar label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.43em;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
 }
 
 .composer .toolbar input[type="checkbox"] {
@@ -1358,7 +1574,7 @@ textarea::placeholder {
 
 .row {
   display: flex;
-  gap: 8px;
+  gap: 0.53em;
   align-items: center;
 }
 
@@ -1368,7 +1584,7 @@ textarea::placeholder {
 
 .count {
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .btn-primary {
@@ -1388,38 +1604,38 @@ textarea::placeholder {
 }
 
 .form {
-  padding: 24px 16px;
+  padding: 1.6em 1.07em;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.8em;
   max-width: 380px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.27em;
 }
 
 .field label {
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   color: var(--muted);
 }
 
 .state {
-  padding: 32px 16px;
+  padding: 2.13em 1.07em;
   text-align: center;
   color: var(--muted);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.8em;
   align-items: center;
 }
 
 .errorbox {
   border: 1px solid var(--border-strong);
   border-radius: 6px;
-  padding: 12px;
+  padding: 0.8em;
   color: var(--text);
   background: var(--bg-soft);
   max-width: 100%;
@@ -1431,62 +1647,179 @@ textarea::placeholder {
   background: var(--bg-soft);
   border: 1px solid var(--border-strong);
   border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 13px;
+  padding: 0.62em 0.77em;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .pager {
-  padding: 16px;
+  padding: 1.07em;
   display: flex;
   justify-content: center;
 }
 
+/* Profile header: full-width banner strip (grey when bannerless) with a
+ * large avatar overlapping the banner's bottom edge — the same
+ * negative-margin trick as `.hovercard-overlap`. Monochrome throughout;
+ * the banner and avatar are user content, like note media. */
 .profile {
-  padding: 20px 16px;
+  padding: 0 0 0.27em;
   border-bottom: 1px solid var(--border);
+  display: block;
+}
+
+.profile-banner {
+  display: block;
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  background: var(--bg-soft);
+}
+
+.profile-body {
+  display: block;
+  padding: 1.33em 1.07em 0.8em;
+}
+
+.profile-row {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
   align-items: flex-start;
+  gap: 0.53em;
 }
 
-.profile .avatar,
-.profile .avatar-fallback {
-  width: 64px;
-  height: 64px;
-  font-size: 24px;
+.profile-row .spacer {
+  flex: 1;
 }
 
-.profile h2 {
-  margin: 0;
-  font-size: 18px;
+.profile-ava .avatar,
+.profile-ava .avatar-fallback {
+  width: 120px;
+  height: 120px;
+  font-size: calc(44px * var(--text-scale, 1));
+  border: 3px solid var(--bg);
+}
+
+/* Avatar rides up over the banner's bottom edge; the follow/edit
+ * buttons stay below the banner on the right. Without a banner there
+ * is no overlap. */
+.profile-overlap {
+  padding-top: 0;
+}
+
+.profile-overlap .profile-row {
+  margin-top: -60px;
+}
+
+.profile-overlap .profile-row button,
+.profile-overlap .profile-row .handle[role="status"] {
+  margin-top: 64px;
+}
+
+.profile-body h2 {
+  margin: 0.6em 0 0;
+  font-size: calc(20px * var(--text-scale, 1));
 }
 
 .profile .bio {
-  margin: 8px 0;
+  margin: 0.53em 0;
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
 
 .profile .stats {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 0.92em;
   color: var(--muted);
-  font-size: 13px;
-  margin: 8px 0;
+  font-size: calc(13px * var(--text-scale, 1));
+  margin: 0.62em 0;
+}
+
+.profile .stats .statlink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.profile .stats .statlink:hover {
+  text-decoration: underline;
+}
+
+/* Profile tab bar: monochrome text + underline indicator for the active
+ * tab, no accent color. Buttons carry tab semantics; the global
+ * visible-focus rule applies. */
+.profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.27em;
+  border-bottom: 1px solid var(--border);
+  padding: 0 0.53em;
+}
+
+.profile-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 0.86em 0.86em 0.71em;
+  font-size: calc(14px * var(--text-scale, 1));
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.profile-tab:not(:disabled):hover {
+  color: var(--text);
+}
+
+.profile-tab:not(:disabled):active {
+  background: none;
+}
+
+.profile-tab.active {
+  color: var(--text);
+  font-weight: 700;
+  border-bottom-color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .profile-banner {
+    height: 160px;
+  }
+
+  .profile-ava .avatar,
+  .profile-ava .avatar-fallback {
+    width: 96px;
+    height: 96px;
+    font-size: calc(36px * var(--text-scale, 1));
+  }
+
+  .profile-overlap .profile-row {
+    margin-top: -48px;
+  }
+
+  .profile-overlap .profile-row button,
+  .profile-overlap .profile-row .handle[role="status"] {
+    margin-top: 52px;
+  }
 }
 
 .notif {
   border-bottom: 1px solid var(--border);
-  padding: 12px 16px;
+  padding: 0.8em 1.07em;
   display: flex;
-  gap: 12px;
+  gap: 0.8em;
 }
 
 .notif .kind {
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* The content column must shrink past long words/handles instead of
+ * forcing the row (and the viewport) wider. */
+.notif > div {
+  min-width: 0;
 }
 
 /* Reaction chips (Misskey-style row above the actions, only when reactions
@@ -1495,16 +1828,16 @@ textarea::placeholder {
 .reactions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0 4px;
+  gap: 0.4em;
+  margin: 0.53em 0 0.27em;
 }
 
 .rxn {
   border: 1px solid var(--border);
   background: var(--bg-soft);
   border-radius: 999px;
-  padding: 2px 10px;
-  font-size: 13px;
+  padding: 0.15em 0.77em;
+  font-size: calc(13px * var(--text-scale, 1));
   color: var(--text);
 }
 
@@ -1527,34 +1860,53 @@ button.rxn:not(:disabled):hover {
   display: inline-flex;
 }
 
-.reactpicker.popup {
+/* Shared emoji picker panel: a floating overlay card in the
+ * audience-menu language (monochrome, 12px radius), opening upward
+ * from the note action row or the composer toolbar. It floats over
+ * the page and never pushes content. */
+.emojpick.popup {
   position: absolute;
   bottom: calc(100% + 4px);
   left: 0;
   z-index: 20;
-  min-width: 220px;
+  min-width: 280px;
+  max-width: min(340px, calc(100vw - 32px));
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  padding: 0.67em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.67em;
 }
 
-/* Polls, reaction picker, drive, chips, antennas, search.
+/* Polls, drive, chips, antennas, search.
    Black/white/grey only: borders, text, and muted tones. */
 
 .poll {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 0.4em;
+  margin-top: 0.53em;
 }
 
 .pollopt {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: 0.53em;
   text-align: left;
+  overflow-wrap: break-word;
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 0.4em 0.67em;
   background: var(--bg);
   color: var(--text);
+}
+
+.pollopt > * {
+  min-width: 0;
 }
 
 .pollopt:disabled {
@@ -1562,27 +1914,220 @@ button.rxn:not(:disabled):hover {
   opacity: 0.9;
 }
 
-.reactpicker {
+.emojpick-sec {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px;
-  margin-top: 8px;
-  background: var(--bg);
+  flex-direction: column;
+  gap: 0.4em;
 }
 
-.reactpicker button {
-  font-size: 18px;
-  padding: 4px 8px;
+.emojpick-label {
+  font-size: calc(12px * var(--text-scale, 1));
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.emojpick-hint {
+  font-size: calc(13px * var(--text-scale, 1));
+  color: var(--muted);
+  margin: 0;
+}
+
+.emojpick-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.13em;
+}
+
+.emojpick-cell {
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 0.3em 0.4em;
+  font-size: calc(20px * var(--text-scale, 1));
+  line-height: 1.2;
+  cursor: pointer;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emojpick-cell:hover {
+  background: var(--bg-soft);
+}
+
+/* Hosted custom emoji in prose (note text, names, CWs, bios): inline
+ * at text size, scaling with the surrounding font (and text-size
+ * setting). Fixed chrome (picker cells, chips, like button) overrides
+ * below with explicit pixel sizes. */
+img.emojiglyph {
+  height: 1.25em;
+  width: auto;
+  vertical-align: -0.25em;
+}
+
+.emojpick-cell .emojiglyph,
+.rxn .emojiglyph {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.emojpick-cats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.13em;
+}
+
+.emojpick-cat {
+  display: flex;
+  align-items: center;
+  gap: 0.57em;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 0.43em 0.57em;
+  cursor: pointer;
+  color: var(--text);
+  font-size: calc(14px * var(--text-scale, 1));
+}
+
+.emojpick-cat:hover {
+  background: var(--bg-soft);
+}
+
+.emojpick-error {
+  display: flex;
+  align-items: center;
+  gap: 0.62em;
+  font-size: calc(13px * var(--text-scale, 1));
+  color: var(--muted);
+}
+
+.emojpick-search input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.emojpick-footbtn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0.31em 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: calc(13px * var(--text-scale, 1));
+}
+
+.emojpick-footbtn:hover {
+  color: var(--text);
+}
+
+/* Right-click menu over picker cells: the vispick card language,
+ * cursor-fixed and clamped to the viewport by the component. */
+.emojictx-menu {
+  position: fixed;
+  top: auto;
+  left: auto;
+  z-index: 50;
+  min-width: 240px;
+}
+
+.emojictx-menu .vispick-icon .emojiglyph {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+/* Like-button glyphs: the custom like renders at control size. */
+.likepop {
+  display: inline-flex;
+  animation: like-pop 0.22s ease-out;
+}
+
+.action .emojiglyph {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+@keyframes like-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  55% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Reactions settings page rows. */
+.like-current {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: calc(20px * var(--text-scale, 1));
+}
+
+.like-current .emojiglyph {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.favlist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.53em;
+}
+
+.favrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.44em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.22em 0.33em 0.22em 0.67em;
+  font-size: calc(18px * var(--text-scale, 1));
+}
+
+.favrow .emojiglyph {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.favrow button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: calc(13px * var(--text-scale, 1));
+  padding: 0.15em 0.46em;
+}
+
+.favrow button:hover {
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .likepop {
+    animation: none;
+  }
 }
 
 .reactcustom {
   display: flex;
-  gap: 4px;
+  gap: 0.27em;
   width: 100%;
-  margin-top: 4px;
+  margin-top: 0.27em;
 }
 
 .reactcustom input {
@@ -1592,9 +2137,9 @@ button.rxn:not(:disabled):hover {
 
 .drivefile {
   border-bottom: 1px solid var(--border);
-  padding: 10px 16px;
+  padding: 0.67em 1.07em;
   display: flex;
-  gap: 10px;
+  gap: 0.67em;
   align-items: center;
   overflow-wrap: anywhere;
 }
@@ -1605,6 +2150,12 @@ button.rxn:not(:disabled):hover {
   object-fit: cover;
   border-radius: 4px;
   flex-shrink: 0;
+}
+
+/* The info column must shrink past long filenames instead of forcing
+ * the row (and the viewport) wider. */
+.drivefile > div {
+  min-width: 0;
 }
 
 /* Static loading skeletons: grey placeholder blocks, deliberately
@@ -1635,16 +2186,16 @@ button.rxn:not(:disabled):hover {
 .drivecats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  padding: 12px 16px 0;
+  gap: 0.53em;
+  padding: 0.8em 1.07em 0;
 }
 
 .drivecat {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: none;
-  padding: 16px 8px;
-  font-size: 14px;
+  padding: 1.14em 0.57em;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 700;
   cursor: pointer;
   color: var(--text);
@@ -1655,18 +2206,18 @@ button.rxn:not(:disabled):hover {
 }
 
 .driveback {
-  padding: 12px 16px 0;
+  padding: 0.8em 1.07em 0;
 }
 
 /* Drive groups: Images / Videos / Audio / Files sections. */
 .drivesec {
-  padding: 4px 16px 8px;
+  padding: 0.27em 1.07em 0.53em;
 }
 
 .drivesec-head {
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 700;
-  margin: 12px 0 8px;
+  margin: 0.86em 0 0.57em;
 }
 
 /* Tile mosaic for the Images and Videos sections. */
@@ -1720,8 +2271,8 @@ button.rxn:not(:disabled):hover {
   background: var(--text);
   color: var(--bg);
   border-radius: 4px;
-  padding: 0 6px;
-  font-size: 12px;
+  padding: 0 0.5em;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
@@ -1731,7 +2282,7 @@ button.rxn:not(:disabled):hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: calc(22px * var(--text-scale, 1));
   color: #fff;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
   pointer-events: none;
@@ -1744,32 +2295,32 @@ button.rxn:not(:disabled):hover {
   background: var(--text);
   color: var(--bg);
   border-radius: 4px;
-  padding: 0 6px;
-  font-size: 12px;
+  padding: 0 0.5em;
+  font-size: calc(12px * var(--text-scale, 1));
   line-height: 1.6;
 }
 
 .tile-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px 6px;
+  gap: 0.33em;
+  padding: 0.33em 0.5em;
   border-top: 1px solid var(--border);
 }
 
 .tile-actions button {
-  font-size: 12px;
-  padding: 2px 6px;
+  font-size: calc(12px * var(--text-scale, 1));
+  padding: 0.17em 0.5em;
 }
 
 /* Miniplayer rows for the Audio section. */
 .audiorow {
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 8px 10px;
-  margin: 0 0 8px;
+  padding: 0.53em 0.67em;
+  margin: 0 0 0.53em;
   display: flex;
-  gap: 10px;
+  gap: 0.67em;
   overflow-wrap: anywhere;
 }
 
@@ -1784,44 +2335,49 @@ button.rxn:not(:disabled):hover {
 
 .audiorow audio {
   width: 100%;
-  margin-top: 6px;
+  margin-top: 0.4em;
 }
 
 .audio-actions {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.27em;
   flex-shrink: 0;
 }
 
 .audio-actions button {
-  font-size: 12px;
-  padding: 2px 6px;
+  font-size: calc(12px * var(--text-scale, 1));
+  padding: 0.17em 0.5em;
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 0.4em;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.46em;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
-  padding: 2px 6px 2px 10px;
-  font-size: 13px;
+  padding: 0.15em 0.46em 0.15em 0.77em;
+  font-size: calc(13px * var(--text-scale, 1));
 }
 
 .chip button {
   border: none;
   background: none;
   color: var(--muted);
-  font-size: 15px;
-  padding: 0 4px;
+  font-size: calc(15px * var(--text-scale, 1));
+  padding: 0 0.27em;
   cursor: pointer;
+}
+
+/* Mobile top strip stays avatar-only (no room for name/handle). */
+.mobile-account .accountcard-text {
+  display: none;
 }
 
 /* Mobile: single column + bottom navigation bar + top account strip. */
@@ -1839,7 +2395,7 @@ button.rxn:not(:disabled):hover {
   .mobile-account {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.53em;
     position: sticky;
     top: 0;
     z-index: 10;
@@ -1848,13 +2404,13 @@ button.rxn:not(:disabled):hover {
     min-width: 0;
     background: var(--bg);
     border-bottom: 1px solid var(--border);
-    padding: 8px 16px;
-    padding-top: calc(8px + env(safe-area-inset-top));
+    padding: 0.53em 1.07em;
+    padding-top: calc(0.53em + env(safe-area-inset-top));
   }
 
   .mobile-brand {
     font-weight: 700;
-    font-size: 17px;
+    font-size: calc(17px * var(--text-scale, 1));
     text-decoration: none;
     color: var(--text);
     flex-shrink: 0;
@@ -1865,8 +2421,8 @@ button.rxn:not(:disabled):hover {
   }
 
   .mobile-signin {
-    font-size: 13px;
-    padding: 8px 4px;
+    font-size: calc(13px * var(--text-scale, 1));
+    padding: 0.62em 0.31em;
   }
 
   .sitenav {
@@ -1879,11 +2435,15 @@ button.rxn:not(:disabled):hover {
     height: auto;
     flex-direction: row;
     align-items: center;
-    gap: 2px;
+    gap: 0.13em;
     border-right: none;
     border-top: 1px solid var(--border);
     background: var(--bg);
-    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    padding: 0.4em 0.53em calc(0.4em + env(safe-area-inset-bottom));
+    /* Large text widens the icon buttons past the viewport: scroll
+     * the bar instead of squishing or bleeding. Fits at 1x, so this
+     * never shows there. */
+    overflow-x: auto;
     z-index: 10;
   }
 
@@ -1892,17 +2452,13 @@ button.rxn:not(:disabled):hover {
   }
 
   .navlink {
-    flex: 1;
+    flex: 1 0 auto;
     flex-direction: column;
-    gap: 2px;
+    gap: 0.2em;
     text-align: center;
     justify-content: center;
-    padding: 6px 2px;
-    font-size: 10px;
-  }
-
-  .collapse-toggle {
-    display: none;
+    padding: 0.6em 0.2em;
+    font-size: calc(10px * var(--text-scale, 1));
   }
 
   .navspacer {
@@ -1915,11 +2471,11 @@ button.rxn:not(:disabled):hover {
 
   .maincol {
     border-right: none;
-    padding-bottom: 96px;
+    padding-bottom: 6.4em;
   }
 
   .name {
-    max-width: 140px;
+    max-width: 9.33em;
   }
 }
 
@@ -1930,16 +2486,18 @@ button.rxn:not(:disabled):hover {
  * only; keyboard focus follows the global visible-focus rule. */
 
 .reply-toggle-row {
-  padding: 2px 16px 10px 68px;
+  /* Avatar-column indent: note padding + fixed avatar + note gap, so the
+   * toggle sits under the note text at every text size. */
+  padding: 0.13em 1.07em 0.67em calc(1.87em + 40px);
 }
 
 .reply-toggle {
   background: none;
   border: none;
   border-radius: 8px;
-  padding: 4px 0;
+  padding: 0.29em 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   cursor: pointer;
 }
 
@@ -1967,7 +2525,7 @@ button.rxn:not(:disabled):hover {
 
 @media (max-width: 720px) {
   .reply-toggle-row {
-    padding-left: 64px;
+    padding-left: calc(1.87em + 36px);
   }
 
   .reply-nested {
@@ -1998,14 +2556,17 @@ button.rxn:not(:disabled):hover {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 35px;
+  /* Avatar-column geometry: note padding-left (1.07em) + half the
+   * fixed 40px avatar, minus half the 2px line — tracks .note padding
+   * at every text size. */
+  left: calc(1.07em + 19px);
   width: 2px;
   background: var(--border);
 }
 
 .feed > .reply-branch:last-child::before {
   bottom: auto;
-  height: 34px;
+  height: calc(0.8em + 22px);
 }
 
 .feed > .reply-branch .avatar,
@@ -2024,7 +2585,8 @@ button.rxn:not(:disabled):hover {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 35px;
+  /* Same avatar-column geometry as the reply-branch connector above. */
+  left: calc(1.07em + 19px);
   width: 2px;
   background: var(--border);
 }
@@ -2043,7 +2605,7 @@ button.rxn:not(:disabled):hover {
 
 .composer-main {
   display: flex;
-  gap: 12px;
+  gap: 0.8em;
   align-items: flex-start;
 }
 
@@ -2052,26 +2614,27 @@ button.rxn:not(:disabled):hover {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.67em;
 }
 
 .composer-body > textarea {
   border: none;
   background: transparent;
-  padding: 4px 2px;
+  padding: 0.27em 0.13em;
   min-height: 72px;
   resize: vertical;
 }
 
 .replying-to {
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   color: var(--muted);
-  padding: 0 2px 2px;
+  padding: 0 0.14em 0.14em;
 }
 
 .composer-audience {
   display: flex;
-  padding: 2px 0 0 52px;
+  /* Avatar-column indent: fixed 40px avatar + the composer gap. */
+  padding: 0.13em 0 0 calc(40px + 0.8em);
 }
 
 /* Audience pill: a custom button opening the floating menu below —
@@ -2079,12 +2642,12 @@ button.rxn:not(:disabled):hover {
 .audience-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.46em;
   background: none;
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 3px 12px;
-  font-size: 13px;
+  padding: 0.23em 0.92em;
+  font-size: calc(13px * var(--text-scale, 1));
   color: var(--text);
   cursor: pointer;
   white-space: nowrap;
@@ -2111,27 +2674,27 @@ button.rxn:not(:disabled):hover {
   top: calc(100% + 6px);
   left: 0;
   z-index: 30;
-  min-width: 280px;
-  max-width: min(320px, calc(100vw - 32px));
+  min-width: 18.67em;
+  max-width: min(21.33em, calc(100vw - 32px));
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 12px;
-  padding: 6px;
+  padding: 0.4em;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.13em;
 }
 
 .vispick-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.8em;
   width: 100%;
   text-align: left;
   background: none;
   border: none;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 0.53em 0.67em;
   cursor: pointer;
   color: var(--text);
 }
@@ -2151,6 +2714,7 @@ button.rxn:not(:disabled):hover {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow-wrap: break-word;
 }
 
 .vispick-label {
@@ -2158,7 +2722,7 @@ button.rxn:not(:disabled):hover {
 }
 
 .vispick-desc {
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   color: var(--muted);
 }
 
@@ -2181,11 +2745,11 @@ button.rxn:not(:disabled):hover {
   background: none;
   border: none;
   border-radius: 8px;
-  padding: 6px;
+  padding: 0.4em;
   color: var(--muted);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 0.27em;
 }
 
 .composer .toolbar button.toolbtn:not(:disabled):hover {
@@ -2207,14 +2771,14 @@ button.rxn:not(:disabled):hover {
 }
 
 .toolbtn .toolcount {
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 700;
 }
 
 .toolbtn.tooltext {
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale, 1));
   font-weight: 700;
-  padding: 6px 8px;
+  padding: 0.46em 0.62em;
 }
 
 .compose-emoji-wrap {
@@ -2227,12 +2791,12 @@ button.rxn:not(:disabled):hover {
 .localswitch {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.43em;
   background: none;
   border: none;
-  padding: 6px 4px;
+  padding: 0.43em 0.29em;
   color: var(--muted);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   white-space: nowrap;
   cursor: pointer;
 }
@@ -2273,24 +2837,24 @@ button.rxn:not(:disabled):hover {
 /* Compact reply row (detail view, before click): avatar + placeholder
  * as one button; expands into the full editor above. */
 .composer-compact {
-  padding: 8px 16px;
+  padding: 0.53em 1.07em;
 }
 
 .composer-open {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.8em;
   width: 100%;
   background: none;
   border: none;
-  padding: 4px 2px;
+  padding: 0.27em 0.13em;
   cursor: pointer;
   text-align: left;
 }
 
 .composer-open span {
   color: var(--muted);
-  font-size: 15px;
+  font-size: calc(15px * var(--text-scale, 1));
 }
 
 /* Pressed icon toggles invert (beats the bare base above on
@@ -2323,13 +2887,13 @@ button.rxn:not(:disabled):hover {
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 16px;
-  padding: 8px 0 4px;
+  padding: 0.53em 0 0.27em;
 }
 
 .postbox-head {
   display: flex;
   align-items: center;
-  padding: 0 8px 4px;
+  padding: 0 0.53em 0.27em;
 }
 
 .postbox-head .spacer {
@@ -2339,9 +2903,9 @@ button.rxn:not(:disabled):hover {
 .postbox-close {
   background: none;
   border: none;
-  font-size: 22px;
+  font-size: calc(22px * var(--text-scale, 1));
   line-height: 1;
-  padding: 4px 10px;
+  padding: 0.18em 0.45em;
   color: var(--muted);
   cursor: pointer;
 }
@@ -2355,8 +2919,8 @@ button.rxn:not(:disabled):hover {
   border: none;
   color: var(--text);
   font-weight: 700;
-  font-size: 14px;
-  padding: 6px 10px;
+  font-size: calc(14px * var(--text-scale, 1));
+  padding: 0.43em 0.71em;
   cursor: pointer;
 }
 
@@ -2370,16 +2934,16 @@ button.rxn:not(:disabled):hover {
 
 .postbox-draftlist {
   border-top: 1px solid var(--border);
-  margin: 0 16px 4px;
-  padding: 8px 0;
+  margin: 0 1.07em 0.27em;
+  padding: 0.53em 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.27em;
 }
 
 .draftrow {
   display: flex;
-  gap: 8px;
+  gap: 0.53em;
   align-items: center;
 }
 
@@ -2389,7 +2953,7 @@ button.rxn:not(:disabled):hover {
   text-align: left;
   background: none;
   border: none;
-  padding: 6px 0;
+  padding: 0.4em 0;
   color: var(--text);
   cursor: pointer;
   overflow: hidden;

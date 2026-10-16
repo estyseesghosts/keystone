@@ -64,7 +64,7 @@ export default function FloatingComposer() {
     if (!box.isOpen()) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (document.querySelector(".vispick-menu, .compose-emoji-wrap .reactpicker")) return;
+      if (document.querySelector(".vispick-menu, .compose-emoji-wrap .emojpick")) return;
       close();
     };
     document.addEventListener("keydown", onKey);

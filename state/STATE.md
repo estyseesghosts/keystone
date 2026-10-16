@@ -129,13 +129,69 @@ approve-and-return round-trip still **not yet verified** (owner).
   switch, floating composer with per-backend drafts + rail entry. `tsc`
   + build green, 8/8 drafts checks; browser QA **not yet verified**
   (owner). See log `2026-10-16-composer-v2.md`.
-- **Next (handoff written, NOT implemented):** `docs/profile-handoff.md`
-  — banner header + big overlapping avatar, clickable follow counters →
-  list sub-routes, bio via `MfmRenderer` (mention chips + hashtag
-  links), Misskey-1:1 tabs (Featured pending a pinned-source probe;
-  Posts/All server-exact; Media client-filtered since the server 400s
-  `withReplies+withFiles`). `users/notes` flag semantics verified in
-  Misskey `develop` source; build left for the next agent.
+- **Next (implemented 2026-10-16, uncommitted, browser QA owner-handled):**
+  RESPONSIVE rail sidebar (competitor behavior, Keystone look) — toggle
+  deleted, icon rail driven by viewport width (721–1000px band), rail
+  menu as measured fixed flyout, resize/scroll dismiss. `tsc` + build
+  green. See log `2026-10-16-rail-sidebar.md`.
+- **Next (implemented 2026-10-16, uncommitted, browser QA owner-handled):**
+  NO viewport horizontal scroll (`overflow-x: clip` backstop + wrap/
+  shrink pass on rows) + avatar-only sidebar footer (card gone, same
+  32px avatar everywhere, menu untouched). `tsc` + build green. See
+  log `2026-10-16-no-hscroll-avatar.md`.
+- **Next (implemented 2026-10-16, uncommitted, browser QA owner-handled):**
+  ADAPTIVE layout for text size — em-based spacing everywhere text
+  breathes (1x pixel-identical), adaptive sidebar width (fit-to-label
+  + cap + internal scroll, menu bleed capped), exact collapsed/expanded
+  button-height parity (`min-height: 2.51em`), mobile bar scroll.
+  `tsc` + build green. See log `2026-10-16-adaptive-layout.md`.
+- **Next (implemented 2026-10-16, uncommitted, browser QA owner-handled):**
+  GLOBAL text scaling (owner correction: prose-only was wrong) — all 68
+  `font-size` declarations now multiply by `--text-scale`, layout fixed.
+  `tsc` + build green. See log `2026-10-16-text-scale-global.md`.
+- **Next (implemented 2026-10-16, uncommitted, browser QA owner-handled):**
+  settings as pages (competitor-style index list → `/settings/account`
+  session info + sign out, `/settings/display` appearance) — profile
+  editor removed from client settings entirely (lives only on your own
+  profile page). `tsc` + build green. See log
+  `2026-10-16-settings-pages.md`.
+- **Next (implemented 2026-10-16, uncommitted, browser QA owner-handled):**
+  real `/settings` Appearance section — explicit colour mode
+  (light/dark/follow-system, persisted, `data-theme` override of the
+  system media query) + prose text size 50–400% (`--text-scale` on note
+  bodies/bios/composer only, chrome untouched). Owner request overrides
+  the AGENTS.md §7 no-toggle guard (explicit ask). `tsc` + build green,
+  26/26 helper checks. See log `2026-10-16-settings-appearance.md`.
+- **Next (handoff written, IMPLEMENTED 2026-10-16, uncommitted, browser/live-API QA
+  owner-handled):** `docs/profile-handoff.md` — banner header + big
+  overlapping avatar, clickable follow counters → list sub-routes, bio via
+  `MfmRenderer`, Misskey-1:1 tabs (Featured SHIPPED ABSENT — no pinned
+  source confirmed, never faked; Posts/All server-exact; Media
+  client-filtered). `tsc` + build green; suites NOT re-run here (no
+  backends on this machine). See log `2026-10-16-profile-tabs.md`.
+- **Plus (2026-10-16, uncommitted, browser QA owner-handled):** emoji
+  picker + favourites + custom like (see log
+  `2026-10-16-emoji-picker.md`): shared floating `EmojiPickerButton`
+  (reactions + composer), hosted Custom categories via public
+  `POST /api/emojis` (verified live on dvd.chat; 404 → omitted on
+  Pinetree), device-local favourites/recents/like-emoji, picker-cell
+  right-click menu (vispick-styled), like sends the chosen emoji with
+  a reduced-motion-guarded pop, `/settings/reactions` page. `tsc` +
+  build green, 37/37 helper checks; API suites NOT re-run here.
+- **Plus (2026-10-16, uncommitted, browser QA owner-handled):** emoji
+  load fix + render everywhere (see log
+  `2026-10-16-emoji-render.md`): `emojis` fetch via `apiCall`
+  (fixes "Could not load custom emoji" with external accounts; `i`
+  tolerance proven live) + hosted images in MFM text, display names
+  (11 sites), CWs, poll choices, hover/unfurl bios. 42/42 helper
+  checks, `tsc` + build green.
+- **Plus (2026-10-16, uncommitted, browser QA owner-handled):** packed
+  emoji maps (see log `2026-10-16-emoji-packed.md`) — the real cause
+  of literal rendering was `:name@host:` reaction keys (live-verified
+  the common case) with no resolver; per-object `reactionEmojis` /
+  `emojis` maps now feed chips/like/text/names (listing as fallback),
+  listing eager-loads at startup and is keyed per target. 59/59
+  helper checks, `tsc` + build green.
 
 ## Decisions since stonekey
 
@@ -150,6 +206,11 @@ approve-and-return round-trip still **not yet verified** (owner).
   on signed-in where auth is required).
 - Reactions: server normalizes ❤️→❤ (verified live); client sends ❤ so
   optimistic state matches reconciled state.
+- Emoji prefs (favourites, recents, like emoji): device-local
+  `keystone_emoji_*` localStorage for now; per-account storage arrives
+  with the Pinetree server work. The configured like emoji never
+  appears in the chips row (like-only, like hearts). Picker right-click
+  menu is cells-only.
 - Credential-packed fields (`myReaction`, `poll`/`isVoted`, `files` on
   non-public notes): always assert/read authenticated.
 - Pinetree gaps (verified 404/reject, UI degrades honestly): no

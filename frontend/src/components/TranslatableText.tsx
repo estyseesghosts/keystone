@@ -41,6 +41,9 @@ export default function TranslatableText(props: {
    * same rules when it arrives (a fold-point shift on arrival is
    * accepted). Tag extraction still uses the original elsewhere. */
   foldText?: boolean;
+  /** Owning note's packed map, passed to the renderer (translated text
+   * falls back to the global listing, then literal). */
+  emojis?: Record<string, string> | null;
 }) {
   const [capable, setCapable] = createSignal(false);
   const [forceOriginal, setForceOriginal] = createSignal(false);
@@ -104,7 +107,7 @@ export default function TranslatableText(props: {
         )}
       </Show>
       <div class="trans-text">
-        <MfmRenderer text={folded().text} />
+        <MfmRenderer text={folded().text} emojis={props.emojis} />
         <Show when={folded().truncated}>
           <span class="foldmore">… <A href={`/notes/${props.noteId}`}>Open post</A></span>
         </Show>

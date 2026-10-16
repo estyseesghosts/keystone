@@ -6,6 +6,9 @@ import type { MfmNode } from "mfm-js";
 import { apiCall } from "../api/client";
 import type { UserLite } from "../api/types";
 import { displayNameOf } from "../api/types";
+import { customEmojiUrl } from "../api/customEmoji";
+import { lookupPackedEmojis } from "../api/emoji";
+import { DisplayName } from "./EmojiPicker";
 
 // Renders an allow-listed subset of the mfm-js AST as Solid elements.
 // Shapes validated against mfm-js 0.27.0 (built/index.d.ts). Unknown nodes
@@ -89,14 +92,17 @@ function MentionLink(props: { acct: string; username: string; host: string | nul
           >
             <img class="mchip-avatar" src={resolved().avatarUrl!} alt="" loading="lazy" />
           </Show>
-          <span class="mchip-name">{displayNameOf(resolved())}</span>
+          <span class="mchip-name"><DisplayName name={displayNameOf(resolved())} packed={resolved().emojis} /></span>
         </A>
       )}
     </Show>
   );
 }
 
-function renderNode(node: MfmNode): JSX.Element {
+function renderNode(
+  node: MfmNode,
+  packed?: Record<string, string> | null,
+): JSX.Element {
   switch (node.type) {
     case "text":
       return <>{node.props.text}</>;
@@ -107,25 +113,25 @@ function renderNode(node: MfmNode): JSX.Element {
     case "bold":
       return (
         <strong>
-          <For each={node.children}>{renderNode}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
         </strong>
       );
     case "italic":
       return (
         <em>
-          <For each={node.children}>{renderNode}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
         </em>
       );
     case "strike":
       return (
         <del>
-          <For each={node.children}>{renderNode}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
         </del>
       );
     case "small":
       return (
         <small>
-          <For each={node.children}>{renderNode}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
         </small>
       );
     case "inlineCode":
@@ -139,7 +145,7 @@ function renderNode(node: MfmNode): JSX.Element {
     case "quote":
       return (
         <blockquote>
-          <For each={node.children}>{renderNode}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
         </blockquote>
       );
     case "mention":
@@ -175,13 +181,30 @@ function renderNode(node: MfmNode): JSX.Element {
       return (
         <span class="mchip">
           <ExternalLink url={node.props.url}>
-            <For each={node.children}>{renderNode}</For>
+            <For each={node.children}>{(child) => renderNode(child, packed)}</For>
           </ExternalLink>
         </span>
       );
-    case "emojiCode":
-      // No custom-emoji lookup endpoint: show the source code literally.
-      return <span>:{node.props.name}:</span>;
+    case "emojiCode": {
+      // The owning note's packed map first (exact intent, remote
+      // included), then the global listing; unknown codes (or a
+      // not-yet-loaded listing) stay literal — never a fabricated
+      // URL. Both lookups are reactive, so the image swaps in when
+      // data lands.
+      const code = `:${node.props.name}:`;
+      const url =
+        lookupPackedEmojis(packed, code) ?? customEmojiUrl(code);
+      return url ? (
+        <img
+          class="emojiglyph"
+          src={url}
+          alt={`:${node.props.name}:`}
+          loading="lazy"
+        />
+      ) : (
+        <span>:{node.props.name}:</span>
+      );
+    }
     case "unicodeEmoji":
       return <span>{node.props.emoji}</span>;
     case "fn":
@@ -189,7 +212,7 @@ function renderNode(node: MfmNode): JSX.Element {
       // Styling functions have no monochrome equivalent: render children.
       return (
         <span>
-          <For each={node.children}>{renderNode}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
         </span>
       );
     case "search":
@@ -202,7 +225,12 @@ function renderNode(node: MfmNode): JSX.Element {
   }
 }
 
-export default function MfmRenderer(props: { text: string | null }) {
+export default function MfmRenderer(props: {
+  text: string | null;
+  /** Owning object's packed map (`note.emojis`) — exact URLs for the
+   * codes in this text, including remote emoji. */
+  emojis?: Record<string, string> | null;
+}) {
   const nodes = createMemo<MfmNode[]>(() => {
     const text = props.text ?? "";
     if (text.length === 0) return [];
@@ -215,7 +243,7 @@ export default function MfmRenderer(props: { text: string | null }) {
 
   return (
     <Show when={nodes().length > 0} fallback={<>{props.text ?? ""}</>}>
-      <For each={nodes()}>{renderNode}</For>
+      <For each={nodes()}>{(node) => renderNode(node, props.emojis)}</For>
     </Show>
   );
 }

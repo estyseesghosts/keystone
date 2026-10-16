@@ -89,7 +89,12 @@ executed evidence.
       "xx, yy and zz reposted", "xx, yy, zz and N others reposted", names
       linked). Quotes never collapse. Raw items are kept for paging
       cursors/reconciliation, so `<For>` row identity is untouched
-- [x] Profile timeline (`users/notes`); notifications with readable labels +
+- [x] Profile header + follow lists + note tabs (2026-10-16, `docs/profile-handoff.md`):
+      banner strip (grey when bannerless) + large overlapping avatar,
+      clickable Following/Followers counters to `/users/:id/following` +
+      `/users/:id/followers` (shared `FollowList`), bio via `MfmRenderer`,
+      Posts / All / Media per-tab `users/notes` lists (Featured absent —
+      no pinned source); notifications with readable labels +
       timestamps + paging (`i/notifications` has no `isRead` — no read styling)
 
 ## Quote posts (done 2026-10-16, `docs/quote-posts.md`)
@@ -300,7 +305,11 @@ when its Phase 3 lands — currently empty stubs, no route; the client stays
 disabled in pinetree mode), full profile editor beyond the bounded
 `i/update` subset (`avatarId`/`bannerId`, decorations, fields[]),
 user-list management (blocks `list`-source antennas; that source is hidden
-until the subset lands), Drive folder navigation, dark mode.
+until the subset lands), Drive folder navigation, explicit theme choice
+(landed 2026-10-16: `/settings` Appearance — light/dark/follow-system plus
+global text size 50–400% (every font-size scales, layout fixed); see
+`../state/logs/2026-10-16-settings-appearance.md` and
+`2026-10-16-text-scale-global.md`).
 
 ## Slice 7 — Streaming Stage A (done, Misskey/Sharkey only)
 - [x] `src/api/stream.ts`: native-`WebSocket` client, no new dependencies;
@@ -382,13 +391,66 @@ until the subset lands), Drive folder navigation, dark mode.
 - [x] Account card (`AccountCard`: avatar + name + handle rounded-rect,
       menu with Profile / Settings / Switch-account SVG icons, per-host
       switcher + remove, add-external link) in the sidebar footer and the
-      mobile strip; `/settings` route (session info + shared bounded
-      `ProfileEditor`); `/login` gains an External-server tab (host →
+      mobile strip; `/settings` pages (index list → `/settings/account`
+      session info + sign out, `/settings/display` appearance; profile
+      editor lives only on your own profile page, never in settings);
+      `/login` gains an External-server tab (host →
       instance approval tab → manual finish + `extcb` callback auto-finish)
 - [x] Evidence: `tsc --noEmit` clean, `npm run build` green, 22/22
       external-helper checks (`normalizeHost`, MiAuth URL, session
       storage); internal API suites NOT re-run here (backend DB layer down
       — see log); live-instance browser round-trip not yet verified
+
+## Emoji picker + favourites + custom like (built 2026-10-16; browser QA pending)
+
+- [x] Shared `EmojiPickerButton` (`src/components/EmojiPicker.tsx`):
+      one floating panel for reactions (note action row) and inserts
+      (composer toolbar) in the `vispick` card language — quick row,
+      Favourites (stuck user order), Recently used (MRU), Custom Emoji
+      (collapsible hosted categories, search-capped), bottom Search,
+      `:code:` form (reaction mode); closes on outside click/Escape
+- [x] Hosted list (`src/api/customEmoji.ts`): `POST /api/emojis`
+      via `apiCall` (external-account aware — `apiCallPublic` only
+      hits the internal proxy and failed with no local backend; the
+      injected `i` is framework-consumed: bogus `i` → framework auth
+      error, `i: null` → full list, both verified live on dvd.chat),
+      session-cached + in-flight dedupe, reactive URL map; 404 →
+      section omitted (Pinetree), other failures → retry
+- [x] Rendering everywhere (`EmojiGlyph` + `DisplayName`,
+      `splitNameEmojis` pure): MFM `emojiCode` nodes (note text,
+      quotes, notifications, profile bios), display names (timeline,
+      quotes, profile, hovercard, follows, unfurl cards, search,
+      notifications, account card/menu, settings, mention chips),
+      CWs, poll choices, hover/unfurl bios. Unknown codes stay
+      literal; remote `:name@host:` never splits; images are
+      text-sized (`img.emojiglyph`, em-relative) with the code as alt
+- [x] Device-local prefs (`src/state/emojiPrefs.tsx` + `src/api/emoji.ts`
+      pure helpers, 37/37 checks): favourites, recents, like emoji
+      (`keystone_emoji_*` localStorage keys; per-account later with
+      Pinetree). Right-click on picker cells only → `vispick`-styled
+      menu (Add/Remove favourite, Use emoji as like)
+- [x] Like rewire (`ReactionPicker.tsx` + `NoteCard`): like sends the
+      configured emoji (heart default; legacy hearts upgrade on click),
+      chips exclude hearts + the custom like, liked state shows the
+      real reaction, heart→emoji swap pops (off under
+      `prefers-reduced-motion`); `/settings/reactions` manages the like
+      emoji + favourites for keyboard/touch users
+- [x] Evidence: `tsc --noEmit` clean, `npm run build` green, 37/37
+      helper checks (esbuild-bundle + node), dev serves 200. API suites
+      NOT re-run here (no backends on this machine — only the public
+      `emojis` probe); browser behavior (panel position, ctx menu,
+      like pop, settings page, mobile, both themes) **not yet verified**
+      (owner)
+- [x] Follow-up 2026-10-16 (see logs `2026-10-16-emoji-render.md`,
+      `2026-10-16-emoji-packed.md`): load routed via `apiCall` (fixes
+      "Could not load custom emoji" with external accounts / no local
+      backend; `i`-tolerance proven live) + custom emoji rendered in
+      post text, names, CWs, polls, and bios; packed per-object maps
+      (`reactionEmojis`/`emojis`, incl. remote `:name@host:` keys)
+      wired through chips/like/text/names with the listing as
+      fallback, listing eager-loaded at startup and keyed per target.
+      59/59 helper checks, `tsc` + build green; visual confirmation
+      **not yet verified** (owner)
 
 ## Verification per slice
 

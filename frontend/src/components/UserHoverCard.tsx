@@ -20,6 +20,7 @@ import { A } from "@solidjs/router";
 import { apiCall } from "../api/client";
 import type { UserDetailed, UserLite } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
+import { DisplayName } from "./EmojiPicker";
 import { useAuth } from "../state/auth";
 import { Avatar } from "./NoteBody";
 
@@ -225,7 +226,7 @@ export default function UserHover(props: { user: UserLite; children: JSX.Element
                     <Avatar url={props.user.avatarUrl} name={displayNameOf(props.user)} />
                   </span>
                 </span>
-                <span class="hovercard-name">{displayNameOf(props.user)}</span>
+                <span class="hovercard-name"><DisplayName name={displayNameOf(props.user)} packed={props.user.emojis} /></span>
                 <span class="handle">{handleOf(props.user)}</span>
                 <Show
                   when={!loading()}
@@ -276,7 +277,7 @@ export default function UserHover(props: { user: UserLite; children: JSX.Element
                     </Show>
                   </span>
                   <A class="hovercard-name" href={`/users/${detailed().id}`}>
-                    {displayNameOf(detailed())}
+                    <DisplayName name={displayNameOf(detailed())} packed={detailed().emojis} />
                   </A>
                   <span class="handle">
                     {handleOf(detailed())}
@@ -284,7 +285,7 @@ export default function UserHover(props: { user: UserLite; children: JSX.Element
                     {detailed().isBot ? " · automated" : ""}
                   </span>
                   <Show when={detailed().description}>
-                    <span class="hovercard-bio">{detailed().description}</span>
+                    <span class="hovercard-bio"><DisplayName name={detailed().description ?? ""} packed={detailed().emojis} /></span>
                   </Show>
                   <span
                     class="handle hovercard-stats"

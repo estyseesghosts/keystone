@@ -26,8 +26,9 @@ Property paths used by `MfmRenderer.tsx`, all read from that file:
 `mention.props.{username, host, acct}` (renders `@acct` as styled text —
 no userId available, so no link); `hashtag.props.hashtag` (styled text —
 note search is unsupported, so no link); `url.props.url`;
-`link.props.{silent, url}` + children; `emojiCode.props.name` (literal
-`:name:` — no custom-emoji endpoint); `unicodeEmoji.props.emoji`;
+`link.props.{silent, url}` + children; `emojiCode.props.name` (hosted
+image when `POST /api/emojis` knows the name — `docs/api-surface.md`;
+else literal `:name:`); `unicodeEmoji.props.emoji`;
 `fn.props.{name, args}` + children (children only);
 `center.children`; `search.props.content`; `mathInline/mathBlock.props.formula`
 (as code); default → `toString(node)` as text.
@@ -50,7 +51,8 @@ without recording the installed type/props here first.
 
 Implemented extras beyond the v1 list (all shapes verified in the installed
 `built/index.d.ts`, all degrading to text/children, no new capabilities):
-`small`, `unicodeEmoji`, `emojiCode` (literal), `fn`/`center` (children only),
+`small`, `unicodeEmoji`, `emojiCode` (hosted image when the `emojis`
+listing knows the name, else literal), `fn`/`center` (children only),
 `search` (content), `mathInline`/`mathBlock` (as code).
 
 ## Safety rules (non-negotiable)
@@ -58,7 +60,10 @@ Implemented extras beyond the v1 list (all shapes verified in the installed
 1. **No `innerHTML` / `innerText`-as-HTML for note content.** Build Solid elements from parser nodes only.
 2. **Unknown nodes degrade to safe text**, never disappear silently and never interpreted as HTML/JS. Render their text/children where the installed shape provides them, otherwise a harmless fallback.
 3. **External links:** `target="_blank"` + `rel="noopener noreferrer"`. Validate URL scheme before rendering as a link — allow `http:`/`https:` (and relative paths that the API returns for media); render anything else as plain text.
-4. **No speculative custom emoji:** custom-emoji lookup endpoints are not implemented (`docs/api-surface.md`). Use packed note/user emoji URLs only where the actual `notes/*` / `users/show` response shape provides them. Otherwise render the emoji code as plain text.
+4. **Custom emoji only from the packed listing:** `POST /api/emojis`
+(`docs/api-surface.md`) is the only URL source. Render the image when
+it knows the name, else the literal `:code:` — never a fabricated
+URL. Remote `:name@host:` codes always stay literal.
 5. **Wire fields are camelCase** (`createdAt`, `avatarUrl`, …) per `pinetree/docs/domain-types.md`, not internal Rust names.
 6. **CW / visibility / media:** render content warnings, visibility, missing avatars, media URLs, and deleted/unavailable errors defensively. Never show private/`specified` content just because a linked note exists.
 

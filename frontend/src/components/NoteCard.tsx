@@ -8,7 +8,9 @@ import TagBubble from "./TagBubble";
 import { parseTagBlocks } from "../api/tags";
 import { formatTime } from "./time";
 import { HeartIcon, ReplyIcon, RepostIcon } from "./icons";
-import { EmojiButton, LikeButton, ReactionChips, HEART_REACTION, isHeartReaction } from "./ReactionPicker";
+import { LikeButton, ReactionChips } from "./ReactionPicker";
+import { DisplayName, EmojiPickerButton } from "./EmojiPicker";
+import { isHeartReaction } from "../api/emoji";
 
 export { formatTime } from "./time";
 
@@ -31,7 +33,7 @@ function RepostBanner(props: { users: UserLite[] }) {
           <>
             {separator(i())}
             <A class="namelink" href={`/users/${u.id}`}>
-              <span class="name">{displayNameOf(u)}</span>
+              <span class="name"><DisplayName name={displayNameOf(u)} packed={u.emojis} /></span>
             </A>
           </>
         )}
@@ -154,7 +156,7 @@ export default function NoteCard(props: NoteCardProps) {
         <div class="note-head">
           <UserHover user={shown().user}>
             <A class="namelink" href={`/users/${shown().user.id}`}>
-              <span class="name">{displayNameOf(shown().user)}</span>
+              <span class="name"><DisplayName name={displayNameOf(shown().user)} packed={shown().user.emojis} /></span>
               <span class="handle">{handleOf(shown().user)}</span>
             </A>
           </UserHover>
@@ -255,12 +257,13 @@ export default function NoteCard(props: NoteCardProps) {
           }>
             <LikeButton
               note={shown()}
-              onToggle={() => props.onToggleReaction?.(
-                shown(),
-                isHeartReaction(shown().myReaction) ? null : HEART_REACTION,
-              )}
+              onReact={(reaction) => props.onToggleReaction?.(shown(), reaction)}
             />
-            <EmojiButton
+            <EmojiPickerButton
+              mode="reaction"
+              triggerClass="action"
+              label="Emoji reaction"
+              title="Emoji reaction"
               myReaction={shown().myReaction}
               onPick={(reaction) => props.onToggleReaction?.(shown(), reaction)}
               onUnreact={() => props.onToggleReaction?.(shown(), null)}

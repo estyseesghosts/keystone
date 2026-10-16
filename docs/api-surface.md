@@ -68,7 +68,8 @@ hint, never a bare error.
 | Direct replies | `notes/replies` | Public; `{noteId, limit, sinceId?, untilId?}`. Ancestors: `notes/conversation`; replies+quotes: `notes/children` |
 | Profile notes | `users/notes` | Public; `{userId, limit, sinceId?, untilId?, withReplies?}` |
 | Delete own note | `notes/delete` | Auth; 204 empty |
-| React / unreact | `notes/reactions/create`, `notes/reactions/delete` | Create takes `{noteId, reaction}` (required); delete takes `{noteId}`; 204 empty. **Reactions normalize:** `❤️` (U+2764 U+FE0F) is stored/returned as `❤` (U+2764) — the client sends the normalized form |
+| React / unreact | `notes/reactions/create`, `notes/reactions/delete` | Create takes `{noteId, reaction}` (required); delete takes `{noteId}`; 204 empty. **Reactions normalize:** `❤️` (U+2764 U+FE0F) is stored/returned as `❤` (U+2764) — the client sends the normalized form. **Custom keys pack the host** (`:name@host:`, verified live on Sharkey dvd.chat — the common case in the wild). Per-object packed maps are the render source: `note.reactionEmojis` + `note.emojis` + `user.emojis`, all bare-inner → URL (incl. remote); the `emojis` listing is the fallback |
+| Custom emoji list | `emojis` | Public (no auth); `{}` → `{ emojis: [{name, category, url, aliases}] }`. Verified live on Sharkey dvd.chat 2026-10-16 (3,488 items / 51 categories). Pinetree 404s — the picker omits the Custom section there |
 | Undo repost | `notes/unrenote` | Auth, `kind write:notes`; takes the **original** note's `noteId`, deletes my renotes of it |
 | Vote in poll | `notes/polls/vote` | Auth, `kind write:votes`; `{noteId, choice}` |
 | View user / resolve mention | `users/show` | `{userId}` or `{username, host?}`; authed reads add `isFollowing`, `hasPendingFollowRequestFromYou/ToYou` |
@@ -122,6 +123,7 @@ Status values: `implemented and tested`, `implemented but policy-dependent`,
 | Note search | **implemented but policy-dependent** (400 `UNAVAILABLE` on these servers) | **implemented but policy-dependent** | not implemented |
 | Tag search | implemented and tested (`notes/search-by-tag`) | implemented and tested | not implemented |
 | Polls | implemented and tested (create + vote) | implemented and tested | not implemented (create rejects; UI hidden) |
+| Custom emoji listing | not yet verified (same endpoint family as Sharkey) | probed live 2026-10-16 (public `emojis`, 3,488 items / 51 categories; browser QA pending) | **not implemented** (404 → picker omits the Custom section) |
 | Streaming | implemented and tested (Stage A client; API probes green; browser QA pending) | implemented and tested (Stage A client; API probes green; browser QA pending) | **not implemented** (stub modules only, `NoopStreamingSink`, no `/streaming` route; the client never opens a socket in pinetree mode) |
 
 ## Streaming (Misskey / Sharkey only)

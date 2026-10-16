@@ -9,6 +9,7 @@ import TranslatableText from "./TranslatableText";
 import TagBubble from "./TagBubble";
 import { parseTagBlocks } from "../api/tags";
 import { formatTime } from "./time";
+import { DisplayName } from "./EmojiPicker";
 import LinkCard from "./LinkCard";
 import ProfileCardLoader, { parseProfileUrl } from "./ProfileCard";
 import type { ProfileRef } from "./ProfileCard";
@@ -40,7 +41,7 @@ function QuoteHead(props: { note: Note }) {
   return (
     <div class="renote-head">
       <Avatar url={props.note.user.avatarUrl} name={displayNameOf(props.note.user)} />
-      <span class="name">{displayNameOf(props.note.user)}</span>
+      <span class="name"><DisplayName name={displayNameOf(props.note.user)} packed={props.note.user.emojis} /></span>
       <span class="handle">{handleOf(props.note.user)} · {formatTime(props.note.createdAt)}</span>
       <span class="spacer" aria-hidden="true" />
       <Show when={tags().blocks.length > 0}>
@@ -152,7 +153,7 @@ function PollBlock(props: { note: Note; canVote: boolean; onChanged?: () => void
             onClick={() => void vote(i())}
             aria-label={voted() || !props.canVote ? `${choice.text}: ${choice.votes} votes` : `Vote for ${choice.text}`}
           >
-            <span>{choice.isVoted ? "✓ " : ""}{choice.text}</span>
+            <span>{choice.isVoted ? "✓ " : ""}<DisplayName name={choice.text} packed={props.note.emojis} /></span>
             <span class="handle">{choice.votes}</span>
           </button>
         )}
@@ -388,7 +389,7 @@ export default function NoteBody(props: NoteBodyProps) {
     <>
       <Show when={hasCw()}>
         <div class="cwbox">
-          <p>{props.note.cw}</p>
+          <p><DisplayName name={props.note.cw ?? ""} packed={props.note.emojis} /></p>
           <button type="button" onClick={() => setCwOpen((v) => !v)}>
             {cwOpen() ? "Hide" : "Show"}
           </button>
@@ -402,6 +403,7 @@ export default function NoteBody(props: NoteBodyProps) {
             text={prunedText()}
             visible={visible()}
             foldText={folds()}
+            emojis={props.note.emojis}
           />
         </div>
         <Show when={props.note.files.length > 0}>

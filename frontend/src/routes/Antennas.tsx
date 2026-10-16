@@ -271,7 +271,7 @@ export default function Antennas() {
               class="btn-primary"
               style={{
                 display: "inline-block",
-                padding: "6px 12px",
+                padding: "0.4em 0.8em",
                 border: "1px solid var(--text)",
                 "border-radius": "6px",
                 "text-decoration": "none",

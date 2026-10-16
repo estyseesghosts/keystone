@@ -3,6 +3,7 @@ import { A } from "@solidjs/router";
 import { apiCall, ApiError } from "../api/client";
 import type { NotificationItem } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
+import { DisplayName, EmojiGlyph } from "../components/EmojiPicker";
 import { subscribeChannel, useStreamState } from "../api/stream";
 import type { ChannelHandle } from "../api/stream";
 import { useAuth } from "../state/auth";
@@ -222,7 +223,7 @@ export default function Notifications() {
               class="btn-primary"
               style={{
                 display: "inline-block",
-                padding: "6px 12px",
+                padding: "0.4em 0.8em",
                 border: "1px solid var(--text)",
                 "border-radius": "6px",
                 "text-decoration": "none",
@@ -259,21 +260,25 @@ export default function Notifications() {
                             >
                               <img class="avatar" src={n.user!.avatarUrl!} alt="" loading="lazy" />
                             </Show>
-                            <span>{displayNameOf(n.user!)} ({handleOf(n.user!)})</span>
+                            <span><DisplayName name={displayNameOf(n.user!)} packed={n.user!.emojis} /> ({handleOf(n.user!)})</span>
                           </A>
                         </Show>
                         <div style={{ flex: 1 }}>
                           <div class="kind">{labelOf(n.type)}</div>
                           <div class="handle">{formatTimestamp(n.createdAt)}</div>
                           <Show when={n.reaction}>
-                            <div>reacted {n.reaction}</div>
+                            {(reaction) => (
+                              <div>
+                                reacted <EmojiGlyph emoji={reaction()} packed={n.note?.reactionEmojis} />
+                              </div>
+                            )}
                           </Show>
                           <Show when={n.note?.text} fallback={
                             <Show when={n.note && n.note.renoteId}>
                               <div class="handle">Reposted a note</div>
                             </Show>
                           }>
-                            <div class="notebody"><MfmRenderer text={n.note!.text} /></div>
+                            <div class="notebody"><MfmRenderer text={n.note!.text} emojis={n.note!.emojis} /></div>
                           </Show>
                           <Show when={n.note}>
                             <A class="action" href={`/notes/${n.note!.id}`}>Open note</A>

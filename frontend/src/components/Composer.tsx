@@ -7,7 +7,7 @@
 // full editor ("Replying to @user", autofocus) on click and collapses
 // again after posting.
 
-import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, For, Show } from "solid-js";
 import { apiCall, apiCallPublic } from "../api/client";
 import { IS_MISSKEY_FAMILY } from "../api/backend";
 import type {
@@ -20,19 +20,13 @@ import type {
 import { useAuth } from "../state/auth";
 import { Avatar } from "./NoteBody";
 import { displayNameOf } from "../api/types";
-import { MediaIcon, PollIcon, ScheduleIcon, SmileIcon } from "./icons";
+import { MediaIcon, PollIcon, ScheduleIcon } from "./icons";
+import { EmojiPickerButton } from "./EmojiPicker";
 import VisibilityPicker from "./VisibilityPicker";
 import type { DraftPayload } from "../api/drafts";
 import DriveBrowser from "./DriveBrowser";
 
 const FALLBACK_LIMIT = 3000;
-
-/** Insertable emoji for post text (unicode only — no server dependency,
- * unlike reaction custom emoji). */
-const COMPOSER_EMOJI = [
-  "😀", "😂", "🥲", "😉", "😮", "😢", "🤔", "🙏",
-  "👏", "👍", "🔥", "❤", "🎉", "👀", "💯", "💭",
-];
 
 // Server-advertised text limit (meta.maxNoteTextLength, 3000 on all three
 // local backends), fetched once and cached. Falls back safely when meta is
@@ -165,7 +159,6 @@ export default function Composer(props: {
   const [limit, setLimit] = createSignal(FALLBACK_LIMIT);
   const [attached, setAttached] = createSignal<DriveFile[]>([]);
   const [showAttach, setShowAttach] = createSignal(false);
-  const [showEmoji, setShowEmoji] = createSignal(false);
   const [usePoll, setUsePoll] = createSignal(false);
   const [choices, setChoices] = createSignal<string[]>(["", ""]);
   const [multiple, setMultiple] = createSignal(false);
@@ -190,23 +183,6 @@ export default function Composer(props: {
   // Expanding the compact row moves focus into the editor.
   createEffect(() => {
     if (isCompact() && expanded()) area?.focus();
-  });
-
-  // The emoji popup closes on outside click or Escape.
-  createEffect(() => {
-    if (!showEmoji()) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest?.(".compose-emoji-wrap")) setShowEmoji(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowEmoji(false);
-    };
-    document.addEventListener("click", onDocClick);
-    document.addEventListener("keydown", onKey);
-    onCleanup(() => {
-      document.removeEventListener("click", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    });
   });
 
   const pollChoices = () => choices().map((c) => c.trim()).filter((c) => c.length > 0);
@@ -241,7 +217,6 @@ export default function Composer(props: {
         el.setSelectionRange(pos, pos);
       });
     }
-    setShowEmoji(false);
   };
 
   const post = async () => {
@@ -281,7 +256,6 @@ export default function Composer(props: {
       setLocalOnly(false);
       setAttached([]);
       setShowAttach(false);
-      setShowEmoji(false);
       setUsePoll(false);
       setChoices(["", ""]);
       setError(null);
@@ -481,35 +455,13 @@ export default function Composer(props: {
               <PollIcon />
             </button>
           </Show>
-          <span class="compose-emoji-wrap">
-            <button
-              type="button"
-              class="toolbtn"
-              onClick={() => setShowEmoji((v) => !v)}
-              aria-haspopup="dialog"
-              aria-expanded={showEmoji()}
-              aria-label="Insert emoji"
-              title="Insert emoji"
-            >
-              <SmileIcon />
-            </button>
-            <Show when={showEmoji()}>
-              <div class="reactpicker popup" role="dialog" aria-label="Choose an emoji">
-                <For each={COMPOSER_EMOJI}>
-                  {(emoji) => (
-                    <button
-                      type="button"
-                      onClick={() => insertEmoji(emoji)}
-                      aria-label={`Insert ${emoji}`}
-                      title={`Insert ${emoji}`}
-                    >
-                      {emoji}
-                    </button>
-                  )}
-                </For>
-              </div>
-            </Show>
-          </span>
+          <EmojiPickerButton
+            mode="insert"
+            triggerClass="toolbtn"
+            label="Insert emoji"
+            title="Insert emoji"
+            onPick={insertEmoji}
+          />
           <button
             type="button"
             class="toolbtn tooltext"

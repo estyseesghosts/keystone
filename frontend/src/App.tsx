@@ -1,8 +1,12 @@
 import type { Component } from "solid-js";
+import { createEffect } from "solid-js";
 import type { RouteSectionProps } from "@solidjs/router";
 import { Router, Route } from "@solidjs/router";
 import { AuthProvider } from "./state/auth";
+import { AppearanceProvider } from "./state/appearance";
+import { EmojiPrefsProvider } from "./state/emojiPrefs";
 import { PostboxProvider } from "./state/postbox";
+import { loadCustomEmojis } from "./api/customEmoji";
 import Layout from "./components/Layout";
 import Home from "./routes/Home";
 import Local from "./routes/Local";
@@ -13,16 +17,24 @@ import AntennaFeed from "./routes/AntennaFeed";
 import Search from "./routes/Search";
 import Notifications from "./routes/Notifications";
 import NoteDetail from "./routes/Note";
-import Profile from "./routes/Profile";
-import Settings from "./routes/Settings";
+import Profile, { FollowersPage, FollowingPage } from "./routes/Profile";
+import Settings, { AccountSettings, DisplaySettings, ReactionsSettings } from "./routes/Settings";
 import Login from "./routes/Login";
 
 function Root(props: RouteSectionProps) {
+  // Custom emoji listing for names/reactions/text: fetch once at
+  // startup (session-cached, per-target) so glyphs render without
+  // opening the picker first. Idempotent — the picker kicks it too.
+  createEffect(() => {
+    loadCustomEmojis();
+  });
   return <Layout>{props.children}</Layout>;
 }
 
 const App: Component = () => {
   return (
+    <AppearanceProvider>
+    <EmojiPrefsProvider>
     <AuthProvider>
       <PostboxProvider>
         <Router root={Root}>
@@ -36,11 +48,18 @@ const App: Component = () => {
           <Route path="/notifications" component={Notifications} />
           <Route path="/notes/:id" component={NoteDetail} />
           <Route path="/users/:id" component={Profile} />
+          <Route path="/users/:id/followers" component={FollowersPage} />
+          <Route path="/users/:id/following" component={FollowingPage} />
           <Route path="/settings" component={Settings} />
+          <Route path="/settings/account" component={AccountSettings} />
+          <Route path="/settings/display" component={DisplaySettings} />
+          <Route path="/settings/reactions" component={ReactionsSettings} />
           <Route path="/login" component={Login} />
         </Router>
       </PostboxProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </EmojiPrefsProvider>
+    </AppearanceProvider>
   );
 };
 

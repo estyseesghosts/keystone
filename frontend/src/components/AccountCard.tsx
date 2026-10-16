@@ -1,9 +1,11 @@
 // Account card + menu (sidebar footer and mobile strip).
 //
-// Rounded-rect card with the active account's avatar, display name and
-// handle. Clicking it opens a menu — Profile, Settings, Switch account —
-// each with its own icon. Switch account lists the internal session plus
-// every stored external session and links to the external login form.
+// The active account as avatar + name + handle (competitor-style),
+// shown in the expanded sidebar only: the rail and the mobile strip
+// stay avatar-only. Clicking it opens a menu — Profile, Settings,
+// Switch account — each with its own icon. Switch account lists the
+// internal session plus every stored external session and links to
+// the external login form.
 
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
@@ -16,8 +18,7 @@ import {
   SwitchIcon,
 } from "./icons";
 
-function Avatar(props: { url: string | null; name: string; size: "card" | "menu" }) {
-  return (
+function Avatar(props: { url: string | null; name: string; size: "card" | "menu" }) {  return (
     <Show
       when={props.url}
       fallback={
@@ -38,17 +39,47 @@ function Avatar(props: { url: string | null; name: string; size: "card" | "menu"
   );
 }
 
-export default function AccountCard(props: { avatarOnly?: boolean }) {
+// Matches the narrow-desktop rail band in global.css
+// (`@media (min-width: 721px) and (max-width: 1000px)`): keep the two
+// in sync. Touch-only or SSR environments never match.
+function isRail(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(min-width: 721px) and (max-width: 1000px)").matches
+  );
+}
+
+/** Viewport-fixed flyout style for the rail band (null = CSS-anchored
+ * menu as in every other placement). */
+function flyoutStyle(
+  pos: { left: number; bottom: number } | null,
+): Record<string, string> | undefined {
+  if (!pos) return undefined;
+  return {
+    position: "fixed",
+    left: `${pos.left}px`,
+    bottom: `${pos.bottom}px`,
+    top: "auto",
+    right: "auto",
+  };
+}
+
+export default function AccountCard() {
   const auth = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = createSignal(false);
   const [switching, setSwitching] = createSignal(false);
+  // Viewport-fixed menu position, rail band only (null = anchored to
+  // the button via CSS as before).
+  const [menuPos, setMenuPos] = createSignal<{ left: number; bottom: number } | null>(null);
   let wrapRef: HTMLDivElement | undefined;
   let buttonRef: HTMLButtonElement | undefined;
 
   const close = () => {
     setOpen(false);
     setSwitching(false);
+    setMenuPos(null);
   };
 
   const onDocumentPointerDown = (e: PointerEvent) => {
@@ -64,13 +95,20 @@ export default function AccountCard(props: { avatarOnly?: boolean }) {
 
   // Dismiss listeners live only while the menu is open: the effect
   // subscribes on open and onCleanup unsubscribes on close/unmount.
+  // Resize and scroll also dismiss: a fixed flyout would otherwise go
+  // stale (and scrolling with a menu open is never intended here —
+  // hover cards already behave this way).
   createEffect(() => {
     if (!open()) return;
     document.addEventListener("pointerdown", onDocumentPointerDown);
     document.addEventListener("keydown", onDocumentKeyDown);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
     onCleanup(() => {
       document.removeEventListener("pointerdown", onDocumentPointerDown);
       document.removeEventListener("keydown", onDocumentKeyDown);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
     });
   });
 
@@ -78,6 +116,18 @@ export default function AccountCard(props: { avatarOnly?: boolean }) {
     if (open()) {
       close();
       return;
+    }
+    if (isRail() && buttonRef) {
+      // Rail band: the menu can't live inside the 68px rail (it would
+      // squeeze to rail width), so it opens as a viewport-fixed flyout
+      // right of the avatar, above the button.
+      const rect = buttonRef.getBoundingClientRect();
+      setMenuPos({
+        left: rect.right + 8,
+        bottom: window.innerHeight - rect.top + 8,
+      });
+    } else {
+      setMenuPos(null);
     }
     setOpen(true);
   };
@@ -102,7 +152,7 @@ export default function AccountCard(props: { avatarOnly?: boolean }) {
 
   return (
     <div
-      class={props.avatarOnly ? "accountcard-wrap mobile" : "accountcard-wrap"}
+      class="accountcard-wrap"
       ref={wrapRef}
     >
       <Show
@@ -117,7 +167,7 @@ export default function AccountCard(props: { avatarOnly?: boolean }) {
           <>
             <button
               type="button"
-              class={props.avatarOnly ? "accountcard icon-only" : "accountcard"}
+              class="accountcard"
               onClick={toggle}
               aria-haspopup="menu"
               aria-expanded={open()}
@@ -126,15 +176,18 @@ export default function AccountCard(props: { avatarOnly?: boolean }) {
               ref={buttonRef}
             >
               <Avatar url={user().avatarUrl} name={displayNameOf(user())} size="card" />
-              <Show when={!props.avatarOnly}>
-                <span class="accountcard-text">
-                  <span class="accountcard-name">{displayNameOf(user())}</span>
-                  <span class="accountcard-handle">{handleOf(user())}</span>
-                </span>
-              </Show>
+              <span class="accountcard-text">
+                <span class="accountcard-name">{displayNameOf(user())}</span>
+                <span class="accountcard-handle">{handleOf(user())}</span>
+              </span>
             </button>
             <Show when={open()}>
-              <div class="accountmenu" role="menu" aria-label="Account">
+              <div
+                class="accountmenu"
+                role="menu"
+                aria-label="Account"
+                style={flyoutStyle(menuPos())}
+              >
                 <button
                   type="button"
                   class="accountmenu-item"
