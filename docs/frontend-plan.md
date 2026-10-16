@@ -125,18 +125,25 @@ executed evidence.
       public `notes/translate` `{noteId, targetLang}` → `{sourceLang,
       text}` (shape verified live on dvd.chat — sourceLang is an English
       display name, targetLang lenient); module-level id-keyed cache
-      (successes + failures, in-flight dedupe, no retry loops); translated
-      view only when sourceLang differs from the viewer language
-      (primary-subtag + `Intl.DisplayNames` English-name match); original
-      renders first with no skeleton, monochrome `Translated from {Lang}
-      Show original` toggle line, CW-gated (fires only after reveal),
-      logged-out-safe (no credential sent)
-- [x] Evidence: `tsc --noEmit` clean, `npm run build` green, live
-      `meta`/`notes/translate` probes against dvd.chat (ZH→EN, EN→EN,
-      missing-param 400, `en`/`en-US`/`zh-CN`/`zh`/`ja`/bogus-`xx`
-      targetLang sweep — see `../state/logs/2026-10-16-quote-polish-translate.md`).
-      Browser behavior (quote look, toggle, logged-out, no-endpoint
-      server) not yet verified — owner live-testing on dvd.chat.
+      (successes settle, failures retry after a 90s TTL, in-flight dedupe,
+      404 → session-wide off); token-scope policy (`decideTranslation`):
+      no request without mfm-derived prose (mentions, hashtags, URLs/links,
+      emoji never count); identical normalized output never shows (kills
+      misdetections like an English post labeled "German"); differing
+      sourceLang shows labeled; a same-language claim with substantially
+      changed foreign-script text shows under a generic `Translated` label
+      (detection distrusted, no false source claim), same-script rewrites
+      stay hidden (normalization/hallucination noise); original renders
+      first with no skeleton, monochrome toggle line, CW-gated (fires only
+      after reveal), logged-out-safe (no credential sent)
+- [x] Evidence: `tsc --noEmit` clean, `npm run build` green, 39/39 policy
+      checks (`node` over an esbuild bundle of the TS source —
+      `/tmp/opencode/translate-check.mjs`), live `meta`/`notes/translate`
+      probes against dvd.chat (misdetect + hashtag/label translation +
+      hallucinated-essay observations — see
+      `../state/logs/2026-10-16-translate-scope.md`). Browser behavior
+      (toggle, logged-out, no-endpoint server) not yet verified — owner
+      live-testing on dvd.chat.
 
 ## Deliberately deferred (do not build until scoped)
 

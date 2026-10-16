@@ -71,6 +71,15 @@ approve-and-return round-trip still **not yet verified** (owner).
   targetLang sweep verified live on dvd.chat). `tsc` + build green; visual
   + toggle + logged-out + no-endpoint confirmation **not yet verified**
   (owner live-testing on dvd.chat).
+- 2026-10-16 (translate-scope): token-scope refinement (see log
+  `2026-10-16-translate-scope.md`) — no request without mfm-derived prose
+  (mentions/hashtags/URLs/links/emoji never count), identical-output
+  suppression (live German-misdetect case), distrusted-detection override
+  with generic label (Ukrainian-labeled-English path), 90s failure TTL.
+  Server-side hashtag/link-label translation + short-input hallucination
+  observed live (dvd.chat translator is not DeepL) and recorded, not
+  client-fixable. 39/39 policy checks, `tsc` + build green; browser QA
+  **not yet verified** (owner).
 
 ## Decisions since stonekey
 

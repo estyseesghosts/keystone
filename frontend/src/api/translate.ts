@@ -24,6 +24,7 @@
 import { BACKEND_ID } from "./backend";
 import { apiCall, isUnsupportedError } from "./client";
 import { getActiveExternal } from "./external";
+import { parse, type MfmNode } from "mfm-js";
 
 export interface TranslateResult {
   /** English display name as returned by the server ("Chinese", ...). */
@@ -125,13 +126,20 @@ export function translationDiffers(sourceLang: string): boolean {
 
 const completed = new Map<string, TranslateResult | null>();
 const inflight = new Map<string, Promise<TranslateResult | null>>();
+// Failures are NOT permanent: a transient error (rate limit, translator
+// hiccup) must not hide a translation for the rest of the session. A
+// failed noteId simply stops retrying for FAILURE_TTL_MS; remounts after
+// that try again. Only successes, invalid shapes, and session-wide 404s
+// settle permanently.
+const failedAt = new Map<string, number>();
+const FAILURE_TTL_MS = 90_000;
 const CACHE_MAX = 300;
 
-function evict(): void {
-  while (completed.size > CACHE_MAX) {
-    const oldest = completed.keys().next();
+function evict(map: Map<string, unknown>): void {
+  while (map.size > CACHE_MAX) {
+    const oldest = map.keys().next();
     if (oldest.done) break;
-    completed.delete(oldest.value);
+    map.delete(oldest.value);
   }
 }
 
@@ -146,11 +154,169 @@ function isTranslateResult(value: unknown): value is TranslateResult {
   );
 }
 
+// --- Translatable text, display policy ---------------------------------------
+//
+// The server translates the raw note text by id (mentions, hashtags, URLs,
+// link labels, and emoji included — verified live: a `#tag` came back
+// translated, URLs verbatim). The client cannot scope what the server
+// translates, so it decides instead (a) whether a request is worthwhile at
+// all and (b) whether a returned result is worth showing.
+
+/** Collect the human prose of a note: every text-bearing node except the
+ * structured tokens — mentions, hashtags, bare URLs, whole link nodes
+ * (URL and label alike), and unicode/custom emoji. Code, math, and search
+ * text counts as prose: it rarely justifies a request on its own, but the
+ * identical-output rule below suppresses those results anyway. */
+function collectProse(nodes: MfmNode[], out: string[]): void {
+  for (const node of nodes) {
+    switch (node.type) {
+      case "mention":
+      case "hashtag":
+      case "url":
+      case "link":
+      case "emojiCode":
+      case "unicodeEmoji":
+        break;
+      case "text":
+        out.push(node.props.text);
+        break;
+      case "inlineCode":
+      case "blockCode":
+        out.push(node.props.code);
+        break;
+      case "mathInline":
+      case "mathBlock":
+        out.push(node.props.formula);
+        break;
+      case "search":
+        out.push(node.props.content);
+        break;
+      case "bold":
+      case "small":
+      case "italic":
+      case "strike":
+      case "center":
+      case "quote":
+      case "fn":
+      case "plain":
+        collectProse(node.children, out);
+        break;
+    }
+  }
+}
+
+/** The note's prose with all structured tokens removed. Unparseable text
+ * falls back to the raw string (request, let the server decide). */
+export function translatableText(text: string | null): string {
+  if (!text) return "";
+  let nodes: MfmNode[];
+  try {
+    nodes = parse(text);
+  } catch {
+    return text;
+  }
+  const parts: string[] = [];
+  collectProse(nodes, parts);
+  return parts.join("");
+}
+
+/** True when the note has human prose worth translating: at least one
+ * unicode letter outside mentions/hashtags/URLs/links/emoji. Emoji-only,
+ * tag-only, link-only, and mention-only posts never fire a request. */
+export function hasTranslatableText(text: string | null): boolean {
+  return /\p{L}/u.test(translatableText(text));
+}
+
+/** True when the prose carries letters outside the Latin script (Cyrillic,
+ * Han, Arabic, ...). Used only to distrust a same-language detection, never
+ * to assert which language the text is in. */
+export function hasForeignScript(prose: string): boolean {
+  const letters = prose.match(/\p{L}/gu);
+  return !!letters && letters.some((ch) => !/\p{Script=Latin}/u.test(ch));
+}
+
+/** Comparison form: case-insensitive, all whitespace runs collapsed. */
+export function normalizeForCompare(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** Edit distance capped at `cap + 1`: full precision is pointless past the
+ * substantial-difference threshold, and notes can be 3,000 chars. */
+function editDistanceCapped(a: string, b: string, cap: number): number {
+  if (a.length > b.length) [a, b] = [b, a];
+  let prev: number[] = Array.from({ length: a.length + 1 }, (_, i) => i);
+  for (let j = 1; j <= b.length; j++) {
+    let rowMin = j;
+    const curr: number[] = [j];
+    for (let i = 1; i <= a.length; i++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const v = Math.min(prev[i] + 1, curr[i - 1] + 1, prev[i - 1] + cost);
+      curr.push(v);
+      if (v < rowMin) rowMin = v;
+    }
+    if (rowMin > cap) return cap + 1;
+    prev = curr;
+  }
+  return prev[a.length];
+}
+
+/** Normalized edit distance in [0, 1]. Pure length gaps short-circuit the
+ * DP: a translation much longer/shorter than the original is substantial
+ * by construction. */
+export function distanceRatio(a: string, b: string): number {
+  const longest = Math.max(a.length, b.length);
+  if (longest === 0) return 0;
+  const gap = Math.abs(a.length - b.length) / longest;
+  if (gap > SUBSTANTIAL_RATIO) return gap;
+  return editDistanceCapped(a, b, Math.ceil(SUBSTANTIAL_RATIO * longest)) / longest;
+}
+
+/** Past this normalized distance a changed text counts as a real
+ * translation rather than server normalization noise ("webdev" → "web
+ * dev" scores ~0.02 and stays hidden). */
+export const SUBSTANTIAL_RATIO = 0.25;
+
+export type TranslationDecision =
+  | { show: false }
+  | { show: true; label: string | null };
+
+/** Display policy for one fetched result against the displayed original.
+ * - Identical output (normalized) never shows: misdetections like an
+ *   English post labeled "German" with byte-equal text stay silent.
+ * - A differing sourceLang shows with its `Translated from {sourceLang}`
+ *   label (the normal path).
+ * - A result claiming the viewer's language while the text changed
+ *   substantially is shown with a generic `Translated` label (no false
+ *   source claim) ONLY when the original carries a foreign script — the
+ *   detection demonstrably misfired (e.g. a Ukrainian post labeled
+ *   English). Same-script rewrites stay hidden: they are normalization
+ *   noise, or an LLM-backend hallucination on a short same-language post
+ *   (observed live), neither of which helps the viewer. */
+export function decideTranslation(
+  original: string,
+  result: TranslateResult,
+): TranslationDecision {
+  const a = normalizeForCompare(original);
+  const b = normalizeForCompare(result.text);
+  if (!a || !b || a === b) return { show: false };
+  if (translationDiffers(result.sourceLang)) {
+    return { show: true, label: result.sourceLang };
+  }
+  if (
+    hasForeignScript(translatableText(original)) &&
+    distanceRatio(a, b) > SUBSTANTIAL_RATIO
+  ) {
+    return { show: true, label: null };
+  }
+  return { show: false };
+}
 /** Fetch (or reuse the cached) translation of one note. Resolves null when
- * translation is unavailable, unsupported, failed, or not worth showing —
- * callers always fall back to the original text. Failures are cached like
- * successes so feeds never spin retry loops; the toggle only switches
- * between the cached translation and the original, it never refetches. */
+ * translation is unavailable, unsupported, recently failed, or not worth
+ * showing — callers always fall back to the original text. Successes settle
+ * permanently; failures suppress retries for FAILURE_TTL_MS so transient
+ * errors recover on remount without hammering a persistently failing
+ * endpoint. The toggle only switches between the cached translation and
+ * the original, it never refetches. */
 export function requestTranslation(
   noteId: string,
   targetLang: string,
@@ -158,6 +324,10 @@ export function requestTranslation(
   if (!capabilityValue) return Promise.resolve(null);
   const done = completed.get(noteId);
   if (done !== undefined) return Promise.resolve(done);
+  const failed = failedAt.get(noteId);
+  if (failed !== undefined && Date.now() - failed < FAILURE_TTL_MS) {
+    return Promise.resolve(null);
+  }
   const pending = inflight.get(noteId);
   if (pending) return pending;
 
@@ -165,15 +335,18 @@ export function requestTranslation(
     (res) => {
       const result = isTranslateResult(res) ? res : null;
       completed.set(noteId, result);
-      evict();
+      evict(completed);
+      failedAt.delete(noteId);
       inflight.delete(noteId);
       return result;
     },
     (err) => {
       // A server without the endpoint 404s: never try again this session.
       if (isUnsupportedError(err)) markUnsupported();
-      completed.set(noteId, null);
-      evict();
+      else {
+        failedAt.set(noteId, Date.now());
+        evict(failedAt);
+      }
       inflight.delete(noteId);
       return null;
     },

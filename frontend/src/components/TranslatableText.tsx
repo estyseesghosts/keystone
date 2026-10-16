@@ -1,13 +1,17 @@
 // Note text with automatic translation when the server provides it.
 //
-// Behavior (see docs/quote-polish-translate-handoff.md workstream B):
-// - The original text renders immediately and stays until a translation
-//   arrives: no skeleton, no spinner, no layout jump beyond the text swap.
-// - When a cached/fetched translation arrives whose sourceLang differs from
-//   the viewer's language, the translated text shows with one monochrome
-//   line above it: `Translated from {Language}  Show original`. The button
-//   toggles back and forth; failures and same-language results show the
-//   original with no toggle line and no error.
+// Behavior (see docs/quote-polish-translate-handoff.md workstream B, plus
+// the token-scope refinement in state/logs/2026-10-16-translate-scope.md):
+// - No request fires unless the note carries human prose outside mentions,
+//   hashtags, URLs/links, and emoji (`hasTranslatableText`) — structured
+//   tokens are never worth translating on their own.
+// - The original text renders immediately and stays until a worthwhile
+//   translation arrives: no skeleton, no spinner, no layout jump beyond the
+//   text swap.
+// - A shown translation gets one monochrome line above the text:
+//   `Translated from {Language}  Show original` normally, or a generic
+//   `Translated  Show original` when the source detection was distrusted
+//   (no false source claim). The button toggles back and forth.
 // - Translation never fires on servers lacking the endpoint (capability flag
 //   from `./translate`), and never fires without visible text to translate.
 // - Used for outer note text AND quoted text alike: NoteBody renders both
@@ -17,8 +21,9 @@
 import { createMemo, createResource, createSignal, onMount, Show } from "solid-js";
 import MfmRenderer from "./MfmRenderer";
 import {
+  decideTranslation,
+  hasTranslatableText,
   requestTranslation,
-  translationDiffers,
   translatorAvailable,
   viewerTargetLang,
 } from "../api/translate";
@@ -37,35 +42,41 @@ export default function TranslatableText(props: {
     void translatorAvailable().then((v) => setCapable(v));
   });
 
-  // Null while incapable, hidden, or textless: the resource never fires and
-  // no attempt is ever made against servers without the endpoint.
+  // Null while incapable, hidden, textless, or prose-free: the resource
+  // never fires and no attempt is ever made against servers without the
+  // endpoint or for posts with nothing to translate.
   const source = createMemo((): string | null =>
-    capable() && props.visible && props.text ? props.noteId : null,
+    capable() && props.visible && hasTranslatableText(props.text)
+      ? props.noteId
+      : null,
   );
 
   const [fetched] = createResource(source, (id) =>
     requestTranslation(id, viewerTargetLang()),
   );
 
-  // The usable translation: present, and in a different language than the
-  // viewer's. Same-language results stay on the original with no toggle.
-  const translation = createMemo(() => {
+  // The usable translation under the display policy (identical-output and
+  // same-script-noise results resolve to null — the original shows with no
+  // toggle line and no error).
+  const decision = createMemo(() => {
     const result = fetched();
-    if (!result || !translationDiffers(result.sourceLang)) return null;
-    return result;
+    const original = props.text;
+    if (!result || !original) return null;
+    const verdict = decideTranslation(original, result);
+    return verdict.show ? { text: result.text, label: verdict.label } : null;
   });
 
   const displayText = createMemo(
     (): string | null =>
-      !forceOriginal() && translation() ? translation()!.text : props.text,
+      !forceOriginal() && decision() ? decision()!.text : props.text,
   );
 
   return (
     <>
-      <Show when={translation()}>
-        {(t) => (
+      <Show when={decision()}>
+        {(d) => (
           <div class="transline">
-            <span>Translated from {t().sourceLang}</span>
+            <span>{d().label ? `Translated from ${d().label}` : "Translated"}</span>
             <button
               type="button"
               class="trans-toggle"
