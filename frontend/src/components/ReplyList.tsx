@@ -219,7 +219,7 @@ export function ReplyBranch(props: {
 
   return (
     <div class="reply-branch">
-      <NoteCard note={props.note} />
+      <NoteCard note={props.note} showReplyContext={false} />
       <Show when={!cycled() && !tooDeep()}>
         <div class="reply-toggle-row">
           <button

@@ -2600,6 +2600,88 @@ img.emojiglyph {
   border-bottom: none;
 }
 
+/* Reply context line in feeds: a small grey "Replying to …" above the
+ * note head so a reply never reads as a loose post. Monochrome only;
+ * the parent link (packed name/handle when the server included the
+ * one-level `reply`, generic "a post" otherwise) opens the parent's
+ * detail view with its full thread. Keyboard focus follows the global
+ * visible-focus rule; overlong names clip with an ellipsis. */
+.reply-context {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3em;
+  min-width: 0;
+  margin: 0 0 0.2em;
+  color: var(--muted);
+  font-size: calc(13px * var(--text-scale, 1));
+  overflow: hidden;
+}
+
+.reply-context-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3em;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--muted);
+  text-decoration: none;
+  overflow: hidden;
+}
+
+.reply-context-link:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.reply-context-link .name,
+.reply-context-link .handle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Feed thread column (home/local/global/antenna timelines): adjacent
+ * visible rows where the newer directly replies to the older share one
+ * avatar-column connector, like the reference client — the child links
+ * down into its parent instead of floating loose. Same avatar-column
+ * geometry as the detail thread above, so the line tracks text size;
+ * dividers come out *inside* a run (the last row keeps its own).
+ * Pure-renote wrappers link by their original, so a repost never breaks
+ * or fakes a run; quotes never link. */
+.feed-row {
+  position: relative;
+}
+
+.feed-row-first > .note,
+.feed-row-middle > .note {
+  border-bottom: none;
+}
+
+.feed-row-thread::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(1.07em + 19px);
+  width: 2px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+.feed-row-first::before {
+  top: calc(0.8em + 20px);
+}
+
+.feed-row-last::before {
+  bottom: auto;
+  height: calc(0.8em + 22px);
+}
+
+.feed-row-thread .avatar,
+.feed-row-thread .avatar-fallback {
+  position: relative;
+}
+
 /* Composer (reference-client layout): avatar-led inline box, audience
  * pill, icon toolbar. Monochrome throughout; toggles read as on/off. */
 

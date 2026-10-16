@@ -352,7 +352,7 @@ export default function NoteDetail() {
                   <div class="feed thread-ancestors">
                     <For each={ancestors()}>
                       {(ancestor) => (
-                        <NoteCard note={ancestor} foldText={false} />
+                        <NoteCard note={ancestor} foldText={false} showReplyContext={false} />
                       )}
                     </For>
                   </div>
@@ -387,6 +387,7 @@ export default function NoteDetail() {
                   onChanged={refreshPage}
                   detail
                   foldText={false}
+                  showReplyContext={false}
                 />
                 {/* Quotes render inside the card above via NoteBody's embedded
                   quote card; a second full card here would duplicate it. */}

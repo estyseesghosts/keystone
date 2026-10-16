@@ -55,6 +55,17 @@ executed evidence.
       paint above the line, and card dividers come out inside thread
       contexts so the column reads connected); nested levels keep their
       indented edge connector instead
+- [x] Feed reply context (2026-10-16; browser/live-API QA pending): every
+      feed `NoteCard` shows a grey `Replying to …` line (packed parent
+      name/handle, generic parent link otherwise) linking to the parent's
+      detail view, so replies never read as loose posts; `TimelineFeed`
+      additionally connects adjacent child-above-parent rows with the same
+      avatar-column line (dividers out inside a run). Thread contexts
+      (detail ancestors/main, reply branches) hide the line — the tree
+      already shows the parent. Evidence: `tsc` clean, build green, 20/20
+      `thread.ts` checks (`replyParentId`/`replyParentNote`/`isDirectReplyTo`/
+      `computeFeedThreadLinks` + merge/ancestor regression); suites NOT
+      re-run here (no backends). See `../state/logs/2026-10-16-feed-reply-thread.md`
 - [x] `NoteCard` (avatar, name, handle, timestamp, text, CW, media by MIME
       type with failure fallback, counts), profile links from avatar/name and
       notification authors, mention resolution via cached `users/show`,

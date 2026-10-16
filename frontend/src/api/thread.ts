@@ -4,6 +4,7 @@
 // source of truth — no client thread ids, paths, or nested children.
 
 import type { Note } from "./types";
+import { appearNoteOf } from "./types";
 
 /** Direct-reply page size for `notes/replies` (cross-backend cursor rule:
  * only `{limit, sinceId, untilId}` plus the parent `noteId`). */
@@ -83,4 +84,56 @@ export function orderAncestors(
   }
   chain.reverse();
   return { ancestors: chain, incomplete };
+}
+
+/** The parent id a feed card replies to, if any. Always derived from the
+ * displayed/original note: the server lists no replies for a pure-repost
+ * wrapper id, and actions never target one — so the wrapper's own (always
+ * null) `replyId` must never drive reply UI. Pure. */
+export function replyParentId(note: Note): string | null {
+  return appearNoteOf(note).replyId;
+}
+
+/** The packed parent object when the server included one (`notes/show`
+ * and timeline pages pack a one-level `reply`; it may be null even when
+ * `replyId` is set — deleted, private, or simply unpacked). Displayed-note
+ * aware, like `replyParentId`. Pure. */
+export function replyParentNote(note: Note): Note | null {
+  return appearNoteOf(note).reply;
+}
+
+/** True when `child` directly replies to `parent` in feed order. Compares
+ * the child's displayed `replyId` against the parent's displayed id, so a
+ * pure-repost wrapper on either side still matches its original. A note
+ * never replies to itself, even on malformed data. Pure. */
+export function isDirectReplyTo(child: Note, parent: Note): boolean {
+  const target = appearNoteOf(parent).id;
+  if (child.id === parent.id) return false;
+  if (appearNoteOf(child).id === target) return false;
+  return replyParentId(child) === target;
+}
+
+export interface FeedThreadLinks {
+  /** Per-index flags in feed (newest-first) order: `connectedBelow[i]` is
+   * true when `visible[i]` directly replies to `visible[i + 1]`;
+   * `connectedAbove[i]` mirrors the previous row's below-flag. A run of
+   * set flags is one visual thread (avatar-column connector + no divider
+   * inside the run). Pure. */
+  connectedAbove: boolean[];
+  connectedBelow: boolean[];
+}
+
+/** Compute avatar-column links for a visible feed window (newest-first).
+ * Only *adjacent* parent/child pairs link: a reply whose parent is not
+ * the next row still gets its "Replying to" line, but no connector.
+ * Operates on the rendered order (post-collapse), never the raw paging
+ * array. Pure. */
+export function computeFeedThreadLinks(visible: Note[]): FeedThreadLinks {
+  const connectedBelow: boolean[] = visible.map((_, i) =>
+    i + 1 < visible.length ? isDirectReplyTo(visible[i], visible[i + 1]) : false,
+  );
+  const connectedAbove: boolean[] = visible.map((_, i) =>
+    i > 0 ? connectedBelow[i - 1] : false,
+  );
+  return { connectedAbove, connectedBelow };
 }

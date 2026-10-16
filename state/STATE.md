@@ -67,6 +67,14 @@ approve-and-return round-trip still **not yet verified** (owner).
   `profile`; pitfall recorded in `solidjs.md` §7 (see log
   `2026-10-16-profile-ref-prop.md`). tsc + build green; `@jm` card
   confirmation **not yet verified** (owner).
+- **Next (implemented 2026-10-16, uncommitted, browser/live-API QA
+  owner-handled):** feed reply threading — `Replying to …` context line on
+  every feed `NoteCard` (packed parent name/handle, generic parent link
+  otherwise) + avatar-column connector for adjacent child-above-parent
+  rows in `TimelineFeed` (Home/Local/Global/antennas). Thread contexts opt
+  out (detail ancestors/main, reply branches). `tsc` + build green, 20/20
+  helper checks; suites NOT re-run here (no backends on this machine). See
+  log `2026-10-16-feed-reply-thread.md`.
 - **Next (handoff landed, browser QA owner-handled):** `docs/quote-polish-translate-handoff.md`
   quote-post visual parity + auto translation implemented (see log
   `2026-10-16-quote-polish-translate.md`): 16px quote cards with

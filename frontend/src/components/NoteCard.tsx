@@ -2,6 +2,7 @@ import { A, useNavigate } from "@solidjs/router";
 import { createEffect, onCleanup, createMemo, createSignal, For, Show } from "solid-js";
 import type { Note, UserLite } from "../api/types";
 import { appearNoteOf, displayNameOf, handleOf, isPureRenote } from "../api/types";
+import { replyParentId, replyParentNote } from "../api/thread";
 import NoteBody, { Avatar } from "./NoteBody";
 import UserHover from "./UserHoverCard";
 import TagBubble from "./TagBubble";
@@ -70,6 +71,11 @@ export interface NoteCardProps {
   /** Fold long post text in feeds (default true). The note-detail route
    * passes false for full text. Depth > 0 (quoted embeds) never folds. */
   foldText?: boolean;
+  /** Show the "Replying to" line for replies (default true). Thread
+   * contexts (detail ancestors/main, nested reply branches) hide it —
+   * the tree already shows the parent — while every feed leaves it on
+   * so a reply never reads as a loose post. */
+  showReplyContext?: boolean;
 }
 
 export default function NoteCard(props: NoteCardProps) {
@@ -111,6 +117,14 @@ export default function NoteCard(props: NoteCardProps) {
   // translation (the translator mangles tags). Lone hashtags stay inline
   // and out of the bubble; only pruned block tags are listed.
   const tags = createMemo(() => parseTagBlocks(shown().text ?? ""));
+  // Reply context for feeds: the displayed note's `replyId` is the source
+  // of truth (never a client thread id). The packed one-level `reply`
+  // names the parent when the server included it; otherwise the line
+  // still links to the parent id so the reply never reads as a loose
+  // post. Thread contexts opt out via `showReplyContext={false}`.
+  const parentId = createMemo(() => replyParentId(props.note));
+  const packedParent = createMemo(() => replyParentNote(props.note));
+  const showContext = () => props.showReplyContext !== false && parentId() !== null;
 
   // The renote menu closes on outside click or Escape.
   createEffect(() => {
@@ -153,6 +167,35 @@ export default function NoteCard(props: NoteCardProps) {
         </A>
       </UserHover>
       <div class="note-main">
+        <Show when={showContext()}>
+          <div class="reply-context">
+            <span>Replying to </span>
+            <Show
+              when={packedParent()}
+              fallback={
+                <A
+                  class="reply-context-link"
+                  href={`/notes/${parentId()}`}
+                  aria-label="Open parent post"
+                >
+                  a post
+                </A>
+              }
+            >
+              {(parent) => (
+                <A
+                  class="reply-context-link"
+                  href={`/notes/${parentId()}`}
+                  aria-label={`Open parent post by ${handleOf(parent().user)}`}
+                  title={handleOf(parent().user)}
+                >
+                  <span class="name"><DisplayName name={displayNameOf(parent().user)} packed={parent().user.emojis} /></span>
+                  <span class="handle">{handleOf(parent().user)}</span>
+                </A>
+              )}
+            </Show>
+          </div>
+        </Show>
         <div class="note-head">
           <UserHover user={shown().user}>
             <A class="namelink" href={`/users/${shown().user.id}`}>

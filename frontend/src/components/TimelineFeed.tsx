@@ -2,6 +2,7 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, 
 import { apiCall, ApiError } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
 import { appearNoteOf, collapseReposts, withReaction } from "../api/types";
+import { computeFeedThreadLinks } from "../api/thread";
 import {
   captureNote,
   subscribeChannel,
@@ -298,6 +299,37 @@ export default function TimelineFeed(props: TimelineFeedProps) {
     return { ids: [...byId.keys()], byId };
   });
 
+  // Avatar-column thread links (reference-client behavior): adjacent
+  // visible rows where the newer directly replies to the older share one
+  // connected column, so a reply directly under its parent reads as one
+  // thread instead of two loose posts. Computed on the post-collapse
+  // visible order — hidden repost copies never break a run — and purely
+  // from `replyId`, so quotes/renotes alone never link.
+  const visibleIds = createMemo(() =>
+    feedIndex().ids.filter((id) => collapse().reps.has(id)),
+  );
+  const threadLinks = createMemo(() => {
+    const byId = feedIndex().byId;
+    const ordered: Note[] = [];
+    for (const id of visibleIds()) {
+      const n = byId.get(id);
+      if (n) ordered.push(n);
+    }
+    return computeFeedThreadLinks(ordered);
+  });
+  const linkById = createMemo(() => {
+    const ids = visibleIds();
+    const links = threadLinks();
+    const m = new Map<string, { above: boolean; below: boolean }>();
+    ids.forEach((id, i) =>
+      m.set(id, {
+        above: links.connectedAbove[i] ?? false,
+        below: links.connectedBelow[i] ?? false,
+      }),
+    );
+    return m;
+  });
+
   const setReaction = async (note: Note, reaction: string | null) => {
     // Set-semantics: the caller's desired end state. The update applies
     // locally first (instant, no disabled flash), then runs delete (the
@@ -445,23 +477,41 @@ export default function TimelineFeed(props: TimelineFeedProps) {
                     // repost that is the renoted original (repost state is
                     // keyed by original id).
                     const target = createMemo(() => appearNoteOf(note()));
+                    // Thread-column flags for this row (post-collapse visible
+                    // order): linked-below is the child, linked-above its
+                    // parent. Reactive reads relink on streaming inserts
+                    // without remounting the row.
+                    const link = () => linkById().get(id);
+                    const linkedAbove = () => link()?.above ?? false;
+                    const linkedBelow = () => link()?.below ?? false;
+                    const inThread = () => linkedAbove() || linkedBelow();
                     return (
                       // Collapsed copies (hidden originals, non-first
                       // reposts) render nothing; the representative reads
                       // the collapse memo reactively in place.
                       <Show when={collapse().reps.has(id)}>
                         <>
-                          <NoteCard
-                            note={note()}
-                            onToggleReaction={auth.token() ? setReaction : undefined}
-                            onRepost={auth.token() ? repost : undefined}
-                            onUnrepost={auth.token() ? unrepost : undefined}
-                            onQuote={auth.token() ? () => quote(id, target()) : undefined}
-                            reposting={repostingId() === target().id}
-                            reposted={repostedIds().includes(target().id)}
-                            renoters={collapse().renotersByRep.get(id)}
-                            onChanged={() => void refreshNote(id)}
-                          />
+                          <div
+                            class="feed-row"
+                            classList={{
+                              "feed-row-thread": inThread(),
+                              "feed-row-first": linkedBelow() && !linkedAbove(),
+                              "feed-row-last": linkedAbove() && !linkedBelow(),
+                              "feed-row-middle": linkedAbove() && linkedBelow(),
+                            }}
+                          >
+                            <NoteCard
+                              note={note()}
+                              onToggleReaction={auth.token() ? setReaction : undefined}
+                              onRepost={auth.token() ? repost : undefined}
+                              onUnrepost={auth.token() ? unrepost : undefined}
+                              onQuote={auth.token() ? () => quote(id, target()) : undefined}
+                              reposting={repostingId() === target().id}
+                              reposted={repostedIds().includes(target().id)}
+                              renoters={collapse().renotersByRep.get(id)}
+                              onChanged={() => void refreshNote(id)}
+                            />
+                          </div>
                           <Show when={quotingId() === id}>
                             <Composer renoteId={quoteTargetId() ?? target().id} onPosted={onQuoted} />
                           </Show>
