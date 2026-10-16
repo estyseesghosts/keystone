@@ -1,9 +1,9 @@
 # STATE — resume pointer (mutable, keep current)
 
-**HEAD:** `0d43a6b` (pushed 2026-10-16) + uncommitted follow-up (see log
-`2026-10-16-emoji-origin-hint.md`): origin-host hint for host-less
-codes in remote-authored content + layered opaque overlay backgrounds.
-`tsc` + build green (fresh hashed assets); browser QA owner-handled.
+**HEAD:** `5852e73` (pushed 2026-10-16) — origin-host hint +
+overlay hardening (see log `2026-10-16-emoji-origin-hint.md`); tree
+clean except owner artifacts (screenshots, `.serena/`, `kobalte.md`,
+`scripts/smoke_parity.py`, all untracked).
 
 **Phase:** 4 — Visual polish (2026-10-16): sidebar icons + collapsible nav,
 system-theme dark mode (owner override of the AGENTS.md §7 no-dark-mode
