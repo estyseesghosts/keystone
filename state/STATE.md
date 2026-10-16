@@ -1,8 +1,8 @@
 # STATE — resume pointer (mutable, keep current)
 
-**HEAD:** `396fe96` (pushed 2026-10-16) — account-menu portal
-(see log `2026-10-16-accountmenu-portal.md`); tree clean except owner
-artifacts (screenshots, `.serena/`, `kobalte.md`,
+**HEAD:** `d7860f4` (unpushed) — mutes & blocks + word-mute parity
+(see logs `2026-10-16-mutes-blocks.md`, `2026-10-16-wordmute-parity.md`);
+tree clean except owner artifacts (screenshots, `.serena/`, `kobalte.md`,
 `scripts/smoke_parity.py`, all untracked).
 
 **Phase:** 4 — Visual polish (2026-10-16): sidebar icons + collapsible nav,
@@ -209,7 +209,7 @@ approve-and-return round-trip still **not yet verified** (owner).
   listing eager-loads at startup and is keyed per target. 59/59
   helper checks, `tsc` + build green.
 
-- **Plus (2026-10-16, uncommitted, browser/live-API QA owner-handled):**
+- **Plus (2026-10-16, committed `d7860f4`, browser/live-API QA owner-handled):**
   mutes & blocks management (see log `2026-10-16-mutes-blocks.md`) +
   Misskey-exact word-mute parity (see log `2026-10-16-wordmute-parity.md`)
   — `/settings/mutes` now covers all six reference sections (word / hard
