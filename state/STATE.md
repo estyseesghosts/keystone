@@ -71,7 +71,8 @@ followers, search, /streaming all still 404 on the running binary —
 implementer's Phase 3 uncommitted/in-flight. No flips.
 Previously scoped next: human browser QA pass (owner-handled).
 - 2026-10-16: README rewritten (human-useful: features, quickstart, backend
-  differences, layout, verification); `npm run build` green.
+  differences, layout, verification); `npm run build` green; pushed as
+  `9b0ff36`.
 
 ## Servers running (background, dev only)
 
