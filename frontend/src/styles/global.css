@@ -790,21 +790,96 @@ textarea::placeholder {
 .renote-embed {
   display: block;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 10px;
+  border-radius: 16px;
+  padding: 16px;
   margin: 8px 0;
   color: inherit;
+  /* Clips flush quoted media to the card radius (bottom corners round,
+   * top edge sits square under the quoted text). */
+  overflow: hidden;
 }
 
 .renote-embed .renote-head {
   display: flex;
-  gap: 6px;
-  align-items: baseline;
-  margin-bottom: 2px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+/* Quoted header avatar: same shape as elsewhere, smaller. */
+.renote-embed .renote-head .avatar,
+.renote-embed .renote-head .avatar-fallback {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
 }
 
 .renote-embed .notebody {
   margin: 0;
+}
+
+/* Quoted text truncates to ~4 lines + ellipsis. Only the text wrapper
+ * clamps — the translation toggle line above it never does. The full text
+ * lives one click away on the note-detail route the card already links. */
+.renote-embed .trans-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-clamp: 4;
+}
+
+/* Quoted media is edge-to-edge: full card width with no chrome around it.
+ * Multi-media quotes stack the same flush treatment (no interactive
+ * strip inside a quote); audio/file rows keep card padding instead. */
+.renote-embed .media-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 12px -16px -16px;
+}
+
+.renote-embed .media-quote img,
+.renote-embed .media-quote video {
+  width: 100%;
+  max-width: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+}
+
+.renote-embed .media-quote audio,
+.renote-embed .media-quote .mediafile {
+  margin: 8px 16px 16px;
+  max-width: calc(100% - 32px);
+}
+
+/* Auto-translation toggle line: one grey line under the note header.
+ * Monochrome by palette guard — no blue link color. */
+.transline {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.trans-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.trans-toggle:not(:disabled):hover {
+  color: var(--text);
 }
 
 .renote-foot {

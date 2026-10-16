@@ -3,18 +3,11 @@ import { createEffect, onCleanup, createMemo, createSignal, For, Show } from "so
 import type { Note, UserLite } from "../api/types";
 import { appearNoteOf, displayNameOf, handleOf, isPureRenote } from "../api/types";
 import NoteBody, { Avatar } from "./NoteBody";
+import { formatTime } from "./time";
 import { HeartIcon, ReplyIcon, RepostIcon } from "./icons";
 import { EmojiButton, LikeButton, ReactionChips, HEART_REACTION, isHeartReaction } from "./ReactionPicker";
 
-function formatTime(iso: string): string {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return iso;
-  const diff = Date.now() - t;
-  if (diff < 60_000) return "now";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
-  return new Date(t).toLocaleDateString();
-}
+export { formatTime } from "./time";
 
 /** Repost banner naming every collapsed renoter: "xx reposted",
  * "xx and yy reposted", "xx, yy and zz reposted",

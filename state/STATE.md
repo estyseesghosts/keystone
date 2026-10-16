@@ -63,10 +63,14 @@ approve-and-return round-trip still **not yet verified** (owner).
   `profile`; pitfall recorded in `solidjs.md` §7 (see log
   `2026-10-16-profile-ref-prop.md`). tsc + build green; `@jm` card
   confirmation **not yet verified** (owner).
-- **Next (handoff written):** `docs/quote-polish-translate-handoff.md` —
-  quote-post visual parity vs `docs/quote*.png` + auto translation via
-  public `notes/translate` (`translatorAvailable` flag verified on
-  dvd.chat). Ready for the next implementer; not yet started.
+- **Next (handoff landed, browser QA owner-handled):** `docs/quote-polish-translate-handoff.md`
+  quote-post visual parity + auto translation implemented (see log
+  `2026-10-16-quote-polish-translate.md`): 16px quote cards with
+  avatar/head/timestamp + 4-line clamp + flush quoted media, and
+  `notes/translate` auto-translation (`translatorAvailable` flag, shape +
+  targetLang sweep verified live on dvd.chat). `tsc` + build green; visual
+  + toggle + logged-out + no-endpoint confirmation **not yet verified**
+  (owner live-testing on dvd.chat).
 
 ## Decisions since stonekey
 

@@ -5,7 +5,8 @@ import type { MfmNode } from "mfm-js";
 import type { DriveFile, Note } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
 import { apiCall } from "../api/client";
-import MfmRenderer from "./MfmRenderer";
+import TranslatableText from "./TranslatableText";
+import { formatTime } from "./time";
 import LinkCard from "./LinkCard";
 import ProfileCardLoader, { parseProfileUrl } from "./ProfileCard";
 import type { ProfileRef } from "./ProfileCard";
@@ -173,12 +174,18 @@ export default function NoteBody(props: NoteBodyProps) {
   const hasCw = () => (props.note.cw?.length ?? 0) > 0;
   const visible = () => !hasCw() || cwOpen();
 
-  // Strip layout only for 2+ images/videos: a lone image or video keeps the
-  // fit-to-width `.media` rules and is never horizontally scrollable.
+  // Strip layout only for 2+ images/videos on a top-level note: a lone
+  // image or video keeps the fit-to-width `.media` rules and is never
+  // horizontally scrollable, and quoted notes never use the interactive
+  // strip — their media renders flush edge-to-edge instead (see
+  // `.media-quote` in global.css).
   const isStrip = () =>
+    depth() === 0 &&
     props.note.files.filter(
       (f) => f.type.startsWith("image/") || f.type.startsWith("video/"),
     ).length > 1;
+  const mediaClass = () =>
+    depth() === 0 ? (isStrip() ? "media media-strip" : "media") : "media media-quote";
 
   // Single source of truth for quote-card rendering at this level.
   const quote = createMemo(() => getQuoteTarget(props.note));
@@ -340,10 +347,14 @@ export default function NoteBody(props: NoteBodyProps) {
 
       <Show when={visible()}>
         <div class="notebody">
-          <MfmRenderer text={visibleText()} />
+          <TranslatableText
+            noteId={props.note.id}
+            text={visibleText()}
+            visible={visible()}
+          />
         </div>
         <Show when={props.note.files.length > 0}>
-          <div class={isStrip() ? "media media-strip" : "media"}>
+          <div class={mediaClass()}>
             <For each={props.note.files}>{(file) => <MediaItem file={file} />}</For>
           </div>
         </Show>
@@ -380,8 +391,9 @@ export default function NoteBody(props: NoteBodyProps) {
               {(embedded) => (
                 <div class="renote-embed">
                   <div class="renote-head">
+                    <Avatar url={embedded().user.avatarUrl} name={displayNameOf(embedded().user)} />
                     <span class="name">{displayNameOf(embedded().user)}</span>
-                    <span class="handle">{handleOf(embedded().user)}</span>
+                    <span class="handle">{handleOf(embedded().user)} · {formatTime(embedded().createdAt)}</span>
                   </div>
                   <Show when={statusLabel()}>
                     {(label) => <div class="handle quote-status">{label()}</div>}

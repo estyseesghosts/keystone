@@ -105,6 +105,39 @@ executed evidence.
       on both servers (see `../state/logs/2026-10-16-quote-posts.md`).
       Browser visuals not yet verified (no browser here).
 
+## Quote polish + auto translation (built 2026-10-16, `docs/quote-polish-translate-handoff.md`; browser QA owner-handled on dvd.chat)
+
+- [x] Quote visual parity (`NoteBody` + `global.css`): 16px card radius
+      with 16px padding and `overflow:hidden`; quoted head is avatar +
+      name + `@handle · time` (shared `components/time.ts` `formatTime`,
+      extracted from `NoteCard`); quoted text clamps to 4 lines
+      (`.trans-text` only — the toggle line never clamps); quoted media
+      renders flush edge-to-edge (bottom corners clip to the card radius),
+      multi-media quotes stack the same flush treatment, never the
+      interactive strip; outer media still renders above the quote card
+      (text → media → poll → cards → quote, unchanged); status/
+      unavailable states and the "Open quoted note" link kept; no counts,
+      badges, or colors added
+- [x] Auto translation (`src/api/translate.ts` + `TranslatableText`,
+      used for outer AND quoted text via the same `NoteBody` path):
+      `meta.translatorAvailable` capability read once per session
+      (external-aware via `apiCall`; falsy/missing/404 → never attempt);
+      public `notes/translate` `{noteId, targetLang}` → `{sourceLang,
+      text}` (shape verified live on dvd.chat — sourceLang is an English
+      display name, targetLang lenient); module-level id-keyed cache
+      (successes + failures, in-flight dedupe, no retry loops); translated
+      view only when sourceLang differs from the viewer language
+      (primary-subtag + `Intl.DisplayNames` English-name match); original
+      renders first with no skeleton, monochrome `Translated from {Lang}
+      Show original` toggle line, CW-gated (fires only after reveal),
+      logged-out-safe (no credential sent)
+- [x] Evidence: `tsc --noEmit` clean, `npm run build` green, live
+      `meta`/`notes/translate` probes against dvd.chat (ZH→EN, EN→EN,
+      missing-param 400, `en`/`en-US`/`zh-CN`/`zh`/`ja`/bogus-`xx`
+      targetLang sweep — see `../state/logs/2026-10-16-quote-polish-translate.md`).
+      Browser behavior (quote look, toggle, logged-out, no-endpoint
+      server) not yet verified — owner live-testing on dvd.chat.
+
 ## Deliberately deferred (do not build until scoped)
 
 Streaming Stage B (verify the same client against pinetree `/streaming`
