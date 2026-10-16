@@ -306,7 +306,7 @@ export default function Composer(props: {
       <Show when={error()}>
         <div class="err" role="alert">{error()}</div>
       </Show>
-      <div class="row">
+      <div class="row toolbar">
         <select
           value={visibility()}
           onChange={(e) => setVisibility(e.currentTarget.value as NoteVisibility)}
