@@ -1,8 +1,17 @@
-// Embedded profile card: a pasted profile URL unfurls into a compact card
-// with avatar, name, handle, bio, counts, and follow controls — only fields
-// the server packs (no fabrication). Resolution + follow state refresh go
-// through `users/show`; follow changes re-derive from the server (locked
-// accounts yield pending requests, never optimistic acceptance).
+// Embedded profile card: a pasted profile URL unfurls into a compact card.
+// Only fields the software actually provides are shown — never fabricated.
+//
+// Resolution is layered so every profile software can show *something*:
+//   1. Misskey-family via our own backend (`users/show` — local users,
+//      federated users the backend knows, and Pinetree/Misskey/Sharkey
+//      hosts). Full card + follow controls.
+//   2. Mastodon-compatible lookup direct against the profile host
+//      (`/api/v1/accounts/lookup` is CORS-open by design; Pleroma speaks
+//      the same API). Details card, no follow (our backend can't act on
+//      users it doesn't know).
+//   3. Basic chip (handle + working "Open profile" link) when both fail.
+// A 12s overall timeout guarantees the loading skeleton always settles —
+// a card state is never stuck, never blank.
 
 import { createResource, createSignal, Show } from "solid-js";
 import { A } from "@solidjs/router";
@@ -13,14 +22,25 @@ import { useAuth } from "../state/auth";
 import { Avatar } from "./NoteBody";
 import { RowSkeletonList } from "./Skeleton";
 
-export type ProfileRef =
-  | { username: string; homeHost: string }
-  | { userId: string; homeHost: string };
+const RESOLVE_TIMEOUT_MS = 12_000;
+const LOOKUP_TIMEOUT_MS = 10_000;
 
-/** Match pasted profile URLs: `https://host/@user`,
- * `https://host/@user@home`, `https://host/users/<id>`. Returns the
- * lookup ref plus the URL's host (the home instance when it is local
- * there). Anything else is not a profile link. */
+export interface ProfileRef {
+  /** Display handle when details never resolve (`@user@host`). */
+  handle: string;
+  /** Profile host from the URL (the home instance when local there). */
+  homeHost: string;
+  /** Original URL: the "Open profile" target and last-resort identity. */
+  rawUrl: string;
+  userId?: string;
+  username?: string;
+}
+
+/** Match pasted profile URLs across software:
+ * Misskey/Sharkey/Pinetree + Mastodon `/@user`, `/@user@home`;
+ * Pleroma `/user/<nick>`; shared `/users/<id-or-nick>`; Lemmy `/u/<nick>`.
+ * Returns lookup candidates plus the URL's host. Anything else is not a
+ * profile link. */
 export function parseProfileUrl(url: string): ProfileRef | null {
   let parsed: URL;
   try {
@@ -30,26 +50,147 @@ export function parseProfileUrl(url: string): ProfileRef | null {
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
   const homeHost = parsed.hostname.toLowerCase();
-  const atMatch = /^\/@([A-Za-z0-9_]+)(?:@([A-Za-z0-9.-]+))?\/?$/.exec(parsed.pathname);
+  const path = parsed.pathname;
+  const atMatch = /^\/@([A-Za-z0-9_]+)(?:@([A-Za-z0-9.-]+))?\/?$/.exec(path);
   if (atMatch) {
-    return { username: atMatch[1], homeHost: (atMatch[2] ?? homeHost).toLowerCase() };
+    const home = (atMatch[2] ?? homeHost).toLowerCase();
+    return {
+      handle: `@${atMatch[1]}@${home}`,
+      homeHost: home,
+      rawUrl: url,
+      username: atMatch[1],
+    };
   }
-  const idMatch = /^\/users\/([A-Za-z0-9]+)\/?$/.exec(parsed.pathname);
-  if (idMatch) return { userId: idMatch[1], homeHost };
+  for (const pattern of [/^\/users\/([A-Za-z0-9_]+)\/?$/, /^\/user\/([A-Za-z0-9_]+)\/?$/, /^\/u\/([A-Za-z0-9_-]+)\/?$/]) {
+    const match = pattern.exec(path);
+    if (match) {
+      return {
+        handle: `@${match[1]}@${homeHost}`,
+        homeHost,
+        rawUrl: url,
+        userId: match[1],
+        username: match[1],
+      };
+    }
+  }
   return null;
 }
 
-async function resolveProfile(ref: ProfileRef, ourHost: string | null): Promise<UserDetailed> {
-  if ("userId" in ref) {
-    return apiCall<UserDetailed>("users/show", { userId: ref.userId });
+async function tryDetailed(ref: ProfileRef, ourHost: string | null): Promise<UserDetailed | null> {
+  if (ref.userId) {
+    try {
+      return await apiCall<UserDetailed>("users/show", { userId: ref.userId });
+    } catch {
+      // Fall through to the username forms below.
+    }
   }
-  // The URL host is home unless it is our own backend (local lookup).
-  const host =
-    ourHost && ref.homeHost === ourHost ? undefined : ref.homeHost;
-  return apiCall<UserDetailed>("users/show", {
-    username: ref.username,
-    ...(host ? { host } : {}),
+  if (ref.username) {
+    const host = ourHost && ref.homeHost === ourHost ? undefined : ref.homeHost;
+    try {
+      return await apiCall<UserDetailed>("users/show", {
+        username: ref.username,
+        ...(host ? { host } : {}),
+      });
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+interface RemoteAccount {
+  displayName: string;
+  handle: string;
+  bio: string;
+  avatar: string | null;
+  url: string | null;
+  locked: boolean;
+  bot: boolean;
+  followers: number;
+  following: number;
+  statuses: number;
+}
+
+function asCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : 0;
+}
+
+function htmlToText(html: string): string {
+  try {
+    const text = new DOMParser().parseFromString(html, "text/html").body.textContent ?? "";
+    return text.replace(/\s+/g, " ").trim();
+  } catch {
+    return "";
+  }
+}
+
+/** A Mastodon-compatible account object, validated field by field. */
+function asRemoteAccount(value: unknown, homeHost: string): RemoteAccount | null {
+  if (typeof value !== "object" || value === null) return null;
+  const o = value as Record<string, unknown>;
+  if (typeof o.id !== "string" || typeof o.username !== "string" || typeof o.acct !== "string") {
+    return null;
+  }
+  const acct = o.acct.includes("@") ? o.acct : `${o.acct}@${homeHost}`;
+  return {
+    displayName: typeof o.display_name === "string" && o.display_name ? o.display_name : o.username,
+    handle: `@${acct}`,
+    bio: typeof o.note === "string" ? htmlToText(o.note) : "",
+    avatar: typeof o.avatar === "string" && o.avatar ? o.avatar : null,
+    url: typeof o.url === "string" && o.url ? o.url : null,
+    locked: o.locked === true,
+    bot: o.bot === true,
+    followers: asCount(o.followers_count),
+    following: asCount(o.following_count),
+    statuses: asCount(o.statuses_count),
+  };
+}
+
+async function tryRemote(ref: ProfileRef): Promise<RemoteAccount | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
+  try {
+    // Numeric ids address `/accounts/:id`; otherwise look up by acct.
+    const endpoint =
+      ref.userId && /^[0-9]+$/.test(ref.userId)
+        ? `https://${ref.homeHost}/api/v1/accounts/${encodeURIComponent(ref.userId)}`
+        : `https://${ref.homeHost}/api/v1/accounts/lookup?acct=${encodeURIComponent(
+            ref.username ? `${ref.username}@${ref.homeHost}` : ref.handle.replace(/^@/, ""),
+          )}`;
+    const response = await fetch(endpoint, { signal: controller.signal });
+    if (!response.ok) return null;
+    return asRemoteAccount(await response.json(), ref.homeHost);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+type ResolvedProfile =
+  | { kind: "detailed"; user: UserDetailed }
+  | { kind: "remote"; account: RemoteAccount };
+
+async function resolveProfile(ref: ProfileRef, ourHost: string | null): Promise<ResolvedProfile | null> {
+  const detailed = await tryDetailed(ref, ourHost);
+  if (detailed) return { kind: "detailed", user: detailed };
+  const remote = await tryRemote(ref);
+  if (remote) return { kind: "remote", account: remote };
+  return null;
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
   });
+  try {
+    return await Promise.race([promise.then((v) => v as T | null, () => null), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 /** Our own backend's host for local-vs-remote lookup, or null when it
@@ -103,7 +244,26 @@ function FollowButton(props: { user: () => UserDetailed; onUpdate: (u: UserDetai
   );
 }
 
-function ProfileCard(props: { initial: UserDetailed }) {
+function StatsLine(props: {
+  followers: number;
+  following: number;
+  statuses: number;
+  statusesLabel: string;
+  locked: boolean;
+  bot: boolean;
+}) {
+  return (
+    <div class="handle profilecard-stats">
+      {props.followers.toLocaleString()} followers ·{" "}
+      {props.following.toLocaleString()} following ·{" "}
+      {props.statuses.toLocaleString()} {props.statusesLabel}
+      {props.locked ? " · locks follows" : ""}
+      {props.bot ? " · automated" : ""}
+    </div>
+  );
+}
+
+function DetailedCard(props: { initial: UserDetailed }) {
   const auth = useAuth();
   const [user, setUser] = createSignal(props.initial);
   return (
@@ -124,13 +284,14 @@ function ProfileCard(props: { initial: UserDetailed }) {
       <Show when={user().description}>
         <p class="bio">{user().description}</p>
       </Show>
-      <div class="handle profilecard-stats">
-        {user().followersCount.toLocaleString()} followers ·{" "}
-        {user().followingCount.toLocaleString()} following ·{" "}
-        {user().notesCount.toLocaleString()} notes
-        {user().isLocked ? " · locks follows" : ""}
-        {user().isBot ? " · automated" : ""}
-      </div>
+      <StatsLine
+        followers={user().followersCount}
+        following={user().followingCount}
+        statuses={user().notesCount}
+        statusesLabel="notes"
+        locked={user().isLocked}
+        bot={user().isBot}
+      />
       <div class="renote-foot">
         <A href={`/users/${user().id}`}>Open profile</A>
       </div>
@@ -138,18 +299,73 @@ function ProfileCard(props: { initial: UserDetailed }) {
   );
 }
 
+function RemoteCard(props: { account: RemoteAccount; fallbackUrl: string }) {
+  const target = () => props.account.url ?? props.fallbackUrl;
+  return (
+    <div class="renote-embed profilecard">
+      <div class="profilecard-head">
+        <a href={target()} target="_blank" rel="noopener noreferrer" aria-label={`Open profile of ${props.account.displayName}`}>
+          <Avatar url={props.account.avatar} name={props.account.displayName} />
+        </a>
+        <div class="profilecard-id">
+          <span class="name">{props.account.displayName}</span>
+          <span class="handle">{props.account.handle}</span>
+        </div>
+      </div>
+      <Show when={props.account.bio}>
+        <p class="bio">{props.account.bio}</p>
+      </Show>
+      <StatsLine
+        followers={props.account.followers}
+        following={props.account.following}
+        statuses={props.account.statuses}
+        statusesLabel="posts"
+        locked={props.account.locked}
+        bot={props.account.bot}
+      />
+      <div class="renote-foot">
+        <a href={target()} target="_blank" rel="noopener noreferrer">Open profile</a>
+      </div>
+    </div>
+  );
+}
+
+/** Last resort: the URL was profile-shaped but details never resolved.
+ * Handle plus a working link — never a stuck skeleton, never blank. */
+function BasicChip(props: { ref: ProfileRef }) {
+  return (
+    <div class="renote-embed profilecard">
+      <div class="profilecard-head">
+        <div class="profilecard-id">
+          <span class="name">{props.ref.handle}</span>
+          <span class="handle">Profile details unavailable</span>
+        </div>
+        <span class="spacer" />
+        <a href={props.ref.rawUrl} target="_blank" rel="noopener noreferrer">Open profile</a>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfileCardLoader(props: { ref: ProfileRef }) {
   const auth = useAuth();
-  const [user] = createResource(
-    () => `${"userId" in props.ref ? props.ref.userId : `${props.ref.username}@${props.ref.homeHost}`}:${auth.token() ?? ""}`,
-    () => resolveProfile(props.ref, ourBackendHost(auth.activeExternalHost())),
+  const [resolved] = createResource(
+    () => `${props.ref.rawUrl}:${auth.token() ?? ""}`,
+    () => withTimeout(resolveProfile(props.ref, ourBackendHost(auth.activeExternalHost())), RESOLVE_TIMEOUT_MS),
   );
   return (
-    <Show when={!user.loading} fallback={
+    <Show when={!resolved.loading} fallback={
       <RowSkeletonList count={1} label="Loading profile card…" />
     }>
-      <Show when={user()} fallback={null}>
-        {(u) => <ProfileCard initial={u()} />}
+      <Show when={resolved()} fallback={<BasicChip ref={props.ref} />}>
+        {(r) => {
+          const value = r();
+          return value.kind === "detailed" ? (
+            <DetailedCard initial={value.user} />
+          ) : (
+            <RemoteCard account={value.account} fallbackUrl={props.ref.rawUrl} />
+          );
+        }}
       </Show>
     </Show>
   );

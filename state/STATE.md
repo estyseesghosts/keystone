@@ -51,6 +51,12 @@ approve-and-return round-trip still **not yet verified** (owner).
   absent on Sharkey; Pinetree endpoint noted as the later workstream
   (see log `2026-10-16-embed-cards.md`). tsc + build green; visual
   browser QA **not yet verified** (owner).
+- 2026-10-16 (profile-universal): profile cards resolve every software —
+  `users/show`, then CORS-open Mastodon lookup, then an honest basic
+  chip; 12s timeout so no stuck skeletons (see log
+  `2026-10-16-profile-universal.md`). tsc + build green; the `@jm` post
+  should now show a full card — browser confirmation **not yet verified**
+  (owner).
 
 ## Decisions since stonekey
 
