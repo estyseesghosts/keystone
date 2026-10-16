@@ -116,7 +116,7 @@ approve-and-return round-trip still **not yet verified** (owner).
   the indented edge connector). `tsc` + build green; browser click +
   connector visuals **not yet verified** (owner). See log
   `2026-10-16-click-open.md`.
-- **Plus (2026-10-16, UNCOMMITTED):** composer refresh — detail-view
+- **Plus (2026-10-16, PUSHED `54f1304`):** composer refresh — detail-view
   self-link highlight fixed (time/reply-count render as spans there),
   avatar-led composer with audience pill (`Public`/`Unlisted`/`Followers
   only`/`Direct`), icon toolbar (media, poll, emoji insert-at-caret, CW;
@@ -124,11 +124,18 @@ approve-and-return round-trip still **not yet verified** (owner).
   contract), compact→expanded reply row on detail. `tsc` + build green;
   browser QA **not yet verified** (owner). See log
   `2026-10-16-composer.md`.
-- **Plus (2026-10-16, UNCOMMITTED):** composer round 2 — borderless
-  cohesive surface, custom floating audience popup, Local switch,
-  floating composer with per-backend drafts + rail entry. `tsc` + build
-  green, 8/8 drafts checks; browser QA **not yet verified** (owner).
-  See log `2026-10-16-composer-v2.md`.
+- **Plus (2026-10-16, PUSHED `2c1ba76` + `c3862ff`):** composer round 2
+  — borderless cohesive surface, custom floating audience popup, Local
+  switch, floating composer with per-backend drafts + rail entry. `tsc`
+  + build green, 8/8 drafts checks; browser QA **not yet verified**
+  (owner). See log `2026-10-16-composer-v2.md`.
+- **Next (handoff written, NOT implemented):** `docs/profile-handoff.md`
+  — banner header + big overlapping avatar, clickable follow counters →
+  list sub-routes, bio via `MfmRenderer` (mention chips + hashtag
+  links), Misskey-1:1 tabs (Featured pending a pinned-source probe;
+  Posts/All server-exact; Media client-filtered since the server 400s
+  `withReplies+withFiles`). `users/notes` flag semantics verified in
+  Misskey `develop` source; build left for the next agent.
 
 ## Decisions since stonekey
 
