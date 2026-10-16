@@ -2,7 +2,9 @@ import { createSignal, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { A } from "@solidjs/router";
 import { useAuth } from "../state/auth";
+import { usePostbox } from "../state/postbox";
 import AccountCard from "./AccountCard";
+import FloatingComposer from "./FloatingComposer";
 import {
   AntennaIcon,
   BellIcon,
@@ -12,6 +14,7 @@ import {
   HomeIcon,
   LocalIcon,
   LoginIcon,
+  PencilIcon,
   SearchIcon,
 } from "./icons";
 
@@ -48,6 +51,7 @@ function NavItem(props: {
 
 export default function Layout(props: { children: JSX.Element }) {
   const auth = useAuth();
+  const postbox = usePostbox();
   const [collapsed, setCollapsed] = createSignal(readCollapsed());
 
   const toggleCollapsed = () => {
@@ -98,6 +102,20 @@ export default function Layout(props: { children: JSX.Element }) {
             icon={<BellIcon />}
           />
         </Show>
+        <Show when={auth.me()}>
+          <button
+            type="button"
+            class="navlink navbutton"
+            onClick={() => postbox.open()}
+            title="Write a post"
+            aria-label="Write a post"
+          >
+            <span class="navicon">
+              <PencilIcon />
+            </span>
+            <span class="navlabel">Post</span>
+          </button>
+        </Show>
         <div class="navspacer" />
         <button
           type="button"
@@ -124,6 +142,7 @@ export default function Layout(props: { children: JSX.Element }) {
         </div>
       </nav>
       <main class="maincol">{props.children}</main>
+      <FloatingComposer />
     </div>
   );
 }

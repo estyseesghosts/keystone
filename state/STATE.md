@@ -124,6 +124,11 @@ approve-and-return round-trip still **not yet verified** (owner).
   contract), compact→expanded reply row on detail. `tsc` + build green;
   browser QA **not yet verified** (owner). See log
   `2026-10-16-composer.md`.
+- **Plus (2026-10-16, UNCOMMITTED):** composer round 2 — borderless
+  cohesive surface, custom floating audience popup, Local switch,
+  floating composer with per-backend drafts + rail entry. `tsc` + build
+  green, 8/8 drafts checks; browser QA **not yet verified** (owner).
+  See log `2026-10-16-composer-v2.md`.
 
 ## Decisions since stonekey
 

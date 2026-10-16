@@ -132,6 +132,32 @@ export function ScheduleIcon(props: { size?: number }) {
   );
 }
 
+export function LockIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </Base>
+  );
+}
+
+export function AtIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8" />
+    </Base>
+  );
+}
+
+export function PencilIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    </Base>
+  );
+}
+
 // --- Sidebar navigation icons (stroke style matches the set above) ---
 
 export function HomeIcon(props: { size?: number }) {

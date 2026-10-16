@@ -21,20 +21,11 @@ import { useAuth } from "../state/auth";
 import { Avatar } from "./NoteBody";
 import { displayNameOf } from "../api/types";
 import { MediaIcon, PollIcon, ScheduleIcon, SmileIcon } from "./icons";
+import VisibilityPicker from "./VisibilityPicker";
+import type { DraftPayload } from "../api/drafts";
 import DriveBrowser from "./DriveBrowser";
 
 const FALLBACK_LIMIT = 3000;
-const VISIBILITIES: NoteVisibility[] = ["public", "home", "followers", "specified"];
-
-/** Audience labels for the visibility pill (reference-client wording):
- * `home` federates without hitting global timelines (unlisted),
- * `specified` posts to named recipients only (direct). */
-const VISIBILITY_LABELS: Record<NoteVisibility, string> = {
-  public: "Public",
-  home: "Unlisted",
-  followers: "Followers only",
-  specified: "Direct",
-};
 
 /** Insertable emoji for post text (unicode only — no server dependency,
  * unlike reaction custom emoji). */
@@ -154,16 +145,23 @@ export default function Composer(props: {
   compact?: boolean;
   /** Shown as "Replying to …" once expanded (already includes `@`). */
   replyingTo?: string;
+  /** Starting values when restoring a draft (read once, at setup). */
+  initial?: DraftPayload;
+  /** Receives a reader for the current draft payload (floating composer
+   * auto-save and draft-restore guards). A plain handle, not state. */
+  captureRef?: { current: (() => DraftPayload) | null };
 }) {
   const auth = useAuth();
   const isCompact = () => props.compact === true;
   const [expanded, setExpanded] = createSignal(!isCompact());
-  const [text, setText] = createSignal("");
-  const [cw, setCw] = createSignal("");
-  const [showCw, setShowCw] = createSignal(false);
-  const [visibility, setVisibility] = createSignal<NoteVisibility>("public");
+  const [text, setText] = createSignal(props.initial?.text ?? "");
+  const [cw, setCw] = createSignal(props.initial?.cw ?? "");
+  const [showCw, setShowCw] = createSignal((props.initial?.cw ?? "").length > 0);
+  const [visibility, setVisibility] = createSignal<NoteVisibility>(
+    props.initial?.visibility ?? "public",
+  );
   const [recipients, setRecipients] = createSignal<UserLite[]>([]);
-  const [localOnly, setLocalOnly] = createSignal(false);
+  const [localOnly, setLocalOnly] = createSignal(props.initial?.localOnly ?? false);
   const [limit, setLimit] = createSignal(FALLBACK_LIMIT);
   const [attached, setAttached] = createSignal<DriveFile[]>([]);
   const [showAttach, setShowAttach] = createSignal(false);
@@ -177,6 +175,17 @@ export default function Composer(props: {
   let area: HTMLTextAreaElement | undefined;
 
   void textLimit().then(setLimit);
+
+  // Draft support reads the live payload through this handle (called
+  // from event handlers, never tracked).
+  if (props.captureRef) {
+    props.captureRef.current = () => ({
+      text: text(),
+      cw: cw(),
+      visibility: visibility(),
+      localOnly: localOnly(),
+    });
+  }
 
   // Expanding the compact row moves focus into the editor.
   createEffect(() => {
@@ -431,18 +440,7 @@ export default function Composer(props: {
           </div>
         </div>
         <div class="composer-audience">
-          <label class="audience-pill">
-            <span class="sr-only">Who can see this post</span>
-            <select
-              value={visibility()}
-              onChange={(e) => setVisibility(e.currentTarget.value as NoteVisibility)}
-              aria-label="Who can see this post"
-            >
-              <For each={VISIBILITIES}>
-                {(v) => <option value={v}>{VISIBILITY_LABELS[v]}</option>}
-              </For>
-            </select>
-          </label>
+          <VisibilityPicker value={visibility()} onChange={setVisibility} />
         </div>
         <div class="row toolbar">
           <button
@@ -531,10 +529,20 @@ export default function Composer(props: {
           >
             <ScheduleIcon />
           </button>
-          <label class="toolcheck" title="Visible only on this server">
-            <input type="checkbox" checked={localOnly()} onChange={(e) => setLocalOnly(e.currentTarget.checked)} />
-            Local
-          </label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={localOnly()}
+            class="localswitch"
+            onClick={() => setLocalOnly((v) => !v)}
+            title="Visible only on this server"
+            aria-label="Local only"
+          >
+            <span class="switch-track" aria-hidden="true">
+              <span class="switch-knob" aria-hidden="true" />
+            </span>
+            <span>Local</span>
+          </button>
           <span class="spacer" />
           <span class="count">{remaining()}</span>
           <button type="button" class="btn-primary" disabled={!canPost()} onClick={() => void post()}>

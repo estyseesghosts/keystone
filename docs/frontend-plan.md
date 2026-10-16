@@ -273,7 +273,27 @@ executed evidence.
       insert, toolbar, highlight fix, both themes) not yet verified —
       owner.
 
-## Deliberately deferred (do not build until scoped)
+## Composer round 2 (built 2026-10-16; browser QA pending)
+
+- [x] One cohesive surface: card outline and textfield box removed —
+      text sits directly on the page, toolbar hairlines bound the block
+- [x] Custom audience popup (`VisibilityPicker`): icon + label +
+      description rows with a radio indicator, floating over the
+      composer (never pushes content); `Public` / `Unlisted` /
+      `Followers only` / `Direct`; outside-click/Escape dismiss,
+      `menu`/`menuitemradio` semantics
+- [x] Local-only as a custom monochrome switch (`role=switch`); native
+      checkbox gone
+- [x] Floating post composer (`FloatingComposer` + `postbox` state):
+      sidebar rail Post button (desktop rail and mobile bar,
+      signed-in only), modal with close + `Drafts (n)`; drafts persist
+      per-backend in localStorage (capped 20, newest-first); dismissing
+      with unsent prose auto-saves, restoring stashes live prose first
+      so nothing is lost; posting lands on the new note's detail view
+- [x] Evidence: `tsc --noEmit` clean, `npm run build` green, 8/8
+      drafts-store checks (esbuild-bundle + node). Browser behavior
+      (popup position, modal, drafts round-trip, rail entry, both
+      themes) not yet verified — owner.
 
 Streaming Stage B (verify the same client against pinetree `/streaming`
 when its Phase 3 lands — currently empty stubs, no route; the client stays
