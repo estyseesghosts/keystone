@@ -54,7 +54,9 @@ executed evidence.
       button (heart + total `reactionCount`, ❤ only) plus a stateless
       smiley emoji-picker button; changing reactions deletes-then-creates
       (server rejects double-reacts); `visibleReactions` tolerates
-      transient null maps; repost single-fire with persistent state;
+      transient null maps; rows are keyed by stable note id so server
+      reconciliation updates in place (no remount flicker on like/unlike);
+      repost single-fire with persistent state;
       follow/unfollow (response is `UserLite`); delete own note (204 path)
 - [x] Renote vs quote (Misskey `is-renote.ts` semantics): pure reposts render
       retweet-style (`X reposted` banner + the original; all actions target

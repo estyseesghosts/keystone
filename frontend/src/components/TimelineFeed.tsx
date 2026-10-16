@@ -286,6 +286,17 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   // untouched and no card remounts on collapse changes.
   const collapse = createMemo(() => collapseReposts(notes()));
 
+  // Stable row identity: ids are plain strings that never change across
+  // server reconciliation, so a refreshed note updates its row in place
+  // instead of remounting the whole card (no flicker, no lost popup or
+  // composer state on like/unlike). Rows resolve the current object
+  // through `byId` on every read.
+  const feedIndex = createMemo(() => {
+    const byId = new Map<string, Note>();
+    for (const n of notes()) byId.set(n.id, n);
+    return { ids: [...byId.keys()], byId };
+  });
+
   const setReaction = async (note: Note, reaction: string | null) => {
     // Set-semantics: the caller's desired end state. The server rejects
     // reacting twice (ALREADY_REACTED), so changing from one reaction to
@@ -415,33 +426,37 @@ export default function TimelineFeed(props: TimelineFeedProps) {
             </Show>
             <Show when={notes().length > 0}>
               <div class="feed">
-                <For each={notes()}>
-                  {(note) => {
+                <For each={feedIndex().ids}>
+                  {(id) => {
+                    // One reactive scope per stable id: `note()` always
+                    // resolves the latest reconciled object, and `target()`
+                    // derives from it, so counts/reactions update without
+                    // ever remounting this row.
+                    const note = () => feedIndex().byId.get(id)!;
                     // Actions always target the displayed note: for a pure
                     // repost that is the renoted original (repost state is
-                    // keyed by original id). `note` items are immutable
-                    // snapshots, so this is an intentional one-time read.
-                    const target = appearNoteOf(note);
+                    // keyed by original id).
+                    const target = createMemo(() => appearNoteOf(note()));
                     return (
                       // Collapsed copies (hidden originals, non-first
                       // reposts) render nothing; the representative reads
                       // the collapse memo reactively in place.
-                      <Show when={collapse().reps.has(note.id)}>
+                      <Show when={collapse().reps.has(id)}>
                         <>
                           <NoteCard
-                            note={note}
+                            note={note()}
                             onToggleReaction={auth.token() ? setReaction : undefined}
-                            reacting={reactingId() === target.id}
+                            reacting={reactingId() === target().id}
                             onRepost={auth.token() ? repost : undefined}
                             onUnrepost={auth.token() ? unrepost : undefined}
-                            onQuote={auth.token() ? () => quote(note.id, target) : undefined}
-                            reposting={repostingId() === target.id}
-                            reposted={repostedIds().includes(target.id)}
-                            renoters={collapse().renotersByRep.get(note.id)}
-                            onChanged={() => void refreshNote(note.id)}
+                            onQuote={auth.token() ? () => quote(id, target()) : undefined}
+                            reposting={repostingId() === target().id}
+                            reposted={repostedIds().includes(target().id)}
+                            renoters={collapse().renotersByRep.get(id)}
+                            onChanged={() => void refreshNote(id)}
                           />
-                          <Show when={quotingId() === note.id}>
-                            <Composer renoteId={quoteTargetId() ?? target.id} onPosted={onQuoted} />
+                          <Show when={quotingId() === id}>
+                            <Composer renoteId={quoteTargetId() ?? target().id} onPosted={onQuoted} />
                           </Show>
                         </>
                       </Show>

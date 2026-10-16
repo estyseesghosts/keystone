@@ -94,7 +94,10 @@ Previously scoped next: human browser QA pass (owner-handled).
   (stateless smiley picker button, hearts like-only, delete-then-create
   set-semantics, server-reconciled counts); 10/10 helper checks, live
   like/switch/remove verified both servers, tsc + build green (see log
-  `2026-10-16-reactions.md`).
+  `2026-10-16-reactions.md`). Committed + pushed as `1be2700`.
+- 2026-10-16 (reaction-flicker): feed rows keyed by stable note id so
+  like/unlike reconciliation updates in place instead of remounting the
+  card; tsc + build green (see log `2026-10-16-reaction-flicker.md`).
 - 2026-10-16 (repost-collapse): feeds hide an original shown with its pure
   reposts (first repost wins, banner aggregates renoters); quotes never
   collapse; `collapseReposts` extracted pure + 16/16 checks, tsc + build
