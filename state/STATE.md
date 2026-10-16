@@ -116,6 +116,14 @@ approve-and-return round-trip still **not yet verified** (owner).
   the indented edge connector). `tsc` + build green; browser click +
   connector visuals **not yet verified** (owner). See log
   `2026-10-16-click-open.md`.
+- **Plus (2026-10-16, UNCOMMITTED):** composer refresh — detail-view
+  self-link highlight fixed (time/reply-count render as spans there),
+  avatar-led composer with audience pill (`Public`/`Unlisted`/`Followers
+  only`/`Direct`), icon toolbar (media, poll, emoji insert-at-caret, CW;
+  scheduling disabled with reason — no endpoint in the verified
+  contract), compact→expanded reply row on detail. `tsc` + build green;
+  browser QA **not yet verified** (owner). See log
+  `2026-10-16-composer.md`.
 
 ## Decisions since stonekey
 

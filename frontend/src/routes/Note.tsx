@@ -2,7 +2,7 @@ import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import { A, useNavigate, useParams } from "@solidjs/router";
 import { apiCall, isUnsupportedError } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
-import { appearNoteOf, withReaction } from "../api/types";
+import { appearNoteOf, handleOf, withReaction } from "../api/types";
 import {
   CONVERSATION_PAGE_SIZE,
   MAX_ANCESTOR_WALK,
@@ -391,7 +391,12 @@ export default function NoteDetail() {
                 {/* Quotes render inside the card above via NoteBody's embedded
                   quote card; a second full card here would duplicate it. */}
                 <Show when={auth.token()}>
-                  <Composer replyId={appearNoteOf(current()).id} onPosted={onReplyPosted} />
+                  <Composer
+                    replyId={appearNoteOf(current()).id}
+                    replyingTo={handleOf(appearNoteOf(current()).user)}
+                    compact
+                    onPosted={onReplyPosted}
+                  />
                   <Show when={quoting()}>
                     <div class="pager">
                       <button type="button" onClick={() => setQuoting(false)}>

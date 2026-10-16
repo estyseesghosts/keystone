@@ -252,6 +252,27 @@ executed evidence.
       mobile indent, paging, retry, `:id` switching) not yet verified —
       owner.
 
+## Composer refresh (built 2026-10-16; browser QA pending)
+
+- [x] Self-active highlight fixed (`NoteCard`): on the detail route the
+      time and reply-count render as spans, not self-links — the router's
+      `active` class no longer sticks the comment button highlighted
+- [x] Reference-client layout (`Composer`): avatar-led inline box,
+      audience pill (`Public` / `Unlisted` / `Followers only` / `Direct`
+      → `public` / `home` / `followers` / `specified`), icon toolbar —
+      media (Drive attach), poll (Misskey-family; disabled with reason on
+      Pinetree), emoji insert-at-cursor popup, CW toggle, scheduling
+      disabled with reason (no scheduling endpoint in the verified
+      contract on any backend). No GIF/location buttons. Local-only kept
+- [x] Compact reply row on the detail view (avatar + `Post your reply`
+      as one button → expands to `Replying to @user` + autofocused
+      editor; collapses after posting; post logic, limits, and
+      error-state preservation unchanged)
+- [x] Evidence: `tsc --noEmit` clean, `npm run build` green
+      (`index-CSSvZE3G.js`). Browser behavior (compact→expand, emoji
+      insert, toolbar, highlight fix, both themes) not yet verified —
+      owner.
+
 ## Deliberately deferred (do not build until scoped)
 
 Streaming Stage B (verify the same client against pinetree `/streaming`

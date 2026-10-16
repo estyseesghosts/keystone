@@ -1,4 +1,13 @@
-import { createSignal, For, Show } from "solid-js";
+// Post composer: plain text + visibility + attachments + CW + polls,
+// wired to `notes/create` (reply via `replyId`, quote via `renoteId`).
+// Layout follows the reference client: an avatar-led inline box with an
+// audience pill and an icon toolbar (media, poll, emoji, CW — no GIF or
+// location buttons, which have no backend here). The detail route uses
+// compact mode: a single "Post your reply" row that expands into the
+// full editor ("Replying to @user", autofocus) on click and collapses
+// again after posting.
+
+import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import { apiCall, apiCallPublic } from "../api/client";
 import { IS_MISSKEY_FAMILY } from "../api/backend";
 import type {
@@ -8,10 +17,31 @@ import type {
   NoteVisibility,
   UserLite,
 } from "../api/types";
+import { useAuth } from "../state/auth";
+import { Avatar } from "./NoteBody";
+import { displayNameOf } from "../api/types";
+import { MediaIcon, PollIcon, ScheduleIcon, SmileIcon } from "./icons";
 import DriveBrowser from "./DriveBrowser";
 
 const FALLBACK_LIMIT = 3000;
 const VISIBILITIES: NoteVisibility[] = ["public", "home", "followers", "specified"];
+
+/** Audience labels for the visibility pill (reference-client wording):
+ * `home` federates without hitting global timelines (unlisted),
+ * `specified` posts to named recipients only (direct). */
+const VISIBILITY_LABELS: Record<NoteVisibility, string> = {
+  public: "Public",
+  home: "Unlisted",
+  followers: "Followers only",
+  specified: "Direct",
+};
+
+/** Insertable emoji for post text (unicode only — no server dependency,
+ * unlike reaction custom emoji). */
+const COMPOSER_EMOJI = [
+  "😀", "😂", "🥲", "😉", "😮", "😢", "🤔", "🙏",
+  "👏", "👍", "🔥", "❤", "🎉", "👀", "💯", "💭",
+];
 
 // Server-advertised text limit (meta.maxNoteTextLength, 3000 on all three
 // local backends), fetched once and cached. Falls back safely when meta is
@@ -120,7 +150,14 @@ export default function Composer(props: {
   replyId?: string;
   renoteId?: string;
   onPosted: (note: Note) => void;
+  /** Collapsed "Post your reply" row until clicked (detail route). */
+  compact?: boolean;
+  /** Shown as "Replying to …" once expanded (already includes `@`). */
+  replyingTo?: string;
 }) {
+  const auth = useAuth();
+  const isCompact = () => props.compact === true;
+  const [expanded, setExpanded] = createSignal(!isCompact());
   const [text, setText] = createSignal("");
   const [cw, setCw] = createSignal("");
   const [showCw, setShowCw] = createSignal(false);
@@ -130,14 +167,38 @@ export default function Composer(props: {
   const [limit, setLimit] = createSignal(FALLBACK_LIMIT);
   const [attached, setAttached] = createSignal<DriveFile[]>([]);
   const [showAttach, setShowAttach] = createSignal(false);
+  const [showEmoji, setShowEmoji] = createSignal(false);
   const [usePoll, setUsePoll] = createSignal(false);
   const [choices, setChoices] = createSignal<string[]>(["", ""]);
   const [multiple, setMultiple] = createSignal(false);
   const [expiry, setExpiry] = createSignal<number | null>(86400);
   const [posting, setPosting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  let area: HTMLTextAreaElement | undefined;
 
   void textLimit().then(setLimit);
+
+  // Expanding the compact row moves focus into the editor.
+  createEffect(() => {
+    if (isCompact() && expanded()) area?.focus();
+  });
+
+  // The emoji popup closes on outside click or Escape.
+  createEffect(() => {
+    if (!showEmoji()) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest?.(".compose-emoji-wrap")) setShowEmoji(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowEmoji(false);
+    };
+    document.addEventListener("click", onDocClick);
+    document.addEventListener("keydown", onKey);
+    onCleanup(() => {
+      document.removeEventListener("click", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    });
+  });
 
   const pollChoices = () => choices().map((c) => c.trim()).filter((c) => c.length > 0);
   const pollValid = () => usePoll() && pollChoices().length >= 2;
@@ -154,6 +215,24 @@ export default function Composer(props: {
         ? current.filter((f) => f.id !== file.id)
         : [...current, file],
     );
+  };
+
+  const insertEmoji = (emoji: string) => {
+    const el = area;
+    const current = text();
+    if (!el) {
+      setText(current + emoji);
+    } else {
+      const start = el.selectionStart ?? current.length;
+      const end = el.selectionEnd ?? current.length;
+      setText(current.slice(0, start) + emoji + current.slice(end));
+      const pos = start + emoji.length;
+      requestAnimationFrame(() => {
+        el.focus();
+        el.setSelectionRange(pos, pos);
+      });
+    }
+    setShowEmoji(false);
   };
 
   const post = async () => {
@@ -193,9 +272,11 @@ export default function Composer(props: {
       setLocalOnly(false);
       setAttached([]);
       setShowAttach(false);
+      setShowEmoji(false);
       setUsePoll(false);
       setChoices(["", ""]);
       setError(null);
+      if (isCompact()) setExpanded(false);
       props.onPosted(res.createdNote);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not post the note.");
@@ -204,139 +285,263 @@ export default function Composer(props: {
     }
   };
 
+  const placeholder = () =>
+    props.replyId ? "Post your reply" : props.renoteId ? "Add a comment…" : "What's happening?";
+  const editorPlaceholder = () =>
+    props.replyId ? "Write a reply…" : props.renoteId ? "Add a comment…" : "What's happening?";
+  const postLabel = () =>
+    posting() ? "Posting…" : props.replyId ? "Reply" : props.renoteId ? "Quote" : "Post";
+  const me = () => auth.me();
+
   return (
-    <div class="composer">
-      <textarea
-        value={text()}
-        onInput={(e) => setText(e.currentTarget.value)}
-        placeholder={props.replyId ? "Write a reply…" : props.renoteId ? "Add a comment…" : "What's happening?"}
-        maxlength={limit()}
-        aria-label={props.replyId ? "Reply text" : props.renoteId ? "Quote comment" : "Note text"}
-      />
-      <Show when={showCw()}>
-        <input
-          type="text"
-          value={cw()}
-          onInput={(e) => setCw(e.currentTarget.value)}
-          placeholder="Content warning"
-          maxlength={100}
-          aria-label="Content warning"
-        />
-      </Show>
-      <Show when={attached().length > 0}>
-        <div class="chips">
-          <For each={attached()}>
-            {(f) => (
-              <span class="chip">
-                {f.name}
-                <button type="button" onClick={() => toggleAttach(f)} aria-label={`Remove ${f.name}`}>×</button>
-              </span>
-            )}
-          </For>
+    <Show
+      when={!isCompact() || expanded()}
+      fallback={
+        <div class="composer composer-compact">
+          <button
+            type="button"
+            class="composer-open"
+            onClick={() => setExpanded(true)}
+            aria-label={placeholder()}
+          >
+            <Avatar
+              url={me()?.avatarUrl ?? null}
+              name={me() ? displayNameOf(me()!) : "You"}
+            />
+            <span>{placeholder()}</span>
+          </button>
         </div>
-      </Show>
-      <Show when={showAttach()}>
-        <DriveBrowser
-          selectMode
-          selectedIds={attached().map((f) => f.id)}
-          onToggleSelect={toggleAttach}
-        />
-      </Show>
-      <Show when={usePoll() && IS_MISSKEY_FAMILY}>
-        <div class="field">
-          <label>Poll (2–10 options)</label>
-          <For each={choices()}>
-            {(choice, i) => (
-              <div class="row">
-                <input
-                  type="text"
-                  value={choice}
-                  onInput={(e) =>
-                    setChoices((list) => list.map((c, j) => (j === i() ? e.currentTarget.value : c)))
-                  }
-                  placeholder={`Option ${i() + 1}`}
-                  maxlength={50}
-                  aria-label={`Poll option ${i() + 1}`}
-                />
-                <button
-                  type="button"
-                  disabled={choices().length <= 2}
-                  onClick={() => setChoices((list) => list.filter((_, j) => j !== i()))}
-                  aria-label={`Remove option ${i() + 1}`}
-                >
-                  ×
-                </button>
-              </div>
-            )}
-          </For>
-          <Show when={choices().length < 10}>
-            <button type="button" onClick={() => setChoices((list) => [...list, ""])}>
-              Add option
-            </button>
-          </Show>
-          <div class="row">
-            <label>
-              <input type="checkbox" checked={multiple()} onChange={(e) => setMultiple(e.currentTarget.checked)} />
-              Multiple choice
-            </label>
-            <select
-              value={expiry() === null ? "never" : String(expiry())}
-              onChange={(e) => {
-                const v = e.currentTarget.value;
-                setExpiry(v === "never" ? null : Number(v));
+      }
+    >
+      <div class="composer">
+        <Show when={props.replyingTo}>
+          <div class="replying-to">
+            Replying to <span>{props.replyingTo}</span>
+          </div>
+        </Show>
+        <div class="composer-main">
+          <Avatar
+            url={me()?.avatarUrl ?? null}
+            name={me() ? displayNameOf(me()!) : "You"}
+          />
+          <div class="composer-body">
+            <textarea
+              ref={(el) => {
+                area = el;
               }}
-              aria-label="Poll expiry"
-            >
-              <For each={POLL_EXPIRIES}>
-                {(o) => (
-                  <option value={o.seconds === null ? "never" : String(o.seconds)}>{o.label}</option>
-                )}
-              </For>
-            </select>
+              value={text()}
+              onInput={(e) => setText(e.currentTarget.value)}
+              placeholder={editorPlaceholder()}
+              maxlength={limit()}
+              aria-label={props.replyId ? "Reply text" : props.renoteId ? "Quote comment" : "Note text"}
+            />
+            <Show when={showCw()}>
+              <input
+                type="text"
+                value={cw()}
+                onInput={(e) => setCw(e.currentTarget.value)}
+                placeholder="Content warning"
+                maxlength={100}
+                aria-label="Content warning"
+              />
+            </Show>
+            <Show when={attached().length > 0}>
+              <div class="chips">
+                <For each={attached()}>
+                  {(f) => (
+                    <span class="chip">
+                      {f.name}
+                      <button type="button" onClick={() => toggleAttach(f)} aria-label={`Remove ${f.name}`}>×</button>
+                    </span>
+                  )}
+                </For>
+              </div>
+            </Show>
+            <Show when={showAttach()}>
+              <DriveBrowser
+                selectMode
+                selectedIds={attached().map((f) => f.id)}
+                onToggleSelect={toggleAttach}
+              />
+            </Show>
+            <Show when={usePoll() && IS_MISSKEY_FAMILY}>
+              <div class="field">
+                <label>Poll (2–10 options)</label>
+                <For each={choices()}>
+                  {(choice, i) => (
+                    <div class="row">
+                      <input
+                        type="text"
+                        value={choice}
+                        onInput={(e) =>
+                          setChoices((list) => list.map((c, j) => (j === i() ? e.currentTarget.value : c)))
+                        }
+                        placeholder={`Option ${i() + 1}`}
+                        maxlength={50}
+                        aria-label={`Poll option ${i() + 1}`}
+                      />
+                      <button
+                        type="button"
+                        disabled={choices().length <= 2}
+                        onClick={() => setChoices((list) => list.filter((_, j) => j !== i()))}
+                        aria-label={`Remove option ${i() + 1}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                </For>
+                <Show when={choices().length < 10}>
+                  <button type="button" onClick={() => setChoices((list) => [...list, ""])}>
+                    Add option
+                  </button>
+                </Show>
+                <div class="row">
+                  <label>
+                    <input type="checkbox" checked={multiple()} onChange={(e) => setMultiple(e.currentTarget.checked)} />
+                    Multiple choice
+                  </label>
+                  <select
+                    value={expiry() === null ? "never" : String(expiry())}
+                    onChange={(e) => {
+                      const v = e.currentTarget.value;
+                      setExpiry(v === "never" ? null : Number(v));
+                    }}
+                    aria-label="Poll expiry"
+                  >
+                    <For each={POLL_EXPIRIES}>
+                      {(o) => (
+                        <option value={o.seconds === null ? "never" : String(o.seconds)}>{o.label}</option>
+                      )}
+                    </For>
+                  </select>
+                </div>
+              </div>
+            </Show>
+            <Show when={visibility() === "specified"}>
+              <RecipientPicker
+                recipients={recipients()}
+                onAdd={(u) => setRecipients((r) => (r.some((x) => x.id === u.id) ? r : [...r, u]))}
+                onRemove={(id) => setRecipients((r) => r.filter((x) => x.id !== id))}
+              />
+            </Show>
+            <Show when={error()}>
+              <div class="err" role="alert">{error()}</div>
+            </Show>
           </div>
         </div>
-      </Show>
-      <Show when={visibility() === "specified"}>
-        <RecipientPicker
-          recipients={recipients()}
-          onAdd={(u) => setRecipients((r) => (r.some((x) => x.id === u.id) ? r : [...r, u]))}
-          onRemove={(id) => setRecipients((r) => r.filter((x) => x.id !== id))}
-        />
-      </Show>
-      <Show when={error()}>
-        <div class="err" role="alert">{error()}</div>
-      </Show>
-      <div class="row toolbar">
-        <select
-          value={visibility()}
-          onChange={(e) => setVisibility(e.currentTarget.value as NoteVisibility)}
-          aria-label="Visibility"
-        >
-          <For each={VISIBILITIES}>{(v) => <option value={v}>{v}</option>}</For>
-        </select>
-        <label title="Visible only on this server">
-          <input type="checkbox" checked={localOnly()} onChange={(e) => setLocalOnly(e.currentTarget.checked)} />
-          Local
-        </label>
-        <button type="button" onClick={() => setShowCw((v) => !v)} aria-pressed={showCw()}>
-          CW
-        </button>
-        <button type="button" onClick={() => setShowAttach((v) => !v)} aria-pressed={showAttach()}>
-          Media{attached().length > 0 ? ` (${attached().length})` : ""}
-        </button>
-        <Show when={IS_MISSKEY_FAMILY} fallback={
-          <span class="handle" title="This server rejects polls">No polls here</span>
-        }>
-          <button type="button" onClick={() => setUsePoll((v) => !v)} aria-pressed={usePoll()}>
-            Poll
+        <div class="composer-audience">
+          <label class="audience-pill">
+            <span class="sr-only">Who can see this post</span>
+            <select
+              value={visibility()}
+              onChange={(e) => setVisibility(e.currentTarget.value as NoteVisibility)}
+              aria-label="Who can see this post"
+            >
+              <For each={VISIBILITIES}>
+                {(v) => <option value={v}>{VISIBILITY_LABELS[v]}</option>}
+              </For>
+            </select>
+          </label>
+        </div>
+        <div class="row toolbar">
+          <button
+            type="button"
+            class="toolbtn"
+            onClick={() => setShowAttach((v) => !v)}
+            aria-pressed={showAttach()}
+            aria-label={attached().length > 0 ? `Attach media (${attached().length} attached)` : "Attach media"}
+            title="Attach media"
+          >
+            <MediaIcon />
+            <Show when={attached().length > 0}>
+              <span class="toolcount">{attached().length}</span>
+            </Show>
           </button>
-        </Show>
-        <span class="spacer" />
-        <span class="count">{remaining()}</span>
-        <button type="button" class="btn-primary" disabled={!canPost()} onClick={post}>
-          {posting() ? "Posting…" : props.replyId ? "Reply" : props.renoteId ? "Quote" : "Post"}
-        </button>
+          <Show
+            when={IS_MISSKEY_FAMILY}
+            fallback={
+              <button
+                type="button"
+                class="toolbtn"
+                disabled
+                title="This server rejects polls"
+                aria-label="Polls not supported on this server"
+              >
+                <PollIcon />
+              </button>
+            }
+          >
+            <button
+              type="button"
+              class="toolbtn"
+              onClick={() => setUsePoll((v) => !v)}
+              aria-pressed={usePoll()}
+              aria-label="Add a poll"
+              title="Add a poll"
+            >
+              <PollIcon />
+            </button>
+          </Show>
+          <span class="compose-emoji-wrap">
+            <button
+              type="button"
+              class="toolbtn"
+              onClick={() => setShowEmoji((v) => !v)}
+              aria-haspopup="dialog"
+              aria-expanded={showEmoji()}
+              aria-label="Insert emoji"
+              title="Insert emoji"
+            >
+              <SmileIcon />
+            </button>
+            <Show when={showEmoji()}>
+              <div class="reactpicker popup" role="dialog" aria-label="Choose an emoji">
+                <For each={COMPOSER_EMOJI}>
+                  {(emoji) => (
+                    <button
+                      type="button"
+                      onClick={() => insertEmoji(emoji)}
+                      aria-label={`Insert ${emoji}`}
+                      title={`Insert ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  )}
+                </For>
+              </div>
+            </Show>
+          </span>
+          <button
+            type="button"
+            class="toolbtn tooltext"
+            onClick={() => setShowCw((v) => !v)}
+            aria-pressed={showCw()}
+            aria-label="Content warning"
+            title="Content warning"
+          >
+            CW
+          </button>
+          <button
+            type="button"
+            class="toolbtn"
+            disabled
+            title="Scheduling isn't supported on this server"
+            aria-label="Scheduling not supported on this server"
+          >
+            <ScheduleIcon />
+          </button>
+          <label class="toolcheck" title="Visible only on this server">
+            <input type="checkbox" checked={localOnly()} onChange={(e) => setLocalOnly(e.currentTarget.checked)} />
+            Local
+          </label>
+          <span class="spacer" />
+          <span class="count">{remaining()}</span>
+          <button type="button" class="btn-primary" disabled={!canPost()} onClick={() => void post()}>
+            {postLabel()}
+          </button>
+        </div>
       </div>
-    </div>
+    </Show>
   );
 }

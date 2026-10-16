@@ -2039,3 +2039,138 @@ button.rxn:not(:disabled):hover {
 .reply-branch > .note {
   border-bottom: none;
 }
+
+/* Composer (reference-client layout): avatar-led inline box, audience
+ * pill, icon toolbar. Monochrome throughout; toggles read as on/off. */
+
+.composer-main {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.composer-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.composer-body > textarea {
+  min-height: 72px;
+}
+
+.replying-to {
+  font-size: 14px;
+  color: var(--muted);
+  padding: 0 2px 2px;
+}
+
+.composer-audience {
+  display: flex;
+  padding: 2px 0 0 52px;
+}
+
+.audience-pill select {
+  width: auto;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border-color: var(--border);
+}
+
+/* Icon toolbar buttons: bare glyphs (reference client), pressed state
+ * inverts like the other composer toggles. */
+.composer .toolbar button.toolbtn {
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 6px;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.composer .toolbar button.toolbtn:not(:disabled):hover {
+  color: var(--text);
+  background: var(--raise);
+}
+
+.composer .toolbar button.toolbtn[aria-pressed="true"] {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+
+.composer .toolbar button.toolbtn:disabled {
+  background: none;
+  border: none;
+  color: var(--faint);
+  cursor: not-allowed;
+}
+
+.toolbtn .toolcount {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.toolbtn.tooltext {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 8px;
+}
+
+.compose-emoji-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.toolcheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.toolcheck input[type="checkbox"] {
+  width: auto;
+  accent-color: var(--text);
+}
+
+/* Compact reply row (detail view, before click): avatar + placeholder
+ * as one button; expands into the full editor above. */
+.composer-compact {
+  padding: 8px 12px;
+}
+
+.composer-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.composer-open span {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* Pressed icon toggles invert (beats the bare base above on
+ * specificity); the generic pressed rule ties it, so this repeats the
+ * state explicitly after both. */
+.composer .toolbar button.toolbtn[aria-pressed="true"] {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}

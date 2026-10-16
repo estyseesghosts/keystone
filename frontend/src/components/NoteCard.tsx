@@ -158,9 +158,14 @@ export default function NoteCard(props: NoteCardProps) {
               <span class="handle">{handleOf(shown().user)}</span>
             </A>
           </UserHover>
-          <A class="time" href={`/notes/${shown().id}`}>
-            {formatTime(shown().createdAt)}
-          </A>
+          <Show
+            when={!props.detail}
+            fallback={<span class="time">{formatTime(shown().createdAt)}</span>}
+          >
+            <A class="time" href={`/notes/${shown().id}`}>
+              {formatTime(shown().createdAt)}
+            </A>
+          </Show>
           <span class="spacer" aria-hidden="true" />
           <Show when={tags().blocks.length > 0}>
             <TagBubble tags={tags().blockedTags} />
@@ -175,9 +180,21 @@ export default function NoteCard(props: NoteCardProps) {
         />
 
         <div class="noteactions">
-          <A class="action" href={`/notes/${shown().id}`} aria-label="Open note">
-            <ReplyIcon /> {shown().repliesCount}
-          </A>
+          {/* The detail route renders counts, not self-links: the router
+            marks a link to the current page active, which stuck the
+            reply button highlighted on every opened post. */}
+          <Show
+            when={!props.detail}
+            fallback={
+              <span class="action" aria-label={`Replies: ${shown().repliesCount}`}>
+                <ReplyIcon /> {shown().repliesCount}
+              </span>
+            }
+          >
+            <A class="action" href={`/notes/${shown().id}`} aria-label="Open note">
+              <ReplyIcon /> {shown().repliesCount}
+            </A>
+          </Show>
           <Show when={props.onRepost} fallback={
             <span class="action" aria-label="Reposts">
               <RepostIcon /> {shown().renoteCount}

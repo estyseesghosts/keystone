@@ -98,6 +98,40 @@ export function SmileIcon() {
   );
 }
 
+// --- Composer toolbar icons (same stroke style as the set above) ---
+
+export function MediaIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.5-3.5a2 2 0 0 0-3 0L6 20" />
+    </Base>
+  );
+}
+
+export function PollIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <line x1="18" x2="18" y1="20" y2="10" />
+      <line x1="12" x2="12" y1="20" y2="4" />
+      <line x1="6" x2="6" y1="20" y2="14" />
+    </Base>
+  );
+}
+
+export function ScheduleIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" x2="16" y1="2" y2="6" />
+      <line x1="8" x2="8" y1="2" y2="6" />
+      <line x1="3" x2="21" y1="10" y2="10" />
+      <circle cx="12" cy="16" r="1" />
+    </Base>
+  );
+}
+
 // --- Sidebar navigation icons (stroke style matches the set above) ---
 
 export function HomeIcon(props: { size?: number }) {
