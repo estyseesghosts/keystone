@@ -2,7 +2,7 @@ import { createEffect, createSignal, For, Show } from "solid-js";
 import { A, useSearchParams } from "@solidjs/router";
 import { apiCall, ApiError } from "../api/client";
 import type { Note, UserLite } from "../api/types";
-import { displayNameOf, handleOf } from "../api/types";
+import { displayNameOf, handleOf, hasRealDisplayName, headNameOf } from "../api/types";
 import { DisplayName } from "../components/EmojiPicker";
 import NoteCard from "../components/NoteCard";
 import { NoteSkeletonList, RowSkeletonList } from "../components/Skeleton";
@@ -150,8 +150,10 @@ export default function Search() {
             {(u) => (
               <div class="drivefile">
                 <div style={{ flex: 1 }}>
-                  <A href={`/users/${u.id}`}><strong><DisplayName name={displayNameOf(u)} packed={u.emojis} /></strong></A>
-                  <div class="handle">{handleOf(u)}</div>
+                  <A href={`/users/${u.id}`}><strong><DisplayName name={headNameOf(u)} packed={u.emojis} /></strong></A>
+                  <Show when={hasRealDisplayName(u)}>
+                    <div class="handle">{handleOf(u)}</div>
+                  </Show>
                 </div>
               </div>
             )}

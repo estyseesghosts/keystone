@@ -16,7 +16,7 @@ import { ApiError } from "./error";
 import { BACKEND_ID } from "./backend";
 import { getActiveExternal } from "./external";
 import type { CustomEmoji } from "./emoji";
-import { customEmojiNameFromReaction } from "./emoji";
+import { customEmojiNameFromReaction, isLocalEmojiHost, parseEmojiCode } from "./emoji";
 
 interface EmojisResponse {
   emojis?: Array<{
@@ -60,13 +60,93 @@ export function customEmojis(): CustomEmoji[] {
 }
 
 /** Packed URL for a reaction key, or null when unknown (unicode,
- * unlisted, or not-yet-loaded). Accepts `:name:`, `:name@host:`, and
- * `:name@.:` (host reduces to the bare local name for the global
- * list). Reactive: re-evaluates when the listing lands. */
+ * unlisted, not-yet-loaded, or REMOTE — a remote `:name@host:` never
+ * resolves against the local list, which would render the wrong emoji).
+ * Accepts `:name:` and `:name@.:` (host reduces to the bare local name).
+ * Reactive: re-evaluates when the listing lands. */
 export function customEmojiUrl(reaction: string): string | null {
   const name = customEmojiNameFromReaction(reaction);
   if (name == null) return null;
+  const parsed = parseEmojiCode(reaction);
+  if (parsed && !isLocalEmojiHost(parsed.host)) return null;
   return urlByName().get(name) ?? null;
+}
+
+// --- Remote custom emoji (`:name@host:`) ---
+//
+// The global `emojis` listing is local-only, and backends may pack empty
+// per-object maps, so remote codes need their own source: the remote
+// instance's public `POST /api/emojis`, fetched directly (works on
+// CORS-open instances), cached per host for the session. Hosts that fail
+// are remembered as misses (no hot retry); unknown codes stay literal —
+// never a fabricated or local-lookalike URL. Fetching a host's public
+// listing is no new privacy class (remote avatars/media already load
+// cross-origin). A first-party proxy endpoint would remove the CORS
+// dependency; see the state log.
+
+const REMOTE_TIMEOUT_MS = 10_000;
+/** Upper bound on distinct remote hosts consulted per session. */
+const MAX_REMOTE_HOSTS = 50;
+
+const [hostMaps, setHostMaps] = createSignal<Record<string, Record<string, string>>>({});
+const startedHosts = new Set<string>();
+const deadHosts = new Set<string>();
+
+function normalizeHost(host: string): string {
+  return host.trim().toLowerCase();
+}
+
+/** Reactive hosted URL for a remote emoji, or null (unknown / not yet
+ * loaded / host failed). Exact-name match on that host's listing only. */
+export function remoteEmojiUrl(host: string, name: string): string | null {
+  const table = hostMaps()[normalizeHost(host)];
+  if (!table) return null;
+  return table[name] ?? null;
+}
+
+/** Best-effort fetch of one host's public emoji listing. Idempotent —
+ * safe to call from render derivations; exactly one round-trip per host
+ * per session, failures remembered. */
+export function ensureHostEmojis(host: string): void {
+  const key = normalizeHost(host);
+  if (key.length === 0 || startedHosts.has(key) || deadHosts.has(key)) return;
+  if (key in hostMaps()) return;
+  if (startedHosts.size + Object.keys(hostMaps()).length >= MAX_REMOTE_HOSTS) return;
+  startedHosts.add(key);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
+  void fetch(`https://${key}/api/emojis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+    signal: controller.signal,
+  })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body: unknown = await res.json();
+      const table: Record<string, string> = {};
+      const list: unknown = (body as EmojisResponse).emojis;
+      if (Array.isArray(list)) {
+        for (const entry of list) {
+          if (
+            typeof entry?.name === "string" &&
+            typeof entry?.url === "string" &&
+            entry.name.length > 0 &&
+            entry.url.length > 0 &&
+            !(entry.name in table)
+          ) {
+            table[entry.name] = entry.url;
+          }
+        }
+      }
+      setHostMaps((maps) => ({ ...maps, [key]: table }));
+    })
+    .catch(() => {
+      deadHosts.add(key);
+    })
+    .finally(() => {
+      clearTimeout(timer);
+    });
 }
 
 /** Fetch once per session. Routed via `apiCall` (not `apiCallPublic`)

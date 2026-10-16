@@ -1,29 +1,52 @@
-// Post composer: plain text + visibility + attachments + CW + polls,
+// Post composer: text + visibility + attachments + CW + polls + scheduling,
 // wired to `notes/create` (reply via `replyId`, quote via `renoteId`).
 // Layout follows the reference client: an avatar-led inline box with an
-// audience pill and an icon toolbar (media, poll, emoji, CW — no GIF or
-// location buttons, which have no backend here). The detail route uses
-// compact mode: a single "Post your reply" row that expands into the
+// audience pill and an icon toolbar (media, poll, emoji, CW, schedule — no
+// GIF or location buttons, which have no backend here). The detail route
+// uses compact mode: a single "Post your reply" row that expands into the
 // full editor ("Replying to @user", autofocus) on click and collapses
 // again after posting.
+//
+// Parity notes:
+// - Polls are always offered (§5 un-gated): backends without polls reject
+//   with a verbatim error (CANNOT_CREATE_ALREADY_EXPIRED_POLL and friends).
+// - Reaction visibility (§3) sends `reactionAcceptance`; the badge lives in
+//   `NoteCard`. 404 means the backend does not store it.
+// - Quote refusal (§4): per-note `noQuote` plus the account switch in
+//   Settings. A QUOTE_DISABLED_FOR_USER rejection keeps the text, drops
+//   the `renoteId`, and shows the server reason.
+// - Scheduling (§6): `notes/schedule/create` with an ISO `scheduledAt`.
+//   404 keeps the control disabled with reason; the backend's
+//   TOO_MANY_SCHEDULED_NOTES / SCHEDULED_AT_REQUIRED / MUST_BE_IN_FUTURE
+//   errors surface verbatim.
+// - Drafts (§7) capture the full composer state; the inline composer has
+//   the same `Drafts (n)` entry as the floating one.
+// - Edit mode (§10): with `editingId`, the same surface PATCHes the note
+//   via `notes/edit` instead of creating one.
 
-import { createEffect, createSignal, For, Show } from "solid-js";
-import { apiCall, apiCallPublic } from "../api/client";
-import { IS_MISSKEY_FAMILY } from "../api/backend";
+import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { apiCall, apiCallPublic, ApiError, isUnsupportedError } from "../api/client";
 import type {
   CreatedNoteResponse,
   DriveFile,
   Note,
   NoteVisibility,
+  ReactionAcceptance,
+  ScheduledNote,
   UserLite,
 } from "../api/types";
+import { REACTION_ACCEPTANCE_LABELS } from "../api/types";
 import { useAuth } from "../state/auth";
 import { Avatar } from "./NoteBody";
 import { displayNameOf } from "../api/types";
-import { MediaIcon, PollIcon, ScheduleIcon } from "./icons";
+import { MediaIcon, MoreIcon, PollIcon, ScheduleIcon } from "./icons";
 import { EmojiPickerButton } from "./EmojiPicker";
 import VisibilityPicker from "./VisibilityPicker";
-import type { DraftPayload } from "../api/drafts";
+import type { Draft, DraftPayload } from "../api/drafts";
+import { deleteDraft, isKeepable, listDrafts, saveDraft } from "../api/drafts";
+import { editNote } from "../api/noteEdit";
+import { createScheduledNote, isFutureInstant, parseScheduledAt } from "../api/schedule";
+import { createServerDraft } from "../api/serverDrafts";
 import DriveBrowser from "./DriveBrowser";
 
 const FALLBACK_LIMIT = 3000;
@@ -52,6 +75,47 @@ const POLL_EXPIRIES: { label: string; seconds: number | null }[] = [
   { label: "7 days", seconds: 604800 },
   { label: "No expiry", seconds: null },
 ];
+
+const REACTION_OPTIONS: Array<{ value: ReactionAcceptance | ""; label: string }> = [
+  { value: "", label: "All reactions" },
+  ...(Object.entries(REACTION_ACCEPTANCE_LABELS) as Array<[ReactionAcceptance, string]>).map(
+    ([value, label]) => ({ value, label }),
+  ),
+];
+
+function stubUser(r: { id: string; username: string; host: string | null }): UserLite {
+  return {
+    id: r.id,
+    name: r.username,
+    username: r.username,
+    host: r.host,
+    avatarUrl: null,
+    avatarBlurhash: null,
+    isBot: false,
+    isCat: false,
+    emojis: {},
+    onlineStatus: "unknown",
+  };
+}
+
+function stubFile(f: { id: string; name: string }): DriveFile {
+  return {
+    id: f.id,
+    createdAt: new Date(0).toISOString(),
+    name: f.name,
+    type: "",
+    md5: "",
+    size: 0,
+    isSensitive: false,
+    blurhash: null,
+    properties: {},
+    url: "",
+    thumbnailUrl: null,
+    comment: null,
+    folderId: null,
+    userId: null,
+  };
+}
 
 function RecipientPicker(props: {
   recipients: UserLite[];
@@ -135,17 +199,24 @@ export default function Composer(props: {
   replyId?: string;
   renoteId?: string;
   onPosted: (note: Note) => void;
+  /** Fired when a scheduled post is accepted (no Note exists yet). */
+  onScheduled?: (scheduled: ScheduledNote) => void;
   /** Collapsed "Post your reply" row until clicked (detail route). */
   compact?: boolean;
   /** Shown as "Replying to …" once expanded (already includes `@`). */
   replyingTo?: string;
   /** Starting values when restoring a draft (read once, at setup). */
   initial?: DraftPayload;
+  /** Edit mode (§10): PATCH this note via `notes/edit` instead of posting. */
+  editingId?: string;
+  /** Fired when the backend 404s `notes/edit` (caller shows redraft). */
+  onEditUnsupported?: () => void;
   /** Receives a reader for the current draft payload (floating composer
    * auto-save and draft-restore guards). A plain handle, not state. */
   captureRef?: { current: (() => DraftPayload) | null };
 }) {
   const auth = useAuth();
+  const editMode = () => props.editingId !== undefined;
   const isCompact = () => props.compact === true;
   const [expanded, setExpanded] = createSignal(!isCompact());
   const [text, setText] = createSignal(props.initial?.text ?? "");
@@ -154,45 +225,133 @@ export default function Composer(props: {
   const [visibility, setVisibility] = createSignal<NoteVisibility>(
     props.initial?.visibility ?? "public",
   );
-  const [recipients, setRecipients] = createSignal<UserLite[]>([]);
+  const [recipients, setRecipients] = createSignal<UserLite[]>(
+    (props.initial?.recipients ?? []).map(stubUser),
+  );
   const [localOnly, setLocalOnly] = createSignal(props.initial?.localOnly ?? false);
   const [limit, setLimit] = createSignal(FALLBACK_LIMIT);
-  const [attached, setAttached] = createSignal<DriveFile[]>([]);
+  const [attached, setAttached] = createSignal<DriveFile[]>(
+    (props.initial?.attachedFiles ?? []).map(stubFile),
+  );
   const [showAttach, setShowAttach] = createSignal(false);
-  const [usePoll, setUsePoll] = createSignal(false);
-  const [choices, setChoices] = createSignal<string[]>(["", ""]);
-  const [multiple, setMultiple] = createSignal(false);
-  const [expiry, setExpiry] = createSignal<number | null>(86400);
+  const [usePoll, setUsePoll] = createSignal(!!props.initial?.poll);
+  const [choices, setChoices] = createSignal<string[]>(
+    props.initial?.poll && props.initial.poll.choices.length >= 2
+      ? props.initial.poll.choices
+      : ["", ""],
+  );
+  const [multiple, setMultiple] = createSignal(props.initial?.poll?.multiple ?? false);
+  const [expiry, setExpiry] = createSignal<number | null>(props.initial?.poll?.expiry ?? 86400);
+  const [reactionAcceptance, setReactionAcceptance] = createSignal<ReactionAcceptance | "">(
+    props.initial?.reactionAcceptance ?? "",
+  );
+  const [noQuote, setNoQuote] = createSignal(props.initial?.noQuote ?? false);
+  const [scheduleOpen, setScheduleOpen] = createSignal(!!props.initial?.scheduledAt);
+  const [scheduleInput, setScheduleInput] = createSignal(
+    props.initial?.scheduledAt ? toLocalInput(props.initial.scheduledAt) : "",
+  );
+  const [scheduleUnsupported, setScheduleUnsupported] = createSignal(false);
   const [posting, setPosting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [notice, setNotice] = createSignal<string | null>(null);
+  const [showDrafts, setShowDrafts] = createSignal(false);
+  const [drafts, setDrafts] = createSignal<Draft[]>([]);
+  const [draftsScheduledOnly, setDraftsScheduledOnly] = createSignal(false);
+  const [serverDraftNotice, setServerDraftNotice] = createSignal<string | null>(null);
+  // Advanced options (§§3, 4, 6, 7) live in the More popup menu
+  // (vispick style, like the audience picker) — never inline blocks, so
+  // the composer keeps its cohesive surface.
+  const [menuOpen, setMenuOpen] = createSignal(false);
+
+  // The menu closes on outside click or Escape (visibility-menu pattern).
+  createEffect(() => {
+    if (!menuOpen()) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest?.(".optmenu-wrap")) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("click", onDocClick);
+    document.addEventListener("keydown", onKey);
+    onCleanup(() => {
+      document.removeEventListener("click", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    });
+  });
+
+  /** Any non-default menu option: dots the More trigger. */
+  const advancedActive = () =>
+    reactionAcceptance() !== "" || noQuote() || localOnly() || scheduledAt() !== null;
   let area: HTMLTextAreaElement | undefined;
 
+  /** Fit the field to its content: the composer only ever grows and
+   * shrinks with the text (manual resize is disabled in CSS). Capped at
+   * 40% of the viewport — past that the field itself scrolls. */
+  const fitArea = () => {
+    const el = area;
+    if (!el) return;
+    el.style.height = "auto";
+    const max = Math.max(120, Math.floor(window.innerHeight * 0.4));
+    el.style.height = `${Math.min(el.scrollHeight, max)}px`;
+    el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
+  };
+
+  onMount(() => fitArea());
+
   void textLimit().then(setLimit);
+
+  // Seed recipient ids that arrived without display stubs (server drafts).
+  if ((props.initial?.recipientIds ?? []).length > 0 && recipients().length === 0) {
+    setRecipients(props.initial!.recipientIds!.map((id) => stubUser({ id, username: id.slice(0, 8), host: null })));
+  }
+  // Seed attachments that arrived as bare ids (server drafts).
+  if ((props.initial?.fileIds ?? []).length > 0 && attached().length === 0) {
+    setAttached(props.initial!.fileIds!.map((id) => stubFile({ id, name: id.slice(0, 8) })));
+  }
+
+  function toLocalInput(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  const payload = (): DraftPayload => ({
+    text: text(),
+    cw: cw(),
+    visibility: visibility(),
+    localOnly: localOnly(),
+    recipientIds: recipients().map((r) => r.id),
+    recipients: recipients().map((r) => ({ id: r.id, username: r.username, host: r.host })),
+    fileIds: attached().map((f) => f.id),
+    attachedFiles: attached().map((f) => ({ id: f.id, name: f.name })),
+    poll: usePoll()
+      ? { choices: choices(), multiple: multiple(), expiry: expiry() }
+      : null,
+    ...(props.replyId ? { replyId: props.replyId } : {}),
+    ...(props.renoteId ? { renoteId: props.renoteId } : {}),
+    scheduledAt: scheduleOpen() ? parseScheduledAt(scheduleInput()) : null,
+    reactionAcceptance: (reactionAcceptance() === "" ? null : reactionAcceptance()) as ReactionAcceptance | null,
+    noQuote: noQuote(),
+  });
 
   // Draft support reads the live payload through this handle (called
   // from event handlers, never tracked).
   if (props.captureRef) {
-    props.captureRef.current = () => ({
-      text: text(),
-      cw: cw(),
-      visibility: visibility(),
-      localOnly: localOnly(),
-    });
+    props.captureRef.current = () => payload();
   }
-
-  // Expanding the compact row moves focus into the editor.
-  createEffect(() => {
-    if (isCompact() && expanded()) area?.focus();
-  });
 
   const pollChoices = () => choices().map((c) => c.trim()).filter((c) => c.length > 0);
   const pollValid = () => usePoll() && pollChoices().length >= 2;
   const remaining = () => limit() - text().length;
+  const scheduledAt = () => (scheduleOpen() ? parseScheduledAt(scheduleInput()) : null);
   const canPost = () =>
     !posting() &&
     text().length <= limit() &&
     (text().trim().length > 0 || attached().length > 0 || pollValid() || !!props.renoteId) &&
-    (visibility() !== "specified" || recipients().length > 0);
+    (visibility() !== "specified" || recipients().length > 0) &&
+    (!scheduleOpen() || (scheduledAt() !== null && isFutureInstant(scheduledAt()!)));
 
   const toggleAttach = (file: DriveFile) => {
     setAttached((current) =>
@@ -219,11 +378,138 @@ export default function Composer(props: {
     }
   };
 
+  const resetForm = () => {
+    setText("");
+    setCw("");
+    setShowCw(false);
+    setVisibility("public");
+    setRecipients([]);
+    setLocalOnly(false);
+    setAttached([]);
+    setShowAttach(false);
+    setUsePoll(false);
+    setChoices(["", ""]);
+    setReactionAcceptance("");
+    setNoQuote(false);
+    setScheduleOpen(false);
+    setScheduleInput("");
+    setError(null);
+    setNotice(null);
+    // Collapse the field back to its resting height.
+    fitArea();
+    if (isCompact()) setExpanded(false);
+  };
+
+  const visibleInlineDrafts = () => {
+    const all = drafts().length > 0 ? drafts() : listDrafts();
+    return draftsScheduledOnly() ? all.filter((d) => (d.scheduledAt ?? "") !== "") : all;
+  };
+
+  /** Explicit server copy (§7): local stays the offline cache, the server
+   * becomes the source of truth once signed in. 404 keeps it local-only. */
+  const saveServerCopy = async () => {
+    const p = payload();
+    if (!isKeepable(p)) {
+      setServerDraftNotice("Nothing worth keeping yet.");
+      return;
+    }
+    try {
+      await createServerDraft({
+        ...(p.text.trim() ? { text: p.text.trim() } : {}),
+        ...(p.cw.trim() ? { cw: p.cw.trim() } : {}),
+        visibility: p.visibility,
+        ...(p.visibility === "specified" ? { visibleUserIds: p.recipientIds } : {}),
+        ...(p.localOnly ? { localOnly: true } : {}),
+        ...(p.fileIds && p.fileIds.length > 0 ? { fileIds: p.fileIds } : {}),
+        ...(p.replyId ? { replyId: p.replyId } : {}),
+        ...(p.renoteId ? { renoteId: p.renoteId } : {}),
+        ...(p.scheduledAt ? { scheduledAt: p.scheduledAt } : {}),
+        ...(p.reactionAcceptance ? { reactionAcceptance: p.reactionAcceptance } : {}),
+        ...(p.noQuote ? { noQuote: true } : {}),
+        ...(p.poll ? {
+          poll: {
+            choices: p.poll.choices,
+            multiple: p.poll.multiple,
+            ...(p.poll.expiry !== null ? { expiredAfter: p.poll.expiry } : {}),
+          },
+        } : {}),
+      });
+      setServerDraftNotice("Saved to the server.");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setServerDraftNotice("Server drafts aren't supported here — kept locally.");
+      } else {
+        setServerDraftNotice(err instanceof Error ? err.message : "Could not save the server copy.");
+      }
+    }
+  };
+
+  const restoreDraft = (draft: Draft) => {
+    setMenuOpen(false);
+    setText(draft.text);
+    setCw(draft.cw);
+    setShowCw(draft.cw.length > 0);
+    setVisibility(draft.visibility);
+    setLocalOnly(draft.localOnly);
+    setRecipients((draft.recipients ?? []).map(stubUser));
+    setAttached((draft.attachedFiles ?? []).map(stubFile));
+    if (draft.poll) {
+      setUsePoll(true);
+      setChoices(draft.poll.choices.length >= 2 ? draft.poll.choices : ["", ""]);
+      setMultiple(draft.poll.multiple);
+      setExpiry(draft.poll.expiry);
+    } else {
+      setUsePoll(false);
+    }
+    setReactionAcceptance(draft.reactionAcceptance ?? "");
+    setNoQuote(draft.noQuote ?? false);
+    if (draft.scheduledAt) {
+      setScheduleOpen(true);
+      setScheduleInput(toLocalInput(draft.scheduledAt));
+    } else {
+      setScheduleOpen(false);
+      setScheduleInput("");
+    }
+    deleteDraft(draft.id);
+    setDrafts(listDrafts());
+    setShowDrafts(false);
+    setNotice("Draft restored.");
+    // The restored text renders next frame — size to it then.
+    requestAnimationFrame(() => fitArea());
+  };
+
   const post = async () => {
     if (!canPost()) return;
     setPosting(true);
     setError(null);
+    setNotice(null);
     try {
+      // Edit mode (§10): PATCH via `notes/edit` on this same surface.
+      if (editMode()) {
+        try {
+          const updated = await editNote(props.editingId!, {
+            ...(text().trim() ? { text: text().trim() } : { text: null }),
+            ...(showCw() && cw().trim() ? { cw: cw().trim().slice(0, 100) } : { cw: null }),
+            visibility: visibility(),
+            ...(visibility() === "specified"
+              ? { visibleUserIds: recipients().map((r) => r.id) }
+              : {}),
+            ...(localOnly() ? { localOnly: true } : {}),
+            ...(attached().length > 0 ? { fileIds: attached().map((f) => f.id) } : {}),
+          });
+          resetForm();
+          props.onPosted(updated);
+        } catch (err) {
+          if (isUnsupportedError(err)) {
+            props.onEditUnsupported?.();
+            setError("Editing isn't supported on this server — use Delete and edit instead.");
+          } else {
+            setError(err instanceof Error ? err.message : "Could not save the edit.");
+          }
+        }
+        return;
+      }
+      const at = scheduledAt();
       const body: Record<string, unknown> = {
         visibility: visibility(),
         ...(text().trim() ? { text: text().trim() } : {}),
@@ -235,6 +521,8 @@ export default function Composer(props: {
         ...(props.replyId ? { replyId: props.replyId } : {}),
         ...(props.renoteId ? { renoteId: props.renoteId } : {}),
         ...(attached().length > 0 ? { fileIds: attached().map((f) => f.id) } : {}),
+        ...(reactionAcceptance() !== "" ? { reactionAcceptance: reactionAcceptance() } : {}),
+        ...(noQuote() ? { noQuote: true } : {}),
         ...(pollValid()
           ? {
               poll: {
@@ -245,22 +533,54 @@ export default function Composer(props: {
             }
           : {}),
       };
-      const res = await apiCall<CreatedNoteResponse>("notes/create", body);
-      // Clear only on success: after a recoverable error the text,
-      // settings, and completed uploads are all preserved for retry.
-      setText("");
-      setCw("");
-      setShowCw(false);
-      setVisibility("public");
-      setRecipients([]);
-      setLocalOnly(false);
-      setAttached([]);
-      setShowAttach(false);
-      setUsePoll(false);
-      setChoices(["", ""]);
-      setError(null);
-      if (isCompact()) setExpanded(false);
-      props.onPosted(res.createdNote);
+      // Scheduled path (§6): same body through `notes/schedule/create`.
+      if (at) {
+        try {
+          const scheduled = await createScheduledNote({ ...body, scheduledAt: at });
+          resetForm();
+          setNotice("Note scheduled.");
+          props.onScheduled?.(scheduled);
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 404) {
+            setScheduleUnsupported(true);
+            setError("Scheduling isn't supported on this server.");
+          } else {
+            // TOO_MANY_SCHEDULED_NOTES / SCHEDULED_AT_REQUIRED /
+            // MUST_BE_IN_FUTURE surface verbatim.
+            setError(err instanceof Error ? err.message : "Could not schedule the note.");
+          }
+        }
+        return;
+      }
+      try {
+        const res = await apiCall<CreatedNoteResponse>("notes/create", body);
+        // Clear only on success: after a recoverable error the text,
+        // settings, and completed uploads are all preserved for retry.
+        resetForm();
+        props.onPosted(res.createdNote);
+      } catch (err) {
+        // Quote refusal (§4): keep the text, drop the `renoteId`, show
+        // the server reason (mirror the poll/scheduling pattern).
+        if (
+          body["renoteId"] !== undefined &&
+          err instanceof ApiError &&
+          (err.code === "QUOTE_DISABLED_FOR_USER" || err.message.includes("QUOTE_DISABLED"))
+        ) {
+          const { renoteId: _dropped, ...withoutQuote } = body;
+          void _dropped;
+          try {
+            const res = await apiCall<CreatedNoteResponse>("notes/create", withoutQuote);
+            resetForm();
+            setNotice(err.message);
+            props.onPosted(res.createdNote);
+            return;
+          } catch (retryErr) {
+            setError(retryErr instanceof Error ? retryErr.message : "Could not post the note.");
+            return;
+          }
+        }
+        setError(err instanceof Error ? err.message : "Could not post the note.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not post the note.");
     } finally {
@@ -273,7 +593,21 @@ export default function Composer(props: {
   const editorPlaceholder = () =>
     props.replyId ? "Write a reply…" : props.renoteId ? "Add a comment…" : "What's happening?";
   const postLabel = () =>
-    posting() ? "Posting…" : props.replyId ? "Reply" : props.renoteId ? "Quote" : "Post";
+    posting()
+      ? editMode()
+        ? "Saving…"
+        : scheduledAt()
+          ? "Scheduling…"
+          : "Posting…"
+      : editMode()
+        ? "Save"
+        : props.replyId
+          ? "Reply"
+          : props.renoteId
+            ? "Quote"
+            : scheduledAt()
+              ? "Schedule"
+              : "Post";
   const me = () => auth.me();
 
   return (
@@ -302,6 +636,9 @@ export default function Composer(props: {
             Replying to <span>{props.replyingTo}</span>
           </div>
         </Show>
+        <Show when={editMode()}>
+          <div class="replying-to">Editing note</div>
+        </Show>
         <div class="composer-main">
           <Avatar
             url={me()?.avatarUrl ?? null}
@@ -311,9 +648,14 @@ export default function Composer(props: {
             <textarea
               ref={(el) => {
                 area = el;
+                // Seed text (draft restore, redraft) sizes after mount.
+                requestAnimationFrame(() => fitArea());
               }}
               value={text()}
-              onInput={(e) => setText(e.currentTarget.value)}
+              onInput={(e) => {
+                setText(e.currentTarget.value);
+                fitArea();
+              }}
               placeholder={editorPlaceholder()}
               maxlength={limit()}
               aria-label={props.replyId ? "Reply text" : props.renoteId ? "Quote comment" : "Note text"}
@@ -347,7 +689,7 @@ export default function Composer(props: {
                 onToggleSelect={toggleAttach}
               />
             </Show>
-            <Show when={usePoll() && IS_MISSKEY_FAMILY}>
+            <Show when={usePoll()}>
               <div class="field">
                 <label>Poll (2–10 options)</label>
                 <For each={choices()}>
@@ -411,6 +753,9 @@ export default function Composer(props: {
             <Show when={error()}>
               <div class="err" role="alert">{error()}</div>
             </Show>
+            <Show when={notice()}>
+              <div class="state" role="status"><p>{notice()}</p></div>
+            </Show>
           </div>
         </div>
         <div class="composer-audience">
@@ -430,31 +775,16 @@ export default function Composer(props: {
               <span class="toolcount">{attached().length}</span>
             </Show>
           </button>
-          <Show
-            when={IS_MISSKEY_FAMILY}
-            fallback={
-              <button
-                type="button"
-                class="toolbtn"
-                disabled
-                title="This server rejects polls"
-                aria-label="Polls not supported on this server"
-              >
-                <PollIcon />
-              </button>
-            }
+          <button
+            type="button"
+            class="toolbtn"
+            onClick={() => setUsePoll((v) => !v)}
+            aria-pressed={usePoll()}
+            aria-label="Add a poll"
+            title="Add a poll"
           >
-            <button
-              type="button"
-              class="toolbtn"
-              onClick={() => setUsePoll((v) => !v)}
-              aria-pressed={usePoll()}
-              aria-label="Add a poll"
-              title="Add a poll"
-            >
-              <PollIcon />
-            </button>
-          </Show>
+            <PollIcon />
+          </button>
           <EmojiPickerButton
             mode="insert"
             triggerClass="toolbtn"
@@ -472,29 +802,205 @@ export default function Composer(props: {
           >
             CW
           </button>
-          <button
-            type="button"
-            class="toolbtn"
-            disabled
-            title="Scheduling isn't supported on this server"
-            aria-label="Scheduling not supported on this server"
-          >
-            <ScheduleIcon />
-          </button>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={localOnly()}
-            class="localswitch"
-            onClick={() => setLocalOnly((v) => !v)}
-            title="Visible only on this server"
-            aria-label="Local only"
-          >
-            <span class="switch-track" aria-hidden="true">
-              <span class="switch-knob" aria-hidden="true" />
+          <Show when={!editMode()}>
+            <span class="vispick-wrap optmenu-wrap">
+              <button
+                type="button"
+                class={advancedActive() ? "toolbtn dot" : "toolbtn"}
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen()}
+                aria-label="More options"
+                title="More options"
+              >
+                <MoreIcon />
+              </button>
+              <Show when={menuOpen()}>
+                <div class="vispick-menu optmenu" role="menu" aria-label="More options">
+                  <div class="optmenu-head" aria-hidden="true">Who can react</div>
+                  <For each={REACTION_OPTIONS}>
+                    {(o) => (
+                      <button
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={reactionAcceptance() === o.value}
+                        class="vispick-item"
+                        onClick={() => setReactionAcceptance(o.value)}
+                      >
+                        <span class="vispick-text">
+                          <span class="vispick-label">{o.label}</span>
+                        </span>
+                        <span
+                          class={reactionAcceptance() === o.value ? "vispick-radio on" : "vispick-radio"}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    )}
+                  </For>
+                  <div class="optmenu-sep" aria-hidden="true" />
+                  <button
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={noQuote()}
+                    class="vispick-item"
+                    onClick={() => setNoQuote((v) => !v)}
+                  >
+                    <span class="vispick-text">
+                      <span class="vispick-label">Don't let others quote this note</span>
+                      <span class="vispick-desc">Quote attempts are refused</span>
+                    </span>
+                    <span
+                      class={noQuote() ? "vispick-radio on" : "vispick-radio"}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={localOnly()}
+                    class="vispick-item"
+                    onClick={() => setLocalOnly((v) => !v)}
+                  >
+                    <span class="vispick-text">
+                      <span class="vispick-label">Local only</span>
+                      <span class="vispick-desc">Visible only on this server</span>
+                    </span>
+                    <span
+                      class={localOnly() ? "vispick-radio on" : "vispick-radio"}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  <div class="optmenu-sep" aria-hidden="true" />
+                  <button
+                    type="button"
+                    class="vispick-item"
+                    onClick={() => setScheduleOpen((v) => !v)}
+                    aria-expanded={scheduleOpen()}
+                    disabled={scheduleUnsupported()}
+                    title={scheduleUnsupported() ? "Scheduling isn't supported on this server" : "Schedule this note"}
+                  >
+                    <span class="vispick-icon" aria-hidden="true">
+                      <ScheduleIcon />
+                    </span>
+                    <span class="vispick-text">
+                      <span class="vispick-label">
+                        {scheduleOpen() ? "Post now instead" : "Schedule…"}
+                      </span>
+                      <span class="vispick-desc">
+                        {scheduleUnsupported()
+                          ? "Not supported on this server"
+                          : scheduleOpen() && scheduledAt() && isFutureInstant(scheduledAt()!)
+                            ? `Posts ${new Date(scheduledAt()!).toLocaleString()}`
+                            : "Post at a later time"}
+                      </span>
+                    </span>
+                  </button>
+                  <Show when={scheduleOpen() && !scheduleUnsupported()}>
+                    <div class="optmenu-pad">
+                      <input
+                        type="datetime-local"
+                        value={scheduleInput()}
+                        onInput={(e) => setScheduleInput(e.currentTarget.value)}
+                        aria-label="Scheduled date and time"
+                      />
+                      <Show when={scheduleInput() && parseScheduledAt(scheduleInput()) === null}>
+                        <div class="err" role="alert">Pick a valid date and time.</div>
+                      </Show>
+                      <Show when={scheduleInput() && parseScheduledAt(scheduleInput()) !== null && !isFutureInstant(parseScheduledAt(scheduleInput())!)}>
+                        <div class="err" role="alert">Scheduled time must be in the future.</div>
+                      </Show>
+                    </div>
+                  </Show>
+                  <button
+                    type="button"
+                    class="vispick-item"
+                    onClick={() => {
+                      const p = payload();
+                      if (isKeepable(p)) saveDraft(p);
+                      setDrafts(listDrafts());
+                      setShowDrafts((v) => !v);
+                    }}
+                    aria-expanded={showDrafts()}
+                  >
+                    <span class="vispick-text">
+                      <span class="vispick-label">
+                        Drafts{drafts().length > 0 || listDrafts().length > 0 ? ` (${drafts().length || listDrafts().length})` : ""}
+                      </span>
+                      <span class="vispick-desc">Unsent posts on this device</span>
+                    </span>
+                  </button>
+                  <Show when={showDrafts()}>
+                    <div class="optmenu-pad">
+                      <div class="optrow" role="group" aria-label="Draft filter">
+                        <button
+                          type="button"
+                          class="minibtn"
+                          aria-pressed={!draftsScheduledOnly()}
+                          onClick={() => setDraftsScheduledOnly(false)}
+                        >
+                          All
+                        </button>
+                        <button
+                          type="button"
+                          class="minibtn"
+                          aria-pressed={draftsScheduledOnly()}
+                          onClick={() => setDraftsScheduledOnly(true)}
+                        >
+                          Scheduled
+                        </button>
+                      </div>
+                      <Show
+                        when={visibleInlineDrafts().length > 0}
+                        fallback={<p class="handle">No drafts yet.</p>}
+                      >
+                        <For each={visibleInlineDrafts()}>
+                          {(draft) => (
+                            <div class="draftrow">
+                              <button
+                                type="button"
+                                class="drafttext"
+                                onClick={() => restoreDraft(draft)}
+                                aria-label={`Restore draft: ${draft.text.slice(0, 60) || "(no text)"}`}
+                                title="Restore this draft"
+                              >
+                                {draft.text.slice(0, 120) || <span class="handle">(no text)</span>}
+                                {draft.scheduledAt ? <span class="handle"> · scheduled</span> : null}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  deleteDraft(draft.id);
+                                  setDrafts(listDrafts());
+                                }}
+                                aria-label="Delete this draft"
+                                title="Delete this draft"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          )}
+                        </For>
+                      </Show>
+                    </div>
+                  </Show>
+                  <button
+                    type="button"
+                    class="vispick-item"
+                    onClick={() => void saveServerCopy()}
+                    title="Also keep a copy on the server (when supported)"
+                  >
+                    <span class="vispick-text">
+                      <span class="vispick-label">Save server copy</span>
+                      <span class="vispick-desc">Keep this post as a server draft</span>
+                    </span>
+                  </button>
+                  <Show when={serverDraftNotice()}>
+                    <p class="handle optmenu-pad" role="status">{serverDraftNotice()}</p>
+                  </Show>
+                </div>
+              </Show>
             </span>
-            <span>Local</span>
-          </button>
+          </Show>
           <span class="spacer" />
           <span class="count">{remaining()}</span>
           <button type="button" class="btn-primary" disabled={!canPost()} onClick={() => void post()}>

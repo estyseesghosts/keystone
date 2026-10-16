@@ -5,10 +5,9 @@ import { parse, toString } from "mfm-js";
 import type { MfmNode } from "mfm-js";
 import { apiCall } from "../api/client";
 import type { UserLite } from "../api/types";
-import { displayNameOf } from "../api/types";
-import { customEmojiUrl } from "../api/customEmoji";
-import { lookupPackedEmojis } from "../api/emoji";
-import { DisplayName } from "./EmojiPicker";
+import { displayNameOf, headNameOf } from "../api/types";
+import { splitRemoteEmojiCodes } from "../api/emoji";
+import { DisplayName, EmojiGlyph } from "./EmojiPicker";
 
 // Renders an allow-listed subset of the mfm-js AST as Solid elements.
 // Shapes validated against mfm-js 0.27.0 (built/index.d.ts). Unknown nodes
@@ -92,7 +91,7 @@ function MentionLink(props: { acct: string; username: string; host: string | nul
           >
             <img class="mchip-avatar" src={resolved().avatarUrl!} alt="" loading="lazy" />
           </Show>
-          <span class="mchip-name"><DisplayName name={displayNameOf(resolved())} packed={resolved().emojis} /></span>
+          <span class="mchip-name"><DisplayName name={headNameOf(resolved())} packed={resolved().emojis} /></span>
         </A>
       )}
     </Show>
@@ -105,7 +104,23 @@ function renderNode(
 ): JSX.Element {
   switch (node.type) {
     case "text":
-      return <>{node.props.text}</>;
+      // mfm-js never emits `emojiCode` for `:name@host:` (any host dot
+      // or not) — remote codes arrive inside text. Split them out here
+      // and resolve like any other glyph (packed map, then the remote
+      // host's listing); unresolvable codes stay literal text.
+      return (
+        <>
+          <For each={splitRemoteEmojiCodes(node.props.text)}>
+            {(part) =>
+              part.kind === "remote" ? (
+                <EmojiGlyph emoji={part.code} packed={packed} />
+              ) : (
+                <>{part.text}</>
+              )
+            }
+          </For>
+        </>
+      );
     case "plain":
       return (
         <For each={node.children}>{(child) => <>{child.props.text}</>}</For>
@@ -189,21 +204,10 @@ function renderNode(
       // The owning note's packed map first (exact intent, remote
       // included), then the global listing; unknown codes (or a
       // not-yet-loaded listing) stay literal — never a fabricated
-      // URL. Both lookups are reactive, so the image swaps in when
-      // data lands.
+      // URL. Rendered through EmojiGlyph so a dead packed URL falls
+      // through to the live listings instead of a broken image.
       const code = `:${node.props.name}:`;
-      const url =
-        lookupPackedEmojis(packed, code) ?? customEmojiUrl(code);
-      return url ? (
-        <img
-          class="emojiglyph"
-          src={url}
-          alt={`:${node.props.name}:`}
-          loading="lazy"
-        />
-      ) : (
-        <span>:{node.props.name}:</span>
-      );
+      return <EmojiGlyph emoji={code} packed={packed} />;
     }
     case "unicodeEmoji":
       return <span>{node.props.emoji}</span>;

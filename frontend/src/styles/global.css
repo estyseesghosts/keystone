@@ -1809,17 +1809,144 @@ textarea::placeholder {
   gap: 0.8em;
 }
 
-.notif .kind {
+/* Notification content column: mirrors `.note-main` so rows read like
+ * compact notes (avatar + name/handle/time head, description, preview). */
+.notif-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  flex-wrap: wrap;
+}
+
+.notif-head .time {
+  color: var(--muted);
+  font-size: calc(13px * var(--text-scale, 1));
+}
+
+.notif-desc {
+  margin-top: 0.15em;
+  overflow-wrap: break-word;
+}
+
+/* Filter chips: one horizontally scrolling row of small pills — never a
+ * wrapping wall of buttons. */
+.notif-filters {
+  display: flex;
+  gap: 0.4em;
+  overflow-x: auto;
+  padding: 0.55em 1.07em;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: thin;
+}
+
+.nf-chip {
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.2em 0.7em;
+  color: var(--muted);
+}
+
+.nf-chip.active {
+  color: var(--text);
+  border-color: var(--border);
+  background: var(--bg-soft);
+}
+
+/* Small pill buttons for inline composer options and list rows. */
+.minibtn {
+  border-radius: 999px;
+  padding: 0.2em 0.7em;
+  font-size: calc(13px * var(--text-scale, 1));
+  background: none;
+  white-space: nowrap;
+}
+
+.minibtn[aria-pressed="true"] {
+  border-color: var(--faint);
+  background: var(--bg-soft);
+}
+
+/* Composer "More options" popup: the vispick card language (same as the
+ * audience picker). The toolbar anchors the sheet full-width: a
+ * button-anchored popup clips on narrow screens, so the menu spans the
+ * toolbar instead and scrolls internally. */
+.composer .toolbar {
+  position: relative;
+}
+
+.vispick-wrap.optmenu-wrap {
+  position: static;
+}
+
+.optmenu-wrap .vispick-menu.optmenu {
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 0;
+  max-width: none;
+  max-height: min(26em, calc(100vh - 120px));
+  overflow-y: auto;
+}
+
+.optmenu-head {
   font-size: calc(12px * var(--text-scale, 1));
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  padding: 0.4em 0.67em 0.15em;
 }
 
-/* The content column must shrink past long words/handles instead of
- * forcing the row (and the viewport) wider. */
-.notif > div {
-  min-width: 0;
+.optmenu-sep {
+  border-top: 1px solid var(--border);
+  margin: 0.25em 0;
+}
+
+.optmenu-pad {
+  padding: 0.15em 0.67em 0.3em;
+}
+
+.optmenu-pad input[type="datetime-local"] {
+  width: 100%;
+}
+
+/* Active-options dot on the More trigger: a non-default reaction rule,
+ * quote refusal, local-only, or schedule is set. */
+.composer .toolbar button.toolbtn.dot {
+  position: relative;
+}
+
+.composer .toolbar button.toolbtn.dot::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.optrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  flex-wrap: wrap;
+}
+
+.optrow select,
+.optrow input[type="datetime-local"] {
+  width: auto;
+  max-width: 100%;
+  flex: 1;
+  min-width: 8em;
 }
 
 /* Reaction chips (Misskey-style row above the actions, only when reactions
@@ -2028,8 +2155,11 @@ img.emojiglyph {
 }
 
 /* Right-click menu over picker cells: the vispick card language,
- * cursor-fixed and clamped to the viewport by the component. */
-.emojictx-menu {
+ * cursor-fixed and clamped to the viewport by the component. The doubled
+ * selector beats `.vispick-menu` below (same-property tie would
+ * otherwise flip this to `absolute` — an absolutely-positioned,
+ * viewport-coordinate menu renders off-screen and clips). */
+.vispick-menu.emojictx-menu {
   position: fixed;
   top: auto;
   left: auto;
@@ -2704,7 +2834,18 @@ img.emojiglyph {
   background: transparent;
   padding: 0.27em 0.13em;
   min-height: 72px;
-  resize: vertical;
+  /* Never resizable by hand and never outlined: the field grows with
+   * its content (see fitArea in Composer.tsx), focused or not. */
+  resize: none;
+  outline: none;
+  box-shadow: none;
+  overflow-y: hidden;
+}
+
+.composer-body > textarea:focus,
+.composer-body > textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .replying-to {
@@ -2868,54 +3009,6 @@ img.emojiglyph {
   display: inline-flex;
 }
 
-/* Local-only switch: a custom monochrome toggle replacing the native
- * checkbox. */
-.localswitch {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.43em;
-  background: none;
-  border: none;
-  padding: 0.43em 0.29em;
-  color: var(--muted);
-  font-size: calc(14px * var(--text-scale, 1));
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.localswitch .switch-track {
-  width: 32px;
-  height: 18px;
-  border-radius: 999px;
-  border: 1px solid var(--faint);
-  position: relative;
-  display: inline-block;
-  flex-shrink: 0;
-}
-
-.localswitch .switch-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--faint);
-}
-
-.localswitch[aria-checked="true"] {
-  color: var(--text);
-}
-
-.localswitch[aria-checked="true"] .switch-track {
-  border-color: var(--text);
-}
-
-.localswitch[aria-checked="true"] .switch-knob {
-  left: 16px;
-  background: var(--text);
-}
-
 /* Compact reply row (detail view, before click): avatar + placeholder
  * as one button; expands into the full editor above. */
 .composer-compact {
@@ -3051,4 +3144,31 @@ img.emojiglyph {
   .postbox-overlay {
     padding: 24px 8px 8px;
   }
+}
+
+/* Parity-plan form rows: checkbox + text rows for the full profile editor,
+ * per-note composer options, and notification receive settings.
+ * Monochrome, same rhythm as `.field` / `.row`. */
+.check {
+  display: flex;
+  gap: 0.5em;
+  align-items: flex-start;
+  padding: 0.3em 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.check input[type="checkbox"] {
+  margin-top: 0.2em;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.check > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.check.compact {
+  padding: 0.25em 0;
 }

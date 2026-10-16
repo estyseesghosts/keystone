@@ -76,6 +76,71 @@ export function customReactionCode(name: string): string {
   return `:${name}:`;
 }
 
+/** Parsed `:name:` / `:name@host:` code (colons optional on input). */
+export interface ParsedEmojiCode {
+  /** Full canonical code (`:name:` / `:name@host:`). */
+  code: string;
+  /** Bare emoji name (no host). */
+  name: string;
+  /** Host qualifier, or null for local codes. */
+  host: string | null;
+  /** True when the code names a remote host's emoji. */
+  remote: boolean;
+}
+
+const EMOJI_CODE_PATTERN = /^:([A-Za-z0-9_+-]+(?:@([A-Za-z0-9.-]+))?):$/;
+
+/** Parse an emoji code. Returns null for unicode / malformed input.
+ * Pure. */
+export function parseEmojiCode(code: string): ParsedEmojiCode | null {
+  const match = EMOJI_CODE_PATTERN.exec(code.trim());
+  if (!match) return null;
+  const name = match[1].split("@")[0];
+  const host = match[2] ?? null;
+  if (!name || (match[2] !== undefined && match[2].length === 0)) return null;
+  const remote = !isLocalEmojiHost(host);
+  return { code: remote ? `:${name}@${host}:` : `:${name}:`, name, host, remote };
+}
+
+/** Local hosts: absent, empty, or the `.` local marker. A fully-qualified
+ * `@own-host` code counts as remote here (it resolves through the
+ * per-host cache, which hits the same instance). Pure. */
+export function isLocalEmojiHost(host: string | null | undefined): boolean {
+  return host == null || host === "" || host === ".";
+}
+
+/** Text segment split on remote `:name@host:` codes (mfm-js never emits
+ * these as `emojiCode` nodes — they arrive inside `text`). Local codes
+ * are left alone (the MFM parser owns those). Pure. */
+export type TextSegment =
+  | { kind: "text"; text: string }
+  | { kind: "remote"; code: string; name: string; host: string };
+
+const REMOTE_CODE_PATTERN = /:([A-Za-z0-9_+-]+)@([A-Za-z0-9.-]+):/g;
+
+/** Split remote emoji codes out of plain text. Adjacent codes each
+ * become their own part; everything else stays verbatim. Pure. */
+export function splitRemoteEmojiCodes(text: string): TextSegment[] {
+  const parts: TextSegment[] = [];
+  let last = 0;
+  REMOTE_CODE_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = REMOTE_CODE_PATTERN.exec(text)) !== null) {
+    if (match.index > last) {
+      parts.push({ kind: "text", text: text.slice(last, match.index) });
+    }
+    parts.push({
+      kind: "remote",
+      code: match[0],
+      name: match[1],
+      host: match[2],
+    });
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push({ kind: "text", text: text.slice(last) });
+  return parts;
+}
+
 /** Extract the bare emoji name for GLOBAL-list lookup (`:name:` →
  * `name`). Host-qualified keys (`:name@host:`, `:name@.:`) reduce to
  * the bare name; unicode and anything else yield null. Packed
@@ -137,9 +202,13 @@ export function sameEmojiKey(a: string, b: string): boolean {
 }
 
 /** Resolve a code against a packed per-object map (`reactionEmojis`,
- * `emojis`): tries the exact inner (`name@host`), the bare name, and
- * colon-wrapped variants (tolerant of either key shape). Accepts the
- * code with or without surrounding colons. Pure. */
+ * `emojis`): tries the exact inner (`name@host`) first, then — for
+ * LOCAL codes only (`:name:`, `:name@.:`) — the bare name, plus
+ * colon-wrapped variants of each (tolerant of either key shape).
+ * Remote codes (`:name@host:`) never fall back to the bare name: a
+ * packed bare key is a *local* emoji and rendering it under a remote
+ * code would show the wrong image. Accepts the code with or without
+ * surrounding colons. Pure. */
 export function lookupPackedEmojis(
   packed: Record<string, string> | null | undefined,
   code: string,
@@ -148,8 +217,12 @@ export function lookupPackedEmojis(
   const trimmed = code.trim();
   if (trimmed.length === 0) return null;
   const inner = stripEmojiColons(trimmed) ?? trimmed;
+  const { host } = splitEmojiInner(inner);
+  const local = host === "" || host === ".";
   const bare = bareEmojiName(inner);
-  const candidates = [inner, bare, `:${inner}:`, `:${bare}:`];
+  const candidates = local
+    ? [inner, bare, `:${inner}:`, `:${bare}:`]
+    : [inner, `:${inner}:`];
   for (const key of candidates) {
     const url = packed[key];
     if (typeof url === "string" && url.length > 0) return url;
@@ -210,20 +283,23 @@ export function filterUnicode(pool: string[], query: string): string[] {
 // --- Plain-text `:code:` splitting (display names, CWs, bios) ---
 //
 // Display names, content warnings, and (unfurl-card) bios are plain
-// text, not MFM — but they can still carry `:code:` custom emoji.
-// Splitter is pure (unit-checked); `DisplayName` in
-// `components/EmojiPicker.tsx` renders the parts. Remote `:name@host:`
-// codes never split (no packed URL is known for those).
+// text, not MFM — but they can still carry `:code:` custom emoji,
+// local or remote (`:name@host:` — mfm-js never parses those, so the
+// splitter owns both). Splitter is pure (unit-checked); `DisplayName` in
+// `components/EmojiPicker.tsx` renders the parts, resolving remote codes
+// through the packed maps and the per-host listing cache.
 
 export type NamePart =
   | { kind: "text"; text: string }
   | { kind: "emoji"; code: string };
 
 /** Split `:code:` sequences out of plain text. Adjacent codes each
- * become their own part; everything else stays verbatim. */
+ * become their own part; everything else stays verbatim. Remote
+ * `:name@host:` codes split too (they resolve through the per-object
+ * packed maps and the per-host listing cache, never the local list). */
 export function splitNameEmojis(name: string): NamePart[] {
   const parts: NamePart[] = [];
-  const pattern = /:([A-Za-z0-9_+-]+):/g;
+  const pattern = /:([A-Za-z0-9_+-]+(?:@[A-Za-z0-9.-]+)?):/g;
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(name)) !== null) {

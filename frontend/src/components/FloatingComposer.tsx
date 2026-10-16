@@ -3,10 +3,16 @@
 // button, and Drafts. Closing with unsent prose auto-saves a draft
 // (nothing typed is ever lost); restoring a draft first stashes the
 // live text the same way. Posting lands on the new note's detail view.
+// Drafts (§7) carry the full composer state (attachments, poll,
+// recipients, reply/renote context, scheduling); the list has an
+// All/Scheduled filter, and server drafts appear alongside the local
+// offline cache when the backend serves them (404 → local only).
 
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import type { Note } from "../api/types";
+import { isUnsupportedError } from "../api/client";
+import type { Note, ScheduledNote } from "../api/types";
+import { useAuth } from "../state/auth";
 import { usePostbox } from "../state/postbox";
 import {
   deleteDraft,
@@ -16,23 +22,42 @@ import {
   type Draft,
   type DraftPayload,
 } from "../api/drafts";
+import { deleteServerDraft, listServerDrafts } from "../api/serverDrafts";
+import type { ServerDraft } from "../api/types";
 import Composer from "./Composer";
 
 export default function FloatingComposer() {
   const box = usePostbox();
+  const auth = useAuth();
   const navigate = useNavigate();
   const [showDrafts, setShowDrafts] = createSignal(false);
   const [drafts, setDrafts] = createSignal<Draft[]>([]);
+  const [serverDrafts, setServerDrafts] = createSignal<ServerDraft[] | null>(null);
+  const [scheduledOnly, setScheduledOnly] = createSignal(false);
   // Bump to mount a fresh Composer seeded from a restored draft.
   const [seed, setSeed] = createSignal<{ payload: DraftPayload; n: number } | null>(null);
   const captureRef: { current: (() => DraftPayload) | null } = { current: null };
 
-  const refreshDrafts = () => setDrafts(listDrafts());
+  const refreshDrafts = () => {
+    setDrafts(listDrafts());
+    // Server drafts are best-effort: 404 (or signed out) means local-only.
+    if (!auth.token()) {
+      setServerDrafts(null);
+      return;
+    }
+    void listServerDrafts()
+      .then((list) => setServerDrafts(list))
+      .catch((err) => {
+        if (isUnsupportedError(err)) setServerDrafts(null);
+        else setServerDrafts([]);
+      });
+  };
 
   // Opening the modal (re)loads the draft list and starts unseeded.
   createEffect(() => {
     if (!box.isOpen()) return;
     setShowDrafts(false);
+    setScheduledOnly(false);
     setSeed(null);
     refreshDrafts();
   });
@@ -76,27 +101,41 @@ export default function FloatingComposer() {
     navigate(`/notes/${note.id}`);
   };
 
+  const onScheduled = (_scheduled: ScheduledNote) => {
+    // A scheduled note has no detail view yet: stay open on the
+    // confirmation the composer already shows.
+  };
+
   const restore = (draft: Draft) => {
     // The live text is stashed first, so restoring never destroys prose.
     stashLive();
     deleteDraft(draft.id);
     refreshDrafts();
     setShowDrafts(false);
-    setSeed((s) => ({
-      payload: {
-        text: draft.text,
-        cw: draft.cw,
-        visibility: draft.visibility,
-        localOnly: draft.localOnly,
-      },
-      n: (s?.n ?? 0) + 1,
-    }));
+    // Full composer state restores (attachments, poll, recipients,
+    // reply/renote context, scheduling, reaction acceptance, noQuote).
+    const { id: _id, createdAt: _at, ...payload } = draft;
+    void _id;
+    void _at;
+    setSeed((s) => ({ payload, n: (s?.n ?? 0) + 1 }));
   };
 
   const remove = (id: string) => {
     deleteDraft(id);
     refreshDrafts();
   };
+
+  const removeServer = async (id: string) => {
+    try {
+      await deleteServerDraft(id);
+    } catch {
+      // Keep the row on failure; the message below explains.
+    }
+    refreshDrafts();
+  };
+
+  const visibleDrafts = () =>
+    scheduledOnly() ? drafts().filter((d) => (d.scheduledAt ?? "") !== "") : drafts();
 
   return (
     <Show when={box.isOpen()}>
@@ -128,25 +167,42 @@ export default function FloatingComposer() {
           </div>
           <Show when={showDrafts()}>
             <div class="postbox-draftlist" aria-label="Saved drafts">
+              <div class="row" role="group" aria-label="Draft filter">
+                <button
+                  type="button"
+                  aria-pressed={!scheduledOnly()}
+                  onClick={() => setScheduledOnly(false)}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={scheduledOnly()}
+                  onClick={() => setScheduledOnly(true)}
+                >
+                  Scheduled
+                </button>
+              </div>
               <Show
-                when={drafts().length > 0}
+                when={visibleDrafts().length > 0 || (serverDrafts() ?? []).length > 0}
                 fallback={
                   <div class="state">
                     <p>No drafts yet. Dismissing the composer with unsent text saves one here.</p>
                   </div>
                 }
               >
-                <For each={drafts()}>
+                <For each={visibleDrafts()}>
                   {(draft) => (
                     <div class="draftrow">
                       <button
                         type="button"
                         class="drafttext"
                         onClick={() => restore(draft)}
-                        aria-label={`Restore draft: ${draft.text.slice(0, 60) || "(content warning only)"}`}
+                        aria-label={`Restore draft: ${draft.text.slice(0, 60) || "(no text)"}`}
                         title="Restore this draft"
                       >
-                        {draft.text.slice(0, 120) || <span class="handle">(content warning only)</span>}
+                        {draft.text.slice(0, 120) || <span class="handle">(no text)</span>}
+                        {draft.scheduledAt ? <span class="handle"> · scheduled</span> : null}
                       </button>
                       <button
                         type="button"
@@ -159,6 +215,27 @@ export default function FloatingComposer() {
                     </div>
                   )}
                 </For>
+                <Show when={serverDrafts() !== null && (serverDrafts() ?? []).length > 0}>
+                  <p class="handle">Server drafts</p>
+                  <For each={serverDrafts()!}>
+                    {(draft) => (
+                      <div class="draftrow">
+                        <span class="drafttext">
+                          {(draft.text ?? "").slice(0, 120) || <span class="handle">(no text)</span>}
+                          {draft.scheduledAt ? <span class="handle"> · scheduled</span> : null}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void removeServer(draft.id)}
+                          aria-label="Delete this server draft"
+                          title="Delete this server draft"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
+                  </For>
+                </Show>
               </Show>
             </div>
           </Show>
@@ -172,6 +249,7 @@ export default function FloatingComposer() {
                 captureRef={captureRef}
                 initial={s?.payload}
                 onPosted={onPosted}
+                onScheduled={onScheduled}
               />
             );
           })()}

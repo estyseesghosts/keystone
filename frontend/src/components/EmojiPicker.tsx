@@ -31,16 +31,21 @@ import {
   filterCustomEmojis,
   filterUnicode,
   groupCustomByCategory,
+  isLocalEmojiHost,
   lookupPackedEmojis,
+  parseEmojiCode,
   splitNameEmojis,
 } from "../api/emoji";
 import {
   customEmojis,
   customEmojiState,
   customEmojiUrl,
+  ensureHostEmojis,
   loadCustomEmojis,
+  remoteEmojiUrl,
   retryCustomEmojis,
 } from "../api/customEmoji";
+import { tryPersistLikeEmoji } from "../api/likeEmoji";
 import { useEmojiPrefs } from "../state/emojiPrefs";
 import { SmileIcon } from "./icons";
 
@@ -48,27 +53,61 @@ const RESULT_CAP = 60;
 const CATEGORY_GRID_CAP = 120;
 
 /** One emoji glyph: the packed per-object URL when given (and known),
- * else the hosted image from the global listing, else the literal text
- * (never a fabricated URL). The image carries the code as alt text so
- * assistive tech hears the same thing sighted users see. */
+ * else the remote host's listing for `:name@host:` codes, else the local
+ * hosted image from the global listing, else the literal text (never a
+ * fabricated URL — and never a local lookalike for a remote code). The
+ * image carries the code as alt text so assistive tech hears the same
+ * thing sighted users see. Host listings load on first encounter and the
+ * glyph swaps in reactively when they land.
+ *
+ * A packed URL that fails to load (stale remote file, deleted emoji,
+ * hotlink refusal) falls through to the next live source instead of
+ * sticking a broken image on screen: packed → remote listing → local
+ * listing → literal text. Dead URLs are remembered per mount so each
+ * source is tried at most once; a listing that lands later still gets
+ * its chance. */
 export function EmojiGlyph(props: {
   emoji: string;
   packed?: Record<string, string> | null;
 }) {
-  const url = () =>
-    lookupPackedEmojis(props.packed, props.emoji) ??
-    customEmojiUrl(props.emoji);
+  const [dead, setDead] = createSignal<ReadonlySet<string>>(new Set());
+  const candidates = createMemo(() => {
+    const out: string[] = [];
+    const push = (url: string | null) => {
+      if (url && url.length > 0 && !out.includes(url)) out.push(url);
+    };
+    push(lookupPackedEmojis(props.packed, props.emoji));
+    const parsed = parseEmojiCode(props.emoji);
+    if (parsed && !isLocalEmojiHost(parsed.host)) {
+      ensureHostEmojis(parsed.host!);
+      push(remoteEmojiUrl(parsed.host!, parsed.name));
+    } else {
+      push(customEmojiUrl(props.emoji));
+    }
+    const failed = dead();
+    return failed.size === 0 ? out : out.filter((url) => !failed.has(url));
+  });
+  const src = () => candidates()[0] ?? null;
   return (
     <Show
-      when={url()}
+      when={src()}
       fallback={<>{props.emoji}</>}
     >
-      {(src) => (
+      {(current) => (
         <img
           class="emojiglyph"
-          src={src()}
+          src={current()}
           alt={props.emoji}
           loading="lazy"
+          onError={() => {
+            const failedUrl = current();
+            setDead((prev) => {
+              if (prev.has(failedUrl)) return prev;
+              const next = new Set(prev);
+              next.add(failedUrl);
+              return next;
+            });
+          }}
         />
       )}
     </Show>
@@ -110,7 +149,12 @@ function EmojiCell(props: {
       class="emojpick-cell"
       aria-label={props.label}
       title={props.label}
-      onClick={() => props.onPick(props.emoji)}
+      onClick={(e) => {
+        // Modified clicks never pick (Ctrl/Cmd-click is a right-click
+        // on macOS — it opens the cell menu via contextmenu instead).
+        if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+        props.onPick(props.emoji);
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         props.onMenu(props.emoji, e.clientX, e.clientY);
@@ -183,8 +227,8 @@ function EmojiCtxMenu(props: {
     });
   });
 
-  // Clamp so the ~240px card never leaves the viewport.
-  const left = () => Math.max(8, Math.min(props.x, window.innerWidth - 248));
+  // Clamp so the card (~300px wide) never leaves the viewport.
+  const left = () => Math.max(8, Math.min(props.x, window.innerWidth - 316));
   const top = () => Math.max(8, Math.min(props.y, window.innerHeight - 140));
 
   return (
@@ -220,6 +264,9 @@ function EmojiCtxMenu(props: {
         class="vispick-item"
         onClick={() => {
           prefs.setLikeEmoji(props.emoji);
+          // Best-effort per-account sync (§8); stays local when the
+          // server has no field.
+          void tryPersistLikeEmoji(props.emoji);
           props.onClose();
         }}
       >

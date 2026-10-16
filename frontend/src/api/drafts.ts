@@ -1,17 +1,46 @@
-// Unsent-post drafts for the floating composer. Drafts live in
-// localStorage (per-backend keys, like tokens — a draft naming local
-// users never leaks across backends), capped so the list can't grow
-// without bound. Anything with text or a warning counts as worth
-// keeping; bare settings don't.
+// Unsent-post drafts for the floating + inline composers. Drafts live in
+// localStorage (per-backend keys, like tokens), capped so the list can't
+// grow without bound. The payload covers the FULL composer state
+// (attachments, poll, recipients, reply/renote context, scheduling,
+// reaction acceptance, quote refusal) — restoring a draft restores the
+// whole form, not just text. Anything with text, a warning, attachments,
+// a poll, or scheduling counts as worth keeping; bare settings don't.
 
 import { BACKEND_ID } from "./backend";
-import type { NoteVisibility } from "./types";
+import type { NoteVisibility, ReactionAcceptance } from "./types";
+
+export interface DraftPoll {
+  choices: string[];
+  multiple: boolean;
+  expiry: number | null;
+}
+
+export interface DraftRecipient {
+  id: string;
+  username: string;
+  host: string | null;
+}
+
+export interface DraftAttachment {
+  id: string;
+  name: string;
+}
 
 export interface DraftPayload {
   text: string;
   cw: string;
   visibility: NoteVisibility;
   localOnly: boolean;
+  recipientIds?: string[];
+  recipients?: DraftRecipient[];
+  fileIds?: string[];
+  attachedFiles?: DraftAttachment[];
+  poll?: DraftPoll | null;
+  replyId?: string;
+  renoteId?: string;
+  scheduledAt?: string | null;
+  reactionAcceptance?: ReactionAcceptance | null;
+  noQuote?: boolean;
 }
 
 export interface Draft extends DraftPayload {
@@ -31,10 +60,15 @@ function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** True when the payload is worth keeping (prose or a warning — bare
- * settings alone never save). Pure. */
+/** True when the payload is worth keeping (prose, a warning, attachments,
+ * a usable poll, or a schedule — bare settings alone never save). Pure. */
 export function isKeepable(payload: DraftPayload): boolean {
-  return payload.text.trim().length > 0 || payload.cw.trim().length > 0;
+  if (payload.text.trim().length > 0 || payload.cw.trim().length > 0) return true;
+  if ((payload.fileIds ?? []).length > 0 || (payload.attachedFiles ?? []).length > 0) return true;
+  if ((payload.scheduledAt ?? "") !== "") return true;
+  const poll = payload.poll;
+  if (poll && poll.choices.map((c) => c.trim()).filter((c) => c.length > 0).length >= 2) return true;
+  return false;
 }
 
 /** Newest-first, capped. Pure — the unit-checked core of the store. */

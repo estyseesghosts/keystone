@@ -1,17 +1,21 @@
-import { createEffect, createSignal, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, onMount, Show } from "solid-js";
 import { A, useParams } from "@solidjs/router";
-import { apiCall } from "../api/client";
-import type { UserDetailed } from "../api/types";
-import { displayNameOf, handleOf } from "../api/types";
+import { apiCall, isUnsupportedError } from "../api/client";
+import type { Note, UserDetailed } from "../api/types";
+import { displayNameOf, handleOf, hasRealDisplayName, headNameOf } from "../api/types";
 import { DisplayName } from "../components/EmojiPicker";
+import { listUserFeaturedNotes, listFeaturedNotes } from "../api/featured";
 import { useAuth } from "../state/auth";
 import ErrorState from "../components/ErrorState";
 import FollowList from "../components/FollowList";
 import MfmRenderer from "../components/MfmRenderer";
+import NoteCard from "../components/NoteCard";
 import ProfileNotesList from "../components/ProfileNotesList";
 import type { ProfileTab } from "../components/ProfileNotesList";
-import { ProfileSkeleton } from "../components/Skeleton";
+import { NoteSkeletonList, ProfileSkeleton } from "../components/Skeleton";
 import ProfileEditor from "../components/ProfileEditor";
+import UserActions from "../components/UserActions";
+import UserReactions from "../components/UserReactions";
 
 export default function Profile() {
   const params = useParams();
@@ -21,11 +25,13 @@ export default function Profile() {
   const [error, setError] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [editing, setEditing] = createSignal(false);
-  // Default tab: Posts. Featured ships absent: no pinned-note source was
-  // confirmed (no field in the endpoint source reviewed, none packed on
-  // `UserDetailed`, no live backend on this machine to probe
-  // `users/show` for one) — never faked, per the handoff.
-  const [tab, setTab] = createSignal<ProfileTab>("posts");
+  // Default tab: Posts. Featured reads `pinnedNoteIds/pinnedNotes` from
+  // `users/show` (plus `users/featured-notes` ranking where served) — the
+  // tab ships absent only when the backend packs no source (never faked).
+  const [tab, setTab] = createSignal<ProfileTab | "featured">("posts");
+  const [featured, setFeatured] = createSignal<Note[] | null>(null);
+  const [featuredState, setFeaturedState] = createSignal<"idle" | "loading" | "ready" | "unsupported" | "error">("idle");
+  const [featuredError, setFeaturedError] = createSignal<string | null>(null);
 
   const load = async (id: string) => {
     setLoading(true);
@@ -120,8 +126,66 @@ export default function Profile() {
     return "none";
   };
 
-  const tabClass = (name: ProfileTab) =>
+  const tabClass = (name: ProfileTab | "featured") =>
     tab() === name ? "profile-tab active" : "profile-tab";
+
+  /** Featured source (§9): packed `pinnedNotes` first, then the
+   * `users/featured-notes` ranking view, then the global `notes/featured`
+   * ranking filtered to this user. Absent (never faked) when the backend
+   * serves none of them. */
+  const loadFeatured = async (u: UserDetailed) => {
+    if (u.pinnedNotes && u.pinnedNotes.length > 0) {
+      setFeatured(u.pinnedNotes);
+      setFeaturedState("ready");
+      return;
+    }
+    if (u.pinnedNoteIds && u.pinnedNoteIds.length === 0) {
+      setFeatured([]);
+      setFeaturedState("ready");
+      return;
+    }
+    setFeaturedState("loading");
+    setFeaturedError(null);
+    try {
+      const notes = await listUserFeaturedNotes(u.id, 20);
+      // Prefer packed pins when both exist (explicit pins win over rank).
+      setFeatured(u.pinnedNotes && u.pinnedNotes.length > 0 ? u.pinnedNotes : notes);
+      setFeaturedState("ready");
+    } catch (err) {
+      if (isUnsupportedError(err)) {
+        // No per-user ranking view: try the global ranking filtered down.
+        try {
+          const global = await listFeaturedNotes(50);
+          setFeatured(global.filter((n) => n.userId === u.id));
+          setFeaturedState("ready");
+        } catch (inner) {
+          if (isUnsupportedError(inner)) {
+            if (u.pinnedNotes && u.pinnedNotes.length > 0) {
+              setFeatured(u.pinnedNotes);
+              setFeaturedState("ready");
+            } else {
+              setFeatured(null);
+              setFeaturedState("unsupported");
+            }
+          } else {
+            setFeaturedError(inner instanceof Error ? inner.message : "Could not load featured notes.");
+            setFeaturedState("error");
+          }
+        }
+      } else {
+        setFeaturedError(err instanceof Error ? err.message : "Could not load featured notes.");
+        setFeaturedState("error");
+      }
+    }
+  };
+
+  const hasFeaturedSource = () => {
+    const u = user();
+    if (!u) return false;
+    if (u.pinnedNotes && u.pinnedNotes.length > 0) return true;
+    if (u.pinnedNoteIds && u.pinnedNoteIds.length > 0) return true;
+    return featuredState() !== "unsupported";
+  };
 
   return (
     <div>
@@ -178,8 +242,10 @@ export default function Profile() {
                         </button>
                       </Show>
                     </div>
-                    <h2><DisplayName name={displayNameOf(current())} packed={current().emojis} /></h2>
-                    <div class="handle">{handleOf(current())}</div>
+                    <h2><DisplayName name={headNameOf(current())} packed={current().emojis} /></h2>
+                    <Show when={hasRealDisplayName(current())}>
+                      <div class="handle">{handleOf(current())}</div>
+                    </Show>
                     <Show when={current().isLocked}>
                       <div class="handle">Locked account</div>
                     </Show>
@@ -188,12 +254,42 @@ export default function Profile() {
                     </Show>
                     <div class="stats">
                       <span>{current().notesCount.toLocaleString()} notes</span>
-                      <A class="statlink" href={`/users/${current().id}/following`}>
-                        {current().followingCount.toLocaleString()} Following
-                      </A>
-                      <A class="statlink" href={`/users/${current().id}/followers`}>
-                        {current().followersCount.toLocaleString()} Followers
-                      </A>
+                      <Show
+                        when={current().ffVisibility === "private" && !isSelf()}
+                        fallback={
+                          <Show
+                            when={current().ffVisibility === "followers" && !isSelf() && !current().isFollowing}
+                            fallback={
+                              <>
+                                <A class="statlink" href={`/users/${current().id}/following`}>
+                                  {current().followingCount.toLocaleString()} Following
+                                </A>
+                                <A class="statlink" href={`/users/${current().id}/followers`}>
+                                  {current().followersCount.toLocaleString()} Followers
+                                </A>
+                              </>
+                            }
+                          >
+                            <span class="handle">Following — followers only</span>
+                            <span class="handle">Followers — followers only</span>
+                          </Show>
+                        }
+                      >
+                        <span class="handle">Following — owner only</span>
+                        <span class="handle">Followers — owner only</span>
+                      </Show>
+                    </div>
+                    <Show when={current().ffVisibility === "private" && !isSelf()}>
+                      <div class="handle">Only the account owner can see the follow lists.</div>
+                    </Show>
+                    <Show when={current().ffVisibility === "followers" && !isSelf() && !current().isFollowing}>
+                      <div class="handle">Only followers can see the follow lists.</div>
+                    </Show>
+                    <Show when={canFollow() || isSelf()}>
+                      <UserActions userId={current().id} isSelf={isSelf()} />
+                    </Show>
+                    <div class="row">
+                      <UserReactions userId={current().id} isRemote={current().host !== null} />
                     </div>
                     <Show when={isSelf() && editing() && auth.me()}>
                       <ProfileEditor
@@ -213,6 +309,23 @@ export default function Profile() {
                   </div>
                 </div>
                 <div class="profile-tabs" role="tablist" aria-label="Profile notes">
+                  <Show when={hasFeaturedSource() || tab() === "featured"}>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={tab() === "featured"}
+                      class={tabClass("featured")}
+                      onClick={() => {
+                        setTab("featured");
+                        const u = user();
+                        if (u && featuredState() !== "ready" && featuredState() !== "loading") {
+                          void loadFeatured(u);
+                        }
+                      }}
+                    >
+                      Featured
+                    </button>
+                  </Show>
                   <button
                     type="button"
                     role="tab"
@@ -241,6 +354,37 @@ export default function Profile() {
                     Media
                   </button>
                 </div>
+                <Show when={tab() === "featured"}>
+                  <Show when={featuredState() === "ready" && featured()} fallback={
+                    <Show when={featuredState() === "unsupported"} fallback={
+                      <Show when={featuredState() === "error"} fallback={
+                        <NoteSkeletonList label="Loading featured…" />
+                      }>
+                        <ErrorState
+                          message={featuredError() ?? "Could not load featured notes."}
+                          onRetry={() => {
+                            const u = user();
+                            if (u) void loadFeatured(u);
+                          }}
+                        />
+                      </Show>
+                    }>
+                      <div class="state" role="status">
+                        <p>No featured notes on this server.</p>
+                      </div>
+                    </Show>
+                  }>
+                    <Show when={featured()!.length > 0} fallback={
+                      <div class="state"><p>No pinned notes.</p></div>
+                    }>
+                      <div class="feed">
+                        <For each={featured()!}>
+                          {(n) => <NoteCard note={n} />}
+                        </For>
+                      </div>
+                    </Show>
+                  </Show>
+                </Show>
                 <Show when={tab() === "posts"}>
                   <ProfileNotesList userId={current().id} tab="posts" />
                 </Show>

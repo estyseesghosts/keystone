@@ -120,6 +120,18 @@ export function PollIcon(props: { size?: number }) {
   );
 }
 
+/** Three-dot "more options" trigger (composer toolbar). Stroke rings read
+ * at small sizes without a fill dependency in either theme. */
+export function MoreIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <circle cx="5" cy="12" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+    </Base>
+  );
+}
+
 export function ScheduleIcon(props: { size?: number }) {
   return (
     <Base size={props.size ?? 18}>

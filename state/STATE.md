@@ -1,8 +1,8 @@
 # STATE — resume pointer (mutable, keep current)
 
-**HEAD:** `9bd393b` (pushed 2026-10-16) — docs refresh (README, router
-×17 routes, plan). Prior: `740abde` stacked slices. Tree clean at push;
-browser QA pending throughout (owner).
+**HEAD:** `1fc766c` (pulled 2026-10-16) + uncommitted parity work (see log
+`2026-10-16-parity-implementation.md`). Tree has parity implementation +
+appearance fixes, NOT pushed (owner reviewing).
 
 **Phase:** 4 — Visual polish (2026-10-16): sidebar icons + collapsible nav,
 system-theme dark mode (owner override of the AGENTS.md §7 no-dark-mode
@@ -207,6 +207,15 @@ approve-and-return round-trip still **not yet verified** (owner).
   `emojis` maps now feed chips/like/text/names (listing as fallback),
   listing eager-loads at startup and is keyed per target. 59/59
   helper checks, `tsc` + build green.
+
+- **Plus (2026-10-16, uncommitted, browser QA owner-handled):** remote
+  emoji broken-image fix (see log `2026-10-16-emoji-dead-url.md`) —
+  `EmojiGlyph` falls through dead packed URLs to the live listings via
+  `onError` (packed → remote → local → literal) instead of sticking a
+  broken `<img>` on screen; `MfmRenderer` `emojiCode` renders through
+  `EmojiGlyph` (same fallback); `lookupPackedEmojis` no longer matches
+  a remote code against a bare local key (wrong-image lookalike).
+  13/13 helper checks, `tsc` + build green.
 
 ## Decisions since stonekey
 

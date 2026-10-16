@@ -14,6 +14,7 @@ import {
   LocalIcon,
   LoginIcon,
   PencilIcon,
+  ProfileIcon,
   SearchIcon,
 } from "./icons";
 
@@ -75,6 +76,13 @@ export default function Layout(props: { children: JSX.Element }) {
             href="/notifications"
             label="Notifications"
             icon={<BellIcon />}
+          />
+        </Show>
+        <Show when={auth.me()}>
+          <NavItem
+            href="/follow-requests"
+            label="Follows"
+            icon={<ProfileIcon />}
           />
         </Show>
         <Show when={auth.me()}>

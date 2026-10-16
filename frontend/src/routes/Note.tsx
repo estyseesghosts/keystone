@@ -1,13 +1,17 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import { A, useNavigate, useParams } from "@solidjs/router";
-import { apiCall, isUnsupportedError } from "../api/client";
+import { apiCall, ApiError, isUnsupportedError } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
 import { appearNoteOf, handleOf, withReaction } from "../api/types";
+import { confirmMyReaction, clearMyReaction, effectiveMyReaction } from "../api/myReactions";
 import {
   CONVERSATION_PAGE_SIZE,
   MAX_ANCESTOR_WALK,
   orderAncestors,
 } from "../api/thread";
+import { pinNote, unpinNote } from "../api/featured";
+import { REDRAFT_WARNING, redraftPayload } from "../api/noteEdit";
+import type { DraftPayload } from "../api/drafts";
 import { captureNote } from "../api/stream";
 import { useAuth } from "../state/auth";
 import Composer from "../components/Composer";
@@ -26,6 +30,13 @@ export default function NoteDetail() {
   const [reacting, setReacting] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
   const [confirmDelete, setConfirmDelete] = createSignal(false);
+  const [pinBusy, setPinBusy] = createSignal(false);
+  const [pinError, setPinError] = createSignal<string | null>(null);
+  const [pinNotice, setPinNotice] = createSignal<string | null>(null);
+  const [editing, setEditing] = createSignal(false);
+  const [editUnsupported, setEditUnsupported] = createSignal(false);
+  const [redrafting, setRedrafting] = createSignal(false);
+  const [redraftSeed, setRedraftSeed] = createSignal<DraftPayload | null>(null);
   const [quoting, setQuoting] = createSignal(false);
   const [reposting, setReposting] = createSignal(false);
   const [reposted, setReposted] = createSignal(false);
@@ -221,13 +232,16 @@ export default function NoteDetail() {
   const setReaction = async (target: Note, reaction: string | null) => {
     // Set-semantics with an optimistic local update (instant, no disabled
     // flash), then delete (the server rejects reacting twice) + create,
-    // then reconcile. In-flight clicks are ignored by the guard above.
+    // then reconcile counts. The confirmed end state pins in the overlay
+    // so a successful write never snaps back on reconcile.
     if (!auth.token() || reacting()) return;
-    const current = target.myReaction;
+    const current = effectiveMyReaction(target);
     if (!current && !reaction) return;
     if (current === reaction) return;
     setReacting(true);
-    setNote((n) => (n && n.id === target.id ? withReaction(n, reaction) : n));
+    setNote((n) =>
+      n && n.id === target.id ? withReaction({ ...n, myReaction: current }, reaction) : n,
+    );
     try {
       if (current) {
         await apiCall<undefined>("notes/reactions/delete", { noteId: target.id });
@@ -235,8 +249,10 @@ export default function NoteDetail() {
       if (reaction) {
         await apiCall<undefined>("notes/reactions/create", { noteId: target.id, reaction });
       }
+      confirmMyReaction(target.id, reaction);
       await refreshPage();
     } catch (err) {
+      clearMyReaction(target.id);
       setError(err instanceof Error ? err.message : "Reaction failed.");
       await refreshPage();
     } finally {
@@ -316,6 +332,90 @@ export default function NoteDetail() {
   const isOwn = () => {
     const current = note();
     return !!current && !!auth.me() && auth.me()!.id === current.userId;
+  };
+
+  const isPinned = () => {
+    const current = note();
+    const me = auth.me() as unknown as { pinnedNoteIds?: string[] } | null;
+    if (!current || !me || !Array.isArray(me.pinnedNoteIds)) return null;
+    return me.pinnedNoteIds.includes(current.id);
+  };
+
+  const togglePin = async () => {
+    const current = note();
+    if (!current || pinBusy()) return;
+    setPinBusy(true);
+    setPinError(null);
+    setPinNotice(null);
+    try {
+      // Pinned state is best-effort (absent without packed pinnedNoteIds):
+      // try unpin first when known-pinned, else pin — the server's
+      // ALREADY_PINNED / PIN_LIMIT_EXCEEDED copy is authoritative.
+      if (isPinned() === true) {
+        await unpinNote(current.id);
+        setPinNotice("Unpinned.");
+      } else {
+        try {
+          await pinNote(current.id);
+          setPinNotice("Pinned.");
+        } catch (err) {
+          if (
+            err instanceof ApiError &&
+            (err.code === "ALREADY_PINNED" || err.message.includes("ALREADY_PINNED"))
+          ) {
+            await unpinNote(current.id);
+            setPinNotice("Unpinned.");
+          } else {
+            throw err;
+          }
+        }
+      }
+      await auth.refreshMe().catch(() => undefined);
+    } catch (err) {
+      if (isUnsupportedError(err)) {
+        setPinError("Pins are not available on this server.");
+      } else {
+        // PIN_LIMIT_EXCEEDED and friends surface verbatim.
+        setPinError(err instanceof Error ? err.message : "Pin action failed.");
+      }
+    } finally {
+      setPinBusy(false);
+    }
+  };
+
+  const startRedraft = () => {
+    const current = note();
+    if (!current) return;
+    const seed = redraftPayload(appearNoteOf(current));
+    setRedraftSeed({
+      text: seed.text,
+      cw: seed.cw,
+      visibility: seed.visibility,
+      localOnly: seed.localOnly,
+      ...(seed.replyId ? { replyId: seed.replyId } : {}),
+      ...(seed.renoteId ? { renoteId: seed.renoteId } : {}),
+      fileIds: seed.fileIds,
+      attachedFiles: seed.fileIds.map((id) => ({ id, name: id.slice(0, 8) })),
+    });
+    setRedrafting(true);
+  };
+
+  const confirmRedraft = async (created: Note) => {
+    const current = note();
+    setRedrafting(false);
+    setRedraftSeed(null);
+    // The copy is posted — now delete the original (reactions, reposts,
+    // and replies go with it, per the warning).
+    if (current) {
+      try {
+        await apiCall<undefined>("notes/delete", { noteId: current.id });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Redraft posted, but the original could not be deleted.");
+        navigate(`/notes/${created.id}`);
+        return;
+      }
+    }
+    navigate(`/notes/${created.id}`);
   };
 
   return (
@@ -439,6 +539,62 @@ export default function NoteDetail() {
                       <button type="button" onClick={() => setConfirmDelete(false)}>Cancel</button>
                     </Show>
                   </div>
+                  <div class="pager">
+                    <Show when={editing()} fallback={
+                      <button type="button" onClick={() => { setEditUnsupported(false); setEditing(true); }}>
+                        Edit
+                      </button>
+                    }>
+                      <button type="button" onClick={() => setEditing(false)}>Cancel edit</button>
+                    </Show>
+                    <Show when={redrafting()} fallback={
+                      <button type="button" onClick={startRedraft}>Delete and edit</button>
+                    }>
+                      <button type="button" onClick={() => { setRedrafting(false); setRedraftSeed(null); }}>
+                        Cancel redraft
+                      </button>
+                    </Show>
+                    <button type="button" disabled={pinBusy()} onClick={() => void togglePin()}>
+                      {pinBusy() ? "…" : isPinned() === true ? "Unpin" : "Pin"}
+                    </button>
+                  </div>
+                  <Show when={pinError()}>
+                    <div class="state" role="alert"><div class="errorbox">{pinError()}</div></div>
+                  </Show>
+                  <Show when={pinNotice()}>
+                    <div class="state" role="status"><p>{pinNotice()}</p></div>
+                  </Show>
+                  <Show when={editing() && current()}>
+                    <Show when={editUnsupported()} fallback={
+                      <Composer
+                        editingId={current().id}
+                        initial={{
+                          text: current().text ?? "",
+                          cw: current().cw ?? "",
+                          visibility: current().visibility,
+                          localOnly: current().localOnly,
+                        }}
+                        onEditUnsupported={() => setEditUnsupported(true)}
+                        onPosted={(updated) => {
+                          setEditing(false);
+                          setNote(updated);
+                        }}
+                      />
+                    }>
+                      <div class="state" role="status">
+                        <p>Editing isn't supported on this server — use Delete and edit instead.</p>
+                      </div>
+                    </Show>
+                  </Show>
+                  <Show when={redrafting() && redraftSeed()}>
+                    <div class="state" role="alert">
+                      <div class="errorbox">{REDRAFT_WARNING}</div>
+                    </div>
+                    <Composer
+                      initial={redraftSeed()!}
+                      onPosted={(created) => void confirmRedraft(created)}
+                    />
+                  </Show>
                 </Show>
               </>
             )}

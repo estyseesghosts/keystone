@@ -16,7 +16,7 @@
 import { createResource, createSignal, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { apiCall, ApiError } from "../api/client";
-import { displayNameOf, handleOf } from "../api/types";
+import { displayNameOf, handleOf, hasRealDisplayName, headNameOf } from "../api/types";
 import { DisplayName } from "./EmojiPicker";
 import type { UserDetailed } from "../api/types";
 import { useAuth } from "../state/auth";
@@ -282,8 +282,10 @@ function DetailedCard(props: { initial: UserDetailed }) {
           <Avatar url={user().avatarUrl} name={displayNameOf(user())} />
         </A>
         <div class="profilecard-id">
-          <span class="name"><DisplayName name={displayNameOf(user())} packed={user().emojis} /></span>
-          <span class="handle">{handleOf(user())}</span>
+          <span class="name"><DisplayName name={headNameOf(user())} packed={user().emojis} /></span>
+          <Show when={hasRealDisplayName(user())}>
+            <span class="handle">{handleOf(user())}</span>
+          </Show>
         </div>
         <span class="spacer" />
         <Show when={auth.token()}>

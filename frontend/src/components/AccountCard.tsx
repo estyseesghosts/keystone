@@ -10,7 +10,7 @@
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
 import { useAuth } from "../state/auth";
-import { displayNameOf, handleOf } from "../api/types";
+import { displayNameOf, handleOf, hasRealDisplayName, headNameOf } from "../api/types";
 import {
   LogoutIcon,
   ProfileIcon,
@@ -177,8 +177,10 @@ export default function AccountCard() {
             >
               <Avatar url={user().avatarUrl} name={displayNameOf(user())} size="card" />
               <span class="accountcard-text">
-                <span class="accountcard-name">{displayNameOf(user())}</span>
-                <span class="accountcard-handle">{handleOf(user())}</span>
+                <span class="accountcard-name">{headNameOf(user())}</span>
+                <Show when={hasRealDisplayName(user())}>
+                  <span class="accountcard-handle">{handleOf(user())}</span>
+                </Show>
               </span>
             </button>
             <Show when={open()}>

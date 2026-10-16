@@ -1,8 +1,11 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
 import { apiCall, ApiError } from "../api/client";
-import type { CreatedNoteResponse, Note } from "../api/types";
+import type { CreatedNoteResponse, MeDetailed, Note } from "../api/types";
 import { appearNoteOf, collapseReposts, withReaction } from "../api/types";
+import { confirmMyReaction, clearMyReaction, effectiveMyReaction } from "../api/myReactions";
 import { computeFeedThreadLinks } from "../api/thread";
+import { muteVerdict } from "../api/softMute";
+import { listBlocks, listMutes, listRenoteMutes } from "../api/mutes";
 import {
   captureNote,
   subscribeChannel,
@@ -85,6 +88,55 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   const [channelHandle, setChannelHandle] = createSignal<ChannelHandle | null>(null);
   const [streamNonce, setStreamNonce] = createSignal(0);
   const stream = useStreamState();
+  // Block/mute id sets (§13): best-effort per session (404 → empty, feeds
+  // simply show everything). Rows from blocked/muted authors (or replies /
+  // renotes involving them), renote-muted reposts, hard-muted words, and
+  // muted instances drop here once the endpoints exist; the backend's own
+  // exclusions agree once its slices land.
+  const [blockedIds, setBlockedIds] = createSignal<Set<string>>(new Set());
+  const [mutedIds, setMutedIds] = createSignal<Set<string>>(new Set());
+  const [renoteMutedIds, setRenoteMutedIds] = createSignal<Set<string>>(new Set());
+
+  const muteOpts = (): { mutedWords?: string[][] | null; hardMutedWords?: string[][] | null; mutedInstances?: string[] | null } => {
+    const me = auth.me() as MeDetailed | null;
+    return {
+      mutedWords: (me?.["mutedWords"] as string[][] | null) ?? null,
+      hardMutedWords: (me?.["hardMutedWords"] as string[][] | null) ?? null,
+      mutedInstances: (me?.["mutedInstances"] as string[] | null) ?? null,
+    };
+  };
+
+  const isExcluded = (n: Note): boolean => {
+    const blocked = blockedIds();
+    const muted = mutedIds();
+    const renoteMuted = renoteMutedIds();
+    const involved = [n.userId, n.reply?.userId, n.renote?.userId].filter(
+      (id): id is string => typeof id === "string",
+    );
+    if (involved.some((id) => blocked.has(id) || muted.has(id))) return true;
+    if (n.renote && renoteMuted.has(n.renote.userId)) return true;
+    const shown = appearNoteOf(n);
+    return (
+      muteVerdict(shown.text, shown.cw, shown.user.host, muteOpts()) === "hard"
+    );
+  };
+
+  /** Timeline rows actually rendered: raw items minus excluded ones.
+   * Paging cursors still use the raw list (server order preserved). */
+  const shown = createMemo(() => notes().filter((n) => !isExcluded(n)));
+
+  /** Soft-mute badges (§13): muted-word match with no CW of its own. */
+  const softIds = createMemo(() => {
+    const opts = muteOpts();
+    const out = new Set<string>();
+    for (const n of shown()) {
+      const target = appearNoteOf(n);
+      if (!target.cw && muteVerdict(target.text, target.cw, target.user.host, opts) === "soft") {
+        out.add(n.id);
+      }
+    }
+    return out;
+  });
 
   const load = async (mode: LoadMode) => {
     if (busy()) return;
@@ -149,6 +201,21 @@ export default function TimelineFeed(props: TimelineFeedProps) {
 
   onMount(() => {
     void load("initial");
+    // Best-effort moderation sets (§13): any 404 (or signed out) leaves
+    // the set empty and feeds show everything.
+    if (!auth.token()) return;
+    void listBlocks(100).then(
+      (users) => setBlockedIds(new Set(users.map((u) => u.id))),
+      () => undefined,
+    );
+    void listMutes(100).then(
+      (users) => setMutedIds(new Set(users.map((u) => u.id))),
+      () => undefined,
+    );
+    void listRenoteMutes(100).then(
+      (users) => setRenoteMutedIds(new Set(users.map((u) => u.id))),
+      () => undefined,
+    );
   });
 
   // The router may reuse this feed for a different source (e.g.
@@ -220,7 +287,7 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   let capturePrimed = false;
   createEffect(() => {
     const token = auth.token();
-    const ids = notes()
+    const ids = shown()
       .slice(0, CAPTURE_LIMIT)
       .map((n) => n.id);
     const wanted = new Set(ids);
@@ -286,7 +353,7 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   // keeps every item (paging cursors and reconciliation use it); this memo
   // only decides visibility and banner names, so `<For>` row identity is
   // untouched and no card remounts on collapse changes.
-  const collapse = createMemo(() => collapseReposts(notes()));
+  const collapse = createMemo(() => collapseReposts(shown()));
 
   // Stable row identity: ids are plain strings that never change across
   // server reconciliation, so a refreshed note updates its row in place
@@ -295,7 +362,7 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   // through `byId` on every read.
   const feedIndex = createMemo(() => {
     const byId = new Map<string, Note>();
-    for (const n of notes()) byId.set(n.id, n);
+    for (const n of shown()) byId.set(n.id, n);
     return { ids: [...byId.keys()], byId };
   });
 
@@ -334,15 +401,22 @@ export default function TimelineFeed(props: TimelineFeedProps) {
     // Set-semantics: the caller's desired end state. The update applies
     // locally first (instant, no disabled flash), then runs delete (the
     // server rejects reacting twice with ALREADY_REACTED) + create, then
-    // reconciles from the server. In-flight clicks are ignored by the
-    // guard above — controls never take a disabled style mid-flight.
+    // reconciles counts from the server. The confirmed end state is
+    // pinned in the overlay: servers that don't pack `myReaction` yet
+    // must not snap the button back after a successful write. In-flight
+    // clicks are ignored by the guard above — controls never take a
+    // disabled style mid-flight.
     if (!auth.token() || reactingId() !== null) return;
-    const current = note.myReaction;
+    const current = effectiveMyReaction(note);
     if (!current && !reaction) return;
     if (current === reaction) return;
     setReactingId(note.id);
+    // Counts derive from the confirmed state (not the possibly-unpacked
+    // server value) so chips and button agree with no snap-back.
     setNotes((items) =>
-      items.map((n) => (n.id === note.id ? withReaction(n, reaction) : n)),
+      items.map((n) =>
+        n.id === note.id ? withReaction({ ...n, myReaction: current }, reaction) : n,
+      ),
     );
     try {
       if (current) {
@@ -351,8 +425,10 @@ export default function TimelineFeed(props: TimelineFeedProps) {
       if (reaction) {
         await apiCall<undefined>("notes/reactions/create", { noteId: note.id, reaction });
       }
+      confirmMyReaction(note.id, reaction);
       await refreshNote(note.id);
     } catch (err) {
+      clearMyReaction(note.id);
       setError(err instanceof Error ? err.message : "Reaction failed.");
       // Roll the optimistic update back to server truth.
       await refreshNote(note.id);
@@ -455,16 +531,16 @@ export default function TimelineFeed(props: TimelineFeedProps) {
       <Show when={!unsupported()}>
         <Show when={loading()} fallback={
           <>
-            <Show when={error() && notes().length > 0}>
+            <Show when={error() && shown().length > 0}>
               <div class="state" role="alert">
                 <div class="errorbox">{error()}</div>
                 <button type="button" onClick={retry}>Try again</button>
               </div>
             </Show>
-            <Show when={error() && notes().length === 0}>
+            <Show when={error() && shown().length === 0}>
               <ErrorState message={error() ?? "Could not load the timeline."} onRetry={retry} />
             </Show>
-            <Show when={notes().length > 0}>
+            <Show when={shown().length > 0}>
               <div class="feed">
                 <For each={feedIndex().ids}>
                   {(id) => {
@@ -510,6 +586,7 @@ export default function TimelineFeed(props: TimelineFeedProps) {
                               reposted={repostedIds().includes(target().id)}
                               renoters={collapse().renotersByRep.get(id)}
                               onChanged={() => void refreshNote(id)}
+                              forcedMute={softIds().has(id)}
                             />
                           </div>
                           <Show when={quotingId() === id}>
@@ -535,8 +612,11 @@ export default function TimelineFeed(props: TimelineFeedProps) {
                 />
               </Show>
             </Show>
-            <Show when={!error() && notes().length === 0}>
+            <Show when={!error() && shown().length === 0 && notes().length === 0}>
               <div class="state"><p>No notes yet.</p></div>
+            </Show>
+            <Show when={!error() && shown().length === 0 && notes().length > 0}>
+              <div class="state"><p>All notes here are hidden by your mutes or blocks.</p></div>
             </Show>
           </>
         }>

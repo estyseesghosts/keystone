@@ -1,5 +1,6 @@
 import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Note } from "../api/types";
+import { effectiveMyReaction } from "../api/myReactions";
 import {
   isHeartReaction,
   isLikeActive,
@@ -60,6 +61,10 @@ export function ReactionChips(props: {
     visibleReactions(props.note.reactions, prefs.likeEmoji()).map(([key]) => key),
   );
   const counts = () => props.note.reactions ?? {};
+  // Ownership reads the confirmed-reaction overlay: the row always
+  // reflects the last successful write, even when the reconciled server
+  // object doesn't pack it yet. No remounts, no flashes.
+  const mineKey = () => effectiveMyReaction(props.note);
   // Per-note packed URLs (`reactionEmojis`, bare-name → URL) resolve
   // remote custom emoji too — the global listing is the fallback.
   const packed = () => props.note.reactionEmojis ?? null;
@@ -71,7 +76,7 @@ export function ReactionChips(props: {
             <Chip
               reactionKey={key}
               count={() => counts()[key] ?? 0}
-              mine={() => props.note.myReaction === key}
+              mine={() => mineKey() === key}
               packed={packed()}
               onToggle={props.onToggle}
             />
@@ -95,7 +100,7 @@ export function LikeButton(props: {
 }) {
   const prefs = useEmojiPrefs();
   const like = () => prefs.likeEmoji();
-  const liked = () => isLikeActive(like(), props.note.myReaction);
+  const liked = () => isLikeActive(like(), effectiveMyReaction(props.note));
   const [popping, setPopping] = createSignal(false);
   let frame: number | undefined;
   let timer: number | undefined;
@@ -136,11 +141,11 @@ export function LikeButton(props: {
       <span class={popping() ? "likepop" : undefined} aria-hidden="true">
         <Show when={liked()} fallback={<HeartIcon filled={false} />}>
           <Show
-            when={!isHeartReaction(props.note.myReaction)}
+            when={!isHeartReaction(effectiveMyReaction(props.note))}
             fallback={<HeartIcon filled />}
           >
             <EmojiGlyph
-              emoji={props.note.myReaction ?? like()}
+              emoji={effectiveMyReaction(props.note) ?? like()}
               packed={props.note.reactionEmojis}
             />
           </Show>

@@ -10,9 +10,10 @@
 import { createEffect, createSignal, For, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { apiCall, ApiError, isPermissionError } from "../api/client";
-import type { UserLite } from "../api/types";
-import { displayNameOf, handleOf } from "../api/types";
+import type { UserDetailed, UserLite } from "../api/types";
+import { displayNameOf, handleOf, hasRealDisplayName, headNameOf } from "../api/types";
 import { DisplayName } from "./EmojiPicker";
+import { useAuth } from "../state/auth";
 import InfiniteSentinel from "./InfiniteSentinel";
 import { RowSkeletonList } from "./Skeleton";
 
@@ -30,6 +31,12 @@ export default function FollowList(props: { userId: string; mode: "followers" | 
   const [permissionDenied, setPermissionDenied] = createSignal(false);
   const [exhausted, setExhausted] = createSignal(false);
   const [failedMode, setFailedMode] = createSignal<FollowLoadMode | null>(null);
+  // Privacy gate copy (§2): the listed user's `ffVisibility` decides the
+  // denied-state wording. Best-effort — unknown stays generic.
+  const [ffVisibility, setFfVisibility] = createSignal<string | null>(null);
+  const [viewerIsSelf, setViewerIsSelf] = createSignal(false);
+  const [followBusy, setFollowBusy] = createSignal(false);
+  const auth = useAuth();
 
   const load = async (mode: FollowLoadMode) => {
     if (busy()) return;
@@ -116,9 +123,34 @@ export default function FollowList(props: { userId: string; mode: "followers" | 
       setDenied(false);
       setPermissionDenied(false);
       setFailedMode(null);
+      // Best-effort privacy gate: who may see this list.
+      try {
+        const target = await apiCall<UserDetailed>("users/show", { userId: props.userId });
+        if (my !== seq) return;
+        setFfVisibility(target.ffVisibility ?? null);
+        setViewerIsSelf(!!auth.me() && auth.me()!.id === target.id);
+      } catch {
+        if (my !== seq) return;
+        setFfVisibility(null);
+        setViewerIsSelf(false);
+      }
       await load("initial");
     })();
   });
+
+  const followListedUser = async () => {
+    if (followBusy()) return;
+    setFollowBusy(true);
+    try {
+      await apiCall<UserLite>("following/create", { userId: props.userId });
+      setDenied(false);
+      await load("initial");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Follow failed.");
+    } finally {
+      setFollowBusy(false);
+    }
+  };
 
   return (
     <Show when={loading()} fallback={
@@ -133,7 +165,25 @@ export default function FollowList(props: { userId: string; mode: "followers" | 
         </Show>
         <Show when={denied() && !permissionDenied()}>
           <div class="state" role="status">
-            <p>This list is not visible to you.</p>
+            <Show
+              when={ffVisibility() === "private" && !viewerIsSelf()}
+              fallback={
+                <Show
+                  when={ffVisibility() === "followers"}
+                  fallback={<p>This list is not visible to you.</p>}
+                >
+                  <p>Only followers can see this.</p>
+                  <Show when={auth.token() && !viewerIsSelf()}>
+                    <p class="handle">Follow this account to see its list.</p>
+                    <button type="button" disabled={followBusy()} onClick={() => void followListedUser()}>
+                      {followBusy() ? "Following…" : "Follow"}
+                    </button>
+                  </Show>
+                </Show>
+              }
+            >
+              <p>Only the account owner can see this.</p>
+            </Show>
           </div>
         </Show>
         <Show when={!denied() && !permissionDenied()}>
@@ -150,8 +200,11 @@ export default function FollowList(props: { userId: string; mode: "followers" | 
             <For each={users()}>
               {(u) => (
                 <div class="notif">
-                  <A class="action" href={`/users/${u.id}`}>
-                    <DisplayName name={displayNameOf(u)} packed={u.emojis} /> ({handleOf(u)})
+                  <A class="namelink" href={`/users/${u.id}`}>
+                    <span class="name"><DisplayName name={headNameOf(u)} packed={u.emojis} /></span>
+                    <Show when={hasRealDisplayName(u)}>
+                      <span class="handle">{handleOf(u)}</span>
+                    </Show>
                   </A>
                 </div>
               )}

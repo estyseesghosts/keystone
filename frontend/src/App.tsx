@@ -16,9 +16,10 @@ import Antennas from "./routes/Antennas";
 import AntennaFeed from "./routes/AntennaFeed";
 import Search from "./routes/Search";
 import Notifications from "./routes/Notifications";
+import FollowRequests from "./routes/FollowRequests";
 import NoteDetail from "./routes/Note";
 import Profile, { FollowersPage, FollowingPage } from "./routes/Profile";
-import Settings, { AccountSettings, DisplaySettings, ReactionsSettings } from "./routes/Settings";
+import Settings, { AccountSettings, DisplaySettings, ImportSettings, MutesSettings, ExportSettings, ReactionsSettings } from "./routes/Settings";
 import Login from "./routes/Login";
 
 function Root(props: RouteSectionProps) {
@@ -46,6 +47,7 @@ const App: Component = () => {
           <Route path="/antennas/:id" component={AntennaFeed} />
           <Route path="/search" component={Search} />
           <Route path="/notifications" component={Notifications} />
+          <Route path="/follow-requests" component={FollowRequests} />
           <Route path="/notes/:id" component={NoteDetail} />
           <Route path="/users/:id" component={Profile} />
           <Route path="/users/:id/followers" component={FollowersPage} />
@@ -54,6 +56,9 @@ const App: Component = () => {
           <Route path="/settings/account" component={AccountSettings} />
           <Route path="/settings/display" component={DisplaySettings} />
           <Route path="/settings/reactions" component={ReactionsSettings} />
+          <Route path="/settings/mutes" component={MutesSettings} />
+          <Route path="/settings/import" component={ImportSettings} />
+          <Route path="/settings/export" component={ExportSettings} />
           <Route path="/login" component={Login} />
         </Router>
       </PostboxProvider>

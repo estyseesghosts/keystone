@@ -1,60 +1,21 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
 import { A } from "@solidjs/router";
-import { apiCall, ApiError } from "../api/client";
-import type { NotificationItem } from "../api/types";
-import { displayNameOf, handleOf } from "../api/types";
-import { DisplayName, EmojiGlyph } from "../components/EmojiPicker";
+import { apiCall, ApiError, isUnsupportedError } from "../api/client";
+import type { GroupedNotificationItem, MeDetailed, NotificationItem } from "../api/types";
+import { NOTIFICATION_FILTER_PRESETS } from "../api/types";
+import { GroupedNotificationRow, NotificationRow } from "../components/NotificationRow";
 import { subscribeChannel, useStreamState } from "../api/stream";
 import type { ChannelHandle } from "../api/stream";
 import { useAuth } from "../state/auth";
 import ErrorState from "../components/ErrorState";
 import InfiniteSentinel from "../components/InfiniteSentinel";
 import LoadingState from "../components/LoadingState";
-import MfmRenderer from "../components/MfmRenderer";
 import { NotificationSkeletonList } from "../components/Skeleton";
 import StreamBadge from "../components/StreamBadge";
 
 const NOTIFICATIONS_PAGE_SIZE = 20;
 
 type NotificationsLoadMode = "initial" | "older" | "refresh";
-
-const TYPE_LABELS: Record<string, string> = {
-  follow: "New follower",
-  mention: "Mention",
-  reply: "Reply",
-  renote: "Repost",
-  quote: "Quote",
-  reaction: "Reaction",
-  pollVote: "Poll update",
-  pollEnded: "Poll update",
-  receiveFollowRequest: "Follow request",
-  followRequestAccepted: "Follow request accepted",
-  login: "New sign-in",
-  createToken: "App token created",
-  scheduledNotePosted: "Scheduled note posted",
-  note: "Note update",
-  roleAssigned: "Role assigned",
-  achievementEarned: "Achievement",
-  test: "Test",
-};
-
-function labelOf(type: string): string {
-  const known = TYPE_LABELS[type];
-  if (known) return known;
-  // Unknown type: title-case the raw value (split camelCase/snake-case).
-  const words = type
-    .replace(/[_-]+/g, " ")
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .split(/\s+/)
-    .filter((w) => w.length > 0);
-  if (words.length === 0) return type;
-  return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-}
-
-function formatTimestamp(iso: string): string {
-  const t = new Date(iso);
-  return Number.isNaN(t.getTime()) ? iso : t.toLocaleString();
-}
 
 // Response items carry id, createdAt, type, user, note and an optional
 // reaction. Misskey/Sharkey omit `isRead` (Pinetree packs it as optional),
@@ -76,6 +37,21 @@ export default function Notifications() {
   const [newCount, setNewCount] = createSignal(0);
   const [channelHandle, setChannelHandle] = createSignal<ChannelHandle | null>(null);
   const [streamNonce, setStreamNonce] = createSignal(0);
+  // Filtering (§12): presets map to includeTypes/excludeTypes (works on
+  // all backends — the request simply omits them for "All").
+  const [filterPreset, setFilterPreset] = createSignal("all");
+  // Grouping (§12): `i/notifications-grouped` rows; 404 falls back to the
+  // flat list with an honest note.
+  const [grouped, setGrouped] = createSignal(false);
+  const [groupedItems, setGroupedItems] = createSignal<GroupedNotificationItem[]>([]);
+  const [groupedUnsupported, setGroupedUnsupported] = createSignal(false);
+  // Per-user receive config (§12): never|following|follower|mutualFollow|
+  // followingOrFollower|list per notification type, via `i/update`.
+  const [showNotifConfig, setShowNotifConfig] = createSignal(false);
+  const [notifConfig, setNotifConfig] = createSignal<Record<string, string>>({});
+  const [notifConfigBusy, setNotifConfigBusy] = createSignal(false);
+  const [notifConfigError, setNotifConfigError] = createSignal<string | null>(null);
+  const [notifConfigUnsupported, setNotifConfigUnsupported] = createSignal(false);
   const stream = useStreamState();
 
   const load = async (mode: NotificationsLoadMode) => {
@@ -86,8 +62,45 @@ export default function Notifications() {
     else setLoadingMore(true);
     setError(null);
     try {
+      const preset = NOTIFICATION_FILTER_PRESETS.find((p) => p.id === filterPreset());
+      const filter: Record<string, unknown> = {};
+      if (preset?.includeTypes) filter.includeTypes = preset.includeTypes;
+      if (preset?.excludeTypes) filter.excludeTypes = preset.excludeTypes;
+      if (grouped()) {
+        // Grouped rows carry their own paging; filters apply the same way.
+        const current = groupedItems();
+        const req: Record<string, unknown> = { limit: NOTIFICATIONS_PAGE_SIZE, ...filter };
+        if (mode === "older" && current.length > 0) {
+          req.untilId = current[current.length - 1].id;
+        }
+        try {
+          const page = await apiCall<GroupedNotificationItem[]>("i/notifications-grouped", req);
+          setGroupedUnsupported(false);
+          if (mode === "older") {
+            const seen = new Set(current.map((n) => n.id));
+            const fresh = page.filter((n) => !seen.has(n.id));
+            if (fresh.length === 0) setExhausted(true);
+            setGroupedItems([...current, ...fresh]);
+          } else {
+            const seen = new Set<string>();
+            setGroupedItems(page.filter((n) => (seen.has(n.id) ? false : (seen.add(n.id), true))));
+            setExhausted(false);
+          }
+          setFailedMode(null);
+          if (mode !== "older") setNewCount(0);
+          return;
+        } catch (err) {
+          if (isUnsupportedError(err)) {
+            // Fall through to the flat list with an honest note.
+            setGroupedUnsupported(true);
+            setGrouped(false);
+          } else {
+            throw err;
+          }
+        }
+      }
       const current = items();
-      const req: Record<string, unknown> = { limit: NOTIFICATIONS_PAGE_SIZE };
+      const req: Record<string, unknown> = { limit: NOTIFICATIONS_PAGE_SIZE, ...filter };
       if (mode === "older" && current.length > 0) {
         req.untilId = current[current.length - 1].id;
       }
@@ -131,6 +144,59 @@ export default function Notifications() {
   };
 
   const retry = () => void load(failedMode() ?? "refresh");
+
+  const applyPreset = (id: string) => {
+    setFilterPreset(id);
+    setItems([]);
+    setGroupedItems([]);
+    setExhausted(false);
+    setFailedMode(null);
+    void load("initial");
+  };
+
+  const toggleGrouped = () => {
+    setGrouped((v) => !v);
+    setItems([]);
+    setGroupedItems([]);
+    setExhausted(false);
+    setFailedMode(null);
+    void load("initial");
+  };
+
+  const loadNotifConfig = () => {
+    const me = auth.me() as MeDetailed | null;
+    const raw: unknown = me?.["notificationRecieveConfig"];
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+        if (typeof v === "string") out[k] = v;
+      }
+      setNotifConfig(out);
+    } else {
+      setNotifConfig({});
+    }
+    setShowNotifConfig((v) => !v);
+  };
+
+  const saveNotifConfig = async () => {
+    if (notifConfigBusy()) return;
+    setNotifConfigBusy(true);
+    setNotifConfigError(null);
+    try {
+      await apiCall<MeDetailed>("i/update", { notificationRecieveConfig: notifConfig() });
+      setNotifConfigUnsupported(false);
+      await auth.refreshMe().catch(() => undefined);
+      setShowNotifConfig(false);
+    } catch (err) {
+      if (isUnsupportedError(err)) {
+        setNotifConfigUnsupported(true);
+      } else {
+        setNotifConfigError(err instanceof Error ? err.message : "Could not save notification settings.");
+      }
+    } finally {
+      setNotifConfigBusy(false);
+    }
+  };
 
   // Misskey-family responses carry no isRead, so there is no unread badge
   // to clear optimistically: this calls the server and reloads the list.
@@ -209,6 +275,78 @@ export default function Notifications() {
           </button>
         </Show>
       </div>
+      <Show when={auth.token()}>
+        <div class="notif-filters" role="group" aria-label="Notification filters">
+          <For each={NOTIFICATION_FILTER_PRESETS}>
+            {(preset) => (
+              <button
+                type="button"
+                aria-pressed={filterPreset() === preset.id}
+                class={filterPreset() === preset.id ? "nf-chip active" : "nf-chip"}
+                onClick={() => applyPreset(preset.id)}
+              >
+                {preset.label}
+              </button>
+            )}
+          </For>
+          <button
+            type="button"
+            aria-pressed={grouped()}
+            class={grouped() ? "nf-chip active" : "nf-chip"}
+            onClick={toggleGrouped}
+            title="Group similar notifications"
+          >
+            {grouped() ? "Ungroup" : "Group"}
+          </button>
+          <Show when={!notifConfigUnsupported()}>
+            <button type="button" class="nf-chip" onClick={loadNotifConfig} aria-expanded={showNotifConfig()}>
+              Notify me
+            </button>
+          </Show>
+        </div>
+        <Show when={groupedUnsupported()}>
+          <p class="handle" role="status">Grouped notifications are not available on this server — showing all.</p>
+        </Show>
+        <Show when={showNotifConfig()}>
+          <div class="settings-block" aria-label="Notification receive settings">
+            <p class="handle">
+              Who may notify you, per type. Blacklist = muting (see
+              Settings → Mutes and blocks); whitelist options limit to
+              people you follow.
+            </p>
+            <For each={NOTIFICATION_FILTER_PRESETS.filter((p) => p.id !== "all")}>
+              {(preset) => (
+                <div class="row">
+                  <label>
+                    {preset.label}
+                    <select
+                      value={notifConfig()[preset.id] ?? ""}
+                      onChange={(e) =>
+                        setNotifConfig((c) => ({ ...c, [preset.id]: e.currentTarget.value }))
+                      }
+                      aria-label={`${preset.label} notifications from`}
+                    >
+                      <option value="">Server default</option>
+                      <option value="never">Never</option>
+                      <option value="following">People I follow</option>
+                      <option value="follower">My followers</option>
+                      <option value="mutualFollow">Mutual follows</option>
+                      <option value="followingOrFollower">Followed or follower</option>
+                      <option value="list">A list</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+            </For>
+            <Show when={notifConfigError()}>
+              <div class="err" role="alert">{notifConfigError()}</div>
+            </Show>
+            <button type="button" disabled={notifConfigBusy()} onClick={() => void saveNotifConfig()}>
+              {notifConfigBusy() ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </Show>
+      </Show>
       <Show when={markReadError()}>
         <div class="state" role="alert">
           <div class="errorbox">{markReadError()}</div>
@@ -234,58 +372,21 @@ export default function Notifications() {
           </div>
         }>
           <Show when={loading()} fallback={
-            <Show when={error() && items().length === 0} fallback={
-              <Show when={items().length > 0} fallback={
+            <Show when={error() && items().length === 0 && groupedItems().length === 0} fallback={
+              <Show when={grouped() ? groupedItems().length > 0 : items().length > 0} fallback={
                 <div class="state"><p>No notifications.</p></div>
               }>
-                <Show when={error() && items().length > 0}>
+                <Show when={error() && items().length > 0 && !grouped()}>
                   <div class="state" role="alert">
                     <div class="errorbox">{error()}</div>
                     <button type="button" onClick={retry}>Try again</button>
                   </div>
                 </Show>
+                <Show when={grouped()} fallback={
+                <>
                 <div class="feed">
                   <For each={items()}>
-                    {(n) => (
-                      <div class="notif">
-                        <Show when={n.user} fallback={<span>Unknown user</span>}>
-                          <A class="action" href={`/users/${n.user!.id}`}>
-                            <Show
-                              when={n.user!.avatarUrl}
-                              fallback={
-                                <div class="avatar-fallback" aria-hidden="true">
-                                  {displayNameOf(n.user!).slice(0, 1).toUpperCase()}
-                                </div>
-                              }
-                            >
-                              <img class="avatar" src={n.user!.avatarUrl!} alt="" loading="lazy" />
-                            </Show>
-                            <span><DisplayName name={displayNameOf(n.user!)} packed={n.user!.emojis} /> ({handleOf(n.user!)})</span>
-                          </A>
-                        </Show>
-                        <div style={{ flex: 1 }}>
-                          <div class="kind">{labelOf(n.type)}</div>
-                          <div class="handle">{formatTimestamp(n.createdAt)}</div>
-                          <Show when={n.reaction}>
-                            {(reaction) => (
-                              <div>
-                                reacted <EmojiGlyph emoji={reaction()} packed={n.note?.reactionEmojis} />
-                              </div>
-                            )}
-                          </Show>
-                          <Show when={n.note?.text} fallback={
-                            <Show when={n.note && n.note.renoteId}>
-                              <div class="handle">Reposted a note</div>
-                            </Show>
-                          }>
-                            <div class="notebody"><MfmRenderer text={n.note!.text} emojis={n.note!.emojis} /></div>
-                          </Show>
-                          <Show when={n.note}>
-                            <A class="action" href={`/notes/${n.note!.id}`}>Open note</A>
-                          </Show>
-                        </div>
-                      </div>
-                    )}
+                    {(n) => <NotificationRow item={n} />}
                   </For>
                 </div>
                 <Show when={!exhausted()} fallback={
@@ -296,10 +397,36 @@ export default function Notifications() {
                   </Show>
                   <InfiniteSentinel
                     canLoad={() =>
-                      !busy() && !loading() && !exhausted() && items().length > 0
+                      !busy() && !loading() && !exhausted()
+                      && (grouped() ? groupedItems().length > 0 : items().length > 0)
                     }
                     onLoad={() => void load("older")}
                   />
+                </Show>
+                </>
+                }>
+                <div class="feed">
+                  <Show when={groupedItems().length > 0} fallback={
+                    <div class="state"><p>No notifications.</p></div>
+                  }>
+                    <For each={groupedItems()}>
+                      {(n) => <GroupedNotificationRow item={n} />}
+                    </For>
+                  </Show>
+                  <Show when={!exhausted()} fallback={
+                    <div class="state" role="status"><p>You're caught up.</p></div>
+                  }>
+                    <Show when={loadingMore()}>
+                      <NotificationSkeletonList count={2} label="Loading older notifications…" />
+                    </Show>
+                    <InfiniteSentinel
+                      canLoad={() =>
+                        !busy() && !loading() && !exhausted() && groupedItems().length > 0
+                      }
+                      onLoad={() => void load("older")}
+                    />
+                  </Show>
+                </div>
                 </Show>
               </Show>
             }>

@@ -1,7 +1,16 @@
 import { A, useNavigate } from "@solidjs/router";
 import { createEffect, onCleanup, createMemo, createSignal, For, Show } from "solid-js";
 import type { Note, UserLite } from "../api/types";
-import { appearNoteOf, displayNameOf, handleOf, isPureRenote } from "../api/types";
+import {
+  appearNoteOf,
+  displayNameOf,
+  handleOf,
+  hasRealDisplayName,
+  headNameOf,
+  isPureRenote,
+  reactionAcceptanceLabel,
+} from "../api/types";
+import { effectiveMyReaction } from "../api/myReactions";
 import { replyParentId, replyParentNote } from "../api/thread";
 import NoteBody, { Avatar } from "./NoteBody";
 import UserHover from "./UserHoverCard";
@@ -34,7 +43,7 @@ function RepostBanner(props: { users: UserLite[] }) {
           <>
             {separator(i())}
             <A class="namelink" href={`/users/${u.id}`}>
-              <span class="name"><DisplayName name={displayNameOf(u)} packed={u.emojis} /></span>
+              <span class="name"><DisplayName name={headNameOf(u)} packed={u.emojis} /></span>
             </A>
           </>
         )}
@@ -76,8 +85,11 @@ export interface NoteCardProps {
    * the tree already shows the parent — while every feed leaves it on
    * so a reply never reads as a loose post. */
   showReplyContext?: boolean;
+  /** Soft-mute forced warning (§13): the note matched `mutedWords` and
+   * has no CW of its own, so the feed renders this badge above the body
+   * (body kept — hard matches hide the row instead). */
+  forcedMute?: boolean;
 }
-
 export default function NoteCard(props: NoteCardProps) {
   const loggedIn = () => props.onToggleReaction !== undefined;
   // Retweet-style display for pure reposts: the renoted original is the
@@ -189,8 +201,10 @@ export default function NoteCard(props: NoteCardProps) {
                   aria-label={`Open parent post by ${handleOf(parent().user)}`}
                   title={handleOf(parent().user)}
                 >
-                  <span class="name"><DisplayName name={displayNameOf(parent().user)} packed={parent().user.emojis} /></span>
-                  <span class="handle">{handleOf(parent().user)}</span>
+                  <span class="name"><DisplayName name={headNameOf(parent().user)} packed={parent().user.emojis} /></span>
+                  <Show when={hasRealDisplayName(parent().user)}>
+                    <span class="handle">{handleOf(parent().user)}</span>
+                  </Show>
                 </A>
               )}
             </Show>
@@ -199,8 +213,10 @@ export default function NoteCard(props: NoteCardProps) {
         <div class="note-head">
           <UserHover user={shown().user}>
             <A class="namelink" href={`/users/${shown().user.id}`}>
-              <span class="name"><DisplayName name={displayNameOf(shown().user)} packed={shown().user.emojis} /></span>
-              <span class="handle">{handleOf(shown().user)}</span>
+              <span class="name"><DisplayName name={headNameOf(shown().user)} packed={shown().user.emojis} /></span>
+              <Show when={hasRealDisplayName(shown().user)}>
+                <span class="handle">{handleOf(shown().user)}</span>
+              </Show>
             </A>
           </UserHover>
           <Show
@@ -217,7 +233,20 @@ export default function NoteCard(props: NoteCardProps) {
           </Show>
         </div>
 
+        <Show when={props.forcedMute}>
+          <div class="handle" title="This note matches one of your muted words">
+            Muted word — content shown
+          </div>
+        </Show>
         <NoteBody note={shown()} canVote={loggedIn()} onChanged={props.onChanged} foldText={props.foldText} />
+
+        <Show when={reactionAcceptanceLabel(shown().reactionAcceptance)}>
+          {(label) => (
+            <div class="handle" title="This note limits who can react">
+              Reactions: {label()}
+            </div>
+          )}
+        </Show>
 
         <ReactionChips
           note={shown()}
@@ -295,7 +324,7 @@ export default function NoteCard(props: NoteCardProps) {
           </Show>
           <Show when={props.onToggleReaction} fallback={
             <span class="action" aria-label="Likes">
-              <HeartIcon filled={isHeartReaction(shown().myReaction)} /> {shown().reactionCount}
+              <HeartIcon filled={isHeartReaction(effectiveMyReaction(shown()))} /> {shown().reactionCount}
             </span>
           }>
             <LikeButton

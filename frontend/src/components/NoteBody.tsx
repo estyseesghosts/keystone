@@ -3,7 +3,7 @@ import { A } from "@solidjs/router";
 import { parse } from "mfm-js";
 import type { MfmNode } from "mfm-js";
 import type { DriveFile, Note } from "../api/types";
-import { displayNameOf, handleOf } from "../api/types";
+import { displayNameOf, handleOf, hasRealDisplayName, headNameOf } from "../api/types";
 import { apiCall } from "../api/client";
 import TranslatableText from "./TranslatableText";
 import TagBubble from "./TagBubble";
@@ -41,8 +41,13 @@ function QuoteHead(props: { note: Note }) {
   return (
     <div class="renote-head">
       <Avatar url={props.note.user.avatarUrl} name={displayNameOf(props.note.user)} />
-      <span class="name"><DisplayName name={displayNameOf(props.note.user)} packed={props.note.user.emojis} /></span>
-      <span class="handle">{handleOf(props.note.user)} · {formatTime(props.note.createdAt)}</span>
+      <span class="name"><DisplayName name={headNameOf(props.note.user)} packed={props.note.user.emojis} /></span>
+      <Show
+        when={hasRealDisplayName(props.note.user)}
+        fallback={<span class="handle">{formatTime(props.note.createdAt)}</span>}
+      >
+        <span class="handle">{handleOf(props.note.user)} · {formatTime(props.note.createdAt)}</span>
+      </Show>
       <span class="spacer" aria-hidden="true" />
       <Show when={tags().blocks.length > 0}>
         <TagBubble tags={tags().blockedTags} />

@@ -19,7 +19,7 @@ import type { JSX } from "solid-js";
 import { A } from "@solidjs/router";
 import { apiCall } from "../api/client";
 import type { UserDetailed, UserLite } from "../api/types";
-import { displayNameOf, handleOf } from "../api/types";
+import { displayNameOf, handleOf, hasRealDisplayName, headNameOf } from "../api/types";
 import { DisplayName } from "./EmojiPicker";
 import { useAuth } from "../state/auth";
 import { Avatar } from "./NoteBody";
@@ -226,8 +226,10 @@ export default function UserHover(props: { user: UserLite; children: JSX.Element
                     <Avatar url={props.user.avatarUrl} name={displayNameOf(props.user)} />
                   </span>
                 </span>
-                <span class="hovercard-name"><DisplayName name={displayNameOf(props.user)} packed={props.user.emojis} /></span>
-                <span class="handle">{handleOf(props.user)}</span>
+                <span class="hovercard-name"><DisplayName name={headNameOf(props.user)} packed={props.user.emojis} /></span>
+                <Show when={hasRealDisplayName(props.user)}>
+                  <span class="handle">{handleOf(props.user)}</span>
+                </Show>
                 <Show
                   when={!loading()}
                   fallback={

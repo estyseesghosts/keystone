@@ -40,6 +40,15 @@ export interface UserDetailed extends UserLite {
    * acceptance from a successful following/create alone. */
   hasPendingFollowRequestFromYou?: boolean;
   hasPendingFollowRequestToYou?: boolean;
+  /** Follower/following list visibility (Misskey-family; absent on older
+   * servers and Pinetree until its slice lands): `public` (default),
+   * `followers` (followers only), `private` (owner only). Absent means
+   * unknown — the list UI renders without a privacy gate. */
+  ffVisibility?: "public" | "followers" | "private" | null;
+  /** Pinned notes (Misskey-family; absent until the backend packs them —
+   * the Featured tab ships absent, never faked). */
+  pinnedNoteIds?: string[] | null;
+  pinnedNotes?: Note[] | null;
 }
 
 export interface MeDetailed extends UserDetailed {
@@ -159,6 +168,13 @@ export interface CreateNoteParams {
   renoteId?: string;
   localOnly?: boolean;
   fileIds?: string[];
+  /** Per-note reaction visibility (Misskey-family; omitted when null).
+   * Server errors surface verbatim; 404 means the backend does not
+   * store it yet and the picker stays hidden. */
+  reactionAcceptance?: ReactionAcceptance | null;
+  /** Per-note quote refusal (Sharkey `noQuote`; omitted when false).
+   * 404 means unsupported — the toggle stays hidden. */
+  noQuote?: boolean;
   poll?: {
     choices: string[];
     multiple?: boolean;
@@ -166,6 +182,154 @@ export interface CreateNoteParams {
     expiresAt?: number;
   } | null;
 }
+
+/** Per-note reaction visibility (Misskey `reactionAcceptance`).
+ * `null` (default) means all reactions allowed. */
+export type ReactionAcceptance =
+  | "likeOnly"
+  | "likeOnlyForRemote"
+  | "nonSensitiveOnly"
+  | "nonSensitiveOnlyForLocalLikeOnlyForRemote";
+
+export const REACTION_ACCEPTANCE_LABELS: Record<ReactionAcceptance, string> = {
+  likeOnly: "Like only",
+  likeOnlyForRemote: "Like only (remote)",
+  nonSensitiveOnly: "Non-sensitive only",
+  nonSensitiveOnlyForLocalLikeOnlyForRemote: "Non-sensitive local, like-only remote",
+};
+
+export function reactionAcceptanceLabel(value: string | null): string | null {
+  if (value == null) return null;
+  const known = (REACTION_ACCEPTANCE_LABELS as Record<string, string>)[value];
+  return known ?? value;
+}
+
+/** Relation of the viewer to one user (`users/relation`). All flags
+ * optional — absent means unknown (relation endpoint unsupported). */
+export interface UserRelation {
+  id: string;
+  isFollowing?: boolean;
+  isFollowed?: boolean;
+  isBlocking?: boolean;
+  isBlocked?: boolean;
+  isMuted?: boolean;
+  isRenoteMuted?: boolean;
+}
+
+/** Full `i/update` profile payload (§1). Every field optional: the editor
+ * sends only fields the user touched, the server trims/empties. Client
+ * validates lengths only; server errors show verbatim. Fields the backend
+ * rejects (400 unknown / 404) are left out of the form until it accepts
+ * them — never sent blind on retry. */
+export interface ProfileUpdateParams {
+  name?: string | null;
+  description?: string | null;
+  location?: string | null;
+  birthday?: string | null;
+  isLocked?: boolean;
+  isBot?: boolean;
+  followedMessage?: string | null;
+  lang?: string | null;
+  avatarId?: string | null;
+  bannerId?: string | null;
+  avatarDecorations?: Array<{ id?: string; angle?: number; flipH?: boolean; url?: string }>;
+  hideOnlineStatus?: boolean;
+  publicReactions?: boolean;
+  carefulBot?: boolean;
+  autoAcceptFollowed?: boolean;
+  followApprovalRequired?: boolean;
+  followApprovalBeforeSeconds?: number | null;
+  followApprovalAutoExpirationSeconds?: number | null;
+  noCrawle?: boolean;
+  preventAiLearning?: boolean;
+  requireSigninToViewContents?: boolean;
+  requireSigninToViewContentsOfCutContent?: boolean;
+  makeNotesFollowersOnlyBefore?: number | null;
+  makeNotesHiddenBefore?: number | null;
+  injectFeaturedNote?: boolean;
+  receiveAnnouncementEmail?: boolean;
+  alwaysMarkNsfw?: boolean;
+  autoSensitive?: boolean;
+  chatScope?: string | null;
+  pinnedPageId?: string | null;
+  mutedWords?: string[][];
+  hardMutedWords?: string[][];
+  mutedInstances?: string[] | null;
+  notificationRecieveConfig?: Record<string, unknown>;
+  emailNotificationTypes?: string[];
+  alsoKnownAs?: string[] | null;
+  /** Sharkey quote refusal (account-wide). Absent/404 = unsupported. */
+  rejectQuotes?: boolean;
+}
+
+/** Field spec for the grown profile editor: key + label + kind drive the
+ * shared renderer so the 30+ field form stays declarative. */
+export interface ProfileFieldSpec {
+  key: keyof ProfileUpdateParams;
+  label: string;
+  hint?: string;
+  kind: "text" | "textarea" | "boolean" | "number-nullable" | "list" | "word-groups";
+}
+
+/** Scheduled note (`notes/schedule/*`). `scheduledAt` is an ISO string;
+ * `isActuallyScheduled` mirrors the backend's draft-vs-scheduled flag. */
+export interface ScheduledNote {
+  id: string;
+  scheduledAt: string;
+  note?: Note | null;
+  draft?: Record<string, unknown> | null;
+}
+
+/** Server draft (`notes/drafts/*`). Shape mirrors `notes/create` params
+ * plus the draft id; the local store stays as the offline cache. */
+export interface ServerDraft {
+  id: string;
+  text?: string | null;
+  cw?: string | null;
+  visibility?: NoteVisibility;
+  visibleUserIds?: string[];
+  localOnly?: boolean;
+  fileIds?: string[];
+  replyId?: string | null;
+  renoteId?: string | null;
+  scheduledAt?: string | null;
+  poll?: CreateNoteParams["poll"];
+}
+
+/** Grouped notification rows (`i/notifications-grouped`). Flat items keep
+ * the `NotificationItem` shape; grouped rows aggregate one actor set. */
+export interface GroupedReaction {
+  userId: string;
+  reaction: string;
+}
+
+export interface GroupedNotificationItem {
+  id: string;
+  createdAt: string;
+  type: string;
+  note?: Note | null;
+  user?: UserLite | null;
+  users?: UserLite[];
+  reactions?: GroupedReaction[];
+  userIds?: string[];
+}
+
+/** Notification type filter presets (maps to includeTypes/excludeTypes —
+ * no second list UI; blacklist = mutes, whitelist = followingOrFollower
+ * scoping, mutuals = mutualFollow, followed = following). */
+export const NOTIFICATION_FILTER_PRESETS: Array<{
+  id: string;
+  label: string;
+  includeTypes?: string[];
+  excludeTypes?: string[];
+}> = [
+  { id: "all", label: "All" },
+  { id: "mentions", label: "Mentions", includeTypes: ["mention", "reply"] },
+  { id: "reactions", label: "Reactions", includeTypes: ["reaction"] },
+  { id: "reposts", label: "Reposts", includeTypes: ["renote", "quote"] },
+  { id: "follows", label: "Follows", includeTypes: ["follow", "receiveFollowRequest", "followRequestAccepted"] },
+  { id: "polls", label: "Polls", includeTypes: ["pollVote", "pollEnded"] },
+];
 
 export type AntennaSrc = "home" | "all" | "users" | "users_blacklist" | "list";
 
@@ -282,6 +446,30 @@ export function collapseReposts(items: Note[]): CollapsedFeed {
 
 export function displayNameOf(user: Pick<UserLite, "name" | "username">): string {
   return user.name && user.name.length > 0 ? user.name : user.username;
+}
+
+/** True when the profile carries a real display name — not empty, and not
+ * just the username/handle echoed back (`pndc`, `@pndc`,
+ * `@pndc@host` all count as absent). Pure. */
+export function hasRealDisplayName(
+  user: Pick<UserLite, "name" | "username" | "host">,
+): boolean {
+  const raw = (user.name ?? "").trim();
+  if (raw.length === 0) return false;
+  const low = raw.replace(/^@+/, "").toLowerCase();
+  if (low === user.username.toLowerCase()) return false;
+  const full = user.host ? `${user.username}@${user.host}` : user.username;
+  if (low === full.toLowerCase()) return false;
+  return true;
+}
+
+/** Head-line name: the display name when real, else the whole handle
+ * (`@pndc@host`) — never a bare `@pndc` stuttering next to a duplicate
+ * handle span. Callers hide the handle span when this falls back. Pure. */
+export function headNameOf(
+  user: Pick<UserLite, "name" | "username" | "host">,
+): string {
+  return hasRealDisplayName(user) ? displayNameOf(user) : handleOf(user);
 }
 
 /** Local end-state of setting one reaction: removes the previous entry
