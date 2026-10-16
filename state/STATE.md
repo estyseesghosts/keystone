@@ -57,6 +57,12 @@ approve-and-return round-trip still **not yet verified** (owner).
   `2026-10-16-profile-universal.md`). tsc + build green; the `@jm` post
   should now show a full card — browser confirmation **not yet verified**
   (owner).
+- 2026-10-16 (profile-ref-prop): the chip's reason string exposed the
+  real bug — `ref` is a compiler-reserved component prop, so the loader
+  received a generated method instead of the profile object. Renamed to
+  `profile`; pitfall recorded in `solidjs.md` §7 (see log
+  `2026-10-16-profile-ref-prop.md`). tsc + build green; `@jm` card
+  confirmation **not yet verified** (owner).
 
 ## Decisions since stonekey
 

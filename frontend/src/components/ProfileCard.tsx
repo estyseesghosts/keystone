@@ -340,26 +340,26 @@ function RemoteCard(props: { account: RemoteAccount; fallbackUrl: string }) {
 
 /** Last resort: the URL was profile-shaped but details never resolved.
  * Shows the leg reasons so a failure can be reported precisely. */
-function BasicChip(props: { ref: ProfileRef; reason: string }) {
+function BasicChip(props: { profile: ProfileRef; reason: string }) {
   return (
     <div class="renote-embed profilecard">
       <div class="profilecard-head">
         <div class="profilecard-id">
-          <span class="name">{props.ref.handle}</span>
+          <span class="name">{props.profile.handle}</span>
           <span class="handle">Profile details unavailable ({props.reason})</span>
         </div>
         <span class="spacer" />
-        <a href={props.ref.rawUrl} target="_blank" rel="noopener noreferrer">Open profile</a>
+        <a href={props.profile.rawUrl} target="_blank" rel="noopener noreferrer">Open profile</a>
       </div>
     </div>
   );
 }
 
-export default function ProfileCardLoader(props: { ref: ProfileRef }) {
+export default function ProfileCardLoader(props: { profile: ProfileRef }) {
   const auth = useAuth();
   const [resolved] = createResource(
-    () => `${props.ref.rawUrl}:${auth.token() ?? ""}`,
-    () => withTimeout(resolveProfile(props.ref, ourBackendHost(auth.activeExternalHost())), RESOLVE_TIMEOUT_MS),
+    () => `${props.profile.rawUrl}:${auth.token() ?? ""}`,
+    () => withTimeout(resolveProfile(props.profile, ourBackendHost(auth.activeExternalHost())), RESOLVE_TIMEOUT_MS),
   );
   return (
     <Show when={!resolved.loading} fallback={
@@ -370,9 +370,9 @@ export default function ProfileCardLoader(props: { ref: ProfileRef }) {
           const value = r();
           if (value.kind === "detailed") return <DetailedCard initial={value.user} />;
           if (value.kind === "remote") {
-            return <RemoteCard account={value.account} fallbackUrl={props.ref.rawUrl} />;
+            return <RemoteCard account={value.account} fallbackUrl={props.profile.rawUrl} />;
           }
-          return <BasicChip ref={props.ref} reason={value.reason} />;
+          return <BasicChip profile={props.profile} reason={value.reason} />;
         }}
       </Show>
     </Show>

@@ -351,7 +351,7 @@ export default function NoteBody(props: NoteBodyProps) {
           <PollBlock note={props.note} canVote={props.canVote} onChanged={props.onChanged} />
         </Show>
         <For each={profileRefs()}>
-          {(ref) => <ProfileCardLoader ref={ref} />}
+          {(profile) => <ProfileCardLoader profile={profile} />}
         </For>
         <Show when={linkUrl()}>
           {(url) => <LinkCard url={url()} />}
