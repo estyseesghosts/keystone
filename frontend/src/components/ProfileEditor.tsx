@@ -9,9 +9,10 @@ import { createSignal, For, Show } from "solid-js";
 import { apiCall, isPermissionError } from "../api/client";
 import type { DriveFile, MeDetailed, ProfileUpdateParams } from "../api/types";
 import {
-  formatWordGroups,
+  WordFilterParseError,
+  formatWordFilters,
   parseMutedInstances,
-  parseWordGroups,
+  parseWordFilters,
 } from "../api/softMute";
 import DriveBrowser from "./DriveBrowser";
 
@@ -178,10 +179,10 @@ export default function ProfileEditor(props: {
   // Structured.
   const [fields, setFields] = createSignal<FieldPair[]>(pairs(me()));
   const [mutedWords, setMutedWords] = createSignal(
-    formatWordGroups(me()["mutedWords"] as string[][] | null),
+    formatWordFilters(me()["mutedWords"] as Array<string | string[]> | undefined),
   );
   const [hardMutedWords, setHardMutedWords] = createSignal(
-    formatWordGroups(me()["hardMutedWords"] as string[][] | null),
+    formatWordFilters(me()["hardMutedWords"] as Array<string | string[]> | undefined),
   );
   const [mutedInstances, setMutedInstances] = createSignal(
     Array.isArray(me()["mutedInstances"])
@@ -212,6 +213,16 @@ export default function ProfileEditor(props: {
     setError(null);
     try {
       let decorations: ProfileUpdateParams["avatarDecorations"] = [];
+      let parsedWords: Array<string | string[]>;
+      let parsedHardWords: Array<string | string[]>;
+      try {
+        parsedWords = parseWordFilters(mutedWords());
+        parsedHardWords = parseWordFilters(hardMutedWords());
+      } catch (err) {
+        throw err instanceof WordFilterParseError
+          ? new Error(`Muted words: ${err.message} Fix the pattern, then save again.`)
+          : err;
+      }
       try {
         const parsed: unknown = JSON.parse(avatarDecorations().trim() || "[]");
         if (!Array.isArray(parsed)) throw new Error("not an array");
@@ -259,8 +270,8 @@ export default function ProfileEditor(props: {
         autoSensitive: autoSensitive(),
         chatScope: chatScope().trim() === "" ? null : chatScope().trim(),
         pinnedPageId: pinnedPageId().trim() === "" ? null : pinnedPageId().trim(),
-        mutedWords: parseWordGroups(mutedWords()),
-        hardMutedWords: parseWordGroups(hardMutedWords()),
+        mutedWords: parsedWords,
+        hardMutedWords: parsedHardWords,
         mutedInstances: parseMutedInstances(mutedInstances()),
         notificationRecieveConfig: notifConfig,
         emailNotificationTypes: emailTypes()
@@ -396,7 +407,7 @@ export default function ProfileEditor(props: {
       <TextField id="profile-page" label="Pinned page id" value={pinnedPageId()} onInput={setPinnedPageId} />
 
       <h3>Mutes</h3>
-      <TextField id="profile-muted-words" label="Muted words (one AND-group per line, words separated by spaces — matched notes hide behind a warning)" value={mutedWords()} onInput={setMutedWords} textarea />
+      <TextField id="profile-muted-words" label="Muted words (one group per line, words on a line must all match — matched notes hide behind a warning; surround a keyword with slashes for a regular expression)" value={mutedWords()} onInput={setMutedWords} textarea />
       <TextField id="profile-hard-words" label="Hard-muted words (same format — matched notes are hidden)" value={hardMutedWords()} onInput={setHardMutedWords} textarea />
       <TextField id="profile-muted-instances" label="Muted instances (one host per line — their notes are hidden)" value={mutedInstances()} onInput={setMutedInstances} textarea />
 

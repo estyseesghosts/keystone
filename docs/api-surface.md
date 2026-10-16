@@ -48,7 +48,8 @@ state — Keystone never sends users to instance pages.
 Scoped permissions: `read:account`, `write:notes`, `write:reactions`,
 `write:following`, `read:following`, `read:notifications`,
 `write:notifications`, `read:drive`, `write:drive`, `write:account`,
-`write:votes`. Sessions minted before a scope existed get 403
+`write:votes`, `read:blocks`, `write:blocks`, `read:mutes`, `write:mutes`.
+Sessions minted before a scope existed get 403
 `PERMISSION_DENIED` on its endpoints — the UI answers with a re-sign-in
 hint, never a bare error.
 
@@ -80,6 +81,12 @@ hint, never a bare error.
 | Cancel follow request | `following/requests/cancel` | `{userId}`; auth |
 | Incoming follow requests | `following/requests/list` | Auth, `kind read:following` |
 | Followers / following | `users/followers`, `users/following` | `{userId, limit, sinceId?, untilId?}` |
+| Block / unblock | `blocking/create`, `blocking/delete` | `{userId}`; auth; void/204. Per-user toggles on profiles + add-via-search and list with unblock in `/settings/mutes` |
+| Mute / unmute | `mute/create`, `mute/delete` | `{userId}`; auth; void/204. Same surfaces as blocks (Keystone never sends `expiresAt`) |
+| Repost-mute / unmute | `renote-mute/create`, `renote-mute/delete` | `{userId}`; auth; void/204 — hides reposts only ("Muted users (Boost)" in the reference client) |
+| Blocked / muted / repost-muted lists | `blocking/list`, `mute/list`, `renote-mute/list` | Auth; `{limit, sinceId?, untilId?}` → `UserLite[]`. Feeds exclude matching authors/reposts client-side |
+| Relation lookup | `users/relation` | `{userId: string[]}` → per-user `{isBlocking, isMuted, isRenoteMuted, …}`; drives the profile toggles and search rows |
+| Word / hard-word / instance mutes | `i/update` (`mutedWords`, `hardMutedWords`, `mutedInstances`) | Auth, `kind write:account`. No separate endpoint: filters are `Array<string\|string[]>` (bare strings are `/pattern/flags` regex, validated server-side; arrays are AND-groups). Matching mirrors the reference web client exactly (own notes exempt; CW+text haystack; case-sensitive substring; empty keywords dropped; note→reply→renote cascade; instances exact case-sensitive host match incl. reply/renote authors). Soft words → forced-CW badge, hard words + instances → row dropped. Managed in `/settings/mutes` (same fields the profile editor saves). Pinetree rejects them (`400 UNSUPPORTED_FIELD`) — the section shows an unavailable note there |
 | Upload file | `drive/files/create` | Auth, `kind write:drive`; **multipart `FormData`** (`file*`, `i`, `name?`, `comment?`, `isSensitive?`) — never JSON; returns `DriveFile` |
 | Resolve quote URL | `ap/show` | Auth, `kind read:account`; `{uri}` → `{type: "User"\|"Note", object}`. Only `type: "Note"` renders a quote card; anything else (User, missing, private) is a null result and the `RE:` text stays. Anonymous calls fail closed (401). Verified live 2026-10-16: canonical note URLs 200 `Note` on both servers; missing is 400 `NO_SUCH_OBJECT` (Misskey) / 500 (Sharkey) — the client treats every error as null, never branching on codes |
 | List files | `drive/files` | Auth, `kind read:drive`; `{limit, sinceId?, untilId?, type? ("image/*"…), folderId?}` → `DriveFile[]` |

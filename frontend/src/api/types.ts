@@ -252,8 +252,8 @@ export interface ProfileUpdateParams {
   autoSensitive?: boolean;
   chatScope?: string | null;
   pinnedPageId?: string | null;
-  mutedWords?: string[][];
-  hardMutedWords?: string[][];
+  mutedWords?: Array<string | string[]>;
+  hardMutedWords?: Array<string | string[]>;
   mutedInstances?: string[] | null;
   notificationRecieveConfig?: Record<string, unknown>;
   emailNotificationTypes?: string[];

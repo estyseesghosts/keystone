@@ -465,6 +465,37 @@ global text size 50–400% (every font-size scales, layout fixed); see
       59/59 helper checks, `tsc` + build green; visual confirmation
       **not yet verified** (owner)
 
+## Mutes and blocks management (built 2026-10-16; live-API + browser QA pending)
+
+- [x] `/settings/mutes` covers the reference client's six sections in
+      Keystone language: Word mute + Hard word mute + Instance mutes
+      editors (per-field `i/update` saves seeded from the account record,
+      `refreshMe` after save, 404 / `UNSUPPORTED_FIELD` → honest
+      unavailable note, permission errors → re-sign-in hint; same backend
+      fields the profile editor saves) above a Mute-or-block account
+      search (`users/search` + relation-driven Mute / Mute-reposts /
+      Block toggles, self excluded, create-only fallback when the
+      relation endpoint is missing) and the existing Blocked / Muted /
+      Repost-muted lists (reordered to the reference order, quiet
+      reload after search actions)
+- [x] Token scopes widened least-privilege-first: + `read:blocks`,
+      `write:blocks`, `read:mutes`, `write:mutes` (pre-scope sessions
+      403 → re-sign-in hint, same as before)
+- [x] Misskey-exact word-mute parity (2026-10-16, local misskey checkout
+      as source of truth): `softMute.ts` mirrors the reference web
+      `check-word-mute` + `checkNoteWordMute` + `is-instance-muted`
+      (own-note exempt, CW-first haystack, case-sensitive substrings,
+      empty-keyword drop, `/pattern/flags` regex with `lastIndex` reset,
+      note→reply→renote cascade, exact case-sensitive instance hosts)
+      and the reference editor transport (arrays space-join per line,
+      regex lines verbatim, invalid regex aborts with the line number);
+      feeds, settings, and profile editor all use the one path
+- [x] Evidence: `tsc --noEmit` clean, `npm run build` green, 51/51
+      parity checks (esbuild bundle + node, incl. the reference unit
+      cases). API suites NOT re-run here (no backends on this machine);
+      live mute/block/word-filter round-trips + browser behavior
+      **not yet verified** (owner)
+
 ## Verification per slice
 
 Build green, desktop + mobile, real Misskey + Sharkey flows, 204 handling, no

@@ -209,6 +209,17 @@ approve-and-return round-trip still **not yet verified** (owner).
   listing eager-loads at startup and is keyed per target. 59/59
   helper checks, `tsc` + build green.
 
+- **Plus (2026-10-16, uncommitted, browser/live-API QA owner-handled):**
+  mutes & blocks management (see log `2026-10-16-mutes-blocks.md`) +
+  Misskey-exact word-mute parity (see log `2026-10-16-wordmute-parity.md`)
+  — `/settings/mutes` now covers all six reference sections (word / hard
+  word / instance editors via `i/update`, account search-to-mute/block,
+  reordered lists), token scopes + `read/write:blocks|mutes`, and the
+  matcher/editor transport rewritten to mirror the local misskey checkout
+  (`check-word-mute`, `checkNoteWordMute`, `is-instance-muted`,
+  `mute-block.word-mute` render/parse). `tsc` + build green, 51/51 parity
+  checks; Sharkey source still unconfirmed, Test-patterns + mute-expiry
+  UI deferred (not Misskey behavior).
 - **Plus (2026-10-16, uncommitted, browser QA owner-handled):** remote
   emoji broken-image fix (see log `2026-10-16-emoji-dead-url.md`) —
   `EmojiGlyph` falls through dead packed URLs to the live listings via
@@ -226,7 +237,8 @@ approve-and-return round-trip still **not yet verified** (owner).
   memory-only (verified in `SigninService.ts`: `user.token` verbatim).
 - Scoped permission set widened least-privilege-first: + `read:drive`,
   `write:drive`, `write:account`, `write:votes`, `read:following`,
-  `write:notifications`. Pre-scope sessions 403 → UI shows re-sign-in hint.
+  `write:notifications`, `read:blocks`, `write:blocks`, `read:mutes`,
+  `write:mutes`. Pre-scope sessions 403 → UI shows re-sign-in hint.
 - New routes: `/drive`, `/antennas`, `/antennas/:id`, `/search` (nav gated
   on signed-in where auth is required).
 - Reactions: server normalizes ❤️→❤ (verified live); client sends ❤ so

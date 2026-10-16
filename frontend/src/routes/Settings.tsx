@@ -12,10 +12,10 @@
 // Profile editing lives ONLY on your own profile page ("Edit profile"
 // button) — never in client settings.
 
-import { For, Show, createSignal, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, onMount } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
 import { useAuth } from "../state/auth";
-import { apiCall, isUnsupportedError } from "../api/client";
+import { ApiError, apiCall, isPermissionError, isUnsupportedError } from "../api/client";
 import { TEXT_SCALE_MAX, TEXT_SCALE_MIN, useAppearance } from "../state/appearance";
 import type { ColorMode } from "../state/appearance";
 import { useEmojiPrefs } from "../state/emojiPrefs";
@@ -23,15 +23,25 @@ import { DEFAULT_LIKE_EMOJI } from "../api/emoji";
 import { DisplayName, EmojiGlyph } from "../components/EmojiPicker";
 import { BACKEND_URL } from "../api/backend";
 import { displayNameOf, handleOf, hasRealDisplayName, headNameOf } from "../api/types";
-import type { MeDetailed, UserLite } from "../api/types";
+import type { MeDetailed, UserLite, UserRelation } from "../api/types";
 import {
+  blockUser,
+  fetchRelations,
   listBlocks,
   listMutes,
   listRenoteMutes,
+  muteRenotes,
+  muteUser,
   unblockUser,
   unmuteRenotes,
   unmuteUser,
 } from "../api/mutes";
+import {
+  WordFilterParseError,
+  formatWordFilters,
+  parseMutedInstances,
+  parseWordFilters,
+} from "../api/softMute";
 import {
   downloadJson,
   exportData,
@@ -68,7 +78,7 @@ const SECTIONS = [
   {
     href: "/settings/mutes",
     title: "Mutes and blocks",
-    hint: "Blocked, muted, and repost-muted accounts",
+    hint: "Word, instance, account, and repost mutes plus blocks",
   },
   {
     href: "/settings/import",
@@ -408,9 +418,337 @@ function UserRow(props: { user: UserLite; action: string; busy: boolean; onAct: 
   );
 }
 
-/** Mutes and blocks (§§0, 12): blocked, muted, and repost-muted accounts
- * with unblock/unmute. 404-gated per list — unsupported backends render an
- * honest unavailable state instead of an error. */
+type MuteWordFieldName = "mutedWords" | "hardMutedWords" | "mutedInstances";
+
+/** True when the server has no such field or endpoint here: Misskey-family
+ * 404, or Pinetree's 400 UNSUPPORTED_FIELD for `i/update` fields outside
+ * its subset. Either way the UI answers with an honest unavailable note,
+ * never an error. */
+function fieldUnavailable(err: unknown): boolean {
+  if (isUnsupportedError(err)) return true;
+  return err instanceof ApiError && err.status === 400 && err.code === "UNSUPPORTED_FIELD";
+}
+
+const PERMISSION_HINT =
+  "Your session lacks the permission for this. Sign out and sign in again, then retry.";
+
+/** One `i/update` word/instance mute editor (soft words, hard words, or
+ * instance hosts). Same backend fields the profile editor saves — managed
+ * here alongside the account lists, in Keystone settings language. */
+function MuteWordField(props: {
+  field: MuteWordFieldName;
+  title: string;
+  description: string;
+  placeholder: string;
+  initial: () => string;
+}) {
+  const auth = useAuth();
+  const [value, setValue] = createSignal(props.initial());
+  const [dirty, setDirty] = createSignal(false);
+  const [busy, setBusy] = createSignal(false);
+  const [notice, setNotice] = createSignal<string | null>(null);
+  const [error, setError] = createSignal<string | null>(null);
+  const [unavailable, setUnavailable] = createSignal(false);
+
+  // The account record can arrive after this page mounts; adopt it until
+  // the user edits (a save refreshes the record and re-seeds the text).
+  createEffect(() => {
+    if (!dirty()) setValue(props.initial());
+  });
+
+  const save = async () => {
+    if (busy()) return;
+    setError(null);
+    setNotice(null);
+    // An invalid regular expression aborts before any request — the same
+    // line-numbered refusal as the reference editor.
+    let parsed: Array<string | string[]> | string[];
+    try {
+      parsed =
+        props.field === "mutedInstances"
+          ? parseMutedInstances(value())
+          : parseWordFilters(value());
+    } catch (err) {
+      setError(
+        err instanceof WordFilterParseError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Could not save.",
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiCall<MeDetailed>("i/update", { [props.field]: parsed });
+      await auth.refreshMe().catch(() => undefined);
+      setDirty(false);
+      setNotice("Saved.");
+    } catch (err) {
+      if (fieldUnavailable(err)) setUnavailable(true);
+      else if (isPermissionError(err)) setError(PERMISSION_HINT);
+      else setError(err instanceof Error ? err.message : "Could not save.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div class="settings-block">
+      <h2>{props.title}</h2>
+      <Show
+        when={!unavailable()}
+        fallback={<p class="handle">Not available on this server.</p>}
+      >
+        <p class="handle">{props.description}</p>
+        <textarea
+          rows={3}
+          value={value()}
+          placeholder={props.placeholder}
+          aria-label={props.title}
+          onInput={(e) => {
+            setValue(e.currentTarget.value);
+            setDirty(true);
+            setNotice(null);
+          }}
+        />
+        <div class="optrow">
+          <button type="button" disabled={busy()} onClick={() => void save()}>
+            {busy() ? "Saving…" : "Save"}
+          </button>
+          <Show when={notice()}>
+            <span role="status">{notice()}</span>
+          </Show>
+        </div>
+        <Show when={error()}>
+          <div class="errorbox" role="alert">{error()}</div>
+        </Show>
+      </Show>
+    </div>
+  );
+}
+
+/** Mute or block an account from settings: search, then relation-driven
+ * toggles (same wrappers as the profile actions). Falls back to
+ * create-only buttons when the relation endpoint is missing; the whole
+ * block hides when user search itself is unsupported. */
+function MuteBlockSearch(props: { myId: string | null; onChanged: () => void }) {
+  const [query, setQuery] = createSignal("");
+  const [results, setResults] = createSignal<UserLite[]>([]);
+  const [relations, setRelations] = createSignal<Record<string, UserRelation>>({});
+  const [relationsLive, setRelationsLive] = createSignal(true);
+  const [busy, setBusy] = createSignal(false);
+  const [actBusy, setActBusy] = createSignal(false);
+  const [searched, setSearched] = createSignal(false);
+  const [searchDead, setSearchDead] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+
+  const syncRelations = async (users: UserLite[]) => {
+    try {
+      const rels = await fetchRelations(users.map((u) => u.id));
+      const map: Record<string, UserRelation> = {};
+      for (const r of rels) map[r.id] = r;
+      setRelations(map);
+      setRelationsLive(true);
+    } catch (relErr) {
+      if (isUnsupportedError(relErr)) setRelationsLive(false);
+      else throw relErr;
+    }
+  };
+
+  const run = async () => {
+    const q = query().trim();
+    if (q.length === 0 || busy()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const users = await apiCall<UserLite[]>("users/search", { query: q, limit: 10 });
+      setResults(users);
+      setSearched(true);
+      await syncRelations(users);
+    } catch (err) {
+      if (fieldUnavailable(err)) setSearchDead(true);
+      else setError(err instanceof Error ? err.message : "Search failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const act = async (userId: string, fn: () => Promise<unknown>) => {
+    if (actBusy()) return;
+    setActBusy(true);
+    setError(null);
+    try {
+      await fn();
+      if (relationsLive()) {
+        try {
+          await syncRelations(results());
+        } catch {
+          // The lists below still refresh; relation state retries next search.
+        }
+      }
+      props.onChanged();
+    } catch (err) {
+      if (isPermissionError(err)) setError(PERMISSION_HINT);
+      else setError(err instanceof Error ? err.message : "Action failed.");
+    } finally {
+      setActBusy(false);
+    }
+  };
+
+  const toggle = (
+    user: UserLite,
+    active: boolean | undefined,
+    onLabel: string,
+    offLabel: string,
+    on: () => Promise<unknown>,
+    off: () => Promise<unknown>,
+  ) => (
+    <Show
+      when={active}
+      fallback={
+        <button
+          type="button"
+          class="minibtn"
+          disabled={actBusy()}
+          onClick={() => void act(user.id, on)}
+        >
+          {onLabel}
+        </button>
+      }
+    >
+      <button
+        type="button"
+        class="minibtn"
+        disabled={actBusy()}
+        onClick={() => void act(user.id, off)}
+      >
+        {offLabel}
+      </button>
+    </Show>
+  );
+
+  const searchRow = (user: UserLite) => {
+    const rel = () => relations()[user.id];
+    const self = () => props.myId !== null && props.myId === user.id;
+    return (
+      <div class="notif">
+        <A
+          class="avatarlink"
+          href={`/users/${user.id}`}
+          aria-label={`Open profile of ${displayNameOf(user)}`}
+        >
+          <Show
+            when={user.avatarUrl}
+            fallback={
+              <div class="avatar-fallback" aria-hidden="true">
+                {displayNameOf(user).slice(0, 1).toUpperCase()}
+              </div>
+            }
+          >
+            <img class="avatar" src={user.avatarUrl!} alt="" loading="lazy" />
+          </Show>
+        </A>
+        <div class="notif-main">
+          <div class="notif-head">
+            <A class="namelink" href={`/users/${user.id}`}>
+              <span class="name">{displayNameOf(user)}</span>
+              <span class="handle">{handleOf(user)}</span>
+            </A>
+          </div>
+          <Show when={!self()} fallback={<span class="handle">This is you.</span>}>
+            <div class="optrow">
+              <Show
+                when={relationsLive() && rel()}
+                fallback={
+                  <>
+                    <button
+                      type="button"
+                      class="minibtn"
+                      disabled={actBusy()}
+                      onClick={() => void act(user.id, () => muteUser(user.id))}
+                    >
+                      Mute
+                    </button>
+                    <button
+                      type="button"
+                      class="minibtn"
+                      disabled={actBusy()}
+                      onClick={() => void act(user.id, () => muteRenotes(user.id))}
+                    >
+                      Mute reposts
+                    </button>
+                    <button
+                      type="button"
+                      class="minibtn"
+                      disabled={actBusy()}
+                      onClick={() => void act(user.id, () => blockUser(user.id))}
+                    >
+                      Block
+                    </button>
+                  </>
+                }
+              >
+                {(r) => (
+                  <>
+                    {toggle(user, r().isMuted, "Mute", "Unmute", () => muteUser(user.id), () => unmuteUser(user.id))}
+                    {toggle(user, r().isRenoteMuted, "Mute reposts", "Unmute reposts", () => muteRenotes(user.id), () => unmuteRenotes(user.id))}
+                    {toggle(user, r().isBlocking, "Block", "Unblock", () => blockUser(user.id), () => unblockUser(user.id))}
+                  </>
+                )}
+              </Show>
+            </div>
+          </Show>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div class="settings-block">
+      <h2>Mute or block an account</h2>
+      <Show
+        when={!searchDead()}
+        fallback={<p class="handle">Not available on this server.</p>}
+      >
+        <p class="handle">
+          Search for an account, then mute, repost-mute, or block it. The lists below update too.
+        </p>
+        <form
+          class="row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run();
+          }}
+        >
+          <input
+            type="text"
+            value={query()}
+            onInput={(e) => setQuery(e.currentTarget.value)}
+            placeholder="Username…"
+            aria-label="Search accounts"
+            style={{ flex: 1 }}
+          />
+          <button type="submit" disabled={busy() || query().trim().length === 0}>
+            {busy() ? "Searching…" : "Search"}
+          </button>
+        </form>
+        <Show when={searched() && results().length === 0 && !busy()}>
+          <p class="handle">No accounts found.</p>
+        </Show>
+        <For each={results()}>{(u) => searchRow(u)}</For>
+        <Show when={error()}>
+          <div class="errorbox" role="alert">{error()}</div>
+        </Show>
+      </Show>
+    </div>
+  );
+}
+
+/** Mutes and blocks: word/instance filters plus blocked, muted, and
+ * repost-muted accounts with search-to-add and unblock/unmute. Each
+ * section gates independently — unsupported backends render an honest
+ * unavailable state instead of an error. */
 export function MutesSettings() {
   const auth = useAuth();
   const [blocks, setBlocks] = createSignal<UserLite[]>([]);
@@ -421,8 +759,8 @@ export function MutesSettings() {
   const [error, setError] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (quiet = false) => {
+    if (!quiet) setLoading(true);
     setError(null);
     const missing: string[] = [];
     try {
@@ -453,7 +791,7 @@ export function MutesSettings() {
       setError(err instanceof Error ? err.message : "Could not load repost mutes.");
     }
     setUnsupported(missing);
-    setLoading(false);
+    if (!quiet) setLoading(false);
   };
 
   onMount(() => {
@@ -475,6 +813,18 @@ export function MutesSettings() {
   };
 
   const hidden = (name: string) => unsupported().includes(name);
+
+  const myId = () => (auth.me() as MeDetailed | null)?.id ?? null;
+  const wordInitial =
+    (field: "mutedWords" | "hardMutedWords"): (() => string) =>
+    () =>
+      formatWordFilters(
+        (auth.me() as MeDetailed | null)?.[field] as Array<string | string[]> | undefined,
+      );
+  const instanceInitial = (): string => {
+    const raw = (auth.me() as MeDetailed | null)?.["mutedInstances"];
+    return Array.isArray(raw) ? (raw as string[]).join("\n") : "";
+  };
 
   return (
     <div>
@@ -502,12 +852,34 @@ export function MutesSettings() {
                   <p>Mutes and blocks are not available on this server.</p>
                 </div>
               </Show>
-              <Show when={!hidden("blocks")}>
+              <MuteWordField
+                field="mutedWords"
+                title="Word mute"
+                description="Notes matching these words hide behind a warning. One line per group (groups are ORed); words on a line must all match (AND). Surround a keyword with slashes for a regular expression."
+                placeholder="one group per line…"
+                initial={wordInitial("mutedWords")}
+              />
+              <MuteWordField
+                field="hardMutedWords"
+                title="Hard word mute"
+                description="Notes matching these words are hidden entirely. Same format: AND within a line, OR across lines, /regex/ supported."
+                placeholder="one group per line…"
+                initial={wordInitial("hardMutedWords")}
+              />
+              <MuteWordField
+                field="mutedInstances"
+                title="Instance mutes"
+                description="Notes from these instances are hidden entirely. One host per line."
+                placeholder="one host per line…"
+                initial={instanceInitial}
+              />
+              <MuteBlockSearch myId={myId()} onChanged={() => void load(true)} />
+              <Show when={!hidden("repost mutes")}>
                 <div class="settings-block">
-                  <h2>Blocked ({blocks().length})</h2>
-                  <Show when={blocks().length > 0} fallback={<p class="handle">None.</p>}>
-                    <For each={blocks()}>
-                      {(u) => <UserRow user={u} action="Unblock" busy={busy()} onAct={() => void act(() => unblockUser(u.id))} />}
+                  <h2>Repost-muted ({renoteMutes().length})</h2>
+                  <Show when={renoteMutes().length > 0} fallback={<p class="handle">None.</p>}>
+                    <For each={renoteMutes()}>
+                      {(u) => <UserRow user={u} action="Unmute reposts" busy={busy()} onAct={() => void act(() => unmuteRenotes(u.id))} />}
                     </For>
                   </Show>
                 </div>
@@ -522,12 +894,12 @@ export function MutesSettings() {
                   </Show>
                 </div>
               </Show>
-              <Show when={!hidden("repost mutes")}>
+              <Show when={!hidden("blocks")}>
                 <div class="settings-block">
-                  <h2>Repost-muted ({renoteMutes().length})</h2>
-                  <Show when={renoteMutes().length > 0} fallback={<p class="handle">None.</p>}>
-                    <For each={renoteMutes()}>
-                      {(u) => <UserRow user={u} action="Unmute reposts" busy={busy()} onAct={() => void act(() => unmuteRenotes(u.id))} />}
+                  <h2>Blocked ({blocks().length})</h2>
+                  <Show when={blocks().length > 0} fallback={<p class="handle">None.</p>}>
+                    <For each={blocks()}>
+                      {(u) => <UserRow user={u} action="Unblock" busy={busy()} onAct={() => void act(() => unblockUser(u.id))} />}
                     </For>
                   </Show>
                 </div>

@@ -4,7 +4,7 @@ import type { CreatedNoteResponse, MeDetailed, Note } from "../api/types";
 import { appearNoteOf, collapseReposts, withReaction } from "../api/types";
 import { confirmMyReaction, clearMyReaction, effectiveMyReaction } from "../api/myReactions";
 import { computeFeedThreadLinks } from "../api/thread";
-import { muteVerdict } from "../api/softMute";
+import { checkNoteWordMute, isInstanceMuted } from "../api/softMute";
 import { listBlocks, listMutes, listRenoteMutes } from "../api/mutes";
 import {
   captureNote,
@@ -97,12 +97,22 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   const [mutedIds, setMutedIds] = createSignal<Set<string>>(new Set());
   const [renoteMutedIds, setRenoteMutedIds] = createSignal<Set<string>>(new Set());
 
-  const muteOpts = (): { mutedWords?: string[][] | null; hardMutedWords?: string[][] | null; mutedInstances?: string[] | null } => {
+  // Word-mute lists (Misskey-exact matching in `api/softMute`): hard words
+  // and instance mutes drop rows here (the note, its reply, and its
+  // renote all count — same as the reference client); soft words badge
+  // rows without their own CW below. Own notes never match.
+  const myId = (): string | null => (auth.me() as MeDetailed | null)?.id ?? null;
+
+  const wordLists = (): {
+    mutedWords: Array<string | string[]> | null;
+    hardMutedWords: Array<string | string[]> | null;
+    mutedInstances: string[] | null;
+  } => {
     const me = auth.me() as MeDetailed | null;
     return {
-      mutedWords: (me?.["mutedWords"] as string[][] | null) ?? null,
-      hardMutedWords: (me?.["hardMutedWords"] as string[][] | null) ?? null,
-      mutedInstances: (me?.["mutedInstances"] as string[] | null) ?? null,
+      mutedWords: (me?.mutedWords as Array<string | string[]> | undefined) ?? null,
+      hardMutedWords: (me?.hardMutedWords as Array<string | string[]> | undefined) ?? null,
+      mutedInstances: (me?.mutedInstances as string[] | null | undefined) ?? null,
     };
   };
 
@@ -116,22 +126,23 @@ export default function TimelineFeed(props: TimelineFeedProps) {
     if (involved.some((id) => blocked.has(id) || muted.has(id))) return true;
     if (n.renote && renoteMuted.has(n.renote.userId)) return true;
     const shown = appearNoteOf(n);
-    return (
-      muteVerdict(shown.text, shown.cw, shown.user.host, muteOpts()) === "hard"
-    );
+    const lists = wordLists();
+    if (checkNoteWordMute(shown, myId(), lists.hardMutedWords) !== false) return true;
+    return isInstanceMuted(shown, lists.mutedInstances);
   };
 
   /** Timeline rows actually rendered: raw items minus excluded ones.
    * Paging cursors still use the raw list (server order preserved). */
   const shown = createMemo(() => notes().filter((n) => !isExcluded(n)));
 
-  /** Soft-mute badges (§13): muted-word match with no CW of its own. */
+  /** Soft-mute badges: muted-word match with no CW of its own. */
   const softIds = createMemo(() => {
-    const opts = muteOpts();
+    const words = wordLists().mutedWords;
+    const self = myId();
     const out = new Set<string>();
     for (const n of shown()) {
       const target = appearNoteOf(n);
-      if (!target.cw && muteVerdict(target.text, target.cw, target.user.host, opts) === "soft") {
+      if (!target.cw && checkNoteWordMute(target, self, words) !== false) {
         out.add(n.id);
       }
     }
