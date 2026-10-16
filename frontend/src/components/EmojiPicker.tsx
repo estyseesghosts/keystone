@@ -113,6 +113,11 @@ export function EmojiGlyph(props: {
           src={current()}
           alt={props.emoji}
           loading="lazy"
+          // No Referer, same as the listing fetch: remote media hosts
+          // (e.g. media.misskeyusercontent.jp) answer a localhost Referer
+          // with a 403 challenge, which would otherwise dead-end every
+          // remote emoji at the literal shortcode.
+          referrerPolicy="no-referrer"
           onError={() => {
             const failedUrl = current();
             setDead((prev) => {
