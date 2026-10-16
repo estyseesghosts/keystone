@@ -15,7 +15,7 @@
 
 import { createResource, createSignal, Show } from "solid-js";
 import { A } from "@solidjs/router";
-import { apiCall } from "../api/client";
+import { apiCall, ApiError } from "../api/client";
 import { displayNameOf, handleOf } from "../api/types";
 import type { UserDetailed } from "../api/types";
 import { useAuth } from "../state/auth";
@@ -76,7 +76,7 @@ export function parseProfileUrl(url: string): ProfileRef | null {
   return null;
 }
 
-async function tryDetailed(ref: ProfileRef, ourHost: string | null): Promise<UserDetailed | null> {
+async function tryDetailed(ref: ProfileRef, ourHost: string | null): Promise<UserDetailed> {
   if (ref.userId) {
     try {
       return await apiCall<UserDetailed>("users/show", { userId: ref.userId });
@@ -86,16 +86,57 @@ async function tryDetailed(ref: ProfileRef, ourHost: string | null): Promise<Use
   }
   if (ref.username) {
     const host = ourHost && ref.homeHost === ourHost ? undefined : ref.homeHost;
+    return await apiCall<UserDetailed>("users/show", {
+      username: ref.username,
+      ...(host ? { host } : {}),
+    });
+  }
+  throw new Error("no username or user id in profile link");
+}
+
+/** Short human reason for a failed leg (`users/show: HTTP 401`). */
+export function legReason(prefix: string, err: unknown): string {
+  if (err instanceof ApiError) return `${prefix}: HTTP ${err.status}`;
+  return `${prefix}: ${err instanceof Error ? err.message : "failed"}`;
+}
+
+async function tryRemote(ref: ProfileRef): Promise<RemoteAccount> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
+  try {
+    // Numeric ids address `/accounts/:id`; otherwise look up by acct.
+    const endpoint =
+      ref.userId && /^[0-9]+$/.test(ref.userId)
+        ? `https://${ref.homeHost}/api/v1/accounts/${encodeURIComponent(ref.userId)}`
+        : `https://${ref.homeHost}/api/v1/accounts/lookup?acct=${encodeURIComponent(
+            ref.username ? `${ref.username}@${ref.homeHost}` : ref.handle.replace(/^@/, ""),
+          )}`;
+    const response = await fetch(endpoint, { signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const account = asRemoteAccount(await response.json(), ref.homeHost);
+    if (!account) throw new Error("unrecognized account shape");
+    return account;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+type ResolvedProfile =
+  | { kind: "detailed"; user: UserDetailed }
+  | { kind: "remote"; account: RemoteAccount }
+  | { kind: "unresolved"; reason: string };
+
+async function resolveProfile(ref: ProfileRef, ourHost: string | null): Promise<ResolvedProfile> {
+  try {
+    return { kind: "detailed", user: await tryDetailed(ref, ourHost) };
+  } catch (detailedErr) {
+    const detailedReason = legReason("users/show", detailedErr);
     try {
-      return await apiCall<UserDetailed>("users/show", {
-        username: ref.username,
-        ...(host ? { host } : {}),
-      });
-    } catch {
-      return null;
+      return { kind: "remote", account: await tryRemote(ref) };
+    } catch (remoteErr) {
+      return { kind: "unresolved", reason: `${detailedReason}; ${legReason("lookup", remoteErr)}` };
     }
   }
-  return null;
 }
 
 interface RemoteAccount {
@@ -146,39 +187,6 @@ function asRemoteAccount(value: unknown, homeHost: string): RemoteAccount | null
     following: asCount(o.following_count),
     statuses: asCount(o.statuses_count),
   };
-}
-
-async function tryRemote(ref: ProfileRef): Promise<RemoteAccount | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
-  try {
-    // Numeric ids address `/accounts/:id`; otherwise look up by acct.
-    const endpoint =
-      ref.userId && /^[0-9]+$/.test(ref.userId)
-        ? `https://${ref.homeHost}/api/v1/accounts/${encodeURIComponent(ref.userId)}`
-        : `https://${ref.homeHost}/api/v1/accounts/lookup?acct=${encodeURIComponent(
-            ref.username ? `${ref.username}@${ref.homeHost}` : ref.handle.replace(/^@/, ""),
-          )}`;
-    const response = await fetch(endpoint, { signal: controller.signal });
-    if (!response.ok) return null;
-    return asRemoteAccount(await response.json(), ref.homeHost);
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-type ResolvedProfile =
-  | { kind: "detailed"; user: UserDetailed }
-  | { kind: "remote"; account: RemoteAccount };
-
-async function resolveProfile(ref: ProfileRef, ourHost: string | null): Promise<ResolvedProfile | null> {
-  const detailed = await tryDetailed(ref, ourHost);
-  if (detailed) return { kind: "detailed", user: detailed };
-  const remote = await tryRemote(ref);
-  if (remote) return { kind: "remote", account: remote };
-  return null;
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
@@ -331,14 +339,14 @@ function RemoteCard(props: { account: RemoteAccount; fallbackUrl: string }) {
 }
 
 /** Last resort: the URL was profile-shaped but details never resolved.
- * Handle plus a working link — never a stuck skeleton, never blank. */
-function BasicChip(props: { ref: ProfileRef }) {
+ * Shows the leg reasons so a failure can be reported precisely. */
+function BasicChip(props: { ref: ProfileRef; reason: string }) {
   return (
     <div class="renote-embed profilecard">
       <div class="profilecard-head">
         <div class="profilecard-id">
           <span class="name">{props.ref.handle}</span>
-          <span class="handle">Profile details unavailable</span>
+          <span class="handle">Profile details unavailable ({props.reason})</span>
         </div>
         <span class="spacer" />
         <a href={props.ref.rawUrl} target="_blank" rel="noopener noreferrer">Open profile</a>
@@ -357,14 +365,14 @@ export default function ProfileCardLoader(props: { ref: ProfileRef }) {
     <Show when={!resolved.loading} fallback={
       <RowSkeletonList count={1} label="Loading profile card…" />
     }>
-      <Show when={resolved()} fallback={<BasicChip ref={props.ref} />}>
+      <Show when={resolved() ?? { kind: "unresolved", reason: "timed out" } as const} fallback={null}>
         {(r) => {
           const value = r();
-          return value.kind === "detailed" ? (
-            <DetailedCard initial={value.user} />
-          ) : (
-            <RemoteCard account={value.account} fallbackUrl={props.ref.rawUrl} />
-          );
+          if (value.kind === "detailed") return <DetailedCard initial={value.user} />;
+          if (value.kind === "remote") {
+            return <RemoteCard account={value.account} fallbackUrl={props.ref.rawUrl} />;
+          }
+          return <BasicChip ref={props.ref} reason={value.reason} />;
         }}
       </Show>
     </Show>
