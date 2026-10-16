@@ -1,7 +1,8 @@
 # Frontend plan (MVP)
 
-**Status:** Slices 0–6 built + API-verified 2026-10-16 against Misskey and
-Sharkey (see `../state/logs/2026-10-16-roadmap.md`). Tracks `AGENTS.md` §5,
+**Status:** Slices 0–7 built + API-verified 2026-10-16 against Misskey and
+Sharkey (see `../state/logs/2026-10-16-roadmap.md`,
+`../state/logs/2026-10-16-streaming.md`). Tracks `AGENTS.md` §5,
 `docs/api-surface.md`, and `docs/keystone_roadmap.md`. Check boxes only with
 executed evidence.
 
@@ -55,11 +56,35 @@ executed evidence.
 
 ## Deliberately deferred (do not build until scoped)
 
-Streaming/live updates (manual refresh + cursors everywhere by design —
-feeds never depend on a socket), full profile editor beyond the bounded
+Streaming Stage B (verify the same client against pinetree `/streaming`
+when its Phase 3 lands — currently empty stubs, no route; the client stays
+disabled in pinetree mode), full profile editor beyond the bounded
 `i/update` subset (`avatarId`/`bannerId`, decorations, fields[]),
 user-list management (blocks `list`-source antennas; that source is hidden
 until the subset lands), Drive folder navigation, dark mode.
+
+## Slice 7 — Streaming Stage A (done, Misskey/Sharkey only)
+
+- [x] `src/api/stream.ts`: native-`WebSocket` client, no new dependencies;
+  `?i=` auth, per-call channel ids, `connect`/`disconnect` with `pong:true`
+  ack, refcounted `subNote`/`unsubNote`, broadcast `noteUpdated`
+  dispatch, reconnect with capped exponential backoff + jitter, fast-fail
+  `error` after repeated refused connections, per-channel `unavailable`
+  on missing ack (10s), fully disabled in pinetree mode
+- [x] `TimelineFeed`: endpoint→channel mapping (home/local/global/antenna),
+  streamed notes prepend with in-updater id dedupe (never double-inserts
+  against a pending refresh), newest-50 live capture (reactions/polls
+  reconcile via `notes/show`, deletions remove in place), `StreamBadge`
+  status + retry; paging + refresh unchanged and socket-independent
+- [x] `Notifications`: `main`-channel `notification` events raise a
+  "N new — Refresh" count only (no unread model — backends pack no
+  `isRead`); `Note` detail: live capture (quiet re-read, explicit
+  deleted state); replies still refresh manually (no replies channel)
+- [x] Contract verified in server source on both backends (WS
+  `read:account` gate → 401, per-channel kind/auth matrix, silent-ignore
+  of unservable channels, 2-min idle reap); `scripts/smoke_streaming.py`
+  27/27 through the Vite WS proxies; pinetree `/streaming` confirmed
+  absent (stubs only) — client disabled there
 
 ## Slice 4 — Reliability hardening (done, roadmap P0)
 
