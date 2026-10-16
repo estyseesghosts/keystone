@@ -151,3 +151,23 @@ Streaming: intentionally not used yet. Every feed has manual refresh +
 cursor paging; antenna feeds work without live updates. See
 `docs/api-surface.md` (authoritative contract table) and
 `docs/frontend-plan.md` (what is built vs. deferred).
+
+## 7. No local backend? Test against a public instance
+
+Run plain `npm run dev` (`:5173`) — the dev-proxy target will be down, and
+that is fine: the **External server** tab on `/login` (`/login?mode=external`)
+bypasses the proxy entirely and talks direct to the instance over CORS (which
+Misskey-family servers allow, `access-control-allow-origin: *`).
+
+1. Enter the instance host (`example.com` — verified live 2026-10-16 against
+   a public Sharkey `2025.4.7` at `dvd.chat`: `/api/meta` 200,
+   `/miauth/<session>` page 200, `signin-flow` live).
+2. Approve Keystone on the instance's own page (password entered there only).
+3. Back in Keystone: "I've approved — finish sign-in". The issued token is
+   verified via `/api/i` before it is stored (one session per host,
+   `keystone_external_sessions`); switch accounts from the account menu.
+
+The internal "This server" tab needs a local backend and will fail without
+one — expected. Streaming stays disabled for external accounts (an external
+token must never reach the local `/streaming` socket); everything else —
+timelines, composer, reactions, drive, antennas, search — works.

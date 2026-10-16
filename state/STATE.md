@@ -21,6 +21,12 @@ owner-handled, NOT this session; browser behavior stays "not yet verified".
 (redirect on the host instance) + account card/menu + `/settings` +
 external login tab. Internal flow pinned via `apiCallInternal`; suites NOT
 re-run here (backend DB layer down) — re-verify on the test machine.
+**Plus (2026-10-16, public-sharkey):** brought up on macOS with no local
+backend (see log `2026-10-16-public-sharkey.md`): `npm run dev` on `:5173`
+serves 200, `npm run build` green, public Sharkey `dvd.chat` (`2025.4.7`)
+verified live (meta 200, miauth page 200, CORS `*`). Docs-only changes
+(README quickstart, `docs/setup.md` §7); no code changes. Browser
+approve-and-return round-trip still **not yet verified** (owner).
 
 ## Decisions since stonekey
 

@@ -31,12 +31,22 @@ vs Pinetree. See `docs/frontend-plan.md` for the built vs deferred checklist.
 
 ## Quickstart
 
-Prereqs: Node (v24 for the Misskey backend — its `re2.node` won't load on
-system Node v22), `npm`, and one running backend.
+Prereqs: Node, `npm`, and either one running backend — or no backend at
+all (see "Against a public instance" below).
 
 ```bash
 cd frontend
 npm install
+
+# Against a public instance (no local backend needed):
+npm run dev                                   # → http://127.0.0.1:5173
+```
+Open `http://127.0.0.1:5173/login?mode=external` (the **External server**
+tab), enter the instance host (e.g. `dvd.chat`), approve Keystone on the
+instance's own page, then "I've approved — finish sign-in". Keystone never
+sees your password; traffic goes direct to the instance (CORS `*`), never
+through the dev-proxy. Live streaming stays off for external accounts by
+design — feeds work via refresh + paging.
 
 # Pinetree default (http://127.0.0.1:3000):
 npm run dev                                   # → http://127.0.0.1:5173
