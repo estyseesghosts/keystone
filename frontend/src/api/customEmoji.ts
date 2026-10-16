@@ -120,6 +120,11 @@ export function ensureHostEmojis(host: string): void {
     headers: { "Content-Type": "application/json" },
     body: "{}",
     signal: controller.signal,
+    // No Referer: the browser's default would send the app's origin
+    // (e.g. http://localhost:5173/), which the remote's Cloudflare
+    // answers with a 403 challenge that carries no CORS header — the
+    // preflight then fails and the host is marked dead for the session.
+    referrerPolicy: "no-referrer",
   })
     .then(async (res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
