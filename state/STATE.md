@@ -63,6 +63,10 @@ approve-and-return round-trip still **not yet verified** (owner).
   `profile`; pitfall recorded in `solidjs.md` §7 (see log
   `2026-10-16-profile-ref-prop.md`). tsc + build green; `@jm` card
   confirmation **not yet verified** (owner).
+- **Next (handoff written):** `docs/quote-polish-translate-handoff.md` —
+  quote-post visual parity vs `docs/quote*.png` + auto translation via
+  public `notes/translate` (`translatorAvailable` flag verified on
+  dvd.chat). Ready for the next implementer; not yet started.
 
 ## Decisions since stonekey
 
