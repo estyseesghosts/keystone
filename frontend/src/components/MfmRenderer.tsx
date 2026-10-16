@@ -62,9 +62,11 @@ function MentionLink(props: { acct: string; username: string; host: string | nul
     );
   });
 
+  // mfm-js packs the leading "@" into `acct` already ("@user@host"),
+  // so it renders verbatim — prepending another "@" doubles it.
   return (
-    <Show when={done() && userId()} fallback={<span class="mentiontag">@{props.acct}</span>}>
-      <A href={`/users/${userId()}`}>@{props.acct}</A>
+    <Show when={done() && userId()} fallback={<span class="mentiontag">{props.acct}</span>}>
+      <A href={`/users/${userId()}`}>{props.acct}</A>
     </Show>
   );
 }

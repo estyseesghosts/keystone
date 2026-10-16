@@ -41,6 +41,9 @@ approve-and-return round-trip still **not yet verified** (owner).
   replaces "Load older" in Drive; static skeletons for every data load
   (see log `2026-10-16-drive-cats-skeletons.md`). tsc + build green;
   visual browser QA **not yet verified** (owner).
+- 2026-10-16 (mention-at): mentions rendered `@@user` because mfm-js
+  already packs the leading `@` into `acct`; renderer now uses it
+  verbatim (see log `2026-10-16-mention-at.md`). tsc + build green.
 
 ## Decisions since stonekey
 
