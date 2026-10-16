@@ -120,4 +120,53 @@ Status values: `implemented and tested`, `implemented but policy-dependent`,
 | Note search | **implemented but policy-dependent** (400 `UNAVAILABLE` on these servers) | **implemented but policy-dependent** | not implemented |
 | Tag search | implemented and tested (`notes/search-by-tag`) | implemented and tested | not implemented |
 | Polls | implemented and tested (create + vote) | implemented and tested | not implemented (create rejects; UI hidden) |
-| Streaming | proxy configured; channels/client not implemented | proxy configured; channels/client not implemented | streaming exists; Keystone client not implemented |
+| Streaming | implemented and tested (Stage A client; API probes green; browser QA pending) | implemented and tested (Stage A client; API probes green; browser QA pending) | **not implemented** (stub modules only, `NoopStreamingSink`, no `/streaming` route; the client never opens a socket in pinetree mode) |
+
+## Streaming (Misskey / Sharkey only)
+
+Stage A client (`frontend/src/api/stream.ts`, native `WebSocket`, no extra
+dependencies) wires `main`, `homeTimeline`, `localTimeline`,
+`hybridTimeline`, `globalTimeline`, and `antenna` channels plus
+`subNote`/`unsubNote` note capture into timelines, note detail, and
+notifications. Pinetree has no `/streaming` route (its `src/streaming/`
+modules are empty stubs behind a `NoopStreamingSink` — verified in source),
+so the client stays fully disabled there: no socket, no UI change, feeds
+work exactly as before.
+
+- URL: same-origin `/streaming` through the Vite proxy (`ws:true`) with
+  `?i=<token>` (browsers cannot set WS headers; the server also accepts
+  `Authorization: Bearer` for non-browser clients). No token = guest
+  connection (public channels only).
+- Handshake gate (verified in `StreamingApiServerService.ts` on both):
+  app tokens **without `read:account` get HTTP 401**; suspended users get
+  403. The browser surfaces this as an opaque close, so after 5 consecutive
+  opens-closed-within-2s the client stops retrying and shows an explicit
+  error with a retry button instead of spinning forever.
+- Client → server: `connect {channel, id, params?, pong:true}`,
+  `disconnect {id}`, `subNote {id}` / `unsubNote {id}` (refcounted per note;
+  max ~1536 captured notes and 32 channels per connection — the client stays
+  far below both). Server → client: `connected {id}` (ack, only because
+  `pong:true` was sent), `channel {id, type, body}`, broadcast `noteUpdated
+  {id, type: reacted|unreacted|deleted|pollVoted, body}`.
+- Channel auth (identical on both — verified in each `channels/*.ts`):
+  `main`, `homeTimeline`, `hybridTimeline`, `antenna` require a credential
+  with `read:account`; `localTimeline`, `globalTimeline` are public.
+  Connecting to a channel the server won't serve is **silently ignored**
+  (no ack, socket stays open — e.g. a bogus `antennaId`, whose `init`
+  returns false). The client therefore treats a missing `connected` ack
+  after 10s as a stale subscription and reports "Live updates unavailable".
+  Unknown channel names log a server-side unhandled rejection but also
+  leave the connection open.
+- `noteUpdated` arrives only for captured notes; `deleted` carries
+  `{deletedAt}`. React/poll events carry the new reaction / vote choice,
+  but the client always re-reads the note from the API before rendering
+  (server reconciliation, not optimistic counts).
+- Server stale policy (verified in source): the server pings every 60s and
+  terminates connections idle >2min. Browsers answer ping/pong
+  automatically; the client additionally re-sends every subscribe on
+  reconnect with capped exponential backoff (1s → 30s + jitter).
+- Client rules: feeds never depend on the socket (paging + refresh are
+  unchanged); streamed notes prepend with an in-updater id check, so a
+  stream event racing a pending API response can never double-insert;
+  notifications only raise a "N new — Refresh" count (no unread model —
+  the backends pack no `isRead`). Suite: `scripts/smoke_streaming.py`.

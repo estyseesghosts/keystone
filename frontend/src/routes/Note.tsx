@@ -1,7 +1,8 @@
-import { createEffect, createSignal, For, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { A, useNavigate, useParams } from "@solidjs/router";
 import { apiCall } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
+import { captureNote } from "../api/stream";
 import { useAuth } from "../state/auth";
 import Composer from "../components/Composer";
 import ErrorState from "../components/ErrorState";
@@ -132,6 +133,52 @@ export default function NoteDetail() {
     const current = note();
     if (current) void load(current.id);
   };
+
+  // Quiet server reconciliation for streamed updates (no loading flash).
+  const refreshQuiet = async (id: string) => {
+    try {
+      setNote(await apiCall<Note>("notes/show", { noteId: id }));
+    } catch {
+      // Keep current state; the next refresh corrects it.
+    }
+  };
+
+  // Live capture for the open note: reactions/poll votes re-read the note
+  // from the server, deletion switches to an explicit deleted state.
+  // Replies have no streaming channel — the replies list still refreshes
+  // manually.
+  let capturedFor: string | null = null;
+  let capturedToken: string | null | undefined = undefined;
+  let releaseCapture: (() => void) | null = null;
+  createEffect(() => {
+    const id = params.id ?? "";
+    const token = auth.token();
+    if (!id) return;
+    if (id === capturedFor && token === capturedToken) return;
+    releaseCapture?.();
+    releaseCapture = null;
+    capturedFor = id;
+    capturedToken = token;
+    releaseCapture = captureNote(
+      id,
+      (update) => {
+        if (update.type === "deleted") {
+          setNote(null);
+          setError("This note was deleted.");
+        } else {
+          void refreshQuiet(id);
+        }
+      },
+      token,
+    );
+  });
+
+  onCleanup(() => {
+    releaseCapture?.();
+    releaseCapture = null;
+    capturedFor = null;
+    capturedToken = undefined;
+  });
 
   const toggleReaction = async (target: Note, reaction: string | null) => {
     if (!auth.token() || reacting()) return;

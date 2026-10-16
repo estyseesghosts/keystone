@@ -1,12 +1,15 @@
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
 import { A } from "@solidjs/router";
 import { apiCall, ApiError } from "../api/client";
 import type { NotificationItem } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
+import { subscribeChannel, useStreamState } from "../api/stream";
+import type { ChannelHandle } from "../api/stream";
 import { useAuth } from "../state/auth";
 import ErrorState from "../components/ErrorState";
 import LoadingState from "../components/LoadingState";
 import MfmRenderer from "../components/MfmRenderer";
+import StreamBadge from "../components/StreamBadge";
 
 const NOTIFICATIONS_PAGE_SIZE = 20;
 
@@ -64,6 +67,13 @@ export default function Notifications() {
   const [failedMode, setFailedMode] = createSignal<NotificationsLoadMode | null>(null);
   const [markingRead, setMarkingRead] = createSignal(false);
   const [markReadError, setMarkReadError] = createSignal<string | null>(null);
+  // Streamed `notification` events only raise a "new" count: the list
+  // itself still comes from the server (no fabricated unread state — the
+  // backends pack no isRead).
+  const [newCount, setNewCount] = createSignal(0);
+  const [channelHandle, setChannelHandle] = createSignal<ChannelHandle | null>(null);
+  const [streamNonce, setStreamNonce] = createSignal(0);
+  const stream = useStreamState();
 
   const load = async (mode: NotificationsLoadMode) => {
     if (busy()) return;
@@ -102,6 +112,9 @@ export default function Notifications() {
         setExhausted(false);
       }
       setFailedMode(null);
+      // A successful (re)load reconciles the list with the server, so any
+      // streamed "new" count is absorbed.
+      if (mode !== "older") setNewCount(0);
     } catch (err) {
       // Pagination failures keep the already-loaded items on screen; the
       // failed mode is remembered so "Try again" retries the same cursor.
@@ -143,11 +156,50 @@ export default function Notifications() {
     else setLoading(false);
   });
 
+  createEffect(() => {
+    const token = auth.token();
+    streamNonce();
+    untrack(() => channelHandle())?.dispose();
+    setChannelHandle(null);
+    if (!token) return;
+    setChannelHandle(
+      subscribeChannel(
+        "main",
+        undefined,
+        {
+          onEvent: (type) => {
+            // Count only `notification` (mentions/reactions also arrive as
+            // their own main-channel types — counting those too would
+            // double-count one server event).
+            if (type === "notification") setNewCount((n) => n + 1);
+          },
+        },
+        token,
+      ),
+    );
+  });
+
+  onCleanup(() => {
+    untrack(() => channelHandle())?.dispose();
+    setChannelHandle(null);
+  });
+
   return (
     <div>
       <div class="pagehead">
         <h1>Notifications</h1>
+        <StreamBadge channelStatus={() => channelHandle()?.status() ?? "disabled"} />
         <Show when={auth.token()}>
+          <Show when={newCount() > 0}>
+            <button type="button" onClick={() => void load("refresh")} disabled={loading() || loadingMore()}>
+              {newCount()} new — Refresh
+            </button>
+          </Show>
+          <Show when={stream.status() === "error"}>
+            <button type="button" onClick={() => setStreamNonce((n) => n + 1)}>
+              Retry live updates
+            </button>
+          </Show>
           <button type="button" onClick={() => void load("refresh")} disabled={loading() || loadingMore()}>Refresh</button>
           <button type="button" onClick={() => void markAllRead()} disabled={markingRead() || loading()}>
             {markingRead() ? "Marking…" : "Mark all read"}

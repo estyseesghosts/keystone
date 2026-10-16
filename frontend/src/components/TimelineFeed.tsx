@@ -1,11 +1,19 @@
-import { createEffect, createSignal, For, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
 import { apiCall, ApiError } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
+import {
+  captureNote,
+  subscribeChannel,
+  useStreamState,
+  STREAMING_SUPPORTED,
+} from "../api/stream";
+import type { ChannelHandle } from "../api/stream";
 import { useAuth } from "../state/auth";
 import Composer from "./Composer";
 import ErrorState from "./ErrorState";
 import LoadingState from "./LoadingState";
 import NoteCard from "./NoteCard";
+import StreamBadge from "./StreamBadge";
 
 export interface TimelineFeedProps {
   endpoint: string;
@@ -18,6 +26,37 @@ export interface TimelineFeedProps {
 }
 
 const PAGE_SIZE = 20;
+
+/** Feed endpoint -> streaming channel. Unknown endpoints get no socket. */
+function channelFor(
+  endpoint: string,
+  extraParams?: Record<string, unknown>,
+): { channel: string; params?: Record<string, unknown>; needsAuth: boolean } | null {
+  if (endpoint === "notes/timeline")
+    return { channel: "homeTimeline", needsAuth: true };
+  if (endpoint === "notes/local-timeline")
+    return { channel: "localTimeline", needsAuth: false };
+  if (endpoint === "notes/global-timeline")
+    return { channel: "globalTimeline", needsAuth: false };
+  if (endpoint === "antennas/notes") {
+    const antennaId = extraParams?.antennaId;
+    if (typeof antennaId === "string" && antennaId)
+      return { channel: "antenna", params: { antennaId }, needsAuth: true };
+  }
+  return null;
+}
+
+function isNoteLike(value: unknown): value is Note {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { id?: unknown }).id === "string"
+  );
+}
+
+// Only the newest notes get live capture: reactions/poll/deletion updates
+// for notes far down the list arrive via the next refresh instead.
+const CAPTURE_LIMIT = 50;
 
 type LoadMode = "initial" | "older" | "refresh";
 
@@ -34,6 +73,9 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   const [reactingId, setReactingId] = createSignal<string | null>(null);
   const [repostingId, setRepostingId] = createSignal<string | null>(null);
   const [repostedIds, setRepostedIds] = createSignal<string[]>([]);
+  const [channelHandle, setChannelHandle] = createSignal<ChannelHandle | null>(null);
+  const [streamNonce, setStreamNonce] = createSignal(0);
+  const stream = useStreamState();
 
   const load = async (mode: LoadMode) => {
     if (busy()) return;
@@ -118,6 +160,100 @@ export default function TimelineFeed(props: TimelineFeedProps) {
     setFailedMode(null);
     setUnsupported(false);
     void load("initial");
+  });
+
+  // Live updates (Stage A). The socket only *adds* events: paging +
+  // refresh above work with no socket, and every insert dedupes by id
+  // inside the updater, so a streamed note racing a pending API response
+  // can never appear twice.
+  const insertStreamedNote = (note: Note) => {
+    setNotes((current) =>
+      current.some((n) => n.id === note.id) ? current : [note, ...current],
+    );
+  };
+
+  createEffect(() => {
+    const fingerprint = JSON.stringify({
+      endpoint: props.endpoint,
+      extra: props.extraParams ?? {},
+    });
+    const token = auth.token();
+    streamNonce();
+    void fingerprint;
+    // Untracked: this effect *sets* the handle, so reading it tracked
+    // would retrigger the effect forever.
+    untrack(() => channelHandle())?.dispose();
+    setChannelHandle(null);
+    if (!STREAMING_SUPPORTED) return;
+    const spec = channelFor(props.endpoint, props.extraParams);
+    if (!spec) return;
+    if (spec.needsAuth && !token) return;
+    setChannelHandle(
+      subscribeChannel(
+        spec.channel,
+        spec.params,
+        {
+          onEvent: (type, body) => {
+            if (type === "note" && isNoteLike(body)) insertStreamedNote(body);
+          },
+        },
+        token,
+      ),
+    );
+  });
+
+  // Live capture for the newest visible notes: reactions/poll votes
+  // reconcile from the server, deletions remove the note in place.
+  const captured = new Map<string, () => void>();
+  let captureToken: string | null | undefined = undefined;
+  let capturePrimed = false;
+  createEffect(() => {
+    const token = auth.token();
+    const ids = notes()
+      .slice(0, CAPTURE_LIMIT)
+      .map((n) => n.id);
+    const wanted = new Set(ids);
+    if (capturePrimed && token !== captureToken) {
+      // Session changed (sign-in/out): captures hold the old token, so
+      // release everything and recapture below under the new one.
+      for (const release of captured.values()) release();
+      captured.clear();
+    }
+    captureToken = token;
+    capturePrimed = true;
+    for (const [id, release] of [...captured]) {
+      if (!wanted.has(id)) {
+        release();
+        captured.delete(id);
+      }
+    }
+    for (const id of ids) {
+      if (!captured.has(id)) {
+        captured.set(
+          id,
+          captureNote(
+            id,
+            (update) => {
+              if (update.type === "deleted") {
+                setNotes((current) => current.filter((n) => n.id !== id));
+                captured.get(id)?.();
+                captured.delete(id);
+              } else {
+                void refreshNote(id);
+              }
+            },
+            auth.token(),
+          ),
+        );
+      }
+    }
+  });
+
+  onCleanup(() => {
+    untrack(() => channelHandle())?.dispose();
+    setChannelHandle(null);
+    for (const release of captured.values()) release();
+    captured.clear();
   });
 
   const refreshNote = async (id: string) => {
@@ -221,6 +357,12 @@ export default function TimelineFeed(props: TimelineFeedProps) {
     <div>
       <div class="pagehead">
         <h1>{props.title}</h1>
+        <StreamBadge channelStatus={() => channelHandle()?.status() ?? "disabled"} />
+        <Show when={stream.status() === "error"}>
+          <button type="button" onClick={() => setStreamNonce((n) => n + 1)}>
+            Retry live updates
+          </button>
+        </Show>
         <button type="button" onClick={() => void load("refresh")} disabled={loading() || loadingMore()}>
           Refresh
         </button>
