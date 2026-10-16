@@ -1,6 +1,6 @@
 # STATE — resume pointer (mutable, keep current)
 
-**HEAD:** `d7860f4` (unpushed) — mutes & blocks + word-mute parity
+**HEAD:** `0b39c02` (pushed 2026-10-16) — mutes & blocks + word-mute parity
 (see logs `2026-10-16-mutes-blocks.md`, `2026-10-16-wordmute-parity.md`);
 tree clean except owner artifacts (screenshots, `.serena/`, `kobalte.md`,
 `scripts/smoke_parity.py`, all untracked).
