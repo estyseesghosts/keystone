@@ -193,13 +193,19 @@ export default function NoteDetail() {
     }
   };
 
-  const toggleReaction = async (target: Note, reaction: string | null) => {
+  const setReaction = async (target: Note, reaction: string | null) => {
+    // Set-semantics: the caller's desired end state. The server rejects
+    // reacting twice (ALREADY_REACTED), so changing from one reaction to
+    // another deletes first, then creates.
     if (!auth.token() || reacting()) return;
+    const current = target.myReaction;
+    if (!current && !reaction) return;
     setReacting(true);
     try {
-      if (reaction === null || target.myReaction) {
+      if (current) {
         await apiCall<undefined>("notes/reactions/delete", { noteId: target.id });
-      } else {
+      }
+      if (reaction && reaction !== current) {
         await apiCall<undefined>("notes/reactions/create", { noteId: target.id, reaction });
       }
       await refreshPage();
@@ -292,7 +298,7 @@ export default function NoteDetail() {
                 </Show>
                 <NoteCard
                   note={current()}
-                  onToggleReaction={auth.token() ? toggleReaction : undefined}
+                  onToggleReaction={auth.token() ? setReaction : undefined}
                   reacting={reacting()}
                   onRepost={auth.token() ? repost : undefined}
                   onUnrepost={auth.token() ? unrepost : undefined}

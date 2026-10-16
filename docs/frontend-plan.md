@@ -48,9 +48,14 @@ executed evidence.
 - [x] Compose text note (`notes/create`, reply via `replyId`, renote via
       `renoteId`, quote = text + `renoteId`); 3,000-char limit; `public` default
       (`public`/`home`/`followers`)
-- [x] React/unreact (honor `myReaction`; counts re-verified from server);
-      repost single-fire with persistent state; follow/unfollow (response is
-      `UserLite`); delete own note (204 path)
+- [x] React/unreact (honor `myReaction`; counts reconciled from server,
+      no optimistic counts): Misskey-style chips row (emoji + count, no
+      deadspace when empty, hearts excluded) above the actions; like
+      button (heart + total `reactionCount`, ❤ only) plus a stateless
+      smiley emoji-picker button; changing reactions deletes-then-creates
+      (server rejects double-reacts); `visibleReactions` tolerates
+      transient null maps; repost single-fire with persistent state;
+      follow/unfollow (response is `UserLite`); delete own note (204 path)
 - [x] Renote vs quote (Misskey `is-renote.ts` semantics): pure reposts render
       retweet-style (`X reposted` banner + the original; all actions target
       the original — the server rejects renoting/replying to a wrapper);

@@ -4,7 +4,7 @@ import type { Note, UserLite } from "../api/types";
 import { appearNoteOf, displayNameOf, handleOf, isPureRenote } from "../api/types";
 import NoteBody, { Avatar } from "./NoteBody";
 import { HeartIcon, ReplyIcon, RepostIcon } from "./icons";
-import ReactionPicker from "./ReactionPicker";
+import { EmojiButton, LikeButton, ReactionChips, HEART_REACTION, isHeartReaction } from "./ReactionPicker";
 
 function formatTime(iso: string): string {
   const t = new Date(iso).getTime();
@@ -51,7 +51,9 @@ function RepostBanner(props: { users: UserLite[] }) {
 
 export interface NoteCardProps {
   note: Note;
-  /** Reaction toggle: `reaction` set to add, null to remove. */
+  /** Set the viewer's reaction: `reaction` for the desired end state
+   * (the caller deletes-then-creates as needed — the server rejects
+   * reacting twice), null to remove. Callers pass the displayed note. */
   onToggleReaction?: (note: Note, reaction: string | null) => void;
   reacting?: boolean;
   onRepost?: (note: Note) => void;
@@ -129,6 +131,12 @@ export default function NoteCard(props: NoteCardProps) {
 
         <NoteBody note={shown()} canVote={loggedIn()} onChanged={props.onChanged} />
 
+        <ReactionChips
+          note={shown()}
+          onToggle={props.onToggleReaction ? (reaction) => props.onToggleReaction?.(shown(), reaction) : undefined}
+          disabled={props.reacting}
+        />
+
         <div class="noteactions">
           <A class="action" href={`/notes/${shown().id}`} aria-label="Open note">
             <ReplyIcon /> {shown().repliesCount}
@@ -187,18 +195,24 @@ export default function NoteCard(props: NoteCardProps) {
             </div>
           </Show>
           <Show when={props.onToggleReaction} fallback={
-            <span class="action" aria-label="Reactions">
-              <HeartIcon filled={shown().myReaction != null} /> {shown().reactionCount}
+            <span class="action" aria-label="Likes">
+              <HeartIcon filled={isHeartReaction(shown().myReaction)} /> {shown().reactionCount}
             </span>
           }>
-            <ReactionPicker
-              counts={shown().reactions}
+            <LikeButton
+              note={shown()}
+              disabled={props.reacting}
+              onToggle={() => props.onToggleReaction?.(
+                shown(),
+                isHeartReaction(shown().myReaction) ? null : HEART_REACTION,
+              )}
+            />
+            <EmojiButton
               myReaction={shown().myReaction}
               disabled={props.reacting}
               onPick={(reaction) => props.onToggleReaction?.(shown(), reaction)}
               onUnreact={() => props.onToggleReaction?.(shown(), null)}
             />
-            <span class="action" aria-label="Reaction count">{shown().reactionCount}</span>
           </Show>
         </div>
       </div>

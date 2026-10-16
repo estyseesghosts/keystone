@@ -90,10 +90,16 @@ Previously scoped next: human browser QA pass (owner-handled).
   the toolbar fill in all states); tsc + build green; committed + pushed
   with the two pending quote slices (see log `2026-10-16-quote-fixes.md`).
   Visual confirmation still needs the owner browser pass.
+- 2026-10-16 (reactions): Misskey-style chips row + like/emoji split
+  (stateless smiley picker button, hearts like-only, delete-then-create
+  set-semantics, server-reconciled counts); 10/10 helper checks, live
+  like/switch/remove verified both servers, tsc + build green (see log
+  `2026-10-16-reactions.md`).
 - 2026-10-16 (repost-collapse): feeds hide an original shown with its pure
   reposts (first repost wins, banner aggregates renoters); quotes never
   collapse; `collapseReposts` extracted pure + 16/16 checks, tsc + build
-  green (see log `2026-10-16-repost-collapse.md`). Uncommitted.
+  green (see log `2026-10-16-repost-collapse.md`). Committed + pushed
+  as `7d0392d`.
 
 ## Servers running (background, dev only)
 

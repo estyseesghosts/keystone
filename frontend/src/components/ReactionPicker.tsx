@@ -1,14 +1,103 @@
-import { createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
+import type { Note } from "../api/types";
+import { HeartIcon, SmileIcon } from "./icons";
 
-/** Common Unicode reactions. The server normalizes ❤️ (U+2764 U+FE0F) to ❤
- * (U+2764), so the normalized form is listed first — optimistic client
- * state then matches the reconciled server state exactly. Servers coerce
- * other unknown reactions per their own rules. Custom emoji codes can be
- * typed exactly (e.g. :blobcat:) when the instance hosts them. */
-export const COMMON_REACTIONS = ["❤", "👍", "😆", "🤔", "😮", "🎉", "💢", "😥", "😇", "🍮"];
+/** The like reaction. The server normalizes ❤️ (U+2764 U+FE0F) to ❤
+ * (U+2764), so the normalized form is canonical — optimistic client
+ * state then matches the reconciled server state exactly. */
+export const HEART_REACTION = "❤";
 
-export default function ReactionPicker(props: {
-  counts: Record<string, number>;
+export function isHeartReaction(reaction: string | null): boolean {
+  return reaction === "❤" || reaction === "❤️";
+}
+
+/** Chips-row entries: every reaction with a positive count except hearts
+ * (hearts live on the like button only), sorted by count descending.
+ * Tolerates a null/undefined map (servers can transiently pack one). */
+export function visibleReactions(
+  reactions: Record<string, number> | null | undefined,
+): [string, number][] {
+  return Object.entries(reactions ?? {})
+    .filter(([key, count]) => count > 0 && !isHeartReaction(key))
+    .sort((a, b) => b[1] - a[1]);
+}
+
+/** Misskey-style reaction chips above the action bar: emoji + numeric
+ * count each, rendered only when at least one non-heart reaction exists
+ * (no deadspace otherwise). Clicking a chip toggles it; without a toggle
+ * handler the chips are static. */
+export function ReactionChips(props: {
+  note: Note;
+  onToggle?: (reaction: string | null) => void;
+  disabled?: boolean;
+}) {
+  const entries = createMemo(() => visibleReactions(props.note.reactions));
+  return (
+    <Show when={entries().length > 0}>
+      <div class="reactions" aria-label="Reactions">
+        <For each={entries()}>
+          {([key, count]) => {
+            const mine = () => props.note.myReaction === key;
+            const label = mine() ? `Remove ${key} reaction` : `React ${key}`;
+            return props.onToggle ? (
+              <button
+                type="button"
+                class={mine() ? "rxn mine" : "rxn"}
+                aria-pressed={mine()}
+                aria-label={label}
+                title={label}
+                disabled={props.disabled}
+                onClick={() => props.onToggle!(mine() ? null : key)}
+              >
+                {key} {count}
+              </button>
+            ) : (
+              <span class="rxn">
+                {key} {count}
+              </span>
+            );
+          }}
+        </For>
+      </div>
+    </Show>
+  );
+}
+
+/** The like button: filled heart + total count when the viewer liked,
+ * outline + total count otherwise. The count is the server's
+ * `reactionCount`, which includes every reaction kind (hearts included).
+ * A like is a like — this button only ever adds or removes ❤. */
+export function LikeButton(props: {
+  note: Note;
+  disabled?: boolean;
+  onToggle: () => void;
+}) {
+  const liked = () => isHeartReaction(props.note.myReaction);
+  return (
+    <button
+      type="button"
+      class={liked() ? "action active" : "action"}
+      aria-pressed={liked()}
+      aria-label={liked() ? "Unlike" : "Like"}
+      title={liked() ? "Liked — remove" : "Like"}
+      disabled={props.disabled}
+      onClick={props.onToggle}
+    >
+      <HeartIcon filled={liked()} /> {props.note.reactionCount}
+    </button>
+  );
+}
+
+/** Emoji reactions other than ❤. Preset + custom-emoji codes can be typed
+ * exactly (e.g. :blobcat:) when the instance hosts them; servers coerce
+ * unknown reactions per their own rules. */
+export const COMMON_REACTIONS = ["👍", "😆", "🤔", "😮", "🎉", "💢", "😥", "😇", "🍮"];
+
+/** Separate emoji-reaction button next to the like button. Always the same
+ * smiley glyph in the same style — it carries no reacted state because a
+ * set reaction already shows highlighted in the chips row. Opens the
+ * picker for any other emoji reaction. */
+export function EmojiButton(props: {
   myReaction: string | null;
   disabled?: boolean;
   onPick: (reaction: string) => void;
@@ -16,6 +105,23 @@ export default function ReactionPicker(props: {
 }) {
   const [custom, setCustom] = createSignal("");
   const [open, setOpen] = createSignal(false);
+
+  // The popup closes on outside click or Escape.
+  createEffect(() => {
+    if (!open()) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest?.(".emojwrap")) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("click", onDocClick);
+    document.addEventListener("keydown", onKey);
+    onCleanup(() => {
+      document.removeEventListener("click", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    });
+  });
 
   const submitCustom = () => {
     const value = custom().trim();
@@ -26,20 +132,21 @@ export default function ReactionPicker(props: {
   };
 
   return (
-    <Show when={props.myReaction} fallback={
-      <Show when={open()} fallback={
-        <button
-          type="button"
-          class="action"
-          disabled={props.disabled}
-          onClick={() => setOpen(true)}
-          aria-label="Choose a reaction"
-          title="React"
-        >
-          ♡
-        </button>
-      }>
-        <div class="reactpicker" role="dialog" aria-label="Choose a reaction">
+    <span class="emojwrap">
+      <button
+        type="button"
+        class="action"
+        aria-haspopup="dialog"
+        aria-expanded={open()}
+        aria-label="Emoji reaction"
+        title="Emoji reaction"
+        disabled={props.disabled}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <SmileIcon />
+      </button>
+      <Show when={open()}>
+        <div class="reactpicker popup" role="dialog" aria-label="Choose a reaction">
           <For each={COMMON_REACTIONS}>
             {(r) => (
               <button
@@ -47,9 +154,9 @@ export default function ReactionPicker(props: {
                 disabled={props.disabled}
                 onClick={() => { setOpen(false); props.onPick(r); }}
                 aria-label={`React ${r}`}
-                title={`${r}${props.counts[r] ? ` (${props.counts[r]})` : ""}`}
+                title={`React ${r}`}
               >
-                {r}{props.counts[r] ? ` ${props.counts[r]}` : ""}
+                {r}
               </button>
             )}
           </For>
@@ -68,20 +175,18 @@ export default function ReactionPicker(props: {
               Send
             </button>
           </form>
+          <Show when={props.myReaction}>
+            <button
+              type="button"
+              disabled={props.disabled}
+              onClick={() => { setOpen(false); props.onUnreact(); }}
+            >
+              Remove reaction
+            </button>
+          </Show>
           <button type="button" onClick={() => setOpen(false)}>Close</button>
         </div>
       </Show>
-    }>
-      <button
-        type="button"
-        class="action active"
-        disabled={props.disabled}
-        onClick={props.onUnreact}
-        aria-label={`Remove reaction ${props.myReaction}`}
-        title={`Reacted ${props.myReaction} — remove`}
-      >
-        ♥ {props.myReaction}
-      </button>
-    </Show>
+    </span>
   );
 }
