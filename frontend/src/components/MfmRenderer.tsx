@@ -91,7 +91,7 @@ function MentionLink(props: { acct: string; username: string; host: string | nul
           >
             <img class="mchip-avatar" src={resolved().avatarUrl!} alt="" loading="lazy" />
           </Show>
-          <span class="mchip-name"><DisplayName name={headNameOf(resolved())} packed={resolved().emojis} /></span>
+          <span class="mchip-name"><DisplayName name={headNameOf(resolved())} packed={resolved().emojis} host={resolved().host} /></span>
         </A>
       )}
     </Show>
@@ -101,6 +101,7 @@ function MentionLink(props: { acct: string; username: string; host: string | nul
 function renderNode(
   node: MfmNode,
   packed?: Record<string, string> | null,
+  host?: string | null,
 ): JSX.Element {
   switch (node.type) {
     case "text":
@@ -113,7 +114,7 @@ function renderNode(
           <For each={splitRemoteEmojiCodes(node.props.text)}>
             {(part) =>
               part.kind === "remote" ? (
-                <EmojiGlyph emoji={part.code} packed={packed} />
+                <EmojiGlyph emoji={part.code} packed={packed} host={host} />
               ) : (
                 <>{part.text}</>
               )
@@ -128,25 +129,25 @@ function renderNode(
     case "bold":
       return (
         <strong>
-          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed, host)}</For>
         </strong>
       );
     case "italic":
       return (
         <em>
-          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed, host)}</For>
         </em>
       );
     case "strike":
       return (
         <del>
-          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed, host)}</For>
         </del>
       );
     case "small":
       return (
         <small>
-          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed, host)}</For>
         </small>
       );
     case "inlineCode":
@@ -160,7 +161,7 @@ function renderNode(
     case "quote":
       return (
         <blockquote>
-          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed, host)}</For>
         </blockquote>
       );
     case "mention":
@@ -196,7 +197,7 @@ function renderNode(
       return (
         <span class="mchip">
           <ExternalLink url={node.props.url}>
-            <For each={node.children}>{(child) => renderNode(child, packed)}</For>
+            <For each={node.children}>{(child) => renderNode(child, packed, host)}</For>
           </ExternalLink>
         </span>
       );
@@ -207,7 +208,7 @@ function renderNode(
       // URL. Rendered through EmojiGlyph so a dead packed URL falls
       // through to the live listings instead of a broken image.
       const code = `:${node.props.name}:`;
-      return <EmojiGlyph emoji={code} packed={packed} />;
+      return <EmojiGlyph emoji={code} packed={packed} host={host} />;
     }
     case "unicodeEmoji":
       return <span>{node.props.emoji}</span>;
@@ -216,7 +217,7 @@ function renderNode(
       // Styling functions have no monochrome equivalent: render children.
       return (
         <span>
-          <For each={node.children}>{(child) => renderNode(child, packed)}</For>
+          <For each={node.children}>{(child) => renderNode(child, packed, host)}</For>
         </span>
       );
     case "search":
@@ -234,6 +235,8 @@ export default function MfmRenderer(props: {
   /** Owning object's packed map (`note.emojis`) — exact URLs for the
    * codes in this text, including remote emoji. */
   emojis?: Record<string, string> | null;
+  /** Author's host for host-less codes typed on a remote instance. */
+  host?: string | null;
 }) {
   const nodes = createMemo<MfmNode[]>(() => {
     const text = props.text ?? "";
@@ -247,7 +250,7 @@ export default function MfmRenderer(props: {
 
   return (
     <Show when={nodes().length > 0} fallback={<>{props.text ?? ""}</>}>
-      <For each={nodes()}>{(node) => renderNode(node, props.emojis)}</For>
+      <For each={nodes()}>{(node) => renderNode(node, props.emojis, props.host)}</For>
     </Show>
   );
 }

@@ -115,7 +115,7 @@ export function NotificationRow(props: { item: NotificationItem }) {
           >
             <A class="namelink" href={`/users/${n().user!.id}`}>
               <span class="name">
-                <DisplayName name={headNameOf(n().user!)} packed={n().user!.emojis} />
+                <DisplayName name={headNameOf(n().user!)} packed={n().user!.emojis} host={n().user!.host} />
               </span>
               <Show when={hasRealDisplayName(n().user!)}>
                 <span class="handle">{handleOf(n().user!)}</span>
@@ -129,7 +129,7 @@ export function NotificationRow(props: { item: NotificationItem }) {
           <Show when={n().reaction}>
             {(reaction) => (
               <>
-                {" "}<EmojiGlyph emoji={reaction()} packed={n().note?.reactionEmojis} />
+                {" "}<EmojiGlyph emoji={reaction()} packed={n().note?.reactionEmojis} host={n().note?.user.host} />
               </>
             )}
           </Show>
@@ -140,7 +140,7 @@ export function NotificationRow(props: { item: NotificationItem }) {
           </Show>
         }>
           <div class="notebody">
-            <MfmRenderer text={n().note!.text} emojis={n().note!.emojis} />
+            <MfmRenderer text={n().note!.text} emojis={n().note!.emojis} host={n().note!.user.host} />
           </div>
         </Show>
         <Show when={n().note}>
@@ -176,7 +176,7 @@ export function GroupedNotificationRow(props: { item: GroupedNotificationItem })
                   <span>
                     {i() > 0 ? ", " : ""}
                     <A class="namelink" href={`/users/${u.id}`}>
-                      <DisplayName name={headNameOf(u)} packed={u.emojis} />
+                      <DisplayName name={headNameOf(u)} packed={u.emojis} host={u.host} />
                     </A>
                   </span>
                 )}
@@ -196,7 +196,7 @@ export function GroupedNotificationRow(props: { item: GroupedNotificationItem })
             {countNoun()} reacted to your note{" "}
             <For each={[...new Set((n().reactions ?? []).map((r) => r.reaction))].slice(0, 5)}>
               {(emoji) => (
-                <><EmojiGlyph emoji={emoji} packed={n().note?.reactionEmojis} />{" "}</>
+                <><EmojiGlyph emoji={emoji} packed={n().note?.reactionEmojis} host={n().note?.user.host} />{" "}</>
               )}
             </For>
           </Show>

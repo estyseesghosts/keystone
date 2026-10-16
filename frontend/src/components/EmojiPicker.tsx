@@ -53,22 +53,29 @@ const RESULT_CAP = 60;
 const CATEGORY_GRID_CAP = 120;
 
 /** One emoji glyph: the packed per-object URL when given (and known),
- * else the remote host's listing for `:name@host:` codes, else the local
- * hosted image from the global listing, else the literal text (never a
- * fabricated URL — and never a local lookalike for a remote code). The
- * image carries the code as alt text so assistive tech hears the same
- * thing sighted users see. Host listings load on first encounter and the
- * glyph swaps in reactively when they land.
+ * else the remote host's listing for `:name@host:` codes, else the
+ * origin host's listing for host-less codes in remote-authored content
+ * (`host`), else the local hosted image from the global listing, else
+ * the literal text (never a fabricated URL — and never a local
+ * lookalike for a remote code). The image carries the code as alt text
+ * so assistive tech hears the same thing sighted users see. Host
+ * listings load on first encounter and the glyph swaps in reactively
+ * when they land.
  *
  * A packed URL that fails to load (stale remote file, deleted emoji,
  * hotlink refusal) falls through to the next live source instead of
- * sticking a broken image on screen: packed → remote listing → local
+ * sticking a broken image on screen: packed → host listing(s) → local
  * listing → literal text. Dead URLs are remembered per mount so each
  * source is tried at most once; a listing that lands later still gets
  * its chance. */
 export function EmojiGlyph(props: {
   emoji: string;
   packed?: Record<string, string> | null;
+  /** Origin host hint for host-less codes (`user.host` of the content
+   * author): a `:code:` typed on instance H means H's emoji, so H's
+   * public listing is consulted before the viewer's local one. Local
+   * (null) authors skip it — the local listing already covers them. */
+  host?: string | null;
 }) {
   const [dead, setDead] = createSignal<ReadonlySet<string>>(new Set());
   const candidates = createMemo(() => {
@@ -81,6 +88,13 @@ export function EmojiGlyph(props: {
     if (parsed && !isLocalEmojiHost(parsed.host)) {
       ensureHostEmojis(parsed.host!);
       push(remoteEmojiUrl(parsed.host!, parsed.name));
+    } else if (parsed) {
+      const hint = props.host?.trim() ?? "";
+      if (hint.length > 0 && !isLocalEmojiHost(hint)) {
+        ensureHostEmojis(hint);
+        push(remoteEmojiUrl(hint, parsed.name));
+      }
+      push(customEmojiUrl(props.emoji));
     } else {
       push(customEmojiUrl(props.emoji));
     }
@@ -117,11 +131,13 @@ export function EmojiGlyph(props: {
 /** Plain text with hosted `:code:` custom emoji substituted inline
  * (display names, content warnings, unfurl-card bios). `packed` is the
  * owning object's packed map (`user.emojis`, `note.emojis`) — exact
- * intent, including remote emoji; the global listing is the fallback.
- * Unknown codes stay literal; remote `:name@host:` codes never split. */
+ * intent, including remote emoji; `host` is the author's host for
+ * host-less codes typed on a remote instance; the global listing is the
+ * fallback. Unknown codes stay literal; remote `:name@host:` codes never split. */
 export function DisplayName(props: {
   name: string;
   packed?: Record<string, string> | null;
+  host?: string | null;
 }) {
   const parts = createMemo((): NamePart[] => splitNameEmojis(props.name));
   return (
@@ -130,7 +146,7 @@ export function DisplayName(props: {
         part.kind === "text" ? (
           <>{part.text}</>
         ) : (
-          <EmojiGlyph emoji={part.code} packed={props.packed} />
+          <EmojiGlyph emoji={part.code} packed={props.packed} host={props.host} />
         )
       }
     </For>

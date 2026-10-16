@@ -226,7 +226,7 @@ export default function UserHover(props: { user: UserLite; children: JSX.Element
                     <Avatar url={props.user.avatarUrl} name={displayNameOf(props.user)} />
                   </span>
                 </span>
-                <span class="hovercard-name"><DisplayName name={headNameOf(props.user)} packed={props.user.emojis} /></span>
+                <span class="hovercard-name"><DisplayName name={headNameOf(props.user)} packed={props.user.emojis} host={props.user.host} /></span>
                 <Show when={hasRealDisplayName(props.user)}>
                   <span class="handle">{handleOf(props.user)}</span>
                 </Show>
@@ -279,7 +279,7 @@ export default function UserHover(props: { user: UserLite; children: JSX.Element
                     </Show>
                   </span>
                   <A class="hovercard-name" href={`/users/${detailed().id}`}>
-                    <DisplayName name={displayNameOf(detailed())} packed={detailed().emojis} />
+                    <DisplayName name={displayNameOf(detailed())} packed={detailed().emojis} host={detailed().host} />
                   </A>
                   <span class="handle">
                     {handleOf(detailed())}
@@ -287,7 +287,7 @@ export default function UserHover(props: { user: UserLite; children: JSX.Element
                     {detailed().isBot ? " · automated" : ""}
                   </span>
                   <Show when={detailed().description}>
-                    <span class="hovercard-bio"><DisplayName name={detailed().description ?? ""} packed={detailed().emojis} /></span>
+                    <span class="hovercard-bio"><DisplayName name={detailed().description ?? ""} packed={detailed().emojis} host={detailed().host} /></span>
                   </Show>
                   <span
                     class="handle hovercard-stats"

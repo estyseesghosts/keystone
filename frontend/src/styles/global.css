@@ -399,6 +399,11 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 0.13em;
+  /* Layered opaque background: the solid color holds even if the
+   * variable ever fails to resolve, so a floating menu can never go
+   * see-through over page content. Same pattern on every overlay
+   * surface below. */
+  background: #fff;
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 12px;
@@ -957,6 +962,7 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 0.13em;
+  background: #fff;
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 8px;
@@ -1154,6 +1160,7 @@ textarea::placeholder {
   display: block;
   width: 300px;
   max-width: min(300px, calc(100vw - 32px));
+  background: #fff;
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 12px;
@@ -1413,6 +1420,7 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 0.13em;
+  background: #fff;
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 8px;
@@ -2000,6 +2008,7 @@ button.rxn:not(:disabled):hover {
   max-width: min(340px, calc(100vw - 32px));
   max-height: min(420px, 60vh);
   overflow-y: auto;
+  background: #fff;
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 12px;
@@ -2899,6 +2908,7 @@ img.emojiglyph {
   z-index: 30;
   min-width: 18.67em;
   max-width: min(21.33em, calc(100vw - 32px));
+  background: #fff;
   background: var(--bg);
   border: 1px solid var(--edge);
   border-radius: 12px;

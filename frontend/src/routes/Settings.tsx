@@ -179,7 +179,7 @@ export function AccountSettings() {
                 : `${auth.backendLabel} (${BACKEND_URL})`}
             </p>
             <p>
-              <DisplayName name={headNameOf(user())} packed={user().emojis} />
+              <DisplayName name={headNameOf(user())} packed={user().emojis} host={user().host} />
               <Show when={hasRealDisplayName(user())}>
                 <> ({handleOf(user())})</>
               </Show>

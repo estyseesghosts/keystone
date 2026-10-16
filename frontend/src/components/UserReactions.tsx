@@ -97,7 +97,7 @@ export default function UserReactions(props: { userId: string; isRemote: boolean
                         <div class="notif">
                           <div class="notif-main">
                             <div class="notif-desc">
-                              <EmojiGlyph emoji={r.type} />
+                              <EmojiGlyph emoji={r.type} packed={r.note?.reactionEmojis} host={r.note?.user.host} />
                               {" "}on{" "}
                               <Show when={r.note} fallback={
                                 <span class="handle">a note you cannot see</span>
@@ -105,7 +105,7 @@ export default function UserReactions(props: { userId: string; isRemote: boolean
                                 <A class="action" href={`/notes/${r.note!.id}`}>a note</A>
                                 <Show when={r.note!.user}>
                                   <span class="handle">
-                                    {" "}by <DisplayName name={r.note!.user.name ?? r.note!.user.username} packed={r.note!.user.emojis} />
+                                    {" "}by <DisplayName name={r.note!.user.name ?? r.note!.user.username} packed={r.note!.user.emojis} host={r.note!.user.host} />
                                   </span>
                                 </Show>
                               </Show>

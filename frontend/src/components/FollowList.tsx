@@ -201,7 +201,7 @@ export default function FollowList(props: { userId: string; mode: "followers" | 
               {(u) => (
                 <div class="notif">
                   <A class="namelink" href={`/users/${u.id}`}>
-                    <span class="name"><DisplayName name={headNameOf(u)} packed={u.emojis} /></span>
+                    <span class="name"><DisplayName name={headNameOf(u)} packed={u.emojis} host={u.host} /></span>
                     <Show when={hasRealDisplayName(u)}>
                       <span class="handle">{handleOf(u)}</span>
                     </Show>

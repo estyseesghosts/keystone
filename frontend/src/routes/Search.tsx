@@ -150,7 +150,7 @@ export default function Search() {
             {(u) => (
               <div class="drivefile">
                 <div style={{ flex: 1 }}>
-                  <A href={`/users/${u.id}`}><strong><DisplayName name={headNameOf(u)} packed={u.emojis} /></strong></A>
+                  <A href={`/users/${u.id}`}><strong><DisplayName name={headNameOf(u)} packed={u.emojis} host={u.host} /></strong></A>
                   <Show when={hasRealDisplayName(u)}>
                     <div class="handle">{handleOf(u)}</div>
                   </Show>

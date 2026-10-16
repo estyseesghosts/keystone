@@ -41,7 +41,7 @@ function QuoteHead(props: { note: Note }) {
   return (
     <div class="renote-head">
       <Avatar url={props.note.user.avatarUrl} name={displayNameOf(props.note.user)} />
-      <span class="name"><DisplayName name={headNameOf(props.note.user)} packed={props.note.user.emojis} /></span>
+      <span class="name"><DisplayName name={headNameOf(props.note.user)} packed={props.note.user.emojis} host={props.note.user.host} /></span>
       <Show
         when={hasRealDisplayName(props.note.user)}
         fallback={<span class="handle">{formatTime(props.note.createdAt)}</span>}
@@ -158,7 +158,7 @@ function PollBlock(props: { note: Note; canVote: boolean; onChanged?: () => void
             onClick={() => void vote(i())}
             aria-label={voted() || !props.canVote ? `${choice.text}: ${choice.votes} votes` : `Vote for ${choice.text}`}
           >
-            <span>{choice.isVoted ? "✓ " : ""}<DisplayName name={choice.text} packed={props.note.emojis} /></span>
+            <span>{choice.isVoted ? "✓ " : ""}<DisplayName name={choice.text} packed={props.note.emojis} host={props.note.user.host} /></span>
             <span class="handle">{choice.votes}</span>
           </button>
         )}
@@ -394,7 +394,7 @@ export default function NoteBody(props: NoteBodyProps) {
     <>
       <Show when={hasCw()}>
         <div class="cwbox">
-          <p><DisplayName name={props.note.cw ?? ""} packed={props.note.emojis} /></p>
+          <p><DisplayName name={props.note.cw ?? ""} packed={props.note.emojis} host={props.note.user.host} /></p>
           <button type="button" onClick={() => setCwOpen((v) => !v)}>
             {cwOpen() ? "Hide" : "Show"}
           </button>
@@ -409,6 +409,7 @@ export default function NoteBody(props: NoteBodyProps) {
             visible={visible()}
             foldText={folds()}
             emojis={props.note.emojis}
+            host={props.note.user.host}
           />
         </div>
         <Show when={props.note.files.length > 0}>

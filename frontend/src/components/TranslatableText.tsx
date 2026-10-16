@@ -44,6 +44,8 @@ export default function TranslatableText(props: {
   /** Owning note's packed map, passed to the renderer (translated text
    * falls back to the global listing, then literal). */
   emojis?: Record<string, string> | null;
+  /** Note author's host, for host-less codes typed on a remote instance. */
+  host?: string | null;
 }) {
   const [capable, setCapable] = createSignal(false);
   const [forceOriginal, setForceOriginal] = createSignal(false);
@@ -107,7 +109,7 @@ export default function TranslatableText(props: {
         )}
       </Show>
       <div class="trans-text">
-        <MfmRenderer text={folded().text} emojis={props.emojis} />
+        <MfmRenderer text={folded().text} emojis={props.emojis} host={props.host} />
         <Show when={folded().truncated}>
           <span class="foldmore">… <A href={`/notes/${props.noteId}`}>Open post</A></span>
         </Show>

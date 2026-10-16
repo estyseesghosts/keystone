@@ -282,7 +282,7 @@ function DetailedCard(props: { initial: UserDetailed }) {
           <Avatar url={user().avatarUrl} name={displayNameOf(user())} />
         </A>
         <div class="profilecard-id">
-          <span class="name"><DisplayName name={headNameOf(user())} packed={user().emojis} /></span>
+          <span class="name"><DisplayName name={headNameOf(user())} packed={user().emojis} host={user().host} /></span>
           <Show when={hasRealDisplayName(user())}>
             <span class="handle">{handleOf(user())}</span>
           </Show>
@@ -293,7 +293,7 @@ function DetailedCard(props: { initial: UserDetailed }) {
         </Show>
       </div>
       <Show when={user().description}>
-        <p class="bio"><DisplayName name={user().description ?? ""} packed={user().emojis} /></p>
+        <p class="bio"><DisplayName name={user().description ?? ""} packed={user().emojis} host={user().host} /></p>
       </Show>
       <StatsLine
         followers={user().followersCount}

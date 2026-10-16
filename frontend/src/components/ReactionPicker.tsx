@@ -20,6 +20,7 @@ function Chip(props: {
   count: () => number;
   mine: () => boolean;
   packed?: Record<string, string> | null;
+  host?: string | null;
   onToggle?: (reaction: string | null) => void;
 }) {
   const label = () =>
@@ -27,7 +28,7 @@ function Chip(props: {
   return (
     <Show when={props.onToggle} fallback={
       <span class="rxn">
-        <EmojiGlyph emoji={props.reactionKey} packed={props.packed} /> {props.count()}
+        <EmojiGlyph emoji={props.reactionKey} packed={props.packed} host={props.host} /> {props.count()}
       </span>
     }>
       <button
@@ -38,7 +39,7 @@ function Chip(props: {
         title={label()}
         onClick={() => props.onToggle!(props.mine() ? null : props.reactionKey)}
       >
-        <EmojiGlyph emoji={props.reactionKey} packed={props.packed} /> {props.count()}
+        <EmojiGlyph emoji={props.reactionKey} packed={props.packed} host={props.host} /> {props.count()}
       </button>
     </Show>
   );
@@ -78,6 +79,7 @@ export function ReactionChips(props: {
               count={() => counts()[key] ?? 0}
               mine={() => mineKey() === key}
               packed={packed()}
+              host={props.note.user.host}
               onToggle={props.onToggle}
             />
           )}
@@ -147,6 +149,7 @@ export function LikeButton(props: {
             <EmojiGlyph
               emoji={effectiveMyReaction(props.note) ?? like()}
               packed={props.note.reactionEmojis}
+              host={props.note.user.host}
             />
           </Show>
         </Show>

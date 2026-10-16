@@ -242,7 +242,7 @@ export default function Profile() {
                         </button>
                       </Show>
                     </div>
-                    <h2><DisplayName name={headNameOf(current())} packed={current().emojis} /></h2>
+                    <h2><DisplayName name={headNameOf(current())} packed={current().emojis} host={current().host} /></h2>
                     <Show when={hasRealDisplayName(current())}>
                       <div class="handle">{handleOf(current())}</div>
                     </Show>
@@ -250,7 +250,7 @@ export default function Profile() {
                       <div class="handle">Locked account</div>
                     </Show>
                     <Show when={current().description}>
-                      <div class="bio"><MfmRenderer text={current().description} emojis={current().emojis} /></div>
+                      <div class="bio"><MfmRenderer text={current().description} emojis={current().emojis} host={current().host} /></div>
                     </Show>
                     <div class="stats">
                       <span>{current().notesCount.toLocaleString()} notes</span>

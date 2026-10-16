@@ -43,7 +43,7 @@ function RepostBanner(props: { users: UserLite[] }) {
           <>
             {separator(i())}
             <A class="namelink" href={`/users/${u.id}`}>
-              <span class="name"><DisplayName name={headNameOf(u)} packed={u.emojis} /></span>
+              <span class="name"><DisplayName name={headNameOf(u)} packed={u.emojis} host={u.host} /></span>
             </A>
           </>
         )}
@@ -201,7 +201,7 @@ export default function NoteCard(props: NoteCardProps) {
                   aria-label={`Open parent post by ${handleOf(parent().user)}`}
                   title={handleOf(parent().user)}
                 >
-                  <span class="name"><DisplayName name={headNameOf(parent().user)} packed={parent().user.emojis} /></span>
+                  <span class="name"><DisplayName name={headNameOf(parent().user)} packed={parent().user.emojis} host={parent().user.host} /></span>
                   <Show when={hasRealDisplayName(parent().user)}>
                     <span class="handle">{handleOf(parent().user)}</span>
                   </Show>
@@ -213,7 +213,7 @@ export default function NoteCard(props: NoteCardProps) {
         <div class="note-head">
           <UserHover user={shown().user}>
             <A class="namelink" href={`/users/${shown().user.id}`}>
-              <span class="name"><DisplayName name={headNameOf(shown().user)} packed={shown().user.emojis} /></span>
+              <span class="name"><DisplayName name={headNameOf(shown().user)} packed={shown().user.emojis} host={shown().user.host} /></span>
               <Show when={hasRealDisplayName(shown().user)}>
                 <span class="handle">{handleOf(shown().user)}</span>
               </Show>

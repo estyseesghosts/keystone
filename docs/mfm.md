@@ -64,12 +64,14 @@ URL that fails to load falls through to the live listings — see
 3. **External links:** `target="_blank"` + `rel="noopener noreferrer"`. Validate URL scheme before rendering as a link — allow `http:`/`https:` (and relative paths that the API returns for media); render anything else as plain text.
 4. **Custom emoji only from packed sources:** the note's packed
 `emojis`/`reactionEmojis` maps first, then the `POST /api/emojis`
-listing of the owning instance (`docs/api-surface.md`), then the
-remote host's listing for `:name@host:` codes. Render the image when
-a source knows the code, else the literal `:code:` — never a
-fabricated URL, and never a local lookalike for a remote code. A URL
-that fails to load falls through to the next source (`EmojiGlyph`
-`onError` chain), never a stuck broken image.
+listing of the code's own host (`:name@host:`), then — for host-less
+codes in remote-authored content — the author's origin host (`host`
+prop: a `:code:` typed on H means H's emoji), then the viewer's local
+listing (`docs/api-surface.md`). Render the image when a source knows
+the code, else the literal `:code:` — never a fabricated URL, and
+never a local lookalike for a remote code. A URL that fails to load
+falls through to the next source (`EmojiGlyph` `onError` chain), never
+a stuck broken image.
 5. **Wire fields are camelCase** (`createdAt`, `avatarUrl`, …) per `pinetree/docs/domain-types.md`, not internal Rust names.
 6. **CW / visibility / media:** render content warnings, visibility, missing avatars, media URLs, and deleted/unavailable errors defensively. Never show private/`specified` content just because a linked note exists.
 
