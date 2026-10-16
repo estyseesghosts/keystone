@@ -51,8 +51,49 @@ executed evidence.
 - [x] React/unreact (honor `myReaction`; counts re-verified from server);
       repost single-fire with persistent state; follow/unfollow (response is
       `UserLite`); delete own note (204 path)
+- [x] Renote vs quote (Misskey `is-renote.ts` semantics): pure reposts render
+      retweet-style (`X reposted` banner + the original; all actions target
+      the original — the server rejects renoting/replying to a wrapper);
+      quotes render as their own note with an embedded original; renote
+      button opens a menu (Repost/Quote, or Undo repost/Quote when reposted)
+      with an inline quote composer in feeds and on note detail
+- [x] Renote vs quote (Misskey `is-renote.ts` semantics): pure reposts render
+      retweet-style (`X reposted` banner + the original; all actions target
+      the original — the server rejects renoting/replying to a wrapper);
+      quotes render as their own note with an embedded original; renote
+      button opens a menu (Repost/Quote, or Undo repost/Quote when reposted)
+      with an inline quote composer in feeds and on note detail
 - [x] Profile timeline (`users/notes`); notifications with readable labels +
       timestamps + paging (`i/notifications` has no `isRead` — no read styling)
+
+## Quote posts (done 2026-10-16, `docs/quote-posts.md`)
+
+- [x] `src/api/quote.ts`: one `getQuoteTarget()` normalizer (structured
+      `renote`/`renoteId` + Pinetree `quoteTargetUri` /
+      `quoteTargetUnavailable` / `quoteAuthorizationStatus`, else terminal
+      `RE: <http(s) URL>` fallback) → single `QuoteTarget` for the UI;
+      pure reposts normalize to null (retweet presentation kept)
+- [x] Rendering regardless of authorization: `pending`/`unapproved`/
+      `rejected`/`revoked`/missing all render when the target is
+      accessible; status is a neutral label only (`approved`/missing show
+      none, so approval is never claimed); visibility stays server-side
+      (`ap/show` fails closed, cached private content is never shown to an
+      unauthorized viewer)
+- [x] Textual fallback: narrow terminal-`RE:` parse (trailing punctuation
+      trimmed; credentials/non-web/relative/mid-sentence/multi-URL
+      rejected); resolves via authed `ap/show` (Note-only, deduped
+      in-flight + bounded completed cache incl. failures, seen-note reuse);
+      suffix suppressed in view only when its card renders; failures keep
+      the original text/link; structured wins on conflict (duplicate suffix
+      suppressed, otherwise text intact); exactly one card
+- [x] `NoteBody` is the single quote path (packed or resolved embeds reuse
+      CW/media/poll + `depth` guard; note detail no longer renders a second
+      "Renoted" card); unavailable targets get a stable fallback box;
+      compose stays structured (`renoteId`, no `RE:` rewriting)
+- [x] Evidence: `tsc --noEmit` clean, `npm run build` green, 64/64
+      normalizer/resolver unit checks, live `ap/show` + quote-shape probe
+      on both servers (see `../state/logs/2026-10-16-quote-posts.md`).
+      Browser visuals not yet verified (no browser here).
 
 ## Deliberately deferred (do not build until scoped)
 

@@ -2,6 +2,7 @@ import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid
 import { A, useNavigate, useParams } from "@solidjs/router";
 import { apiCall } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
+import { appearNoteOf } from "../api/types";
 import { captureNote } from "../api/stream";
 import { useAuth } from "../state/auth";
 import Composer from "../components/Composer";
@@ -180,6 +181,18 @@ export default function NoteDetail() {
     capturedToken = undefined;
   });
 
+  const refreshPage = async () => {
+    // Reload the opened note by page id: actions target the displayed
+    // (original) note, but the page itself stays on what was opened.
+    const id = note()?.id ?? params.id;
+    if (!id) return;
+    try {
+      setNote(await apiCall<Note>("notes/show", { noteId: id }));
+    } catch {
+      // Keep current state; counts refresh on next load.
+    }
+  };
+
   const toggleReaction = async (target: Note, reaction: string | null) => {
     if (!auth.token() || reacting()) return;
     setReacting(true);
@@ -189,12 +202,7 @@ export default function NoteDetail() {
       } else {
         await apiCall<undefined>("notes/reactions/create", { noteId: target.id, reaction });
       }
-      // Refresh counts from the server without losing the note on failure.
-      try {
-        setNote(await apiCall<Note>("notes/show", { noteId: target.id }));
-      } catch {
-        // Keep the optimistic state.
-      }
+      await refreshPage();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Reaction failed.");
     } finally {
@@ -211,11 +219,7 @@ export default function NoteDetail() {
     try {
       await apiCall<CreatedNoteResponse>("notes/create", { renoteId: target.id });
       setReposted(true);
-      try {
-        setNote(await apiCall<Note>("notes/show", { noteId: target.id }));
-      } catch {
-        // Keep current state; counts refresh on next load.
-      }
+      await refreshPage();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Repost failed.");
     } finally {
@@ -230,11 +234,7 @@ export default function NoteDetail() {
     try {
       await apiCall<undefined>("notes/unrenote", { noteId: target.id });
       setReposted(false);
-      try {
-        setNote(await apiCall<Note>("notes/show", { noteId: target.id }));
-      } catch {
-        // Keep current state.
-      }
+      await refreshPage();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Undo repost failed.");
     } finally {
@@ -296,25 +296,24 @@ export default function NoteDetail() {
                   reacting={reacting()}
                   onRepost={auth.token() ? repost : undefined}
                   onUnrepost={auth.token() ? unrepost : undefined}
+                  onQuote={auth.token() ? () => setQuoting(true) : undefined}
                   reposting={reposting()}
                   reposted={reposted()}
                   onChanged={refresh}
                   detail
                 />
-                <Show when={current().renote}>
-                  <div class="pagehead"><h1>Renoted</h1></div>
-                  <NoteCard note={current().renote!} />
-                </Show>
+                {/* Quotes render inside the card above via NoteBody's embedded
+                  quote card; a second full card here would duplicate it. */}
                 <Show when={auth.token()}>
-                  <Composer replyId={current().id} onPosted={onReplyPosted} />
-                  <div class="pager">
-                    <button type="button" onClick={() => setQuoting((v) => !v)}>
-                      {quoting() ? "Cancel quote" : "Quote this note"}
-                    </button>
-                  </div>
+                  <Composer replyId={appearNoteOf(current()).id} onPosted={onReplyPosted} />
                   <Show when={quoting()}>
+                    <div class="pager">
+                      <button type="button" onClick={() => setQuoting(false)}>
+                        Cancel quote
+                      </button>
+                    </div>
                     <Composer
-                      renoteId={current().id}
+                      renoteId={appearNoteOf(current()).id}
                       onPosted={() => {
                         setQuoting(false);
                         refresh();

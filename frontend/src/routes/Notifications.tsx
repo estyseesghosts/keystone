@@ -266,7 +266,11 @@ export default function Notifications() {
                           <Show when={n.reaction}>
                             <div>reacted {n.reaction}</div>
                           </Show>
-                          <Show when={n.note?.text}>
+                          <Show when={n.note?.text} fallback={
+                            <Show when={n.note && n.note.renoteId}>
+                              <div class="handle">Reposted a note</div>
+                            </Show>
+                          }>
                             <div class="notebody"><MfmRenderer text={n.note!.text} /></div>
                           </Show>
                           <Show when={n.note}>

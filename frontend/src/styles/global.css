@@ -271,6 +271,7 @@ textarea::placeholder {
   border-bottom: 1px solid var(--border);
   padding: 12px 16px;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -455,6 +456,79 @@ textarea::placeholder {
   color: var(--muted);
 }
 
+/* Quote-post states: same grey palette, no accent colors. The
+ * authorization label is informational only — it never hides the card. */
+.quote-status {
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.quote-unavailable {
+  background: var(--bg-soft);
+}
+
+.quote-resolving {
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+/* Pure reposts render retweet-style: a full-width banner naming the
+ * renoter, then the original note. The note row wraps so the banner
+ * always sits above the avatar, in both themes. */
+.renote-banner {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.renote-banner svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.renote-banner .name {
+  max-width: none;
+}
+
+/* Renote menu (Repost / Undo repost / Quote). Same grey palette as the
+ * reaction picker: flat surface, hairline border, no accent. */
+.renotewrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.renotemenu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 148px;
+}
+
+.renotemenu button {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.renotemenu button:not(:disabled):hover {
+  background: var(--bg-soft);
+}
+
 .noteactions {
   display: flex;
   gap: 8px;
@@ -547,6 +621,32 @@ textarea::placeholder {
   white-space: nowrap;
   /* Card is already bg-soft: lift toolbar buttons one surface up. */
   background: var(--raise);
+}
+
+/* The primary Post/Quote/Reply button keeps its inverted colors inside
+ * the toolbar. Without this, the generic toolbar button fill above wins
+ * over .btn-primary's background on specificity while leaving its text
+ * color in place — unreadable in both themes. */
+.composer .toolbar .btn-primary {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+
+.composer .toolbar .btn-primary:not(:disabled):hover {
+  border-color: var(--text);
+  filter: brightness(0.85);
+}
+
+.composer .toolbar .btn-primary:not(:disabled):active {
+  background: var(--text);
+  filter: brightness(0.7);
+}
+
+.composer .toolbar .btn-primary:disabled {
+  background: var(--border);
+  border-color: var(--border);
+  color: var(--muted);
 }
 
 /* Toggled composer options (CW / Media / Poll) read as on/off. */

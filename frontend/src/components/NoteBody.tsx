@@ -1,9 +1,18 @@
-import { createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import type { DriveFile, Note } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
 import { apiCall } from "../api/client";
 import MfmRenderer from "./MfmRenderer";
+import {
+  getQuoteTarget,
+  parseTextualQuote,
+  registerSeenNote,
+  resolveQuoteUri,
+  statusLabelFor,
+  structuredUrisOf,
+  urisMatch,
+} from "../api/quote";
 
 function Avatar(props: { url: string | null; name: string }) {
   return (
@@ -138,20 +147,133 @@ export interface NoteBodyProps {
   note: Note;
   canVote: boolean;
   onChanged?: () => void;
-  /** Embed depth: top-level notes render at 0, quoted renotes at 1.
+  /** Embed depth: top-level notes render at 0, quoted notes at 1.
    * Deeper nesting collapses to a link so embeds can never recurse. */
   depth?: number;
 }
 
 /** The single rendering path for note content: CW gate, text, media, poll,
- * and quoted renotes. Both top-level cards and embedded quotes go through
+ * and quote cards. Both top-level cards and embedded quotes go through
  * here, so an embedded note's content warning and sensitive-media controls
- * always apply — hiding the outer note is never the only protection. */
+ * always apply — hiding the outer note is never the only protection.
+ *
+ * Quotes render from one normalized target (`getQuoteTarget`): a packed
+ * `renote` embeds directly, a URI-only target (textual `RE:` fallback or
+ * Pinetree `quoteTargetUri`) resolves through `ap/show`, and anything
+ * unresolvable keeps the original text plus a stable unavailable state.
+ * Authorization status is a display label only and never gates rendering. */
 export default function NoteBody(props: NoteBodyProps) {
   const [cwOpen, setCwOpen] = createSignal(false);
   const depth = () => props.depth ?? 0;
   const hasCw = () => (props.note.cw?.length ?? 0) > 0;
   const visible = () => !hasCw() || cwOpen();
+
+  // Single source of truth for quote-card rendering at this level.
+  const quote = createMemo(() => getQuoteTarget(props.note));
+  const statusLabel = createMemo(() =>
+    statusLabelFor(quote()?.authorizationStatus),
+  );
+
+  // Notes rendered here become reuse candidates for textual fallbacks,
+  // so a quote of an already-loaded note needs no extra lookup.
+  createEffect(() => {
+    const current = props.note;
+    registerSeenNote(current);
+    if (current.renote) registerSeenNote(current.renote);
+  });
+
+  // The URI to resolve at this level: a textual fallback, or a structured
+  // URI-only target with no packed note and no unavailability flag. Never
+  // fetched inside an embed (no recursive explosion), never fetched when
+  // the target is flagged unavailable (never chase protected URIs).
+  const pendingUri = createMemo(() => {
+    if (depth() !== 0) return null;
+    const target = quote();
+    if (!target || !target.uri || target.targetUnavailable) return null;
+    if (target.source === "structured" && (props.note.renote || target.noteId)) {
+      return null;
+    }
+    return target.uri;
+  });
+
+  const [resolved] = createResource(pendingUri, async (uri) => {
+    if (!uri) return null;
+    return resolveQuoteUri(uri);
+  });
+
+  // The embedded note when a card renders: the packed renote, or a URI
+  // that resolved to a Note. Anything else falls through to the resolving
+  // indicator or the unavailable fallback below.
+  const embeddedNote = createMemo((): Note | null => {
+    if (!quote() || depth() !== 0) return null;
+    if (props.note.renote) return props.note.renote;
+    return resolved() ?? null;
+  });
+
+  const showResolving = createMemo(
+    () => depth() === 0 && !!pendingUri() && resolved.loading,
+  );
+
+  // Stable fallback for a structured relationship with no viewable target:
+  // a renoteId whose note is deleted/invisible, a flagged-unavailable
+  // target, or a URI that finished resolving without a Note. Textual
+  // fallbacks never reach here — a failed lookup keeps the original `RE:`
+  // text as the fallback.
+  const showUnavailable = createMemo(() => {
+    if (depth() !== 0) return false;
+    const target = quote();
+    if (!target || target.source !== "structured") return false;
+    if (props.note.renote || embeddedNote() || showResolving()) return false;
+    if (target.targetUnavailable || target.noteId) return true;
+    // URI-only: show the fallback only after resolution finished with no
+    // Note (while loading, the resolving indicator shows instead).
+    return (
+      !!target.uri && !!pendingUri() && !resolved.loading && resolved() === null
+    );
+  });
+  const unavailableNoteId = createMemo(() => quote()?.noteId ?? null);
+
+  // Compact link for quotes nested inside an embed: the embed never fetches
+  // or expands, it only links out. Textual fallbacks need no extra link —
+  // the embedded text already carries the URL as a normal link.
+  const compactHref = createMemo((): string | null => {
+    const target = quote();
+    if (!target) return null;
+    if (props.note.renote) return `/notes/${props.note.renote.id}`;
+    if (target.source !== "structured") return null;
+    if (target.noteId) return `/notes/${target.noteId}`;
+    if (target.targetUnavailable || !target.uri) return null;
+    return target.uri;
+  });
+  const compactExternal = createMemo(() => {
+    const href = compactHref();
+    return !!href && /^https?:\/\//.test(href);
+  });
+
+  // View transformation only: hide the exact terminal `RE:` suffix when its
+  // card rendered (textual), or when it exactly duplicates the structured
+  // target whose card (or stable unavailable fallback) renders. Persisted
+  // text is never mutated; a failed lookup keeps the suffix visible.
+  const textSuffix = createMemo(() => parseTextualQuote(props.note.text));
+  const visibleText = createMemo(() => {
+    const text = props.note.text;
+    if (text == null || depth() !== 0) return text;
+    const suffix = textSuffix();
+    if (!suffix) return text;
+    const target = quote();
+    if (!target) return text;
+    if (target.source === "textual-fallback") {
+      if (embeddedNote()) return text.slice(0, suffix.start).replace(/[ \t\r\n]+$/, "");
+      return text;
+    }
+    const duplicate = structuredUrisOf(props.note).some((uri) =>
+      urisMatch(uri, suffix.uri),
+    );
+    if (duplicate && (embeddedNote() || showUnavailable())) {
+      return text.slice(0, suffix.start).replace(/[ \t\r\n]+$/, "");
+    }
+    return text;
+  });
 
   return (
     <>
@@ -166,7 +288,7 @@ export default function NoteBody(props: NoteBodyProps) {
 
       <Show when={visible()}>
         <div class="notebody">
-          <MfmRenderer text={props.note.text} />
+          <MfmRenderer text={visibleText()} />
         </div>
         <Show when={props.note.files.length > 0}>
           <div class="media">
@@ -176,30 +298,67 @@ export default function NoteBody(props: NoteBodyProps) {
         <Show when={props.note.poll}>
           <PollBlock note={props.note} canVote={props.canVote} onChanged={props.onChanged} />
         </Show>
-        <Show when={props.note.renote}>
-          {(renoted) => (
-            <Show when={depth() === 0} fallback={
-              <div class="renote-foot">
-                <A href={`/notes/${renoted().id}`}>Open quoted note</A>
-              </div>
+        <Show when={quote()}>
+          <Show when={depth() === 0} fallback={
+            <Show when={compactHref()} fallback={
+              <Show when={quote()?.targetUnavailable}>
+                <div class="renote-foot handle">Quoted note is unavailable.</div>
+              </Show>
             }>
-              <div class="renote-embed">
-                <div class="renote-head">
-                  <span class="name">{displayNameOf(renoted().user)}</span>
-                  <span class="handle">{handleOf(renoted().user)}</span>
-                </div>
-                <NoteBody
-                  note={renoted()}
-                  canVote={props.canVote}
-                  onChanged={props.onChanged}
-                  depth={depth() + 1}
-                />
+              {(href) => (
                 <div class="renote-foot">
-                  <A href={`/notes/${renoted().id}`}>Open quoted note</A>
+                  <Show when={compactExternal()} fallback={
+                    <A href={href()}>Open quoted note</A>
+                  }>
+                    <a href={href()} target="_blank" rel="noopener noreferrer">
+                      Open quoted note
+                    </a>
+                  </Show>
                 </div>
+              )}
+            </Show>
+          }>
+            <Show when={embeddedNote()}>
+              {(embedded) => (
+                <div class="renote-embed">
+                  <div class="renote-head">
+                    <span class="name">{displayNameOf(embedded().user)}</span>
+                    <span class="handle">{handleOf(embedded().user)}</span>
+                  </div>
+                  <Show when={statusLabel()}>
+                    {(label) => <div class="handle quote-status">{label()}</div>}
+                  </Show>
+                  <NoteBody
+                    note={embedded()}
+                    canVote={props.canVote}
+                    onChanged={props.onChanged}
+                    depth={depth() + 1}
+                  />
+                  <div class="renote-foot">
+                    <A href={`/notes/${embedded().id}`}>Open quoted note</A>
+                  </div>
+                </div>
+              )}
+            </Show>
+            <Show when={showResolving()}>
+              <div class="handle quote-resolving" role="status">Resolving quote…</div>
+            </Show>
+            <Show when={showUnavailable()}>
+              <div class="renote-embed quote-unavailable">
+                <Show when={statusLabel()}>
+                  {(label) => <div class="handle quote-status">{label()}</div>}
+                </Show>
+                <div class="handle">Quoted note is unavailable.</div>
+                <Show when={unavailableNoteId()}>
+                  {(id) => (
+                    <div class="renote-foot">
+                      <A href={`/notes/${id()}`}>Open quoted note</A>
+                    </div>
+                  )}
+                </Show>
               </div>
             </Show>
-          )}
+          </Show>
         </Show>
       </Show>
     </>

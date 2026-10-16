@@ -80,6 +80,7 @@ hint, never a bare error.
 | Incoming follow requests | `following/requests/list` | Auth, `kind read:following` |
 | Followers / following | `users/followers`, `users/following` | `{userId, limit, sinceId?, untilId?}` |
 | Upload file | `drive/files/create` | Auth, `kind write:drive`; **multipart `FormData`** (`file*`, `i`, `name?`, `comment?`, `isSensitive?`) — never JSON; returns `DriveFile` |
+| Resolve quote URL | `ap/show` | Auth, `kind read:account`; `{uri}` → `{type: "User"\|"Note", object}`. Only `type: "Note"` renders a quote card; anything else (User, missing, private) is a null result and the `RE:` text stays. Anonymous calls fail closed (401). Verified live 2026-10-16: canonical note URLs 200 `Note` on both servers; missing is 400 `NO_SUCH_OBJECT` (Misskey) / 500 (Sharkey) — the client treats every error as null, never branching on codes |
 | List files | `drive/files` | Auth, `kind read:drive`; `{limit, sinceId?, untilId?, type? ("image/*"…), folderId?}` → `DriveFile[]` |
 | Update file | `drive/files/update` | Auth, `kind write:drive`; `{fileId, name?, isSensitive?, comment?, folderId?}` |
 | Delete file | `drive/files/delete` | Auth, `kind write:drive`; `{fileId}` |

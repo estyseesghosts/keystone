@@ -99,6 +99,20 @@ export interface Note {
   renoteId: string | null;
   reply: Note | null;
   renote: Note | null;
+  /** Canonical ActivityPub identifiers packed by Misskey-family servers.
+   * Used only to recognize a duplicate textual `RE:` suffix of the
+   * structured quote target — never fetched directly. */
+  uri?: string | null;
+  url?: string | null;
+  /** Pinetree-only quote extensions (absent on Misskey/Sharkey).
+   * `quoteTargetUri` preserves a safe-to-disclose target URI when the
+   * target itself is unresolved; `quoteTargetUnavailable` signals the
+   * relationship exists but its target cannot safely be exposed.
+   * `quoteAuthorizationStatus` is display metadata only and never gates
+   * rendering — a missing status is normal, not a rejection. */
+  quoteTargetUri?: string | null;
+  quoteTargetUnavailable?: boolean | null;
+  quoteAuthorizationStatus?: string | null;
   /** Present on notes that carry a poll (Misskey-family; Pinetree rejects
    * polls at create time, so this stays null there). */
   poll: Poll | null;
@@ -182,6 +196,30 @@ export interface FollowRequest {
 
 export function handleOf(user: Pick<UserLite, "username" | "host">): string {
   return user.host ? `@${user.username}@${user.host}` : `@${user.username}`;
+}
+
+/** Mirror of Misskey `is-renote.ts` (packed-note variants): a pure renote
+ * (repost) carries `renoteId` with no own content — no text, CW, reply,
+ * poll, or files. Anything else with `renoteId` is a quote: its own note
+ * with an embedded original. */
+export function isPureRenote(note: Note): boolean {
+  return (
+    note.renoteId != null &&
+    note.text == null &&
+    note.cw == null &&
+    note.replyId == null &&
+    note.poll == null &&
+    note.fileIds.length === 0
+  );
+}
+
+/** The note whose content and actions apply: the renoted original for a
+ * pure repost, the note itself otherwise (a quote is its own note — the
+ * server rejects renoting or replying to a pure-renote wrapper, so every
+ * action must target the original). Falls back to the wrapper when the
+ * original is unavailable (deleted/invisible). */
+export function appearNoteOf(note: Note): Note {
+  return isPureRenote(note) && note.renote ? note.renote : note;
 }
 
 export function displayNameOf(user: Pick<UserLite, "name" | "username">): string {

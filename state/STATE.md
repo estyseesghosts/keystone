@@ -73,6 +73,23 @@ Previously scoped next: human browser QA pass (owner-handled).
 - 2026-10-16: README rewritten (human-useful: features, quickstart, backend
   differences, layout, verification); `npm run build` green; pushed as
   `9b0ff36`.
+- 2026-10-16 (renote/quote): pure reposts render retweet-style + renote menu
+  (Repost/Quote, Undo repost/Quote) + inline quote composer; build green,
+  probe 15/15 both servers, writes 14/14 + features 47/47 green; flows has 4
+  pre-existing backend-UI-flag failures (see log). Uncommitted.
+- 2026-10-16 (quote-posts): `docs/quote-posts.md` implemented Keystone-side
+  (`src/api/quote.ts` normalizer + `RE:` fallback via authed `ap/show`,
+  `NoteBody` single quote path, duplicate "Renoted" card removed, status
+  labels display-only); `tsc` clean, build green, 64/64 unit checks, live
+  `ap/show` + quote-shape probe both servers; browser QA + Pinetree-field
+  verification owned by pinetree implementer (see log
+  `2026-10-16-quote-posts.md`). Committed + pushed with the fixes below.
+- 2026-10-16 (quote-fixes): inline quote composer keyed by acted-on feed
+  item (was target id — opened under every copy); Post-button contrast
+  restored in the composer toolbar (dedicated `.btn-primary` rules beat
+  the toolbar fill in all states); tsc + build green; committed + pushed
+  with the two pending quote slices (see log `2026-10-16-quote-fixes.md`).
+  Visual confirmation still needs the owner browser pass.
 
 ## Servers running (background, dev only)
 

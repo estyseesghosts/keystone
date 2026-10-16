@@ -1,6 +1,7 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
 import { apiCall, ApiError } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
+import { appearNoteOf } from "../api/types";
 import {
   captureNote,
   subscribeChannel,
@@ -73,6 +74,12 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   const [reactingId, setReactingId] = createSignal<string | null>(null);
   const [repostingId, setRepostingId] = createSignal<string | null>(null);
   const [repostedIds, setRepostedIds] = createSignal<string[]>([]);
+  const [quotingId, setQuotingId] = createSignal<string | null>(null);
+  // The quote target (original id) for the open composer. Tracked
+  // separately because the composer is keyed by the feed item the user
+  // acted on: several items can share one target (a repost wrapper and
+  // the original), and only the acted-on item shows the composer.
+  const [quoteTargetId, setQuoteTargetId] = createSignal<string | null>(null);
   const [channelHandle, setChannelHandle] = createSignal<ChannelHandle | null>(null);
   const [streamNonce, setStreamNonce] = createSignal(0);
   const stream = useStreamState();
@@ -159,6 +166,8 @@ export default function TimelineFeed(props: TimelineFeedProps) {
     setExhausted(false);
     setFailedMode(null);
     setUnsupported(false);
+    setQuotingId(null);
+    setQuoteTargetId(null);
     void load("initial");
   });
 
@@ -307,14 +316,32 @@ export default function TimelineFeed(props: TimelineFeedProps) {
     }
   };
 
-  const prependNote = (note: Note) => {
-    setNotes((current) => [note, ...current]);
+  const quote = (wrapperId: string, target: Note) => {
+    if (!auth.token()) return;
+    // Toggle the inline quote composer under the acted-on item only;
+    // quoting a repost targets the original, exactly like a fresh repost
+    // would. The composer key is the wrapper id so other copies of the
+    // same original never open a second composer.
+    if (quotingId() === wrapperId) {
+      setQuotingId(null);
+      setQuoteTargetId(null);
+    } else {
+      setQuotingId(wrapperId);
+      setQuoteTargetId(target.id);
+    }
+  };
+
+  const onQuoted = (created: Note) => {
+    setQuotingId(null);
+    setQuoteTargetId(null);
+    setNotes((current) => [created, ...current]);
   };
 
   const unrepost = async (note: Note) => {
     if (!auth.token() || repostingId() !== null) return;
     // notes/unrenote takes the ORIGINAL note's id and deletes my renotes
-    // of it (verified against Misskey notes/unrenote.ts).
+    // of it (verified against Misskey notes/unrenote.ts). Callers pass the
+    // displayed note, which is already the original for pure reposts.
     if (!repostedIds().includes(note.id)) return;
     setRepostingId(note.id);
     try {
@@ -336,7 +363,9 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   const repost = async (note: Note) => {
     if (!auth.token() || repostingId() !== null) return;
     // Persistent repost state: a note already reposted in this view is a
-    // no-op, so double clicks can never create duplicates.
+    // no-op, so double clicks can never create duplicates. `note` is the
+    // displayed (original) note — renoting a pure-renote wrapper is
+    // rejected by the server, so the card never passes one.
     if (repostedIds().includes(note.id)) return;
     setRepostingId(note.id);
     try {
@@ -369,7 +398,7 @@ export default function TimelineFeed(props: TimelineFeedProps) {
       </div>
 
       <Show when={props.showComposer && auth.token()}>
-        <Composer onPosted={prependNote} />
+        <Composer onPosted={(created) => setNotes((current) => [created, ...current])} />
       </Show>
 
       <Show when={unsupported()}>
@@ -393,18 +422,31 @@ export default function TimelineFeed(props: TimelineFeedProps) {
             <Show when={notes().length > 0}>
               <div class="feed">
                 <For each={notes()}>
-                  {(note) => (
-                    <NoteCard
-                      note={note}
-                      onToggleReaction={auth.token() ? toggleReaction : undefined}
-                      reacting={reactingId() === note.id}
-                      onRepost={auth.token() ? repost : undefined}
-                      onUnrepost={auth.token() ? unrepost : undefined}
-                      reposting={repostingId() === note.id}
-                      reposted={repostedIds().includes(note.id)}
-                      onChanged={() => void refreshNote(note.id)}
-                    />
-                  )}
+                  {(note) => {
+                    // Actions always target the displayed note: for a pure
+                    // repost that is the renoted original (repost state is
+                    // keyed by original id). `note` items are immutable
+                    // snapshots, so this is an intentional one-time read.
+                    const target = appearNoteOf(note);
+                    return (
+                      <>
+                        <NoteCard
+                          note={note}
+                          onToggleReaction={auth.token() ? toggleReaction : undefined}
+                          reacting={reactingId() === target.id}
+                          onRepost={auth.token() ? repost : undefined}
+                          onUnrepost={auth.token() ? unrepost : undefined}
+                          onQuote={auth.token() ? () => quote(note.id, target) : undefined}
+                          reposting={repostingId() === target.id}
+                          reposted={repostedIds().includes(target.id)}
+                          onChanged={() => void refreshNote(note.id)}
+                        />
+                        <Show when={quotingId() === note.id}>
+                          <Composer renoteId={quoteTargetId() ?? target.id} onPosted={onQuoted} />
+                        </Show>
+                      </>
+                    );
+                  }}
                 </For>
               </div>
               <Show when={!exhausted()} fallback={
