@@ -92,6 +92,12 @@ approve-and-return round-trip still **not yet verified** (owner).
   no Beeline visuals. See log `2026-10-16-tag-bubbles-fold-scroll.md`:
   `tsc` + build green, 41/41 unit checks; browser QA **not yet verified**
   (owner live-testing on dvd.chat).
+- **Plus (2026-10-16, committed `cb3b2b0`):** leading-`RE:` triple fix
+  (`RE_PREFIX_PATTERN` + per-marker suppression + LinkCard dedupe, 45/45
+  checks; residual id-scheme mismatch noted) and mention chips showing
+  resolved avatar + display name. Local-backend probe not run here (no
+  backends on this machine); owner live-tests both on dvd.chat. See log
+  `2026-10-16-re-quote-prefix.md`.
 
 ## Decisions since stonekey
 
