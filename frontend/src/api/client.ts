@@ -59,18 +59,30 @@ export function clearStoredToken(): void {
   }
 }
 
+// Hard ceiling for any single JSON call. A hung request (dead proxy,
+// stalled socket, black-holed route) must surface as a retryable error
+// naming the endpoint — never as eternal loading skeletons.
+const API_TIMEOUT_MS = 30_000;
+
 async function postJson<T>(endpoint: string, body: Record<string, unknown>): Promise<T> {
   let response: Response;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
   try {
     response = await fetch(`/api/${endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: ctrl.signal,
     });
   } catch (err) {
     throw new Error(
-      `Could not reach the server (${err instanceof Error ? err.message : "network error"}). Is it running?`,
+      err instanceof DOMException && err.name === "AbortError"
+        ? `Request timed out (${endpoint}): the server did not answer within ${API_TIMEOUT_MS / 1000}s. Retry, or check the dev-server terminal.`
+        : `Could not reach the server (${err instanceof Error ? err.message : "network error"}). Is it running?`,
     );
+  } finally {
+    clearTimeout(timer);
   }
 
   // Successful writes may return 204 No Content: read text first, never

@@ -126,19 +126,30 @@ interface ApiErrorBody {
 
 /** POST to an absolute instance URL with Misskey-family semantics: 204 is
  * empty success (never blind `response.json()`), non-JSON errors keep the
- * HTTP status on the thrown ApiError. */
+ * HTTP status on the thrown ApiError. A hard timeout converts a hung
+ * request into a retryable error naming the endpoint — feeds must never
+ * sit on eternal skeletons because one call never settled. */
+const DIRECT_TIMEOUT_MS = 30_000;
+
 async function postDirect<T>(url: string, body: Record<string, unknown>): Promise<T> {
   let response: Response;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), DIRECT_TIMEOUT_MS);
   try {
     response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: ctrl.signal,
     });
   } catch (err) {
     throw new Error(
-      `Could not reach the instance (${err instanceof Error ? err.message : "network error"}). Is the host correct?`,
+      err instanceof DOMException && err.name === "AbortError"
+        ? `Request timed out (${url}): the instance did not answer within ${DIRECT_TIMEOUT_MS / 1000}s. Retry.`
+        : `Could not reach the instance (${err instanceof Error ? err.message : "network error"}). Is the host correct?`,
     );
+  } finally {
+    clearTimeout(timer);
   }
   const raw = response.status === 204 ? "" : await response.text();
   let payload: unknown;
