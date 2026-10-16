@@ -1,9 +1,32 @@
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { apiCall, isPermissionError, isUnsupportedError, uploadDriveFile } from "../api/client";
 import type { DriveFile } from "../api/types";
+import {
+  AudioSkeletonList,
+  DriveBoxesSkeleton,
+  MosaicSkeleton,
+  RowSkeletonList,
+} from "./Skeleton";
 
 const PAGE_SIZE = 20;
+
+/** Drive views: the landing page (category boxes + loose files) and one
+ * full view per media category. */
+type DriveView = "main" | "images" | "videos" | "audios";
+
+const VIEW_TYPE_PARAM: Record<DriveView, string | null> = {
+  main: null,
+  images: "image/*",
+  videos: "video/*",
+  audios: "audio/*",
+};
+
+const VIEW_TITLES: Record<Exclude<DriveView, "main">, string> = {
+  images: "Images",
+  videos: "Videos",
+  audios: "Audio",
+};
 
 interface PendingUpload {
   key: string;
@@ -248,6 +271,7 @@ export default function DriveBrowser(props: DriveBrowserProps) {
   const [unsupported, setUnsupported] = createSignal(false);
   const [denied, setDenied] = createSignal(false);
   const [exhausted, setExhausted] = createSignal(false);
+  const [view, setViewState] = createSignal<DriveView>("main");
   const [uploads, setUploads] = createSignal<PendingUpload[]>([]);
   const [confirmDelete, setConfirmDelete] = createSignal<string | null>(null);
   const [mutatingId, setMutatingId] = createSignal<string | null>(null);
@@ -265,8 +289,11 @@ export default function DriveBrowser(props: DriveBrowserProps) {
       if (mode === "older" && current.length > 0) {
         req.untilId = current[current.length - 1].id;
       }
-      // No server-side type filter: every page is grouped client-side into
-      // Images / Videos / Audio / Files below.
+      // Category views page the server-side type filter; the landing view
+      // loads everything and shows only the loose (non-media) files below
+      // the category boxes.
+      const typeParam = VIEW_TYPE_PARAM[view()];
+      if (typeParam) req.type = typeParam;
       const page = await apiCall<DriveFile[]>("drive/files", req);
       setUnsupported(false);
       setDenied(false);
@@ -299,6 +326,17 @@ export default function DriveBrowser(props: DriveBrowserProps) {
   };
 
   const retry = () => void load(failedMode() ?? "initial");
+
+  const setView = (next: DriveView) => {
+    if (next === view()) return;
+    setViewState(next);
+    setFiles([]);
+    setExhausted(false);
+    setError(null);
+    setFailedMode(null);
+    setConfirmDelete(null);
+    void load("initial");
+  };
 
   const images = () => files().filter(isImageFile);
   const videos = () => files().filter(isVideoFile);
@@ -393,6 +431,27 @@ export default function DriveBrowser(props: DriveBrowserProps) {
     void load("initial");
   });
 
+  // Infinite scroll: when the end sentinel scrolls near the viewport, the
+  // next page loads automatically — no "Load older" button. A short first
+  // page keeps triggering until the view scrolls or the server is
+  // exhausted. Guards mirror `load` so failed/empty states never spin.
+  let sentinel: HTMLDivElement | undefined;
+  onMount(() => {
+    const target = sentinel;
+    if (!target || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        if (busy() || loading() || exhausted() || unsupported() || denied()) return;
+        if (files().length === 0) return;
+        void load("older");
+      },
+      { rootMargin: "400px" },
+    );
+    observer.observe(target);
+    onCleanup(() => observer.disconnect());
+  });
+
   return (
     <div>
       <div class="row" style={{ padding: "12px 16px" }}>
@@ -455,55 +514,93 @@ export default function DriveBrowser(props: DriveBrowserProps) {
       </Show>
 
       <Show when={!unsupported() && !denied()}>
-        <Show when={loading()}>
-          <div class="state"><p>Loading Drive…</p></div>
-        </Show>
-        <Show when={!loading()}>
-          <Show when={error() && files().length === 0}>
-            <div class="state" role="alert">
-              <div class="errorbox">{error()}</div>
-              <button type="button" onClick={retry}>Try again</button>
-            </div>
-          </Show>
-          <Show when={error() && files().length > 0}>
-            <div class="state" role="alert">
-              <div class="errorbox">{error()}</div>
-              <button type="button" onClick={retry}>Try again</button>
-            </div>
-          </Show>
-          <Show when={files().length === 0 && !error()}>
-            <div class="state"><p>No files yet. Upload one above.</p></div>
-          </Show>
-          <Show when={images().length > 0}>
-            <Section title="Images" count={images().length}>
-              <div class="mosaic">
-                <For each={images()}>{(file) => <ImageTile {...manageFor(file)} />}</For>
+        <Show when={loading()} fallback={
+          <>
+            <Show when={error() && files().length === 0}>
+              <div class="state" role="alert">
+                <div class="errorbox">{error()}</div>
+                <button type="button" onClick={retry}>Try again</button>
               </div>
-            </Section>
-          </Show>
-          <Show when={videos().length > 0}>
-            <Section title="Videos" count={videos().length}>
-              <div class="mosaic">
-                <For each={videos()}>{(file) => <VideoTile {...manageFor(file)} />}</For>
+            </Show>
+            <Show when={error() && files().length > 0}>
+              <div class="state" role="alert">
+                <div class="errorbox">{error()}</div>
+                <button type="button" onClick={retry}>Try again</button>
               </div>
-            </Section>
-          </Show>
-          <Show when={audios().length > 0}>
-            <Section title="Audio" count={audios().length}>
-              <For each={audios()}>{(file) => <AudioRow {...manageFor(file)} />}</For>
-            </Section>
-          </Show>
-          <Show when={others().length > 0}>
-            <Section title="Files" count={others().length}>
-              <For each={others()}>{(file) => <FileRow {...manageFor(file)} />}</For>
-            </Section>
-          </Show>
-          <Show when={!exhausted() && files().length > 0}>
-            <div class="pager">
-              <button type="button" onClick={() => void load("older")} disabled={loadingMore()}>
-                {loadingMore() ? "Loading…" : "Load older"}
-              </button>
-            </div>
+            </Show>
+            <Show when={view() === "main"} fallback={
+              <>
+                <div class="driveback">
+                  <button type="button" onClick={() => setView("main")}>
+                    ← Back to Drive
+                  </button>
+                </div>
+                <Show when={view() === "images"} fallback={
+                  <Show when={view() === "videos"} fallback={
+                    <Section title="Audio" count={audios().length}>
+                      <For each={audios()}>{(file) => <AudioRow {...manageFor(file)} />}</For>
+                    </Section>
+                  }>
+                    <Section title="Videos" count={videos().length}>
+                      <div class="mosaic">
+                        <For each={videos()}>{(file) => <VideoTile {...manageFor(file)} />}</For>
+                      </div>
+                    </Section>
+                  </Show>
+                }>
+                  <Section title="Images" count={images().length}>
+                    <div class="mosaic">
+                      <For each={images()}>{(file) => <ImageTile {...manageFor(file)} />}</For>
+                    </div>
+                  </Section>
+                </Show>
+                <Show when={files().length === 0 && !error()}>
+                  <div class="state"><p>No {VIEW_TITLES[view() as Exclude<DriveView, "main">].toLowerCase()} yet. Upload one above.</p></div>
+                </Show>
+                <Show when={loadingMore() && view() === "audios"}>
+                  <AudioSkeletonList count={1} label="Loading more audio…" />
+                </Show>
+                <Show when={loadingMore() && view() !== "audios"}>
+                  <MosaicSkeleton count={3} label="Loading more media…" />
+                </Show>
+              </>
+            }>
+              <div class="drivecats">
+                <button type="button" class="drivecat" onClick={() => setView("images")}>
+                  Images
+                </button>
+                <button type="button" class="drivecat" onClick={() => setView("videos")}>
+                  Videos
+                </button>
+                <button type="button" class="drivecat" onClick={() => setView("audios")}>
+                  Audio
+                </button>
+              </div>
+              <Show when={files().length === 0 && !error()}>
+                <div class="state"><p>No files yet. Upload one above.</p></div>
+              </Show>
+              <Show when={others().length > 0}>
+                <Section title="Files" count={others().length}>
+                  <For each={others()}>{(file) => <FileRow {...manageFor(file)} />}</For>
+                </Section>
+              </Show>
+              <Show when={loadingMore()}>
+                <RowSkeletonList count={2} label="Loading more files…" />
+              </Show>
+            </Show>
+            {/* Infinite-scroll sentinel: observed on mount, loads older pages. */}
+            <div ref={sentinel} aria-hidden="true" />
+          </>
+        }>
+          <Show when={view() === "main"} fallback={
+            <Show when={view() === "audios"} fallback={
+              <MosaicSkeleton label="Loading media…" />
+            }>
+              <AudioSkeletonList label="Loading audio…" />
+            </Show>
+          }>
+            <DriveBoxesSkeleton />
+            <RowSkeletonList label="Loading Drive…" />
           </Show>
         </Show>
       </Show>

@@ -4,7 +4,7 @@ import { apiCall, isUnsupportedError } from "../api/client";
 import type { Antenna } from "../api/types";
 import { useAuth } from "../state/auth";
 import ErrorState from "../components/ErrorState";
-import LoadingState from "../components/LoadingState";
+import { NoteSkeletonList } from "../components/Skeleton";
 import TimelineFeed from "../components/TimelineFeed";
 
 export default function AntennaFeed() {
@@ -71,7 +71,8 @@ export default function AntennaFeed() {
           </div>
         </Show>
       }>
-        <LoadingState label="Loading antenna…" />
+        <div class="pagehead"><h1>Antenna</h1></div>
+        <NoteSkeletonList count={2} label="Loading antenna…" />
       </Show>
     </div>
   );

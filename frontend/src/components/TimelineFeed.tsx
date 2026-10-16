@@ -12,8 +12,8 @@ import type { ChannelHandle } from "../api/stream";
 import { useAuth } from "../state/auth";
 import Composer from "./Composer";
 import ErrorState from "./ErrorState";
-import LoadingState from "./LoadingState";
 import NoteCard from "./NoteCard";
+import { NoteSkeletonList } from "./Skeleton";
 import StreamBadge from "./StreamBadge";
 
 export interface TimelineFeedProps {
@@ -478,6 +478,9 @@ export default function TimelineFeed(props: TimelineFeedProps) {
                     {loadingMore() ? "Loading…" : "Load older"}
                   </button>
                 </div>
+                <Show when={loadingMore()}>
+                  <NoteSkeletonList count={2} label="Loading older notes…" />
+                </Show>
               </Show>
             </Show>
             <Show when={!error() && notes().length === 0}>
@@ -485,7 +488,7 @@ export default function TimelineFeed(props: TimelineFeedProps) {
             </Show>
           </>
         }>
-          <LoadingState label={`Loading ${props.title.toLowerCase()}…`} />
+          <NoteSkeletonList label={`Loading ${props.title.toLowerCase()}…`} />
         </Show>
       </Show>
     </div>

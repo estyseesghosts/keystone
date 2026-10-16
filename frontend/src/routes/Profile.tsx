@@ -5,8 +5,8 @@ import type { MeDetailed, Note, UserDetailed, UserLite } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
 import { useAuth } from "../state/auth";
 import ErrorState from "../components/ErrorState";
-import LoadingState from "../components/LoadingState";
 import NoteCard from "../components/NoteCard";
+import { NoteSkeletonList, ProfileSkeleton, RowSkeletonList } from "../components/Skeleton";
 import ProfileEditor from "../components/ProfileEditor";
 
 const PROFILE_NOTES_PAGE_SIZE = 20;
@@ -92,7 +92,7 @@ function FollowList(props: { userId: string; mode: "followers" | "following" }) 
         </Show>
       </>
     }>
-      <LoadingState label={`Loading ${props.mode}…`} />
+      <RowSkeletonList count={3} label={`Loading ${props.mode}…`} />
     </Show>
   );
 }
@@ -404,7 +404,7 @@ export default function Profile() {
                       </Show>
                     </>
                   }>
-                    <LoadingState label="Loading notes…" />
+                    <NoteSkeletonList label="Loading notes…" />
                   </Show>
                 }>
                   <div class="state" role="status">
@@ -418,7 +418,7 @@ export default function Profile() {
           <ErrorState message={error() ?? "Could not load the profile."} onRetry={() => void load(params.id ?? "")} />
         </Show>
       }>
-        <LoadingState label="Loading profile…" />
+        <ProfileSkeleton label="Loading profile…" />
       </Show>
     </div>
   );

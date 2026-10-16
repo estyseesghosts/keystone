@@ -5,6 +5,7 @@ import type { Antenna, AntennaSrc } from "../api/types";
 import { useAuth } from "../state/auth";
 import ErrorState from "../components/ErrorState";
 import LoadingState from "../components/LoadingState";
+import { RowSkeletonList } from "../components/Skeleton";
 
 const SOURCES: { value: AntennaSrc; label: string; hint: string }[] = [
   { value: "home", label: "Home", hint: "Notes from your home timeline" },
@@ -353,7 +354,7 @@ export default function Antennas() {
                 <ErrorState message={error() ?? "Could not load antennas."} onRetry={() => void load()} />
               </Show>
             }>
-              <LoadingState label="Loading antennas…" />
+              <RowSkeletonList label="Loading antennas…" />
             </Show>
           </Show>
         </Show>

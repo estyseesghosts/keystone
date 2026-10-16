@@ -4,6 +4,7 @@ import { apiCall, ApiError } from "../api/client";
 import type { Note, UserLite } from "../api/types";
 import { displayNameOf, handleOf } from "../api/types";
 import NoteCard from "../components/NoteCard";
+import { NoteSkeletonList, RowSkeletonList } from "../components/Skeleton";
 
 type Tab = "users" | "notes" | "tags";
 
@@ -125,6 +126,13 @@ export default function Search() {
           {busy() ? "Searching…" : "Search"}
         </button>
       </form>
+      <Show when={busy()}>
+        <Show when={tab() === "users"} fallback={
+          <NoteSkeletonList count={3} label="Searching…" />
+        }>
+          <RowSkeletonList count={3} label="Searching…" />
+        </Show>
+      </Show>
       <Show when={error()}>
         <div class="state" role="alert">
           <div class="errorbox">{error()}</div>

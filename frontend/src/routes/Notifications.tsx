@@ -9,6 +9,7 @@ import { useAuth } from "../state/auth";
 import ErrorState from "../components/ErrorState";
 import LoadingState from "../components/LoadingState";
 import MfmRenderer from "../components/MfmRenderer";
+import { NotificationSkeletonList } from "../components/Skeleton";
 import StreamBadge from "../components/StreamBadge";
 
 const NOTIFICATIONS_PAGE_SIZE = 20;
@@ -289,13 +290,16 @@ export default function Notifications() {
                       {loadingMore() ? "Loading…" : "Load older"}
                     </button>
                   </div>
+                  <Show when={loadingMore()}>
+                    <NotificationSkeletonList count={2} label="Loading older notifications…" />
+                  </Show>
                 </Show>
               </Show>
             }>
               <ErrorState message={error() ?? "Could not load notifications."} onRetry={retry} />
             </Show>
           }>
-            <LoadingState label="Loading notifications…" />
+            <NotificationSkeletonList label="Loading notifications…" />
           </Show>
         </Show>
       </Show>

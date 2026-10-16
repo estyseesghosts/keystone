@@ -36,6 +36,11 @@ approve-and-return round-trip still **not yet verified** (owner).
   with tags/duration when available (see log
   `2026-10-16-drive-groups.md`). tsc + build green; visual browser QA
   **not yet verified** (owner).
+- 2026-10-16 (drive-cats): Drive landing is three category boxes + loose
+  files below; categories page server-side; infinite-scroll sentinel
+  replaces "Load older" in Drive; static skeletons for every data load
+  (see log `2026-10-16-drive-cats-skeletons.md`). tsc + build green;
+  visual browser QA **not yet verified** (owner).
 
 ## Decisions since stonekey
 

@@ -7,8 +7,8 @@ import { captureNote } from "../api/stream";
 import { useAuth } from "../state/auth";
 import Composer from "../components/Composer";
 import ErrorState from "../components/ErrorState";
-import LoadingState from "../components/LoadingState";
 import NoteCard from "../components/NoteCard";
+import { NoteSkeletonList } from "../components/Skeleton";
 
 const REPLIES_PAGE_SIZE = 20;
 
@@ -371,7 +371,7 @@ export default function NoteDetail() {
                     </Show>
                   </>
                 }>
-                  <LoadingState label="Loading replies…" />
+                  <NoteSkeletonList count={2} label="Loading replies…" />
                 </Show>
                 <Show when={isOwn()}>
                   <div class="pager">
@@ -392,7 +392,7 @@ export default function NoteDetail() {
           <ErrorState message={error() ?? "Could not open the note."} onRetry={refresh} />
         </Show>
       }>
-        <LoadingState label="Opening note…" />
+        <NoteSkeletonList count={1} label="Opening note…" />
       </Show>
       <div class="pager">
         <A class="action" href="/">Back to home</A>
