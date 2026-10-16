@@ -2030,3 +2030,12 @@ button.rxn:not(:disabled):hover {
   width: 2px;
   background: var(--border);
 }
+
+/* Connected thread column: consecutive notes in one thread share the
+ * avatar line, so the card dividers come out between them — separation
+ * comes from the connector, not horizontal rules. Section headers and
+ * end-states still bound each block. */
+.thread-ancestors > .note,
+.reply-branch > .note {
+  border-bottom: none;
+}
