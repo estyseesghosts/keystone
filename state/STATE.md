@@ -1,6 +1,7 @@
 # STATE — resume pointer (mutable, keep current)
 
-**Phase:** 3 — Roadmap slices landed (2026-10-16)
+**Phase:** 3 — Streaming Stage A landed + pushed (2026-10-16, `bf91cf4`,
+`c5933d4`; 0 ahead of origin/main. See log `2026-10-16-streaming.md`)
 **Backends:** Misskey `2026.10.1-alpha.0` @ `127.0.0.1:3101`
 (`KEYSTONE_BACKEND_ONLY=1`, web UI disabled, API verified) ·
 Sharkey `2025.4.7` @ `127.0.0.1:3102` (same mode) ·
@@ -8,7 +9,11 @@ Pinetree default @ `127.0.0.1:3000`
 **Frontends:** Keystone misskey-mode `:5176`, sharkey-mode `:5177`
 (Vite `--mode misskey` / `--mode sharkey`); Pinetree-mode `:5173`
 **Last session:** 2026-10-16 roadmap — all `docs/keystone_roadmap.md`
-Keystone-side work landed in 7 commits (see log); suites green, not pushed yet
+Keystone-side work landed (see log `2026-10-16-roadmap.md`); suites green
+**This session (2026-10-16, implementer):** THREE items in order — (1) push
+unpushed commits, (2) streaming client Stage A vs Misskey/Sharkey, (3) flip
+on pinetree-mode capabilities as the server lands them. Human browser QA is
+owner-handled, NOT this session; browser behavior stays "not yet verified".
 
 ## Decisions since stonekey
 
@@ -50,11 +55,19 @@ Keystone-side work landed in 7 commits (see log); suites green, not pushed yet
 
 ## Current task
 
-Roadmap slices landed locally (7 commits, ahead of origin/main — push
-pending final verification this session). Next (explicitly scoped, each
-its own slice): Pinetree server contracts (drive listing, antennas —
-Rust work in the pinetree repo), streaming client, human browser QA pass
-(visuals, focus, media playback, console errors at mobile + desktop).
+(1) Push: after `git fetch`, `origin/main..HEAD` = 0 commits — the 7 roadmap
+commits are already on origin/main (pushed; STATE pointer was stale).
+Re-verified: build green, flows 44/44, writes 14/14, streaming 27/27.
+(2) DONE + pushed (`bf91cf4` client, `c5933d4` suite, Slice 7): streaming
+Stage A vs Misskey/Sharkey, all suites green (flows 44/44, writes 14/14,
+features 47/47, streaming 27/27; build green). Next streaming work is
+Stage B vs pinetree when its /streaming lands.
+(3) Pinetree enablement CHECKED 2026-10-16: only `notes/global-timeline`
+is newly frozen+live (already enabled in Keystone, verified 200 + Note[]
+via :5173). drive/files, antennas, users/notes, notes/replies,
+followers, search, /streaming all still 404 on the running binary —
+implementer's Phase 3 uncommitted/in-flight. No flips.
+Previously scoped next: human browser QA pass (owner-handled).
 
 ## Servers running (background, dev only)
 
