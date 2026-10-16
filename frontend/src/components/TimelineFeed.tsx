@@ -1,7 +1,7 @@
-import { createEffect, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
 import { apiCall, ApiError } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
-import { appearNoteOf } from "../api/types";
+import { appearNoteOf, collapseReposts } from "../api/types";
 import {
   captureNote,
   subscribeChannel,
@@ -277,6 +277,15 @@ export default function TimelineFeed(props: TimelineFeedProps) {
     }
   };
 
+  // Repost collapsing: when the loaded items contain an original plus one
+  // or more pure reposts of it, only the first repost (feed order) shows;
+  // the original and later copies hide. Quotes never collapse — they carry
+  // their own commentary and are separate notes. The raw `notes` array
+  // keeps every item (paging cursors and reconciliation use it); this memo
+  // only decides visibility and banner names, so `<For>` row identity is
+  // untouched and no card remounts on collapse changes.
+  const collapse = createMemo(() => collapseReposts(notes()));
+
   const toggleReaction = async (note: Note, reaction: string | null) => {
     if (!auth.token() || reactingId() !== null) return;
     setReactingId(note.id);
@@ -429,22 +438,28 @@ export default function TimelineFeed(props: TimelineFeedProps) {
                     // snapshots, so this is an intentional one-time read.
                     const target = appearNoteOf(note);
                     return (
-                      <>
-                        <NoteCard
-                          note={note}
-                          onToggleReaction={auth.token() ? toggleReaction : undefined}
-                          reacting={reactingId() === target.id}
-                          onRepost={auth.token() ? repost : undefined}
-                          onUnrepost={auth.token() ? unrepost : undefined}
-                          onQuote={auth.token() ? () => quote(note.id, target) : undefined}
-                          reposting={repostingId() === target.id}
-                          reposted={repostedIds().includes(target.id)}
-                          onChanged={() => void refreshNote(note.id)}
-                        />
-                        <Show when={quotingId() === note.id}>
-                          <Composer renoteId={quoteTargetId() ?? target.id} onPosted={onQuoted} />
-                        </Show>
-                      </>
+                      // Collapsed copies (hidden originals, non-first
+                      // reposts) render nothing; the representative reads
+                      // the collapse memo reactively in place.
+                      <Show when={collapse().reps.has(note.id)}>
+                        <>
+                          <NoteCard
+                            note={note}
+                            onToggleReaction={auth.token() ? toggleReaction : undefined}
+                            reacting={reactingId() === target.id}
+                            onRepost={auth.token() ? repost : undefined}
+                            onUnrepost={auth.token() ? unrepost : undefined}
+                            onQuote={auth.token() ? () => quote(note.id, target) : undefined}
+                            reposting={repostingId() === target.id}
+                            reposted={repostedIds().includes(target.id)}
+                            renoters={collapse().renotersByRep.get(note.id)}
+                            onChanged={() => void refreshNote(note.id)}
+                          />
+                          <Show when={quotingId() === note.id}>
+                            <Composer renoteId={quoteTargetId() ?? target.id} onPosted={onQuoted} />
+                          </Show>
+                        </>
+                      </Show>
                     );
                   }}
                 </For>

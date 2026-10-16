@@ -1,6 +1,6 @@
 import { A } from "@solidjs/router";
-import { createEffect, onCleanup, createSignal, Show } from "solid-js";
-import type { Note } from "../api/types";
+import { createEffect, onCleanup, createMemo, createSignal, For, Show } from "solid-js";
+import type { Note, UserLite } from "../api/types";
 import { appearNoteOf, displayNameOf, handleOf, isPureRenote } from "../api/types";
 import NoteBody, { Avatar } from "./NoteBody";
 import { HeartIcon, ReplyIcon, RepostIcon } from "./icons";
@@ -16,6 +16,39 @@ function formatTime(iso: string): string {
   return new Date(t).toLocaleDateString();
 }
 
+/** Repost banner naming every collapsed renoter: "xx reposted",
+ * "xx and yy reposted", "xx, yy and zz reposted",
+ * "xx, yy, zz and N others reposted". Names link to profiles. */
+function RepostBanner(props: { users: UserLite[] }) {
+  const shown = createMemo(() => props.users.slice(0, 3));
+  const extra = createMemo(() => props.users.length - shown().length);
+  const separator = (i: number) => {
+    if (i === 0) return "";
+    if (extra() === 0 && i === shown().length - 1) return " and ";
+    return ", ";
+  };
+  return (
+    <div class="renote-banner">
+      <RepostIcon />
+      <For each={shown()}>
+        {(u, i) => (
+          <>
+            {separator(i())}
+            <A class="namelink" href={`/users/${u.id}`}>
+              <span class="name">{displayNameOf(u)}</span>
+            </A>
+          </>
+        )}
+      </For>
+      {extra() > 0 ? (
+        <span>and {extra()} {extra() === 1 ? "other" : "others"} reposted</span>
+      ) : (
+        <span>reposted</span>
+      )}
+    </div>
+  );
+}
+
 export interface NoteCardProps {
   note: Note;
   /** Reaction toggle: `reaction` set to add, null to remove. */
@@ -28,6 +61,11 @@ export interface NoteCardProps {
   onQuote?: (note: Note) => void;
   reposting?: boolean;
   reposted?: boolean;
+  /** All renoters to name in the repost banner when the feed collapsed
+   * several reposts of one original (first wrapper shown). Absent for
+   * single reposts and non-feed contexts — the banner falls back to the
+   * wrapper's own author. */
+  renoters?: UserLite[];
   onChanged?: () => void;
   detail?: boolean;
 }
@@ -63,13 +101,13 @@ export default function NoteCard(props: NoteCardProps) {
   return (
     <article class="note">
       <Show when={pure()}>
-        <div class="renote-banner">
-          <RepostIcon />
-          <A class="namelink" href={`/users/${props.note.user.id}`}>
-            <span class="name">{displayNameOf(props.note.user)}</span>
-          </A>
-          <span>reposted</span>
-        </div>
+        <RepostBanner
+          users={
+            props.renoters && props.renoters.length > 0
+              ? props.renoters
+              : [props.note.user]
+          }
+        />
       </Show>
       <A
         class="avatarlink"

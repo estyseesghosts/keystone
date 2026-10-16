@@ -57,12 +57,12 @@ executed evidence.
       quotes render as their own note with an embedded original; renote
       button opens a menu (Repost/Quote, or Undo repost/Quote when reposted)
       with an inline quote composer in feeds and on note detail
-- [x] Renote vs quote (Misskey `is-renote.ts` semantics): pure reposts render
-      retweet-style (`X reposted` banner + the original; all actions target
-      the original — the server rejects renoting/replying to a wrapper);
-      quotes render as their own note with an embedded original; renote
-      button opens a menu (Repost/Quote, or Undo repost/Quote when reposted)
-      with an inline quote composer in feeds and on note detail
+- [x] Repost collapsing (timeline/antenna feeds): an original plus its pure
+      reposts show only the first repost (feed order); the banner aggregates
+      renoters ("xx reposted", "xx and yy reposted",
+      "xx, yy and zz reposted", "xx, yy, zz and N others reposted", names
+      linked). Quotes never collapse. Raw items are kept for paging
+      cursors/reconciliation, so `<For>` row identity is untouched
 - [x] Profile timeline (`users/notes`); notifications with readable labels +
       timestamps + paging (`i/notifications` has no `isRead` — no read styling)
 

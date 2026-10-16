@@ -90,6 +90,10 @@ Previously scoped next: human browser QA pass (owner-handled).
   the toolbar fill in all states); tsc + build green; committed + pushed
   with the two pending quote slices (see log `2026-10-16-quote-fixes.md`).
   Visual confirmation still needs the owner browser pass.
+- 2026-10-16 (repost-collapse): feeds hide an original shown with its pure
+  reposts (first repost wins, banner aggregates renoters); quotes never
+  collapse; `collapseReposts` extracted pure + 16/16 checks, tsc + build
+  green (see log `2026-10-16-repost-collapse.md`). Uncommitted.
 
 ## Servers running (background, dev only)
 

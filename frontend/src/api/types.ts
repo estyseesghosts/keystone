@@ -222,6 +222,64 @@ export function appearNoteOf(note: Note): Note {
   return isPureRenote(note) && note.renote ? note.renote : note;
 }
 
+export interface CollapsedFeed {
+  /** Item ids with a visible row. */
+  reps: Set<string>;
+  /** Representative wrapper id -> aggregated renoters (feed order). */
+  renotersByRep: Map<string, UserLite[]>;
+}
+
+/** Collapse pure reposts in a feed: an original plus its reposts shows
+ * only the first repost (input order), with renoters aggregated for the
+ * banner. Quotes never collapse — they carry their own commentary.
+ * Grouping is by effective target (a wrapper's `renoteId`, which survives
+ * even a deleted/unpacked original; otherwise the item's own id). Pure:
+ * returns fresh sets/maps, never mutates the input. */
+export function collapseReposts(items: Note[]): CollapsedFeed {
+  const groups = new Map<
+    string,
+    { rep: string; repIsWrapper: boolean; users: UserLite[]; userIds: Set<string> }
+  >();
+  for (const n of items) {
+    if (isPureRenote(n)) {
+      const key = n.renoteId ?? n.id;
+      const g = groups.get(key);
+      if (!g) {
+        groups.set(key, {
+          rep: n.id,
+          repIsWrapper: true,
+          users: [n.user],
+          userIds: new Set([n.user.id]),
+        });
+      } else {
+        // The first repost displaces a previously seen original.
+        if (!g.repIsWrapper) {
+          g.rep = n.id;
+          g.repIsWrapper = true;
+        }
+        if (!g.userIds.has(n.user.id)) {
+          g.userIds.add(n.user.id);
+          g.users.push(n.user);
+        }
+      }
+    } else if (!groups.has(n.id)) {
+      groups.set(n.id, {
+        rep: n.id,
+        repIsWrapper: false,
+        users: [],
+        userIds: new Set(),
+      });
+    }
+  }
+  const reps = new Set<string>();
+  const renotersByRep = new Map<string, UserLite[]>();
+  for (const g of groups.values()) {
+    reps.add(g.rep);
+    if (g.repIsWrapper) renotersByRep.set(g.rep, g.users);
+  }
+  return { reps, renotersByRep };
+}
+
 export function displayNameOf(user: Pick<UserLite, "name" | "username">): string {
   return user.name && user.name.length > 0 ? user.name : user.username;
 }
