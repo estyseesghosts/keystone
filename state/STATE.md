@@ -70,6 +70,8 @@ via :5173). drive/files, antennas, users/notes, notes/replies,
 followers, search, /streaming all still 404 on the running binary —
 implementer's Phase 3 uncommitted/in-flight. No flips.
 Previously scoped next: human browser QA pass (owner-handled).
+- 2026-10-16: README rewritten (human-useful: features, quickstart, backend
+  differences, layout, verification); `npm run build` green.
 
 ## Servers running (background, dev only)
 
