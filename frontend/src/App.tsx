@@ -13,6 +13,7 @@ import Search from "./routes/Search";
 import Notifications from "./routes/Notifications";
 import NoteDetail from "./routes/Note";
 import Profile from "./routes/Profile";
+import Settings from "./routes/Settings";
 import Login from "./routes/Login";
 
 function Root(props: RouteSectionProps) {
@@ -33,6 +34,7 @@ const App: Component = () => {
         <Route path="/notifications" component={Notifications} />
         <Route path="/notes/:id" component={NoteDetail} />
         <Route path="/users/:id" component={Profile} />
+        <Route path="/settings" component={Settings} />
         <Route path="/login" component={Login} />
       </Router>
     </AuthProvider>

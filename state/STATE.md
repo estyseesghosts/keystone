@@ -16,6 +16,11 @@ Keystone-side work landed (see log `2026-10-16-roadmap.md`); suites green
 unpushed commits, (2) streaming client Stage A vs Misskey/Sharkey, (3) flip
 on pinetree-mode capabilities as the server lands them. Human browser QA is
 owner-handled, NOT this session; browser behavior stays "not yet verified".
+**Then (2026-10-16, external-auth):** Slice 8 built (see log
+`2026-10-16-external-auth.md`): Keystone as an external MiAuth client
+(redirect on the host instance) + account card/menu + `/settings` +
+external login tab. Internal flow pinned via `apiCallInternal`; suites NOT
+re-run here (backend DB layer down) — re-verify on the test machine.
 
 ## Decisions since stonekey
 
@@ -102,7 +107,7 @@ Previously scoped next: human browser QA pass (owner-handled).
 - 2026-10-16 (reaction-flicker-2): stable chip identities + optimistic
   updates with silent guard killed the remaining flash sources; tsc +
   build green, `withReaction` 5/5 (see log
-  `2026-10-16-reaction-flicker-2.md`).
+  `2026-10-16-reaction-flicker-2.md`). Committed + pushed as `7449ab4`.
 - 2026-10-16 (repost-collapse): feeds hide an original shown with its pure
   reposts (first repost wins, banner aggregates renoters); quotes never
   collapse; `collapseReposts` extracted pure + 16/16 checks, tsc + build

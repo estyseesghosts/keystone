@@ -1,8 +1,8 @@
 import { createSignal, Show } from "solid-js";
 import type { JSX } from "solid-js";
-import { A, useNavigate } from "@solidjs/router";
+import { A } from "@solidjs/router";
 import { useAuth } from "../state/auth";
-import { displayNameOf, handleOf } from "../api/types";
+import AccountCard from "./AccountCard";
 import {
   AntennaIcon,
   BellIcon,
@@ -12,7 +12,6 @@ import {
   HomeIcon,
   LocalIcon,
   LoginIcon,
-  LogoutIcon,
   SearchIcon,
 } from "./icons";
 
@@ -49,7 +48,6 @@ function NavItem(props: {
 
 export default function Layout(props: { children: JSX.Element }) {
   const auth = useAuth();
-  const navigate = useNavigate();
   const [collapsed, setCollapsed] = createSignal(readCollapsed());
 
   const toggleCollapsed = () => {
@@ -64,11 +62,6 @@ export default function Layout(props: { children: JSX.Element }) {
     });
   };
 
-  const signout = () => {
-    auth.signout();
-    navigate("/login");
-  };
-
   return (
     <div class="layout">
       <div class="mobile-account">
@@ -78,8 +71,7 @@ export default function Layout(props: { children: JSX.Element }) {
           when={auth.me()}
           fallback={<A class="mobile-signin" href="/login">Sign in</A>}
         >
-          <span class="who">{handleOf(auth.me()!)}</span>
-          <button type="button" onClick={signout}>Sign out</button>
+          <AccountCard avatarOnly />
         </Show>
       </div>
       <nav
@@ -127,20 +119,7 @@ export default function Layout(props: { children: JSX.Element }) {
               <NavItem href="/login" label="Sign in" icon={<LoginIcon />} />
             }
           >
-            <span class="who">{handleOf(auth.me()!)}</span>
-            <span class="who">{displayNameOf(auth.me()!)}</span>
-            <button
-              type="button"
-              class="navlink navbutton"
-              onClick={signout}
-              title="Sign out"
-              aria-label="Sign out"
-            >
-              <span class="navicon">
-                <LogoutIcon />
-              </span>
-              <span class="navlabel">Sign out</span>
-            </button>
+            <AccountCard />
           </Show>
         </div>
       </nav>

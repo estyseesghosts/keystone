@@ -33,6 +33,7 @@
 
 import { createSignal } from "solid-js";
 import { IS_MISSKEY_FAMILY } from "./backend";
+import { isExternalAccountActive } from "./external";
 
 export const STREAMING_SUPPORTED = IS_MISSKEY_FAMILY;
 
@@ -372,7 +373,10 @@ function release(): void {
 /**
  * Subscribe to a channel. The socket is shared; each call gets its own
  * server-side id and unsubscribes on dispose. In pinetree mode the handle
- * is immediately `disabled` and no socket is opened.
+ * is immediately `disabled` and no socket is opened. While an external
+ * account is active the handle is likewise `disabled`: the socket targets
+ * the internal proxy backend, so an external token must never be sent
+ * there — feeds fall back to paging + refresh.
  */
 export function subscribeChannel(
   channel: string,
@@ -384,6 +388,12 @@ export function subscribeChannel(
     STREAMING_SUPPORTED ? "pending" : "disabled",
   );
   if (!STREAMING_SUPPORTED) {
+    return { status, dispose: () => undefined };
+  }
+  if (isExternalAccountActive()) {
+    // No socket for external accounts (see above): report disabled so
+    // badges and retry buttons stay quiet.
+    setStatus("disabled");
     return { status, dispose: () => undefined };
   }
   retain(token);
@@ -432,7 +442,8 @@ export function subscribeChannel(
 /**
  * Capture live updates for one note id (`subNote`). Refcounted: N callers
  * capturing the same id produce one server subscription. In pinetree mode
- * the releaser is a no-op.
+ * — and while an external account is active (its token must never reach
+ * the internal socket) — the releaser is a no-op.
  */
 export function captureNote(
   noteId: string,
@@ -440,6 +451,7 @@ export function captureNote(
   token: string | null,
 ): () => void {
   if (!STREAMING_SUPPORTED || !noteId) return () => undefined;
+  if (isExternalAccountActive()) return () => undefined;
   retain(token);
   let cap = captures.get(noteId);
   if (!cap) {

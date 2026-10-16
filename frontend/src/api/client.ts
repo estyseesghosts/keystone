@@ -10,25 +10,21 @@ import {
   KEYSTONE_PERMISSIONS,
   tokenKeyFor,
 } from "./backend";
+import { ApiError } from "./error";
+import {
+  externalApiCall,
+  externalUploadFile,
+  getActiveExternal,
+} from "./external";
 
 // (Token storage keys are per-backend; see backend.ts `tokenKeyFor`.)
 
+/** Re-exported so existing `import { ApiError } from "./client"` sites keep
+ * working; the class itself lives in `./error` (shared with `./external`). */
+export { ApiError } from "./error";
+
 interface ApiErrorBody {
   error?: { message?: string; code?: string; kind?: string };
-}
-
-export class ApiError extends Error {
-  status: number;
-  code?: string;
-  kind?: string;
-
-  constructor(message: string, status: number, code?: string, kind?: string) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.code = code;
-    this.kind = kind;
-  }
 }
 
 export function getToken(): string | null {
@@ -113,6 +109,24 @@ export function apiCallPublic<T>(
 }
 
 export async function apiCall<T>(
+  endpoint: string,
+  params: Record<string, unknown> = {},
+): Promise<T> {
+  // External account active: route direct to its instance. The internal
+  // proxy path below is untouched and runs exactly as before otherwise —
+  // an external token never reaches the internal backend and vice versa.
+  const ext = getActiveExternal();
+  if (ext) {
+    return externalApiCall<T>(ext.scheme, ext.host, ext.token, endpoint, params);
+  }
+  return apiCallInternal<T>(endpoint, params);
+}
+
+/** The internal (proxy-backend) path with no external routing. Used by the
+ * auth store for session operations that must always target the configured
+ * backend (restore, internal sign-in/out, internal refresh) even while an
+ * external account is active. */
+export async function apiCallInternal<T>(
   endpoint: string,
   params: Record<string, unknown> = {},
 ): Promise<T> {
@@ -221,6 +235,12 @@ export async function uploadDriveFile<T>(
   file: File,
   opts: { isSensitive?: boolean; comment?: string } = {},
 ): Promise<T> {
+  // External account active: upload direct to its instance (multipart
+  // FormData, same contract as below).
+  const ext = getActiveExternal();
+  if (ext) {
+    return externalUploadFile<T>(ext.scheme, ext.host, ext.token, file, opts);
+  }
   const token = getToken();
   const form = new FormData();
   if (token) form.append("i", token);

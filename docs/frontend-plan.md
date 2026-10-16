@@ -115,7 +115,6 @@ user-list management (blocks `list`-source antennas; that source is hidden
 until the subset lands), Drive folder navigation, dark mode.
 
 ## Slice 7 — Streaming Stage A (done, Misskey/Sharkey only)
-
 - [x] `src/api/stream.ts`: native-`WebSocket` client, no new dependencies;
   `?i=` auth, per-call channel ids, `connect`/`disconnect` with `pong:true`
   ack, refcounted `subNote`/`unsubNote`, broadcast `noteUpdated`
@@ -181,6 +180,27 @@ until the subset lands), Drive folder navigation, dark mode.
 - [x] `docs/setup.md` (run Keystone with Misskey/Sharkey/Pinetree),
   `docs/api-surface.md` capability contract, permission-denied paths
   tested (pre-scope tokens 403 as designed)
+
+## Slice 8 — External accounts + account card (built 2026-10-16, browser QA pending)
+
+- [x] Keystone as an external client (additive — internal `signin-flow` +
+      proxy flow untouched): `src/api/external.ts` (host normalize,
+      MiAuth authorize URL, direct-fetch `miauth/:session/check` + `i`
+      verify, per-host session storage); `apiCall`/`uploadDriveFile` route
+      direct to the active external instance, `apiCallInternal` keeps the
+      auth store's session ops on the proxy backend; streaming refuses
+      sockets while external is active (no external token ever reaches the
+      local `/streaming` endpoint)
+- [x] Account card (`AccountCard`: avatar + name + handle rounded-rect,
+      menu with Profile / Settings / Switch-account SVG icons, per-host
+      switcher + remove, add-external link) in the sidebar footer and the
+      mobile strip; `/settings` route (session info + shared bounded
+      `ProfileEditor`); `/login` gains an External-server tab (host →
+      instance approval tab → manual finish + `extcb` callback auto-finish)
+- [x] Evidence: `tsc --noEmit` clean, `npm run build` green, 22/22
+      external-helper checks (`normalizeHost`, MiAuth URL, session
+      storage); internal API suites NOT re-run here (backend DB layer down
+      — see log); live-instance browser round-trip not yet verified
 
 ## Verification per slice
 
