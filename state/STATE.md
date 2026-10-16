@@ -1,8 +1,9 @@
 # STATE — resume pointer (mutable, keep current)
 
-**HEAD:** `1fc766c` (pulled 2026-10-16) + uncommitted parity work (see log
-`2026-10-16-parity-implementation.md`). Tree has parity implementation +
-appearance fixes, NOT pushed (owner reviewing).
+**HEAD:** `ad6362b` (pushed 2026-10-16) — remote-emoji dead-URL
+fallthrough + packed/per-host emoji maps + parity implementation +
+appearance work; tree clean except owner artifacts (screenshots,
+`.serena/`, `kobalte.md`, `scripts/smoke_parity.py`, all untracked).
 
 **Phase:** 4 — Visual polish (2026-10-16): sidebar icons + collapsible nav,
 system-theme dark mode (owner override of the AGENTS.md §7 no-dark-mode
