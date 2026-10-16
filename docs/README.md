@@ -13,6 +13,7 @@ reference it.
 | `../keystone.md` | Accepted (source brief) | Product/visual brief, bootstrap, API wiring, scope limits, verification |
 | `../solidjs.md` | Accepted (source guide) | SolidJS 1.x mental model, props/lists/effects rules, agent checklist |
 | `frontend-plan.md` | Draft | MVP scope checklist: routes, slices, deferred items |
+| `frontend-parity-plan.md` | Draft (2026-10-16) | Misskey-parity UI plan (backend-gated); companion to `../../pinetree/docs/misskey-parity-plan.md` |
 | `mfm.md` | Validated (mfm-js 0.27.0) | MFM allow-list, safety rules, AST validation procedure |
 | `router.md` | Validated (router 1.0.0) | Routes, setup pattern, auth gating, anti-patterns |
 | `api-surface.md` | Draft (tracks backend Frozen 2026-10-14) | Supported/unsupported endpoints for the UI, transport notes |
