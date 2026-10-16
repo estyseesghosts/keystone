@@ -1,9 +1,9 @@
 # STATE — resume pointer (mutable, keep current)
 
-**HEAD:** `5852e73` (pushed 2026-10-16) — origin-host hint +
-overlay hardening (see log `2026-10-16-emoji-origin-hint.md`); tree
-clean except owner artifacts (screenshots, `.serena/`, `kobalte.md`,
-`scripts/smoke_parity.py`, all untracked).
+**HEAD:** `8dabc78` (pushed 2026-10-16) + uncommitted follow-up (see log
+`2026-10-16-accountmenu-portal.md`): account menu portals to the body
+with measured fixed coords (click-through/underlay fix). `tsc` + build
+green; browser QA owner-handled.
 
 **Phase:** 4 — Visual polish (2026-10-16): sidebar icons + collapsible nav,
 system-theme dark mode (owner override of the AGENTS.md §7 no-dark-mode

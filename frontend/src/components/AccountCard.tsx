@@ -8,6 +8,7 @@
 // the external login form.
 
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import { A, useNavigate } from "@solidjs/router";
 import { useAuth } from "../state/auth";
 import { displayNameOf, handleOf, hasRealDisplayName, headNameOf } from "../api/types";
@@ -40,8 +41,9 @@ function Avatar(props: { url: string | null; name: string; size: "card" | "menu"
 }
 
 // Matches the narrow-desktop rail band in global.css
-// (`@media (min-width: 721px) and (max-width: 1000px)`): keep the two
-// in sync. Touch-only or SSR environments never match.
+// (`@media (min-width: 721px) and (max-width: 1000px)`) and the mobile
+// breakpoint (`max-width: 720px`): keep all three in sync. Touch-only
+// or SSR environments never match.
 function isRail(): boolean {
   return (
     typeof window !== "undefined" &&
@@ -50,19 +52,43 @@ function isRail(): boolean {
   );
 }
 
-/** Viewport-fixed flyout style for the rail band (null = CSS-anchored
- * menu as in every other placement). */
-function flyoutStyle(
-  pos: { left: number; bottom: number } | null,
-): Record<string, string> | undefined {
+function isMobile(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(max-width: 720px)").matches
+  );
+}
+
+/** Viewport-fixed menu position, measured from the button at toggle
+ * time. `up` opens above the button (sidebar footer); `down` opens
+ * below it (mobile top strip). */
+type MenuPos =
+  | { kind: "up"; left: number; bottom: number }
+  | { kind: "down"; top: number; right: number };
+
+/** Viewport-fixed flyout style for the menu (never CSS-anchored: the
+ * menu always renders in a Portal, so it escapes the sidebar subtree
+ * entirely — no clipping, no stacking-context trap, no inherited
+ * pointer-events; paint and hit-testing both resolve against the
+ * page). */
+function flyoutStyle(pos: MenuPos | null): Record<string, string> | undefined {
   if (!pos) return undefined;
-  return {
-    position: "fixed",
-    left: `${pos.left}px`,
-    bottom: `${pos.bottom}px`,
-    top: "auto",
-    right: "auto",
-  };
+  return pos.kind === "up"
+    ? {
+        position: "fixed",
+        left: `${pos.left}px`,
+        bottom: `${pos.bottom}px`,
+        top: "auto",
+        right: "auto",
+      }
+    : {
+        position: "fixed",
+        top: `${pos.top}px`,
+        right: `${pos.right}px`,
+        bottom: "auto",
+        left: "auto",
+      };
 }
 
 export default function AccountCard() {
@@ -70,20 +96,31 @@ export default function AccountCard() {
   const navigate = useNavigate();
   const [open, setOpen] = createSignal(false);
   const [switching, setSwitching] = createSignal(false);
-  // Viewport-fixed menu position, rail band only (null = anchored to
-  // the button via CSS as before).
-  const [menuPos, setMenuPos] = createSignal<{ left: number; bottom: number } | null>(null);
+  // Viewport-fixed menu position, measured from the button at toggle
+  // time in every placement (the menu always portals to the body, so
+  // CSS anchoring never applies).
+  const [menuPos, setMenuPos] = createSignal<MenuPos | null>(null);
   let wrapRef: HTMLDivElement | undefined;
   let buttonRef: HTMLButtonElement | undefined;
+  // The rail flyout renders in a Portal (outside this wrap), so
+  // outside-click detection must accept clicks in either root.
+  let menuRef: HTMLDivElement | undefined;
 
   const close = () => {
     setOpen(false);
     setSwitching(false);
     setMenuPos(null);
+    menuRef = undefined;
   };
 
   const onDocumentPointerDown = (e: PointerEvent) => {
-    if (wrapRef && !wrapRef.contains(e.target as Node)) close();
+    const target = e.target as Node | null;
+    if (!target) {
+      close();
+      return;
+    }
+    if (wrapRef?.contains(target) || menuRef?.contains(target)) return;
+    close();
   };
 
   const onDocumentKeyDown = (e: KeyboardEvent) => {
@@ -117,15 +154,33 @@ export default function AccountCard() {
       close();
       return;
     }
-    if (isRail() && buttonRef) {
-      // Rail band: the menu can't live inside the 68px rail (it would
-      // squeeze to rail width), so it opens as a viewport-fixed flyout
-      // right of the avatar, above the button.
+    if (buttonRef) {
+      // Measure the button in every placement: the menu portals to the
+      // body with viewport-fixed coordinates, so it can never be
+      // clipped or underlaid by page content. Rail: right of the
+      // avatar, above the button. Expanded sidebar: above the button,
+      // left-aligned (same visual as the old CSS anchor). Mobile strip:
+      // below the button, right-aligned.
       const rect = buttonRef.getBoundingClientRect();
-      setMenuPos({
-        left: rect.right + 8,
-        bottom: window.innerHeight - rect.top + 8,
-      });
+      if (isRail()) {
+        setMenuPos({
+          kind: "up",
+          left: rect.right + 8,
+          bottom: window.innerHeight - rect.top + 8,
+        });
+      } else if (isMobile()) {
+        setMenuPos({
+          kind: "down",
+          top: rect.bottom + 8,
+          right: Math.max(8, window.innerWidth - rect.right),
+        });
+      } else {
+        setMenuPos({
+          kind: "up",
+          left: rect.left,
+          bottom: window.innerHeight - rect.top + 8,
+        });
+      }
     } else {
       setMenuPos(null);
     }
@@ -184,11 +239,15 @@ export default function AccountCard() {
               </span>
             </button>
             <Show when={open()}>
+              <Portal>
               <div
                 class="accountmenu"
                 role="menu"
                 aria-label="Account"
                 style={flyoutStyle(menuPos())}
+                ref={(el) => {
+                  menuRef = el;
+                }}
               >
                 <button
                   type="button"
@@ -315,6 +374,7 @@ export default function AccountCard() {
                   <span>Sign out</span>
                 </button>
               </div>
+              </Portal>
             </Show>
           </>
         )}
