@@ -123,11 +123,13 @@ in under five minutes.
 
 ## 7. Product and scope guards
 
-- Minimalist black/white/grey feed; no accent colors, no dark mode, no theme
-  infrastructure. White or near-white background, black/dark readable text,
-  grey secondary text and separators. No gradients, glass, heavy shadows,
-  decorative cards, or elaborate animation. Desktop: compact left nav + ~600px
-  timeline; mobile: single column + usable bottom nav (never hide the only nav).
+- Minimalist black/white/grey feed; no accent colors. Light mode is the
+  default; dark mode follows the system theme (`prefers-color-scheme`,
+  same grey palette inverted — owner override 2026-10-16 of the earlier
+  light-only rule). No theme infrastructure beyond the CSS variable swap:
+  no theme toggle, no per-user setting. No gradients, glass, heavy
+  shadows, decorative cards, or elaborate animation. Desktop: compact left
+  nav + ~600px timeline; mobile: single column + usable bottom nav (never hide the only nav).
 - Notes show avatar, display name, handle, timestamp, text, CW, media, and
   counts where provided. Clear loading/empty/error states, visible focus.
 - Routes: `/login`, `/` (home, auth-gated), `/local`, `/global`,

@@ -1,7 +1,9 @@
 # STATE — resume pointer (mutable, keep current)
 
-**Phase:** 3 — Streaming Stage A landed + pushed (2026-10-16, `bf91cf4`,
-`c5933d4`; 0 ahead of origin/main. See log `2026-10-16-streaming.md`)
+**Phase:** 4 — Visual polish (2026-10-16): sidebar icons + collapsible nav,
+system-theme dark mode (owner override of the AGENTS.md §7 no-dark-mode
+guard), composer card, button polish. See log `2026-10-16-polish.md`.
+Visual browser QA pending (owner rig).
 **Backends:** Misskey `2026.10.1-alpha.0` @ `127.0.0.1:3101`
 (`KEYSTONE_BACKEND_ONLY=1`, web UI disabled, API verified) ·
 Sharkey `2025.4.7` @ `127.0.0.1:3102` (same mode) ·

@@ -1,4 +1,24 @@
 // Inline SVG icons (monochrome, currentColor). No emoji in controls.
+import type { JSX } from "solid-js";
+
+function Base(props: { size?: number; children: JSX.Element }) {
+  const size = () => props.size ?? 16;
+  return (
+    <svg
+      width={size()}
+      height={size()}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      {props.children}
+    </svg>
+  );
+}
 
 export function HeartIcon(props: { filled?: boolean }) {
   return (
@@ -54,5 +74,113 @@ export function RepostIcon() {
       <path d="m7 22-4-4 4-4" />
       <path d="M21 13v1a4 4 0 0 1-4 4H3" />
     </svg>
+  );
+}
+
+// --- Sidebar navigation icons (stroke style matches the set above) ---
+
+export function HomeIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M3 9.5 12 3l9 6.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+      <path d="M9 22v-8h6v8" />
+    </Base>
+  );
+}
+
+export function LocalIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </Base>
+  );
+}
+
+export function GlobalIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </Base>
+  );
+}
+
+export function SearchIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.35-4.35" />
+    </Base>
+  );
+}
+
+export function DriveIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    </Base>
+  );
+}
+
+export function AntennaIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
+      <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
+      <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19" />
+    </Base>
+  );
+}
+
+export function BellIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </Base>
+  );
+}
+
+export function LoginIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+      <path d="m10 17 5-5-5-5" />
+      <path d="M15 12H3" />
+    </Base>
+  );
+}
+
+export function LogoutIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
+    </Base>
+  );
+}
+
+export function CollapseIcon(props: { size?: number; expanded: boolean }) {
+  return (
+    <Base size={props.size ?? 18}>
+      {props.expanded ? (
+        <>
+          <path d="m11 17-5-5 5-5" />
+          <path d="m18 17-5-5 5-5" />
+        </>
+      ) : (
+        <>
+          <path d="m13 17 5-5-5-5" />
+          <path d="m6 17 5-5-5-5" />
+        </>
+      )}
+    </Base>
   );
 }
