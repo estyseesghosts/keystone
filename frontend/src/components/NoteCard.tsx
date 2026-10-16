@@ -55,7 +55,6 @@ export interface NoteCardProps {
    * (the caller deletes-then-creates as needed — the server rejects
    * reacting twice), null to remove. Callers pass the displayed note. */
   onToggleReaction?: (note: Note, reaction: string | null) => void;
-  reacting?: boolean;
   onRepost?: (note: Note) => void;
   onUnrepost?: (note: Note) => void;
   /** Open the quote composer for the note. Drives the renote menu's
@@ -134,7 +133,6 @@ export default function NoteCard(props: NoteCardProps) {
         <ReactionChips
           note={shown()}
           onToggle={props.onToggleReaction ? (reaction) => props.onToggleReaction?.(shown(), reaction) : undefined}
-          disabled={props.reacting}
         />
 
         <div class="noteactions">
@@ -201,7 +199,6 @@ export default function NoteCard(props: NoteCardProps) {
           }>
             <LikeButton
               note={shown()}
-              disabled={props.reacting}
               onToggle={() => props.onToggleReaction?.(
                 shown(),
                 isHeartReaction(shown().myReaction) ? null : HEART_REACTION,
@@ -209,7 +206,6 @@ export default function NoteCard(props: NoteCardProps) {
             />
             <EmojiButton
               myReaction={shown().myReaction}
-              disabled={props.reacting}
               onPick={(reaction) => props.onToggleReaction?.(shown(), reaction)}
               onUnreact={() => props.onToggleReaction?.(shown(), null)}
             />

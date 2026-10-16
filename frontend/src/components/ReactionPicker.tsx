@@ -22,6 +22,37 @@ export function visibleReactions(
     .sort((a, b) => b[1] - a[1]);
 }
 
+/** One chip. Counts and ownership arrive as accessors so a reconciled
+ * note object updates the text in place — the chip is keyed by its
+ * reaction string upstream and never remounts on refresh. */
+function Chip(props: {
+  reactionKey: string;
+  count: () => number;
+  mine: () => boolean;
+  onToggle?: (reaction: string | null) => void;
+}) {
+  const label = () =>
+    props.mine() ? `Remove ${props.reactionKey} reaction` : `React ${props.reactionKey}`;
+  return (
+    <Show when={props.onToggle} fallback={
+      <span class="rxn">
+        {props.reactionKey} {props.count()}
+      </span>
+    }>
+      <button
+        type="button"
+        class={props.mine() ? "rxn mine" : "rxn"}
+        aria-pressed={props.mine()}
+        aria-label={label()}
+        title={label()}
+        onClick={() => props.onToggle!(props.mine() ? null : props.reactionKey)}
+      >
+        {props.reactionKey} {props.count()}
+      </button>
+    </Show>
+  );
+}
+
 /** Misskey-style reaction chips above the action bar: emoji + numeric
  * count each, rendered only when at least one non-heart reaction exists
  * (no deadspace otherwise). Clicking a chip toggles it; without a toggle
@@ -29,34 +60,26 @@ export function visibleReactions(
 export function ReactionChips(props: {
   note: Note;
   onToggle?: (reaction: string | null) => void;
-  disabled?: boolean;
 }) {
-  const entries = createMemo(() => visibleReactions(props.note.reactions));
+  // Key strings are primitives: equal strings are identical across
+  // recomputes, so refreshes move (or leave) chips instead of remounting
+  // them. Counts/ownership flow through accessors into each Chip.
+  const keys = createMemo(() =>
+    visibleReactions(props.note.reactions).map(([key]) => key),
+  );
+  const counts = () => props.note.reactions ?? {};
   return (
-    <Show when={entries().length > 0}>
+    <Show when={keys().length > 0}>
       <div class="reactions" aria-label="Reactions">
-        <For each={entries()}>
-          {([key, count]) => {
-            const mine = () => props.note.myReaction === key;
-            const label = mine() ? `Remove ${key} reaction` : `React ${key}`;
-            return props.onToggle ? (
-              <button
-                type="button"
-                class={mine() ? "rxn mine" : "rxn"}
-                aria-pressed={mine()}
-                aria-label={label}
-                title={label}
-                disabled={props.disabled}
-                onClick={() => props.onToggle!(mine() ? null : key)}
-              >
-                {key} {count}
-              </button>
-            ) : (
-              <span class="rxn">
-                {key} {count}
-              </span>
-            );
-          }}
+        <For each={keys()}>
+          {(key) => (
+            <Chip
+              reactionKey={key}
+              count={() => counts()[key] ?? 0}
+              mine={() => props.note.myReaction === key}
+              onToggle={props.onToggle}
+            />
+          )}
         </For>
       </div>
     </Show>
@@ -69,7 +92,6 @@ export function ReactionChips(props: {
  * A like is a like — this button only ever adds or removes ❤. */
 export function LikeButton(props: {
   note: Note;
-  disabled?: boolean;
   onToggle: () => void;
 }) {
   const liked = () => isHeartReaction(props.note.myReaction);
@@ -80,7 +102,6 @@ export function LikeButton(props: {
       aria-pressed={liked()}
       aria-label={liked() ? "Unlike" : "Like"}
       title={liked() ? "Liked — remove" : "Like"}
-      disabled={props.disabled}
       onClick={props.onToggle}
     >
       <HeartIcon filled={liked()} /> {props.note.reactionCount}
@@ -99,7 +120,6 @@ export const COMMON_REACTIONS = ["👍", "😆", "🤔", "😮", "🎉", "💢",
  * picker for any other emoji reaction. */
 export function EmojiButton(props: {
   myReaction: string | null;
-  disabled?: boolean;
   onPick: (reaction: string) => void;
   onUnreact: () => void;
 }) {
@@ -140,7 +160,6 @@ export function EmojiButton(props: {
         aria-expanded={open()}
         aria-label="Emoji reaction"
         title="Emoji reaction"
-        disabled={props.disabled}
         onClick={() => setOpen((v) => !v)}
       >
         <SmileIcon />
@@ -151,7 +170,6 @@ export function EmojiButton(props: {
             {(r) => (
               <button
                 type="button"
-                disabled={props.disabled}
                 onClick={() => { setOpen(false); props.onPick(r); }}
                 aria-label={`React ${r}`}
                 title={`React ${r}`}
@@ -171,14 +189,13 @@ export function EmojiButton(props: {
               placeholder=":custom_emoji:"
               aria-label="Custom reaction"
             />
-            <button type="submit" disabled={props.disabled || custom().trim().length === 0}>
+            <button type="submit" disabled={custom().trim().length === 0}>
               Send
             </button>
           </form>
           <Show when={props.myReaction}>
             <button
               type="button"
-              disabled={props.disabled}
               onClick={() => { setOpen(false); props.onUnreact(); }}
             >
               Remove reaction

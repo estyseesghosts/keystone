@@ -2,7 +2,7 @@ import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid
 import { A, useNavigate, useParams } from "@solidjs/router";
 import { apiCall } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
-import { appearNoteOf } from "../api/types";
+import { appearNoteOf, withReaction } from "../api/types";
 import { captureNote } from "../api/stream";
 import { useAuth } from "../state/auth";
 import Composer from "../components/Composer";
@@ -194,23 +194,26 @@ export default function NoteDetail() {
   };
 
   const setReaction = async (target: Note, reaction: string | null) => {
-    // Set-semantics: the caller's desired end state. The server rejects
-    // reacting twice (ALREADY_REACTED), so changing from one reaction to
-    // another deletes first, then creates.
+    // Set-semantics with an optimistic local update (instant, no disabled
+    // flash), then delete (the server rejects reacting twice) + create,
+    // then reconcile. In-flight clicks are ignored by the guard above.
     if (!auth.token() || reacting()) return;
     const current = target.myReaction;
     if (!current && !reaction) return;
+    if (current === reaction) return;
     setReacting(true);
+    setNote((n) => (n && n.id === target.id ? withReaction(n, reaction) : n));
     try {
       if (current) {
         await apiCall<undefined>("notes/reactions/delete", { noteId: target.id });
       }
-      if (reaction && reaction !== current) {
+      if (reaction) {
         await apiCall<undefined>("notes/reactions/create", { noteId: target.id, reaction });
       }
       await refreshPage();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Reaction failed.");
+      await refreshPage();
     } finally {
       setReacting(false);
     }
@@ -299,7 +302,6 @@ export default function NoteDetail() {
                 <NoteCard
                   note={current()}
                   onToggleReaction={auth.token() ? setReaction : undefined}
-                  reacting={reacting()}
                   onRepost={auth.token() ? repost : undefined}
                   onUnrepost={auth.token() ? unrepost : undefined}
                   onQuote={auth.token() ? () => setQuoting(true) : undefined}

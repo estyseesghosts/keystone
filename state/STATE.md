@@ -98,6 +98,11 @@ Previously scoped next: human browser QA pass (owner-handled).
 - 2026-10-16 (reaction-flicker): feed rows keyed by stable note id so
   like/unlike reconciliation updates in place instead of remounting the
   card; tsc + build green (see log `2026-10-16-reaction-flicker.md`).
+  Committed + pushed as `2e08944`.
+- 2026-10-16 (reaction-flicker-2): stable chip identities + optimistic
+  updates with silent guard killed the remaining flash sources; tsc +
+  build green, `withReaction` 5/5 (see log
+  `2026-10-16-reaction-flicker-2.md`).
 - 2026-10-16 (repost-collapse): feeds hide an original shown with its pure
   reposts (first repost wins, banner aggregates renoters); quotes never
   collapse; `collapseReposts` extracted pure + 16/16 checks, tsc + build

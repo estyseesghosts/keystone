@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
 import { apiCall, ApiError } from "../api/client";
 import type { CreatedNoteResponse, Note } from "../api/types";
-import { appearNoteOf, collapseReposts } from "../api/types";
+import { appearNoteOf, collapseReposts, withReaction } from "../api/types";
 import {
   captureNote,
   subscribeChannel,
@@ -298,24 +298,31 @@ export default function TimelineFeed(props: TimelineFeedProps) {
   });
 
   const setReaction = async (note: Note, reaction: string | null) => {
-    // Set-semantics: the caller's desired end state. The server rejects
-    // reacting twice (ALREADY_REACTED), so changing from one reaction to
-    // another deletes first, then creates. Counts reconcile from the
-    // server afterwards — no optimistic counts to unwind on failure.
+    // Set-semantics: the caller's desired end state. The update applies
+    // locally first (instant, no disabled flash), then runs delete (the
+    // server rejects reacting twice with ALREADY_REACTED) + create, then
+    // reconciles from the server. In-flight clicks are ignored by the
+    // guard above — controls never take a disabled style mid-flight.
     if (!auth.token() || reactingId() !== null) return;
     const current = note.myReaction;
     if (!current && !reaction) return;
+    if (current === reaction) return;
     setReactingId(note.id);
+    setNotes((items) =>
+      items.map((n) => (n.id === note.id ? withReaction(n, reaction) : n)),
+    );
     try {
       if (current) {
         await apiCall<undefined>("notes/reactions/delete", { noteId: note.id });
       }
-      if (reaction && reaction !== current) {
+      if (reaction) {
         await apiCall<undefined>("notes/reactions/create", { noteId: note.id, reaction });
       }
       await refreshNote(note.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Reaction failed.");
+      // Roll the optimistic update back to server truth.
+      await refreshNote(note.id);
     } finally {
       setReactingId(null);
     }
@@ -446,7 +453,6 @@ export default function TimelineFeed(props: TimelineFeedProps) {
                           <NoteCard
                             note={note()}
                             onToggleReaction={auth.token() ? setReaction : undefined}
-                            reacting={reactingId() === target().id}
                             onRepost={auth.token() ? repost : undefined}
                             onUnrepost={auth.token() ? unrepost : undefined}
                             onQuote={auth.token() ? () => quote(id, target()) : undefined}

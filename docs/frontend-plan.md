@@ -56,6 +56,9 @@ executed evidence.
       (server rejects double-reacts); `visibleReactions` tolerates
       transient null maps; rows are keyed by stable note id so server
       reconciliation updates in place (no remount flicker on like/unlike);
+      chips keyed by stable reaction strings with accessor-fed counts;
+      optimistic reaction updates with silent busy guard (no disabled
+      flash) and server rollback on error;
       repost single-fire with persistent state;
       follow/unfollow (response is `UserLite`); delete own note (204 path)
 - [x] Renote vs quote (Misskey `is-renote.ts` semantics): pure reposts render

@@ -283,3 +283,28 @@ export function collapseReposts(items: Note[]): CollapsedFeed {
 export function displayNameOf(user: Pick<UserLite, "name" | "username">): string {
   return user.name && user.name.length > 0 ? user.name : user.username;
 }
+
+/** Local end-state of setting one reaction: removes the previous entry
+ * (if any) and adds the new one, adjusting the total. Pure — feeds apply
+ * it optimistically, then reconcile with the server response. */
+export function withReaction(note: Note, reaction: string | null): Note {
+  if (note.myReaction === reaction) return note;
+  const reactions = { ...note.reactions };
+  let reactionCount = note.reactionCount;
+  if (note.myReaction) {
+    const left = (reactions[note.myReaction] ?? 1) - 1;
+    if (left <= 0) delete reactions[note.myReaction];
+    else reactions[note.myReaction] = left;
+    reactionCount -= 1;
+  }
+  if (reaction) {
+    reactions[reaction] = (reactions[reaction] ?? 0) + 1;
+    reactionCount += 1;
+  }
+  return {
+    ...note,
+    myReaction: reaction,
+    reactions,
+    reactionCount: Math.max(0, reactionCount),
+  };
+}
