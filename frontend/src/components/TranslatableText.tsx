@@ -18,14 +18,16 @@
 //   through here, so quoted translations fall out naturally from the same
 //   component (one module-level cache keyed by note id dedupes feeds).
 
-import { createMemo, createResource, createSignal, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, onMount, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import MfmRenderer from "./MfmRenderer";
 import { foldMfm } from "../api/fold";
 import {
   decideTranslation,
   hasTranslatableText,
+  reportTranslationOutcome,
   requestTranslation,
+  translationRetryCount,
   translatorAvailable,
   viewerTargetLang,
 } from "../api/translate";
@@ -57,14 +59,16 @@ export default function TranslatableText(props: {
   // Null while incapable, hidden, textless, or prose-free: the resource
   // never fires and no attempt is ever made against servers without the
   // endpoint or for posts with nothing to translate.
-  const source = createMemo((): string | null =>
+  // The retry count is part of the source so the post menu's "Translate"
+  // refetches after a failure (a new source object triggers the resource).
+  const source = createMemo((): { id: string; retry: number } | null =>
     capable() && props.visible && hasTranslatableText(props.text)
-      ? props.noteId
+      ? { id: props.noteId, retry: translationRetryCount(props.noteId) }
       : null,
   );
 
-  const [fetched] = createResource(source, (id) =>
-    requestTranslation(id, viewerTargetLang()),
+  const [fetched] = createResource(source, (s) =>
+    requestTranslation(s.id, viewerTargetLang()),
   );
 
   // The usable translation under the display policy (identical-output and
@@ -76,6 +80,16 @@ export default function TranslatableText(props: {
     if (!result || !original) return null;
     const verdict = decideTranslation(original, result);
     return verdict.show ? { text: result.text, label: verdict.label } : null;
+  });
+
+  // Report what this note's display shows so the post menu can hide
+  // "Translate" once a translation is on screen.
+  createEffect(() => {
+    if (decision()) {
+      reportTranslationOutcome(props.noteId, "loaded");
+    } else if (fetched()) {
+      reportTranslationOutcome(props.noteId, "unchanged");
+    }
   });
 
   const displayText = createMemo(

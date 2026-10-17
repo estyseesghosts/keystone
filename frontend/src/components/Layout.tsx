@@ -15,6 +15,7 @@ import {
   LoginIcon,
   PencilIcon,
   ProfileIcon,
+  StarIcon,
   SearchIcon,
 } from "./icons";
 
@@ -84,6 +85,9 @@ export default function Layout(props: { children: JSX.Element }) {
             label="Follows"
             icon={<ProfileIcon />}
           />
+        </Show>
+        <Show when={auth.me()}>
+          <NavItem href="/favorites" label="Favorites" icon={<StarIcon />} />
         </Show>
         <Show when={auth.me()}>
           <button

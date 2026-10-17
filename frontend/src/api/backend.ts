@@ -52,7 +52,11 @@ export function tokenKeyFor(id: BackendId = BACKEND_ID): string {
  * list/upload), write:account (antennas create/update/delete, profile edit,
  * word/instance mutes via `i/update`), write:votes (poll voting),
  * read:blocks + write:blocks (blocking/create/delete/list),
- * read:mutes + write:mutes (mute + renote-mute create/delete/list).
+ * read:mutes + write:mutes (mute + renote-mute create/delete/list),
+ * write:favorites (notes/favorites/create), write:report-abuse
+ * (users/report-abuse), read:favorites (i/favorites), read:clips +
+ * write:clips (clips/list, clips/add-note). Added 2026-10-17; unverified
+ * against a live server.
  *
  * Tokens minted before a scope was added lack it: the server answers 403
  * PERMISSION_DENIED and the UI tells the user to sign in again. */
@@ -72,6 +76,11 @@ export const KEYSTONE_PERMISSIONS: string[] = [
   "write:blocks",
   "read:mutes",
   "write:mutes",
+  "write:favorites",
+  "read:favorites",
+  "write:report-abuse",
+  "read:clips",
+  "write:clips",
 ];
 
 export const KEYSTONE_APP_NAME = "Keystone";

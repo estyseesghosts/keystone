@@ -21,6 +21,8 @@ import { HeartIcon, ReplyIcon, RepostIcon } from "./icons";
 import { LikeButton, ReactionChips } from "./ReactionPicker";
 import { DisplayName, EmojiPickerButton } from "./EmojiPicker";
 import { isHeartReaction } from "../api/emoji";
+import { useAuth } from "../state/auth";
+import NoteMenu from "./NoteMenu";
 
 export { formatTime } from "./time";
 
@@ -100,6 +102,7 @@ export default function NoteCard(props: NoteCardProps) {
   const pure = () => isPureRenote(props.note);
   const shown = () => appearNoteOf(props.note);
   const navigate = useNavigate();
+  const auth = useAuth();
   // Clicking the post opens its detail view, like the reference client —
   // except on the detail route itself (already there). Clicks that start
   // in interactive content (links, buttons, inputs, media controls,
@@ -341,6 +344,9 @@ export default function NoteCard(props: NoteCardProps) {
               onUnreact={() => props.onToggleReaction?.(shown(), null)}
             />
           </Show>
+          {/* Every post gets the options menu. Signed-out viewers get only
+            the actions that need no session (mute/block/delete are hidden). */}
+          <NoteMenu note={shown()} me={auth.me()} onChanged={props.onChanged} />
         </div>
       </div>
     </article>

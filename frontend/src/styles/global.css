@@ -1441,6 +1441,109 @@ textarea::placeholder {
   background: var(--bg-soft);
 }
 
+/* Note "⋯" options menu (NoteMenu.tsx): the vispick card language with
+ * single-line rows. Position is measured and set inline (viewport-fixed,
+ * portaled to the body), so these rules only shape the chrome. */
+/* Pinned to the far right of the action row, away from the interaction
+ * buttons on the left. */
+.notemenu-wrap {
+  position: relative;
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.vispick-menu.notemenu {
+  position: fixed;
+  z-index: 60;
+  min-width: 15em;
+  max-width: min(21.33em, calc(100vw - 16px));
+  max-height: min(30em, calc(100vh - 16px));
+  overflow-y: auto;
+}
+
+.notemenu .vispick-item {
+  white-space: nowrap;
+}
+
+.notemenu-item-right {
+  margin-left: auto;
+  display: inline-flex;
+  color: var(--muted);
+}
+
+.notemenu .vispick-item[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.notemenu .vispick-item[disabled]:hover {
+  background: none;
+}
+
+.notemenu-sep {
+  border-top: 1px solid var(--border);
+  margin: 0.25em 0.4em;
+}
+
+.notemenu-inline {
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.13em;
+}
+
+.notemenu-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  padding: 0.53em 0.67em;
+}
+
+.notemenu-confirm-question {
+  font-weight: 700;
+}
+
+.notemenu-confirm-actions {
+  display: flex;
+  gap: 0.4em;
+}
+
+.notemenu-confirm-actions button {
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  padding: 0.3em 0.8em;
+  cursor: pointer;
+}
+
+.notemenu-confirm-actions button:not(:disabled):hover {
+  background: var(--bg-soft);
+}
+
+.notemenu-confirm-actions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.notemenu-confirm-comment {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  padding: 0.4em 0.6em;
+  resize: vertical;
+}
+
+.notemenu-status {
+  padding: 0.4em 0.67em;
+  font-size: calc(13px * var(--text-scale, 1));
+  color: var(--muted);
+}
+
 .noteactions {
   display: flex;
   flex-wrap: wrap;
@@ -2899,6 +3002,17 @@ img.emojiglyph {
 .vispick-wrap {
   position: relative;
   display: inline-flex;
+}
+
+/* Scrollable popups (visibility picker, composer options, note menu) hide
+ * their native scrollbar; wheel, touch and keyboard scrolling still work. */
+.vispick-menu {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.vispick-menu::-webkit-scrollbar {
+  display: none;
 }
 
 .vispick-menu {

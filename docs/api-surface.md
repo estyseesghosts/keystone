@@ -116,6 +116,26 @@ follower/following beyond the basic lists, user-list management (blocks
 `list`-source antennas — that source option is hidden until the subset
 lands), folder navigation in Drive, dark mode.
 
+## Note-menu endpoint probes (2026-10-17, slice 3)
+
+Unauthenticated probes only (`POST /api/<ep>` with `{}`, no `i`): a route
+that exists answers 401 `CREDENTIAL_REQUIRED`, a missing one 404. No
+writes were made. Local Misskey/Sharkey backends are not present on the
+machine used for this session, so the authenticated flows are
+**not yet verified**.
+
+| Endpoint | misskey.io (2025.4.1) | dvd.chat (Sharkey 2025.4.7) | Result |
+|---|---|---|---|
+| `notes/mute` | 404 | 404 | Does not exist. The plan's name is wrong |
+| `notes/thread-muting/create` | 401 | 401 | Exists; authenticated flow unverified |
+| `notes/favorites/create` | 401 | 401 | Exists; `write:favorites` is not in Keystone's token scopes, so a session would get 403 |
+| `users/report-abuse` | 401 | 401 | Exists; `write:report-abuse` is not in Keystone's token scopes; flow unverified |
+
+Outcome: no row flips to live. Slice 2 mute/block endpoints are unchanged.
+Menu reasons updated to name the real blocker. Enabling the favorites or
+report rows needs the scopes added to the sign-in permission set and an
+authenticated test on a local backend.
+
 ## Backend capability contract (roadmap §9)
 
 Status values: `implemented and tested`, `implemented but policy-dependent`,

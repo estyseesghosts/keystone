@@ -17,6 +17,7 @@ import AntennaFeed from "./routes/AntennaFeed";
 import Search from "./routes/Search";
 import Notifications from "./routes/Notifications";
 import FollowRequests from "./routes/FollowRequests";
+import Favorites from "./routes/Favorites";
 import NoteDetail from "./routes/Note";
 import Profile, { FollowersPage, FollowingPage } from "./routes/Profile";
 import Settings, { AccountSettings, DisplaySettings, ImportSettings, MutesSettings, ExportSettings, ReactionsSettings } from "./routes/Settings";
@@ -48,6 +49,7 @@ const App: Component = () => {
           <Route path="/search" component={Search} />
           <Route path="/notifications" component={Notifications} />
           <Route path="/follow-requests" component={FollowRequests} />
+          <Route path="/favorites" component={Favorites} />
           <Route path="/notes/:id" component={NoteDetail} />
           <Route path="/users/:id" component={Profile} />
           <Route path="/users/:id/followers" component={FollowersPage} />
