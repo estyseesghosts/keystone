@@ -308,3 +308,233 @@ export function SwitchIcon(props: { size?: number }) {
     </Base>
   );
 }
+
+// Note "⋯" options menu (NoteMenu.tsx). Every glyph is distinct within
+// a visible menu (tier 1 and the User submenu show together).
+
+export function CopyContentsIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </Base>
+  );
+}
+
+export function LinkIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </Base>
+  );
+}
+
+/** Chain link (upper left) with a globe in the lower right: a remote
+ * identifier, distinct from the plain LinkIcon. */
+export function RemoteLinkIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M9 9.5l-2.6 2.6a2.8 2.8 0 0 0 4 4L13 13.5" />
+      <path d="M11 6.5l.9-.9a2.8 2.8 0 0 1 4 4L13.5 12" />
+      <circle cx="17" cy="17" r="4" />
+      <path d="M13 17h8" />
+      <path d="M17 13c-1.4 1.3-1.4 6.7 0 8" />
+    </Base>
+  );
+}
+
+export function ExternalLinkIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <path d="M15 3h6v6" />
+      <path d="M10 14L21 3" />
+    </Base>
+  );
+}
+
+export function ShareIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="M8.59 13.51l6.83 3.98" />
+      <path d="M15.41 6.51l-6.82 3.98" />
+    </Base>
+  );
+}
+
+/** "文A" — a CJK glyph beside a Latin A, the translate convention. */
+export function TranslateIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M3 6h7" />
+      <path d="M6.5 3.5V6" />
+      <path d="M4 10c1.5-.5 3.5-1.5 5-3" />
+      <path d="M14 20l3.5-9 3.5 9" />
+      <path d="M15.3 17h4.4" />
+    </Base>
+  );
+}
+
+export function BellOffIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      <path d="M18.63 13A17.9 17.9 0 0 1 18 8" />
+      <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14" />
+      <path d="M18 8a6 6 0 0 0-9.33-5" />
+      <path d="M1 1l22 22" />
+    </Base>
+  );
+}
+
+export function UserIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </Base>
+  );
+}
+
+/** Person with a link chain: the profile URL (not the note link). */
+export function ProfileLinkIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M3 20a6 6 0 0 1 9-5.2" />
+      <path d="M16 15.5l-1.5 1.5a2.1 2.1 0 0 0 3 3l1.5-1.5" />
+      <path d="M18.5 12.5l1.5-1.5a2.1 2.1 0 0 0-3-3l-1.5 1.5" />
+    </Base>
+  );
+}
+
+/** Person with an outbound arrow in the lower right: a remote profile. */
+export function RemoteUserIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M3 20a6 6 0 0 1 9-5.2" />
+      <path d="M15 14h6v6" />
+      <path d="M21 14l-7 7" />
+    </Base>
+  );
+}
+
+export function ReportIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v4" />
+      <path d="M12 16h.01" />
+    </Base>
+  );
+}
+
+export function DeleteIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    </Base>
+  );
+}
+
+export function StarIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </Base>
+  );
+}
+
+export function ClipIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </Base>
+  );
+}
+
+/** Crossed-out cloud: the thread/user mute glyph (cloud = Misskey's mute). */
+export function MuteIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+      <path d="M3 3l18 18" />
+    </Base>
+  );
+}
+
+export function BlockIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M4.93 4.93l14.14 14.14" />
+    </Base>
+  );
+}
+
+export function RssIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <circle cx="5" cy="19" r="1" />
+      <path d="M4 11a9 9 0 0 1 9 9" />
+      <path d="M4 4a16 16 0 0 1 16 16" />
+    </Base>
+  );
+}
+
+export function ListIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M8 6h13" />
+      <path d="M8 12h13" />
+      <path d="M8 18h13" />
+      <path d="M3 6h.01" />
+      <path d="M3 12h.01" />
+      <path d="M3 18h.01" />
+    </Base>
+  );
+}
+
+export function MailIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="M22 6l-10 7L2 6" />
+    </Base>
+  );
+}
+
+/** Pencil resting on a baseline: a memo, distinct from PencilIcon. */
+export function MemoIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M4 20h16" />
+      <path d="M14.5 4.5l5 5L9 20H4v-5L14.5 4.5z" />
+    </Base>
+  );
+}
+
+export function RefreshIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 18}>
+      <path d="M21 12a9 9 0 1 1-2.64-6.36L21 8" />
+      <path d="M21 3v5h-5" />
+    </Base>
+  );
+}
+
+/** Submenu indicator. Secondary to the row glyph, so it may repeat. */
+export function ChevRightIcon(props: { size?: number }) {
+  return (
+    <Base size={props.size ?? 14}>
+      <path d="M9 6l6 6-6 6" />
+    </Base>
+  );
+}

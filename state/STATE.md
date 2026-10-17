@@ -279,6 +279,26 @@ approve-and-return round-trip still **not yet verified** (owner).
 
 ## Current task
 
+- **2026-10-17 (note-menu, slices 1–4 — branch `note-menu`, pushed; live Misskey QA owner-handled):**
+  Slice 3 rows wired per owner (favorites, thread mute, report); slice 4
+  built (favorites page, clips, copy RSS; search route already existed).
+  New token scopes need owner re-auth. See logs `2026-10-17-note-menu-slice4.md`.
+  Earlier entry (slices 1–2):
+  `⋯` options menu on every `NoteCard` (`NoteMenu.tsx`, plan
+  `docs/note-options.md` §9): client actions, User submenu, own-note
+  Delete, live Mute / Mute Boosts / Block (Block confirms), Translate row
+  hidden once a translation is shown, right-aligned trigger, scrollbars
+  hidden on `.vispick-menu` popups. `tsc` clean, build green; no backends
+  or dev server up on this machine, so browser/e2e behavior is **not yet
+  verified**. Quoted posts intentionally have no action row or menu.
+  Slice 3 probes done, nothing flipped live (`2026-10-17-note-menu-slice3.md`):
+  `notes/mute` does not exist; favorites and report need token scopes not
+  now requested (`write:favorites`, `write:report-abuse`, log
+  `2026-10-17-scopes-favorites-report.md`); owner re-auths and tests on a
+  live external server. Favorites and report stay disabled until those
+  results come back. No local backend testing per owner. See logs `2026-10-17-note-menu.md`,
+  `2026-10-17-note-menu-slice2.md`, `2026-10-17-remote-post-link.md`.
+
 (1) Push: after `git fetch`, `origin/main..HEAD` = 0 commits — the 7 roadmap
 commits are already on origin/main (pushed; STATE pointer was stale).
 Re-verified: build green, flows 44/44, writes 14/14, streaming 27/27.

@@ -496,6 +496,79 @@ global text size 50–400% (every font-size scales, layout fixed); see
       live mute/block/word-filter round-trips + browser behavior
       **not yet verified** (owner)
 
+## Note "⋯" options menu — slices 1–2 (built 2026-10-17; browser QA pending)
+
+Plan: `docs/note-options.md` §9. Slices 1–2 built; slices 3–4 not started.
+
+- [x] `⋯` trigger on every post (feeds, detail, profile, search, replies),
+      pinned to the right end of `.noteactions` (`margin-left: auto`);
+      signed-out viewers get the session-free actions only
+      (`NoteCard` → `NoteMenu.tsx`); portaled, viewport-fixed flyout in the
+      vispick card language; measured placement (above, or below in the
+      top 35%), right-aligned and clamped inside the viewport
+- [x] Tier 1 client actions: Copy contents, Copy link, Copy remote link
+      (remote notes only), View on remote instance (remote notes only),
+      Share (`navigator.share` with clipboard fallback)
+- [x] User submenu (hover after 150ms, click/ArrowRight/Enter to open;
+      flips left at the viewport edge; inline under its row below 480px):
+      Copy username, Copy profile URL, View on remote (disabled: feed notes
+      carry no profile URL — never guessed from host + username)
+- [x] Delete own notes only: two-step confirm, `notes/delete` (204),
+      navigates home from `/notes/:id`, calls `onChanged`
+- [x] Unverified / unsupported rows render disabled with a reason
+      (`disabled` + `title` + `aria-disabled`); Translate and search
+      reasons corrected from the plan (translation is automatic already;
+      note search is restricted server-side, not missing)
+- [x] Dismiss: outside pointer/focus, Escape (submenu first, focus
+      restored), scroll (except inside the menus) and resize
+- [x] Evidence: `tsc --noEmit` clean, `npm run build` green. Backends
+      (`:3101`, `:3102`) and Vite (`:5176`) were down on this machine, so
+      no e2e run: browser behavior, Delete round-trip, icon rendering at
+      18px in both themes, and 360px layout are **not yet verified**
+- [x] Translate row (slice 1 follow-up): hidden once a translation is on
+      screen (shared per-note outcome store in `api/translate.ts`, written
+      by `TranslatableText`); otherwise retries a failed attempt; disabled
+      "Already in your language" when the server's result is not worth
+      showing. Hidden when translation is unsupported or the post has no
+      prose
+- [x] Remote post link (`api/remotepost.ts`): "View on remote instance" and
+      "Copy remote link" use the post's web page. Order: packed `url`, then
+      the ActivityPub object's `url` (fetched with the AP Accept header and
+      trusted only when its `id` equals the note's `uri`), then the `uri`
+      itself, which browsers redirect to the page. The object read works
+      only where the remote sends CORS (Misskey-family yes; Mastodon and
+      Pleroma no). No proxy. Verified by probe: see log
+      `2026-10-17-remote-post-link.md`
+- [x] Scrollbars hidden on every `.vispick-menu` popup (visibility picker,
+      composer options, note menu); wheel/touch/keyboard scrolling kept
+- [x] Slice 2 — Mute / Mute Boosts / Block live in the User submenu:
+      state from `users/relation` (loaded on submenu open, re-read after
+      each write), labels flip Mute↔Unmute, Mute Boosts↔Unmute Boosts,
+      Block↔Unblock; Block asks "Block @user?" first; writes use
+      `mute/create|delete`, `renote-mute/create|delete`,
+      `blocking/create|delete` with no `expiresAt`; feeds refresh via
+      `onChanged`. Rows hidden for signed-out viewers and the viewer's own
+      posts; disabled "Unavailable on Pinetree" on Pinetree
+      (verification pending: see the slice 2 log)
+- [x] Slice 3 — endpoint probes (2026-10-17, `docs/api-surface.md`
+      "Note-menu endpoint probes"): `notes/mute` does not exist (404); the
+      thread-mute route is `notes/thread-muting/*`; favorites and
+      report-abuse exist. Wired per owner decision (no local testing; the
+      owner verifies on a live Misskey): Add to favorites
+      (`notes/favorites/create`), Mute thread (`notes/thread-muting/create`),
+      Report (`users/report-abuse`, reason required, confirmed). Scopes
+      `write:favorites`, `write:report-abuse` requested. **Unverified live.**
+- [x] Slice 4 — built 2026-10-17, **unverified live**:
+      - Favorites page `/favorites` (`i/favorites` paged, remove via
+        `notes/favorites/delete`); nav entry for signed-in users
+      - Clip row: expands inline to `clips/list`, adds the note with
+        `clips/add-note`; scopes `read:clips`, `write:clips`
+      - Copy RSS: `https://<host>/@<user>.rss` for remote authors; local
+        authors only when `VITE_KEYSTONE_API_URL` is set, else disabled
+      - Search route: `/search` already existed (slice 6). Per-user note
+        search stays disabled: `notes/search` is refused by these servers
+      - Scopes `read:favorites` requested. Owner re-auths to pick them up
+
 ## Verification per slice
 
 Build green, desktop + mobile, real Misskey + Sharkey flows, 204 handling, no

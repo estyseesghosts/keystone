@@ -25,6 +25,7 @@ import { BACKEND_ID } from "./backend";
 import { apiCall, isUnsupportedError } from "./client";
 import { getActiveExternal } from "./external";
 import { parse, type MfmNode } from "mfm-js";
+import { createStore } from "solid-js/store";
 
 export interface TranslateResult {
   /** English display name as returned by the server ("Chinese", ...). */
@@ -353,4 +354,37 @@ export function requestTranslation(
   );
   inflight.set(noteId, task);
   return task;
+}
+
+// --- Shared per-note outcome + retry (TranslatableText and NoteMenu) ---------
+//
+// The display component reports what it shows; the post menu reads it to
+// hide "Translate" once a translation is on screen, and asks for a retry
+// after a failure. Both live in reactive stores so either side updates
+// the other without a prop chain.
+
+export type TranslationOutcome = "loaded" | "unchanged";
+
+const [outcomes, setOutcomes] = createStore<Record<string, TranslationOutcome>>({});
+const [retries, setRetries] = createStore<Record<string, number>>({});
+
+/** "loaded": a translation is shown. "unchanged": the server answered but
+ * the result is not worth showing (same language). Undefined otherwise. */
+export function translationOutcome(noteId: string): TranslationOutcome | undefined {
+  return outcomes[noteId];
+}
+
+export function reportTranslationOutcome(noteId: string, outcome: TranslationOutcome): void {
+  if (outcomes[noteId] !== outcome) setOutcomes(noteId, outcome);
+}
+
+/** Read by TranslatableText's request memo so a retry refetches. */
+export function translationRetryCount(noteId: string): number {
+  return retries[noteId] ?? 0;
+}
+
+/** Clear a remembered failure and make the display refetch. */
+export function retryTranslation(noteId: string): void {
+  failedAt.delete(noteId);
+  setRetries(noteId, (retries[noteId] ?? 0) + 1);
 }
