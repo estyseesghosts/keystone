@@ -18,6 +18,7 @@ import {Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import type {RootParamList} from '#/routes'
 import {AuthCallbackScreen} from '#/screens/AuthCallback'
+import {ComposeScreen} from '#/screens/Compose'
 import {ExploreScreen} from '#/screens/Explore'
 import {HomeScreen} from '#/screens/Home'
 import {ListScreen} from '#/screens/List'
@@ -63,6 +64,7 @@ export const linking: LinkingOptions<StackParamList> = {
       Login: 'login',
       AuthCallback: 'auth/callback',
       SysDebug: 'sys/debug',
+      Compose: 'compose',
     },
   },
 }
@@ -157,6 +159,11 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="AuthCallback" component={AuthCallbackScreen} />
             <Stack.Screen name="SysDebug" component={SysDebugScreen} />
+            <Stack.Screen
+              name="Compose"
+              component={ComposeScreen}
+              options={{presentation: 'modal'}}
+            />
           </Stack.Navigator>
         </View>
         {wide ? <RightNav /> : null}

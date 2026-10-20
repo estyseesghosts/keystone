@@ -17,6 +17,7 @@ export type RootParamList = {
   Login: undefined
   AuthCallback: undefined
   SysDebug: undefined
+  Compose: {replyToId?: string; quoteId?: string; draftId?: string} | undefined
 }
 
 export const paths: Record<keyof RootParamList, string> = {
@@ -32,4 +33,5 @@ export const paths: Record<keyof RootParamList, string> = {
   Login: '/login',
   AuthCallback: '/auth/callback',
   SysDebug: '/sys/debug',
+  Compose: '/compose',
 }
