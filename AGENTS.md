@@ -163,8 +163,10 @@ Never silently reverse the plan. Record first (`§7 D1–D8` style), then code.
   Merge to `main` only after slice acceptance passes and owner approves.
 - Touch only files the slice/task lists. Anything else is a deviation
   and must be logged.
-- When Bluesky has a pattern for the thing, copy it. Check the
-  reference clone first. Keep Bluesky's MIT notice in `NOTICE.md`.
+- When Bluesky has a pattern for the thing, follow the pattern with our
+  own code — never verbatim Bluesky source (see
+  `docs/adr/0001-patterns-not-code.md`). Check the reference clone first.
+  Record the source path in the log, not in code comments.
 - Unpublished Bluesky deps (`link:./modules/*`) are unavailable. Use the
   closest published package and record the swap in `docs/DECISIONS.md`.
 - Conventions are enforced by lint/typecheck, not prose. If an agent

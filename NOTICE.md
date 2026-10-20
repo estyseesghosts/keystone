@@ -1,7 +1,11 @@
 # NOTICE
 
-This project reuses patterns and code from Bluesky's `social-app`
-(MIT licensed, © Bluesky PBC) as a reference at pinned commit `cf16c1d`,
-per `rn-rebuild-plan.md`. Retained Bluesky copyright/license notices for
-copied files will be listed here (with source paths) when the scaffold
-slice (plan 1.1/1.4) lands them. No Bluesky code is vendored yet.
+Reference: Bluesky's `social-app` (MIT licensed, © Bluesky PBC),
+pinned at `cf16c1d` per `rn-rebuild-plan.md`, studied for its Expo +
+React Native multi-target architecture.
+
+No Bluesky source is vendored in this repo: components, theme code,
+screens and protocol code are our own implementations following the
+same architectural shapes (see `docs/adr/0001-patterns-not-code.md`).
+If a future slice vendors third-party code, its copyright and license
+terms will be recorded here with source paths.

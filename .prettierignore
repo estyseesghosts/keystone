@@ -1,3 +1,12 @@
 pnpm-lock.yaml
 dist/
 web-build/
+# Carried Keystone server specs: verbatim copies, do not reformat.
+docs/api-surface.md
+docs/mastoapi-contract.md
+docs/mfm.md
+docs/note-options.md
+docs/quote-posts.md
+docs/replies.md
+docs/setup.md
+docs/twemoji.md
