@@ -41,6 +41,11 @@ export function useSessionStore(): SessionStore {
   return store
 }
 
+/** Like `useSessionStore` but null outside a provider (presentational trees). */
+export function useOptionalSessionStore(): SessionStore | null {
+  return useContext(SessionStoreContext)
+}
+
 /** All stored sessions (reactive). */
 export function useSessions(): Session[] {
   const store = useSessionStore()

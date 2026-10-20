@@ -107,7 +107,7 @@ describe('PostCard', () => {
 
   it('write actions are disabled with reasons, never inert', () => {
     renderCard(<PostCard post={makePost({id: 'p8'})} sessionId={SESSION} />)
-    expect(screen.getByLabelText('Reply. Replying lands with the composer in Phase 4.')).toBeTruthy()
-    expect(screen.getByLabelText('Boost. Boosting lands with the write path in Phase 4.')).toBeTruthy()
+    expect(screen.getByLabelText('Reply. Sign in to reply.')).toBeTruthy()
+    expect(screen.getByLabelText('Boost. Sign in to boost.')).toBeTruthy()
   })
 })

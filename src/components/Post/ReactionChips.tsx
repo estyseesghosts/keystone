@@ -64,8 +64,11 @@ export function ReactionChips({
   reactions,
   capabilities,
   pendingKeys,
+  onToggle,
   testID,
 }: {
+  /** Tap a chip to react with / clear that key. Omit = read-only chips. */
+  onToggle?: (key: string) => void
   reactions: ReactionSummary | null
   /** `usePostShadow(...).pendingEmojiKeys` */
   pendingKeys?: ReadonlySet<string>
@@ -81,11 +84,19 @@ export function ReactionChips({
         <Pressable
           key={entry.key}
           testID={`reaction-${entry.key}`}
-          disabled
+          disabled={!onToggle}
+          onPress={onToggle ? () => onToggle(entry.key) : undefined}
           accessibilityRole="button"
-          accessibilityState={{disabled: true}}
-          accessibilityLabel={`${entry.key}, ${entry.count}. ${READONLY_REASON}`}
-          style={[styles.chip, {borderColor: theme.palette.edge}]}>
+          accessibilityState={{disabled: !onToggle, selected: reactions.mine === entry.key}}
+          accessibilityLabel={
+            onToggle
+              ? `${entry.key}, ${entry.count}${reactions.mine === entry.key ? ', yours' : ''}`
+              : `${entry.key}, ${entry.count}. ${READONLY_REASON}`
+          }
+          style={[
+            styles.chip,
+            {borderColor: reactions.mine === entry.key ? theme.palette.text : theme.palette.edge},
+          ]}>
           <ChipArt reactionKey={entry.key} url={entry.url} pending={pendingKeys?.has(entry.key)} />
           <Caption color="muted">{String(entry.count)}</Caption>
         </Pressable>

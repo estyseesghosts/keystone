@@ -6,11 +6,15 @@
 // disabled WITH their reason — hidden only when the capability is
 // `unsupported`. Never wired, never inert, never faked.
 
-import {useMemo, useState} from 'react'
-import {Image, StyleSheet, View} from 'react-native'
+import {useContext, useMemo, useState, useSyncExternalStore} from 'react'
+import {Image, Linking, Share, StyleSheet, View} from 'react-native'
+
+import {QueryClientContext} from '@tanstack/react-query'
 
 import {
   appearNoteOf,
+  backendForSession,
+  type Translation,
   displayNameOf,
   handleOf,
   isPureRenote,
@@ -23,8 +27,15 @@ import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
+import {canCopy, copyText} from '#/lib/clipboard'
+import {showToast} from '#/lib/toast'
+import {usePostActions, type PostActions} from '#/state/cache'
+import {useOptionalSessionStore} from '#/state/session/SessionProvider'
 
+import {ActionBar, toastError} from './ActionBar'
 import {postBodyNodes, postEmojis} from './body'
+import {usePostCardHandlers, type PostCardHandlers} from './handlers'
+import {buildPostMenu, type PostMenuSection} from './menuModel'
 import {PostMediaGrid} from './PostMediaGrid'
 import {PostQuote} from './PostQuote'
 import {ReactionChips} from './ReactionChips'
@@ -81,9 +92,118 @@ export type PostCardProps = {
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
   testID?: string
+  /** Screen-supplied composer/picker callbacks (override the context). */
+  handlers?: PostCardHandlers
 }
 
-export function PostCard({
+type LiveBits = {
+  actions: PostActions
+  family: 'misskey' | 'mastodon'
+  menu: PostMenuSection[]
+  handlers: PostCardHandlers
+  translation: Translation | null
+  hideTranslation: () => void
+}
+
+/** Wires the write path when session + query providers exist; otherwise
+ * renders the read-only card (presentational trees, tests). */
+export function PostCard(props: PostCardProps) {
+  const store = useOptionalSessionStore()
+  const qc = useContext(QueryClientContext)
+  if (store && qc) return <LivePostCard {...props} />
+  return <PostCardView {...props} />
+}
+
+function LivePostCard(props: PostCardProps) {
+  const {post, sessionId} = props
+  const store = useOptionalSessionStore()!
+  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot)
+  const session = snapshot.sessions.find(s => s.id === sessionId) ?? null
+  const backend = useMemo(() => (session ? backendForSession(session) : null), [session])
+  const handlers = usePostCardHandlers(props.handlers)
+  const effective = useMemo(() => appearNoteOf(post), [post])
+  const actions = usePostActions(sessionId, effective)
+  const [translation, setTranslation] = useState<Translation | null>(null)
+  const shown = actions.shadowed.post
+  const isOwn = session != null && effective.author.id === session.accountId
+
+  if (actions.shadowed.isDeleted) return null
+
+  const menu = buildPostMenu({
+    family: session?.family ?? 'misskey',
+    capabilities: backend?.capabilities ?? null,
+    post: shown,
+    origin: session?.origin ?? '',
+    isOwn,
+    copyAvailable: canCopy(),
+    bookmark: actions.bookmark,
+    del: actions.delete,
+    handlers: {
+      copy: async text => {
+        try {
+          await copyText(text)
+          showToast('Copied')
+        } catch (e) {
+          toastError(e)
+        }
+      },
+      share: async (url, text) => {
+        try {
+          await Share.share({message: text ? `${text}\n${url}` : url, url})
+        } catch (e) {
+          toastError(e)
+        }
+      },
+      open: url => void Linking.openURL(url).catch(toastError),
+      translate: async () => {
+        if (!backend) return
+        try {
+          setTranslation(await backend.translate(effective.id, handlers.targetLang ?? 'en'))
+        } catch (e) {
+          toastError(e)
+        }
+      },
+      muteThread: async () => {
+        if (!backend) return
+        try {
+          await backend.muteThread(effective.id)
+          showToast('Thread muted')
+        } catch (e) {
+          toastError(e)
+        }
+      },
+      togglePin: async () => {
+        if (!backend) return
+        try {
+          if (shown.pinned) await backend.unpinPost(effective.id)
+          else await backend.pinPost(effective.id)
+          showToast(shown.pinned ? 'Unpinned' : 'Pinned')
+        } catch (e) {
+          toastError(e)
+        }
+      },
+      onEdit: handlers.onEdit,
+      user: handlers.user,
+    },
+  })
+
+  return (
+    <PostCardView
+      {...props}
+      capabilities={props.capabilities ?? backend?.capabilities ?? null}
+      live={{
+        actions,
+        family: session?.family ?? 'misskey',
+        menu,
+        handlers,
+        translation,
+        hideTranslation: () => setTranslation(null),
+      }}
+    />
+  )
+}
+
+function PostCardView({
   post,
   capabilities,
   emojiStyle = 'twemoji',
@@ -91,14 +211,16 @@ export function PostCard({
   onHashtagPress,
   onLinkPress,
   testID,
-}: PostCardProps) {
+  live,
+}: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
   const [cwOpen, setCwOpen] = useState(false)
 
   // A pure repost shows the ORIGINAL with a boost header; a quote is
   // its own post (appearNoteOf encodes exactly this).
-  const effective = useMemo(() => appearNoteOf(post), [post])
-  const isBoost = effective !== post
+  const base = useMemo(() => appearNoteOf(post), [post])
+  const effective = live ? live.actions.shadowed.post : base
+  const isBoost = base !== post
   const nodes = useMemo(() => postBodyNodes(effective), [effective])
   const emojis = useMemo(() => postEmojis(effective), [effective])
   const cw = effective.cw
@@ -171,25 +293,64 @@ export function PostCard({
             </Caption>
           )}
         </View>
-        <ReactionChips reactions={effective.reactions} capabilities={capabilities} testID={`post-reactions-${post.id}`} />
-        <View style={styles.actions}>
-          <Pressable
-            testID={`action-reply-${post.id}`}
-            disabled
-            accessibilityRole="button"
-            accessibilityState={{disabled: true}}
-            accessibilityLabel="Reply. Replying lands with the composer in Phase 4.">
-            <Caption color="faint">Reply</Caption>
-          </Pressable>
-          <Pressable
-            testID={`action-boost-${post.id}`}
-            disabled
-            accessibilityRole="button"
-            accessibilityState={{disabled: true}}
-            accessibilityLabel="Boost. Boosting lands with the write path in Phase 4.">
-            <Caption color="faint">Boost</Caption>
-          </Pressable>
-        </View>
+        {live?.translation && (
+          <View style={[styles.cwBox, {backgroundColor: theme.palette.bgSoft}]} testID={`translation-${post.id}`}>
+            <Caption color="muted">
+              Translated{live.translation.sourceLang ? ` from ${live.translation.sourceLang}` : ''}
+            </Caption>
+            <Body>{live.translation.text}</Body>
+            <Pressable
+              testID={`translation-hide-${post.id}`}
+              onPress={live.hideTranslation}
+              accessibilityRole="button"
+              accessibilityLabel="Hide translation">
+              <Caption>Hide</Caption>
+            </Pressable>
+          </View>
+        )}
+        <ReactionChips
+          reactions={effective.reactions}
+          capabilities={capabilities}
+          pendingKeys={live?.actions.shadowed.pendingEmojiKeys}
+          onToggle={
+            live && live.actions.reaction.gate.enabled
+              ? key =>
+                  void live.actions.reaction
+                    .set(live.actions.reaction.value === key ? null : key)
+                    .catch(toastError)
+              : undefined
+          }
+          testID={`post-reactions-${post.id}`}
+        />
+        {live ? (
+          <ActionBar
+            post={effective}
+            actions={live.actions}
+            family={live.family}
+            capabilities={capabilities ?? null}
+            handlers={live.handlers}
+            menu={live.menu}
+          />
+        ) : (
+          <View style={styles.actions}>
+            <Pressable
+              testID={`action-reply-${post.id}`}
+              disabled
+              accessibilityRole="button"
+              accessibilityState={{disabled: true}}
+              accessibilityLabel="Reply. Sign in to reply.">
+              <Caption color="faint">Reply</Caption>
+            </Pressable>
+            <Pressable
+              testID={`action-boost-${post.id}`}
+              disabled
+              accessibilityRole="button"
+              accessibilityState={{disabled: true}}
+              accessibilityLabel="Boost. Sign in to boost.">
+              <Caption color="faint">Boost</Caption>
+            </Pressable>
+          </View>
+        )}
       </View>
     </View>
   )
