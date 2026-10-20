@@ -23,8 +23,8 @@ Reference: Bluesky `social-app` @ `cf16c1d` (patterns only, ADR-0001).
 - Tasks: `docs/tasks/` (p1.1–p1.5 done)
 - ADRs: `docs/adr/0001-patterns-not-code.md`
 - Logs: `state/logs/2026-10-20-p1.5-shell.md` (trio green + web export)
-Plan: `rn-rebuild-plan.md` (proposal, 2026-10-20).
-Reference: Bluesky `social-app` @ `cf16c1d` (surveyed at `1.136.0`).
+  Plan: `rn-rebuild-plan.md` (proposal, 2026-10-20).
+  Reference: Bluesky `social-app` @ `cf16c1d` (surveyed at `1.136.0`).
 
 ## Next 3 steps
 
