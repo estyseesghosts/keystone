@@ -73,6 +73,7 @@
     "@babel/plugin-transform-dynamic-import": "^7.27.1",
     "@lingui/babel-plugin-lingui-macro": "^5.9.2",
     "@lingui/cli": "^5.9.2",
+    "@lingui/macro": "^5.9.2",
     "@react-native/babel-preset": "0.86.3",
     "@react-native/typescript-config": "^0.81.5",
     "@testing-library/react-native": "^13.2.0",

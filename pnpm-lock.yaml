@@ -275,6 +275,9 @@ importers:
       '@lingui/cli':
         specifier: ^5.9.2
         version: 5.9.5(supports-color@8.1.1)(typescript@5.9.3)
+      '@lingui/macro':
+        specifier: ^5.9.2
+        version: 5.9.5(@lingui/babel-plugin-lingui-macro@5.9.5(supports-color@8.1.1)(typescript@5.9.3))(react@19.2.3)
       '@react-native/babel-preset':
         specifier: 0.86.3
         version: 0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
@@ -1329,6 +1332,18 @@ packages:
   '@lingui/format-po@5.9.5':
     resolution: {integrity: sha512-abawxkaEMhAUCqxrnim2NTTeu2gd55X9tkFN8jfRM0B1LE2KjZLWCA8gSD90J/DblDwej8jK8A2BynXlcQdluQ==}
     engines: {node: '>=20.0.0'}
+
+  '@lingui/macro@5.9.5':
+    resolution: {integrity: sha512-WZsF93jKwk0IW4xmvAGd+6S3dT+9ZzhXAasKIiJL9qB4viO9oj+oecGhXuPYTYV74mcoL7L1494hca0CsB/BLQ==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      '@lingui/babel-plugin-lingui-macro': 5.9.5
+      babel-plugin-macros: 2 || 3
+    peerDependenciesMeta:
+      '@lingui/babel-plugin-lingui-macro':
+        optional: true
+      babel-plugin-macros:
+        optional: true
 
   '@lingui/message-utils@5.9.5':
     resolution: {integrity: sha512-t3dNbjb1dWkvcpXGMXIEyBDO3l4B8J2ColZXi0NTG1ioAj+sDfFxFB8fepVgd3JAk+AwARlOLvF14oS0mAdgpw==}
@@ -5999,6 +6014,15 @@ snapshots:
       pofile: 1.1.4
     transitivePeerDependencies:
       - typescript
+
+  '@lingui/macro@5.9.5(@lingui/babel-plugin-lingui-macro@5.9.5(supports-color@8.1.1)(typescript@5.9.3))(react@19.2.3)':
+    dependencies:
+      '@lingui/core': 5.9.5(@lingui/babel-plugin-lingui-macro@5.9.5(supports-color@8.1.1)(typescript@5.9.3))
+      '@lingui/react': 5.9.5(@lingui/babel-plugin-lingui-macro@5.9.5(supports-color@8.1.1)(typescript@5.9.3))(react@19.2.3)
+    optionalDependencies:
+      '@lingui/babel-plugin-lingui-macro': 5.9.5(supports-color@8.1.1)(typescript@5.9.3)
+    transitivePeerDependencies:
+      - react
 
   '@lingui/message-utils@5.9.5':
     dependencies:
