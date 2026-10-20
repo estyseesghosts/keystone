@@ -9,11 +9,12 @@ jest.mock('expo-linking', () => ({
 }))
 
 // Seed for the plan §3.3 provider-regression guard: the app boots and
-// renders. Fixture-backed render tests land with the read path.
+// renders. Slice 3.4 replaced the Home placeholder with the real Home
+// screen (signed-out honest state); fixture-backed tests land per slice.
 describe('App', () => {
-  it('boots into the Home placeholder', async () => {
+  it('boots into the Home screen', async () => {
     render(<Root />)
-    expect(await screen.findByText('Home — not built')).toBeTruthy()
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
   })
 })
 
