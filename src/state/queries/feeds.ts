@@ -10,7 +10,7 @@ import {feedPrefsStore, type FeedPrefs} from '#/state/feedPrefs'
 // new-posts counter.
 //
 // The old Keystone feed-visibility RULE (ported as data, not the component):
-// Local is hidden while Social exists, and Federated/Global is never the
+// Local is hidden while Social exists, and Federated is never the
 // default tab.
 
 export type ProfileFeedTab = UserFeedTab
@@ -43,20 +43,22 @@ export function visibleNetworkTabs(
   } else {
     tabs.push('local')
   }
-  if (prefs.showFederated) tabs.push('global')
-  // Federated/Global is never the default tab, and the bar is never
+  if (prefs.showFederated) tabs.push('federated')
+  // Federated is never the default tab, and the bar is never
   // empty: a reader who hides everything still keeps the default.
   return tabs.length > 0 ? tabs : [defaultNetworkTab(family)]
 }
 
-/** Federated/Global is never the default tab. */
+/** Federated is never the default tab. */
 export function defaultNetworkTab(family: ServerFamily | null | undefined): NetworkTab {
   const [first] = visibleNetworkTabs(family)
-  return first === 'global' ? 'local' : first
+  return first === 'federated' ? 'local' : first
 }
 
 export function descriptorForNetworkTab(tab: NetworkTab): FeedDescriptor {
-  return `timeline|${tab}`
+  // The Federated tab reads the existing Global source (v1 `MyNetwork`:
+  // relabeled, internal endpoint names unchanged).
+  return tab === 'federated' ? 'timeline|global' : `timeline|${tab}`
 }
 
 export function profileTabDescriptor(userId: string, tab: ProfileFeedTab): FeedDescriptor {

@@ -192,16 +192,21 @@ export function activeFlavor(store: KeyValueStore, home: HomeSpec): ServerFlavor
 
 /** A `Backend` for exactly one session: the session's family picks the
  * implementation, its flavor tunes capabilities. The transport is built
- * FROM the session, so the token can only ever reach its own origin. */
+ * FROM the session, so the token can only ever reach its own origin.
+ * The session's stored detection evidence (when present) raises the
+ * flavor-table defaults where the server is authoritative. */
 export function backendForSession(session: Session): Backend {
   const family = session.family ?? familyOf(session.flavor) ?? "misskey";
+  const evidence = session.evidence ?? undefined;
   if (family === "mastodon") {
     return createMastodonBackend(createClient(session.origin, session.token || null), {
       flavor: session.flavor,
+      evidence,
     });
   }
   return createMisskeyBackend(createMisskeyClient(session), session.flavor, {
     origin: session.origin,
+    evidence,
   });
 }
 
@@ -251,11 +256,13 @@ export function activeBackend(store: KeyValueStore, home: HomeSpec): Backend {
   if (active && (active.family ?? familyOf(active.flavor) ?? "misskey") === "mastodon") {
     return createMastodonBackend(activeSessionMastoClient(store, home), {
       flavor: active.flavor,
+      evidence: active.evidence ?? undefined,
     });
   }
   const session = active ?? internalSessionOf(store, home.origin) ?? placeholderSession(home);
   return createMisskeyBackend(createMisskeyClient(session), session.flavor, {
     origin: session.origin,
+    evidence: session.evidence ?? undefined,
   });
 }
 

@@ -7,7 +7,7 @@ import {
 } from '@react-navigation/native'
 import * as Linking from 'expo-linking'
 
-import {detectServer, type ServerFlavor} from '@keystone/fedi'
+import {detectServer, type DetectionEvidence, type ServerFlavor} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption, Heading} from '#/alf/typography'
@@ -113,9 +113,11 @@ export function AuthCallbackScreen() {
             attempts: 5,
           })
           let flavor: ServerFlavor = 'unknown'
+          let evidence: DetectionEvidence | null = null
           try {
             const found = await detectServer(done.origin)
             if (found.family === 'misskey') flavor = found.flavor
+            evidence = found.evidence
           } catch {
             // Flavor refines later; the verified session stores regardless.
           }
@@ -128,6 +130,7 @@ export function AuthCallbackScreen() {
             grant: 'miauth',
             hosting: 'third-party',
             user: done.account,
+            ...(evidence ? {evidence} : {}),
           })
           stripWebCallback()
           // Land on the tab shell (see Login `finish`).
@@ -155,9 +158,11 @@ export function AuthCallbackScreen() {
           return
         }
         let flavor: ServerFlavor = 'unknown'
+        let evidence: DetectionEvidence | null = null
         try {
           const found = await detectServer(done.origin)
           if (found.family === 'mastodon') flavor = found.flavor
+          evidence = found.evidence
         } catch {
           // Flavor refines later; the verified session stores regardless.
         }
@@ -170,6 +175,7 @@ export function AuthCallbackScreen() {
           grant: 'oauth-pkce',
           hosting: 'third-party',
           user: done.account,
+          ...(evidence ? {evidence} : {}),
         })
         stripWebCallback()
         // Land on the tab shell (see Login `finish`).

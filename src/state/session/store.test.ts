@@ -108,6 +108,15 @@ describe('add / switch / active', () => {
     expect(store.activeId()).toBe(a.id)
   })
 
+  it('add persists detection evidence with the session (W1/S1)', async () => {
+    const {store} = setup()
+    const session = await store.add(
+      sessionA({evidence: {translatorAvailable: true, version: '2026.10.1-alpha.0'}}),
+    )
+    expect(session.evidence).toEqual({translatorAvailable: true, version: '2026.10.1-alpha.0'})
+    expect(store.active()?.evidence).toEqual({translatorAvailable: true, version: '2026.10.1-alpha.0'})
+  })
+
   it('switching accounts never shows the previous account data', async () => {
     const {store} = setup()
     await store.add(sessionA())

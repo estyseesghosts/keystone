@@ -44,6 +44,7 @@ export interface NewSessionInput {
   grant: SessionGrant
   hosting: SessionHosting
   user?: Session['user']
+  evidence?: Session['evidence']
 }
 
 export interface SessionStoreDeps {
@@ -174,6 +175,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         grant: input.grant,
         hosting: input.hosting,
         ...(input.user ? {user: input.user} : {}),
+        ...(input.evidence ? {evidence: input.evidence} : {}),
       }
       saveSession(storage, session, homeOrigin)
       await vault.setToken(session.id, session.origin, session.token)

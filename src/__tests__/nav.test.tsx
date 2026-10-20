@@ -3,6 +3,7 @@ import {I18nProvider} from '@lingui/react'
 import {fireEvent, render, screen} from '@testing-library/react-native'
 
 import {linking, Navigation} from '#/Navigation'
+import {linkingScreens, paths, rewriteLegacyPath} from '#/routes'
 import {i18n} from '#/locale/i18n'
 import {Root} from '#/Root'
 
@@ -43,6 +44,59 @@ describe('Navigation', () => {
     const network = getStateFromPath('/network/social', linking.config)
     expect(JSON.stringify(network)).toMatch(/Network/)
     expect(JSON.stringify(network)).toMatch(/social/)
+  })
+
+  it('routes the canonical federated tab and aliases the old global name', () => {
+    const fed = getStateFromPath('/network/federated', linking.config)
+    expect(JSON.stringify(fed)).toMatch(/Network/)
+    expect(JSON.stringify(fed)).toMatch(/federated/)
+
+    // Pre-W1 `/network/global` still resolves, as federated.
+    const old = getStateFromPath('/network/global', linking.config)
+    expect(JSON.stringify(old)).toMatch(/Network/)
+    // The alias normalizes at the screen layer (`networkTabFromParam`);
+    // the link layer keeps the raw param so existing URLs resolve.
+    expect(JSON.stringify(old)).toMatch(/global/)
+  })
+
+  it('redirects legacy sidebar and search URLs to their canonical targets', () => {
+    const local = linking.getStateFromPath?.('/local', linking.config)
+    expect(JSON.stringify(local)).toMatch(/Network/)
+    expect(JSON.stringify(local)).toMatch(/local/)
+
+    const social = linking.getStateFromPath?.('/social', linking.config)
+    expect(JSON.stringify(social)).toMatch(/Network/)
+    expect(JSON.stringify(social)).toMatch(/social/)
+
+    const global = linking.getStateFromPath?.('/global', linking.config)
+    expect(JSON.stringify(global)).toMatch(/Network/)
+    expect(JSON.stringify(global)).toMatch(/federated/)
+
+    const search = linking.getStateFromPath?.('/search', linking.config)
+    expect(JSON.stringify(search)).toMatch(/Explore/)
+
+    const tagged = linking.getStateFromPath?.('/search?tag=cats', linking.config)
+    expect(JSON.stringify(tagged)).toMatch(/Explore/)
+    expect(JSON.stringify(tagged)).toMatch(/cats/)
+  })
+
+  it('derives every linking leaf from the canonical paths table (no drift)', () => {
+    const strip = (p: string) => (p === '/' ? '' : p.replace(/^\//, ''))
+    const screens = linkingScreens() as Record<string, unknown>
+    const main = (screens.Main as {screens: Record<string, string>}).screens
+    for (const name of ['Home', 'Network', 'Explore', 'Notifications', 'User'] as const) {
+      expect(main[name]).toBe(strip(paths[name]))
+    }
+    for (const name of ['Note', 'Tag', 'List', 'Settings', 'Login', 'AuthCallback', 'SysDebug', 'Compose'] as const) {
+      expect(screens[name]).toBe(strip(paths[name]))
+    }
+    // Legacy rewrites land on canonical paths table entries.
+    expect(rewriteLegacyPath('/local')).toBe('/network/local')
+    expect(rewriteLegacyPath('/social')).toBe('/network/social')
+    expect(rewriteLegacyPath('/global')).toBe('/network/federated')
+    expect(rewriteLegacyPath('/search')).toBe('/explore')
+    expect(rewriteLegacyPath('/search?tag=cats')).toBe('/explore?tag=cats')
+    expect(rewriteLegacyPath('/network/federated')).toBe('/network/federated')
   })
 
   it('accepts an initial state (deep-link landing)', () => {

@@ -2,8 +2,8 @@
 
 Plan ref: cross-cutting; supersedes nothing (`rn-rebuild-plan.md` still
 governs phases 5–7). Gap register: `docs/parity-gaps.md`.
-Status: not started
-Branch: `p6.0-gap-closure` (one branch per workstream; see below)
+Status: W1 done 2026-10-20 (on `main` per owner direction; one workstream per session still applies)
+Branch: `main` (W1 landed directly; `p6.0-w1-foundations` left at the pre-W1 consolidation point)
 
 ## Goal
 
@@ -38,21 +38,22 @@ order, without regressing the existing read/write paths.
 ### W1 — Foundations (start here)
 
 Goal: one route table, capability truth, no dead seams.
+Status: done 2026-10-20 on `main` (log `state/logs/2026-10-20-w1-foundations.md`; trio 77 suites / 961 tests green).
 
-- [ ] S1 Pass detected instance features/evidence into
+- [x] S1 Pass detected instance features/evidence into
       `backendForSession`/`buildCapabilities`; persist on `Session` or a
       per-session feature store. Keep conservative defaults when absent.
-- [ ] S1 Re-check every capability consumer with real evidence
+- [x] S1 Re-check every capability consumer with real evidence
       (`quote_posting`, `status_editing`, `translation`, `bookmarks`,
       `scheduled_posts`, `server_drafts`, `lists`, `polls_multi`).
-- [ ] S3 Derive `linking.config` from `src/routes.ts` (or add a route
+- [x] S3 Derive `linking.config` from `src/routes.ts` (or add a route
       table test that fails on drift); fix `federated` vs `global`.
-- [ ] N1 Add legacy redirects `/local`, `/social`, `/global`, `/search`.
-- [ ] N2 Make Network tabs URL-backed and canonical `/network/federated`.
-- [ ] MD15 Extend `Backend` with the missing members (`channels`,
+- [x] N1 Add legacy redirects `/local`, `/social`, `/global`, `/search`.
+- [x] N2 Make Network tabs URL-backed and canonical `/network/federated`.
+- [x] MD15 Extend `Backend` with the missing members (`channels`,
       `drive.folders`, `lists.create/update/delete`, `renoteMutes`) before
       any screen depends on them.
-- [ ] MK15 Probe real Misskey/Sharkey capability facts and correct the
+- [x] MK15 Probe real Misskey/Sharkey capability facts and correct the
       flavor table; record the evidence source.
 
 Acceptance: one route table; capability gates reflect a live/probed

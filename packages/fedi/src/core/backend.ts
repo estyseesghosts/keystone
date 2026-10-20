@@ -342,6 +342,25 @@ export interface DriveApi {
     patch: { name?: string; isSensitive?: boolean; comment?: string | null; folderId?: string | null },
   ): Promise<Media>;
   deleteFile(id: string): Promise<void>;
+  /** Drive folders (addition — Misskey `drive/folders/*`; the browser UI
+   * lands in a later slice). */
+  folders?: DriveFoldersApi;
+}
+
+/** One drive folder (Misskey-family only). */
+export interface DriveFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
+}
+
+/** Drive-folder management (addition — optional like every gated
+ * sub-module; backends without the endpoints leave it undefined). */
+export interface DriveFoldersApi {
+  list(): Promise<DriveFolder[]>;
+  create(name: string, opts?: { parentId?: string | null }): Promise<DriveFolder>;
+  update(id: string, patch: { name?: string; parentId?: string | null }): Promise<DriveFolder>;
+  delete(id: string): Promise<void>;
 }
 
 export type AntennaSrc = "home" | "all" | "users" | "users_blacklist" | "list";
@@ -414,6 +433,13 @@ export interface ListsApi {
   list(): Promise<Array<{ id: string; name: string }>>;
   /** `notes/user-list-timeline`. */
   timeline(listId: string, opts?: PageOpts): Promise<Page<Post>>;
+  /** Create a list (addition — Misskey `lists/create`, Mastodon
+   * `POST /api/v1/lists`). */
+  create?(name: string): Promise<{ id: string; name: string }>;
+  /** Rename a list (addition). */
+  update?(id: string, patch: { name: string }): Promise<{ id: string; name: string }>;
+  /** Delete a list (addition). */
+  delete?(id: string): Promise<void>;
 }
 
 export interface ScheduledNote {
@@ -476,6 +502,34 @@ export interface FiltersApi {
   create(phrase: string, context: string[], opts?: { expiresAt?: string | null; irreversible?: boolean; wholeWord?: boolean }): Promise<Filter>;
   update(id: string, phrase: string, context: string[], opts?: { expiresAt?: string | null; irreversible?: boolean; wholeWord?: boolean }): Promise<Filter>;
   delete(id: string): Promise<void>;
+}
+
+/** One Misskey-family channel (group timeline). */
+export interface Channel {
+  id: string;
+  name: string;
+  description?: string | null;
+}
+
+/** Channel timelines (addition — Misskey `channels/*`; the browser UI
+ * lands in a later slice). */
+export interface ChannelsApi {
+  list(opts?: PageOpts): Promise<Page<Channel>>;
+  /** A channel's notes (`channels/timeline`). */
+  notes(channelId: string, opts?: PageOpts): Promise<Page<Post>>;
+}
+
+/** One server announcement (Misskey-family notices). */
+export interface Announcement {
+  id: string;
+  title: string;
+  text: string;
+  createdAt: string;
+}
+
+/** Server announcements (addition — Misskey `announcements`; read-only). */
+export interface AnnouncementsApi {
+  list(opts?: PageOpts): Promise<Announcement[]>;
 }
 
 // --- The Backend interface -------------------------------------------------
@@ -582,6 +636,9 @@ export interface Backend {
   unmute(id: string): Promise<void>;
   muteRenotes(id: string): Promise<void>;
   unmuteRenotes(id: string): Promise<void>;
+  /** Accounts the viewer renote-mutes (addition — the listing behind the
+   * mute list; without it the row cannot show state). */
+  renoteMutes?(opts?: PageOpts): Promise<Page<Account>>;
   block(id: string): Promise<void>;
   unblock(id: string): Promise<void>;
   /** Mute one post's thread (addition — `notes/thread-muting/create`). */
@@ -619,6 +676,8 @@ export interface Backend {
   antennas?: AntennasApi;
   clips?: ClipsApi;
   lists?: ListsApi;
+  channels?: ChannelsApi;
+  announcements?: AnnouncementsApi;
   scheduled?: ScheduledApi;
   serverDrafts?: ServerDraftsApi;
   bookmarks?: BookmarksApi;

@@ -195,13 +195,14 @@ describe("golden wire bodies", () => {
       poll: { choices: ["a", "b"], multiple: true, durationSeconds: 300 },
       reactionAcceptance: "likeOnly",
     });
-    // polls_multi is "unsupported" in the capability table, so `multiple` is
-    // forced off rather than sent blind.
+    // polls_multi is "supported" in the capability table (W1/MK15: v1
+    // `docs/api-surface.md:67` documents `multiple` for these servers),
+    // so the flag passes through instead of being forced off.
     expect(call.params).toEqual({
       visibility: "public",
       text: "vote",
       reactionAcceptance: "likeOnly",
-      poll: { choices: ["a", "b"], multiple: false, expiredAfter: 300000 },
+      poll: { choices: ["a", "b"], multiple: true, expiredAfter: 300000 },
     });
   });
 

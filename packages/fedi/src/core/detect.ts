@@ -124,6 +124,9 @@ export interface DetectionEvidence {
   misskeyBody?: boolean;
   /** True when a probed body is Mastodon-shaped (v1/v2 instance). */
   mastodonBody?: boolean;
+  /** Misskey-family `meta.translatorAvailable`, when the probe saw it
+   * (lets `buildCapabilities` set `translation` honestly). */
+  translatorAvailable?: boolean | null;
 }
 
 /** NodeInfo `software.name` → flavor. Exact names only; anything else falls
@@ -204,12 +207,27 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     reactions: "supported",
     reaction_acceptance: "supported",
     quote_posting: "supported",
-    polls_multi: "unsupported",
+    // `notes/create` poll takes `multiple` (v1 `docs/api-surface.md:67`,
+    // verified against Misskey/Sharkey/Pinetree backends).
+    polls_multi: "supported",
+    // v1 shipped `notes/edit` (`frontend/src/misskey/noteEdit.ts`); the
+    // menu degrades honestly until the W3 editor connects `onEdit`.
+    status_editing: "supported",
+    // v1 shipped scheduling (`FloatingComposer` + `schedule.ts`) and the
+    // v2 backend implements list/create/delete; the date-picker polish
+    // is W3 (C8).
+    scheduled_posts: "supported",
+    // v1 shipped server drafts (`serverDrafts.ts`); the v2 backend
+    // implements list/create/update/delete/count; the UI is W3 (C9).
+    server_drafts: "supported",
     local_only: "supported",
     drive: "supported",
     antennas: "supported",
     lists: "supported",
     clips: "supported",
+    // v1 shipped `i/favorites` + `notes/favorites/create|delete`
+    // (`frontend/src/misskey/favorites.ts`, `NoteMenu.tsx:490`).
+    bookmarks: "supported",
     favourites_distinct_from_reactions: "unsupported",
     streaming: "supported",
     password_grant: "supported",
@@ -222,12 +240,22 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     reactions: "supported",
     reaction_acceptance: "supported",
     quote_posting: "supported",
-    polls_multi: "unsupported",
+    // Same `notes/create` poll `multiple` support as Misskey (v1
+    // `docs/api-surface.md:67`).
+    polls_multi: "supported",
+    // Sharkey-family `notes/edit` (same Misskey-family endpoint v1
+    // shipped in `noteEdit.ts`).
+    status_editing: "supported",
+    // Same shipped scheduling + server-draft endpoints as Misskey.
+    scheduled_posts: "supported",
+    server_drafts: "supported",
     local_only: "supported",
     drive: "supported",
     antennas: "supported",
     lists: "supported",
     clips: "supported",
+    // Same `i/favorites` + `notes/favorites/*` endpoints v1 shipped.
+    bookmarks: "supported",
     favourites_distinct_from_reactions: "unsupported",
     streaming: "supported",
     password_grant: "supported",
@@ -250,7 +278,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
   },
   // Pinetree gaps verified 404/reject (state/STATE.md "Decisions since
   // stonekey"): no drive/files listing, no antennas, polls rejected, and
-  // no Miauth (it uses the native `signin`).
+  // no Miauth (it uses the native `signin`). `translation: unsupported`
+  // is live-probed: `POST :3000/api/meta` answers
+  // `translatorAvailable: false` (2026-10-20 session).
   pinetree: {
     mfm: "supported",
     reactions: "supported",
@@ -261,6 +291,7 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     antennas: "unsupported",
     favourites_distinct_from_reactions: "unsupported",
     streaming: "unsupported",
+    translation: "unsupported",
     password_grant: "supported",
     mfa_challenge: "unsupported",
     pkce: "unsupported",
@@ -342,10 +373,9 @@ export function buildCapabilities(
   if (has("editing")) out.status_editing = "supported";
   if (has("akkoma:machine_translation")) out.translation = "supported";
 
-  // Meta-level hints (Misskey-family `translatorAvailable`, when present).
-  const translator = evidence as { translatorAvailable?: unknown };
-  if (typeof translator.translatorAvailable === "boolean") {
-    out.translation = translator.translatorAvailable ? "supported" : "unsupported";
+  // Meta-level hint (Misskey-family `translatorAvailable`, when present).
+  if (typeof evidence.translatorAvailable === "boolean") {
+    out.translation = evidence.translatorAvailable ? "supported" : "unsupported";
   }
   return out;
 }
@@ -377,6 +407,9 @@ export interface ServerDetection {
   features: Capabilities;
   /** Which source decided the flavor (for diagnostics/tests). */
   decidedBy: "nodeinfo" | "probe-shape" | "version" | "none";
+  /** The collected probe evidence (kept so sessions can recompute
+   * capabilities from the current flavor table later). */
+  evidence: DetectionEvidence;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -529,7 +562,7 @@ export async function detectServer(
       evidence.misskeyBody = true;
       evidence.version = versionOf(meta.body);
       const translator = (meta.body as { translatorAvailable?: unknown }).translatorAvailable;
-      (evidence as { translatorAvailable?: unknown }).translatorAvailable = translator;
+      evidence.translatorAvailable = typeof translator === "boolean" ? translator : null;
     } else {
       // Mastodon-family probe: v2 → v1 fallback on 404/405 ONLY (never on
       // timeout/401/403/5xx — see the header comment).
@@ -569,5 +602,6 @@ export async function detectServer(
     version: evidence.version ?? evidence.nodeinfoVersion ?? null,
     features: buildCapabilities(flavor, evidence),
     decidedBy,
+    evidence,
   };
 }

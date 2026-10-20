@@ -1,30 +1,40 @@
-import {useState} from 'react'
 import {View} from 'react-native'
-import {useRoute, type RouteProp} from '@react-navigation/native'
+import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
 import {atoms} from '#/alf/atoms'
 import {ComposeFab} from '#/components/ComposeFab'
 import {Button} from '#/components/Button'
-import type {RootParamList, NetworkTab} from '#/routes'
+import {networkTabFromParam, type RootParamList, type NetworkTab} from '#/routes'
 import {useActiveBackend, FeedView} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
 import {defaultNetworkTab, descriptorForNetworkTab, visibleNetworkTabs} from '#/state/queries'
 
-// Network (`/network/:tab?`): social / local / global timelines.
+// Network (`/network/:tab?`): social / local / federated timelines.
 //
 // Visibility rule (ported from old Keystone as data, not the component):
-// Local is hidden while Social exists, and Federated/Global is never the
+// Local is hidden while Social exists, and Federated is never the
 // default. The Mastodon family has no Social timeline, so Local stays.
+//
+// Tabs are URL-backed (parity N2): the active tab lives in the route
+// params (`:tab`), so reload and back/forward restore it. Pressing a tab
+// writes the param (the URL becomes `/network/<tab>`); the canonical
+// Federated URL is `/network/federated`, with pre-W1 `/network/global`
+// accepted as an alias.
+const TAB_LABELS: Record<NetworkTab, string> = {
+  social: 'Social',
+  local: 'Local',
+  federated: 'Federated',
+}
+
 export function NetworkScreen() {
   const route = useRoute<RouteProp<RootParamList, 'Network'>>()
+  const navigation = useNavigation<NavigationProp<RootParamList>>()
   const {session, backend} = useActiveBackend()
   const family = backend?.family ?? session?.family ?? null
   const visible = visibleNetworkTabs(family)
-  const requested: NetworkTab | undefined = route.params?.tab
-  const initial = requested && visible.includes(requested) ? requested : defaultNetworkTab(family)
-  const [tab, setTab] = useState<NetworkTab>(initial)
-
-  const active: NetworkTab = visible.includes(tab) ? tab : defaultNetworkTab(family)
+  const requested = networkTabFromParam(route.params?.tab)
+  const active: NetworkTab =
+    requested && visible.includes(requested) ? requested : defaultNetworkTab(family)
 
   return (
     <View style={atoms.flex1} testID="network-screen">
@@ -33,9 +43,9 @@ export function NetworkScreen() {
         {visible.map(t => (
           <Button
             key={t}
-            label={t === 'social' ? 'Social' : t === 'local' ? 'Local' : 'Federated'}
+            label={TAB_LABELS[t]}
             variant={t === active ? 'primary' : 'secondary'}
-            onPress={() => setTab(t)}
+            onPress={() => navigation.setParams({tab: t} as never)}
             testID={`network-tab-${t}`}
           />
         ))}

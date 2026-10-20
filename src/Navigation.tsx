@@ -3,6 +3,7 @@ import {Image, Platform, Pressable, StyleSheet, View, type ViewStyle} from 'reac
 import {
   DarkTheme,
   DefaultTheme,
+  getStateFromPath as defaultGetStateFromPath,
   NavigationContainer,
   type InitialState,
   type LinkingOptions,
@@ -30,7 +31,7 @@ import {
 } from '#/components/icons'
 import {navigationRef} from '#/navigationRef'
 import type {RootParamList} from '#/routes'
-import {titleForRoute} from '#/routes'
+import {linkingScreens, rewriteLegacyPath, titleForRoute} from '#/routes'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 import {AuthCallbackScreen} from '#/screens/AuthCallback'
 import {ComposeScreen} from '#/screens/Compose'
@@ -54,33 +55,19 @@ type TabParamList = Pick<
 
 type StackParamList = RootParamList & {Main: undefined}
 
-// Deep-link table. Mirrors the canonical `paths` in `#/routes`
-// (which documents Keystone's web URLs); this is the shape
+// Deep-link table. Derived from the canonical `paths` in `#/routes`
+// (which documents Keystone's web URLs) — this is the shape
 // react-navigation consumes. The Login tab is intentionally absent here:
 // `/login` maps to the stack screen, tab presses navigate by name.
+// Legacy URLs (`/local`, `/social`, `/global`, `/search`) rewrite to
+// their canonical targets before the default parser runs.
 export const linking: LinkingOptions<StackParamList> = {
   prefixes: [Linking.createURL('/')],
   config: {
-    screens: {
-      Main: {
-        screens: {
-          Home: '',
-          Network: 'network/:tab?',
-          Explore: 'explore',
-          Notifications: 'notifications',
-          User: 'users/:id?',
-        },
-      },
-      Note: 'notes/:id',
-      Tag: 'tags/:tag',
-      List: 'lists/:id',
-      Settings: 'settings',
-      Login: 'login',
-      AuthCallback: 'auth/callback',
-      SysDebug: 'sys/debug',
-      Compose: 'compose',
-    },
+    screens: linkingScreens(),
   },
+  getStateFromPath: (path, options) =>
+    defaultGetStateFromPath(rewriteLegacyPath(path), options),
 }
 
 /** Deepest focused route (name + params) anywhere in the tree. The shell

@@ -36,6 +36,7 @@
 //   mastodon family -> POST ${origin}/oauth/revoke (RFC 7009)
 
 import { familyOf, type ServerFamily, type ServerFlavor } from "./detect";
+import type { DetectionEvidence } from "./detect";
 import type { Account } from "./models";
 
 export type SessionGrant =
@@ -62,6 +63,11 @@ export interface Session {
    * stores the verified account so a reload shows it without a fetch).
    * Never a credential; absent means "fetch on demand". */
   user?: Account;
+  /** Detection evidence captured at sign-in (`detectServer`). Backends
+   * recompute capabilities from this plus the current flavor table, so a
+   * probed feature (translation, quote posting, …) is honored instead of
+   * the table's conservative "unknown". Absent means "table only". */
+  evidence?: DetectionEvidence | null;
 }
 
 export const SESSIONS_KEY = "keystone_sessions";
@@ -157,6 +163,11 @@ function normalizeSession(value: unknown): Session | null {
     hosting,
     ...(s.user && typeof (s.user as { id?: unknown }).id === "string"
       ? { user: s.user }
+      : {}),
+    // Detection evidence survives the same round-trip (plain JSON from
+    // `detectServer`); anything else is dropped, never trusted.
+    ...(s.evidence && typeof s.evidence === "object" && !Array.isArray(s.evidence)
+      ? { evidence: s.evidence as DetectionEvidence }
       : {}),
   };
 }

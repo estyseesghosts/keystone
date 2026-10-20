@@ -54,7 +54,7 @@ import type {
   Translation,
   UserReaction,
 } from "../core/backend";
-import type { ServerFlavor } from "../core/detect";
+import type { DetectionEvidence, ServerFlavor } from "../core/detect";
 import { buildCapabilities } from "../core/detect";
 import {
   adaptAccount,
@@ -136,6 +136,9 @@ export interface MisskeyBackendOptions {
   origin?: string;
   /** Session token for the stream socket (`?i=` query). */
   token?: string | null;
+  /** Detection evidence (from the session / login detection). Missing
+   * means the flavor table alone — honestly conservative. */
+  evidence?: DetectionEvidence;
 }
 
 // --- Compose body (verbatim mirror of the Composer's construction) ---------
@@ -433,10 +436,10 @@ export function createMisskeyBackend(
 
   return {
     family: "misskey",
-    // Runtime detection (`core/detect.ts`) is the authority; this is the
-    // flavour-table floor for the backend's flavor. Phase 4 binds the
-    // detected flavor at boot.
-    capabilities: buildCapabilities(flavor),
+    // Runtime detection (`core/detect.ts`) is the authority: the flavor
+    // table is the floor, `opts.evidence` (the session's stored probe
+    // evidence) raises it where the server is authoritative.
+    capabilities: buildCapabilities(flavor, opts.evidence ?? {}),
 
     timeline(kind, opts = {}) {
       return callNotes(TIMELINE_ENDPOINTS[kind], {

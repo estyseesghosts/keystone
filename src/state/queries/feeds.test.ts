@@ -13,24 +13,24 @@ import {feedQueryKey} from './keys'
 describe('feed-visibility rule (ported rule, own code)', () => {
   it('hides Local while Social exists on the Misskey family', () => {
     expect(supportsSocialTimeline('misskey')).toBe(true)
-    expect(visibleNetworkTabs('misskey')).toEqual(['social', 'global'])
+    expect(visibleNetworkTabs('misskey')).toEqual(['social', 'federated'])
   })
 
   it('keeps Local on the Mastodon family (no Social timeline there)', () => {
     expect(supportsSocialTimeline('mastodon')).toBe(false)
-    expect(visibleNetworkTabs('mastodon')).toEqual(['local', 'global'])
+    expect(visibleNetworkTabs('mastodon')).toEqual(['local', 'federated'])
   })
 
   it('falls back to Local + Federated when the family is unknown', () => {
-    expect(visibleNetworkTabs(null)).toEqual(['local', 'global'])
-    expect(visibleNetworkTabs(undefined)).toEqual(['local', 'global'])
+    expect(visibleNetworkTabs(null)).toEqual(['local', 'federated'])
+    expect(visibleNetworkTabs(undefined)).toEqual(['local', 'federated'])
   })
 
   it('shows Local while Social exists when the reader turns it on', () => {
     expect(visibleNetworkTabs('misskey', {showLocal: true, showFederated: true})).toEqual([
       'social',
       'local',
-      'global',
+      'federated',
     ])
   })
 
@@ -45,16 +45,26 @@ describe('feed-visibility rule (ported rule, own code)', () => {
 
   it('never defaults to Federated', () => {
     for (const family of ['misskey', 'mastodon', null, undefined] as const) {
-      expect(defaultNetworkTab(family)).not.toBe('global')
+      expect(defaultNetworkTab(family)).not.toBe('federated')
     }
     expect(defaultNetworkTab('misskey')).toBe('social')
     expect(defaultNetworkTab('mastodon')).toBe('local')
   })
 
-  it('maps tabs to timeline descriptors', () => {
+  it('maps tabs to timeline descriptors (federated reuses the global source)', () => {
     expect(descriptorForNetworkTab('social')).toBe('timeline|social')
     expect(descriptorForNetworkTab('local')).toBe('timeline|local')
-    expect(descriptorForNetworkTab('global')).toBe('timeline|global')
+    expect(descriptorForNetworkTab('federated')).toBe('timeline|global')
+  })
+
+  it('aliases the pre-W1 global tab param to federated', async () => {
+    const {networkTabFromParam} = await import('#/routes')
+    expect(networkTabFromParam('global')).toBe('federated')
+    expect(networkTabFromParam('federated')).toBe('federated')
+    expect(networkTabFromParam('social')).toBe('social')
+    expect(networkTabFromParam('local')).toBe('local')
+    expect(networkTabFromParam('bogus')).toBeUndefined()
+    expect(networkTabFromParam(undefined)).toBeUndefined()
   })
 })
 

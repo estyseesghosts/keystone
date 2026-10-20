@@ -13,6 +13,7 @@ import {
   MfaRequiredError,
   type Account,
   type Capabilities,
+  type DetectionEvidence,
   type ServerFamily,
   type ServerFlavor,
   type SessionGrant,
@@ -52,6 +53,7 @@ interface Detection {
   family: ServerFamily
   flavor: ServerFlavor
   features: Capabilities
+  evidence: DetectionEvidence | null
 }
 
 function redirectUriFor(): string {
@@ -119,6 +121,7 @@ export function LoginScreen() {
     account: Account
     grant: SessionGrant
     hosting: SessionHosting
+    evidence?: DetectionEvidence | null
   }) => {
     await store.add({
       origin: result.origin,
@@ -129,6 +132,7 @@ export function LoginScreen() {
       grant: result.grant,
       hosting: result.hosting,
       user: result.account,
+      ...(result.evidence ? {evidence: result.evidence} : {}),
     })
     // Land on the tab shell: the Login screen lives on the stack, so a
     // plain `navigate('Home')` resolves nowhere — reset to Main (Home tab).
@@ -160,6 +164,7 @@ export function LoginScreen() {
         account: res.account,
         grant: res.grant,
         hosting: 'first-party',
+        evidence: firstParty.detection?.evidence ?? null,
       })
     } catch (err) {
       fail(err)
@@ -188,6 +193,7 @@ export function LoginScreen() {
         account: res.account,
         grant: res.grant,
         hosting: 'first-party',
+        evidence: firstParty.detection?.evidence ?? null,
       })
     } catch (err) {
       if (err instanceof MfaRequiredError) {
@@ -222,6 +228,7 @@ export function LoginScreen() {
         account: res.account,
         grant: res.grant,
         hosting: 'first-party',
+        evidence: firstParty.detection?.evidence ?? null,
       })
     } catch (err) {
       fail(err)
@@ -265,7 +272,7 @@ export function LoginScreen() {
         setError('Could not detect this server type. Check the address and try again.')
         return
       }
-      setDetection({origin, family: found.family, flavor: found.flavor, features: found.features})
+      setDetection({origin, family: found.family, flavor: found.flavor, features: found.features, evidence: found.evidence})
     } catch (err) {
       fail(err)
     } finally {
@@ -293,6 +300,7 @@ export function LoginScreen() {
         account: res.account,
         grant: res.grant,
         hosting: 'third-party',
+        evidence: detection.evidence,
       })
     } catch (err) {
       if (err instanceof MfaRequiredError) {
@@ -327,6 +335,7 @@ export function LoginScreen() {
         account: res.account,
         grant: res.grant,
         hosting: 'third-party',
+        evidence: detection.evidence,
       })
     } catch (err) {
       fail(err)
@@ -389,6 +398,7 @@ export function LoginScreen() {
         account: done.account,
         grant: 'miauth',
         hosting: 'third-party',
+        evidence: detection.evidence,
       })
     } catch (err) {
       fail(err)
