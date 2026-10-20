@@ -274,6 +274,22 @@ describe('PostCard write wiring', () => {
     expect(screen.getByTestId('action-react-p1')).toBeTruthy()
   })
 
+  it('heart likes directly without opening the picker', async () => {
+    const b = live(makePost(), fakeBackend())
+    fireEvent.press(screen.getByTestId('action-react-p1'))
+    await waitFor(() => expect(b.react).toHaveBeenCalledWith('p1', '❤'))
+    expect(screen.queryByTestId('action-picker-p1')).toBeNull()
+  })
+
+  it('heart unlike reflects immediately and reaches the server', async () => {
+    const b = live(makePost(), fakeBackend())
+    fireEvent.press(screen.getByTestId('action-react-p1'))
+    await waitFor(() => expect(b.react).toHaveBeenCalledWith('p1', '❤'))
+    fireEvent.press(screen.getByTestId('action-react-p1'))
+    await waitFor(() => expect(b.unreact).toHaveBeenCalledWith('p1'))
+    expect(screen.getByLabelText(/Like, \d+ reactions/)).toBeTruthy()
+  })
+
   it('smile opens the anchored emoji popup and applies the pick', async () => {
     const b = live(makePost(), fakeBackend())
     fireEvent.press(screen.getByTestId('action-smile-p1'))

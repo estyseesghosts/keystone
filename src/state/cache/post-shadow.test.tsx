@@ -2,6 +2,7 @@ import {render, renderHook, act, screen} from '@testing-library/react-native'
 import {QueryClient} from '@tanstack/react-query'
 
 import type {Backend, Post} from '@keystone/fedi'
+import {LikeUnsupportedError} from '@keystone/fedi'
 
 import {ReactionChips} from '#/components/Post/ReactionChips'
 import {makePost} from '#/components/__tests__/fixtures'
@@ -117,14 +118,19 @@ describe('post shadow + toggle queue', () => {
   })
 
   it('changing a reaction is delete-then-create; partial failure leaves none', async () => {
-    const post = makePost({reactions: {total: 5, entries: [{key: '❤', count: 5, mine: true, url: null}], mine: '❤', myReactions: ['❤'], urls: {}}})
+    const liked = () => makePost({reactions: {total: 5, entries: [{key: '❤', count: 5, mine: true, url: null}], mine: '❤', myReactions: ['❤'], urls: {}}})
+    const post = liked()
     const b = fakeBackend()
     await ctl.setReaction(S1, b, post, '🎉')
     expect(b.unreact.mock.invocationCallOrder[0]).toBeLessThan(b.react.mock.invocationCallOrder[0])
+    // Partial failure from a fresh key: delete lands, create fails, so the
+    // server holds nothing — not the old heart. (Same key would be a no-op:
+    // the first change already landed, so there is nothing to retry.)
+    const post2 = makePost({id: 'p2', reactions: liked().reactions})
     const b2 = fakeBackend({react: jest.fn(async () => { throw new Error('boom') })})
-    await expect(ctl.setReaction(S1, b2, post, '🎉')).rejects.toThrow('boom')
+    await expect(ctl.setReaction(S1, b2, post2, '🎉')).rejects.toThrow('boom')
     // delete landed, create failed: server holds nothing, not the old heart.
-    expect(mineOf(store, S1, post)).toBe(null)
+    expect(mineOf(store, S1, post2)).toBe(null)
   })
 
   it('T5 pending custom emoji renders a 16x16 box, never :code: text', async () => {
@@ -153,6 +159,123 @@ describe('post shadow + toggle queue', () => {
     expect(result.current.pendingEmojiKeys.size).toBe(0)
     d.resolve()
     await p
+  })
+
+  describe('notes/like shortcut path', () => {
+    const fresh = (mine: string | null) =>
+      makePost({
+        reactions: {
+          total: mine ? 6 : 5,
+          entries: mine
+            ? [{key: mine, count: 1, mine: false, url: null}]
+            : [{key: '❤', count: 5, mine: false, url: null}],
+          mine,
+          myReactions: mine ? [mine] : [],
+          urls: {},
+        },
+      })
+    const withLike = (
+      like: {like: jest.Mock; isSupported: () => boolean | null},
+      postImpl?: jest.Mock,
+    ) => ({...fakeBackend(), like, ...(postImpl ? {post: postImpl} : {})})
+
+    it('heart press routes through notes/like, not reactions/create', async () => {
+      const like = jest.fn(async () => undefined)
+      const postImpl = jest.fn(async () => fresh('❤'))
+      const b = withLike({like, isSupported: () => null}, postImpl)
+      const post = makePost()
+      await ctl.setReaction(S1, b, post, '❤')
+      expect(like).toHaveBeenCalledWith('p1', null)
+      expect(b.react).not.toHaveBeenCalled()
+      expect(mineOf(store, S1, post)).toBe('❤')
+    })
+
+    it('known-unsupported skips the probe and reacts plain', async () => {
+      const like = jest.fn(async () => undefined)
+      const b = withLike({like, isSupported: () => false})
+      await ctl.setReaction(S1, b, makePost(), '❤')
+      expect(like).not.toHaveBeenCalled()
+      expect(b.react).toHaveBeenCalledWith('p1', '❤')
+    })
+
+    it('UNKNOWN_API_ENDPOINT falls back to a vanilla heart', async () => {
+      const like = jest.fn(async () => {
+        throw new LikeUnsupportedError()
+      })
+      const b = withLike({like, isSupported: () => null})
+      const post = makePost()
+      await ctl.setReaction(S1, b, post, '❤')
+      expect(b.react).toHaveBeenCalledWith('p1', '❤')
+      expect(b.unreact).not.toHaveBeenCalled()
+      expect(mineOf(store, S1, post)).toBe('❤')
+    })
+
+    it('heart removal rides the server toggle (no client delete)', async () => {
+      const like = jest.fn(async () => undefined)
+      const postImpl = jest.fn(async () => fresh(null))
+      const b = withLike({like, isSupported: () => null}, postImpl)
+      const post = makePost({
+        reactions: {
+          total: 5,
+          entries: [{key: '❤', count: 5, mine: true, url: null}],
+          mine: '❤',
+          myReactions: ['❤'],
+          urls: {},
+        },
+      })
+      await ctl.setReaction(S1, b, post, null)
+      expect(like).toHaveBeenCalledWith('p1', null)
+      expect(b.unreact).not.toHaveBeenCalled()
+      expect(mineOf(store, S1, post)).toBe(null)
+    })
+
+    it('a custom server defaultLike syncs from the re-read, never the optimistic heart', async () => {
+      const like = jest.fn(async () => undefined)
+      const postImpl = jest.fn(async () => fresh(':blobcat@.:'))
+      const b = withLike({like, isSupported: () => null}, postImpl)
+      const post = makePost()
+      await ctl.setReaction(S1, b, post, '❤')
+      expect(mineOf(store, S1, post)).toBe(':blobcat@.:')
+      expect(store.get(S1, post.id)?.pendingEmoji).toBe(':blobcat@.:')
+    })
+
+    it('a stale custom reaction is cleared before the like press', async () => {
+      const like = jest.fn(async () => undefined)
+      const postImpl = jest.fn(async () => fresh('❤'))
+      const b = withLike({like, isSupported: () => null}, postImpl)
+      const post = makePost({
+        reactions: {
+          total: 5,
+          entries: [{key: '🎉', count: 5, mine: true, url: null}],
+          mine: '🎉',
+          myReactions: ['🎉'],
+          urls: {},
+        },
+      })
+      await ctl.setReaction(S1, b, post, '❤')
+      expect(b.unreact).toHaveBeenCalledWith('p1')
+      expect(like).toHaveBeenCalledWith('p1', null)
+    })
+
+    it('custom emoji targets keep the plain delete/create path', async () => {
+      const like = jest.fn(async () => undefined)
+      const b = withLike({like, isSupported: () => null})
+      await ctl.setReaction(S1, b, makePost(), '🎉')
+      expect(like).not.toHaveBeenCalled()
+      expect(b.react).toHaveBeenCalledWith('p1', '🎉')
+    })
+
+    it('unlike with a stale raw post still reaches the server', async () => {
+      // Held reference: the raw object never refreshes (no cached query
+      // carries it, so the like's shadow is kept, not settled into a cache).
+      const b = fakeBackend()
+      const post = makePost()
+      await ctl.setReaction(S1, b, post, '❤')
+      expect(b.react).toHaveBeenCalledWith('p1', '❤')
+      await ctl.setReaction(S1, b, post, null)
+      expect(b.unreact).toHaveBeenCalledWith('p1')
+      expect(mineOf(store, S1, post)).toBe(null)
+    })
   })
 
   it('hook re-renders on shadow change', async () => {

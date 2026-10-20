@@ -1,7 +1,7 @@
 import {useMemo, useSyncExternalStore} from 'react'
 import {useQueryClient, type QueryClient} from '@tanstack/react-query'
 
-import {backendForSession, type Backend, type Post} from '@keystone/fedi'
+import {backendForSession, isHeartReaction, LikeUnsupportedError, type Backend, type Post} from '@keystone/fedi'
 
 import {
   createToggleQueue,
@@ -137,7 +137,16 @@ export function createPostActionController(deps: {
     setReaction(sessionId, backend, post, next, opts) {
       const refused = refuse('reaction', backend, post)
       if (refused) return refused
-      const baseMine = post.reactions?.mine ?? null
+      // Seed the queue from what the user SEES, not the raw prop. When the
+      // shadow outlives the queue (held reference, post in no cached query)
+      // the raw post is stale: seeding from it turns an unlike into a silent
+      // no-op (confirmed == desired, no server call, server stays liked).
+      // The shadow BASE stays on the raw server value (first-write-wins) so
+      // fresh server data still drops a stale override.
+      const rawMine = post.reactions?.mine ?? null
+      const shadowMine = store.get(sessionId, post.id)?.myReaction
+      const seenMine = shadowMine !== undefined ? shadowMine : rawMine
+      const baseMine = rawMine
       const isKnown = (v: string | null, emojiUrl?: string | null) =>
         v == null ||
         !isCustomKey(v) ||
@@ -156,9 +165,60 @@ export function createPostActionController(deps: {
         'reaction',
         sessionId,
         post,
-        baseMine,
+        seenMine,
         {backend},
         async (b, from, to) => {
+          // Sharkey-family like shortcut: a pure heart toggle (one side a
+          // heart, the other null-or-heart) goes through `POST notes/like`,
+          // which toggles server-side — no separate delete. Custom emoji on
+          // either side keeps the plain delete/create path. Unknown support
+          // falls back to a vanilla heart reaction, never a wall.
+          const fromHeart = from != null && isHeartReaction(from)
+          const toHeart = to != null && isHeartReaction(to)
+          // A press that ends liked-or-clear with a heart on either side
+          // rides the shortcut: null<->heart both ways, plus replacing a
+          // stale custom reaction with a heart (cleared first below, since
+          // the toggle would otherwise just switch the custom off).
+          const likeTransition =
+            (to == null || toHeart) &&
+            (from == null || fromHeart || (toHeart && from != null))
+          if (likeTransition && b.like && b.like.isSupported() !== false) {
+            // A stale custom reaction cannot ride the like toggle (the
+            // server would just switch it off): clear it first so the
+            // press lands liked, like the user asked.
+            if (from != null && !fromHeart) await b.unreact(post.id)
+            try {
+              await b.like.like(post.id, null)
+            } catch (e) {
+              if (e instanceof LikeUnsupportedError) {
+                if (from != null) await b.unreact(post.id)
+                if (to != null) await b.react(post.id, '❤')
+                return
+              }
+              throw e
+            }
+            // Never fabricate: re-read and sync to what the server
+            // reports (a custom `defaultLike` lands here, not the
+            // optimistic heart). A failed re-read keeps the optimistic
+            // value; the stream echo reconciles it.
+            const fresh = await b.post(post.id).catch(() => null)
+            if (!fresh) return
+            const mine = fresh.reactions?.mine ?? null
+            const urls = fresh?.reactions?.urls ?? {}
+            const known =
+              mine == null ||
+              !isCustomKey(mine) ||
+              !!urls[mine] ||
+              !!fresh?.reactions?.entries.some(e => e.key === mine && e.url)
+            store.patch(sessionId, post.id, {
+              myReaction: mine,
+              reactionDelta: (mine != null ? 1 : 0) - (baseMine != null ? 1 : 0),
+              reactionUrl: undefined,
+              pendingEmoji: mine != null && !known ? mine : null,
+              base: {myReaction: baseMine},
+            })
+            return
+          }
           if (from != null) await b.unreact(post.id)
           if (to != null) {
             try {
@@ -236,11 +296,14 @@ export function createPostActionController(deps: {
   ): Promise<void> {
     const refused = refuse(kind, backend, post)
     if (refused) return refused
+    // Same staleness rule as reactions: seed from the seen value so an
+    // undo after a kept shadow still reaches the server.
+    const seen = store.get(sessionId, post.id)?.[field] ?? baseValue
     const queue = queueFor<boolean>(
       kind,
       sessionId,
       post,
-      baseValue,
+      seen,
       {backend},
       async (b, _from, to) => {
         await call(b, to)
