@@ -1,11 +1,7 @@
-import {Text, View} from 'react-native'
+import {Root} from '#/Root'
 
-// Slice P1.1 placeholder: the app boots on all three targets and renders
-// one line. No Bluesky UI is copied here; real shell lands in slice 1.5.
+// Slice P1.5: the app boots into the tab shell; every screen is a
+// "not built" placeholder until its phase lands.
 export default function App() {
-  return (
-    <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
-      <Text>Keystone</Text>
-    </View>
-  )
+  return <Root />
 }
