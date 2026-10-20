@@ -447,6 +447,9 @@ export interface BookmarksApi {
   /** `i/favorites` — favourite rows are (id, post) pairs; the row id is
    * the paging cursor. */
   list(opts?: PageOpts): Promise<Page<{ id: string; post: Post }>>;
+  /** Bookmark a post (Misskey `notes/favorites/create`, Mastodon
+   * `/bookmark`). Additive; the Phase-4 write path. */
+  add(noteId: string): Promise<void>;
   remove(noteId: string): Promise<void>;
 }
 

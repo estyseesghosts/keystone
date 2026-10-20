@@ -416,6 +416,9 @@ export function createMisskeyBackend(
         post: adaptNote(row.note),
       }));
     },
+    async add(noteId) {
+      await call<undefined>("notes/favorites/create", { noteId });
+    },
     async remove(noteId) {
       await removeFavorite(call, noteId);
     },

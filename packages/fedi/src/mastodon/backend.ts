@@ -870,6 +870,9 @@ export function createMastodonBackend(
           end: posts.length === 0,
         };
       },
+      async add(noteId) {
+        await client.post(`/api/v1/statuses/${encodeURIComponent(noteId)}/bookmark`, {});
+      },
       async remove(noteId) {
         await client.post(`/api/v1/statuses/${encodeURIComponent(noteId)}/unbookmark`, {});
       },

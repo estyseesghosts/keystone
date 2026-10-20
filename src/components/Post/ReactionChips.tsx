@@ -13,6 +13,7 @@ import type {Capabilities, ReactionSummary} from '@keystone/fedi'
 import {useTheme} from '#/alf/index'
 import {Caption} from '#/alf/typography'
 import {UnicodeEmoji} from '#/components/EmojiImage'
+import {PendingEmoji} from '#/components/PendingEmoji'
 import {Pressable} from '#/components/Pressable'
 
 const styles = StyleSheet.create({
@@ -31,8 +32,18 @@ const styles = StyleSheet.create({
 
 const READONLY_REASON = 'Reactions are read-only in this build — the write path lands in Phase 4.'
 
-function ChipArt({reactionKey, url}: {reactionKey: string; url: string | null}) {
+function ChipArt({
+  reactionKey,
+  url,
+  pending,
+}: {
+  reactionKey: string
+  url: string | null
+  pending?: boolean
+}) {
   const [failed, setFailed] = useState(false)
+  // Optimistic custom emoji with unknown art: fixed box, never `:code:`.
+  if (pending && url === null) return <PendingEmoji />
   if (url !== null && !failed) {
     return (
       <Image
@@ -52,9 +63,12 @@ function ChipArt({reactionKey, url}: {reactionKey: string; url: string | null}) 
 export function ReactionChips({
   reactions,
   capabilities,
+  pendingKeys,
   testID,
 }: {
   reactions: ReactionSummary | null
+  /** `usePostShadow(...).pendingEmojiKeys` */
+  pendingKeys?: ReadonlySet<string>
   capabilities?: Capabilities | null
   testID?: string
 }) {
@@ -72,7 +86,7 @@ export function ReactionChips({
           accessibilityState={{disabled: true}}
           accessibilityLabel={`${entry.key}, ${entry.count}. ${READONLY_REASON}`}
           style={[styles.chip, {borderColor: theme.palette.edge}]}>
-          <ChipArt reactionKey={entry.key} url={entry.url} />
+          <ChipArt reactionKey={entry.key} url={entry.url} pending={pendingKeys?.has(entry.key)} />
           <Caption color="muted">{String(entry.count)}</Caption>
         </Pressable>
       ))}
