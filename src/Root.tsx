@@ -4,6 +4,7 @@ import {I18nProvider} from '@lingui/react'
 
 import {ThemeProvider} from '#/alf/index'
 import {i18n} from '#/locale/i18n'
+import {useColorMode, useTextScale} from '#/state/appearance'
 import {ToastHost} from '#/components/ToastHost'
 import {Navigation} from '#/Navigation'
 import type {HostingResolution} from '@keystone/fedi'
@@ -69,14 +70,35 @@ export function Root() {
   }, [store, homeOrigin])
   return (
     <I18nProvider i18n={i18n}>
-      <ThemeProvider>
-        <SessionProvider store={store} homeOrigin={homeOrigin}>
-          <HostingProvider value={hosting}>
-            <QueryProvider>{ready ? <Navigation /> : null}</QueryProvider>
-          </HostingProvider>
-          <ToastHost />
-        </SessionProvider>
-      </ThemeProvider>
+      <ThemedProviders store={store} homeOrigin={homeOrigin} ready={ready} hosting={hosting} />
     </I18nProvider>
+  )
+}
+
+// Display settings (Settings → Display) plug into the theme here: the
+// stored colour mode picks light/dark/system, the stored text scale
+// multiplies prose type. Both are device-global and reactive.
+function ThemedProviders({
+  store,
+  homeOrigin,
+  ready,
+  hosting,
+}: {
+  store: ReturnType<typeof createSessionStore>
+  homeOrigin: string
+  ready: boolean
+  hosting: HostingResolution | null
+}) {
+  const colorMode = useColorMode()
+  const textScale = useTextScale()
+  return (
+    <ThemeProvider theme={colorMode === 'system' ? undefined : colorMode} fontScale={textScale}>
+      <SessionProvider store={store} homeOrigin={homeOrigin}>
+        <HostingProvider value={hosting}>
+          <QueryProvider>{ready ? <Navigation /> : null}</QueryProvider>
+        </HostingProvider>
+        <ToastHost />
+      </SessionProvider>
+    </ThemeProvider>
   )
 }

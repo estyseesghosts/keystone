@@ -200,7 +200,9 @@ export function backendForSession(session: Session): Backend {
       flavor: session.flavor,
     });
   }
-  return createMisskeyBackend(createMisskeyClient(session), session.flavor);
+  return createMisskeyBackend(createMisskeyClient(session), session.flavor, {
+    origin: session.origin,
+  });
 }
 
 /**
@@ -252,7 +254,9 @@ export function activeBackend(store: KeyValueStore, home: HomeSpec): Backend {
     });
   }
   const session = active ?? internalSessionOf(store, home.origin) ?? placeholderSession(home);
-  return createMisskeyBackend(createMisskeyClient(session), session.flavor);
+  return createMisskeyBackend(createMisskeyClient(session), session.flavor, {
+    origin: session.origin,
+  });
 }
 
 // --- Misskey-family wire calls -------------------------------------------------

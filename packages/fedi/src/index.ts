@@ -32,6 +32,7 @@ export {
 } from "./misskey/emoji";
 export type { CustomEmoji as MisskeyCustomEmojiListing, ParsedEmojiCode } from "./misskey/emoji";
 export * from "./misskey/external";
+export * from "./misskey/like";
 export * from "./misskey/favorites";
 export * from "./misskey/featured";
 export * from "./misskey/followRequests";

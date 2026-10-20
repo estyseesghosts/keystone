@@ -8,6 +8,7 @@ import {FlatList, RefreshControl, View} from 'react-native'
 
 import {
   backendForSession,
+  computeFeedThreadLinks,
   displayNameOf,
   handleOf,
   isPureRenote,
@@ -23,7 +24,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {SignInButton} from '#/components/SignInButton'
-import {PostCard} from '#/components/Post/index'
+import {ThreadRow} from '#/components/PostFeed/ThreadRow'
 import {countNewItems, feedItems, filterSoftMuted, useSoftMutedIds, usePostFeedQuery} from '#/state/queries'
 import {useSessionStore} from '#/state/session/SessionProvider'
 
@@ -120,6 +121,9 @@ export function FeedView({
   const softMuted = useSoftMutedIds(sessionId)
   const items = useMemo(() => filterSoftMuted(feedItems(feed.data), softMuted), [feed.data, softMuted])
   const {newCount, acknowledge} = useNewPosts(feed.queryKey.join('|'), items)
+  // Same avatar-column links as PostFeed: adjacent parent/child pairs
+  // share one connected column (newest-first, `replyToId` only).
+  const links = useMemo(() => computeFeedThreadLinks(items), [items])
 
   if (!sessionId || !resolved) {
     return (
@@ -169,8 +173,16 @@ export function FeedView({
       ) : null}
       <FlatList
         data={items}
-        keyExtractor={item => item.id}
-        renderItem={({item}) => <PostCard post={item} sessionId={sessionId} capabilities={resolved.capabilities} />}
+        keyExtractor={item => `${sessionId}:${item.id}`}
+        renderItem={({item, index}) => (
+          <ThreadRow
+            post={item}
+            sessionId={sessionId}
+            capabilities={resolved.capabilities}
+            connectedAbove={links.connectedAbove[index] ?? false}
+            connectedBelow={links.connectedBelow[index] ?? false}
+          />
+        )}
         refreshControl={
           <RefreshControl refreshing={feed.isRefetching} onRefresh={() => void feed.refetch()} />
         }

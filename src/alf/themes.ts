@@ -19,8 +19,8 @@ export type Palette = {
 export type Theme = {
   name: ThemeName
   palette: Palette
-  /** Prose multiplier. Fixed at 1 until the Appearance setting lands (plan 6.x). */
-  fontScaleMultiplier: 1
+  /** Prose multiplier. 1 until the Display setting changes it. */
+  fontScaleMultiplier: number
 }
 
 const lightPalette: Palette = {

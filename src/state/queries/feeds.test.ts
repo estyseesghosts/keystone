@@ -26,6 +26,23 @@ describe('feed-visibility rule (ported rule, own code)', () => {
     expect(visibleNetworkTabs(undefined)).toEqual(['local', 'global'])
   })
 
+  it('shows Local while Social exists when the reader turns it on', () => {
+    expect(visibleNetworkTabs('misskey', {showLocal: true, showFederated: true})).toEqual([
+      'social',
+      'local',
+      'global',
+    ])
+  })
+
+  it('hides Federated when the reader turns it off', () => {
+    expect(visibleNetworkTabs('misskey', {showLocal: false, showFederated: false})).toEqual([
+      'social',
+    ])
+    expect(visibleNetworkTabs('mastodon', {showLocal: false, showFederated: false})).toEqual([
+      'local',
+    ])
+  })
+
   it('never defaults to Federated', () => {
     for (const family of ['misskey', 'mastodon', null, undefined] as const) {
       expect(defaultNetworkTab(family)).not.toBe('global')

@@ -18,12 +18,46 @@ export function customKey(name: string): string {
   return `:${name}:`
 }
 
+/** A stored emoji key back to a pickable cell. `:name:` codes are custom
+ * (art resolves from the session's custom list when present); anything
+ * else is a unicode sequence. Pure. */
+export function pickedFromKey(key: string): PickedEmoji {
+  return key.length > 2 && key.startsWith(':') && key.endsWith(':')
+    ? {kind: 'custom', key}
+    : {kind: 'unicode', key}
+}
+
 const titleCase = (s: string) => s.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+
+/**
+ * Unicode groups with hidden categories removed and pinned categories
+ * ordered first (Settings → Reactions). Unknown names are ignored —
+ * pinning or hiding a group the build no longer ships is a no-op,
+ * never a hole in the list. Pure.
+ */
+export function orderedUnicodeGroups(pinned: string[], hidden: string[]): typeof UNICODE_EMOJI_GROUPS {
+  const hiddenSet = new Set(hidden)
+  const visible = UNICODE_EMOJI_GROUPS.filter(g => !hiddenSet.has(g.category))
+  if (pinned.length === 0) return visible
+  const pinnedSet = new Set(pinned)
+  const rank = new Map(pinned.map((c, i) => [c, i] as const))
+  const first = visible.filter(g => pinnedSet.has(g.category)).sort((a, b) => rank.get(a.category)! - rank.get(b.category)!)
+  return [...first, ...visible.filter(g => !pinnedSet.has(g.category))]
+}
 
 export function buildPickerSections(opts: {
   custom: CoreCustomEmoji[]
   recents: PickedEmoji[]
   query: string
+  /** Favourite emoji (Settings → Reactions): their own section, first
+   * after recents, only without a query. Defaults to none. */
+  favourites?: PickedEmoji[]
+  /** Hidden unicode group categories (Settings → Reactions): filtered
+   * out of the unicode list. Defaults to none hidden. */
+  hiddenGroups?: string[]
+  /** Pinned unicode group categories: ordered first among the unicode
+   * groups. Defaults to server order. */
+  pinnedGroups?: string[]
 }): PickerSection[] {
   const q = opts.query.trim().replace(/^:+|:+$/g, '').toLowerCase()
   const sections: PickerSection[] = []
@@ -31,6 +65,11 @@ export function buildPickerSections(opts: {
 
   if (q === '' && opts.recents.length > 0) {
     sections.push({id: 'recents', title: 'Recently used', items: opts.recents})
+  }
+
+  const favourites = opts.favourites ?? []
+  if (q === '' && favourites.length > 0) {
+    sections.push({id: 'favourites', title: 'Favourites', items: favourites})
   }
 
   const customList = filterCustomEmojis(
@@ -45,7 +84,7 @@ export function buildPickerSections(opts: {
     })
   }
 
-  for (const group of UNICODE_EMOJI_GROUPS) {
+  for (const group of orderedUnicodeGroups(opts.pinnedGroups ?? [], opts.hiddenGroups ?? [])) {
     const label = titleCase(group.category)
     const items =
       q === ''

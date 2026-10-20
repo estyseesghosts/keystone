@@ -19,6 +19,13 @@ export const STORAGE_VERSION = 1 as const
 
 const devicePrefsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).default('system'),
+  // Device-local unicode-emoji art style (v1 `appearance.tsx` parity).
+  // Default OpenMoji; anything unknown falls back to it on read.
+  emojiStyle: z.enum(['openmoji', 'twemoji', 'noto', 'fluent', 'system']).default('openmoji'),
+  // Device-local prose text scale, 0.5–4x (v1 `TEXT_SCALE_MIN/MAX`
+  // parity). Out-of-range stored values fail validation and fall back
+  // with the rest of the device state, never a half-prefs object.
+  textScale: z.number().min(0.5).max(4).default(1),
 })
 
 export const deviceStateSchema = z.object({
@@ -32,7 +39,7 @@ export type DeviceState = z.infer<typeof deviceStateSchema>
 export const defaultDeviceState: DeviceState = {
   version: STORAGE_VERSION,
   activeSessionId: null,
-  prefs: {theme: 'system'},
+  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1},
 }
 
 const accountPrefsSchema = z.object({

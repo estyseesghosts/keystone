@@ -36,10 +36,12 @@ Plan: `rn-rebuild-plan.md`. Reference: Bluesky `social-app` @ `cf16c1d` (ADR-000
 - Pinetree rig seed: `ks1`/`password123` gets 401 (owner). Pinetree sends no
   CORS headers (preflight 405) — web-direct login blocked server-side.
   Misskey :3101 / Sharkey :3102 down.
-- Device runs never attempted — not verified.
+- Device runs: android debug build fixed + verified locally 2026-10-21
+  (APK `app-debug.apk`, minSdk 31); install/launch on Oppo pending
+  owner-side adb reconnect (stale mDNS serial) — see latest log.
 
 ## Links
 
-- Tasks: `docs/tasks/` (p1.1–p4.6 done + p3.1-signin-functional in progress; index current)
+- Tasks: `docs/tasks/` (p1.1–p4.6 done + p3.1-signin-functional, butterfly, p4.7-likes, p5.1-settings-tree in progress; index current)
 - ADRs: `docs/adr/0001-patterns-not-code.md`
-- Logs: `state/logs/2026-10-20-p3.11-*`, `p4.{1,2,3,4,5,6}-*`, `2026-10-20-p3.1-signin-functional.md`, `2026-10-20-butterfly-shell.md`, `2026-10-20-butterfly-feed.md`, `2026-10-20-butterfly-composer.md`
+- Logs: `state/logs/2026-10-20-p3.11-*`, `p4.{1,2,3,4,5,6}-*`, `2026-10-20-p3.1-signin-functional.md`, `2026-10-20-butterfly-shell.md`, `2026-10-20-butterfly-feed.md`, `2026-10-20-butterfly-composer.md`, `2026-10-20-likes-popups.md`, `2026-10-21-android-build-fix.md`

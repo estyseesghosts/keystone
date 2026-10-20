@@ -68,6 +68,7 @@ import {
   decodeCursor,
   pageOf,
 } from "./adapt";
+import { likeSupportFor, likeViaNotesLike } from "./like";
 import type {
   DriveFile,
   ServerDraft as WireServerDraft,
@@ -593,6 +594,19 @@ export function createMisskeyBackend(
 
     unreact(id) {
       return call<undefined>("notes/reactions/delete", { noteId: id }).then(() => undefined);
+    },
+
+    // Sharkey-family like shortcut (`POST notes/like`, toggle semantics).
+    // Support is probed per origin and cached in `misskey/like`; absence
+    // throws `LikeUnsupportedError` so the caller can fall back to a plain
+    // heart reaction instead of walling the user out.
+    like: {
+      async like(noteId, override = null) {
+        return likeViaNotesLike(call, opts.origin ?? null, noteId, override);
+      },
+      isSupported() {
+        return opts.origin ? likeSupportFor(opts.origin) : null;
+      },
     },
 
     async favourite(id) {

@@ -25,10 +25,10 @@ describe('PostCard', () => {
     const createdAt = new Date(Date.now() - 22 * 3_600_000).toISOString()
     renderCard(<PostCard post={makePost({createdAt})} sessionId={SESSION} />)
     expect(screen.getByText('Alice')).toBeTruthy()
-    // v1 narrow-relative wording; the exact abbreviation is ICU- and
-    // locale-dependent ("22h ago" vs "22 hrs ago") so expect the engine's
-    // own rendering in the component's (device) locale.
-    const expected = `@alice@example.social · ${new Intl.RelativeTimeFormat(undefined, {style: 'narrow'}).format(-22, 'hour')}`
+    // v1 parity: the handle links to the profile, the time to the post —
+    // separate stops, not one caption.
+    const expected = `· ${new Intl.RelativeTimeFormat(undefined, {style: 'narrow'}).format(-22, 'hour')}`
+    expect(screen.getByText('@alice@example.social')).toBeTruthy()
     expect(screen.getByText(expected)).toBeTruthy()
     expect(screen.getByTestId('avatar-fallback-a1')).toBeTruthy()
     expect(screen.getByTestId('post-body-p1')).toBeTruthy()

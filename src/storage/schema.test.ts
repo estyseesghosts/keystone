@@ -18,8 +18,50 @@ describe('parseOrFallback', () => {
     expect(parseOrFallback(deviceStateSchema, raw, defaultDeviceState)).toEqual({
       version: STORAGE_VERSION,
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark'},
+      prefs: {theme: 'dark', emojiStyle: 'openmoji', textScale: 1},
     })
+  })
+
+  it('round-trips a stored text scale', () => {
+    const raw = JSON.stringify({
+      version: STORAGE_VERSION,
+      activeSessionId: null,
+      prefs: {theme: 'system', textScale: 2},
+    })
+    expect(parseOrFallback(deviceStateSchema, raw, defaultDeviceState).prefs.textScale).toBe(2)
+  })
+
+  it('falls back on an out-of-range text scale', () => {
+    const raw = JSON.stringify({
+      version: STORAGE_VERSION,
+      activeSessionId: null,
+      prefs: {theme: 'system', textScale: 42},
+    })
+    expect(parseOrFallback(deviceStateSchema, raw, defaultDeviceState)).toEqual(
+      defaultDeviceState,
+    )
+  })
+
+  it('round-trips a stored emoji style', () => {
+    const raw = JSON.stringify({
+      version: STORAGE_VERSION,
+      activeSessionId: null,
+      prefs: {theme: 'system', emojiStyle: 'twemoji'},
+    })
+    expect(parseOrFallback(deviceStateSchema, raw, defaultDeviceState).prefs.emojiStyle).toBe(
+      'twemoji',
+    )
+  })
+
+  it('falls back to openmoji on an unknown emoji style', () => {
+    const raw = JSON.stringify({
+      version: STORAGE_VERSION,
+      activeSessionId: null,
+      prefs: {theme: 'system', emojiStyle: 'bogus'},
+    })
+    expect(parseOrFallback(deviceStateSchema, raw, defaultDeviceState)).toEqual(
+      defaultDeviceState,
+    )
   })
 
   it('falls back on missing keys', () => {

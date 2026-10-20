@@ -2,7 +2,7 @@
 //
 // Two cases stay separate, per docs/twemoji.md:
 // - Unicode emoji: a complete sequence rendered via the selected remote
-//   style (Twemoji by default, version-pinned in `@keystone/fedi`), with
+//   style (OpenMoji by default, version-pinned in `@keystone/fedi`), with
 //   a system-font fallback when the asset is missing or fails to load.
 // - Custom emoji: a `:code:` rendered ONLY from a packed source (the
 //   node's server-vetted `src` or the post's packed map via
@@ -13,6 +13,7 @@ import {useState} from 'react'
 import {Image, StyleSheet, Text, type StyleProp, type TextStyle} from 'react-native'
 
 import {
+  DEFAULT_EMOJI_STYLE,
   lookupPackedEmojis,
   resolveEmojiUrl,
   safeHttpUrl,
@@ -37,7 +38,7 @@ export type UnicodeEmojiProps = {
 // One complete Unicode emoji sequence in the selected style. Falls back
 // to the system font when the style is `system`, the asset is unknown,
 // or the image fails to load (never a broken-image icon).
-export function UnicodeEmoji({sequence, style = 'twemoji', size = GLYPH, textStyle, testID}: UnicodeEmojiProps) {
+export function UnicodeEmoji({sequence, style = DEFAULT_EMOJI_STYLE, size = GLYPH, textStyle, testID}: UnicodeEmojiProps) {
   const [failed, setFailed] = useState(false)
   const url = style === 'system' ? null : resolveEmojiUrl(style, sequence)
   if (url === null || failed) {

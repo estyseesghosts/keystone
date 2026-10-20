@@ -7,14 +7,16 @@
 // and will feed THESE props. The component accepts (not fetches)
 // `descriptor + sessionId`, and keys off `feedQueryKey` (`#/state/queries`).
 
+import {useMemo} from 'react'
 import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
 
-import type {Capabilities, EmojiStyle, Post} from '@keystone/fedi'
+import {computeFeedThreadLinks, type Capabilities, type EmojiStyle, type Post} from '@keystone/fedi'
 
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
-import {PostCard} from '#/components/Post/index'
+
+import {ThreadRow} from './ThreadRow'
 
 const styles = StyleSheet.create({
   state: {alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8},
@@ -65,6 +67,10 @@ export function PostFeed({
   testID,
 }: PostFeedProps) {
   void descriptor
+  // Avatar-column links (newest-first, adjacency only): a reply directly
+  // under its parent shares one connected column. Pure `replyToId`
+  // check — quotes/renotes alone never link.
+  const links = useMemo(() => computeFeedThreadLinks(posts), [posts])
   return (
     <View style={{flex: 1}} testID={testID ?? 'post-feed'}>
       {hasNewPosts && (
@@ -80,9 +86,16 @@ export function PostFeed({
       <FlatList
         testID="post-feed-list"
         data={posts}
-        keyExtractor={item => item.id}
-        renderItem={({item}) => (
-          <PostCard post={item} sessionId={sessionId} capabilities={capabilities} emojiStyle={emojiStyle} />
+        keyExtractor={item => `${sessionId}:${item.id}`}
+        renderItem={({item, index}) => (
+          <ThreadRow
+            post={item}
+            sessionId={sessionId}
+            capabilities={capabilities}
+            emojiStyle={emojiStyle}
+            connectedAbove={links.connectedAbove[index] ?? false}
+            connectedBelow={links.connectedBelow[index] ?? false}
+          />
         )}
         refreshControl={
           onRefresh ? (

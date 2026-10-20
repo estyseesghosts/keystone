@@ -515,6 +515,19 @@ export interface Backend {
   /** React with `reaction`, or clear with null (set-semantics). */
   react(id: string, reaction: string | null): Promise<void>;
   unreact(id: string): Promise<void>;
+  /**
+   * Like shortcut (`POST notes/like`, Sharkey-family only). The server
+   * toggles: one call likes or unlikes. `override: null` takes the
+   * server's `defaultLike`. Throws `LikeUnsupportedError` where the
+   * endpoint is absent — the caller falls back to a plain heart
+   * reaction, never a "not supported" wall. Absent outside
+   * Misskey-family (check before calling).
+   */
+  like?: {
+    like(noteId: string, override?: string | null): Promise<void>;
+    /** Endpoint presence: true/false, or null when unprobed. */
+    isSupported(): boolean | null;
+  };
   favourite(id: string): Promise<void>;
   unfavourite(id: string): Promise<void>;
   boost(id: string): Promise<Post>;

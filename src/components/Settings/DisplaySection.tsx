@@ -1,0 +1,150 @@
+import {View} from 'react-native'
+
+import {atoms} from '#/alf/atoms'
+import {useTheme} from '#/alf/index'
+import {Body, Caption} from '#/alf/typography'
+import {Pressable} from '#/components/Pressable'
+import {Button} from '#/components/Button'
+import {
+  TEXT_SCALE_MAX,
+  TEXT_SCALE_MIN,
+  appearanceStore,
+  useColorMode,
+  useTextScale,
+  type AppearanceStore,
+  type ColorMode,
+} from '#/state/appearance'
+
+import {EmojiStyleSetting} from './EmojiStyleSetting'
+import {PlaceholderRow, SettingRow} from './rows'
+
+// Display section (v1 `/settings/display` parity): device-local
+// appearance, available signed out too. Colour mode and text size read
+// and write the real device prefs (the app theme consumes both at the
+// root); the emoji-style picker lives here per v1 (relocated from the
+// old flat page, not duplicated). Themes, palettes, user fonts, and the
+// post-content override have no consumer in this app yet, so they render
+// as honest placeholders — never fake rows.
+
+const DOT_SIZE = 8
+
+const COLOR_MODES: Array<{value: ColorMode; title: string; hint: string}> = [
+  {value: 'system', title: 'System', hint: 'Follow the device setting.'},
+  {value: 'light', title: 'Light', hint: 'Always light.'},
+  {value: 'dark', title: 'Dark', hint: 'Always dark.'},
+]
+
+function ColorModeRow({store = appearanceStore}: {store?: AppearanceStore}) {
+  const selected = useColorMode(store)
+  const theme = useTheme()
+  return (
+    <SettingRow title="Colour mode" hint="Light or dark app chrome." testID="color-mode-row">
+      <View style={[atoms.gap_sm]} accessibilityRole="radiogroup" accessibilityLabel="Colour mode">
+        {COLOR_MODES.map(option => {
+          const active = selected === option.value
+          return (
+            <Pressable
+              key={option.value}
+              testID={`color-mode-${option.value}`}
+              accessibilityRole="radio"
+              accessibilityState={{selected: active}}
+              accessibilityLabel={`${option.title}${active ? ', selected' : ''}. ${option.hint}`}
+              onPress={() => store.setColorMode(option.value)}
+              style={[atoms.row, atoms.itemsCenter, {gap: 12, paddingVertical: 8}]}>
+              <View
+                style={{
+                  width: DOT_SIZE,
+                  height: DOT_SIZE,
+                  borderRadius: DOT_SIZE / 2,
+                  backgroundColor: active ? theme.palette.text : 'transparent',
+                }}
+              />
+              <View style={[atoms.flex1, atoms.gap_sm]}>
+                <Body>{option.title}</Body>
+                <Caption color="faint">{option.hint}</Caption>
+              </View>
+            </Pressable>
+          )
+        })}
+      </View>
+    </SettingRow>
+  )
+}
+
+function TextSizeRow({store = appearanceStore}: {store?: AppearanceStore}) {
+  const scale = useTextScale(store)
+  const percent = Math.round(scale * 100)
+  return (
+    <SettingRow
+      title="Text size"
+      hint={`Prose text (posts, bios, composer) at ${percent}%. Chrome stays fixed.`}
+      testID="text-size-row">
+      <View style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
+        <Button
+          label="Smaller"
+          variant="secondary"
+          disabled={scale <= TEXT_SCALE_MIN}
+          disabledReason="Already at the smallest size."
+          onPress={() => store.setTextScale(Math.round((scale - 0.1) * 10) / 10)}
+          testID="text-size-decrease"
+        />
+        <Body testID="text-size-value">{percent}%</Body>
+        <Button
+          label="Larger"
+          variant="secondary"
+          disabled={scale >= TEXT_SCALE_MAX}
+          disabledReason="Already at the largest size."
+          onPress={() => store.setTextScale(Math.round((scale + 0.1) * 10) / 10)}
+          testID="text-size-increase"
+        />
+        <Button
+          label="Reset"
+          variant="secondary"
+          disabled={scale === 1}
+          disabledReason="Already at the default size."
+          onPress={() => store.setTextScale(1)}
+          testID="text-size-reset"
+        />
+      </View>
+    </SettingRow>
+  )
+}
+
+export function DisplaySection() {
+  return (
+    <View style={[atoms.gap_sm]} testID="settings-section-display">
+      <ColorModeRow />
+      <TextSizeRow />
+      <SettingRow
+        title="Emoji style"
+        hint="Art set for unicode emoji everywhere."
+        testID="emoji-style-row">
+        <EmojiStyleSetting />
+      </SettingRow>
+      <PlaceholderRow
+        title="Theme"
+        hint="Keystone modern or terminal."
+        reason="Not wired yet — the app ships one light/dark pair."
+        testID="placeholder-theme"
+      />
+      <PlaceholderRow
+        title="Palette"
+        hint="A variation within a theme."
+        reason="Not wired yet — the app ships one light/dark pair."
+        testID="placeholder-palette"
+      />
+      <PlaceholderRow
+        title="Font"
+        hint="Override the theme typeface."
+        reason="Not wired yet — no custom-font loading on native."
+        testID="placeholder-font"
+      />
+      <PlaceholderRow
+        title="Post content"
+        hint="Render every post as MFM instead of HTML."
+        reason="Not wired yet — the renderer always follows the post source."
+        testID="placeholder-content-mode"
+      />
+    </View>
+  )
+}

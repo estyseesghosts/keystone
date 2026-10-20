@@ -1,11 +1,12 @@
 import {msg} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
-import {Modal, StyleSheet, View} from 'react-native'
+import {Animated, Modal, StyleSheet, View} from 'react-native'
 
 import {atoms} from '#/alf/atoms'
 import {useTheme} from '#/alf/index'
 import {radius, space} from '#/alf/tokens'
 import {Heading} from '#/alf/typography'
+import {usePopupEnter} from '#/components/Popup'
 import {Pressable} from '#/components/Pressable'
 
 export type DialogProps = {
@@ -22,6 +23,7 @@ export function Dialog({open, onClose, title, children, testID}: DialogProps) {
   const theme = useTheme()
   const {i18n} = useLingui()
   const closeLabel = i18n._(msg`Close dialog`)
+  const enter = usePopupEnter()
   if (!open) {
     return null
   }
@@ -56,7 +58,9 @@ export function Dialog({open, onClose, title, children, testID}: DialogProps) {
           accessibilityLabel={closeLabel}
           style={styles.backdrop}
         />
-        <View accessibilityLabel={title} style={styles.sheet}>
+        <Animated.View
+          accessibilityLabel={title}
+          style={[styles.sheet, {opacity: enter.opacity, transform: [{scale: enter.scale}]}]}>
           <View style={[atoms.row, atoms.itemsCenter, {gap: space.md}]}>
             <View style={atoms.flex1}>
               <Heading>{title}</Heading>
@@ -70,7 +74,7 @@ export function Dialog({open, onClose, title, children, testID}: DialogProps) {
             </Pressable>
           </View>
           {children}
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   )

@@ -9,8 +9,16 @@ import {TextField} from '#/components/forms/TextField'
 import {Pressable} from '#/components/Pressable'
 import {useBackendForSessionId} from '#/screens/HomeFeed'
 import {createQueryKey} from '#/state/queries/keys'
+import {
+  emojiGroupPrefsStore,
+  favouritesStore,
+  useHiddenGroups,
+  usePinnedGroups,
+  type EmojiGroupPrefsStore,
+  type FavouritesStore,
+} from '#/state/emojiPrefs'
 
-import {buildPickerSections, sectionsToRows, type PickedEmoji, type PickerRow} from './model'
+import {buildPickerSections, sectionsToRows, pickedFromKey, type PickedEmoji, type PickerRow} from './model'
 import {emojiRecentsStore, type EmojiRecentsStore} from './recents'
 
 // Emoji picker (slice 4.5): recents (per session), the session's custom
@@ -37,6 +45,8 @@ export type EmojiPickerProps = {
   onPick: (emoji: PickedEmoji) => void
   /** Test seam. */
   recentsStore?: EmojiRecentsStore
+  favouritesStore?: FavouritesStore
+  groupPrefsStore?: EmojiGroupPrefsStore
   testID?: string
 }
 
@@ -61,13 +71,26 @@ function Cell({emoji, onPress}: {emoji: PickedEmoji; onPress: () => void}) {
   )
 }
 
-export function EmojiPicker({sessionId, onPick, recentsStore = emojiRecentsStore, testID}: EmojiPickerProps) {
+export function EmojiPicker({sessionId, onPick, recentsStore = emojiRecentsStore, favouritesStore: favs = favouritesStore, groupPrefsStore: groups = emojiGroupPrefsStore, testID}: EmojiPickerProps) {
   const [query, setQuery] = useState('')
   const custom = useCustomEmojis(sessionId)
   const recents = useSyncExternalStore(recentsStore.subscribe, () => recentsStore.list(sessionId))
+  const favourites = useSyncExternalStore(favs.subscribe, () => favs.list(sessionId))
+  const hiddenGroups = useHiddenGroups(groups)
+  const pinnedGroups = usePinnedGroups(groups)
   const rows = useMemo(
-    () => sectionsToRows(buildPickerSections({custom: custom.data ?? [], recents, query})),
-    [custom.data, recents, query],
+    () =>
+      sectionsToRows(
+        buildPickerSections({
+          custom: custom.data ?? [],
+          recents,
+          query,
+          favourites: favourites.map(pickedFromKey),
+          hiddenGroups,
+          pinnedGroups,
+        }),
+      ),
+    [custom.data, recents, query, favourites, hiddenGroups, pinnedGroups],
   )
   const pick = (emoji: PickedEmoji) => {
     recentsStore.touch(sessionId, emoji)

@@ -1,0 +1,136 @@
+import {i18n} from '@lingui/core'
+import {I18nProvider} from '@lingui/react'
+import {fireEvent, render, screen} from '@testing-library/react-native'
+import {View} from 'react-native'
+
+import type {Account} from '@keystone/fedi'
+
+import {ThemeProvider} from '#/alf/index'
+import {ProfileHeader, ProfileTabs} from '#/components/Profile'
+import type {ProfileFeedTab} from '#/state/queries'
+
+i18n.load('en', {})
+i18n.activate('en')
+
+function renderWithProviders(ui: React.ReactElement) {
+  return render(
+    <I18nProvider i18n={i18n}>
+      <ThemeProvider theme="light">{ui}</ThemeProvider>
+    </I18nProvider>,
+  )
+}
+
+function account(overrides: Partial<Account> = {}): Account {
+  return {
+    id: 'u1',
+    username: 'jules',
+    acct: 'jules',
+    host: null,
+    name: 'Jules Verne',
+    displayName: 'Jules Verne',
+    bio: {plain: 'hello there'},
+    url: null,
+    uri: null,
+    avatarUrl: null,
+    avatarBlurhash: null,
+    headerUrl: null,
+    headerBlurhash: null,
+    followersCount: 10,
+    followingCount: 5,
+    statusesCount: 42,
+    locked: false,
+    bot: false,
+    cat: false,
+    silenced: false,
+    suspended: false,
+    onlineStatus: null,
+    location: null,
+    birthday: null,
+    createdAt: null,
+    updatedAt: null,
+    lastFetchedAt: null,
+    emojis: {},
+    fields: [],
+    movedTo: null,
+    ffVisibility: 'public',
+    pinnedPostIds: null,
+    pinnedPosts: null,
+    ext: {},
+    ...overrides,
+  } as Account
+}
+
+describe('ProfileTabs (v1 underline tablist)', () => {
+  it('shows Posts/Replies/Media and hides Featured without a source', () => {
+    renderWithProviders(
+      <ProfileTabs tab="posts" onChange={() => {}} hasFeatured={false} />,
+    )
+    expect(screen.getByTestId('profile-tab-posts')).toBeTruthy()
+    expect(screen.getByTestId('profile-tab-replies')).toBeTruthy()
+    expect(screen.getByTestId('profile-tab-media')).toBeTruthy()
+    expect(screen.queryByTestId('profile-tab-featured')).toBeNull()
+  })
+
+  it('shows Featured with a source and fires onChange', () => {
+    const onChange = jest.fn()
+    renderWithProviders(
+      <ProfileTabs tab="posts" onChange={onChange} hasFeatured />,
+    )
+    fireEvent.press(screen.getByTestId('profile-tab-media'))
+    expect(onChange).toHaveBeenCalledWith('media' satisfies ProfileFeedTab)
+  })
+})
+
+describe('ProfileHeader (v1 banner + avatar row + bio + stats)', () => {
+  it('renders name, handle, bio, and counts', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account()}
+        isSelf
+        relationship={null}
+        actions={<View testID="stub-actions" />}
+      />,
+    )
+    expect(screen.getByTestId('profile-name')).toBeTruthy()
+    expect(screen.getByTestId('profile-handle')).toBeTruthy()
+    expect(screen.getByTestId('profile-bio')).toBeTruthy()
+    expect(screen.getByTestId('profile-stats')).toBeTruthy()
+    expect(screen.getByTestId('stub-actions')).toBeTruthy()
+  })
+
+  it('falls back to an initial avatar and hides counts for private ff', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({ffVisibility: 'private', avatarUrl: null})}
+        isSelf={false}
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('profile-avatar')).toBeTruthy()
+    expect(screen.getByText(/hidden/)).toBeTruthy()
+  })
+
+  it('marks locked and automated accounts', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({locked: true, bot: true})}
+        isSelf
+        relationship={null}
+      />,
+    )
+    expect(screen.getByText('Locked account.')).toBeTruthy()
+    expect(screen.getByText('Automated account.')).toBeTruthy()
+  })
+
+  it('renders MFM bios through RichText, never raw source', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({bio: {mfm: '**bold** bio', plain: 'bold bio'}})}
+        isSelf
+        relationship={null}
+      />,
+    )
+    expect(screen.getByText('bold')).toBeTruthy()
+    expect(screen.queryByText('**bold** bio')).toBeNull()
+  })
+})

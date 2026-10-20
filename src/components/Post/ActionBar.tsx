@@ -211,7 +211,7 @@ export function ActionBar({
         reason={gate.enabled ? undefined : gate.reason}
         onPress={() => {
           if (mine) void actions.reaction.set(null).catch(toastError)
-          else setPickOpen(true)
+          else void actions.reaction.set('❤').catch(toastError)
         }}
       />
     )

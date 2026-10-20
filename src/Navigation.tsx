@@ -1,18 +1,13 @@
-import {useEffect, useState} from 'react'
+import {useState} from 'react'
 import {Image, Platform, Pressable, StyleSheet, View, type ViewStyle} from 'react-native'
 import {
   DarkTheme,
   DefaultTheme,
   NavigationContainer,
-  useNavigation,
   type InitialState,
   type LinkingOptions,
-  type NavigationProp,
 } from '@react-navigation/native'
-import {
-  createBottomTabNavigator,
-  type BottomTabBarProps,
-} from '@react-navigation/bottom-tabs'
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs'
 import {createNativeStackNavigator} from '@react-navigation/native-stack'
 import * as Linking from 'expo-linking'
 import {useLingui} from '@lingui/react'
@@ -89,14 +84,14 @@ export const linking: LinkingOptions<StackParamList> = {
 }
 
 /** Deepest focused route (name + params) anywhere in the tree. The shell
- * chrome (strip, sidebar) renders directly under the container — outside
- * any screen, where `useNavigationState` cannot run — so this tracks the
- * root state through a listener instead. */
-type LeafState = {name: string | undefined; params?: {tag?: unknown}}
+ * chrome (strip, sidebar, tab bar) renders under the container — outside
+ * any screen, where `useNavigationState` cannot run — so the root state is
+ * tracked through the container callbacks and handed down as a prop. */
+type LeafState = {name: string | undefined; params?: {id?: unknown; tag?: unknown}}
 
 function leafOf(state: object | undefined): LeafState {
   let node = state as
-    | {routes: {name: string; params?: {tag?: unknown}; state?: object}[]; index?: number}
+    | {routes: {name: string; params?: {id?: unknown; tag?: unknown}; state?: object}[]; index?: number}
     | undefined
   for (;;) {
     const route = node?.routes[node.index ?? 0]
@@ -106,23 +101,23 @@ function leafOf(state: object | undefined): LeafState {
   }
 }
 
-function useActiveLeaf(): LeafState {
-  const nav = useNavigation<NavigationProp<RootParamList>>()
-  const [leaf, setLeaf] = useState<LeafState>(() => {
-    try {
-      return leafOf(nav.getState())
-    } catch {
-      return {name: undefined}
-    }
-  })
-  useEffect(
-    () =>
-      nav.addListener('state', e => {
-        setLeaf(leafOf(e.data.state))
-      }),
-    [nav],
-  )
-  return leaf
+/** Shell navigation always goes through the root ref with an explicit
+ * `Main` hop: shell chrome lives outside every navigator, so a bare tab
+ * name would resolve nowhere. Focusing `Main` first also pops any stack
+ * screens (Settings, Note, …) — tabs always escape. */
+function goMainTab(key: keyof TabParamList) {
+  if (!navigationRef.isReady()) return
+  navigationRef.navigate('Main', {screen: key} as never)
+}
+
+/** Active-tab check. The Profile tab renders any user's page, so it reads
+ * active only for the viewer's own profile: v1 keeps it lit on your own
+ * subroutes, never on someone else's profile. */
+function isTabFocused(leaf: LeafState, key: keyof TabParamList, ownAccountId: string | null): boolean {
+  if (leaf.name !== key) return false
+  if (key !== 'User') return true
+  const id = leaf.params?.id
+  return id == null || id === ownAccountId
 }
 
 function TabIcon({name, color}: {name: keyof TabParamList; color: string}) {
@@ -177,12 +172,9 @@ function AccountAvatar({size = 32}: {size?: number}) {
 // --- Mobile top strip (Keystone v1 `.mobile-account`): back | section
 // title | account. Only in the mobile layout; wider shells use the
 // sidebar + pageheads instead.
-function MobileStrip() {
-  const nav = useNavigation<NavigationProp<RootParamList>>()
+function MobileStrip({leaf}: {leaf: LeafState}) {
   const session = useOptionalActiveSession()
-  const leaf = useActiveLeaf()
   const alf = useAlfTheme()
-  const canGoBack = nav.canGoBack()
   return (
     <View
       style={[
@@ -192,7 +184,9 @@ function MobileStrip() {
       <View style={styles.stripSide}>
         <Pressable
           onPress={() => {
-            if (canGoBack) nav.goBack()
+            // Live off the root ref: a value captured at render time would
+            // go stale and strand the back button on pushed screens.
+            if (navigationRef.isReady() && navigationRef.canGoBack()) navigationRef.goBack()
           }}
           accessibilityRole="button"
           accessibilityLabel="Back"
@@ -229,7 +223,10 @@ function MobileStrip() {
 }
 
 // --- Bottom tab bar (mobile layout): icon over a 10px label, active tab
-// inverted like `.navlink.active` on v1.
+// inverted like `.navlink.active` on v1. v1's `.mobilenav` lives OUTSIDE
+// the route content and stays mounted on every screen — so does this:
+// it is rendered by the shell, not by the tab navigator, and every tab
+// press goes through `goMainTab`, which pops pushed stack screens.
 // v1 mobile wording: the Network tab reads "My Network" and Explore reads
 // "Search" on phones (section names, not chrome names).
 const MOBILE_LABELS: Record<keyof TabParamList, string> = {
@@ -241,38 +238,34 @@ const MOBILE_LABELS: Record<keyof TabParamList, string> = {
   Login: 'Sign in',
 }
 
-function ButterflyTabBar({state, navigation}: BottomTabBarProps) {
+const SIGNED_IN_TABS: (keyof TabParamList)[] = ['Home', 'Network', 'Explore', 'Notifications', 'User']
+const SIGNED_OUT_TABS: (keyof TabParamList)[] = ['Home', 'Network', 'Explore', 'Login']
+
+function ShellTabBar({leaf}: {leaf: LeafState}) {
+  const session = useOptionalActiveSession()
   const alf = useAlfTheme()
+  const tabs = session ? SIGNED_IN_TABS : SIGNED_OUT_TABS
+  const ownAccountId = session?.accountId ?? null
   return (
     <View
       style={[
         styles.tabbar,
         {backgroundColor: alf.palette.bg, borderTopColor: alf.palette.border},
       ]}>
-      {state.routes.map((route, index) => {
-        const label = MOBILE_LABELS[route.name as keyof TabParamList] ?? route.name
-        const isFocused = state.index === index
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          })
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name, route.params)
-          }
-        }
+      {tabs.map(key => {
+        const label = MOBILE_LABELS[key]
+        const isFocused = isTabFocused(leaf, key, ownAccountId)
         const fg = isFocused ? alf.palette.bg : alf.palette.text
         return (
           <Pressable
-            key={route.key}
-            onPress={onPress}
+            key={key}
+            onPress={() => goMainTab(key)}
             accessibilityRole="button"
             accessibilityState={{selected: isFocused}}
             accessibilityLabel={label}
             style={[styles.tab, isFocused && {backgroundColor: alf.palette.text}]}
-            testID={`tab-${route.name}`}>
-            <TabIcon name={route.name as keyof TabParamList} color={fg} />
+            testID={`tab-${key}`}>
+            <TabIcon name={key} color={fg} />
             <Body style={[styles.tabLabel, {color: fg}]} numberOfLines={1}>
               {label}
             </Body>
@@ -285,10 +278,10 @@ function ButterflyTabBar({state, navigation}: BottomTabBarProps) {
 
 // --- Sidebar (rail + full): v1 `.sitenav`. 220px with labels, 68px icon
 // rail 721–1000px. Sticky full-height column with the account footer.
-function Sidebar({layout}: {layout: ShellLayout}) {
-  const nav = useNavigation<NavigationProp<TabParamList>>()
+// Like the tab bar, entries go through `goMainTab` — the sidebar lives
+// outside every navigator, so bare tab names would resolve nowhere.
+function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
   const session = useOptionalActiveSession()
-  const leaf = useActiveLeaf()
   const {i18n} = useLingui()
   const alf = useAlfTheme()
   const rail = layout === 'rail'
@@ -318,12 +311,12 @@ function Sidebar({layout}: {layout: ShellLayout}) {
         <Heading style={styles.brand}>Keystone</Heading>
       )}
       {entries.map(e => {
-        const active = leaf.name === e.key
+        const active = isTabFocused(leaf, e.key, session?.accountId ?? null)
         const fg = active ? alf.palette.bg : alf.palette.text
         return (
           <Pressable
             key={e.key}
-            onPress={() => nav.navigate(e.key)}
+            onPress={() => goMainTab(e.key)}
             accessibilityRole="button"
             accessibilityState={{selected: active}}
             accessibilityLabel={e.label}
@@ -364,7 +357,7 @@ function Sidebar({layout}: {layout: ShellLayout}) {
           </Pressable>
         ) : (
           <Pressable
-            onPress={() => nav.navigate('Login')}
+            onPress={() => goMainTab('Login')}
             accessibilityRole="button"
             accessibilityLabel="Sign in"
             style={[styles.navlink, rail && styles.navlinkRail]}>
@@ -402,11 +395,10 @@ const Stack = createNativeStackNavigator<StackParamList>()
 function MainTabs() {
   const {i18n} = useLingui()
   const session = useOptionalActiveSession()
-  const layout = useShellLayout()
+  // No tabBar here: v1's bar stays visible on pushed screens, so the
+  // shell renders `ShellTabBar` itself (mobile layout only).
   return (
-    <Tab.Navigator
-      screenOptions={{headerShown: false, tabBarStyle: {display: 'none'}}}
-      tabBar={props => (layout === 'mobile' ? <ButterflyTabBar {...props} /> : null)}>
+    <Tab.Navigator screenOptions={{headerShown: false, tabBarStyle: {display: 'none'}}}>
       <Tab.Screen
         name="Home"
         component={HomeScreen}
@@ -491,7 +483,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
             {backgroundColor: alf.palette.bg},
             mobile ? styles.shellColumn : styles.shellRow,
           ]}>
-          {mobile ? null : <Sidebar layout={layout} />}
+          {mobile ? null : <Sidebar layout={layout} leaf={leaf} />}
           <View
             style={[
               styles.maincol,
@@ -499,7 +491,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
                 ? null
                 : {borderRightColor: alf.palette.border, borderRightWidth: 1},
             ]}>
-            {stripVisible ? <MobileStrip /> : null}
+            {stripVisible ? <MobileStrip leaf={leaf} /> : null}
             <Stack.Navigator screenOptions={{headerShown: false, animation: 'none'}}>
               <Stack.Screen name="Main" component={MainTabs} />
               <Stack.Screen name="Note" component={NoteScreen} />
@@ -517,6 +509,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
             </Stack.Navigator>
           </View>
           {wide ? <RightNav /> : null}
+          {mobile ? <ShellTabBar leaf={leaf} /> : null}
         </View>
       </PostHandlersProvider>
     </NavigationContainer>
@@ -614,6 +607,7 @@ const styles = StyleSheet.create({
   },
   tabbar: {
     flexDirection: 'row',
+    alignSelf: 'stretch',
     borderTopWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -625,8 +619,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
-    paddingHorizontal: 2,
-    paddingVertical: 8,
+    paddingHorizontal: 3,
+    paddingVertical: 9,
     borderRadius: 8,
   },
   tabLabel: {

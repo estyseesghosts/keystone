@@ -21,12 +21,12 @@ describe('device scope', () => {
     writeDeviceState(store, {
       version: 1,
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark'},
+      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 1},
     })
     expect(readDeviceState(store)).toEqual({
       version: 1,
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark'},
+      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 1},
     })
   })
 

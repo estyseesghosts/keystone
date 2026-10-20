@@ -7,7 +7,7 @@
 // WebView.
 //
 // Node coverage: text, link, mention, hashtag, customEmoji (packed
-// sources only), unicodeEmoji (Twemoji per docs/twemoji.md), bold,
+// sources only), unicodeEmoji (OpenMoji by default), bold,
 // italic, strike, code, codeBlock, quote, br. MFM `fn` extras degrade
 // to their children.
 
@@ -22,7 +22,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 
-import type {ContentNode, EmojiStyle} from '@keystone/fedi'
+import {DEFAULT_EMOJI_STYLE, type ContentNode, type EmojiStyle} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {CustomEmojiGlyph, UnicodeEmoji} from '#/components/EmojiImage'
@@ -31,7 +31,7 @@ export type RichTextProps = {
   nodes: readonly ContentNode[]
   /** Packed custom-emoji map for `:code:` resolution (MFM path). */
   emojis?: Record<string, string> | null
-  /** Unicode emoji style. Defaults to Twemoji (slice 3.9). */
+  /** Unicode emoji style. Defaults to OpenMoji (device setting). */
   emojiStyle?: EmojiStyle
   /** Inline text size. Block code stays fixed. */
   size?: number
@@ -226,7 +226,7 @@ function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ctx: Ctx}) {
 export function RichText({
   nodes,
   emojis = null,
-  emojiStyle = 'twemoji',
+  emojiStyle = DEFAULT_EMOJI_STYLE,
   size = 15,
   numberOfLines,
   onMentionPress,

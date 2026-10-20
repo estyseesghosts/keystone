@@ -1,6 +1,8 @@
-import {useEffect, useState, type ReactNode, type RefObject} from 'react'
+import {useEffect, useRef, useState, type ReactNode, type RefObject} from 'react'
 import {
+  Animated,
   Dimensions,
+  Easing,
   Modal,
   Platform,
   ScrollView,
@@ -18,11 +20,34 @@ import {Pressable} from '#/components/Pressable'
 // runs out, clamped to the viewport. Dismisses on backdrop tap. Renders in
 // a transparent Modal so it floats above every navigator and sibling.
 
+const ENTER_MS = 150
+
+/** Quick fade-and-scale entrance shared by every popup. It also masks the
+ * first-paint jump: the card paints at its fallback position, then snaps to
+ * the measured anchor — the fade keeps that snap from flashing. */
+export function usePopupEnter(): {opacity: Animated.Value; scale: Animated.AnimatedInterpolation<number>} {
+  const motion = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    const anim = Animated.timing(motion, {
+      toValue: 1,
+      duration: ENTER_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    })
+    anim.start()
+    return () => anim.stop()
+  }, [motion])
+  const scale = motion.interpolate({inputRange: [0, 1], outputRange: [0.96, 1]})
+  return {opacity: motion, scale}
+}
+
 const CARD_MIN = 200
 const CARD_MAX = 340
 const EDGE = 8
 const GAP = 6
 const MIN_SIDE = 120
+const CARET = 10
+const CARET_MIN = 16
 
 export type PopupSide = 'below' | 'above'
 
@@ -53,17 +78,26 @@ export function AnchoredPopup({
   children: ReactNode
 }) {
   const theme = useTheme()
+  const enter = usePopupEnter()
   // Synchronously-initialized fallback position (viewport-centered): content
   // renders on first paint everywhere, then snaps to the anchor once
   // measured. Effects inside freshly-mounted Modal subtrees are not
   // guaranteed to flush before assertions (or first paint), so the card
-  // must never wait on them.
-  const [pos, setPos] = useState<{left: number; top?: number; bottom?: number; maxH: number}>(() => {
+  // must never wait on them. `caret` is null until measured — no arrow is
+  // better than an arrow pointing at the wrong place.
+  const [pos, setPos] = useState<{
+    left: number
+    top?: number
+    bottom?: number
+    maxH: number
+    caret: {dx: number; side: 'top' | 'bottom'} | null
+  }>(() => {
     const win = Dimensions.get('window')
     return {
       left: Math.max(EDGE, (win.width - Math.min(minWidth, win.width - EDGE * 2)) / 2),
       top: win.height * 0.25,
       maxH: win.height / 2,
+      caret: null,
     }
   })
 
@@ -75,7 +109,7 @@ export function AnchoredPopup({
     if (!node?.measureInWindow) {
       // No measurement (jest, edge runtimes): center the card instead of
       // rendering nothing — never a silent empty popup.
-      setPos({left: Math.max(EDGE, (win.width - minWidth) / 2), top: win.height * 0.25, maxH: win.height / 2})
+      setPos({left: Math.max(EDGE, (win.width - minWidth) / 2), top: win.height * 0.25, maxH: win.height / 2, caret: null})
       return
     }
     node.measureInWindow((mx, my, w, h) => {
@@ -84,7 +118,6 @@ export function AnchoredPopup({
       const y = my - scroll.y
       // Size adapts to the viewport first: the card never exceeds the
       // window minus margins, so it can never hang half off-screen.
-      const width = Math.min(Math.max(minWidth, Math.min(w, CARD_MAX)), CARD_MAX, win.width - EDGE * 2)
       const availBelow = win.height - (y + h) - EDGE
       const availAbove = y - EDGE
       // Preferred side wins when it fits something useful, else take
@@ -95,11 +128,17 @@ export function AnchoredPopup({
       const maxH = Math.max(MIN_SIDE, (useBelow ? availBelow : availAbove) - GAP)
       // Anchor to the trigger's left edge; shift left while overflowing,
       // so right-edge triggers (⋯) pull the card fully on-screen.
-      const left = Math.min(Math.max(EDGE, x), Math.max(EDGE, win.width - EDGE - width))
+      const cardWidth = Math.min(CARD_MAX, win.width - EDGE * 2)
+      const left = Math.min(Math.max(EDGE, x), Math.max(EDGE, win.width - EDGE - cardWidth))
+      // Caret: a diamond on the card edge aimed at the trigger's centre,
+      // clamped inside the card so the origin is always legible.
+      const caretSide = useBelow ? 'top' : 'bottom'
+      const caretDx = Math.min(Math.max(x + w / 2 - left, CARET_MIN), cardWidth - CARET_MIN)
+      const caret = {dx: caretDx, side: caretSide} as const
       if (useBelow) {
-        setPos({left, top: y + h + GAP, maxH})
+        setPos({left, top: y + h + GAP, maxH, caret})
       } else {
-        setPos({left, bottom: win.height - y + GAP, maxH})
+        setPos({left, bottom: win.height - y + GAP, maxH, caret})
       }
     })
   }, [anchor, minWidth, side])
@@ -113,7 +152,7 @@ export function AnchoredPopup({
         accessibilityLabel="Dismiss"
         testID={testID ? `${testID}-backdrop` : undefined}
       />
-      <View
+      <Animated.View
         style={[
           styles.card,
           {
@@ -124,11 +163,28 @@ export function AnchoredPopup({
             maxHeight: pos.maxH,
             backgroundColor: theme.palette.bg,
             borderColor: theme.palette.edge,
+            opacity: enter.opacity,
+            transform: [{scale: enter.scale}],
           },
         ]}
         testID={testID}>
+        {pos.caret ? (
+          <View
+            testID={testID ? `${testID}-caret` : undefined}
+            pointerEvents="none"
+            style={[
+              styles.caret,
+              pos.caret.side === 'top' ? styles.caretTop : styles.caretBottom,
+              {
+                left: pos.caret.dx - CARET / 2,
+                backgroundColor: theme.palette.bg,
+                borderColor: theme.palette.edge,
+              },
+            ]}
+          />
+        ) : null}
         <ScrollView>{children}</ScrollView>
-      </View>
+      </Animated.View>
     </Modal>
   )
 }
@@ -142,6 +198,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     padding: 6,
+  },
+  caret: {
+    position: 'absolute',
+    width: CARET,
+    height: CARET,
+    borderWidth: 1,
+    transform: [{rotate: '45deg'}],
+    zIndex: 1,
+  },
+  // Top caret: diamond straddling the top edge, upper half showing the
+  // top+left borders as an up-arrow. Bottom mirrors it.
+  caretTop: {
+    top: -CARET / 2 - 1,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+  },
+  caretBottom: {
+    bottom: -CARET / 2 - 1,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
   },
 })
 

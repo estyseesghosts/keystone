@@ -4,7 +4,7 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {createMemoryStore} from '@keystone/fedi'
 
 import {EmojiPicker, customEmojiQueryKey} from './EmojiPicker'
-import {buildPickerSections, sectionsToRows} from './model'
+import {buildPickerSections, orderedUnicodeGroups, pickedFromKey, sectionsToRows} from './model'
 import {createEmojiRecentsStore} from './recents'
 
 jest.mock('#/screens/HomeFeed', () => ({useBackendForSessionId: () => null}))
@@ -34,6 +34,27 @@ describe('emoji picker model', () => {
     expect(buildPickerSections({custom: [], recents: r, query: 'x'}).some(x => x.id === 'recents')).toBe(false)
     const rows = sectionsToRows([{id: 'a', title: 'A', items: Array.from({length: 10}, (_, i) => ({kind: 'unicode' as const, key: String(i)}))}], 4)
     expect(rows.map(x => x.type)).toEqual(['header', 'items', 'items', 'items'])
+  })
+  it('adds a favourites section without a query only', () => {
+    const favs = [pickedFromKey('🔥'), pickedFromKey(':blobcat:')]
+    const s = buildPickerSections({custom: [], recents: [], query: '', favourites: favs})
+    expect(s[0]).toEqual({id: 'favourites', title: 'Favourites', items: favs})
+    expect(
+      buildPickerSections({custom: [], recents: [], query: 'fire', favourites: favs}).some(
+        x => x.id === 'favourites',
+      ),
+    ).toBe(false)
+  })
+  it('hides hidden unicode groups, orders pinned first, ignores unknown names', () => {
+    expect(orderedUnicodeGroups([], ['face']).some(g => g.category === 'face')).toBe(false)
+    const ordered = orderedUnicodeGroups(['symbols', 'nope'], [])
+    expect(ordered[0].category).toBe('symbols')
+    const s = buildPickerSections({custom: [], recents: [], query: '', hiddenGroups: ['face']})
+    expect(s.some(x => x.id === 'unicode:face')).toBe(false)
+  })
+  it('maps stored keys back to cells', () => {
+    expect(pickedFromKey('🔥')).toEqual({kind: 'unicode', key: '🔥'})
+    expect(pickedFromKey(':blobcat:')).toEqual({kind: 'custom', key: ':blobcat:'})
   })
 })
 

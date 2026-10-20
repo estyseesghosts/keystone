@@ -6,7 +6,7 @@
 // disabled WITH their reason — hidden only when the capability is
 // `unsupported`. Never wired, never inert, never faked.
 
-import {useContext, useMemo, useState, useSyncExternalStore} from 'react'
+import {useContext, useMemo, useRef, useState, useSyncExternalStore} from 'react'
 import {Image, Linking, Share, StyleSheet, View} from 'react-native'
 
 import {QueryClientContext} from '@tanstack/react-query'
@@ -29,6 +29,7 @@ import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
 import {canCopy, copyText} from '#/lib/clipboard'
 import {showToast} from '#/lib/toast'
+import {navigationRef} from '#/navigationRef'
 import {usePostActions, type PostActions} from '#/state/cache'
 import {useOptionalSessionStore} from '#/state/session/SessionProvider'
 
@@ -49,17 +50,37 @@ const styles = StyleSheet.create({
   avatarFallback: {alignItems: 'center', justifyContent: 'center'},
   main: {flex: 1, gap: 2, minWidth: 0},
   header: {flexDirection: 'row', alignItems: 'baseline', gap: 6, flexWrap: 'wrap'},
+  headerAuthor: {flexDirection: 'row', alignItems: 'baseline', gap: 6, flexShrink: 1, minWidth: 0},
   headerName: {flexShrink: 1, maxWidth: 220, fontWeight: '700'},
   context: {marginBottom: 2},
   actions: {flexDirection: 'row', gap: 16, marginTop: 6},
   cwBox: {borderRadius: 6, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8, marginVertical: 8},
 })
 
+// Profile / thread navigation (Keystone v1 `NoteCard` parity: the avatar
+// and the name link to `/users/:id`, the body and the time link to
+// `/notes/:id`). The root ref is guarded: presentational trees render with
+// no container mounted, where navigation is a silent no-op.
+function openAuthorProfile(authorId: string) {
+  if (!navigationRef.isReady()) return
+  navigationRef.navigate('Main', {screen: 'User', params: {id: authorId}} as never)
+}
+
+function openPostDetail(postId: string) {
+  if (!navigationRef.isReady()) return
+  navigationRef.navigate('Note', {id: postId})
+}
+
+function openTagPosts(tag: string) {
+  if (!navigationRef.isReady()) return
+  navigationRef.navigate('Tag', {tag})
+}
+
 function Avatar({post}: {post: Post}) {
   const theme = useTheme()
   const [failed, setFailed] = useState(false)
-  if (post.author.avatarUrl === null || failed) {
-    return (
+  const inner =
+    post.author.avatarUrl === null || failed ? (
       <View
         testID={`avatar-fallback-${post.author.id}`}
         accessibilityRole="image"
@@ -67,17 +88,24 @@ function Avatar({post}: {post: Post}) {
         style={[styles.avatar, styles.avatarFallback, {backgroundColor: theme.palette.bgSoft, borderColor: theme.palette.border}]}>
         <Body>{displayNameOf(post.author).slice(0, 1).toUpperCase()}</Body>
       </View>
+    ) : (
+      <Image
+        source={{uri: post.author.avatarUrl}}
+        style={[styles.avatar, {borderColor: theme.palette.border}]}
+        accessibilityRole="image"
+        accessibilityLabel={displayNameOf(post.author)}
+        onError={() => setFailed(true)}
+        testID={`avatar-${post.author.id}`}
+      />
     )
-  }
   return (
-    <Image
-      source={{uri: post.author.avatarUrl}}
-      style={[styles.avatar, {borderColor: theme.palette.border}]}
-      accessibilityRole="image"
-      accessibilityLabel={displayNameOf(post.author)}
-      onError={() => setFailed(true)}
-      testID={`avatar-${post.author.id}`}
-    />
+    <Pressable
+      testID={`avatar-press-${post.author.id}`}
+      onPress={() => openAuthorProfile(post.author.id)}
+      accessibilityRole="link"
+      accessibilityLabel={`Open profile of ${displayNameOf(post.author)}`}>
+      {inner}
+    </Pressable>
   )
 }
 
@@ -215,6 +243,13 @@ function PostCardView({
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
   const [cwOpen, setCwOpen] = useState(false)
+  // Tapping a link inside the body fires both the link and the body's own
+  // press (native press bubbling): stamp link taps so the body press can
+  // stand down when one just landed.
+  const linkGuard = useRef(0)
+  const markLink = () => {
+    linkGuard.current = Date.now()
+  }
 
   // A pure repost shows the ORIGINAL with a boost header; a quote is
   // its own post (appearNoteOf encodes exactly this).
@@ -227,6 +262,30 @@ function PostCardView({
   const bodyHidden = cw !== null && !cwOpen
 
   const replyTarget = post.replyToId !== null ? (post.reply ?? null) : null
+
+  // Link presses keep working when the card supplies no handler (the
+  // RichText defaults: external URLs open out, bare tags open the tag
+  // route) — but every one of them stamps the guard first so the body
+  // press below does not double-navigate.
+  const handleLinkPress = (href: string) => {
+    markLink()
+    if (onLinkPress) onLinkPress(href)
+    else void Linking.openURL(href).catch(() => {})
+  }
+  const handleMentionPress = (href: string | null) => {
+    markLink()
+    if (onMentionPress) onMentionPress(href)
+    else if (href) void Linking.openURL(href).catch(() => {})
+  }
+  const handleHashtagPress = (tag: string) => {
+    markLink()
+    if (onHashtagPress) onHashtagPress(tag)
+    else openTagPosts(tag)
+  }
+  const openPost = () => {
+    if (Date.now() - linkGuard.current < 400) return
+    openPostDetail(effective.id)
+  }
 
   return (
     <View style={styles.card} testID={testID ?? `post-${post.id}`}>
@@ -243,12 +302,28 @@ function PostCardView({
           </Caption>
         )}
         <View style={styles.header}>
-          <Body numberOfLines={1} style={styles.headerName}>
-            {displayNameOf(effective.author)}
-          </Body>
-          <Caption color="muted" numberOfLines={1}>
-            {`${handleOf(effective.author)} · ${formatRelativeTime(effective.createdAt)}`}
-          </Caption>
+          <Pressable
+            testID={`author-press-${effective.author.id}`}
+            onPress={() => openAuthorProfile(effective.author.id)}
+            accessibilityRole="link"
+            accessibilityLabel={`Open profile of ${displayNameOf(effective.author)}`}
+            style={styles.headerAuthor}>
+            <Body numberOfLines={1} style={styles.headerName}>
+              {displayNameOf(effective.author)}
+            </Body>
+            <Caption color="muted" numberOfLines={1}>
+              {handleOf(effective.author)}
+            </Caption>
+          </Pressable>
+          <Pressable
+            testID={`post-time-${effective.id}`}
+            onPress={() => openPostDetail(effective.id)}
+            accessibilityRole="link"
+            accessibilityLabel={`Open post by ${displayNameOf(effective.author)}`}>
+            <Caption color="muted" numberOfLines={1}>
+              {`· ${formatRelativeTime(effective.createdAt)}`}
+            </Caption>
+          </Pressable>
         </View>
         {cw !== null && (
           <View style={[styles.cwBox, {backgroundColor: theme.palette.bg, borderColor: theme.palette.borderStrong}]} testID={`cw-${post.id}`}>
@@ -263,15 +338,21 @@ function PostCardView({
           </View>
         )}
         {!bodyHidden && (
-          <RichText
-            nodes={nodes}
-            emojis={emojis}
-            emojiStyle={emojiStyle}
-            onMentionPress={onMentionPress}
-            onHashtagPress={onHashtagPress}
-            onLinkPress={onLinkPress}
-            testID={`post-body-${post.id}`}
-          />
+          <Pressable
+            testID={`post-open-${effective.id}`}
+            onPress={openPost}
+            accessibilityRole="link"
+            accessibilityLabel={`Open post by ${displayNameOf(effective.author)}`}>
+            <RichText
+              nodes={nodes}
+              emojis={emojis}
+              emojiStyle={emojiStyle}
+              onMentionPress={handleMentionPress}
+              onHashtagPress={handleHashtagPress}
+              onLinkPress={handleLinkPress}
+              testID={`post-body-${post.id}`}
+            />
+          </Pressable>
         )}
         {!bodyHidden && <PostMediaGrid media={effective.media} testID={`post-media-${post.id}`} />}
         {!bodyHidden && (effective.quote !== null || effective.quoteUnavailable) && (

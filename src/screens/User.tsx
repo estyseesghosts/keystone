@@ -2,34 +2,25 @@ import {useCallback, useEffect, useRef, useState} from 'react'
 import {View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
-import {displayNameOf, handleOf, type Account, type Relationship} from '@keystone/fedi'
+import {type Account, type Relationship} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
-import {Body, Caption, Heading} from '#/alf/typography'
+import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {ProfileActions} from '#/components/ProfileActions'
+import {ProfileHeader, ProfileTabs} from '#/components/Profile'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend, FeedView} from '#/screens/HomeFeed'
 import {profileTabDescriptor, type ProfileFeedTab} from '#/state/queries'
 
-// Profile (`/users/:id?`): header plus posts / replies / media / featured
-// tabs addressed by `user|id|…` descriptors. Follow state is READ-ONLY:
-// follow/unfollow ship in Phase 4, so no follow buttons render here at
-// all — never an inert control.
-const TABS: ProfileFeedTab[] = ['posts', 'replies', 'media', 'featured']
-
-function FollowStateCaption({relationship}: {relationship: Relationship | null}) {
-  if (!relationship) return null
-  const parts: string[] = []
-  if (relationship.isFollowing) parts.push('You follow this account.')
-  if (relationship.isFollowed) parts.push('Follows you.')
-  if (relationship.hasPendingFollowRequestFromYou) parts.push('Follow request pending.')
-  if (parts.length === 0) return null
-  return <Caption color="faint">{parts.join(' ')}</Caption>
-}
-
+// Profile (`/users/:id?`): v1-style header (banner, overlapping avatar
+// row, name/handle, bio, gated stats) plus an underline tablist over the
+// shared FeedView. Follow state is READ-ONLY here: follow/unfollow ships
+// in Phase 4, so no follow buttons render in this file at all — the
+// action slot holds the Phase 4 `ProfileActions` (others) or the
+// settings entry (self), never an inert control.
 export function UserScreen() {
   const route = useRoute<RouteProp<RootParamList, 'User'>>()
   const nav = useNavigation<NavigationProp<RootParamList>>()
@@ -86,6 +77,12 @@ export function UserScreen() {
     void load()
   }, [load])
 
+  // Featured ships absent when the backend packed no source (pinned
+  // posts/ids) — never faked. The tab hides until then.
+  const hasFeatured =
+    (account?.pinnedPosts?.length ?? 0) > 0 || (account?.pinnedPostIds?.length ?? 0) > 0
+  const isSelf = !!session && !!account && session.accountId === account.id
+
   return (
     <View style={atoms.flex1} testID="user-screen">
       {!session || !backend || !targetId ? (
@@ -107,43 +104,31 @@ export function UserScreen() {
         </View>
       ) : (
         <View style={atoms.flex1} testID="profile-body">
-          <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
-            <Heading>{displayNameOf(account)}</Heading>
-            <Caption color="faint">{handleOf(account)}</Caption>
-            {account.bio.plain ? <Body>{account.bio.plain}</Body> : null}
-            <Caption color="faint">
-              {`${account.followersCount} followers · ${account.followingCount} following · ${account.statusesCount} posts`}
-            </Caption>
-            {account.locked ? <Caption color="faint">Locked account.</Caption> : null}
-            {account.bot ? <Caption color="faint">Automated account.</Caption> : null}
-            <FollowStateCaption relationship={relationship} />
-            {session.accountId !== account.id ? (
-              <ProfileActions sessionId={session.id} account={account} />
-            ) : (
-              <Button
-                label="Accounts & settings"
-                variant="secondary"
-                testID="profile-settings"
-                onPress={() => nav.navigate('Settings')}
-              />
-            )}
-          </View>
-          <View style={[atoms.row, atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="profile-tabs">
-            {TABS.map(t => (
-              <Button
-                key={t}
-                label={t === 'posts' ? 'Posts' : t === 'replies' ? 'Replies' : t === 'media' ? 'Media' : 'Featured'}
-                variant={t === tab ? 'primary' : 'secondary'}
-                onPress={() => setTab(t)}
-                testID={`profile-tab-${t}`}
-              />
-            ))}
-          </View>
-          <FeedView
-            sessionId={session.id}
-            descriptor={profileTabDescriptor(targetId, tab)}
-            testID="profile-feed"
+          <ProfileHeader
+            account={account}
+            isSelf={isSelf}
+            relationship={relationship}
+            actions={
+              isSelf ? (
+                <Button
+                  label="Accounts & settings"
+                  variant="secondary"
+                  testID="profile-settings"
+                  onPress={() => nav.navigate('Settings')}
+                />
+              ) : (
+                <ProfileActions sessionId={session.id} account={account} />
+              )
+            }
           />
+          <ProfileTabs tab={tab} onChange={setTab} hasFeatured={hasFeatured} />
+          <View style={atoms.flex1}>
+            <FeedView
+              sessionId={session.id}
+              descriptor={profileTabDescriptor(targetId, tab)}
+              testID="profile-feed"
+            />
+          </View>
         </View>
       )}
     </View>

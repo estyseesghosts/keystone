@@ -1,6 +1,7 @@
 import type {FeedDescriptor, ServerFamily, UserFeedTab} from '@keystone/fedi'
 
 import type {NetworkTab} from '#/routes'
+import {feedPrefsStore, type FeedPrefs} from '#/state/feedPrefs'
 
 // Feed helpers shared by every timeline screen (slice 3.11). The descriptor
 // grammar and parser live in `@keystone/fedi` (`parseFeedDescriptor`); the
@@ -21,13 +22,31 @@ export function supportsSocialTimeline(family: ServerFamily | null | undefined):
 }
 
 /**
- * Visible Network tabs for a server family. Local is hidden while Social
- * exists (Misskey family); the Mastodon family has no Social timeline, so
- * Local stays visible there.
+ * Visible Network tabs for a server family + the reader's feed prefs.
+ * Local hides while Social exists (Misskey family) UNLESS the reader
+ * turned it on in Settings → Feeds; the Mastodon family has no Social
+ * timeline, so Local stays visible there. Federated hides when the
+ * reader turned it off (default on).
+ *
+ * `prefs` defaults to the live device store so call sites that cannot
+ * subscribe (the Network tab bar) still honour the setting; tests pass
+ * explicit prefs and stay pure.
  */
-export function visibleNetworkTabs(family: ServerFamily | null | undefined): NetworkTab[] {
-  if (supportsSocialTimeline(family)) return ['social', 'global']
-  return ['local', 'global']
+export function visibleNetworkTabs(
+  family: ServerFamily | null | undefined,
+  prefs: FeedPrefs = feedPrefsStore.get(),
+): NetworkTab[] {
+  const tabs: NetworkTab[] = []
+  if (supportsSocialTimeline(family)) {
+    tabs.push('social')
+    if (prefs.showLocal) tabs.push('local')
+  } else {
+    tabs.push('local')
+  }
+  if (prefs.showFederated) tabs.push('global')
+  // Federated/Global is never the default tab, and the bar is never
+  // empty: a reader who hides everything still keeps the default.
+  return tabs.length > 0 ? tabs : [defaultNetworkTab(family)]
 }
 
 /** Federated/Global is never the default tab. */

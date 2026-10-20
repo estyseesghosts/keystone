@@ -50,7 +50,7 @@ describe('RichText (sole AST renderer)', () => {
 
   it('renders unicode emoji and code blocks/quotes as blocks', () => {
     renderRichText(<RichText nodes={contentFromMfm('hi 👋')} />)
-    // Twemoji style renders the hosted asset with the sequence as label.
+    // OpenMoji default renders the hosted asset with the sequence as label.
     expect(screen.getByLabelText('👋')).toBeTruthy()
   })
 
