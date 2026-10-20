@@ -1,18 +1,19 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: v1-parity gap audit COMPLETE 2026-10-20 (uncommitted).
-Seven read-only subagent audits vs `~/Local Documents/Keystone` produced
-`docs/parity-gaps.md` (122 rows, evidence + priority) and the resumable
-program `docs/tasks/gap-closure.md` (W1–W8). Headline: the data layer is
-mostly ported; gaps are capability evidence, dead wiring, routing/spec
-drift and mobile platform behaviour.
-Previously committed as `ffffe08d` on `p3.1-signin-functional`: v1-parity
-sweep + settings tree + post detail; mobile shell fix (width breakpoints)
-landed after it. Trio green (76 suites / 950 tests).
+Phase/slice: repo CONSOLIDATED 2026-10-20 to one `main` (f5b333a) by
+fast-forward from `p3.1-signin-functional`; `p1.1-expo-skeleton` and the
+old working branch deleted, tag `pre-merge-2026-10-20` + full bundle at
+`~/Downloads/keystonev2-premerge-2026-10-20.bundle` preserve the history.
+v1-parity gap audit COMMITTED: `docs/parity-gaps.md` (122 rows) and
+`docs/tasks/gap-closure.md` (W1–W8). Headline: the data layer is mostly
+ported; gaps are capability evidence, dead wiring, routing/spec drift and
+mobile platform behaviour.
+Earlier committed work: v1-parity sweep + settings tree + post detail;
+mobile shell fix (width breakpoints). Trio green (76 suites / 950 tests).
 Helium visual check pending (isolated CDP unresponsive).
 Gate G4: owner review — write actions NOT verified live on the rig, none on
 device/web. Gate G3: owner override recorded 2026-10-20; parity tick open.
-Branch: `p3.1-signin-functional` (gap work should branch `p6.0-gap-closure`).
+Branch: `p6.0-w1-foundations` (from `main`; one branch per workstream).
 Plan: `rn-rebuild-plan.md`. Reference: Bluesky `social-app` @ `cf16c1d` (ADR-0001).
 
 ## Next 3 steps
@@ -46,7 +47,8 @@ Plan: `rn-rebuild-plan.md`. Reference: Bluesky `social-app` @ `cf16c1d` (ADR-000
   p3.1-signin-functional; index current)
 - ADRs: `docs/adr/0001-patterns-not-code.md`,
   `docs/adr/0002-butterfly-tarantula.md`
-- Logs: `state/logs/2026-10-20-gap-audit.md` (latest),
-  `2026-10-20-mobile-shell-layout.md`, `2026-10-20-p3.11-*`,
-  `2026-10-20-p3.1-signin-functional.md`, `2026-10-20-p5.1-settings-tree.md`,
-  `2026-10-21-android-build-fix.md`, `2026-10-20-parity-sweep.md`
+- Logs: `state/logs/2026-10-20-repo-consolidation.md` (latest),
+  `2026-10-20-gap-audit.md`, `2026-10-20-mobile-shell-layout.md`,
+  `2026-10-20-p3.11-*`, `2026-10-20-p3.1-signin-functional.md`,
+  `2026-10-20-p5.1-settings-tree.md`, `2026-10-21-android-build-fix.md`,
+  `2026-10-20-parity-sweep.md`
