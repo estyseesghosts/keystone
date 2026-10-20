@@ -1,6 +1,6 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: Phase 2 IN PROGRESS (2.1 core done on `main`; 2.2–2.6 queued).
+Phase/slice: Phase 2 IN PROGRESS (2.1 core, 2.2 misskey, 2.3 mastodon done on `main`; 2.4–2.6 queued).
 Gate G1: owner review of the shell on a phone + desktop browser (still open).
 Branch: `main`.
 Plan: `rn-rebuild-plan.md` (proposal, 2026-10-20).
@@ -8,9 +8,9 @@ Reference: Bluesky `social-app` @ `cf16c1d` (patterns only, ADR-0001).
 
 ## Next 3 steps
 
-1. Phase 2 slice 2.2: Misskey adapter (`packages/fedi/src/misskey/*`).
-2. Phase 2 slice 2.3: Mastodon adapter (`packages/fedi/src/mastodon/*`).
-3. Owner G1 review (shell on phone + desktop browser) + §7 D1–D8 sign-off.
+1. Phase 2 slice 2.4: content AST (`core/content/*` + `htmlparser2`, sanitize reunion).
+2. Phase 2 slice 2.5: sessions + storage seam (`src/storage/`, `src/state/session/`, `expo-secure-store`).
+3. Phase 2 slice 2.6: contract smoke (`scripts/fedi-smoke.ts`); then Gate G2 owner review.
 
 ## Blockers
 

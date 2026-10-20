@@ -220,6 +220,9 @@ importers:
       expo-web-browser:
         specifier: ~57.0.3
         version: 57.0.3(expo@57.0.24(238ef4182430d9cb692036946b63070a))(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/jest-preset@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.3)(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.2.3)(supports-color@8.1.1))
+      mfm-js:
+        specifier: ^0.27.0
+        version: 0.27.0
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -1364,6 +1367,9 @@ packages:
 
   '@messageformat/parser@5.2.0':
     resolution: {integrity: sha512-sc3hNZ0JtC32GhL5nUgPbh2ilcwji4G+Vmj/vhMd8hZaH//NDOvkfwKK1mFnRWG5h2DpksN8xr/HB5/+vMg3iw==}
+
+  '@misskey-dev/emoji-data@17.0.3':
+    resolution: {integrity: sha512-RmW0C2A1Zxn7DTYVCOhMDyCyyXYJLBc5GIEuhcufaqF0Gxw9+gIwaitCI3OUWnR928XnDwvvaizhJSjvIEF+2Q==}
 
   '@oxlint/binding-android-arm-eabi@1.88.0':
     resolution: {integrity: sha512-k6Fgkf86ubfeH4GvqYsRolfuVAp0pfYVZvifSlXNHPdMaWUOfxUrmLEeDD7hF6U2oJuhsVxhSWq86/xCJ+9MmA==}
@@ -3571,6 +3577,9 @@ packages:
     resolution: {integrity: sha512-1oyLU9elM7hPAsKIqKooEekwxiuWr27+MZBhUROPhzcbXhMDxK64GPF/hCXwBZVp1F89ODavCrBmJtLx9WtBoQ==}
     engines: {node: ^22.13.0 || ^24.3.0 || >= 26.0.0}
     hasBin: true
+
+  mfm-js@0.27.0:
+    resolution: {integrity: sha512-UgnCx6foer9OsD/WoEjVWELL5IaJ8ShBHz6XwEvQZmRon3ccz7Cdrejfk7sj2jSHhnqQOIKNLUvMsWcILafNfw==}
 
   micromatch@4.0.8:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
@@ -6040,6 +6049,8 @@ snapshots:
   '@messageformat/parser@5.2.0':
     dependencies:
       moo: 0.5.3
+
+  '@misskey-dev/emoji-data@17.0.3': {}
 
   '@oxlint/binding-android-arm-eabi@1.88.0':
     optional: true
@@ -8940,6 +8951,10 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
+
+  mfm-js@0.27.0:
+    dependencies:
+      '@misskey-dev/emoji-data': 17.0.3
 
   micromatch@4.0.8:
     dependencies:

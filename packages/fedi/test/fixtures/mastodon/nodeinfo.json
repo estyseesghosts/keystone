@@ -1,0 +1,12 @@
+{
+  "version": "2.1",
+  "software": {
+    "name": "mastodon",
+    "version": "4.4.3"
+  },
+  "protocols": ["activitypub"],
+  "services": { "inbound": [], "outbound": [] },
+  "openRegistrations": true,
+  "usage": { "users": { "total": 1 }, "localPosts": 0, "localComments": 0 },
+  "metadata": {}
+}

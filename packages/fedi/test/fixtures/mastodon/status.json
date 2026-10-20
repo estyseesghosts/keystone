@@ -1,0 +1,174 @@
+{
+  "id": "113959271829458642",
+  "created_at": "2026-10-12T09:41:00.000Z",
+  "in_reply_to_id": null,
+  "in_reply_to_account_id": null,
+  "sensitive": true,
+  "spoiler_text": "test fixture",
+  "visibility": "unlisted",
+  "language": "en",
+  "uri": "https://mastodon.example.com/users/gargron/statuses/113959271829458642",
+  "url": "https://mastodon.example.com/@gargron/113959271829458642",
+  "replies_count": 2,
+  "reblogs_count": 3,
+  "favourites_count": 7,
+  "quotes_count": 1,
+  "edited_at": "2026-10-12T10:00:00.000Z",
+  "account": {
+    "id": "1",
+    "username": "gargron",
+    "acct": "gargron",
+    "display_name": "Eugen",
+    "locked": false,
+    "bot": false,
+    "discoverable": true,
+    "group": false,
+    "created_at": "2016-03-16T14:34:26.392Z",
+    "note": "<p>Developer of <span class=\"h-card\"><a href=\"https://joinmastodon.org/\" class=\"u-url mention\">@<span>Mastodon</span></a></span></p>",
+    "url": "https://mastodon.example.com/@gargron",
+    "uri": "https://mastodon.example.com/users/gargron",
+    "avatar": "https://files.mastodon.example.com/avatars/original/1.png",
+    "avatar_static": "https://files.mastodon.example.com/avatars/static/1.png",
+    "header": "https://files.mastodon.example.com/headers/original/1.png",
+    "header_static": "https://files.mastodon.example.com/headers/static/1.png",
+    "followers_count": 42,
+    "following_count": 7,
+    "statuses_count": 56,
+    "last_status_at": "2026-10-12",
+    "hide_collections": false,
+    "noindex": false,
+    "emojis": [{ "shortcode": "keystone", "url": "https://files.mastodon.example.com/custom_emojis/keystone.png", "static_url": "https://files.mastodon.example.com/custom_emojis/keystone.png", "visible_in_picker": true }],
+    "fields": [
+      { "name": "Pronouns", "value": "they/them", "verified_at": "2026-01-01T00:00:00.000Z" },
+      { "name": "Website", "value": "<a href=\"https://joinmastodon.org/\">joinmastodon.org</a>", "verified_at": null }
+    ],
+    "suspended": false,
+    "limited": false,
+    "moved": null
+  },
+  "content": "<p>Hello <span class=\"h-card\"><a href=\"https://mastodon.example.com/@alice\" class=\"u-url mention\">@<span>alice</span></a></span> <a href=\"https://mastodon.example.com/tags/keystone\" class=\"mention hashtag\" rel=\"tag\">#<span>keystone</span></a> <img draggable=\"false\" class=\"emojione custom-emoji\" alt=\":keystone:\" title=\":keystone:\" src=\"https://files.mastodon.example.com/custom_emojis/keystone.png\"></p>",
+  "reblog": null,
+  "media_attachments": [
+    {
+      "id": "22345792",
+      "type": "image",
+      "url": "https://files.mastodon.example.com/media_attachments/files/original/1.jpeg",
+      "preview_url": "https://files.mastodon.example.com/media_attachments/files/small/1.jpeg",
+      "remote_url": null,
+      "text_url": "https://files.mastodon.example.com/media_attachments/files/1.jpeg",
+      "meta": { "original": { "width": 640, "height": 480 }, "small": { "width": 320, "height": 240 }, "focus": { "x": -0.1, "y": 0.4 } },
+      "description": "a diagram",
+      "blurhash": "UFBWY:8_0Jxv4mx]t8t64.%M-:IUWGWAt6M}"
+    },
+    {
+      "id": "22345793",
+      "type": "video",
+      "url": "https://files.mastodon.example.com/media_attachments/files/original/2.mp4",
+      "preview_url": "https://files.mastodon.example.com/media_attachments/files/small/2.png",
+      "remote_url": null,
+      "meta": { "original": { "width": 1280, "height": 720, "duration": 12.5, "frame_rate": "30/1" }, "length": "0:12" },
+      "description": null,
+      "blurhash": null
+    }
+  ],
+  "mentions": [
+    {
+      "id": "2",
+      "username": "alice",
+      "acct": "alice",
+      "url": "https://mastodon.example.com/@alice"
+    }
+  ],
+  "tags": [
+    { "name": "keystone", "url": "https://mastodon.example.com/tags/keystone" }
+  ],
+  "emojis": [
+    { "shortcode": "keystone", "url": "https://files.mastodon.example.com/custom_emojis/keystone.png", "static_url": "https://files.mastodon.example.com/custom_emojis/keystone.png", "visible_in_picker": true }
+  ],
+  "card": {
+    "url": "https://joinmastodon.org/",
+    "title": "Mastodon",
+    "description": "Social networking, back in your hands",
+    "type": "link",
+    "author_name": "",
+    "author_url": "",
+    "provider_name": "",
+    "provider_url": "",
+    "html": "",
+    "width": 700,
+    "height": 336,
+    "image": "https://files.mastodon.example.com/preview_cards/images/original/1.png",
+    "embed_url": "",
+    "blurhash": null
+  },
+  "poll": {
+    "id": "34830",
+    "expires_at": "2026-10-20T09:41:00.000Z",
+    "expired": false,
+    "multiple": true,
+    "votes_count": 4,
+    "voters_count": 3,
+    "voted": true,
+    "own_votes": [0],
+    "options": [
+      { "title": "yes", "votes_count": 3 },
+      { "title": "no", "votes_count": 1 }
+    ],
+    "emojis": []
+  },
+  "quote": {
+    "state": "accepted",
+    "quoted_status": {
+      "id": "113959271829458643",
+      "created_at": "2026-10-11T09:41:00.000Z",
+      "in_reply_to_id": null,
+      "in_reply_to_account_id": null,
+      "sensitive": false,
+      "spoiler_text": "",
+      "visibility": "public",
+      "language": "en",
+      "uri": "https://remote.example.com/users/bob/statuses/42",
+      "url": "https://remote.example.com/@bob/42",
+      "replies_count": 0,
+      "reblogs_count": 0,
+      "favourites_count": 0,
+      "edited_at": null,
+      "account": {
+        "id": "9",
+        "username": "bob",
+        "acct": "bob@remote.example",
+        "display_name": "",
+        "locked": false,
+        "bot": false,
+        "created_at": "2020-01-01T00:00:00.000Z",
+        "note": "<p>remote bio</p>",
+        "url": "https://remote.example.com/@bob",
+        "avatar": "https://remote.example.com/avatars/9.png",
+        "header": "https://remote.example.com/headers/9.png",
+        "followers_count": 1,
+        "following_count": 2,
+        "statuses_count": 3,
+        "fields": [],
+        "emojis": []
+      },
+      "content": "<p>the quoted post</p>",
+      "reblog": null,
+      "media_attachments": [],
+      "mentions": [],
+      "tags": [],
+      "emojis": [],
+      "filtered": []
+    }
+  },
+  "bookmarked": true,
+  "pinned": true,
+  "favourited": true,
+  "reblogged": false,
+  "muted": false,
+  "filtered": [
+    {
+      "filter": { "id": "1", "title": "spoilers", "filter_action": "warn", "context": ["home"], "expires_at": null, "keywords": [], "statuses": [] },
+      "keyword_matches": ["fixture"]
+    }
+  ]
+}

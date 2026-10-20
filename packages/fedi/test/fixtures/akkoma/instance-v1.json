@@ -1,0 +1,24 @@
+{
+  "uri": "akkoma.example",
+  "title": "SYNTHESISED Akkoma fixture",
+  "version": "compatible; Akkoma 3.20.0",
+  "description": "Synthesised from InstanceV1 in frontend/src/api/mastodon/wire.ts and the shape rules in docs/mastoapi-contract.md §3/§9 (pleroma.metadata.features is the Akkoma/Pleroma shape marker). Akkoma has NO /api/v2/instance — this fixture is the v1 body the 404-fallback lands on. Re-record with scripts/record_fixtures.py against a live Akkoma.",
+  "stats": { "user_count": 1, "status_count": 1, "domain_count": 1 },
+  "max_toot_chars": 5000,
+  "poll_limits": { "max_options": 4 },
+  "upload_limit": 16777216,
+  "urls": { "streaming_api": "wss://akkoma.example" },
+  "pleroma": {
+    "metadata": {
+      "features": [
+        "akkoma_api",
+        "exposable_reactions",
+        "quote_posting",
+        "editing",
+        "akkoma:machine_translation"
+      ],
+      "federation": { "enabled": true }
+    },
+    "vapid_public_key": "BMSynthesisedFixtureKey_NotARealKey_NotARealKey_NotARealKey_"
+  }
+}

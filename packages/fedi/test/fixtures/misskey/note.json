@@ -1,0 +1,66 @@
+{
+  "id": "9fz3examplenote0001",
+  "createdAt": "2026-10-15T12:00:00.000Z",
+  "userId": "9exampleuser00001",
+  "user": {
+    "id": "9exampleuser00001",
+    "name": "Ann Example",
+    "username": "ann",
+    "host": null,
+    "avatarUrl": "https://misskey.example.com/avatars/ann.png",
+    "avatarBlurhash": "e3P7RkWBgWBIMH00RjM{ayof",
+    "isBot": false,
+    "isCat": true,
+    "emojis": { "ann_heart": "https://misskey.example.com/emoji/ann_heart.webp" },
+    "onlineStatus": "online"
+  },
+  "text": "Hello **world** from Misskey :blobcat:\n\n@bob@sharkey.example #test https://example.com",
+  "cw": "greeting",
+  "visibility": "home",
+  "localOnly": false,
+  "reactionAcceptance": null,
+  "renoteCount": 2,
+  "repliesCount": 1,
+  "reactionCount": 4,
+  "reactions": { "👍": 2, "❤": 1, ":blobcat:": 1 },
+  "reactionEmojis": { ":blobcat:": "https://misskey.example.com/emoji/blobcat.webp" },
+  "fileIds": ["9examplefile00001"],
+  "files": [
+    {
+      "id": "9examplefile00001",
+      "createdAt": "2026-10-15T11:59:00.000Z",
+      "name": "diagram.png",
+      "type": "image/png",
+      "md5": "d41d8cd98f00b204e9800998ecf8427e",
+      "size": 20480,
+      "isSensitive": false,
+      "blurhash": "U7S?Kk00~qIU9Z00xuRj00Rj00WB",
+      "properties": { "width": 640, "height": 480 },
+      "url": "https://misskey.example.com/files/diagram.png",
+      "thumbnailUrl": "https://misskey.example.com/files/diagram-thumb.png",
+      "comment": "a diagram",
+      "folderId": null,
+      "userId": "9exampleuser00001"
+    }
+  ],
+  "replyId": "9fz3exampleparent001",
+  "renoteId": null,
+  "reply": null,
+  "renote": null,
+  "uri": "https://misskey.example.com/notes/9fz3examplenote0001",
+  "url": "https://misskey.example.com/@ann/notes/9fz3examplenote0001",
+  "poll": {
+    "multiple": false,
+    "expiresAt": "2027-01-01T00:00:00.000Z",
+    "expiredAfter": null,
+    "choices": [
+      { "text": "yes", "votes": 3, "isVoted": true },
+      { "text": "no", "votes": 1, "isVoted": false }
+    ]
+  },
+  "mentions": ["9exampleuser00002"],
+  "visibleUserIds": [],
+  "tags": ["test"],
+  "emojis": { "blobcat": "https://misskey.example.com/emoji/blobcat.webp" },
+  "myReaction": "❤"
+}

@@ -1,0 +1,34 @@
+{
+  "id": "9sharkeynoti00002",
+  "createdAt": "2026-10-15T15:30:00.000Z",
+  "type": "renote",
+  "note": null,
+  "user": {
+    "id": "9sharkeyuser00003",
+    "name": null,
+    "username": "booster",
+    "host": null,
+    "avatarUrl": null,
+    "avatarBlurhash": null,
+    "isBot": false,
+    "isCat": false,
+    "emojis": {},
+    "onlineStatus": "offline"
+  },
+  "users": [
+    {
+      "id": "9sharkeyuser00003",
+      "name": null,
+      "username": "booster",
+      "host": null,
+      "avatarUrl": null,
+      "avatarBlurhash": null,
+      "isBot": false,
+      "isCat": false,
+      "emojis": {},
+      "onlineStatus": "offline"
+    }
+  ],
+  "reactions": [],
+  "userIds": ["9sharkeyuser00003"]
+}

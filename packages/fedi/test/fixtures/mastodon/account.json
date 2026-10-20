@@ -1,0 +1,42 @@
+{
+  "id": "1",
+  "username": "gargron",
+  "acct": "gargron",
+  "display_name": "Eugen",
+  "locked": false,
+  "bot": false,
+  "discoverable": true,
+  "group": false,
+  "created_at": "2016-03-16T14:34:26.392Z",
+  "note": "<p>Developer of <span class=\"h-card\"><a href=\"https://joinmastodon.org/\" class=\"u-url mention\">@<span>Mastodon</span></a></span></p>",
+  "url": "https://mastodon.example.com/@gargron",
+  "uri": "https://mastodon.example.com/users/gargron",
+  "avatar": "https://files.mastodon.example.com/avatars/original/1.png",
+  "avatar_static": "https://files.mastodon.example.com/avatars/static/1.png",
+  "header": "https://files.mastodon.example.com/headers/original/1.png",
+  "header_static": "https://files.mastodon.example.com/headers/static/1.png",
+  "followers_count": 42,
+  "following_count": 7,
+  "statuses_count": 56,
+  "last_status_at": "2026-10-12",
+  "hide_collections": false,
+  "noindex": false,
+  "emojis": [{ "shortcode": "keystone", "url": "https://files.mastodon.example.com/custom_emojis/keystone.png", "static_url": "https://files.mastodon.example.com/custom_emojis/keystone.png", "visible_in_picker": true }],
+  "fields": [
+    { "name": "Pronouns", "value": "they/them", "verified_at": "2026-01-01T00:00:00.000Z" }
+  ],
+  "suspended": false,
+  "limited": false,
+  "moved": null,
+  "source": {
+    "privacy": "unlisted",
+    "sensitive": false,
+    "language": "en",
+    "note": "Developer of Mastodon",
+    "fields": [{ "name": "Pronouns", "value": "they/them", "verified_at": "2026-01-01T00:00:00.000Z" }],
+    "follow_requests_count": 2,
+    "quote_policy": "none"
+  },
+  "state": "active",
+  "role": null
+}

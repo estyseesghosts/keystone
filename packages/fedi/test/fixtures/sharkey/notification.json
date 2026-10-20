@@ -1,0 +1,20 @@
+{
+  "id": "9sharkeynoti00001",
+  "createdAt": "2026-10-15T15:00:00.000Z",
+  "type": "follow",
+  "userId": "9sharkeyuser00002",
+  "user": {
+    "id": "9sharkeyuser00002",
+    "name": null,
+    "username": "follower1",
+    "host": null,
+    "avatarUrl": null,
+    "avatarBlurhash": null,
+    "isBot": false,
+    "isCat": false,
+    "emojis": {},
+    "onlineStatus": "active"
+  },
+  "note": null,
+  "reaction": null
+}

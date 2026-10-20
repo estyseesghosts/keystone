@@ -3,5 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "main": "./src/index.ts",
-  "types": "./src/index.ts"
+  "types": "./src/index.ts",
+  "dependencies": {
+    "eventemitter3": "^5.0.1",
+    "mfm-js": "^0.27.0"
+  }
 }

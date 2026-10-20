@@ -1,0 +1,11 @@
+{
+  "maintainerName": "SYNTHESISED FIXTURE — not recorded from a live server",
+  "name": "Misskey",
+  "version": "2026.10.1-alpha.0",
+  "uri": "https://misskey.example",
+  "description": "Synthesised from the shapes in frontend/src/api/types.ts and docs/api-surface.md. Re-record with scripts/record_fixtures.py on the backend machine.",
+  "langs": ["en"],
+  "repositoryUrl": "https://github.com/misskey-dev/misskey",
+  "disableRegistration": false,
+  "maxNoteTextLength": 3000
+}

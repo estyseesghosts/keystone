@@ -1,0 +1,12 @@
+{
+  "uri": "mastodon.example",
+  "title": "SYNTHESISED Mastodon 4.x fixture",
+  "version": "4.4.3",
+  "description": "Synthesised from InstanceV1 in frontend/src/api/mastodon/wire.ts. Mastodon 4.x still carries configuration in v1 (docs/mastoapi-contract.md §3).",
+  "stats": { "user_count": 1, "status_count": 1, "domain_count": 1 },
+  "configuration": {
+    "statuses": { "max_characters": 500 },
+    "translation": { "enabled": true }
+  },
+  "urls": { "streaming_api": "wss://mastodon.example" }
+}

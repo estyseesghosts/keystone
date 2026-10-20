@@ -1,0 +1,16 @@
+{
+  "id": "9sharkeyfile00001",
+  "createdAt": "2026-10-15T14:05:00.000Z",
+  "name": "clip.mp4",
+  "type": "video/mp4",
+  "md5": "0cc175b9c0f1b6a831c399e269772661",
+  "size": 1048576,
+  "isSensitive": true,
+  "blurhash": null,
+  "properties": { "width": 1280, "height": 720, "duration": 12.5 },
+  "url": "https://sharkey.example.com/files/clip.mp4",
+  "thumbnailUrl": "https://sharkey.example.com/files/clip.jpg",
+  "comment": null,
+  "folderId": null,
+  "userId": "9sharkeyuser00001"
+}

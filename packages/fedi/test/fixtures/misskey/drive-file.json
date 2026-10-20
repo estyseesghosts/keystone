@@ -1,0 +1,16 @@
+{
+  "id": "9examplefile00001",
+  "createdAt": "2026-10-15T11:59:00.000Z",
+  "name": "diagram.png",
+  "type": "image/png",
+  "md5": "d41d8cd98f00b204e9800998ecf8427e",
+  "size": 20480,
+  "isSensitive": false,
+  "blurhash": "U7S?Kk00~qIU9Z00xuRj00Rj00WB",
+  "properties": { "width": 640, "height": 480 },
+  "url": "https://misskey.example.com/files/diagram.png",
+  "thumbnailUrl": "https://misskey.example.com/files/diagram-thumb.png",
+  "comment": "a diagram",
+  "folderId": "9examplefolder0001",
+  "userId": "9exampleuser00001"
+}

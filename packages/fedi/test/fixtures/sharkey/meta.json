@@ -1,0 +1,10 @@
+{
+  "maintainerName": "SYNTHESISED FIXTURE — not recorded from a live server",
+  "name": "Sharkey",
+  "version": "2025.4.7",
+  "uri": "https://sharkey.example",
+  "description": "Synthesised from the shapes in frontend/src/api/types.ts and docs/api-surface.md. Re-record with scripts/record_fixtures.py on the backend machine.",
+  "langs": ["en"],
+  "disableRegistration": false,
+  "maxNoteTextLength": 3000
+}
