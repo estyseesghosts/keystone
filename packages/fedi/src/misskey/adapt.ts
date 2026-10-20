@@ -64,6 +64,7 @@ import type {
   UserRelation,
   FollowRequest as WireFollowRequest,
 } from "./wire";
+import { isPureRenote as isPureRenoteNote } from "./wire";
 
 // --- Accounts --------------------------------------------------------------
 
@@ -243,8 +244,13 @@ function adaptReactions(note: Note): ReactionSummary | null {
 
 // --- Posts -----------------------------------------------------------------
 
-/** Wire Note -> core Post (recursive for packed reply/renote). */
+/** Wire Note -> core Post (recursive for packed reply/renote). A packed
+ * renote on a note WITH own content is a quote (Misskey `is-renote.ts`
+ * semantics, mirrored by `isPureRenote`): it maps to `Post.quote` so the
+ * card renders. Pure reposts keep `quote: null` (`appearNoteOf` folds
+ * them). Unpacked unavailable targets stay `quoteUnavailable`. */
 export function adaptNote(note: Note): Post {
+  const renote = note.renote ? adaptNote(note.renote) : null;
   return {
     id: note.id,
     createdAt: note.createdAt,
@@ -271,10 +277,10 @@ export function adaptNote(note: Note): Post {
     mediaIds: note.fileIds ?? [],
     poll: adaptPoll(note.poll ?? null),
     card: null,
-    quote: null,
+    quote: !isPureRenoteNote(note) && renote ? renote : null,
     quoteState: null,
     quoteUnavailable: note.quoteTargetUnavailable === true,
-    renote: note.renote ? adaptNote(note.renote) : null,
+    renote,
     reply: note.reply ? adaptNote(note.reply) : null,
     replyToId: note.replyId ?? null,
     renoteId: note.renoteId ?? null,

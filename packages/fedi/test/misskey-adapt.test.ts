@@ -32,6 +32,7 @@ import type {
   FollowRequest,
   MeDetailed,
 } from "../src/misskey/wire";
+import { postFromWire } from "./helpers";
 
 const FLAVORS = ["misskey", "sharkey", "pinetree"] as const;
 
@@ -505,5 +506,30 @@ describe("cursors and pages", () => {
     expect(page.end).toBe(false);
     expect(decodeCursor(page.cursor)).toEqual({ untilId: note.id });
     expect(page.items[0].id).toBe(note.id);
+  });
+});
+
+describe("adaptNote quote mapping (F5)", () => {
+  it("maps a packed renote with own text to quote (quote-renote renders)", () => {
+    const post = adaptNote(fixture<Note>("sharkey", "note.json"));
+    expect(post.renote?.id).toBe("9sharkeynote000002");
+    expect(post.quote?.id).toBe("9sharkeynote000002");
+    expect(post.quoteUnavailable).toBe(false);
+  });
+
+  it("keeps quote null for a pure renote (appearNoteOf folds it)", () => {
+    const pure = postFromWire({
+      id: "w1",
+      renoteId: "o1",
+      renote: { id: "o1", text: "original" },
+    });
+    expect(pure.renote?.id).toBe("o1");
+    expect(pure.quote).toBeNull();
+  });
+
+  it("keeps quote null when the target is unpacked (unavailable, never faked)", () => {
+    const q = postFromWire({ id: "q1", text: "commentary", renoteId: "gone" });
+    expect(q.renote).toBeNull();
+    expect(q.quote).toBeNull();
   });
 });

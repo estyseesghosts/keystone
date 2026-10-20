@@ -159,4 +159,12 @@ describe("urisMatch / structuredUrisOf / cleanQuoteUrl", () => {
         N({ renote: { uri: "https://a.b/ap/1", url: "https://a.b/@u/1" } as Note }),
       ),
     ).toEqual(["https://a.b/ap/1", "https://a.b/@u/1"]));
+  it("structured uris include the Mastodon-family quote target", () => {
+    const base = N({});
+    const post: Post = {
+      ...base,
+      quote: {...base, uri: "https://a.b/ap/9", url: "https://a.b/@u/9"},
+    };
+    expect(structuredUrisOf(post)).toEqual(["https://a.b/ap/9", "https://a.b/@u/9"]);
+  });
 });

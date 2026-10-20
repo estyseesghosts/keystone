@@ -152,11 +152,15 @@ export function parseTextualQuotes(text: string | null): TextualQuoteMatch[] {
 }
 
 /** Candidate URIs for the structured target: used only to detect an exact
- * duplicate `RE:` suffix, never for fetching. */
+ * duplicate `RE:` suffix, never for fetching. Covers the Misskey packed
+ * renote, the Pinetree `quoteTargetUri` extension, and the Mastodon-family
+ * structured quote (same branch `getQuoteTarget` renders). */
 export function structuredUrisOf(post: Post): string[] {
   const out: string[] = [];
   if (post.renote?.uri) out.push(post.renote.uri);
   if (post.renote?.url && !out.includes(post.renote.url)) out.push(post.renote.url);
+  if (post.quote?.uri && !out.includes(post.quote.uri)) out.push(post.quote.uri);
+  if (post.quote?.url && !out.includes(post.quote.url)) out.push(post.quote.url);
   const targetUri = asString(post.ext.quoteTargetUri);
   if (targetUri && !out.includes(targetUri)) out.push(targetUri);
   return out;
