@@ -1,7 +1,7 @@
-// Feed presentation over the SANITIZED TREE (phase3-handoff §2.3,
+// Feed presentation over the shared content AST (phase3-handoff §2.3,
 // specs: docs/tag-bubbles-fold-scroll-handoff.md Workstreams A + C).
-// Pure functions on `SanitizeNode` trees — unit-tested in
-// scripts/smoke-phase3.ts with structural fixtures. No DOM, no fetch.
+// Pure functions on `ContentNode` trees — unit-tested against `fromHtml`
+// output. No DOM, no fetch.
 //
 // Workstream A — TAG BLOCKS: two or more consecutive hashtags form a
 // block; the block is PRUNED from the displayed body and a `(#tag +N)`
@@ -23,87 +23,59 @@
 // Open post link (the `…` is appended here, on the cut text node).
 
 import type { Account, Post } from "../core/models";
-import type { SanitizeNode } from "./quoteMarker";
-
-// Pure `data-tag`/href → tag-name reading (copied from the pre-2.4
-// `mastodon/sanitize.ts`: slice 2.4 replaces the sanitizer with
-// htmlparser2 → shared content AST and reunites this helper there).
-function hashtagTagOf(attrs: Readonly<Record<string, string>>): string | null {
-  const dataTag = attrs["data-tag"];
-  if (dataTag && /^[\w-]{1,64}$/.test(dataTag)) return dataTag;
-  if (!(attrs.class ?? "").split(/\s+/).includes("hashtag")) return null;
-  const href = attrs.href ?? "";
-  let tail: string;
-  try {
-    const segments = new URL(href).pathname.split("/").filter((s) => s.length > 0);
-    tail = decodeURIComponent(segments[segments.length - 1] ?? "");
-  } catch {
-    return null;
-  }
-  // A plausible tag: no whitespace, no separators, bounded length.
-  return /^[^\s/#?]{1,128}$/.test(tail) ? tail : null;
-}
+import {
+  textOf,
+  type ContentNode,
+} from "../core/content/ast";
 
 // --- Workstream A: tag-block pruning -----------------------------------------
 
-function classTokens(node: SanitizeNode): string[] {
-  if (node.kind !== "element") return [];
-  return (node.attrs.class ?? "").split(/\s+/).filter((t) => t.length > 0);
+export function isHashtagAnchor(node: ContentNode): boolean {
+  return node.kind === "hashtag";
 }
 
-export function isHashtagAnchor(node: SanitizeNode): boolean {
-  return node.kind === "element" && node.tag === "a" && classTokens(node).includes("hashtag");
+/** An emoji at tree level: custom emoji or a lone unicode sequence. */
+function isEmojiNode(node: ContentNode): boolean {
+  return node.kind === "customEmoji" || node.kind === "unicodeEmoji";
 }
 
-/** An emoji at tree level: the emoji-gated img, or an emoji-classed
- * span (defensive — contract §7 mentioned spans). */
-function isEmojiNode(node: SanitizeNode): boolean {
-  if (node.kind !== "element") return false;
-  if (node.tag === "img") return true;
-  return node.tag === "span" && classTokens(node).includes("emoji");
-}
-
-function isSpacer(node: SanitizeNode): boolean {
+function isSpacer(node: ContentNode): boolean {
   if (node.kind === "text") return node.text.trim().length === 0;
   return isEmojiNode(node);
 }
 
-function textOf(node: SanitizeNode): string {
-  if (node.kind === "text") return node.text;
-  return node.children.map(textOf).join("");
-}
-
-/** The tag name of a hashtag anchor: `data-tag`/href-derived when
- * possible, else its displayed text minus the leading `#`. */
-function tagOfAnchor(node: SanitizeNode): string | null {
-  if (node.kind !== "element") return null;
-  const viaAttrs = hashtagTagOf(node.attrs);
-  if (viaAttrs !== null) return viaAttrs;
-  const shown = textOf(node).trim().replace(/^#/, "");
+/** The tag name of a hashtag anchor: the parser-resolved tag, else its
+ * displayed text minus the leading `#`. */
+function tagOfAnchor(node: ContentNode): string | null {
+  if (node.kind !== "hashtag") return null;
+  if (node.tag.length > 0) return node.tag;
+  const shown = textOf([node]).trim().replace(/^#/, "");
   return shown.length > 0 ? shown : null;
 }
 
 type Atom = "tag" | "spacer" | "breaker";
 
-function atomKind(node: SanitizeNode): Atom {
+function atomKind(node: ContentNode): Atom {
   if (isHashtagAnchor(node)) return "tag";
   if (isSpacer(node)) return "spacer";
   return "breaker";
 }
 
-function collectAllTags(nodes: readonly SanitizeNode[], out: string[]): void {
+function childrenOf(node: ContentNode): readonly ContentNode[] {
+  return "children" in node ? node.children : [];
+}
+
+function collectAllTags(nodes: readonly ContentNode[], out: string[]): void {
   for (const n of nodes) {
-    if (n.kind === "element") {
-      if (isHashtagAnchor(n)) {
-        const tag = tagOfAnchor(n);
-        if (tag !== null && !out.includes(tag)) out.push(tag);
-      }
-      collectAllTags(n.children, out);
+    if (n.kind === "hashtag") {
+      const tag = tagOfAnchor(n);
+      if (tag !== null && !out.includes(tag)) out.push(tag);
     }
+    collectAllTags(childrenOf(n), out);
   }
 }
 
-function pruneLevel(nodes: readonly SanitizeNode[], blocks: string[][]): SanitizeNode[] {
+function pruneLevel(nodes: readonly ContentNode[], blocks: string[][]): ContentNode[] {
   const keep = new Array<boolean>(nodes.length).fill(true);
   let i = 0;
   while (i < nodes.length) {
@@ -136,11 +108,12 @@ function pruneLevel(nodes: readonly SanitizeNode[], blocks: string[][]): Sanitiz
       i = j; // lone tag (or tag + trailing spacers): stays inline
     }
   }
-  const out: SanitizeNode[] = [];
+  const out: ContentNode[] = [];
   nodes.forEach((n, idx) => {
     if (!keep[idx]) return;
-    if (n.kind === "element" && n.children.length > 0) {
-      out.push({ ...n, children: pruneLevel(n.children, blocks) });
+    const kids = childrenOf(n);
+    if (kids.length > 0) {
+      out.push({ ...n, children: pruneLevel(kids, blocks) } as ContentNode);
     } else {
       out.push(n);
     }
@@ -150,7 +123,7 @@ function pruneLevel(nodes: readonly SanitizeNode[], blocks: string[][]): Sanitiz
 
 export interface TagPruneResult {
   /** The display tree with every block removed. */
-  nodes: SanitizeNode[];
+  nodes: ContentNode[];
   /** Tag runs removed, in tree order. */
   blocks: string[][];
   /** Every hashtag in the ORIGINAL tree, document order, deduped
@@ -159,7 +132,7 @@ export interface TagPruneResult {
   allTags: string[];
 }
 
-export function pruneTagBlocks(nodes: readonly SanitizeNode[]): TagPruneResult {
+export function pruneTagBlocks(nodes: readonly ContentNode[]): TagPruneResult {
   const allTags: string[] = [];
   collectAllTags(nodes, allTags);
   const blocks: string[][] = [];
@@ -169,27 +142,42 @@ export function pruneTagBlocks(nodes: readonly SanitizeNode[]): TagPruneResult {
 
 // --- Workstream C: 750-char timeline fold ------------------------------------
 
-/** Nodes that are never sliced: emoji images (1 visible char), code
- * (the spec names code nodes atomic), and hashtag anchors (a cut
- * `#ta` would link wrong). Mentions/links cost 0 and are kept whole. */
-function isAtomic(node: SanitizeNode): boolean {
-  if (node.kind !== "element") return false;
-  if (node.tag === "img") return true;
-  if (node.tag === "code" || node.tag === "pre") return true;
-  return isHashtagAnchor(node);
+/** Nodes that are never sliced: emoji (one visible char), code (the
+ * spec names code nodes atomic), and hashtag anchors (a cut `#ta` would
+ * link wrong). Mentions/links cost 0 and are kept whole. */
+function isAtomic(node: ContentNode): boolean {
+  switch (node.kind) {
+    case "customEmoji":
+    case "unicodeEmoji":
+    case "code":
+    case "codeBlock":
+    case "hashtag":
+      return true;
+    default:
+      return false;
+  }
 }
 
 /** What this node costs against the budget, in display chars. */
-function atomCost(node: SanitizeNode): number {
-  if (node.kind === "text") return node.text.length;
-  if (node.tag === "br") return 1;
-  if (node.tag === "img") return 1; // emoji: one visible char
-  if (node.tag === "a") {
-    if (classTokens(node).includes("mention")) return 0; // mentions: free
-    if (isHashtagAnchor(node)) return textOf(node).length; // hashtags count
-    return 0; // bare links: free
+function atomCost(node: ContentNode): number {
+  switch (node.kind) {
+    case "text":
+      return node.text.length;
+    case "br":
+    case "customEmoji":
+    case "unicodeEmoji":
+      return 1; // breaks and emoji: one visible char
+    case "link":
+    case "mention":
+      return 0; // bare links and mentions: free
+    case "hashtag":
+      return textOf([node]).length; // hashtags count
+    case "code":
+    case "codeBlock":
+      return node.code.length;
+    default:
+      return node.children.reduce((sum, c) => sum + atomCost(c), 0);
   }
-  return node.children.reduce((sum, c) => sum + atomCost(c), 0);
 }
 
 /** Cut a text node at the last whitespace inside `budget` chars; fall
@@ -206,8 +194,8 @@ interface FoldState {
   done: boolean;
 }
 
-function foldLevel(nodes: readonly SanitizeNode[], state: FoldState): SanitizeNode[] {
-  const out: SanitizeNode[] = [];
+function foldLevel(nodes: readonly ContentNode[], state: FoldState): ContentNode[] {
+  const out: ContentNode[] = [];
   for (const node of nodes) {
     if (state.done) break;
     if (node.kind === "text") {
@@ -226,20 +214,21 @@ function foldLevel(nodes: readonly SanitizeNode[], state: FoldState): SanitizeNo
       state.remaining -= cost;
       continue;
     }
-    if (isAtomic(node) || node.children.length === 0) {
+    const kids = childrenOf(node);
+    if (isAtomic(node) || kids.length === 0) {
       // Ends BEFORE an atomic node; a fully-beyond empty element drops.
       state.done = true;
       continue;
     }
-    const kids = foldLevel(node.children, state);
-    if (kids.length > 0) out.push({ ...node, children: kids });
+    const folded = foldLevel(kids, state);
+    if (folded.length > 0) out.push({ ...node, children: folded } as ContentNode);
     else state.done = true;
   }
   return out;
 }
 
 export interface FoldResult {
-  nodes: SanitizeNode[];
+  nodes: ContentNode[];
   folded: boolean;
 }
 
@@ -252,23 +241,32 @@ export const TIMELINE_FOLD_CHARS = 750;
  * own text node. Links and mentions are never extended — an ellipsis inside
  * an anchor would become part of the link.
  */
-function ellipsize(nodes: readonly SanitizeNode[]): SanitizeNode[] {
+function ellipsize(nodes: readonly ContentNode[]): ContentNode[] {
   const last = nodes[nodes.length - 1];
   if (last === undefined) return [{ kind: "text", text: "…" }];
   if (last.kind === "text") {
     if (last.text.endsWith("…")) return [...nodes];
     return [...nodes.slice(0, -1), { kind: "text", text: `${last.text}…` }];
   }
+  const kids = childrenOf(last);
   const extendable =
-    last.tag !== "a" && last.tag !== "img" && last.tag !== "br" && last.children.length > 0;
-  if (extendable) return [...nodes.slice(0, -1), { ...last, children: ellipsize(last.children) }];
+    last.kind !== "link" &&
+    last.kind !== "mention" &&
+    last.kind !== "hashtag" &&
+    last.kind !== "customEmoji" &&
+    last.kind !== "unicodeEmoji" &&
+    last.kind !== "br" &&
+    kids.length > 0;
+  if (extendable) {
+    return [...nodes.slice(0, -1), { ...last, children: ellipsize(kids) } as ContentNode];
+  }
   return [...nodes, { kind: "text", text: "…" }];
 }
 
 /** Fold a (already pruned) tree to the timeline budget. Callers append
  * the "Open post" link when `folded` is true. */
 export function foldTree(
-  nodes: readonly SanitizeNode[],
+  nodes: readonly ContentNode[],
   budget: number = TIMELINE_FOLD_CHARS,
 ): FoldResult {
   if (nodes.length === 0) return { nodes: [], folded: false };
@@ -285,7 +283,7 @@ export function foldTree(
  * skip only the fold — the header bubble is derived from the same prune,
  * so body and bubble can never disagree.
  */
-export function presentBody(pruned: readonly SanitizeNode[], fold: boolean): FoldResult {
+export function presentBody(pruned: readonly ContentNode[], fold: boolean): FoldResult {
   return fold ? foldTree(pruned) : { nodes: [...pruned], folded: false };
 }
 

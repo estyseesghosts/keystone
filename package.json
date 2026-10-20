@@ -53,6 +53,7 @@
     "expo-linking": "~57.0.10",
     "expo-system-ui": "~57.0.4",
     "expo-web-browser": "~57.0.3",
+    "htmlparser2": "^12.0.0",
     "mfm-js": "^0.27.0",
     "react": "19.2.3",
     "react-compiler-runtime": "1.0.0",
@@ -112,7 +113,7 @@
       "\\.[jt]sx?$": "babel-jest"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|native-base|react-native-svg)"
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|native-base|react-native-svg|htmlparser2|domhandler|domutils|dom-serializer|entities|domelementtype)"
     ]
   },
   "browserslist": {

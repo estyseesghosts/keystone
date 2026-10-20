@@ -6,6 +6,7 @@
   "types": "./src/index.ts",
   "dependencies": {
     "eventemitter3": "^5.0.1",
+    "htmlparser2": "^12.0.0",
     "mfm-js": "^0.27.0"
   }
 }

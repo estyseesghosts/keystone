@@ -80,7 +80,7 @@ import type {
   Relationship,
   Visibility,
 } from "../core/models";
-import { visibilityKindOf } from "../core/models";
+import { plainFromMfm, visibilityKindOf } from "../core/models";
 import type { Continuation } from "./pagination";
 import type {
   Account as WireAccount,
@@ -164,6 +164,33 @@ export function htmlContentOf(html: string | null | undefined): Content {
     html: source.length > 0 ? source : undefined,
     plain: htmlToPlainText(source),
   };
+}
+
+/**
+ * The MFM source of a status, or null. Akkoma packs the original
+ * `text/plain` (MFM-flavoured) in `status.pleroma.content`; vanilla
+ * Mastodon sends no such field. Non-empty strings only — an empty
+ * source is "no MFM source", never an empty document. Pure.
+ */
+export function mfmSourceOf(status: Status): string | null {
+  const pleroma = status.pleroma as Record<string, unknown> | undefined;
+  const content = pleroma?.content;
+  if (!content || typeof content !== "object") return null;
+  const text = (content as Record<string, unknown>)["text/plain"];
+  return typeof text === "string" && text.length > 0 ? text : null;
+}
+
+/**
+ * Build a core Content from a wire status: server HTML always, plus the
+ * MFM source when the server packed one (Akkoma). `plain` follows the
+ * MFM projection when MFM is present (that is what renders), else the
+ * HTML projection. Pure.
+ */
+export function statusContentOf(status: Status): Content {
+  const base = htmlContentOf(status.content ?? "");
+  const mfm = mfmSourceOf(status);
+  if (mfm === null) return base;
+  return { ...base, mfm, plain: plainFromMfm(mfm) };
 }
 
 // --- Visibility -------------------------------------------------------------
@@ -445,7 +472,7 @@ export function adaptStatus(status: Status): Post {
     createdAt: status.created_at,
     author: adaptAccount(status.account),
     accountId: status.account?.id ?? "",
-    content: htmlContentOf(status.content ?? ""),
+    content: statusContentOf(status),
     cw: (status.spoiler_text ?? "").length > 0 ? status.spoiler_text : null,
     visibility: visibilityOfWire(status.visibility),
     counts: {

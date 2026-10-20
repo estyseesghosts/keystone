@@ -1,40 +1,27 @@
 // Textual `RE:` quote markers on the Mastodon transport (docs/quote-posts.md
 // "Textual RE: fallback"). Pure: no fetching, no DOM.
 //
-// Reads the SANITIZED TREE, not plain text. Mastodon and Akkoma shorten long
-// link text (the middle of the URL sits in invisible spans), so the quoted
-// URL comes from the anchor's href. A bare URL in a text node is read too:
-// Akkoma does not linkify some hosts (localhost), so a marker can arrive
-// either way.
+// Reads the shared content AST, not plain text. Mastodon and Akkoma shorten
+// long link text (the middle of the URL sits in invisible spans), so the
+// quoted URL comes from the anchor's href. A bare URL in a text node is
+// read too: Akkoma does not linkify some hosts (localhost), so a marker
+// can arrive either way.
 //
 // Accepted shapes — one URL per marker line, at the terminal or leading end:
 //   suffix:  …commentary<br>RE: <url>      (last line of the last paragraph)
 //   prefix:  RE: <url><br>…commentary      (first line of the first paragraph)
 // Anything else is not a marker: a mid-sentence RE:, extra text on the
 // marker line, a mention or hashtag anchor as the URL, a non-web URL.
+//
+// Paragraphs are `br` pairs in the AST (both parsers emit them); a lone
+// `br` is a line break inside a paragraph.
 
 import { cleanQuoteUrl, urisMatch } from "../core/quoteUri";
 import type { Post } from "../core/models";
+import { br, isBlankContent, type ContentNode } from "../core/content/ast";
 
-// Structural sanitized-tree node (shape copied from the pre-2.4
-// `mastodon/sanitize.ts`: slice 2.4 replaces the sanitizer with
-// htmlparser2 → shared content AST and reunites this alias there).
-// Pure data: text leaves + allow-listed elements. Everything here only
-// reads this shape, never the DOM.
-export type SanitizeNode =
-  | { kind: "text"; text: string }
-  | {
-      kind: "element";
-      /** Lowercase tag, always in the allow-list. */
-      tag: string;
-      /** Only survived attributes (href/class/src/alt/title/width/height/
-       * data-tag); never event handlers, style, ids, or targets. */
-      attrs: Readonly<Record<string, string>>;
-      children: readonly SanitizeNode[];
-    };
-
-type ElementNode = Extract<SanitizeNode, { kind: "element" }>;
-type TextNode = Extract<SanitizeNode, { kind: "text" }>;
+type LinkNode = Extract<ContentNode, { kind: "link" }>;
+type TextNode = Extract<ContentNode, { kind: "text" }>;
 
 export interface QuoteMarker {
   /** Cleaned absolute http(s) URL the marker names. */
@@ -43,9 +30,9 @@ export interface QuoteMarker {
    * that names a different URL. */
   position: "prefix" | "suffix";
   /** Nodes (by identity) whose removal drops the marker from the body. */
-  removes: Set<SanitizeNode>;
+  removes: Set<ContentNode>;
   /** Text nodes that keep the rest of their text once `RE:` is removed. */
-  rewrites: Map<SanitizeNode, string>;
+  rewrites: Map<ContentNode, string>;
 }
 
 /** One inline unit of a block. Anchors are atomic: the href is the target,
@@ -53,40 +40,71 @@ export interface QuoteMarker {
  * they can never be a marker's URL. */
 type Token =
   | { kind: "text"; node: TextNode }
-  | { kind: "link"; node: ElementNode; href: string | null }
-  | { kind: "br"; node: ElementNode }
-  | { kind: "other"; node: SanitizeNode };
+  | { kind: "link"; node: LinkNode; href: string | null }
+  | { kind: "br"; node: ContentNode }
+  | { kind: "other"; node: ContentNode };
 
-function hasClass(node: ElementNode, name: string): boolean {
-  return (node.attrs.class ?? "").split(/\s+/).includes(name);
-}
-
-function flatten(nodes: readonly SanitizeNode[], out: Token[] = []): Token[] {
+function flatten(nodes: readonly ContentNode[], out: Token[] = []): Token[] {
   for (const node of nodes) {
-    if (node.kind === "text") {
-      out.push({ kind: "text", node });
-    } else if (node.tag === "br") {
-      out.push({ kind: "br", node });
-    } else if (node.tag === "a") {
-      const plain = !hasClass(node, "mention") && !hasClass(node, "hashtag");
-      out.push(plain ? { kind: "link", node, href: node.attrs.href ?? null } : { kind: "other", node });
-    } else if (node.tag === "img") {
-      out.push({ kind: "other", node });
-    } else {
-      flatten(node.children, out);
+    switch (node.kind) {
+      case "text":
+        out.push({ kind: "text", node });
+        break;
+      case "br":
+        out.push({ kind: "br", node });
+        break;
+      case "link":
+        out.push({ kind: "link", node, href: node.href });
+        break;
+      case "mention":
+      case "hashtag":
+      case "customEmoji":
+      case "unicodeEmoji":
+      case "code":
+      case "codeBlock":
+        out.push({ kind: "other", node });
+        break;
+      default:
+        flatten(node.children, out);
+        break;
     }
   }
   return out;
 }
 
+/** Split a top-level flow on paragraph boundaries (`br` pairs). A lone
+ * `br` stays inside its block as a line break. */
+function splitBlocks(nodes: readonly ContentNode[]): ContentNode[][] {
+  const blocks: ContentNode[][] = [];
+  let current: ContentNode[] = [];
+  let i = 0;
+  while (i < nodes.length) {
+    if (nodes[i].kind === "br") {
+      let j = i;
+      while (j < nodes.length && nodes[j].kind === "br") j++;
+      if (j - i >= 2) {
+        blocks.push(current);
+        current = [];
+        i = j;
+        continue;
+      }
+      current.push(nodes[i]);
+      i++;
+      continue;
+    }
+    current.push(nodes[i]);
+    i++;
+  }
+  blocks.push(current);
+  return blocks;
+}
+
 /** The block a marker can sit in: the first or last top-level paragraph's
- * content, or the whole body when the server sent no paragraphs. */
-function blockOf(nodes: readonly SanitizeNode[], edge: "first" | "last"): readonly SanitizeNode[] {
-  const paragraphs = nodes.filter(
-    (n): n is ElementNode => n.kind === "element" && n.tag === "p",
-  );
-  if (paragraphs.length === 0) return nodes;
-  return (edge === "first" ? paragraphs[0] : paragraphs[paragraphs.length - 1]).children;
+ * content, or the whole body when the parsers emitted no paragraphs. */
+function blockOf(nodes: readonly ContentNode[], edge: "first" | "last"): readonly ContentNode[] {
+  const blocks = splitBlocks(nodes);
+  if (blocks.length === 0) return nodes;
+  return edge === "first" ? blocks[0] : blocks[blocks.length - 1];
 }
 
 function isBlankText(token: Token): boolean {
@@ -97,7 +115,7 @@ function isBlankText(token: Token): boolean {
  * and one line break may go with it. Returns false when `RE:` is glued to
  * other content (then it is not a marker). `from` is the index to start
  * looking backwards from. */
-function claimSeparator(tokens: Token[], from: number, removes: Set<SanitizeNode>): boolean {
+function claimSeparator(tokens: Token[], from: number, removes: Set<ContentNode>): boolean {
   let q = from;
   while (q >= 0 && isBlankText(tokens[q])) {
     removes.add(tokens[q].node);
@@ -115,16 +133,16 @@ function claimSeparator(tokens: Token[], from: number, removes: Set<SanitizeNode
 function settleText(
   node: TextNode,
   left: string,
-  removes: Set<SanitizeNode>,
-  rewrites: Map<SanitizeNode, string>,
+  removes: Set<ContentNode>,
+  rewrites: Map<ContentNode, string>,
 ): void {
   if (left.trim().length === 0) removes.add(node);
   else rewrites.set(node, left);
 }
 
 function suffixMarker(tokens: Token[]): QuoteMarker | null {
-  const removes = new Set<SanitizeNode>();
-  const rewrites = new Map<SanitizeNode, string>();
+  const removes = new Set<ContentNode>();
+  const rewrites = new Map<ContentNode, string>();
   let end = tokens.length;
   while (end > 0 && isBlankText(tokens[end - 1])) {
     removes.add(tokens[end - 1].node);
@@ -166,7 +184,7 @@ function suffixMarker(tokens: Token[]): QuoteMarker | null {
 }
 
 function prefixMarker(tokens: Token[]): QuoteMarker | null {
-  const removes = new Set<SanitizeNode>();
+  const removes = new Set<ContentNode>();
   let i = 0;
   while (i < tokens.length && isBlankText(tokens[i])) {
     removes.add(tokens[i].node);
@@ -217,7 +235,7 @@ function prefixMarker(tokens: Token[]): QuoteMarker | null {
 /** The textual marker of one status body, or null. A terminal suffix wins
  * over a leading prefix when they name different URLs (the prefix stays as
  * text). When both name the same URL, one marker removes both lines. */
-export function findTextualQuoteMarker(nodes: readonly SanitizeNode[]): QuoteMarker | null {
+export function findTextualQuoteMarker(nodes: readonly ContentNode[]): QuoteMarker | null {
   const suffix = suffixMarker(flatten(blockOf(nodes, "last")));
   const prefix = prefixMarker(flatten(blockOf(nodes, "first")));
   if (suffix !== null && prefix !== null && urisMatch(suffix.uri, prefix.uri)) {
@@ -227,35 +245,51 @@ export function findTextualQuoteMarker(nodes: readonly SanitizeNode[]): QuoteMar
   return suffix ?? prefix;
 }
 
-function touchesMarker(node: SanitizeNode, marker: QuoteMarker): boolean {
+function touchesMarker(node: ContentNode, marker: QuoteMarker): boolean {
   if (marker.removes.has(node) || marker.rewrites.has(node)) return true;
-  if (node.kind === "text") return false;
+  if (!("children" in node)) return false;
   return node.children.some((child) => touchesMarker(child, marker));
 }
 
+/** A top-level segment left blank by the strip (whitespace text and lone
+ * breaks only) that the marker touched. */
+function isEmptiedSegment(segment: readonly ContentNode[], marker: QuoteMarker): boolean {
+  if (!isBlankContent(segment)) return false;
+  return segment.some((node) => touchesMarker(node, marker));
+}
+
 /** The tree with the marker removed. Pure: the input is not mutated. A
- * paragraph the marker emptied is dropped, so no blank line is left. */
+ * paragraph the marker emptied is dropped, so no blank line is left —
+ * edge separators orphaned by the strip are trimmed the same way. */
 export function stripQuoteMarker(
-  nodes: readonly SanitizeNode[],
+  nodes: readonly ContentNode[],
   marker: QuoteMarker,
-): SanitizeNode[] {
-  const out: SanitizeNode[] = [];
+): ContentNode[] {
+  const stripped: ContentNode[] = [];
   for (const node of nodes) {
     if (marker.removes.has(node)) continue;
     if (node.kind === "text") {
       const rewritten = marker.rewrites.get(node);
-      if (rewritten === undefined) out.push(node);
-      else if (rewritten.length > 0) out.push({ kind: "text", text: rewritten });
+      if (rewritten === undefined) stripped.push(node);
+      else if (rewritten.length > 0) stripped.push({ kind: "text", text: rewritten });
       continue;
     }
-    const children = stripQuoteMarker(node.children, marker);
-    const emptied =
-      node.tag === "p" &&
-      touchesMarker(node, marker) &&
-      children.every((c) => c.kind === "text" ? c.text.trim().length === 0 : c.tag === "br");
-    if (emptied) continue;
-    out.push({ ...node, children });
+    if ("children" in node) {
+      stripped.push({ ...node, children: stripQuoteMarker(node.children, marker) } as ContentNode);
+      continue;
+    }
+    stripped.push(node);
   }
+  // Drop emptied paragraphs (blank segments the marker touched) and trim
+  // orphaned edge breaks — the AST equivalent of dropping an emptied `<p>`.
+  const kept = splitBlocks(stripped).filter(
+    (segment) => segment.length > 0 && !isEmptiedSegment(segment, marker),
+  );
+  const out = kept.flatMap((segment, index) =>
+    index === 0 ? segment : [br(), br(), ...segment],
+  );
+  while (out.length > 0 && out[0].kind === "br") out.shift();
+  while (out.length > 0 && out[out.length - 1].kind === "br") out.pop();
   return out;
 }
 

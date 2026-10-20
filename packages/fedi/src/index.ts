@@ -49,6 +49,56 @@ export * from "./misskey/stream";
 export * from "./misskey/thread";
 export * from "./misskey/translate";
 
+// Content AST: the one allow-listed inline tree for MFM + HTML
+// (slice 2.4). Both parsers and the tree consumers (quote markers,
+// tag pruning, folding) meet here — never raw server strings.
+export * from "./core/content/ast";
+export * from "./core/content/fromMfm";
+export * from "./core/content/fromHtml";
+// Pure `api/` ports (no DOM, no i18n): MFM fold + tag blocks, link
+// previews, picker emoji data, emoji asset URLs. `FoldResult` is aliased:
+// the bare name is the Mastodon tree fold's (`./mastodon/presentation`).
+export {
+  FOLD_BUDGET,
+  lastWhitespaceAtOrBefore,
+  foldMfm,
+  type FoldResult as MfmFoldResult,
+} from "./api/fold";
+export * from "./api/tags";
+export * from "./api/linkpreview";
+export {
+  DEFAULT_LIKE_EMOJI,
+  HEART_REACTION,
+  MAX_FAVOURITES,
+  MAX_RECENTS,
+  QUICK_REACTIONS,
+  COMPOSER_EMOJI,
+  UNICODE_EMOJIS,
+  UNICODE_EMOJI_GROUPS,
+  addFavourite,
+  filterCustomEmojis,
+  filterUnicode,
+  groupCustomByCategory,
+  isHeartReaction,
+  isLikeActive,
+  lookupPackedEmojis,
+  parseLikeEmoji,
+  parseStoredList,
+  removeFavourite,
+  sameEmojiKey,
+  shouldHideChip,
+  splitNameEmojis,
+  splitRemoteEmojiCodes,
+  touchRecent,
+  visibleReactions,
+} from "./api/emoji";
+export type {
+  CustomEmojiGroup,
+  NamePart,
+  TextSegment,
+  UnicodeEmojiGroup,
+} from "./api/emoji";
+export * from "./api/emojiAssets";
 // Mastodon-family adapter: domain models + backend factory are the primary
 // surface (wire types in `./mastodon/wire` stay internal — tests reach them
 // via the relative path, never this barrel). `ServerFamily`/`FeatureSupport`
