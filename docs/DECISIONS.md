@@ -39,3 +39,12 @@ in `adr/` when load-bearing.
 | 2026-10-20 | `expo-video@58.0.11` added (Expo SDK 57 track) for video/gifv via VideoView+useVideoPlayer | Native controls on all targets; trio typecheck green |
 | 2026-10-20 | Streaming glue at `src/state/streaming.ts` (not `state/queries/`); hidden sensitive media renders no tile content before reveal | 3.2 owns queries namespace; veil keeps AT/bytes clean |
 | 2026-10-20 | Phase 3 read path COMPLETE on `main` (slices 3.1–3.10): 48 suites / 724 tests green — Gate G3 owner review next | G3 parity table open: no end-to-end cell green yet (device runs not verified); do not start Phase 4 |
+| 2026-10-20 | Owner overrode G3 gate verbally in-session ("G3 passed, proceed") to start Phase 4; G3 parity tick itself still open | Recorded here; no end-to-end/device evidence exists |
+| 2026-10-20 | Feed query key unified: `[sessionId,'post-feed',descriptor]` via `feedQueryKey`; `QueryProvider` mounted in Root | Stub hook removed (p3.11) |
+| 2026-10-20 | P4.1: toggle queue on desired values; Misskey/Mastodon reaction change = unreact then react; `BookmarksApi.add` added to Backend | Misskey bookmarks hidden until detection reports capability |
+| 2026-10-20 | P4.2: menu per docs/note-options.md; Edit and Mute-boosts disabled with reason (no composer edit mode / no boosts-only mute); toast queue in `src/lib/toast.ts` | Clip/Report disabled until UI exists |
+| 2026-10-20 | `expo-image-picker ~57.0.20` added for composer media; uploads deferred to submit so alt text travels with upload | Native module: dev-client rebuild required |
+| 2026-10-20 | Misskey char limit from unauthenticated `POST /api/meta {}`; poll `multiple` off where `polls_multi` unsupported; scheduling hidden on all flavors for now | Mastodon backend lacks scheduling sub-module |
+| 2026-10-20 | `expo-clipboard ~57.0.2` added; native clipboard, web Clipboard API fallback | Native module: dev-client rebuild required |
+| 2026-10-20 | P4.4: soft mute is client-side per session (`keystone.softmute.<sessionId>`), hides posts by and reposts of the account; mute duration not supported by `Backend.mute` | Misskey `users/lists/*` names unchecked live |
+| 2026-10-20 | P4.5: emoji picker with per-session recents (cap 24); `FeedView` now renders `PostCard` so actions are reachable | |

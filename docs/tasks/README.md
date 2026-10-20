@@ -26,5 +26,12 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p3.8-media](p3.8-media.md) | §5 P3.8 | done | `main` | `state/logs/2026-10-20-p3.8-streaming.md` |
 | [p3.9-emoji](p3.9-emoji.md) | §5 P3.9 | done | `main` | `state/logs/2026-10-20-p3.3-postfeed.md` |
 | [p3.10-streaming](p3.10-streaming.md) | §5 P3.10 | done | `main` | `state/logs/2026-10-20-p3.8-streaming.md` |
+| [p3.11-feed-unification](p3.11-feed-unification.md) | §5 P3 | done | `main` | `state/logs/2026-10-20-p3.11-feed-unification.md` |
+| [p4.1-post-shadow-toggle-queue](p4.1-post-shadow-toggle-queue.md) | §5 P4.1 | done | `main` | `state/logs/2026-10-20-p4.1-post-shadow-toggle-queue.md` |
+| [p4.2-post-actions-menu](p4.2-post-actions-menu.md) | §5 P4.2 | done | `main` | `state/logs/2026-10-20-p4.2-post-actions-menu.md` |
+| [p4.3-composer](p4.3-composer.md) | §5 P4.3 | done | `main` | `state/logs/2026-10-20-p4.3-composer.md` |
+| [p4.4-social-graph](p4.4-social-graph.md) | §5 P4.4 | done | `main` | `state/logs/2026-10-20-p4.4-social-graph.md` |
+| [p4.5-emoji-picker](p4.5-emoji-picker.md) | §5 P4.5 | done | `main` | `state/logs/2026-10-20-p4.5-emoji-picker.md` |
+| [p4.6-integration](p4.6-integration.md) | §5 P4 wiring | done | `main` | `state/logs/2026-10-20-p4.6-integration.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.
