@@ -16,5 +16,15 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p2.4-content](p2.4-content.md) | §5 P2.4 | done | `main` | `state/logs/2026-10-20-p2.4-content.md` |
 | [p2.5-sessions](p2.5-sessions.md) | §5 P2.5 | done | `main` | `state/logs/2026-10-20-p2.5-sessions.md` |
 | [p2.6-smoke](p2.6-smoke.md) | §5 P2.6 | done | `main` | `state/logs/2026-10-20-p2.6-smoke.md` |
+| [p3.1-login](p3.1-login.md) | §5 P3.1 | done | `main` | `state/logs/2026-10-20-p3.1-login.md` |
+| [p3.2-querylayer](p3.2-querylayer.md) | §5 P3.2 | done | `main` | `state/logs/2026-10-20-p3.2-querylayer.md` |
+| [p3.3-postfeed](p3.3-postfeed.md) | §5 P3.3 | done | `main` | `state/logs/2026-10-20-p3.3-postfeed.md` |
+| [p3.4-home-network](p3.4-home-network.md) | §5 P3.4 | done | `main` | `state/logs/2026-10-20-p3.4-screens.md` |
+| [p3.5-thread](p3.5-thread.md) | §5 P3.5 | done | `main` | `state/logs/2026-10-20-p3.4-screens.md` |
+| [p3.6-profile](p3.6-profile.md) | §5 P3.6 | done | `main` | `state/logs/2026-10-20-p3.4-screens.md` |
+| [p3.7-notifications](p3.7-notifications.md) | §5 P3.7 | done | `main` | `state/logs/2026-10-20-p3.4-screens.md` |
+| [p3.8-media](p3.8-media.md) | §5 P3.8 | done | `main` | `state/logs/2026-10-20-p3.8-streaming.md` |
+| [p3.9-emoji](p3.9-emoji.md) | §5 P3.9 | done | `main` | `state/logs/2026-10-20-p3.3-postfeed.md` |
+| [p3.10-streaming](p3.10-streaming.md) | §5 P3.10 | done | `main` | `state/logs/2026-10-20-p3.8-streaming.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.
