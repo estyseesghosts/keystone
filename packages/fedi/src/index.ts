@@ -5,6 +5,7 @@
 // types never cross into `src/` (enforced by `no-wire-in-app`); UI and
 // framework imports never enter here (enforced by `no-ui-in-fedi`).
 export * from "./core/errors";
+export * from "./core/feedDescriptor";
 export * from "./core/models";
 export * from "./core/detect";
 export * from "./core/backend";
