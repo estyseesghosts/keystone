@@ -401,7 +401,16 @@ export interface ClipsApi {
   containing(noteId: string): Promise<ClipSummary[]>;
 }
 
+/** Which of the viewer's lists hold an account, and edit that (slice 4.4). */
+export interface ListMembershipApi {
+  containing(accountId: string): Promise<string[]>;
+  add(listId: string, accountId: string): Promise<void>;
+  remove(listId: string, accountId: string): Promise<void>;
+}
+
 export interface ListsApi {
+  /** Account membership editing; absent when the server cannot do it. */
+  membership?: ListMembershipApi;
   list(): Promise<Array<{ id: string; name: string }>>;
   /** `notes/user-list-timeline`. */
   timeline(listId: string, opts?: PageOpts): Promise<Page<Post>>;

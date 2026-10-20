@@ -8,6 +8,7 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
+import {ProfileActions} from '#/components/ProfileActions'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend, FeedView} from '#/screens/HomeFeed'
 import {profileTabDescriptor, type ProfileFeedTab} from '#/state/queries'
@@ -113,6 +114,9 @@ export function UserScreen() {
             {account.locked ? <Caption color="faint">Locked account.</Caption> : null}
             {account.bot ? <Caption color="faint">Automated account.</Caption> : null}
             <FollowStateCaption relationship={relationship} />
+            {session.accountId !== account.id ? (
+              <ProfileActions sessionId={session.id} account={account} />
+            ) : null}
           </View>
           <View style={[atoms.row, atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="profile-tabs">
             {TABS.map(t => (

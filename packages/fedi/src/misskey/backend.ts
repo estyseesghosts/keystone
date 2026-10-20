@@ -108,6 +108,7 @@ import {
 } from "./followRequests";
 import { createScheduledNote, deleteScheduledNote, listScheduledNotes } from "./schedule";
 import { editNote } from "./noteEdit";
+import { listsContaining as listsContainingM, addToList as addToListM, removeFromList as removeFromListM } from "./listMembership";
 import {
   countServerDrafts,
   createServerDraft,
@@ -322,6 +323,11 @@ export function createMisskeyBackend(
   };
 
   const lists: ListsApi = {
+    membership: {
+      containing: (accountId) => listsContainingM(call, accountId),
+      add: (listId, accountId) => addToListM(call, listId, accountId),
+      remove: (listId, accountId) => removeFromListM(call, listId, accountId),
+    },
     async list() {
       const items = await call<Array<{ id: string; name: string }>>("lists/list", {});
       return items ?? [];

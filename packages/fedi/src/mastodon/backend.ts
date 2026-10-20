@@ -114,6 +114,7 @@ import { rebuildThread } from "./thread";
 import { createStreamHandle } from "./stream";
 import { MastoHttpError, createClient } from "./client";
 import type { MastoClient } from "./client";
+import { listsContaining as listsContainingMasto, addToList as addToListMasto, removeFromList as removeFromListMasto } from "./listMembership";
 import type { Continuation } from "./pagination";
 import { nextContinuation } from "./pagination";
 import type {
@@ -833,6 +834,11 @@ export function createMastodonBackend(
     },
 
     lists: {
+      membership: {
+        containing: (accountId) => listsContainingMasto(client, accountId),
+        add: (listId, accountId) => addToListMasto(client, listId, accountId),
+        remove: (listId, accountId) => removeFromListMasto(client, listId, accountId),
+      },
       async list() {
         const res = await client.get<Array<{ id: string; title: string }>>("/api/v1/lists");
         const items = Array.isArray(res.data) ? res.data : [];

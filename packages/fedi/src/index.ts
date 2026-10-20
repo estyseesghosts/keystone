@@ -46,6 +46,7 @@ export * from "./misskey/remotepost";
 export * from "./misskey/schedule";
 export * from "./misskey/serverDrafts";
 export * from "./misskey/softMute";
+export * from "./core/graph";
 export * from "./misskey/stream";
 export * from "./misskey/thread";
 export * from "./misskey/translate";
@@ -67,6 +68,7 @@ export {
 } from "./api/fold";
 export * from "./api/tags";
 export * from "./api/linkpreview";
+export * from "./api/composer";
 export {
   DEFAULT_LIKE_EMOJI,
   HEART_REACTION,
