@@ -10,10 +10,11 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p1.4-components](p1.4-components.md) | §5 P1.4 | done | `main` | `state/logs/2026-10-20-p1.4-components.md` |
 | [p1.5-shell](p1.5-shell.md) | §5 P1.5 | done, pending G1 | `main` | `state/logs/2026-10-20-p1.5-shell.md` |
 | [p2.1-core](p2.1-core.md) | §5 P2.1 | done | `main` | `state/logs/2026-10-20-p2.1-core.md` |
-| [phase-2-handoff](phase-2-handoff.md) | §5 P2 (all) | in progress (5/6 done) | `main` | `state/logs/2026-10-20-p2.5-sessions.md` |
+| [phase-2-handoff](phase-2-handoff.md) | §5 P2 (all) | done (6/6) | `main` | `state/logs/2026-10-20-p2.6-smoke.md` |
 | [p2.2-misskey](p2.2-misskey.md) | §5 P2.2 | done | `main` | `state/logs/2026-10-20-p2.2-misskey.md` |
 | [p2.3-mastodon](p2.3-mastodon.md) | §5 P2.3 | done | `main` | `state/logs/2026-10-20-p2.3-mastodon.md` |
 | [p2.4-content](p2.4-content.md) | §5 P2.4 | done | `main` | `state/logs/2026-10-20-p2.4-content.md` |
 | [p2.5-sessions](p2.5-sessions.md) | §5 P2.5 | done | `main` | `state/logs/2026-10-20-p2.5-sessions.md` |
+| [p2.6-smoke](p2.6-smoke.md) | §5 P2.6 | done | `main` | `state/logs/2026-10-20-p2.6-smoke.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.

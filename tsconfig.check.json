@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src", "packages/fedi", "index.ts", "index.web.ts", "app.config.js"]
+  "include": ["src", "packages/fedi", "scripts", "index.ts", "index.web.ts", "app.config.js"]
 }

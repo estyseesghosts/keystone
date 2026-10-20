@@ -34,7 +34,8 @@
     "lint": "oxlint --quiet src && eslint .",
     "intl:extract": "lingui extract --clean --locale en",
     "intl:compile": "lingui compile",
-    "prettier": "prettier --check ."
+    "prettier": "prettier --check .",
+    "smoke": "esbuild scripts/fedi-smoke.ts --bundle --platform=node --format=cjs --outfile=scripts/.fedi-smoke.bundle.cjs --log-level=warning && node scripts/.fedi-smoke.bundle.cjs"
   },
   "dependencies": {
     "@lingui/core": "^5.9.2",

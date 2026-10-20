@@ -40,6 +40,14 @@ export default [
     rules: {'keystone/no-wire-in-app': 'error'},
   },
   {
+    files: ['scripts/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {ecmaFeatures: {jsx: false}},
+      globals: {...nodeGlobals},
+    },
+  },
+  {
     files: ['lint-rules/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
