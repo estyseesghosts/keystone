@@ -33,5 +33,7 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p4.4-social-graph](p4.4-social-graph.md) | §5 P4.4 | done | `main` | `state/logs/2026-10-20-p4.4-social-graph.md` |
 | [p4.5-emoji-picker](p4.5-emoji-picker.md) | §5 P4.5 | done | `main` | `state/logs/2026-10-20-p4.5-emoji-picker.md` |
 | [p4.6-integration](p4.6-integration.md) | §5 P4 wiring | done | `main` | `state/logs/2026-10-20-p4.6-integration.md` |
+| [p3.1-signin-functional](p3.1-signin-functional.md) | §5 P3.1 follow-up | in progress | `p3.1-signin-functional` | `state/logs/2026-10-20-p3.1-signin-functional.md` |
+| [butterfly-v1-parity](butterfly-v1-parity.md) | ADR-0002 butterfly | shell done, feed next | `p3.1-signin-functional` | `state/logs/2026-10-20-butterfly-shell.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.

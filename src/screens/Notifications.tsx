@@ -14,7 +14,9 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
-import {useActiveBackend, FeedHeading} from '#/screens/HomeFeed'
+import {SignInButton} from '#/components/SignInButton'
+import {useActiveBackend} from '#/screens/HomeFeed'
+import {Pagehead} from '#/components/Pagehead'
 
 // Notifications: Mastodon grouped rows (v2, v1 fallback inside the
 // backend) and Misskey flat/grouped rows. Filter chips map to
@@ -188,14 +190,12 @@ export function NotificationsScreen() {
 
   return (
     <View style={atoms.flex1} testID="notifications-screen">
-      <FeedHeading
-        title="Notifications"
-        subtitle={session ? (groupedMode === 'grouped' ? 'Grouped' : 'Flat list') : undefined}
-      />
+      <Pagehead title="Notifications" />
       {!session || !backend ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
           <Body>Sign in to see notifications.</Body>
           <Caption color="faint">Notifications never show sample data when signed out.</Caption>
+          <SignInButton />
         </View>
       ) : (
         <View style={atoms.flex1}>

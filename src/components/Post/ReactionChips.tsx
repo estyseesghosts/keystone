@@ -17,14 +17,14 @@ import {PendingEmoji} from '#/components/PendingEmoji'
 import {Pressable} from '#/components/Pressable'
 
 const styles = StyleSheet.create({
-  row: {flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8},
+  row: {flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, marginBottom: 4},
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
     borderRadius: 9999,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     paddingVertical: 2,
   },
   art: {width: 14, height: 14, resizeMode: 'contain'},
@@ -80,27 +80,35 @@ export function ReactionChips({
   if (capabilities?.reactions === 'unsupported') return null
   return (
     <View style={styles.row} testID={testID}>
-      {reactions.entries.map(entry => (
-        <Pressable
-          key={entry.key}
-          testID={`reaction-${entry.key}`}
-          disabled={!onToggle}
-          onPress={onToggle ? () => onToggle(entry.key) : undefined}
-          accessibilityRole="button"
-          accessibilityState={{disabled: !onToggle, selected: reactions.mine === entry.key}}
-          accessibilityLabel={
-            onToggle
-              ? `${entry.key}, ${entry.count}${reactions.mine === entry.key ? ', yours' : ''}`
-              : `${entry.key}, ${entry.count}. ${READONLY_REASON}`
-          }
-          style={[
-            styles.chip,
-            {borderColor: reactions.mine === entry.key ? theme.palette.text : theme.palette.edge},
-          ]}>
-          <ChipArt reactionKey={entry.key} url={entry.url} pending={pendingKeys?.has(entry.key)} />
-          <Caption color="muted">{String(entry.count)}</Caption>
-        </Pressable>
-      ))}
+      {reactions.entries.map(entry => {
+        const mine = reactions.mine === entry.key
+        return (
+          <Pressable
+            key={entry.key}
+            testID={`reaction-${entry.key}`}
+            disabled={!onToggle}
+            onPress={onToggle ? () => onToggle(entry.key) : undefined}
+            accessibilityRole="button"
+            accessibilityState={{disabled: !onToggle, selected: mine}}
+            accessibilityLabel={
+              onToggle
+                ? `${entry.key}, ${entry.count}${mine ? ', yours' : ''}`
+                : `${entry.key}, ${entry.count}. ${READONLY_REASON}`
+            }
+            style={[
+              styles.chip,
+              {
+                borderColor: mine ? theme.palette.text : theme.palette.edge,
+                backgroundColor: mine ? theme.palette.text : theme.palette.bgSoft,
+              },
+            ]}>
+            <ChipArt reactionKey={entry.key} url={entry.url} pending={pendingKeys?.has(entry.key)} />
+            <Caption style={{color: mine ? theme.palette.bg : theme.palette.muted}}>
+              {String(entry.count)}
+            </Caption>
+          </Pressable>
+        )
+      })}
     </View>
   )
 }

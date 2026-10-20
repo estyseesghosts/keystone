@@ -46,7 +46,7 @@ export function Dialog({open, onClose, title, children, testID}: DialogProps) {
       testID={testID}
       visible
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}>
       <View style={[atoms.flex1, atoms.centered]}>
         <Pressable

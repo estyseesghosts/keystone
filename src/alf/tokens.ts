@@ -45,3 +45,13 @@ export const breakpointPx = {
   layoutCompactNav: 1300,
   gtTablet: 1300,
 } as const
+
+// Butterfly shell cut points (Keystone v1 parity): phone layout at or below
+// 720px on any platform, icon rail 721–1000px, full sidebar above.
+export const butterflyPx = {
+  mobileMax: 720,
+  railMax: 1000,
+  sidebarMin: 220,
+  railWidth: 68,
+  mainColMax: 600,
+} as const

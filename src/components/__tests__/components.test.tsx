@@ -98,7 +98,7 @@ describe('Menu', () => {
     expect(screen.getByText('Not supported here')).toBeTruthy()
     fireEvent.press(screen.getByTestId('m-item-a'))
     expect(onA).toHaveBeenCalledTimes(1)
-    expect(screen.queryByTestId('m-dialog')).toBeNull()
+    expect(screen.queryByTestId('m-item-a')).toBeNull()
   })
 })
 

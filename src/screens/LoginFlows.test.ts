@@ -10,7 +10,10 @@ import {
   mastodonPasswordSignin as uiMastodonPassword,
   misskeyPasswordSignin as uiMisskeyPassword,
   normalizeServerInput as uiNormalize,
+  pollMisskeyApproval,
   startMastodonOAuth as start,
+  startMisskeyMiAuth,
+  takeMisskeyPending,
 } from './LoginFlows'
 
 const ORIGIN_A = 'https://a.example'
@@ -221,5 +224,83 @@ describe('mastodon MFA + OAuth', () => {
     expect(done?.token).toBe('oauth-b')
     // Replaying the same callback finds nothing.
     await expect(complete({appStore: store, code, state})).resolves.toBeNull()
+  })
+})
+
+describe('misskey MiAuth browser sign-in', () => {
+  it('opens the instance approval page with a callback, persisting the pending row', async () => {
+    const store: KeyValueStore = createMemoryStore()
+    let opened: string | null = null
+    const started = await startMisskeyMiAuth({
+      pendingStore: store,
+      origin: ORIGIN_A,
+      redirectUri: 'https://app.example/auth/callback',
+      openBrowser: (url: string) => {
+        opened = url
+        return Promise.resolve()
+      },
+    })
+    expect(opened).toContain(`${ORIGIN_A}/miauth/${started.session}`)
+    expect(opened).toContain(`callback=${encodeURIComponent('https://app.example/auth/callback')}`)
+    expect(opened).toContain('name=Keystone')
+    // The callback can name the origin from the persisted pending row.
+    expect(takeMisskeyPending(store, started.session)).toMatchObject({
+      scheme: 'https',
+      host: 'a.example',
+      session: started.session,
+    })
+    // Replaying the same session finds nothing.
+    expect(takeMisskeyPending(store, started.session)).toBeNull()
+  })
+
+  it('polls the check endpoint, then verifies the issued token before returning', async () => {
+    const calls: Array<{url: string; body: string}> = []
+    let checks = 0
+    globalThis.fetch = jest.fn(async (input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      calls.push({url, body: typeof init?.body === 'string' ? init.body : ''})
+      if (url.startsWith(`${ORIGIN_A}/api/miauth/`) && url.endsWith('/check')) {
+        checks += 1
+        return jsonResponse(checks < 2 ? {ok: false} : {ok: true, token: 'miauth-token'})
+      }
+      if (url === `${ORIGIN_A}/api/i`) {
+        return jsonResponse(ME_A)
+      }
+      throw new Error(`unexpected request ${url}`)
+    }) as unknown as typeof fetch
+
+    const done = await pollMisskeyApproval({
+      scheme: 'https',
+      host: 'a.example',
+      session: 'sess-1',
+      intervalMs: 1,
+    })
+    expect(done.origin).toBe(ORIGIN_A)
+    expect(done.token).toBe('miauth-token')
+    expect(done.account.id).toBe('alice-id')
+    expect(checks).toBe(2)
+    // Verify-before-store: the `i` check ran with the issued token.
+    const verify = calls.find(c => c.url === `${ORIGIN_A}/api/i`)
+    expect(JSON.parse(verify!.body)).toEqual({i: 'miauth-token'})
+    // Nothing crossed origins.
+    for (const c of calls) {
+      expect(c.url.startsWith(ORIGIN_A)).toBe(true)
+    }
+  })
+
+  it('throws an honest timeout when approval never lands', async () => {
+    globalThis.fetch = jest.fn(async () => jsonResponse({ok: false})) as unknown as typeof fetch
+    await expect(
+      pollMisskeyApproval({scheme: 'https', host: 'a.example', session: 'sess-2', attempts: 2, intervalMs: 1}),
+    ).rejects.toThrow(/not completed in time/)
+  })
+
+  it('rejects expired pendings', async () => {
+    const store: KeyValueStore = createMemoryStore()
+    store.setItem(
+      'keystone_pending_miauth_old',
+      JSON.stringify({scheme: 'https', host: 'a.example', session: 'old', createdAt: 0}),
+    )
+    expect(takeMisskeyPending(store, 'old')).toBeNull()
   })
 })

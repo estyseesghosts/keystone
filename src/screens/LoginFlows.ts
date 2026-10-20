@@ -1,13 +1,17 @@
 import {
   buildAuthorizeUrl,
+  buildMiauthUrl,
+  checkExternalSession,
   createMisskeyClient,
   FediError,
+  fetchExternalMe,
   finishOAuthExchange,
   firstPartyMfa,
   firstPartyPasswordSignin,
   getCachedApp,
   isUnsupportedError,
   mintAppToken,
+  newExternalSessionId,
   randomToken,
   registerApp,
   s256Challenge,
@@ -19,6 +23,7 @@ import {
   UNKNOWN_ACCOUNT_ID,
   verifyAppToken,
   type Account,
+  type ExternalScheme,
   type KeyValueStore,
   type ServerFamily,
   type ServerFlavor,
@@ -240,4 +245,138 @@ export async function completeMastodonOAuth(opts: {
     codeVerifier: pending.codeVerifier,
   })
   return {origin: pending.origin, token, account}
+}
+
+// --- Misskey-family browser sign-in (MiAuth, no password) -------------------
+//
+// Third-party Misskey sign-in never asks for a password (the old product
+// rule: a password typed into this app must only ever go to its own
+// server): the app opens the instance's own `/miauth/:session` approval page
+// and polls `POST /api/miauth/:session/check` until the user approves. The
+// issued token is verified (`fetchExternalMe`) BEFORE the caller stores
+// anything. Two completions share this path:
+// - callback: the instance redirects back to `redirectUri?session=<session>`
+//   (AuthCallback screen; the pending row names the origin).
+// - manual: the user returns themselves and taps "I've approved" (pure
+//   polling — no callback needed, e.g. a server that cannot redirect back).
+
+export interface MisskeyMiAuthPending {
+  scheme: ExternalScheme
+  host: string
+  session: string
+  createdAt: number
+}
+
+const MIAUTH_PENDING_PREFIX = 'keystone_pending_miauth_'
+const MIAUTH_PENDING_MAX_AGE_MS = 15 * 60 * 1000
+
+function miauthPendingKey(session: string): string {
+  return `${MIAUTH_PENDING_PREFIX}${session}`
+}
+
+export function saveMisskeyPending(
+  pendingStore: KeyValueStore,
+  pending: MisskeyMiAuthPending,
+): void {
+  pendingStore.setItem(miauthPendingKey(pending.session), JSON.stringify(pending))
+}
+
+/**
+ * Read AND delete the pending MiAuth flow for `session` (replay guard) —
+ * null when unknown, malformed, or expired.
+ */
+export function takeMisskeyPending(
+  pendingStore: KeyValueStore,
+  session: string,
+): MisskeyMiAuthPending | null {
+  const key = miauthPendingKey(session)
+  let raw: string | null = null
+  try {
+    raw = pendingStore.getItem(key)
+    pendingStore.removeItem(key)
+  } catch {
+    return null
+  }
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as MisskeyMiAuthPending
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      parsed.session !== session ||
+      (parsed.scheme !== 'https' && parsed.scheme !== 'http') ||
+      typeof parsed.host !== 'string' ||
+      !parsed.host
+    ) {
+      return null
+    }
+    if (Date.now() - parsed.createdAt > MIAUTH_PENDING_MAX_AGE_MS) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+export interface MisskeyMiAuthStart extends MisskeyMiAuthPending {
+  url: string
+}
+
+/**
+ * Misskey-family browser sign-in start: mint a session id, persist the
+ * pending row (so the callback can name the origin), hand the instance
+ * approval URL to the caller-owned browser. The approval happens OUTSIDE
+ * the app on the host instance — the app never sees a password.
+ */
+export async function startMisskeyMiAuth(opts: {
+  pendingStore: KeyValueStore
+  origin: string
+  redirectUri: string
+  openBrowser: (url: string) => Promise<unknown>
+}): Promise<MisskeyMiAuthStart> {
+  const scheme: ExternalScheme = opts.origin.startsWith('http://') ? 'http' : 'https'
+  const host = opts.origin.replace(/^https?:\/\//, '')
+  const session = newExternalSessionId()
+  const pending: MisskeyMiAuthPending = {scheme, host, session, createdAt: Date.now()}
+  saveMisskeyPending(opts.pendingStore, pending)
+  const url = buildMiauthUrl(scheme, host, session, opts.redirectUri)
+  await opts.openBrowser(url)
+  return {...pending, url}
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * Poll the instance for the user's MiAuth decision, then verify the issued
+ * token BEFORE returning. `{ ok: false }` means "not yet" — the loop keeps
+ * waiting until `attempts` runs out, then throws an honest timeout.
+ */
+export async function pollMisskeyApproval(opts: {
+  scheme: ExternalScheme
+  host: string
+  session: string
+  attempts?: number
+  intervalMs?: number
+}): Promise<{origin: string; token: string; account: Account}> {
+  const attempts = opts.attempts ?? 30
+  const intervalMs = opts.intervalMs ?? 2000
+  const origin = `${opts.scheme}://${opts.host}`
+  let token: string | null = null
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const check = await checkExternalSession(opts.scheme, opts.host, opts.session)
+    if (check.ok && check.token) {
+      token = check.token
+      break
+    }
+    if (attempt + 1 < attempts) await sleep(intervalMs)
+  }
+  if (!token) {
+    throw new FediError(
+      'The approval was not completed in time. Approve on your server, then try again.',
+      'errors.auth.miauthTimeout',
+    )
+  }
+  const account = await fetchExternalMe(opts.scheme, opts.host, token)
+  return {origin, token, account}
 }

@@ -35,3 +35,40 @@ export const paths: Record<keyof RootParamList, string> = {
   SysDebug: '/sys/debug',
   Compose: '/compose',
 }
+
+// Butterfly chrome titles per leaf route (Keystone v1 `stripTitle`
+// mapping: the SECTION, never the tab — `/network/*` reads "My Network").
+export function titleForRoute(
+  name: string | undefined,
+  params?: {tag?: unknown} | null,
+): string {
+  switch (name) {
+    case 'Home':
+      return 'Home'
+    case 'Network':
+      return 'My Network'
+    case 'Explore':
+      return 'Explore'
+    case 'Notifications':
+      return 'Notifications'
+    case 'User':
+      return 'Profile'
+    case 'Note':
+      return 'Post'
+    case 'Tag':
+      return typeof params?.tag === 'string' && params.tag ? `#${params.tag}` : 'Tag'
+    case 'List':
+      return 'List'
+    case 'Settings':
+      return 'Settings'
+    case 'Login':
+    case 'AuthCallback':
+      return 'Sign in'
+    case 'SysDebug':
+      return 'Debug'
+    case 'Compose':
+      return 'New post'
+    default:
+      return 'Keystone'
+  }
+}

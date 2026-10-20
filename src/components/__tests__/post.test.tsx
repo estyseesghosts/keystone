@@ -25,7 +25,11 @@ describe('PostCard', () => {
     const createdAt = new Date(Date.now() - 22 * 3_600_000).toISOString()
     renderCard(<PostCard post={makePost({createdAt})} sessionId={SESSION} />)
     expect(screen.getByText('Alice')).toBeTruthy()
-    expect(screen.getByText('@alice@example.social · 22h')).toBeTruthy()
+    // v1 narrow-relative wording; the exact abbreviation is ICU- and
+    // locale-dependent ("22h ago" vs "22 hrs ago") so expect the engine's
+    // own rendering in the component's (device) locale.
+    const expected = `@alice@example.social · ${new Intl.RelativeTimeFormat(undefined, {style: 'narrow'}).format(-22, 'hour')}`
+    expect(screen.getByText(expected)).toBeTruthy()
     expect(screen.getByTestId('avatar-fallback-a1')).toBeTruthy()
     expect(screen.getByTestId('post-body-p1')).toBeTruthy()
   })
@@ -51,7 +55,7 @@ describe('PostCard', () => {
     expect(screen.getByText('original text')).toBeTruthy()
   })
 
-  it('renders reply context, quote embed, media images, and counts', () => {
+  it('renders reply context, quote embed, and media images', () => {
     const parent = makePost({id: 'parent', author: makeAccount({id: 'c1', username: 'carol', acct: 'carol@x.social', host: 'x.social', name: '', displayName: 'carol'})})
     const post = makePost({
       id: 'p3',
@@ -65,7 +69,7 @@ describe('PostCard', () => {
     expect(screen.getByTestId('post-quote-p3')).toBeTruthy()
     expect(screen.getByText('quoted body')).toBeTruthy()
     expect(screen.getByTestId('media-m9')).toBeTruthy()
-    expect(screen.getByTestId('post-counts-p3')).toBeTruthy()
+    expect(screen.getByTestId('post-actions-p3')).toBeTruthy()
   })
 
   it('renders an unavailable quote as an honest fallback', () => {
@@ -105,9 +109,11 @@ describe('PostCard', () => {
     expect(screen.queryByTestId('post-reactions-p7')).toBeNull()
   })
 
-  it('write actions are disabled with reasons, never inert', () => {
+  it('signed-out action row is static counts, never buttons', () => {
     renderCard(<PostCard post={makePost({id: 'p8'})} sessionId={SESSION} />)
-    expect(screen.getByLabelText('Reply. Sign in to reply.')).toBeTruthy()
-    expect(screen.getByLabelText('Boost. Sign in to boost.')).toBeTruthy()
+    expect(screen.getByTestId('post-actions-p8')).toBeTruthy()
+    // Static spans: no pressable actions without a session.
+    expect(screen.queryByLabelText('Reply. Sign in to reply.')).toBeNull()
+    expect(screen.queryByLabelText('Boost. Sign in to boost.')).toBeNull()
   })
 })

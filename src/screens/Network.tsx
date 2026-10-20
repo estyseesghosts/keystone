@@ -6,7 +6,8 @@ import {atoms} from '#/alf/atoms'
 import {ComposeFab} from '#/components/ComposeFab'
 import {Button} from '#/components/Button'
 import type {RootParamList, NetworkTab} from '#/routes'
-import {useActiveBackend, FeedHeading, FeedView} from '#/screens/HomeFeed'
+import {useActiveBackend, FeedView} from '#/screens/HomeFeed'
+import {Pagehead} from '#/components/Pagehead'
 import {defaultNetworkTab, descriptorForNetworkTab, visibleNetworkTabs} from '#/state/queries'
 
 // Network (`/network/:tab?`): social / local / global timelines.
@@ -27,7 +28,7 @@ export function NetworkScreen() {
 
   return (
     <View style={atoms.flex1} testID="network-screen">
-      <FeedHeading title="Network" />
+      <Pagehead title="Network" />
       <View style={[atoms.row, atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="network-tabs">
         {visible.map(t => (
           <Button

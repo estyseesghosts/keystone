@@ -1,7 +1,9 @@
 import {getStateFromPath} from '@react-navigation/native'
+import {I18nProvider} from '@lingui/react'
 import {fireEvent, render, screen} from '@testing-library/react-native'
 
 import {linking, Navigation} from '#/Navigation'
+import {i18n} from '#/locale/i18n'
 import {Root} from '#/Root'
 
 jest.mock('expo-linking', () => ({
@@ -39,11 +41,13 @@ describe('Navigation', () => {
 
   it('accepts an initial state (deep-link landing)', () => {
     render(
-      <Navigation
-        initialState={{
-          routes: [{name: 'SysDebug'}],
-        }}
-      />,
+      <I18nProvider i18n={i18n}>
+        <Navigation
+          initialState={{
+            routes: [{name: 'SysDebug'}],
+          }}
+        />
+      </I18nProvider>,
     )
     expect(screen.getByTestId('sys-debug-light')).toBeTruthy()
   })

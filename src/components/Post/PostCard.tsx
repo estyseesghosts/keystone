@@ -32,7 +32,7 @@ import {showToast} from '#/lib/toast'
 import {usePostActions, type PostActions} from '#/state/cache'
 import {useOptionalSessionStore} from '#/state/session/SessionProvider'
 
-import {ActionBar, toastError} from './ActionBar'
+import {ActionBar, StaticActionBar, toastError} from './ActionBar'
 import {postBodyNodes, postEmojis} from './body'
 import {usePostCardHandlers, type PostCardHandlers} from './handlers'
 import {buildPostMenu, type PostMenuSection} from './menuModel'
@@ -44,16 +44,15 @@ import {formatRelativeTime} from './time'
 const AVATAR = 40
 
 const styles = StyleSheet.create({
-  card: {flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 10},
-  avatar: {width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2},
+  card: {flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 12},
+  avatar: {width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, borderWidth: 1},
   avatarFallback: {alignItems: 'center', justifyContent: 'center'},
   main: {flex: 1, gap: 2, minWidth: 0},
   header: {flexDirection: 'row', alignItems: 'baseline', gap: 6, flexWrap: 'wrap'},
-  headerName: {flexShrink: 1},
+  headerName: {flexShrink: 1, maxWidth: 220, fontWeight: '700'},
   context: {marginBottom: 2},
-  counts: {flexDirection: 'row', gap: 12, marginTop: 6, flexWrap: 'wrap'},
   actions: {flexDirection: 'row', gap: 16, marginTop: 6},
-  cwBox: {borderRadius: 8, padding: 8, marginTop: 4},
+  cwBox: {borderRadius: 6, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8, marginVertical: 8},
 })
 
 function Avatar({post}: {post: Post}) {
@@ -65,7 +64,7 @@ function Avatar({post}: {post: Post}) {
         testID={`avatar-fallback-${post.author.id}`}
         accessibilityRole="image"
         accessibilityLabel={displayNameOf(post.author)}
-        style={[styles.avatar, styles.avatarFallback, {backgroundColor: theme.palette.bgSoft}]}>
+        style={[styles.avatar, styles.avatarFallback, {backgroundColor: theme.palette.bgSoft, borderColor: theme.palette.border}]}>
         <Body>{displayNameOf(post.author).slice(0, 1).toUpperCase()}</Body>
       </View>
     )
@@ -73,7 +72,7 @@ function Avatar({post}: {post: Post}) {
   return (
     <Image
       source={{uri: post.author.avatarUrl}}
-      style={styles.avatar}
+      style={[styles.avatar, {borderColor: theme.palette.border}]}
       accessibilityRole="image"
       accessibilityLabel={displayNameOf(post.author)}
       onError={() => setFailed(true)}
@@ -212,6 +211,7 @@ function PostCardView({
   onLinkPress,
   testID,
   live,
+  sessionId,
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
   const [cwOpen, setCwOpen] = useState(false)
@@ -247,11 +247,11 @@ function PostCardView({
             {displayNameOf(effective.author)}
           </Body>
           <Caption color="muted" numberOfLines={1}>
-            {handleOf(effective.author)} · {formatRelativeTime(effective.createdAt)}
+            {`${handleOf(effective.author)} · ${formatRelativeTime(effective.createdAt)}`}
           </Caption>
         </View>
         {cw !== null && (
-          <View style={[styles.cwBox, {backgroundColor: theme.palette.bgSoft}]} testID={`cw-${post.id}`}>
+          <View style={[styles.cwBox, {backgroundColor: theme.palette.bg, borderColor: theme.palette.borderStrong}]} testID={`cw-${post.id}`}>
             <Caption color="muted">CW: {cw}</Caption>
             <Pressable
               testID={`cw-toggle-${post.id}`}
@@ -282,17 +282,6 @@ function PostCardView({
             testID={`post-quote-${post.id}`}
           />
         )}
-        <View style={styles.counts} testID={`post-counts-${post.id}`}>
-          <Caption color="muted">
-            {effective.counts.replies} replies · {effective.counts.boosts} boosts
-            {effective.counts.quotes > 0 ? ` · ${effective.counts.quotes} quotes` : ''}
-          </Caption>
-          {effective.favourite !== null && (
-            <Caption color="muted">
-              {effective.favourite.count} likes{effective.favourite.mine ? ' · liked' : ''}
-            </Caption>
-          )}
-        </View>
         {live?.translation && (
           <View style={[styles.cwBox, {backgroundColor: theme.palette.bgSoft}]} testID={`translation-${post.id}`}>
             <Caption color="muted">
@@ -330,26 +319,10 @@ function PostCardView({
             capabilities={capabilities ?? null}
             handlers={live.handlers}
             menu={live.menu}
+            sessionId={sessionId}
           />
         ) : (
-          <View style={styles.actions}>
-            <Pressable
-              testID={`action-reply-${post.id}`}
-              disabled
-              accessibilityRole="button"
-              accessibilityState={{disabled: true}}
-              accessibilityLabel="Reply. Sign in to reply.">
-              <Caption color="faint">Reply</Caption>
-            </Pressable>
-            <Pressable
-              testID={`action-boost-${post.id}`}
-              disabled
-              accessibilityRole="button"
-              accessibilityState={{disabled: true}}
-              accessibilityLabel="Boost. Sign in to boost.">
-              <Caption color="faint">Boost</Caption>
-            </Pressable>
-          </View>
+          <StaticActionBar post={effective} />
         )}
       </View>
     </View>

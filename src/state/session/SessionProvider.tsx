@@ -58,3 +58,20 @@ export function useActiveSession(): Session | null {
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot)
   return snapshot.sessions.find(s => s.id === snapshot.activeId) ?? null
 }
+
+/**
+ * Like `useActiveSession` but null outside a provider (shell chrome renders
+ * in bare test trees) or when signed out. Never throws, never a half
+ * session.
+ */
+const EMPTY_SNAPSHOT = {sessions: [], activeId: null}
+const NO_SUBSCRIBE = () => () => {}
+
+export function useOptionalActiveSession(): Session | null {
+  const store = useOptionalSessionStore()
+  const snapshot = useSyncExternalStore(
+    store?.subscribe ?? NO_SUBSCRIBE,
+    store ? store.getSnapshot : () => EMPTY_SNAPSHOT,
+  )
+  return snapshot.sessions.find(s => s.id === snapshot.activeId) ?? null
+}

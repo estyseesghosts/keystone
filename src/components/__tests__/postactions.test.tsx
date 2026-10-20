@@ -267,18 +267,22 @@ describe('PostCard write wiring', () => {
     await waitFor(() => expect(b.boost).toHaveBeenCalledWith('p1'))
   })
 
-  it('without composer/picker callbacks reply and react are disabled with reasons', () => {
+  it('without composer callbacks reply is disabled with a reason; react picks locally', () => {
     live()
-    expect(screen.getByLabelText(/Reply\. No composer is connected/)).toBeTruthy()
-    expect(screen.getByLabelText(/React\. No emoji picker is connected/)).toBeTruthy()
+    expect(screen.getByLabelText(/Reply, 2 replies\. No composer is connected/)).toBeTruthy()
+    // The emoji popup is local now: no picker seam needed for the Like button.
+    expect(screen.getByTestId('action-react-p1')).toBeTruthy()
   })
 
-  it('react opens the picker seam and applies the pick', async () => {
-    const onPickReaction = jest.fn((_p, pick) => pick('🔥', null))
-    const b = live(makePost(), fakeBackend(), {onPickReaction})
-    fireEvent.press(screen.getByTestId('action-react-p1'))
-    expect(onPickReaction).toHaveBeenCalled()
-    await waitFor(() => expect(b.react).toHaveBeenCalledWith('p1', '🔥'))
+  it('smile opens the anchored emoji popup and applies the pick', async () => {
+    const b = live(makePost(), fakeBackend())
+    fireEvent.press(screen.getByTestId('action-smile-p1'))
+    expect(screen.getByTestId('action-picker-p1')).toBeTruthy()
+    const cells = screen.queryAllByTestId(/emoji-cell-.*/)
+    expect(cells.length).toBeGreaterThan(0)
+    const key = cells[0].props.testID.replace('emoji-cell-', '')
+    fireEvent.press(cells[0])
+    await waitFor(() => expect(b.react).toHaveBeenCalledWith('p1', key))
   })
 
   it('like control is hidden when the server has no reactions', () => {

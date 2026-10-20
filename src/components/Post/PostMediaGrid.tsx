@@ -1,10 +1,11 @@
-// Still-image grid (slice 3.3). Video is slice 3.8: `gifv`, `video`,
-// and `audio` kinds render a placeholder box WITH the reason — never a
-// fake player, never an auto-fetch. Unknown/file kinds get the same
-// honest placeholder.
+// Post media (Keystone v1 layout): a lone attachment renders fit-width
+// (full column width, max height 320, radius 6, hairline border); two or
+// more render as a horizontal snap strip of 220px-tall items. Sensitive
+// media stays behind an explicit reveal. Video/audio/file kinds render an
+// honest placeholder — never a fake player, never an auto-fetch.
 
 import {useState} from 'react'
-import {Image, StyleSheet, View} from 'react-native'
+import {Image, ScrollView, StyleSheet, View} from 'react-native'
 
 import type {Media} from '@keystone/fedi'
 
@@ -12,13 +13,19 @@ import {useTheme} from '#/alf/index'
 import {Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
 
+const SINGLE_AR = 16 / 10
+const STRIP_AR = 4 / 3
+const STRIP_H = 220
+const MAX_H = 320
+
 const styles = StyleSheet.create({
-  grid: {flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8},
-  cell1: {width: '100%', aspectRatio: 16 / 9},
-  cellN: {width: '48%', aspectRatio: 1},
-  image: {width: '100%', height: '100%', borderRadius: 10},
+  wrap: {marginTop: 8},
+  single: {width: '100%', maxHeight: MAX_H, borderRadius: 6, borderWidth: 1, overflow: 'hidden'},
+  image: {width: '100%', height: '100%'},
+  strip: {flexDirection: 'row', gap: 8},
+  stripItem: {height: STRIP_H, borderRadius: 6, borderWidth: 1, overflow: 'hidden'},
   placeholder: {
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -26,6 +33,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
 })
+
+function metaAspect(item: Media): number | null {
+  const meta = item.meta
+  if (!meta || typeof meta !== 'object') return null
+  const w = (meta as Record<string, unknown>).width
+  const h = (meta as Record<string, unknown>).height
+  if (typeof w === 'number' && typeof h === 'number' && w > 0 && h > 0) return w / h
+  return null
+}
 
 function Placeholder({label, reason, testID}: {label: string; reason: string; testID?: string}) {
   const theme = useTheme()
@@ -40,19 +56,64 @@ function Placeholder({label, reason, testID}: {label: string; reason: string; te
   )
 }
 
-function Still({item, cell}: {item: Media; cell: object}) {
+function Still({
+  item,
+  single,
+  testID,
+}: {
+  item: Media
+  single: boolean
+  testID?: string
+}) {
+  const theme = useTheme()
   const [failed, setFailed] = useState(false)
+  const [measured, setMeasured] = useState<number | null>(null)
   if (item.url === null || failed) {
     return <Placeholder label="Image unavailable" reason="The server sent no image URL." testID={`media-missing-${item.id}`} />
   }
+  const ar = measured ?? metaAspect(item) ?? (single ? SINGLE_AR : STRIP_AR)
   return (
-    <View style={cell} testID={`media-${item.id}`}>
+    <View
+      style={[
+        single ? styles.single : styles.stripItem,
+        {aspectRatio: ar, borderColor: theme.palette.border},
+      ]}
+      testID={testID ?? `media-${item.id}`}>
       <Image
         source={{uri: item.previewUrl ?? item.url}}
         style={styles.image}
         accessibilityRole="image"
         accessibilityLabel={item.description ?? item.name}
         onError={() => setFailed(true)}
+        onLoad={e => {
+          const src = (e.nativeEvent as unknown as {source?: {width?: number; height?: number}}).source
+          if (src && src.width && src.height) setMeasured(src.width / src.height)
+        }}
+      />
+    </View>
+  )
+}
+
+function Other({item, single}: {item: Media; single: boolean}) {
+  const theme = useTheme()
+  const label =
+    item.kind === 'gifv' || item.kind === 'video'
+      ? 'Video'
+      : item.kind === 'audio'
+        ? 'Audio'
+        : 'Attachment'
+  return (
+    <View
+      style={[
+        single
+          ? [styles.single, {minHeight: 80}]
+          : [styles.stripItem, {width: STRIP_H * STRIP_AR}],
+        {borderColor: theme.palette.border},
+      ]}>
+      <Placeholder
+        label={label}
+        reason="No player is embedded here."
+        testID={`media-placeholder-${item.id}`}
       />
     </View>
   )
@@ -64,7 +125,7 @@ export function PostMediaGrid({media, testID}: {media: Media[]; testID?: string}
   const sensitive = media.some(m => m.isSensitive)
   if (sensitive && !revealed) {
     return (
-      <View style={styles.grid} testID={testID}>
+      <View style={styles.wrap} testID={testID}>
         <Pressable
           testID="media-sensitive-show"
           onPress={() => setRevealed(true)}
@@ -75,27 +136,32 @@ export function PostMediaGrid({media, testID}: {media: Media[]; testID?: string}
       </View>
     )
   }
-  const cell = media.length === 1 ? styles.cell1 : styles.cellN
+  if (media.length === 1) {
+    const item = media[0]
+    return (
+      <View style={styles.wrap} testID={testID}>
+        {item.kind === 'image' ? (
+          <Still item={item} single />
+        ) : (
+          <Other item={item} single />
+        )}
+      </View>
+    )
+  }
   return (
-    <View style={styles.grid} testID={testID}>
-      {media.map(item => {
-        if (item.kind === 'image') return <Still key={item.id} item={item} cell={cell} />
-        const label =
-          item.kind === 'gifv' || item.kind === 'video'
-            ? 'Video'
-            : item.kind === 'audio'
-              ? 'Audio'
-              : 'Attachment'
-        return (
-          <View key={item.id} style={[cell, {minHeight: 80}]}>
-            <Placeholder
-              label={label}
-              reason="Playback lands in slice 3.8 — no player is faked here."
-              testID={`media-placeholder-${item.id}`}
-            />
-          </View>
-        )
-      })}
+    <View style={styles.wrap} testID={testID}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.strip}>
+        {media.map(item =>
+          item.kind === 'image' ? (
+            <Still key={item.id} item={item} single={false} />
+          ) : (
+            <Other key={item.id} item={item} single={false} />
+          ),
+        )}
+      </ScrollView>
     </View>
   )
 }

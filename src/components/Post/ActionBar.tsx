@@ -1,13 +1,23 @@
-// Post action bar (slice 4.2): reply, boost (+quote), like/react, more.
-// Presentational over `usePostActions` (4.1) results; every control is
-// gated and either works or is disabled/hidden with its reason.
+// Post action bar (Keystone v1 look): inline muted icon + count actions —
+// reply, repost (+quote), like, emoji-react, and the ⋯ menu pinned right.
+// Presentational over `usePostActions` results; every control is gated and
+// either works or is disabled/hidden with its reason. Signed-out trees get
+// static count spans (no dead buttons).
 
 import {StyleSheet, View} from 'react-native'
+import {useRef, useState} from 'react'
 
-import type {Capabilities, Post, ServerFamily} from '@keystone/fedi'
+import type {Capabilities, Post, ReactionSummary, ServerFamily} from '@keystone/fedi'
 
-import {Button} from '#/components/Button'
+import {useTheme} from '#/alf/index'
+import {Caption} from '#/alf/typography'
 import {Menu, type MenuItem} from '#/components/Menu'
+import {AnchoredPopup} from '#/components/Popup'
+import {EmojiPicker} from '#/components/EmojiPicker'
+import {HeartIcon, MoreIcon, ReplyIcon, RepostIcon, SmileIcon} from '#/components/icons'
+import {Pressable} from '#/components/Pressable'
+import {UnicodeEmoji} from '#/components/EmojiImage'
+import {Image, Pressable as RNPressable, type View as ViewType} from 'react-native'
 import {likeKind, type PostActions} from '#/state/cache'
 import {showToast} from '#/lib/toast'
 
@@ -15,13 +25,100 @@ import type {PostCardHandlers} from './handlers'
 import {PostMenu} from './PostMenu'
 import type {PostMenuSection} from './menuModel'
 
+const ICON = 16
+
 const styles = StyleSheet.create({
-  row: {flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap', alignItems: 'center'},
+  row: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 5},
+  action: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  actionDisabled: {opacity: 0.5},
+  spacer: {marginLeft: 'auto'},
 })
 
 const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Something went wrong.')
 export const toastError = (e: unknown): void => {
   showToast(msg(e))
+}
+
+function ActionContent({
+  icon,
+  text,
+  active,
+}: {
+  icon: React.ReactNode
+  text: string
+  active?: boolean
+}) {
+  const theme = useTheme()
+  const fg = active ? theme.palette.bg : theme.palette.muted
+  return (
+    <View
+      style={[styles.action, active && {backgroundColor: theme.palette.text}]}>
+      {icon}
+      <Caption style={{color: fg}}>{text}</Caption>
+    </View>
+  )
+}
+
+function ActionButton({
+  testID,
+  label,
+  icon,
+  text,
+  active,
+  disabled,
+  reason,
+  onPress,
+}: {
+  testID: string
+  label: string
+  icon: React.ReactNode
+  text: string
+  active?: boolean
+  disabled?: boolean
+  reason?: string
+  onPress?: () => void
+}) {
+  return (
+    <Pressable
+      testID={testID}
+      disabled={disabled}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{disabled, selected: active}}
+      accessibilityLabel={disabled && reason ? `${label}. ${reason}` : label}
+      style={disabled && styles.actionDisabled}>
+      <ActionContent icon={icon} text={text} active={active} />
+    </Pressable>
+  )
+}
+
+function artFor(key: string, reactions: ReactionSummary | null): string | null {
+  if (!reactions) return null
+  return reactions.entries.find(e => e.key === key)?.url ?? null
+}
+
+function LikeGlyph({glyphKey, url, mine}: {glyphKey: string | null; url: string | null; mine: boolean}) {
+  const theme = useTheme()
+  if (glyphKey && glyphKey !== '❤') {
+    if (url) {
+      return (
+        <Image
+          source={{uri: url}}
+          style={{width: ICON, height: ICON, resizeMode: 'contain'}}
+          accessibilityIgnoresInvertColors
+        />
+      )
+    }
+    return <UnicodeEmoji sequence={glyphKey} size={ICON} />
+  }
+  return <HeartIcon size={ICON} color={mine ? theme.palette.bg : theme.palette.muted} filled={mine} />
 }
 
 export function ActionBar({
@@ -31,6 +128,7 @@ export function ActionBar({
   capabilities,
   handlers,
   menu,
+  sessionId,
 }: {
   /** The shown (appeared) post — shadow-merged for display. */
   post: Post
@@ -39,9 +137,20 @@ export function ActionBar({
   capabilities: Capabilities | null
   handlers: PostCardHandlers
   menu: PostMenuSection[]
+  /** Owning session (emoji picker + reaction writes bind to it). */
+  sessionId: string
 }) {
+  const theme = useTheme()
   const id = post.id
   const kind = likeKind(family, capabilities)
+  const muted = theme.palette.muted
+  const [pickOpen, setPickOpen] = useState(false)
+  const pickAnchor = useRef<ViewType | null>(null)
+
+  const pick = (key: string, url: string | null) => {
+    setPickOpen(false)
+    void actions.reaction.setWithArt(key, url).catch(toastError)
+  }
 
   const boosted = actions.renote.value
   const boostItems: MenuItem[] = [
@@ -69,54 +178,129 @@ export function ActionBar({
   let like: React.ReactNode = null
   if (kind === 'favourite') {
     const on = actions.favourite.value
+    const gate = actions.favourite.gate
+    const count = post.favourite?.count ?? 0
     like = (
-      <Button
+      <ActionButton
         testID={`action-like-${id}`}
-        label={on ? 'Unlike' : 'Like'}
-        variant="secondary"
-        disabled={!actions.favourite.gate.enabled}
-        disabledReason={actions.favourite.gate.enabled ? undefined : actions.favourite.gate.reason}
+        label={on ? `Unlike, ${count} likes` : `Like, ${count} likes`}
+        icon={<HeartIcon size={ICON} color={on ? theme.palette.bg : muted} filled={on} />}
+        text={String(count)}
+        active={on}
+        disabled={!gate.enabled}
+        reason={gate.enabled ? undefined : gate.reason}
         onPress={() => void actions.favourite.set(!on).catch(toastError)}
       />
     )
   } else if (kind === 'reaction') {
     const mine = actions.reaction.value
     const gate = actions.reaction.gate
-    const canPick = !!handlers.onPickReaction
+    const total = post.reactions?.total ?? 0
     like = (
-      <Button
+      <ActionButton
         testID={`action-react-${id}`}
-        label={mine ? 'Remove reaction' : 'React'}
-        variant="secondary"
-        disabled={!gate.enabled || (!mine && !canPick)}
-        disabledReason={
-          !gate.enabled
-            ? gate.reason
-            : !mine && !canPick
-              ? 'No emoji picker is connected here; tap a reaction chip instead.'
-              : undefined
+        label={
+          mine
+            ? `Liked with ${mine} — remove reaction`
+            : `Like, ${total} reactions`
         }
+        icon={<LikeGlyph glyphKey={mine} url={mine ? artFor(mine, post.reactions) : null} mine={!!mine} />}
+        text={String(total)}
+        active={!!mine}
+        disabled={!gate.enabled}
+        reason={gate.enabled ? undefined : gate.reason}
         onPress={() => {
           if (mine) void actions.reaction.set(null).catch(toastError)
-          else handlers.onPickReaction?.(post, (key, url) => actions.reaction.setWithArt(key, url).catch(toastError))
+          else setPickOpen(true)
         }}
       />
     )
   }
 
+  const smileGate = actions.reaction.gate
+  const showSmile = smileGate.enabled
+
   return (
     <View style={styles.row} testID={`post-actions-${id}`}>
-      <Button
+      <ActionButton
         testID={`action-reply-${id}`}
-        label="Reply"
-        variant="secondary"
+        label={`Reply, ${post.counts.replies} replies`}
+        icon={<ReplyIcon size={ICON} color={muted} />}
+        text={String(post.counts.replies)}
         disabled={!handlers.onReply}
-        disabledReason={handlers.onReply ? undefined : 'No composer is connected to this view.'}
+        reason={handlers.onReply ? undefined : 'No composer is connected to this view.'}
         onPress={() => handlers.onReply?.(post)}
       />
-      <Menu testID={`action-boost-${id}`} label={boosted ? 'Boosted' : 'Boost'} items={boostItems} />
+      <Menu
+        testID={`action-boost-${id}`}
+        label={boosted ? `Repost options, already reposted` : 'Repost options'}
+        items={boostItems}
+        trigger={
+          <ActionContent
+            icon={<RepostIcon size={ICON} color={boosted ? theme.palette.bg : muted} />}
+            text={String(post.counts.boosts)}
+            active={boosted}
+          />
+        }
+      />
       {like}
-      <PostMenu postId={id} sections={menu} />
+      {showSmile ? (
+        <>
+          <RNPressable
+            ref={pickAnchor}
+            testID={`action-smile-${id}`}
+            onPress={() => setPickOpen(v => !v)}
+            accessibilityRole="button"
+            accessibilityLabel="React with emoji"
+            hitSlop={8}>
+            <ActionContent icon={<SmileIcon size={ICON} color={muted} />} text="" />
+          </RNPressable>
+          {pickOpen ? (
+            <AnchoredPopup
+              anchor={pickAnchor}
+              onClose={() => setPickOpen(false)}
+              testID={`action-picker-${id}`}
+              minWidth={320}>
+              <EmojiPicker sessionId={sessionId} onPick={e => pick(e.key, e.url ?? null)} />
+            </AnchoredPopup>
+          ) : null}
+        </>
+      ) : null}
+      <View style={styles.spacer}>
+        <PostMenu
+          postId={id}
+          sections={menu}
+          trigger={
+            <ActionContent icon={<MoreIcon size={ICON} color={muted} />} text="" />
+          }
+        />
+      </View>
+    </View>
+  )
+}
+
+/**
+ * Signed-out action row: static icon + count spans, never buttons.
+ * (Keystone v1: signed-out actions render without handlers; the like slot
+ * follows the post shape — favourite when present, else reactions.)
+ */
+export function StaticActionBar({post}: {post: Post}) {
+  const likeCount = post.favourite !== null ? (post.favourite?.count ?? 0) : (post.reactions?.total ?? 0)
+  const muted = useTheme().palette.muted
+  return (
+    <View style={styles.row} testID={`post-actions-${post.id}`}>
+      <ActionContent
+        icon={<ReplyIcon size={ICON} color={muted} />}
+        text={String(post.counts.replies)}
+      />
+      <ActionContent
+        icon={<RepostIcon size={ICON} color={muted} />}
+        text={String(post.counts.boosts)}
+      />
+      <ActionContent
+        icon={<HeartIcon size={ICON} color={muted} />}
+        text={String(likeCount)}
+      />
     </View>
   )
 }

@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {View} from 'react-native'
-import {useRoute, type RouteProp} from '@react-navigation/native'
+import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
 import {displayNameOf, handleOf, type Account, type Relationship} from '@keystone/fedi'
 
@@ -9,6 +9,7 @@ import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {ProfileActions} from '#/components/ProfileActions'
+import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend, FeedView} from '#/screens/HomeFeed'
 import {profileTabDescriptor, type ProfileFeedTab} from '#/state/queries'
@@ -31,6 +32,7 @@ function FollowStateCaption({relationship}: {relationship: Relationship | null})
 
 export function UserScreen() {
   const route = useRoute<RouteProp<RootParamList, 'User'>>()
+  const nav = useNavigation<NavigationProp<RootParamList>>()
   const routeId = route.params?.id
   const {session, backend} = useActiveBackend()
   // No id = the Profile tab = the viewer's own profile.
@@ -90,6 +92,7 @@ export function UserScreen() {
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
           <Body>Sign in to see profiles.</Body>
           <Caption color="faint">Profiles never show sample data when signed out.</Caption>
+          <SignInButton />
         </View>
       ) : loading ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
@@ -116,7 +119,14 @@ export function UserScreen() {
             <FollowStateCaption relationship={relationship} />
             {session.accountId !== account.id ? (
               <ProfileActions sessionId={session.id} account={account} />
-            ) : null}
+            ) : (
+              <Button
+                label="Accounts & settings"
+                variant="secondary"
+                testID="profile-settings"
+                onPress={() => nav.navigate('Settings')}
+              />
+            )}
           </View>
           <View style={[atoms.row, atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="profile-tabs">
             {TABS.map(t => (

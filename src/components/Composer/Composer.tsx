@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
-import {Image, ScrollView, StyleSheet, TextInput, View} from 'react-native'
+import {ScrollView, StyleSheet, TextInput, View} from 'react-native'
 
 import {
   applyCompletion,
@@ -23,7 +23,6 @@ import {useTheme} from '#/alf/index'
 import {radius, space, typeSize} from '#/alf/tokens'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {TextField} from '#/components/forms/TextField'
 import {
   useComposeLimits,
   useCreatePost,
@@ -38,10 +37,16 @@ import {
   type LocalDraft,
 } from '#/storage/drafts'
 
-import {SuggestionList, useSuggestions, type Suggestion} from './Autocomplete'
-import {Dialog} from '#/components/Dialog'
-import {EmojiPicker} from '#/components/EmojiPicker'
+import {useSuggestions, type Suggestion} from './Autocomplete'
 import {Chip} from './Chip'
+import {
+  CwSection,
+  DraftsSection,
+  PollSection,
+  ScheduleSection,
+  SuggestEmojiSection,
+  UploadsSection,
+} from './ComposerSections'
 import {pickMedia} from './pickMedia'
 
 // Composer (slice 4.3). Posts only through the owning session's backend.
@@ -64,7 +69,9 @@ export interface ComposerProps {
   quote?: Post | null
   /** Restore this local draft on open. */
   draftId?: string | null
-  onClose: () => void
+  /** Dismiss the composer. Omit for the inline (home) composer, which has
+   * no Cancel button — it stays mounted like the reference client. */
+  onClose?: () => void
   onPosted?: (kind: 'posted' | 'scheduled') => void
 }
 
@@ -83,7 +90,7 @@ function stateFromDraft(d: LocalDraft): Partial<ComposeState> {
   }
 }
 
-export function Composer({
+export function useComposerController({
   session,
   backend,
   store,
@@ -196,7 +203,7 @@ export function Composer({
       postedRef.current = true
       deleteDraft(store, session.id, id)
       onPosted?.(result.kind)
-      onClose()
+      onClose?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not post.')
     } finally {
@@ -244,10 +251,35 @@ export function Composer({
   }
   const drafts = showDrafts ? listDrafts(store, session.id).filter(d => d.id !== id) : []
 
+  return {
+    theme, family, gates, limitsQuery, limits, emojis, uploads, create,
+    id, state, caret, setCaret, error, setError, busy, showDrafts, setShowDrafts,
+    pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
+    count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
+    submit, addMedia, styles, restore, drafts,
+    session, backend, store, replyTo, quote, draftId, onClose, onPosted,
+  }
+}
+
+export type ComposerController = ReturnType<typeof useComposerController>
+
+export function Composer(props: ComposerProps) {
+  const controller = useComposerController(props)
+  const {
+    theme, family, gates, limits, emojis, uploads, create,
+    id, state, caret, setCaret, error, busy, showDrafts, setShowDrafts,
+    pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
+    count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
+    submit, addMedia, styles, restore, drafts,
+    session, backend, store, replyTo, quote, draftId, onClose,
+  } = controller
+
   return (
     <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
       <View style={styles.spread}>
-        <Button label="Cancel" variant="secondary" onPress={onClose} testID="composer-cancel" />
+        {onClose ? (
+          <Button label="Cancel" variant="secondary" onPress={onClose} testID="composer-cancel" />
+        ) : null}
         <Button
           label={state.scheduledAt && gates.schedule.enabled ? 'Schedule' : 'Post'}
           onPress={submit}
@@ -268,14 +300,7 @@ export function Composer({
         </View>
       ) : null}
 
-      {state.cwEnabled ? (
-        <TextField
-          label="Content warning"
-          value={state.cw}
-          onChangeText={cw => patch({cw})}
-          testID="composer-cw"
-        />
-      ) : null}
+      <CwSection c={controller} />
 
       <TextInput
         testID="composer-text"
@@ -288,20 +313,7 @@ export function Composer({
         accessibilityLabel="Post text"
         style={styles.input}
       />
-      <SuggestionList suggestions={suggestions} onPick={onPickSuggestion} />
-      {pickingEmoji ? (
-        <Dialog open onClose={() => setPickingEmoji(false)} title="Insert emoji" testID="composer-emoji-dialog">
-          <EmojiPicker
-            sessionId={session.id}
-            onPick={e => {
-              const at = Math.min(caret, state.text.length)
-              patch({text: state.text.slice(0, at) + e.key + state.text.slice(at)})
-              setCaret(at + e.key.length)
-              setPickingEmoji(false)
-            }}
-          />
-        </Dialog>
-      ) : null}
+      <SuggestEmojiSection c={controller} />
 
       <View style={styles.spread}>
         <Caption color={over ? 'text' : 'muted'} testID="composer-counter">
@@ -385,14 +397,7 @@ export function Composer({
         <Chip label="Drafts" onPress={() => setShowDrafts(v => !v)} testID="composer-drafts-toggle" />
       </View>
 
-      {state.scheduledAt && gates.schedule.enabled ? (
-        <TextField
-          label="Post at (ISO time)"
-          value={state.scheduledAt}
-          onChangeText={scheduledAt => patch({scheduledAt})}
-          testID="composer-schedule-at"
-        />
-      ) : null}
+      <ScheduleSection c={controller} />
 
       {gates.reactionAcceptance.enabled ? (
         <View style={styles.row}>
@@ -413,92 +418,11 @@ export function Composer({
         </View>
       ) : null}
 
-      {state.poll ? (
-        <View style={{gap: space.sm}} testID="composer-poll">
-          {state.poll.choices.map((c, i) => (
-            <TextField
-              key={i}
-              label={`Choice ${i + 1}`}
-              value={c}
-              onChangeText={t =>
-                patch({
-                  poll: {...state.poll!, choices: state.poll!.choices.map((x, j) => (j === i ? t : x))},
-                })
-              }
-            />
-          ))}
-          <View style={styles.row}>
-            {state.poll.choices.length < limits.maxPollOptions ? (
-              <Chip
-                label="Add choice"
-                onPress={() => patch({poll: {...state.poll!, choices: [...state.poll!.choices, '']}})}
-              />
-            ) : null}
-            {state.poll.choices.length > 2 ? (
-              <Chip
-                label="Remove last"
-                onPress={() => patch({poll: {...state.poll!, choices: state.poll!.choices.slice(0, -1)}})}
-              />
-            ) : null}
-            <Chip
-              label="Multiple choice"
-              selected={state.poll.multiple}
-              disabled={!gates.pollMultiple.enabled}
-              disabledReason={gates.pollMultiple.enabled ? undefined : gates.pollMultiple.reason}
-              onPress={() => patch({poll: {...state.poll!, multiple: !state.poll!.multiple}})}
-            />
-          </View>
-          <View style={styles.row}>
-            {POLL_DURATIONS.map(d => (
-              <Chip
-                key={d.seconds}
-                label={d.label}
-                selected={state.poll!.durationSeconds === d.seconds}
-                onPress={() => patch({poll: {...state.poll!, durationSeconds: d.seconds}})}
-              />
-            ))}
-          </View>
-        </View>
-      ) : null}
+      <PollSection c={controller} />
 
-      {uploads.items.map(u => (
-        <View key={u.key} style={styles.media} testID={`composer-upload-${u.key}`}>
-          {u.previewUri ? (
-            <Image source={{uri: u.previewUri}} style={styles.thumb} accessibilityLabel={u.alt || u.name} />
-          ) : (
-            <View style={styles.thumb} />
-          )}
-          <View style={{flex: 1, gap: space.xs}}>
-            <Caption color="muted">
-              {u.name} -{' '}
-              {u.status === 'staged'
-                ? 'ready to upload'
-                : u.status === 'uploading'
-                  ? 'uploading...'
-                  : u.status === 'done'
-                    ? 'uploaded'
-                    : (u.error ?? 'failed')}
-            </Caption>
-            <TextField
-              label="Description (alt text)"
-              value={u.alt}
-              onChangeText={t => uploads.setAlt(u.key, t)}
-              placeholder={u.status === 'done' ? 'Locked after upload' : 'Describe the media'}
-            />
-          </View>
-          <Chip label="Remove" onPress={() => uploads.remove(u.key)} />
-        </View>
-      ))}
+      <UploadsSection c={controller} />
 
-      {drafts.length > 0 ? (
-        <View style={{gap: space.sm}} testID="composer-drafts">
-          {drafts.map(d => (
-            <Chip key={d.id} label={d.text.slice(0, 40) || '(poll / CW only)'} onPress={() => restore(d)} />
-          ))}
-        </View>
-      ) : showDrafts ? (
-        <Caption color="muted">No saved drafts.</Caption>
-      ) : null}
+      <DraftsSection c={controller} />
     </ScrollView>
   )
 }

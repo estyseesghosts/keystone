@@ -9,7 +9,8 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import type {RootParamList} from '#/routes'
-import {useActiveBackend, PostRow, FeedHeading} from '#/screens/HomeFeed'
+import {useActiveBackend, PostRow} from '#/screens/HomeFeed'
+import {Pagehead} from '#/components/Pagehead'
 
 // Thread (`/notes/:id`): ancestors, the focused post, then branched replies.
 //
@@ -191,7 +192,7 @@ export function NoteScreen() {
 
   return (
     <View style={atoms.flex1} testID="note-screen">
-      <FeedHeading title="Thread" />
+      <Pagehead title="Post" />
       {!session || !backend ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
           <Body>Sign in to see this thread.</Body>

@@ -1,6 +1,10 @@
 import {useState} from 'react'
 import {Platform, View} from 'react-native'
-import {useNavigation, type NavigationProp} from '@react-navigation/native'
+import {
+  CommonActions,
+  useNavigation,
+  type NavigationProp,
+} from '@react-navigation/native'
 import * as Linking from 'expo-linking'
 import * as WebBrowser from 'expo-web-browser'
 
@@ -12,6 +16,7 @@ import {
   type ServerFamily,
   type ServerFlavor,
   type SessionGrant,
+  type SessionHosting,
 } from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
@@ -20,6 +25,7 @@ import {AccountSwitcher} from '#/components/AccountSwitcher'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
 import type {RootParamList} from '#/routes'
+import {useHosting} from '#/state/hosting'
 import {useSessionStore} from '#/state/session/SessionProvider'
 import {appStorage} from '#/storage'
 
@@ -29,11 +35,17 @@ import {
   mastodonPasswordSignin,
   misskeyPasswordSignin,
   normalizeServerInput,
+  pollMisskeyApproval,
   startMastodonOAuth,
+  startMisskeyMiAuth,
+  type MisskeyMiAuthPending,
 } from './LoginFlows'
 
 // Complete the iOS auth session when the app returns from the browser.
 void WebBrowser.maybeCompleteAuthSession()
+
+type LoginMode = 'internal' | 'external'
+type InternalKind = 'misskey-native' | 'pinetree' | 'password-grant' | 'mastodon-pkce'
 
 interface Detection {
   origin: string
@@ -64,10 +76,26 @@ function gateMessage(value: string | undefined, action: string): string | null {
   return `Unknown whether this server supports ${action}.`
 }
 
+function internalKindFor(family: ServerFamily | null, flavor: ServerFlavor): InternalKind | null {
+  if (family === 'mastodon') {
+    return flavor === 'akkoma' || flavor === 'pleroma' ? 'password-grant' : 'mastodon-pkce'
+  }
+  if (family === 'misskey') {
+    return flavor === 'pinetree' ? 'pinetree' : 'misskey-native'
+  }
+  return null
+}
+
 export function LoginScreen() {
   const nav = useNavigation<NavigationProp<RootParamList>>()
   const store = useSessionStore()
-  const [server, setServer] = useState('')
+  const hosting = useHosting()
+  const firstParty = hosting?.hosting === 'first-party' ? hosting : null
+  const allowExternal = hosting?.allowExternalAccounts ?? true
+  const [mode, setMode] = useState<LoginMode>('internal')
+  const internalMode = firstParty !== null && (mode === 'internal' || !allowExternal)
+
+  const [server, setServer] = useState(hosting?.suggestedHost ?? '')
   const [detection, setDetection] = useState<Detection | null>(null)
   const [detecting, setDetecting] = useState(false)
   const [username, setUsername] = useState('')
@@ -76,10 +104,152 @@ export function LoginScreen() {
   const [error, setError] = useState<string | null>(null)
   const [mfa, setMfa] = useState<{mfaToken: string; challengeTypes: string[]} | null>(null)
   const [mfaCode, setMfaCode] = useState('')
+  const [miauth, setMiauth] = useState<MisskeyMiAuthPending | null>(null)
+  const [miauthStatus, setMiauthStatus] = useState<string | null>(null)
 
   const fail = (err: unknown) => {
     setError(err instanceof Error ? err.message : 'Sign-in failed.')
   }
+
+  const finish = async (result: {
+    origin: string
+    family: ServerFamily
+    flavor: ServerFlavor
+    token: string
+    account: Account
+    grant: SessionGrant
+    hosting: SessionHosting
+  }) => {
+    await store.add({
+      origin: result.origin,
+      family: result.family,
+      flavor: result.flavor,
+      accountId: result.account.id,
+      token: result.token,
+      grant: result.grant,
+      hosting: result.hosting,
+      user: result.account,
+    })
+    // Land on the tab shell: the Login screen lives on the stack, so a
+    // plain `navigate('Home')` resolves nowhere — reset to Main (Home tab).
+    nav.dispatch(CommonActions.reset({index: 0, routes: [{name: 'Main'}]}))
+  }
+
+  // --- Internal (first-party) login: this origin IS the home server --------
+
+  const internalKind = firstParty
+    ? internalKindFor(firstParty.family, firstParty.flavor)
+    : null
+
+  const submitInternalPassword = async () => {
+    if (!firstParty) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await misskeyPasswordSignin({
+        origin: firstParty.homeOrigin ?? '',
+        flavor: firstParty.flavor,
+        username,
+        password,
+      })
+      await finish({
+        origin: firstParty.homeOrigin ?? '',
+        family: 'misskey',
+        flavor: firstParty.flavor,
+        token: res.token,
+        account: res.account,
+        grant: res.grant,
+        hosting: 'first-party',
+      })
+    } catch (err) {
+      fail(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const submitInternalMastodonPassword = async () => {
+    if (!firstParty?.homeOrigin) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await mastodonPasswordSignin({
+        appStore: appStorage(),
+        origin: firstParty.homeOrigin,
+        redirectUri: redirectUriFor(),
+        username,
+        password,
+      })
+      await finish({
+        origin: firstParty.homeOrigin,
+        family: 'mastodon',
+        flavor: firstParty.flavor,
+        token: res.token,
+        account: res.account,
+        grant: res.grant,
+        hosting: 'first-party',
+      })
+    } catch (err) {
+      if (err instanceof MfaRequiredError) {
+        setMfa({mfaToken: err.mfaToken, challengeTypes: err.challengeTypes})
+        setMfaCode('')
+      } else {
+        fail(err)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const submitInternalMfa = async () => {
+    if (!firstParty?.homeOrigin || !mfa) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await mastodonMfaSignin({
+        appStore: appStorage(),
+        origin: firstParty.homeOrigin,
+        redirectUri: redirectUriFor(),
+        mfaToken: mfa.mfaToken,
+        challengeType: mfa.challengeTypes[0] ?? 'totp',
+        code: mfaCode,
+      })
+      await finish({
+        origin: firstParty.homeOrigin,
+        family: 'mastodon',
+        flavor: firstParty.flavor,
+        token: res.token,
+        account: res.account,
+        grant: res.grant,
+        hosting: 'first-party',
+      })
+    } catch (err) {
+      fail(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const submitInternalOAuth = async () => {
+    if (!firstParty?.homeOrigin) return
+    setBusy(true)
+    setError(null)
+    try {
+      await startMastodonOAuth({
+        appStore: appStorage(),
+        origin: firstParty.homeOrigin,
+        redirectUri: redirectUriFor(),
+        openBrowser,
+      })
+      // The callback screen completes the flow (AuthCallback).
+    } catch (err) {
+      fail(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // --- External (third-party) login: another server -------------------------
 
   const detect = async () => {
     const origin = normalizeServerInput(server)
@@ -103,47 +273,7 @@ export function LoginScreen() {
     }
   }
 
-  const finish = async (result: {
-    origin: string
-    family: ServerFamily
-    flavor: ServerFlavor
-    token: string
-    account: Account
-    grant: SessionGrant
-  }) => {
-    await store.add({
-      origin: result.origin,
-      family: result.family,
-      flavor: result.flavor,
-      accountId: result.account.id,
-      token: result.token,
-      grant: result.grant,
-      hosting: 'third-party',
-      user: result.account,
-    })
-    nav.navigate('Home')
-  }
-
-  const submitMisskey = async () => {
-    if (!detection) return
-    setBusy(true)
-    setError(null)
-    try {
-      const res = await misskeyPasswordSignin({
-        origin: detection.origin,
-        flavor: detection.flavor,
-        username,
-        password,
-      })
-      await finish({origin: detection.origin, family: 'misskey', flavor: detection.flavor, token: res.token, account: res.account, grant: res.grant})
-    } catch (err) {
-      fail(err)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const submitMastodonPassword = async () => {
+  const submitExternalMastodonPassword = async () => {
     if (!detection) return
     setBusy(true)
     setError(null)
@@ -155,7 +285,15 @@ export function LoginScreen() {
         username,
         password,
       })
-      await finish({origin: detection.origin, family: 'mastodon', flavor: detection.flavor, token: res.token, account: res.account, grant: res.grant})
+      await finish({
+        origin: detection.origin,
+        family: 'mastodon',
+        flavor: detection.flavor,
+        token: res.token,
+        account: res.account,
+        grant: res.grant,
+        hosting: 'third-party',
+      })
     } catch (err) {
       if (err instanceof MfaRequiredError) {
         setMfa({mfaToken: err.mfaToken, challengeTypes: err.challengeTypes})
@@ -168,7 +306,7 @@ export function LoginScreen() {
     }
   }
 
-  const submitMfa = async () => {
+  const submitExternalMfa = async () => {
     if (!detection || !mfa) return
     setBusy(true)
     setError(null)
@@ -181,7 +319,15 @@ export function LoginScreen() {
         challengeType: mfa.challengeTypes[0] ?? 'totp',
         code: mfaCode,
       })
-      await finish({origin: detection.origin, family: 'mastodon', flavor: detection.flavor, token: res.token, account: res.account, grant: res.grant})
+      await finish({
+        origin: detection.origin,
+        family: 'mastodon',
+        flavor: detection.flavor,
+        token: res.token,
+        account: res.account,
+        grant: res.grant,
+        hosting: 'third-party',
+      })
     } catch (err) {
       fail(err)
     } finally {
@@ -189,7 +335,7 @@ export function LoginScreen() {
     }
   }
 
-  const submitOAuth = async () => {
+  const submitExternalOAuth = async () => {
     if (!detection) return
     setBusy(true)
     setError(null)
@@ -208,93 +354,273 @@ export function LoginScreen() {
     }
   }
 
+  /** Misskey-family browser sign-in (MiAuth): approve on the instance, poll,
+   * verify, store. Third-party never asks for a password. */
+  const submitMiAuth = async (pending: MisskeyMiAuthPending | null, attempts?: number) => {
+    if (!detection) return
+    setBusy(true)
+    setError(null)
+    try {
+      const active = pending ?? (await startMisskeyMiAuth({
+        pendingStore: appStorage(),
+        origin: detection.origin,
+        redirectUri: redirectUriFor(),
+        openBrowser,
+      }))
+      setMiauth(active)
+      // Same-tab web navigation unloads this page (the callback completes
+      // it); otherwise poll here for the approval.
+      if (Platform.OS === 'web') {
+        setMiauthStatus('Approve on your server, then continue there.')
+        return
+      }
+      setMiauthStatus('Waiting for approval on your server…')
+      const done = await pollMisskeyApproval({
+        scheme: active.scheme,
+        host: active.host,
+        session: active.session,
+        ...(attempts !== undefined ? {attempts} : {}),
+      })
+      await finish({
+        origin: done.origin,
+        family: 'misskey',
+        flavor: detection.flavor,
+        token: done.token,
+        account: done.account,
+        grant: 'miauth',
+        hosting: 'third-party',
+      })
+    } catch (err) {
+      fail(err)
+    } finally {
+      setBusy(false)
+      setMiauthStatus(null)
+    }
+  }
+
+  const cancelMiAuth = () => {
+    setMiauth(null)
+    setMiauthStatus(null)
+    setError(null)
+  }
+
   const passwordGate = detection ? gateMessage(detection.features.password_grant, 'password sign-in') : null
   const pkceGate = detection ? gateMessage(detection.features.pkce, 'browser sign-in') : null
+
+  if (!hosting) {
+    return (
+      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
+        <Body>Loading…</Body>
+      </View>
+    )
+  }
 
   return (
     <View style={[atoms.flex1, atoms.p_md, atoms.gap_md]}>
       <Heading>Sign in</Heading>
-      <AccountSwitcher onAddAccount={() => setDetection(null)} />
-      <TextField
-        label="Server"
-        value={server}
-        onChangeText={text => {
-          setServer(text)
-          setDetection(null)
-        }}
-        placeholder="example.social"
-        testID="login-server"
-      />
-      <Button
-        label={detecting ? 'Checking…' : 'Continue'}
-        testID="login-continue"
-        onPress={() => void detect()}
-      />
-      {detection ? (
-        <Caption color="faint" testID="login-detection">
-          {detection.origin} · {detection.flavor}
-        </Caption>
-      ) : null}
-      {detection?.family === 'misskey' ? (
-        <View style={[atoms.gap_sm]}>
-          <TextField label="Username" value={username} onChangeText={setUsername} testID="login-username" />
-          <TextField label="Password" value={password} onChangeText={setPassword} secure testID="login-password" />
+      <AccountSwitcher onAddAccount={() => { setDetection(null); setMiauth(null) }} />
+      {firstParty && allowExternal ? (
+        <View style={[atoms.row, atoms.gap_sm]}>
           <Button
-            label={busy ? 'Signing in…' : 'Sign in'}
-            testID="login-submit"
-            disabled={busy || passwordGate !== null}
-            disabledReason={passwordGate ?? undefined}
-            onPress={() => void submitMisskey()}
+            label="This server"
+            variant={internalMode ? 'primary' : 'secondary'}
+            onPress={() => setMode('internal')}
+            testID="login-mode-internal"
+          />
+          <Button
+            label="Another server"
+            variant={internalMode ? 'secondary' : 'primary'}
+            onPress={() => setMode('external')}
+            testID="login-mode-external"
           />
         </View>
       ) : null}
-      {detection?.family === 'mastodon' && !mfa ? (
+      {internalMode && firstParty ? (
+        <InternalForm
+          kind={internalKind}
+          serverName={firstParty.name ?? firstParty.homeOrigin ?? 'this server'}
+          username={username}
+          password={password}
+          busy={busy}
+          mfa={mfa}
+          mfaCode={mfaCode}
+          error={error}
+          onUsername={setUsername}
+          onPassword={setPassword}
+          onMfaCode={setMfaCode}
+          onPasswordSubmit={() => void (internalKind === 'password-grant'
+            ? submitInternalMastodonPassword()
+            : submitInternalPassword())}
+          onMfaSubmit={() => void submitInternalMfa()}
+          onMfaCancel={() => { setMfa(null); setMfaCode(''); setError(null) }}
+          onOAuth={() => void submitInternalOAuth()}
+        />
+      ) : (
         <View style={[atoms.gap_sm]}>
-          {detection.features.password_grant !== 'unsupported' ? (
+          <TextField
+            label="Server"
+            value={server}
+            onChangeText={text => {
+              setServer(text)
+              setDetection(null)
+            }}
+            placeholder="example.social"
+            testID="login-server"
+          />
+          <Button
+            label={detecting ? 'Checking…' : 'Continue'}
+            testID="login-continue"
+            onPress={() => void detect()}
+          />
+          {detection ? (
+            <Caption color="faint" testID="login-detection">
+              {detection.origin} · {detection.flavor}
+            </Caption>
+          ) : null}
+          {detection?.family === 'misskey' && !miauth ? (
             <View style={[atoms.gap_sm]}>
-              <TextField label="Username" value={username} onChangeText={setUsername} testID="login-username" />
-              <TextField label="Password" value={password} onChangeText={setPassword} secure testID="login-password" />
+              <Body>Browser sign-in — approve on {detection.origin}.</Body>
               <Button
-                label={busy ? 'Signing in…' : 'Sign in'}
-                testID="login-submit"
-                disabled={busy || passwordGate !== null}
-                disabledReason={passwordGate ?? undefined}
-                onPress={() => void submitMastodonPassword()}
+                label={busy ? 'Opening…' : 'Sign in with browser'}
+                testID="login-miauth"
+                disabled={busy}
+                disabledReason="Opening the approval page."
+                onPress={() => void submitMiAuth(null)}
               />
             </View>
           ) : null}
-          <Button
-            label={busy ? 'Opening…' : 'Sign in with browser'}
-            variant="secondary"
-            testID="login-oauth"
-            disabled={busy || pkceGate !== null}
-            disabledReason={pkceGate ?? undefined}
-            onPress={() => void submitOAuth()}
-          />
+          {detection?.family === 'misskey' && miauth ? (
+            <View style={[atoms.gap_sm]}>
+              <Body>Approve on {detection.origin}, then continue here.</Body>
+              {miauthStatus ? <Caption color="faint">{miauthStatus}</Caption> : null}
+              <Button
+                label={busy ? 'Checking…' : "I've approved — continue"}
+                testID="login-miauth-confirm"
+                onPress={() => void submitMiAuth(miauth, 5)}
+              />
+              <Button label="Cancel" variant="secondary" onPress={cancelMiAuth} />
+            </View>
+          ) : null}
+          {detection?.family === 'mastodon' && !mfa ? (
+            <View style={[atoms.gap_sm]}>
+              {detection.features.password_grant !== 'unsupported' ? (
+                <View style={[atoms.gap_sm]}>
+                  <TextField label="Username" value={username} onChangeText={setUsername} testID="login-username" />
+                  <TextField label="Password" value={password} onChangeText={setPassword} secure testID="login-password" />
+                  <Button
+                    label={busy ? 'Signing in…' : 'Sign in'}
+                    testID="login-submit"
+                    disabled={busy || passwordGate !== null}
+                    disabledReason={passwordGate ?? undefined}
+                    onPress={() => void submitExternalMastodonPassword()}
+                  />
+                </View>
+              ) : null}
+              <Button
+                label={busy ? 'Opening…' : 'Sign in with browser'}
+                variant="secondary"
+                testID="login-oauth"
+                disabled={busy || pkceGate !== null}
+                disabledReason={pkceGate ?? undefined}
+                onPress={() => void submitExternalOAuth()}
+              />
+            </View>
+          ) : null}
+          {detection?.family === 'mastodon' && mfa ? (
+            <View style={[atoms.gap_sm]}>
+              <Body>Two-factor code ({mfa.challengeTypes[0] ?? 'totp'})</Body>
+              <TextField label="Code" value={mfaCode} onChangeText={setMfaCode} testID="login-mfa-code" />
+              <Button
+                label={busy ? 'Verifying…' : 'Verify'}
+                testID="login-mfa-submit"
+                onPress={() => void submitExternalMfa()}
+              />
+              <Button
+                label="Cancel"
+                variant="secondary"
+                onPress={() => {
+                  setMfa(null)
+                  setMfaCode('')
+                }}
+              />
+            </View>
+          ) : null}
+          {error ? (
+            <Caption testID="login-error">{error}</Caption>
+          ) : null}
         </View>
-      ) : null}
-      {detection?.family === 'mastodon' && mfa ? (
-        <View style={[atoms.gap_sm]}>
-          <Body>Two-factor code ({mfa.challengeTypes[0] ?? 'totp'})</Body>
-          <TextField label="Code" value={mfaCode} onChangeText={setMfaCode} testID="login-mfa-code" />
-          <Button
-            label={busy ? 'Verifying…' : 'Verify'}
-            testID="login-mfa-submit"
-            onPress={() => void submitMfa()}
-          />
-          <Button
-            label="Cancel"
-            variant="secondary"
-            onPress={() => {
-              setMfa(null)
-              setMfaCode('')
-            }}
-          />
-        </View>
-      ) : null}
-      {error ? (
-        <Caption testID="login-error">{error}</Caption>
-      ) : null}
+      )}
+    </View>
+  )
+}
+
+function InternalForm(props: {
+  kind: InternalKind | null
+  serverName: string
+  username: string
+  password: string
+  busy: boolean
+  mfa: {mfaToken: string; challengeTypes: string[]} | null
+  mfaCode: string
+  error: string | null
+  onUsername: (v: string) => void
+  onPassword: (v: string) => void
+  onMfaCode: (v: string) => void
+  onPasswordSubmit: () => void
+  onMfaSubmit: () => void
+  onMfaCancel: () => void
+  onOAuth: () => void
+}) {
+  if (!props.kind) {
+    return (
+      <Caption testID="login-error">
+        This server could not be identified. Try another server.
+      </Caption>
+    )
+  }
+  if (props.kind === 'mastodon-pkce' && !props.mfa) {
+    return (
+      <View style={[atoms.gap_sm]}>
+        <Body>Sign in with {props.serverName} in the browser.</Body>
+        <Button
+          label={props.busy ? 'Opening…' : 'Continue'}
+          testID="login-submit"
+          disabled={props.busy}
+          disabledReason="Opening the approval page."
+          onPress={props.onOAuth}
+        />
+        {props.error ? <Caption testID="login-error">{props.error}</Caption> : null}
+      </View>
+    )
+  }
+  if (props.mfa) {
+    return (
+      <View style={[atoms.gap_sm]}>
+        <Body>Two-factor code ({props.mfa.challengeTypes[0] ?? 'totp'})</Body>
+        <TextField label="Code" value={props.mfaCode} onChangeText={props.onMfaCode} testID="login-mfa-code" />
+        <Button
+          label={props.busy ? 'Verifying…' : 'Verify'}
+          testID="login-mfa-submit"
+          onPress={props.onMfaSubmit}
+        />
+        <Button label="Cancel" variant="secondary" onPress={props.onMfaCancel} />
+        {props.error ? <Caption testID="login-error">{props.error}</Caption> : null}
+      </View>
+    )
+  }
+  return (
+    <View style={[atoms.gap_sm]}>
+      <Body>Sign in with your {props.serverName} account.</Body>
+      <TextField label="Username" value={props.username} onChangeText={props.onUsername} testID="login-username" />
+      <TextField label="Password" value={props.password} onChangeText={props.onPassword} secure testID="login-password" />
+      <Button
+        label={props.busy ? 'Signing in…' : 'Sign in'}
+        testID="login-submit"
+        disabled={props.busy}
+        disabledReason="Signing in."
+        onPress={props.onPasswordSubmit}
+      />
+      {props.error ? <Caption testID="login-error">{props.error}</Caption> : null}
     </View>
   )
 }

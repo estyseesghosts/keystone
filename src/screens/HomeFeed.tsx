@@ -19,9 +19,10 @@ import {
 } from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
-import {Body, Caption, Heading} from '#/alf/typography'
+import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
+import {SignInButton} from '#/components/SignInButton'
 import {PostCard} from '#/components/Post/index'
 import {countNewItems, feedItems, filterSoftMuted, useSoftMutedIds, usePostFeedQuery} from '#/state/queries'
 import {useSessionStore} from '#/state/session/SessionProvider'
@@ -125,6 +126,7 @@ export function FeedView({
       <View testID={testID} style={[atoms.flex1, atoms.centered, atoms.p_md]}>
         <Body>Sign in to see this feed.</Body>
         <Caption color="faint">Feeds never show sample data when signed out.</Caption>
+        <SignInButton />
       </View>
     )
   }
@@ -190,16 +192,6 @@ export function FeedView({
           ) : null
         }
       />
-    </View>
-  )
-}
-
-/** Screen heading helper: keeps Home/Network/User/Notifications chrome consistent. */
-export function FeedHeading({title, subtitle}: {title: string; subtitle?: string}) {
-  return (
-    <View style={[atoms.px_md, atoms.py_sm]}>
-      <Heading>{title}</Heading>
-      {subtitle ? <Caption color="faint">{subtitle}</Caption> : null}
     </View>
   )
 }
