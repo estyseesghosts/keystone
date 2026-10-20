@@ -1,0 +1,16 @@
+{
+  "extends": "@react-native/typescript-config/tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "moduleSuffixes": [".ios", ".android", ".native", ""],
+    "lib": ["dom", "esnext"],
+    "types": ["node", "jest"],
+    "paths": {
+      "#/*": ["./src/*"],
+      "@keystone/fedi": ["./packages/fedi/src/index.ts"],
+      "@keystone/fedi/*": ["./packages/fedi/src/*"]
+    }
+  },
+  "exclude": ["dist", "web-build"]
+}

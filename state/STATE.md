@@ -1,22 +1,23 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: Phase 0 — Decide and freeze (plan §5). Not started.
-Branch: `main` (no slice branch yet).
+Phase/slice: Phase 1, slice P1.1 Expo skeleton — done, pending owner
+review + merge. Branch: `p1.1-expo-skeleton` (off `main` @ `a506e07`).
 Plan: `rn-rebuild-plan.md` (proposal, 2026-10-20).
-Reference: Bluesky `social-app` @ `cf16c1d` (off-repo).
+Reference: Bluesky `social-app` @ `cf16c1d` (surveyed at `1.136.0`).
 
 ## Next 3 steps
 
-1. Owner signs off on plan §7 open decisions (D1–D8) → record in `docs/DECISIONS.md` (+ ADRs where load-bearing).
-2. Create task file `docs/tasks/p0.1-decisions-record.md`, work slice 0.1.
-3. Freeze old Keystone per slice 0.2 (commit local-only docs, tag `solid-final`, README note).
+1. Owner reviews scaffold + signs plan §7 D1–D8 (esp. D3 app identity).
+2. Merge `p1.1-expo-skeleton` → `main` after approval.
+3. Slice 1.2 (repo rules + lint gates: `no-ui-in-fedi`, `no-wire-in-app`).
 
 ## Blockers
 
-- Owner sign-off on §7 D1–D8 (owner).
+- Owner sign-off on §7 D1–D8 (owner); merge blocked until approved.
+- `pnpm android` / `pnpm ios` device runs not yet attempted.
 
 ## Links
 
-- Tasks: `docs/tasks/README.md` (empty — 0.1 not yet created)
-- ADRs: `docs/adr/README.md` (template only)
-- Logs: `state/logs/` (this bootstrap; no work sessions yet)
+- Tasks: `docs/tasks/p1.1-expo-skeleton.md` (done, 2 manual checks open)
+- ADRs: `docs/adr/README.md` (template only; none needed for P1.1)
+- Logs: `state/logs/2026-10-20-p1.1-scaffold.md` (trio green + web export)

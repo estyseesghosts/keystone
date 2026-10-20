@@ -9,7 +9,7 @@ Inputs read: `estyseesghosts/keystone` @ `9e4ff89` (main, 2026-10-20), `bluesky-
 
 1. **Start a new codebase.** One Expo + React Native app that ships iOS, Android and web (`react-native-web`). Copy Bluesky's stack, folder layout, conventions and tooling as closely as possible. Pin Bluesky commit `cf16c1d` as the reference.
 2. **Keep Keystone's data layer.** `frontend/src/{core,misskey,mastodon,api}` is about 17k lines of mostly framework-free TypeScript with ~560 tests and 29 recorded server fixtures (Misskey, Sharkey, Mastodon, Akkoma). Port it into a workspace package `packages/fedi`. This is the most valuable thing Keystone built.
-3. **Do not port the UI.** The ~60 Solid components and routes and the 4.4k-line CSS do not transfer. Rebuild screens on Bluesky's component set. Keep the *product rules* (capability gating, no inert controls, token per origin, raw visibility passthrough).
+3. **Do not port the UI.** The ~60 Solid components and routes and the 4.4k-line CSS do not transfer. Rebuild screens on Bluesky's component set. Keep the _product rules_ (capability gating, no inert controls, token per origin, raw visibility passthrough).
 4. **Freeze old Keystone.** Tag it, mark the README frozen, keep it as a read-only reference. Same treatment Keystodon got.
 5. **Build the deck from day one in the data model, ship it in Phase 5.** Every feed is addressed by a `FeedDescriptor` string (Bluesky does this already). A deck column is just `{descriptor, sessionId, options}`. Widgets are a typed registry.
 
@@ -66,9 +66,18 @@ Rules:
 
 ```ts
 type FeedDescriptor =
-  | 'timeline|home' | 'timeline|local' | 'timeline|social' | 'timeline|global'
-  | `list|${string}` | `antenna|${string}` | `channel|${string}` | `clip|${string}`
-  | `tag|${string}` | `search|${string}` | 'bookmarks' | 'mentions'
+  | 'timeline|home'
+  | 'timeline|local'
+  | 'timeline|social'
+  | 'timeline|global'
+  | `list|${string}`
+  | `antenna|${string}`
+  | `channel|${string}`
+  | `clip|${string}`
+  | `tag|${string}`
+  | `search|${string}`
+  | 'bookmarks'
+  | 'mentions'
   | `user|${string}|${'posts' | 'replies' | 'media' | 'featured'}`
 ```
 
@@ -83,21 +92,21 @@ type FeedDescriptor =
 
 ## 3. What carries over from Keystone
 
-| Item | Action | Notes |
-|---|---|---|
-| `core/models.ts`, `detect.ts`, `backend.ts`, `http.ts`, `quoteUri.ts` | Port | Remove i18n imports. Data layer returns error codes and message keys; UI localizes. |
-| `core/sessions.ts` | Port with seam | Replace `localStorage` with injected KV + secure-store interfaces. |
-| `core/config.ts`, `hosting.ts`, `boot.ts` | Split | Hosting detection stays (web first-party mode). `window.location` use moves behind a `getOrigin()` param. |
-| `misskey/*` (wire, adapt, client, backend, auth, sub-modules) | Port | `customEmoji.ts`, `stream.ts`, `translate.ts` use Solid signals: replace with plain emitters/maps. `stream.ts` builds the URL from `window.location`: use the session origin. |
-| `misskey/reactionActions.ts`, `myReactions.ts` | Reference only | Replaced by post shadow + toggle queue (Slice 4.1). Keep the six test cases. |
-| `mastodon/*` | Port | `sanitize.ts` uses `DOMParser`: replace with `htmlparser2` into the shared AST (Slice 2.4). `stream.ts` uses `EventSource` (SSE): replace with Mastodon's WebSocket streaming (`/api/v1/streaming`), which works on native. `oauth.ts` imports `../routes`: pass the callback path in. |
-| `api/fold.ts`, `tags.ts`, `linkpreview.ts`, `emoji.ts`, `emojiAssets.ts` | Port | Check each for DOM use first. |
-| `test/*.test.ts` for the above + `test/fixtures/` | Port | Vitest to Jest (mechanical: `vi` to `jest`). Test count per ported file must match. |
-| `i18n/locales/*.ts` (8 locales, ~1100 keys) | Convert | Script maps old English values to Lingui source strings and writes PO files. Only exact matches carry over. |
-| `docs/api-surface.md`, `mastoapi-contract.md`, `mfm.md`, `twemoji.md`, `setup.md`, `note-options.md`, `quote-posts.md`, `replies.md` | Copy to `docs/` | Still authoritative for server behaviour. |
-| AGENTS.md §4 state protocol (STATE.md + dated logs) | Keep | Shorter. See §5. |
-| AGENTS.md §5 backend contract rules | Keep verbatim | Sharkey 400s unknown fields, 204 handling, never send cross-origin tokens, etc. |
-| Solid components, CSS, routes, `mobile/`, `src-tauri/`, shared-primitives docs | Drop | Reference only, in the frozen repo. |
+| Item                                                                                                                                 | Action          | Notes                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------ | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/models.ts`, `detect.ts`, `backend.ts`, `http.ts`, `quoteUri.ts`                                                                | Port            | Remove i18n imports. Data layer returns error codes and message keys; UI localizes.                                                                                                                                                                                                    |
+| `core/sessions.ts`                                                                                                                   | Port with seam  | Replace `localStorage` with injected KV + secure-store interfaces.                                                                                                                                                                                                                     |
+| `core/config.ts`, `hosting.ts`, `boot.ts`                                                                                            | Split           | Hosting detection stays (web first-party mode). `window.location` use moves behind a `getOrigin()` param.                                                                                                                                                                              |
+| `misskey/*` (wire, adapt, client, backend, auth, sub-modules)                                                                        | Port            | `customEmoji.ts`, `stream.ts`, `translate.ts` use Solid signals: replace with plain emitters/maps. `stream.ts` builds the URL from `window.location`: use the session origin.                                                                                                          |
+| `misskey/reactionActions.ts`, `myReactions.ts`                                                                                       | Reference only  | Replaced by post shadow + toggle queue (Slice 4.1). Keep the six test cases.                                                                                                                                                                                                           |
+| `mastodon/*`                                                                                                                         | Port            | `sanitize.ts` uses `DOMParser`: replace with `htmlparser2` into the shared AST (Slice 2.4). `stream.ts` uses `EventSource` (SSE): replace with Mastodon's WebSocket streaming (`/api/v1/streaming`), which works on native. `oauth.ts` imports `../routes`: pass the callback path in. |
+| `api/fold.ts`, `tags.ts`, `linkpreview.ts`, `emoji.ts`, `emojiAssets.ts`                                                             | Port            | Check each for DOM use first.                                                                                                                                                                                                                                                          |
+| `test/*.test.ts` for the above + `test/fixtures/`                                                                                    | Port            | Vitest to Jest (mechanical: `vi` to `jest`). Test count per ported file must match.                                                                                                                                                                                                    |
+| `i18n/locales/*.ts` (8 locales, ~1100 keys)                                                                                          | Convert         | Script maps old English values to Lingui source strings and writes PO files. Only exact matches carry over.                                                                                                                                                                            |
+| `docs/api-surface.md`, `mastoapi-contract.md`, `mfm.md`, `twemoji.md`, `setup.md`, `note-options.md`, `quote-posts.md`, `replies.md` | Copy to `docs/` | Still authoritative for server behaviour.                                                                                                                                                                                                                                              |
+| AGENTS.md §4 state protocol (STATE.md + dated logs)                                                                                  | Keep            | Shorter. See §5.                                                                                                                                                                                                                                                                       |
+| AGENTS.md §5 backend contract rules                                                                                                  | Keep verbatim   | Sharkey 400s unknown fields, 204 handling, never send cross-origin tokens, etc.                                                                                                                                                                                                        |
+| Solid components, CSS, routes, `mobile/`, `src-tauri/`, shared-primitives docs                                                       | Drop            | Reference only, in the frozen repo.                                                                                                                                                                                                                                                    |
 
 Known lessons to encode as tests, not prose:
 
@@ -135,11 +144,13 @@ Known lessons to encode as tests, not prose:
 ### Phase 0: Decide and freeze
 
 **0.1 Decisions record.** Owner + agent.
+
 - Files: `docs/DECISIONS.md` (new repo).
 - Steps: record answers to §7 D1-D8.
 - Acceptance: every decision has a date and a one-line reason.
 
 **0.2 Freeze old Keystone.**
+
 - Steps: (1) commit and push local-only docs that STATE.md references but the remote lacks (`docs/shared-primitives-plan.md`, `docs/shared-primitives-phase0-handoff.md`, `mobile/docs/prototype-report.md`, `mobile/docs/primitives-evaluation.md`, phase 6 and mobile-report logs). (2) Tag `solid-final`. (3) Add a "Frozen, see <new repo>" line to README. (4) Final STATE.md entry.
 - Acceptance: `git ls-remote --tags` shows `solid-final`; the four docs exist on the remote.
 - Out of scope: any code change.
@@ -149,6 +160,7 @@ Known lessons to encode as tests, not prose:
 ### Phase 1: Scaffold (Bluesky skeleton)
 
 **1.1 Expo app skeleton.**
+
 - Read first: Bluesky `package.json`, `app.config.js`, `babel.config.js`, `metro.config.ts`, `tsconfig*.json`, `pnpm-workspace.yaml`, `jest/jestSetup.js`, `prettier.config.ts`.
 - Files: same set at the new repo root, plus `index.ts`, `index.web.ts`, `src/App.tsx`, `src/App.web.tsx`, `packages/fedi/package.json`.
 - Steps:
@@ -160,6 +172,7 @@ Known lessons to encode as tests, not prose:
 - Acceptance: `pnpm typecheck && pnpm lint && pnpm test` green. `pnpm web` shows the text. `pnpm android` runs on the Oppo. `pnpm ios` on simulator, or the Xcode blocker recorded.
 
 **1.2 Repo rules and lint gates.**
+
 - Files: `AGENTS.md`, `CLAUDE.md` (`@AGENTS.md`), `NOTICE.md`, `state/STATE.md`, `state/README.md`, `docs/` (carried docs from §3), `lint-rules/`.
 - Steps:
   1. AGENTS.md = Bluesky's AGENTS.md sections (structure, ALF, components, i18n, state, navigation, platform files, aliases, footguns) + Keystone sections: backend contract rules (old §5), product rules (capability gating, no inert controls, no fake data), state protocol (old §4, shortened), §4 of this plan.
@@ -168,18 +181,21 @@ Known lessons to encode as tests, not prose:
 - Acceptance: lint fails on a planted violation of each rule, passes after removal.
 
 **1.3 ALF and themes.**
+
 - Read first: Bluesky `src/alf/*`, `src/components/Typography.tsx`.
 - Files: `src/alf/{index.tsx,atoms.ts,tokens.ts,themes.ts,breakpoints.ts,fonts.ts,typography.tsx}`, `src/components/Typography.tsx`.
 - Steps: depend on `@bsky.app/alf` like Bluesky. Replace the palette with Keystone's black/white/grey (values from old `styles/global.css` `:root`). Light default, dark follows system. No accent colour.
 - Acceptance: a debug screen (`/sys/debug`, Bluesky's Storybook pattern) shows text sizes and both colour modes on all three targets.
 
 **1.4 Base components.**
+
 - Read first: Bluesky `src/components/{Button,Pressable,Link,Dialog,Menu,Prompt,Loader,Divider,Toast,forms/TextField}`.
 - Files: same paths.
 - Steps: copy, strip Bluesky analytics/logging, swap unpublished deps (bottom sheet) for published ones and log each swap in DECISIONS.md. All strings through Lingui.
 - Acceptance: each component on the debug screen. Dialog is a bottom sheet on Android/iOS, modal on web. `control.close(cb)` footgun test copied.
 
 **1.5 Shell and navigation.**
+
 - Read first: Bluesky `src/Navigation.tsx`, `src/routes.ts`, `src/lib/routes/types.ts`, `src/view/shell/*`, `src/components/Layout/*`.
 - Files: same names; screens are placeholders labelled "not built".
 - Steps:
@@ -192,33 +208,39 @@ Known lessons to encode as tests, not prose:
 ### Phase 2: Data layer port (`packages/fedi`)
 
 **2.1 Core.**
+
 - Read first: old `frontend/src/core/*`, `test/{models,detect,config,http,sessions}.test.ts`.
 - Files: `packages/fedi/src/core/*`, `packages/fedi/test/*`.
 - Steps: copy; replace i18n calls with error codes (`{code, params}`); convert tests to Jest.
 - Acceptance: per-file test counts equal the originals (table in the log). `no-ui-in-fedi` passes.
 
 **2.2 Misskey adapter.**
+
 - Files: `packages/fedi/src/misskey/*`, fixtures `misskey/`, `sharkey/`, tests `misskey-*.test.ts`, `adapt.test.ts`, `thread.test.ts`, `quote-re.test.ts`, `translate.test.ts`.
 - Steps: copy; replace Solid signals in `customEmoji`, `translate`, `stream` with a small emitter (Bluesky uses `eventemitter3`); stream URL from session origin.
 - Acceptance: test counts equal; a new test opens the stream against a mock WebSocket and receives a `note` event.
 
 **2.3 Mastodon adapter.**
+
 - Files: `packages/fedi/src/mastodon/*`, fixtures `mastodon/`, `akkoma/`, tests `mastodon-*.test.ts`, `client-routing.test.ts`.
 - Steps: copy; `oauth.ts` takes the callback URL as a parameter; replace SSE with WebSocket streaming (`/api/v1/streaming?stream=...`), keep polling fallback.
 - Acceptance: test counts equal (minus SSE-only tests, listed in the log); new WebSocket stream test.
 
 **2.4 Content AST.**
+
 - Goal: one inline AST for MFM and HTML.
 - Files: `packages/fedi/src/core/content/{ast.ts,fromMfm.ts,fromHtml.ts}` + tests.
 - Steps: node set = text, link, mention, hashtag, customEmoji, unicodeEmoji, bold, italic, strike, code, codeBlock, quote, br, plus MFM extras as `fn` nodes that degrade to children. HTML via `htmlparser2`, allow-list only. Port cases from old `sanitize.ts` and `MfmRenderer.tsx`.
 - Acceptance: XSS cases (script, `javascript:` href, event attributes) produce text or are dropped; Akkoma post with MFM source uses the MFM path.
 
 **2.5 Sessions and storage seam.**
+
 - Files: `packages/fedi/src/core/sessions.ts` (interfaces), `src/storage/{index.ts,schema.ts}`, `src/state/session/*`.
 - Steps: Bluesky `#/storage` pattern (MMKV + typed schema, device and account scopes). Tokens in `expo-secure-store` on native, storage on web (dev-grade, same as today). Session = `{id, origin, family, flavor, accountId, token, grant, hosting}`.
 - Acceptance: test that a request built from session A never carries session B's token or origin (port from `sessions.test.ts`).
 
 **2.6 Contract smoke.**
+
 - Files: `scripts/fedi-smoke.ts`.
 - Steps: read-only calls (detect, meta/instance, public timeline, one note, one user) against a server URL, printed as a table. Rig per `docs/setup.md` (Misskey :3101, Sharkey :3102, Mastodon).
 - Acceptance: table pasted for every server available on the rig.
@@ -228,15 +250,18 @@ Known lessons to encode as tests, not prose:
 ### Phase 3: Read path (classic layout)
 
 **3.1 Login and accounts.**
+
 - Steps: Misskey: Keystone-owned `signin-flow` + MiAuth token (old AGENTS §5 flow). Mastodon: OAuth PKCE with `expo-web-browser` + app scheme on native, `/auth/callback` on web. Akkoma password grant + MFA. Account switcher (Bluesky `AccountList` pattern). Sign out, sign out everywhere.
 - Acceptance: sign in to one Misskey-family and one Mastodon-family server on each target; switch accounts; tokens stay per origin.
 
 **3.2 Query layer.**
+
 - Read first: Bluesky `src/lib/react-query.tsx`, `src/state/queries/{index,util,post-feed}.ts`.
 - Steps: `createQueryKey`, `STALE`, persisted query storage, `usePostFeedQuery(sessionId, descriptor)` with `useInfiniteQuery`, `FeedDescriptor` parse/format in `packages/fedi`.
 - Acceptance: unit tests for descriptor round-trip and key scoping by session.
 
 **3.3 Post component and feed.**
+
 - Read first: Bluesky `src/components/Post/*`, `src/view/com/posts/PostFeed*.tsx`, `src/view/com/util/List*.tsx`.
 - Files: `src/components/Post/*`, `src/components/RichText.tsx`, `src/components/PostFeed/*`.
 - Steps: avatar, name, handle, time, CW toggle, RichText from AST, media grid, quote embed, renote header, reply context, counts, reaction chips (read-only here). Empty/loading/error states.
@@ -261,6 +286,7 @@ Known lessons to encode as tests, not prose:
 ### Phase 4: Write path
 
 **4.1 Post shadow and toggle queue.**
+
 - Read first: Bluesky `src/state/cache/post-shadow.ts`, `src/lib/hooks/useToggleMutationQueue.ts`, `src/state/queries/post.ts` (`usePostLikeMutationQueue`); old `claude/reaction-optimistic-guide.md`.
 - Steps: shadow fields `myReaction: string | null`, `reactionDelta`, `renoted`, `bookmarked`, `isDeleted`. Generalise the queue from boolean to "desired value" (reaction string or null). Delete-then-create for reaction change on Misskey. Pending custom emoji renders a fixed 16x16 box, never `:code:` text.
 - Acceptance: old T1-T6 rewritten as Jest tests (sync flip; rollback on reject; unlike; like-then-unlike in flight gives create, delete, no third call; no `:code:` text; heart regression).
@@ -278,6 +304,7 @@ Known lessons to encode as tests, not prose:
 ### Phase 5: Deck and widgets
 
 **5.1 Layout schema.**
+
 - Files: `src/features/deck/schema.ts`, `src/storage/schema.ts` (add), tests.
 - Steps: zod schema, versioned:
   ```ts

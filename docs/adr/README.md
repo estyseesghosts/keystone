@@ -2,9 +2,9 @@
 
 Load-bearing decisions. Numbered, append-only, never renumbered.
 
-| ADR | Title | Date | Status |
-|-----|-------|------|--------|
-| [0000](0000-template.md) | Template (not a decision) | — | — |
+| ADR                      | Title                     | Date | Status |
+| ------------------------ | ------------------------- | ---- | ------ |
+| [0000](0000-template.md) | Template (not a decision) | —    | —      |
 
 ## When to write one
 

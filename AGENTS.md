@@ -46,23 +46,29 @@ Template:
 
 ```md
 # YYYY-MM-DD — <slice/topic> — <agent>
+
 Branch: <name>
 Goal: one sentence from the plan slice
 
 Did:
+
 - ...
 
 Decided (→ ADR or DECISIONS entry if load-bearing):
+
 - ...
 
 Tests / verification (paste commands + results):
+
 - `pnpm typecheck && pnpm lint && pnpm test` → ?
 - device/web runs → pasted output, screenshot, or `not verified`
 
 Deviations (files touched outside the slice + why):
+
 - ...
 
 Next:
+
 - ...
 ```
 
@@ -99,28 +105,35 @@ Task file template:
 
 ```md
 # P1.1 — Expo app skeleton
+
 Plan ref: `rn-rebuild-plan.md` §5 Phase 1, slice 1.1
 Status: not started | in progress | blocked | done
 Branch: `p1.1-<topic>`
 
 ## Goal
+
 One sentence.
 
 ## Read first
+
 - paths…
 
 ## Steps
+
 - [ ] 1. …
 - [ ] 2. …
 
 ## Acceptance
+
 - [ ] `pnpm typecheck && pnpm lint && pnpm test` green
 - [ ] …manual check…
 
 ## Out of scope
+
 - …
 
 ## Log
+
 - `state/logs/…` links
 ```
 
