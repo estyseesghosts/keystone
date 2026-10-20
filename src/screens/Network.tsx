@@ -3,6 +3,7 @@ import {View} from 'react-native'
 import {useRoute, type RouteProp} from '@react-navigation/native'
 
 import {atoms} from '#/alf/atoms'
+import {ComposeFab} from '#/components/ComposeFab'
 import {Button} from '#/components/Button'
 import type {RootParamList, NetworkTab} from '#/routes'
 import {useActiveBackend, FeedHeading, FeedView} from '#/screens/HomeFeed'
@@ -43,6 +44,7 @@ export function NetworkScreen() {
         descriptor={descriptorForNetworkTab(active)}
         testID="network-feed"
       />
+      <ComposeFab />
     </View>
   )
 }

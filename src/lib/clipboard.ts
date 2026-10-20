@@ -1,21 +1,38 @@
-// Clipboard adapter (slice 4.2). No native clipboard package is a
-// dependency yet, so only the web Clipboard API is wired; native reports
-// unavailable and the menu shows "Copy" rows disabled with that reason.
-// Swap in expo-clipboard here when it lands (one place).
+// Clipboard adapter. Native uses expo-clipboard; web uses the browser
+// Clipboard API (secure contexts only; absent => reported unavailable).
+
+import {Platform} from 'react-native'
 
 type ClipboardLike = {writeText(text: string): Promise<void>}
 
-function clip(): ClipboardLike | null {
+function webClip(): ClipboardLike | null {
   const nav = (globalThis as {navigator?: {clipboard?: ClipboardLike}}).navigator
   return nav?.clipboard ?? null
 }
 
+type NativeClipboard = {setStringAsync(text: string): Promise<boolean>}
+
+function nativeClip(): NativeClipboard | null {
+  if (Platform.OS === 'web') return null
+  try {
+    return require('expo-clipboard') as NativeClipboard
+  } catch {
+    return null
+  }
+}
+
 export function canCopy(): boolean {
-  return clip() !== null
+  return Platform.OS === 'web' ? webClip() !== null : nativeClip() !== null
 }
 
 export async function copyText(text: string): Promise<void> {
-  const c = clip()
-  if (!c) throw new Error('Clipboard is not available on this platform.')
-  await c.writeText(text)
+  if (Platform.OS === 'web') {
+    const c = webClip()
+    if (!c) throw new Error('Clipboard is not available on this platform.')
+    await c.writeText(text)
+    return
+  }
+  const n = nativeClip()
+  if (!n) throw new Error('Clipboard is not available on this platform.')
+  await n.setStringAsync(text)
 }

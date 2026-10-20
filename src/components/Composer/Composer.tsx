@@ -39,6 +39,8 @@ import {
 } from '#/storage/drafts'
 
 import {SuggestionList, useSuggestions, type Suggestion} from './Autocomplete'
+import {Dialog} from '#/components/Dialog'
+import {EmojiPicker} from '#/components/EmojiPicker'
 import {Chip} from './Chip'
 import {pickMedia} from './pickMedia'
 
@@ -117,6 +119,7 @@ export function Composer({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [showDrafts, setShowDrafts] = useState(false)
+  const [pickingEmoji, setPickingEmoji] = useState(false)
   const patch = useCallback((p: Partial<ComposeState>) => setState(s => ({...s, ...p})), [])
 
   // Autosave (debounced). Keyed by session id; cleared on post.
@@ -286,6 +289,19 @@ export function Composer({
         style={styles.input}
       />
       <SuggestionList suggestions={suggestions} onPick={onPickSuggestion} />
+      {pickingEmoji ? (
+        <Dialog open onClose={() => setPickingEmoji(false)} title="Insert emoji" testID="composer-emoji-dialog">
+          <EmojiPicker
+            sessionId={session.id}
+            onPick={e => {
+              const at = Math.min(caret, state.text.length)
+              patch({text: state.text.slice(0, at) + e.key + state.text.slice(at)})
+              setCaret(at + e.key.length)
+              setPickingEmoji(false)
+            }}
+          />
+        </Dialog>
+      ) : null}
 
       <View style={styles.spread}>
         <Caption color={over ? 'text' : 'muted'} testID="composer-counter">
@@ -322,6 +338,7 @@ export function Composer({
       </View>
 
       <View style={styles.row}>
+        <Chip label="Emoji" onPress={() => setPickingEmoji(true)} testID="composer-emoji-button" />
         <Chip
           label="CW"
           selected={state.cwEnabled}

@@ -8,12 +8,14 @@ import {
   backendForSession,
   followDesiredOf,
   gateGraph,
+  isPureRenote,
   readSoftMutes,
   writeSoftMute,
   type Backend,
   type FollowDesired,
   type GraphGate,
   type KeyValueStore,
+  type Post,
   type Relationship,
 } from '@keystone/fedi'
 
@@ -316,4 +318,25 @@ export function useGraphActions(sessionId: string, account: {id: string; locked?
     },
     followRequest: {gate: g('follow_request'), resolve: a => controller.resolveFollowRequest(sessionId, backend, account.id, a)},
   }
+}
+
+// --- Soft-mute feed filter (slice 4.6) --------------------------------------
+
+const NO_SOFT_MUTES: string[] = []
+
+/** Soft-muted account ids for a session (live; empty when signed out). */
+export function useSoftMutedIds(sessionId: string | null): string[] {
+  return useSyncExternalStore(softMuteStore.subscribe, () =>
+    sessionId ? softMuteStore.list(sessionId) : NO_SOFT_MUTES,
+  )
+}
+
+/** Drop posts authored by, or pure reposts of, soft-muted accounts. */
+export function filterSoftMuted(posts: Post[], mutedIds: readonly string[]): Post[] {
+  if (mutedIds.length === 0) return posts
+  const muted = new Set(mutedIds)
+  return posts.filter(p => {
+    if (muted.has(p.author.id)) return false
+    return !(isPureRenote(p) && p.renote && muted.has(p.renote.author.id))
+  })
 }

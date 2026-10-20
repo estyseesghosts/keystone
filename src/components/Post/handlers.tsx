@@ -26,6 +26,8 @@ export interface PostCardHandlers {
   /** Viewer language for translation (BCP47 primary subtag). */
   targetLang?: string
   user?: UserActionHandlers
+  /** Per-post author handlers (app-wide provider; `user` wins when set). */
+  userFor?: (post: Post, sessionId: string) => UserActionHandlers | undefined
 }
 
 export const PostCardHandlersContext = createContext<PostCardHandlers>({})

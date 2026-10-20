@@ -183,7 +183,7 @@ function LivePostCard(props: PostCardProps) {
         }
       },
       onEdit: handlers.onEdit,
-      user: handlers.user,
+      user: handlers.user ?? handlers.userFor?.(effective, sessionId),
     },
   })
 

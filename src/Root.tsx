@@ -4,6 +4,7 @@ import {I18nProvider} from '@lingui/react'
 
 import {ThemeProvider} from '#/alf/index'
 import {i18n} from '#/locale/i18n'
+import {ToastHost} from '#/components/ToastHost'
 import {Navigation} from '#/Navigation'
 import {QueryProvider} from '#/state/queries'
 import {createSessionStore} from '#/state/session/store'
@@ -46,6 +47,7 @@ export function Root() {
       <ThemeProvider>
         <SessionProvider store={store} homeOrigin={homeOrigin}>
           <QueryProvider>{ready ? <Navigation /> : null}</QueryProvider>
+          <ToastHost />
         </SessionProvider>
       </ThemeProvider>
     </I18nProvider>

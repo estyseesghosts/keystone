@@ -22,7 +22,8 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
-import {countNewItems, feedItems, usePostFeedQuery} from '#/state/queries'
+import {PostCard} from '#/components/Post/index'
+import {countNewItems, feedItems, filterSoftMuted, useSoftMutedIds, usePostFeedQuery} from '#/state/queries'
 import {useSessionStore} from '#/state/session/SessionProvider'
 
 // --- Session / backend access -----------------------------------------------
@@ -115,7 +116,8 @@ export function FeedView({
     ...(resolved ? {backend: resolved} : {}),
     ...(retry !== undefined ? {retry} : {}),
   })
-  const items = useMemo(() => feedItems(feed.data), [feed.data])
+  const softMuted = useSoftMutedIds(sessionId)
+  const items = useMemo(() => filterSoftMuted(feedItems(feed.data), softMuted), [feed.data, softMuted])
   const {newCount, acknowledge} = useNewPosts(feed.queryKey.join('|'), items)
 
   if (!sessionId || !resolved) {
@@ -166,7 +168,7 @@ export function FeedView({
       <FlatList
         data={items}
         keyExtractor={item => item.id}
-        renderItem={({item}) => <PostRow post={item} />}
+        renderItem={({item}) => <PostCard post={item} sessionId={sessionId} capabilities={resolved.capabilities} />}
         refreshControl={
           <RefreshControl refreshing={feed.isRefetching} onRefresh={() => void feed.refetch()} />
         }

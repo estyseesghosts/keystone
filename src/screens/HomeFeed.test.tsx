@@ -1,3 +1,5 @@
+import {i18n} from '@lingui/core'
+import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {Text} from 'react-native'
@@ -8,6 +10,8 @@ import {ThemeProvider} from '#/alf/index'
 import type {TokenVault} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
+
+import {makePost} from '#/components/__tests__/fixtures'
 
 import {FeedView} from './HomeFeed'
 
@@ -20,14 +24,18 @@ const memVault = (): TokenVault => ({
 })
 
 function renderWithProviders(ui: React.ReactElement, store: ReturnType<typeof createSessionStore>) {
+  i18n.load('en', {})
+  i18n.activate('en')
   return render(
+    <I18nProvider i18n={i18n}>
     <ThemeProvider theme="light">
       <QueryClientProvider client={new QueryClient()}>
         <SessionProvider store={store} homeOrigin={HOME_ORIGIN}>
           {ui}
         </SessionProvider>
       </QueryClientProvider>
-    </ThemeProvider>,
+    </ThemeProvider>
+    </I18nProvider>,
   )
 }
 
@@ -76,38 +84,7 @@ describe('FeedView states', () => {
       grant: 'password',
       hosting: 'third-party',
     })
-    const post = {
-      id: 'p1',
-      createdAt: '2026-10-20T00:00:00.000Z',
-      author: {id: 'alice', username: 'alice', acct: 'alice', host: null, name: 'Alice', displayName: 'Alice'},
-      accountId: 'alice',
-      content: {plain: 'hello timeline'},
-      cw: null,
-      visibility: {kind: 'public', localOnly: false, raw: 'public'},
-      counts: {replies: 0, boosts: 0, quotes: 0, reactions: 0, favourites: 0},
-      reactions: null,
-      favourite: null,
-      media: [],
-      mediaIds: [],
-      poll: null,
-      card: null,
-      quote: null,
-      quoteState: null,
-      quoteUnavailable: false,
-      renote: null,
-      reply: null,
-      replyToId: null,
-      renoteId: null,
-      uri: null,
-      url: null,
-      emojis: {},
-      mentions: [],
-      tags: [],
-      editedAt: null,
-      filtered: [],
-      pinned: false,
-      ext: {},
-    }
+    const post = makePost({id: 'p1', content: {mfm: 'hello timeline', plain: 'hello timeline'}})
     const backend = {
       timeline: jest.fn(() => Promise.resolve({items: [post], cursor: null, end: true})),
     } as unknown as Backend

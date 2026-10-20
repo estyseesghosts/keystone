@@ -19,6 +19,7 @@ import {Button} from '#/components/Button'
 import type {RootParamList} from '#/routes'
 import {AuthCallbackScreen} from '#/screens/AuthCallback'
 import {ComposeScreen} from '#/screens/Compose'
+import {PostHandlersProvider} from '#/screens/PostHandlers'
 import {ExploreScreen} from '#/screens/Explore'
 import {HomeScreen} from '#/screens/Home'
 import {ListScreen} from '#/screens/List'
@@ -147,6 +148,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
   const leftRail = Platform.OS === 'web'
   return (
     <NavigationContainer linking={linking} initialState={initialState}>
+      <PostHandlersProvider>
       <View style={[atoms.flex1, (leftRail || wide) && atoms.row]}>
         {leftRail ? <LeftNav /> : null}
         <View style={atoms.flex1}>
@@ -168,6 +170,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
         </View>
         {wide ? <RightNav /> : null}
       </View>
+      </PostHandlersProvider>
     </NavigationContainer>
   )
 }
