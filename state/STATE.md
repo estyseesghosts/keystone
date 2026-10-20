@@ -1,6 +1,6 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: Phase 1, slice P1.2 done. Next: P1.3 ALF + themes.
+Phase/slice: Phase 1, slice P1.3 done. Next: P1.4 base components.
 Branch: `main` (owner waived per-slice branches for Phase 1).
 Plan: `rn-rebuild-plan.md` (proposal, 2026-10-20).
 Reference: Bluesky `social-app` @ `cf16c1d` (surveyed at `1.136.0`).
