@@ -1,0 +1,113 @@
+import {i18n} from '@lingui/core'
+import {I18nProvider} from '@lingui/react'
+import {fireEvent, render, screen} from '@testing-library/react-native'
+
+import {ThemeProvider} from '#/alf/index'
+import {PostCard} from '#/components/Post/index'
+
+import {makeAccount, makeMedia, makePost} from './fixtures'
+
+i18n.load('en', {})
+i18n.activate('en')
+
+function renderCard(ui: React.ReactElement) {
+  return render(
+    <I18nProvider i18n={i18n}>
+      <ThemeProvider theme="light">{ui}</ThemeProvider>
+    </I18nProvider>,
+  )
+}
+
+const SESSION = 'sess-1'
+
+describe('PostCard', () => {
+  it('renders avatar fallback, name, handle, time, and body', () => {
+    const createdAt = new Date(Date.now() - 22 * 3_600_000).toISOString()
+    renderCard(<PostCard post={makePost({createdAt})} sessionId={SESSION} />)
+    expect(screen.getByText('Alice')).toBeTruthy()
+    expect(screen.getByText('@alice@example.social · 22h')).toBeTruthy()
+    expect(screen.getByTestId('avatar-fallback-a1')).toBeTruthy()
+    expect(screen.getByTestId('post-body-p1')).toBeTruthy()
+  })
+
+  it('toggles CW content', () => {
+    renderCard(<PostCard post={makePost({id: 'p2', cw: 'spoilers'})} sessionId={SESSION} />)
+    expect(screen.queryByTestId('post-body-p2')).toBeNull()
+    fireEvent.press(screen.getByTestId('cw-toggle-p2'))
+    expect(screen.getByTestId('post-body-p2')).toBeTruthy()
+  })
+
+  it('shows a boost header with the original for pure renotes', () => {
+    const original = makePost({id: 'orig', content: {mfm: 'original text', plain: 'original text'}})
+    const wrapper = makePost({
+      id: 'wrap',
+      author: makeAccount({id: 'b1', username: 'bob', acct: 'bob', host: null, name: 'Bob', displayName: 'Bob'}),
+      content: {plain: ''},
+      renoteId: 'orig',
+      renote: original,
+    })
+    renderCard(<PostCard post={wrapper} sessionId={SESSION} />)
+    expect(screen.getByTestId('boost-header-wrap')).toBeTruthy()
+    expect(screen.getByText('original text')).toBeTruthy()
+  })
+
+  it('renders reply context, quote embed, media images, and counts', () => {
+    const parent = makePost({id: 'parent', author: makeAccount({id: 'c1', username: 'carol', acct: 'carol@x.social', host: 'x.social', name: '', displayName: 'carol'})})
+    const post = makePost({
+      id: 'p3',
+      replyToId: 'parent',
+      reply: parent,
+      quote: makePost({id: 'q1', content: {mfm: 'quoted body', plain: 'quoted body'}}),
+      media: [makeMedia({id: 'm9'})],
+    })
+    renderCard(<PostCard post={post} sessionId={SESSION} />)
+    expect(screen.getByTestId('reply-context-p3')).toBeTruthy()
+    expect(screen.getByTestId('post-quote-p3')).toBeTruthy()
+    expect(screen.getByText('quoted body')).toBeTruthy()
+    expect(screen.getByTestId('media-m9')).toBeTruthy()
+    expect(screen.getByTestId('post-counts-p3')).toBeTruthy()
+  })
+
+  it('renders an unavailable quote as an honest fallback', () => {
+    renderCard(<PostCard post={makePost({id: 'p4', quote: null, quoteUnavailable: true})} sessionId={SESSION} />)
+    expect(screen.getByTestId('post-quote-p4')).toBeTruthy()
+  })
+
+  it('renders video kinds as placeholders with a reason, never a player', () => {
+    renderCard(
+      <PostCard post={makePost({id: 'p5', media: [makeMedia({id: 'v1', kind: 'video', mimeType: 'video/mp4'})]})} sessionId={SESSION} />,
+    )
+    expect(screen.getByTestId('media-placeholder-v1')).toBeTruthy()
+  })
+
+  it('hides sensitive media behind a tap-to-show gate', () => {
+    renderCard(
+      <PostCard post={makePost({id: 'p6', media: [makeMedia({id: 's1', isSensitive: true})]})} sessionId={SESSION} />,
+    )
+    expect(screen.queryByTestId('media-s1')).toBeNull()
+    fireEvent.press(screen.getByTestId('media-sensitive-show'))
+    expect(screen.getByTestId('media-s1')).toBeTruthy()
+  })
+
+  it('renders read-only reaction chips, disabled with a reason', () => {
+    renderCard(<PostCard post={makePost()} sessionId={SESSION} />)
+    expect(screen.getByLabelText('❤, 5. Reactions are read-only in this build — the write path lands in Phase 4.')).toBeTruthy()
+  })
+
+  it('hides reaction chips when reactions are unsupported', () => {
+    renderCard(
+      <PostCard
+        post={makePost({id: 'p7'})}
+        sessionId={SESSION}
+        capabilities={{reactions: 'unsupported'} as never}
+      />,
+    )
+    expect(screen.queryByTestId('post-reactions-p7')).toBeNull()
+  })
+
+  it('write actions are disabled with reasons, never inert', () => {
+    renderCard(<PostCard post={makePost({id: 'p8'})} sessionId={SESSION} />)
+    expect(screen.getByLabelText('Reply. Replying lands with the composer in Phase 4.')).toBeTruthy()
+    expect(screen.getByLabelText('Boost. Boosting lands with the write path in Phase 4.')).toBeTruthy()
+  })
+})
