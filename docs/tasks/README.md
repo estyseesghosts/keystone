@@ -37,5 +37,6 @@ end of session (see `AGENTS.md` §2 checklist).
 | [butterfly-v1-parity](butterfly-v1-parity.md) | ADR-0002 butterfly | shell+cards+composer+popups done, feed next | `p3.1-signin-functional` | `state/logs/2026-10-20-butterfly-composer.md` |
 | [p4.7-sharkey-likes](p4.7-sharkey-likes.md) | kissme spec (owner) | in progress, live tap pending | `p3.1-signin-functional` | (this session) |
 | [p5.1-settings-tree](p5.1-settings-tree.md) | §5 P5 settings | in progress | `p3.1-signin-functional` | `state/logs/2026-10-20-p5.1-settings-tree.md` |
+| [gap-closure](gap-closure.md) | cross-cutting (register) | not started | `p6.0-gap-closure` | `state/logs/2026-10-20-gap-audit.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.
