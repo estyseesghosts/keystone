@@ -1,17 +1,16 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: Phase 1 DONE (slices 1.1–1.5 on `main`). Gate G1: owner
-review of the shell on a phone + desktop browser.
+Phase/slice: Phase 2 IN PROGRESS (2.1 core done on `main`; 2.2–2.6 queued).
+Gate G1: owner review of the shell on a phone + desktop browser (still open).
 Branch: `main`.
 Plan: `rn-rebuild-plan.md` (proposal, 2026-10-20).
 Reference: Bluesky `social-app` @ `cf16c1d` (patterns only, ADR-0001).
 
 ## Next 3 steps
 
-1. Owner G1 review (shell on phone + desktop browser) + §7 D1–D8 sign-off.
-2. Phase 2 kickoff: task file `docs/tasks/p2.1-core.md`, port
-   `packages/fedi/src/core/*` (2.1).
-3. Resolve G1 feedback before read-path work.
+1. Phase 2 slice 2.2: Misskey adapter (`packages/fedi/src/misskey/*`).
+2. Phase 2 slice 2.3: Mastodon adapter (`packages/fedi/src/mastodon/*`).
+3. Owner G1 review (shell on phone + desktop browser) + §7 D1–D8 sign-off.
 
 ## Blockers
 

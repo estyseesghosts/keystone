@@ -22,6 +22,11 @@ const jestGlobals = {
 export default [
   {
     files: ['packages/fedi/**/*.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {ecmaFeatures: {jsx: false}},
+      globals: {...jestGlobals},
+    },
     plugins: {keystone},
     rules: {'keystone/no-ui-in-fedi': 'error'},
   },
