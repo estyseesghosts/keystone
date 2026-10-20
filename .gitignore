@@ -1,0 +1,25 @@
+# ---> Node / Expo / React Native
+node_modules/
+.expo/
+dist/
+web-build/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.keystore
+
+# ---> OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# ---> Env / secrets
+.env
+.env.*
+!.env.example
+
+# ---> State scratch (keep STATE.md + logs, ignore temp)
+state/tmp/
