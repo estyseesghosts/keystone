@@ -1,6 +1,6 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: Phase 2 IN PROGRESS (2.1–2.4 done on `main`; 2.5 sessions/storage + 2.6 smoke queued).
+Phase/slice: Phase 2 IN PROGRESS (2.1–2.5 done on `main`; 2.6 smoke queued).
 Gate G1: owner review of the shell on a phone + desktop browser (still open).
 Branch: `main`.
 Plan: `rn-rebuild-plan.md` (proposal, 2026-10-20).
@@ -8,8 +8,7 @@ Reference: Bluesky `social-app` @ `cf16c1d` (patterns only, ADR-0001).
 
 ## Next 3 steps
 
-1. Phase 2 slice 2.5: sessions + storage seam (`src/storage/`, `src/state/session/`, `expo-secure-store`, api facade + `client-routing`).
-2. Phase 2 slice 2.6: contract smoke (`scripts/fedi-smoke.ts`); then Gate G2 owner review.
+1. Phase 2 slice 2.6: contract smoke (`scripts/fedi-smoke.ts` vs rig Misskey :3101, Sharkey :3102, Mastodon); then Gate G2 owner review.
 
 ## Blockers
 

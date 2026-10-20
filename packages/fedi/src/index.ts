@@ -183,3 +183,11 @@ export type {
   StreamHandleOptions as MastodonStreamHandleOptions,
 } from "./mastodon/stream";
 export * from "./mastodon/thread";
+// Session-bound routing facade (slice 2.5): the family router choosing
+// misskey/mastodon backends from the session family/flavor, over the
+// `core/sessions` store seam. `api/backend` holds the home-target helpers;
+// `api/client` the router. Names already owned by `misskey/auth`
+// (`signinFlow`, `mintAppToken`, app identity) and `misskey/client`
+// (`isUnsupportedError`, `isPermissionError`) are reused, never redefined.
+export * from "./api/backend";
+export * from "./api/client";
