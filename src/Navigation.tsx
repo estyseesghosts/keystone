@@ -155,10 +155,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
             <Stack.Screen name="List" component={ListScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen
-              name="AuthCallback"
-              component={AuthCallbackScreen}
-            />
+            <Stack.Screen name="AuthCallback" component={AuthCallbackScreen} />
             <Stack.Screen name="SysDebug" component={SysDebugScreen} />
           </Stack.Navigator>
         </View>
