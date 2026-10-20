@@ -23,11 +23,11 @@ jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({navigate: mockNavigate}),
 }))
-// Butterfly shell: the FAB renders in the mobile layout. Bare jest has no
-// viewport, so pin the mobile cut point here (wide shells use the sidebar
-// Post button instead).
-jest.mock('react-responsive', () => ({
-  useMediaQuery: () => true,
+// Butterfly shell: the FAB renders in the mobile layout. Jest's default
+// window (750px) is the rail cut point, so pin a phone width here (wide
+// shells use the sidebar Post button instead).
+jest.mock('#/alf/useViewportWidth', () => ({
+  useViewportWidth: () => 390,
 }))
 
 i18n.load('en', {})

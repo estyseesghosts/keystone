@@ -31,8 +31,8 @@ jest.mock('#/screens/Settings', () => {
 // Pin the phone layout: the trap is the mobile bottom bar unmounting with
 // `Main` while a stack screen (Settings) is focused. Same mock the
 // integration suite uses for the mobile shell.
-jest.mock('react-responsive', () => ({
-  useMediaQuery: () => true,
+jest.mock('#/alf/useViewportWidth', () => ({
+  useViewportWidth: () => 390,
 }))
 
 const memVault = (): TokenVault => ({

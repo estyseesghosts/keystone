@@ -10,6 +10,12 @@ jest.mock('expo-linking', () => ({
   createURL: (path: string) => `keystone://${path}`,
 }))
 
+// Pin the phone shell (the primary target). Jest's default window (750px)
+// is the rail cut point, where tab entries render as icons without labels.
+jest.mock('#/alf/useViewportWidth', () => ({
+  useViewportWidth: () => 390,
+}))
+
 // Seed for the plan §3.3 provider-regression guard: the app boots and
 // renders. Slice 3.4 replaced the Home placeholder with the real Home
 // screen (signed-out honest state); fixture-backed tests land per slice.
@@ -23,7 +29,7 @@ describe('App', () => {
 describe('Navigation', () => {
   it('switches tabs', async () => {
     render(<Root />)
-    fireEvent.press(await screen.findByText('Explore'))
+    fireEvent.press(await screen.findByTestId('tab-Explore'))
     expect(await screen.findByText('Explore — not built')).toBeTruthy()
   })
 

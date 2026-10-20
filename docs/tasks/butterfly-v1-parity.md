@@ -57,4 +57,7 @@ wide (tablet/desktop) screens.
 
 ## Log
 
+- `state/logs/2026-10-20-mobile-shell-layout.md` — native breakpoints were
+  inert media queries (phone got the desktop sidebar); now width math,
+  device-verified at 360dp
 - (session log to be written when the slice lands)
