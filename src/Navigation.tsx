@@ -2,6 +2,8 @@ import {msg} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs'
 import {
+  DarkTheme,
+  DefaultTheme,
   NavigationContainer,
   useNavigation,
   type InitialState,
@@ -13,6 +15,7 @@ import * as Linking from 'expo-linking'
 import {Platform, View} from 'react-native'
 
 import {atoms} from '#/alf/atoms'
+import {useTheme as useAlfTheme} from '#/alf'
 import {useLayoutBreakpoints} from '#/alf/breakpoints'
 import {Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
@@ -146,10 +149,30 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
   const {rightNavVisible} = useLayoutBreakpoints()
   const wide = Platform.OS === 'web' && rightNavVisible
   const leftRail = Platform.OS === 'web'
+  const alf = useAlfTheme()
+  const base = alf.name === 'dark' ? DarkTheme : DefaultTheme
+  const navTheme = {
+    ...base,
+    colors: {
+      ...base.colors,
+      background: alf.palette.bg,
+      card: alf.palette.bg,
+      text: alf.palette.text,
+      border: alf.palette.border,
+    },
+  }
   return (
-    <NavigationContainer linking={linking} initialState={initialState}>
+    <NavigationContainer
+      theme={navTheme}
+      linking={linking}
+      initialState={initialState}>
       <PostHandlersProvider>
-      <View style={[atoms.flex1, (leftRail || wide) && atoms.row]}>
+      <View
+        style={[
+          atoms.flex1,
+          {backgroundColor: alf.palette.bg},
+          (leftRail || wide) && atoms.row,
+        ]}>
         {leftRail ? <LeftNav /> : null}
         <View style={atoms.flex1}>
           <Stack.Navigator screenOptions={{headerShown: false}}>
