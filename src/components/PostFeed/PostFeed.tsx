@@ -5,7 +5,7 @@
 // Data arrives via props in this slice — the TanStack
 // `usePostFeedQuery(sessionId, descriptor)` hook lands in slice 3.2
 // and will feed THESE props. The component accepts (not fetches)
-// `descriptor + sessionId`, and keys off `postFeedQueryKey`.
+// `descriptor + sessionId`, and keys off `feedQueryKey` (`#/state/queries`).
 
 import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
 

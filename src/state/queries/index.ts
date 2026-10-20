@@ -2,6 +2,7 @@
 // the post-feed infinite query, and the app query provider.
 
 export * from './keys'
+export * from './feeds'
 export * from './stale'
 export * from './usePostFeedQuery'
 export * from './Provider'

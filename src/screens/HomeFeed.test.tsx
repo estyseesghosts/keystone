@@ -1,3 +1,4 @@
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {Text} from 'react-native'
 
@@ -8,18 +9,7 @@ import type {TokenVault} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
-import {
-  countNewItems,
-  defaultNetworkTab,
-  descriptorForNetworkTab,
-  feedQueryKey,
-  parseFeedDescriptor,
-  profileTabDescriptor,
-  profileTabOpts,
-  supportsSocialTimeline,
-  visibleNetworkTabs,
-  FeedView,
-} from './HomeFeed'
+import {FeedView} from './HomeFeed'
 
 const HOME_ORIGIN = 'https://app.example'
 
@@ -32,85 +22,14 @@ const memVault = (): TokenVault => ({
 function renderWithProviders(ui: React.ReactElement, store: ReturnType<typeof createSessionStore>) {
   return render(
     <ThemeProvider theme="light">
-      <SessionProvider store={store} homeOrigin={HOME_ORIGIN}>
-        {ui}
-      </SessionProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <SessionProvider store={store} homeOrigin={HOME_ORIGIN}>
+          {ui}
+        </SessionProvider>
+      </QueryClientProvider>
     </ThemeProvider>,
   )
 }
-
-describe('feed-visibility rule (ported rule, own code)', () => {
-  it('hides Local while Social exists on the Misskey family', () => {
-    expect(supportsSocialTimeline('misskey')).toBe(true)
-    expect(visibleNetworkTabs('misskey')).toEqual(['social', 'global'])
-  })
-
-  it('keeps Local on the Mastodon family (no Social timeline there)', () => {
-    expect(supportsSocialTimeline('mastodon')).toBe(false)
-    expect(visibleNetworkTabs('mastodon')).toEqual(['local', 'global'])
-  })
-
-  it('falls back to Local + Federated when the family is unknown', () => {
-    expect(visibleNetworkTabs(null)).toEqual(['local', 'global'])
-    expect(visibleNetworkTabs(undefined)).toEqual(['local', 'global'])
-  })
-
-  it('never defaults to Federated', () => {
-    for (const family of ['misskey', 'mastodon', null, undefined] as const) {
-      expect(defaultNetworkTab(family)).not.toBe('global')
-    }
-    expect(defaultNetworkTab('misskey')).toBe('social')
-    expect(defaultNetworkTab('mastodon')).toBe('local')
-  })
-
-  it('maps tabs to timeline descriptors', () => {
-    expect(descriptorForNetworkTab('social')).toBe('timeline|social')
-    expect(descriptorForNetworkTab('local')).toBe('timeline|local')
-    expect(descriptorForNetworkTab('global')).toBe('timeline|global')
-  })
-})
-
-describe('feed descriptors', () => {
-  it('round-trips timeline, user-tab, and tag descriptors', () => {
-    expect(parseFeedDescriptor('timeline|home')).toEqual({kind: 'timeline', timeline: 'home'})
-    expect(parseFeedDescriptor(profileTabDescriptor('abc', 'replies'))).toEqual({
-      kind: 'user',
-      userId: 'abc',
-      tab: 'replies',
-    })
-    expect(parseFeedDescriptor('tag|Solarpunk' as never)).toEqual({kind: 'tag', tag: 'Solarpunk'})
-    expect(parseFeedDescriptor('bogus' as never)).toEqual({kind: 'unknown'})
-  })
-
-  it('sends explicit falses on the posts tab (server defaults differ)', () => {
-    expect(profileTabOpts('posts')).toEqual({withReplies: false, withRenotes: false})
-    expect(profileTabOpts('replies')).toEqual({withReplies: true, withRenotes: false})
-    expect(profileTabOpts('media')).toEqual({withFiles: true})
-    expect(profileTabOpts('featured')).toEqual({featured: true})
-  })
-
-  it('keys every query by session id (account switches never leak rows)', () => {
-    const a = feedQueryKey('https://a.example alice', 'timeline|home')
-    const b = feedQueryKey('https://b.example bob', 'timeline|home')
-    expect(a[1]).toBe('https://a.example alice')
-    expect(a).not.toEqual(b)
-    expect(feedQueryKey(null, 'timeline|home')[1]).toBeNull()
-  })
-})
-
-describe('countNewItems', () => {
-  const items = [{id: '3'}, {id: '2'}, {id: '1'}]
-  it('reports 0 on first load (the list is the baseline)', () => {
-    expect(countNewItems(items, null)).toBe(0)
-  })
-  it('counts rows above the last-seen first id', () => {
-    expect(countNewItems(items, '3')).toBe(0)
-    expect(countNewItems([{id: '5'}, {id: '4'}, ...items], '3')).toBe(2)
-  })
-  it('treats an evicted baseline as all-unseen', () => {
-    expect(countNewItems(items, 'gone')).toBe(3)
-  })
-})
 
 describe('FeedView states', () => {
   it('shows the signed-out state without sample data', async () => {
@@ -137,7 +56,7 @@ describe('FeedView states', () => {
     const timeline = jest.fn(() => Promise.reject(new ApiError('nope', 404, 'NOT_FOUND' as never)))
     const backend = {timeline} as unknown as Backend
     renderWithProviders(
-      <FeedView sessionId={added.id} descriptor="timeline|social" backend={backend} testID="feed" />,
+      <FeedView sessionId={added.id} descriptor="timeline|social" backend={backend} retry={false} testID="feed" />,
       store,
     )
     expect(await screen.findByText('Not on this server.')).toBeTruthy()

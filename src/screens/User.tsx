@@ -9,12 +9,8 @@ import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import type {RootParamList} from '#/routes'
-import {
-  profileTabDescriptor,
-  useActiveBackend,
-  type ProfileFeedTab,
-  FeedView,
-} from '#/screens/HomeFeed'
+import {useActiveBackend, FeedView} from '#/screens/HomeFeed'
+import {profileTabDescriptor, type ProfileFeedTab} from '#/state/queries'
 
 // Profile (`/users/:id?`): header plus posts / replies / media / featured
 // tabs addressed by `user|id|…` descriptors. Follow state is READ-ONLY:

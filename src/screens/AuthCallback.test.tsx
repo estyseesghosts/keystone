@@ -1,3 +1,4 @@
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {render, waitFor} from '@testing-library/react-native'
 import {I18nProvider} from '@lingui/react'
 
@@ -81,9 +82,11 @@ describe('AuthCallbackScreen', () => {
       render(
         <I18nProvider i18n={i18n}>
           <ThemeProvider>
-            <SessionProvider store={store} homeOrigin="keystone://app">
-              <Navigation initialState={{routes: [{name: 'Main'}, {name: 'AuthCallback'}]}} />
-            </SessionProvider>
+            <QueryClientProvider client={new QueryClient()}>
+              <SessionProvider store={store} homeOrigin="keystone://app">
+                <Navigation initialState={{routes: [{name: 'Main'}, {name: 'AuthCallback'}]}} />
+              </SessionProvider>
+            </QueryClientProvider>
           </ThemeProvider>
         </I18nProvider>,
       )

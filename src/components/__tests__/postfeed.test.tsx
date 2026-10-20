@@ -6,8 +6,8 @@ import {useState} from 'react'
 import {createMemoryStore} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
-import {postFeedQueryKey} from '#/components/PostFeed/index'
 import {PostFeed} from '#/components/PostFeed/index'
+import {feedQueryKey} from '#/state/queries'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {createSessionStore} from '#/state/session/store'
 
@@ -42,10 +42,10 @@ function renderFeed(ui: React.ReactElement, store = memoryStore()) {
   )
 }
 
-describe('postFeedQueryKey', () => {
+describe('feedQueryKey (canonical, sessionId first)', () => {
   it('includes the sessionId; different sessions key differently', () => {
-    expect(postFeedQueryKey('a', 'timeline|home')).toEqual(['post-feed', 'a', 'timeline|home'])
-    expect(postFeedQueryKey('a', 'timeline|home')).not.toEqual(postFeedQueryKey('b', 'timeline|home'))
+    expect(feedQueryKey('a', 'timeline|home')).toEqual(['a', 'post-feed', 'timeline|home'])
+    expect(feedQueryKey('a', 'timeline|home')).not.toEqual(feedQueryKey('b', 'timeline|home'))
   })
 })
 

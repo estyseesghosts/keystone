@@ -5,6 +5,7 @@ import {I18nProvider} from '@lingui/react'
 import {ThemeProvider} from '#/alf/index'
 import {i18n} from '#/locale/i18n'
 import {Navigation} from '#/Navigation'
+import {QueryProvider} from '#/state/queries'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {appStorage, appTokenVault} from '#/storage'
@@ -44,7 +45,7 @@ export function Root() {
     <I18nProvider i18n={i18n}>
       <ThemeProvider>
         <SessionProvider store={store} homeOrigin={homeOrigin}>
-          {ready ? <Navigation /> : null}
+          <QueryProvider>{ready ? <Navigation /> : null}</QueryProvider>
         </SessionProvider>
       </ThemeProvider>
     </I18nProvider>

@@ -5,14 +5,8 @@ import {useRoute, type RouteProp} from '@react-navigation/native'
 import {atoms} from '#/alf/atoms'
 import {Button} from '#/components/Button'
 import type {RootParamList, NetworkTab} from '#/routes'
-import {
-  defaultNetworkTab,
-  descriptorForNetworkTab,
-  useActiveBackend,
-  visibleNetworkTabs,
-  FeedHeading,
-  FeedView,
-} from '#/screens/HomeFeed'
+import {useActiveBackend, FeedHeading, FeedView} from '#/screens/HomeFeed'
+import {defaultNetworkTab, descriptorForNetworkTab, visibleNetworkTabs} from '#/state/queries'
 
 // Network (`/network/:tab?`): social / local / global timelines.
 //

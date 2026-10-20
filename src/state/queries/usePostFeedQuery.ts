@@ -46,6 +46,8 @@ export interface PostFeedQueryOptions {
   backend?: Backend
   /** Page size. */
   limit?: number
+  /** Retry count (tests pass 0 to fail fast). Defaults to 2. */
+  retry?: number | false
 }
 
 /**
@@ -165,7 +167,7 @@ export function usePostFeedQuery(
     staleTime: STALE.FEED,
     gcTime: GC_TIME.FEED,
     enabled: backend != null,
-    retry: 2,
+    retry: options.retry ?? 2,
     refetchOnWindowFocus: false,
   })
   return {...query, queryKey}
