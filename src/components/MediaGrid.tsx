@@ -2,6 +2,7 @@ import {useState} from 'react'
 import {Image} from 'expo-image'
 import {useVideoPlayer, VideoView} from 'expo-video'
 import {StyleSheet, View} from 'react-native'
+import type {ComponentProps} from 'react'
 import type {Media} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
@@ -9,6 +10,11 @@ import {radius, space} from '#/alf/tokens'
 import {Caption} from '#/components/Typography'
 import {Button} from '#/components/Button'
 import {Pressable} from '#/components/Pressable'
+
+// SDK 57 web types: `VideoView` wants the web player class while
+// `useVideoPlayer` returns the native type. The runtime instance is
+// correct per platform, so this cast is type-only.
+type ViewPlayer = ComponentProps<typeof VideoView>['player']
 
 export type MediaGridProps = {
   media: Media[]
@@ -42,7 +48,7 @@ function VideoTile({item, index}: {item: Media; index: number}) {
   }
   return (
     <VideoView
-      player={player}
+      player={player as unknown as ViewPlayer}
       nativeControls
       contentFit="cover"
       accessibilityLabel={altFor(item, index)}

@@ -10,6 +10,7 @@
 // Every tile opens the Lightbox at its index; unsafe URLs never fetch
 // and never open (F4).
 import {useEffect, useState} from 'react'
+import type {ComponentProps} from 'react'
 import {Image, Linking, ScrollView, StyleSheet, View} from 'react-native'
 import {useVideoPlayer, VideoView} from 'expo-video'
 
@@ -19,6 +20,11 @@ import {useTheme} from '#/alf/index'
 import {Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
 import {showToast} from '#/lib/toast'
+
+// SDK 57 web types: `VideoView` wants the web player class while
+// `useVideoPlayer` returns the native type. The runtime instance is
+// correct per platform, so this cast is type-only.
+type ViewPlayer = ComponentProps<typeof VideoView>['player']
 
 const SINGLE_AR = 16 / 10
 const STRIP_AR = 4 / 3
@@ -168,7 +174,7 @@ function LoopTile({item, single, index, onOpen, url}: {item: Media; single: bool
   })
   return (
     <TileFrame item={item} single={single} index={index} aspect={tileAspect(item, single)} onOpen={onOpen} testID={`media-gifv-${item.id}`} label={mediaLabel(item)}>
-      <VideoView player={player} contentFit="cover" style={styles.video} testID={`media-gifv-player-${item.id}`} />
+      <VideoView player={player as unknown as ViewPlayer} contentFit="cover" style={styles.video} testID={`media-gifv-player-${item.id}`} />
     </TileFrame>
   )
 }
@@ -188,7 +194,7 @@ function PlayerTile({item, single, index, onOpen, url}: {item: Media; single: bo
   return (
     <TileFrame item={item} single={single} index={index} aspect={tileAspect(item, single)} onOpen={onOpen} testID={`media-video-${item.id}`} label={mediaLabel(item)}>
       <VideoView
-        player={player}
+        player={player as unknown as ViewPlayer}
         nativeControls
         contentFit="contain"
         style={styles.video}

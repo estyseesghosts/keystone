@@ -1,6 +1,7 @@
 import {Image} from 'expo-image'
 import {useVideoPlayer, VideoView} from 'expo-video'
 import {Modal, ScrollView, StyleSheet, View, useWindowDimensions} from 'react-native'
+import type {ComponentProps} from 'react'
 import {safeHttpUrl, type Media} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
@@ -8,6 +9,11 @@ import {space} from '#/alf/tokens'
 import {Caption} from '#/components/Typography'
 import {Button} from '#/components/Button'
 import {mediaAlt} from '#/components/MediaGrid'
+
+// SDK 57 web types: `VideoView` wants the web player class while
+// `useVideoPlayer` returns the native type. The runtime instance is
+// correct per platform, so this cast is type-only.
+type ViewPlayer = ComponentProps<typeof VideoView>['player']
 
 export type LightboxProps = {
   media: Media[]
@@ -50,7 +56,7 @@ function LightboxVideo({item, index, width, url}: {item: Media; index: number; w
   })
   return (
     <VideoView
-      player={player}
+      player={player as unknown as ViewPlayer}
       nativeControls
       contentFit="contain"
       accessibilityLabel={mediaAlt(item, index)}
