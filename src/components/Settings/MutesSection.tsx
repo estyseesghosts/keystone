@@ -534,7 +534,7 @@ export function MutesSection() {
         <PlaceholderRow
           title={i18n._(msg`Repost-muted accounts`)}
           hint={i18n._(msg`Accounts whose reposts are hidden.`)}
-          reason={i18n._(msg`Not wired yet — the backend has no list endpoint.`)}
+          reason={i18n._(msg`This server has no repost-mute list.`)}
           testID="placeholder-renote-mutes"
         />
       )}

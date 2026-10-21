@@ -11,7 +11,7 @@ import {
 import {toastError} from '#/components/Post/ActionBar'
 import {showToast} from '#/lib/toast'
 import type {RootParamList} from '#/routes'
-import {graphControllerFor} from '#/state/queries'
+import {graphControllerFor, relationshipQueryKey} from '#/state/queries'
 import {useOptionalSessionStore, useSessionStore} from '#/state/session/SessionProvider'
 
 // App-wide PostCard handlers (slice 4.6): reply/quote/edit -> Compose route,
@@ -46,11 +46,22 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
       const controller = graphControllerFor(qc)
       const backend = backendForSession(s)
       // Relation snapshot for menu label flips (C16): whatever the cache
-      // holds (possibly nothing — labels then keep defaults). Toggles go
-      // through the controller where it owns the queue (mute/block) and
-      // straight to the backend for boost visibility (no queue owns it).
+      // holds (possibly nothing — labels then keep defaults). Mute/block
+      // toggles go through the controller where it owns the queue (it
+      // invalidates the relationship query on settle); boost visibility
+      // has no queue owner, so the toggle below re-reads `relationships`
+      // itself and writes the cache, keeping the undo labels honest.
       const known = controller.relationship(sessionId, post.author.id)
       const renoteMuted = known?.isRenoteMuted
+      const resync = async () => {
+        try {
+          const rows = await backend.relationships([post.author.id])
+          const rel = rows[0]
+          if (rel) qc.setQueryData(relationshipQueryKey(sessionId, post.author.id), rel)
+        } catch {
+          // Keep the snapshot: labels stay as they were, no error row.
+        }
+      }
       return {
         onMute: run(
           () => controller.setMuted(sessionId, backend, post.author.id, !(known?.isMuted ?? false)),
@@ -60,6 +71,7 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
           async () => {
             if (renoteMuted === true) await backend.unmuteRenotes(post.author.id)
             else await backend.muteRenotes(post.author.id)
+            await resync()
           },
           renoteMuted === true ? 'Reposts unmuted' : 'Reposts muted',
         ),
@@ -67,6 +79,16 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
           () => controller.setBlocked(sessionId, backend, post.author.id, !(known?.isBlocking ?? false)),
           known?.isBlocking ? 'Unblocked' : 'Blocked',
         ),
+        onReport: async (comment: string) => {
+          try {
+            const text = comment.trim()
+            if (!text) throw new Error('Add a reason for the report.')
+            await backend.reportAccount(post.author.id, text)
+            showToast('Report sent')
+          } catch (e) {
+            toastError(e)
+          }
+        },
         muted: known?.isMuted,
         renoteMuted,
         blocking: known?.isBlocking,

@@ -181,6 +181,50 @@ describe('PostMenu UI', () => {
     fireEvent.press(screen.getByTestId('post-menu-p1-back'))
     expect(screen.getByTestId('post-menu-p1-item-user')).toBeTruthy()
   })
+
+  it('comment-required confirms stay disabled until text, then pass the comment', async () => {
+    const run = jest.fn(async (_comment?: string) => undefined)
+    wrap(
+      <PostMenu
+        postId="p1"
+        sections={[
+          [
+            {
+              key: 'report',
+              label: 'Report',
+              confirm: {title: 'Report @alice?', action: 'Report', commentLabel: 'Reason', run},
+            },
+          ],
+        ]}
+      />,
+    )
+    fireEvent.press(screen.getByTestId('post-menu-p1'))
+    fireEvent.press(screen.getByTestId('post-menu-p1-item-report'))
+    expect(screen.getByText('Report @alice?')).toBeTruthy()
+    // Empty reason: the confirm cannot fire.
+    fireEvent.press(screen.getByTestId('post-menu-p1-confirm'))
+    expect(run).not.toHaveBeenCalled()
+    fireEvent.changeText(screen.getByTestId('post-menu-p1-comment'), 'spam')
+    fireEvent.press(screen.getByTestId('post-menu-p1-confirm'))
+    await waitFor(() => expect(run).toHaveBeenCalledWith('spam'))
+    expect(screen.queryByTestId('post-menu-p1-dialog')).toBeNull()
+  })
+
+  it('plain confirms still run without a comment', async () => {
+    const run = jest.fn(async () => undefined)
+    wrap(
+      <PostMenu
+        postId="p1"
+        sections={[
+          [{key: 'delete', label: 'Delete', confirm: {title: 'Delete this post?', action: 'Delete'}, run}],
+        ]}
+      />,
+    )
+    fireEvent.press(screen.getByTestId('post-menu-p1'))
+    fireEvent.press(screen.getByTestId('post-menu-p1-item-delete'))
+    fireEvent.press(screen.getByTestId('post-menu-p1-confirm'))
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+  })
 })
 
 // --- Live PostCard wiring (usePostActions) ---------------------------------
@@ -209,6 +253,7 @@ function fakeBackend(over: Record<string, unknown> = {}, c: Capabilities = caps(
     deletePost: jest.fn(async () => undefined),
     translate: jest.fn(async () => ({sourceLang: 'Japanese', text: 'hello translated'})),
     muteThread: jest.fn(async () => undefined),
+    reportAccount: jest.fn(async (_id: string, _comment: string) => undefined),
     bookmarks: {add: jest.fn(async () => undefined), remove: jest.fn(async () => undefined)},
     ...over,
   }
@@ -379,6 +424,64 @@ describe('PostCard write wiring', () => {
     fireEvent.press(screen.getByTestId('post-menu-p1'))
     fireEvent.press(screen.getByTestId('post-menu-p1-item-mute-thread'))
     await waitFor(() => expect(b.muteThread).toHaveBeenCalledWith('p1'))
+  })
+
+  it('manual translate failure toasts, keeps the body, and retries on the next tap', async () => {
+    clearToasts()
+    const b = live(
+      makePost(),
+      fakeBackend({
+        // The mount-time auto-fetch consumes the first rejection; the first
+        // manual tap fails too; the retry succeeds.
+        translate: jest
+          .fn()
+          .mockRejectedValueOnce(new Error('no translation service'))
+          .mockRejectedValueOnce(new Error('no translation service'))
+          .mockResolvedValue({sourceLang: 'Japanese', text: 'hello translated'}),
+      }),
+    )
+    // The mount-time auto-fetch fails silently: original body, no header.
+    await waitFor(() => expect(b.translate).toHaveBeenCalledTimes(1))
+    expect(screen.getByTestId('post-body-p1')).toBeTruthy()
+    // The gated menu row is still live: tapping surfaces the error…
+    fireEvent.press(screen.getByTestId('post-menu-p1'))
+    fireEvent.press(screen.getByTestId('post-menu-p1-item-translate'))
+    await waitFor(() =>
+      expect(toastStore.getSnapshot().map(t => t.message)).toContain('no translation service'),
+    )
+    expect(screen.getByTestId('post-body-p1')).toBeTruthy()
+    // …and the next tap retries the request and renders the translation.
+    fireEvent.press(screen.getByTestId('post-menu-p1'))
+    fireEvent.press(screen.getByTestId('post-menu-p1-item-translate'))
+    expect(await screen.findByTestId('post-translation-p1')).toBeTruthy()
+    expect(b.translate).toHaveBeenCalledTimes(3)
+    expect(b.translate).toHaveBeenCalledWith('p1', 'en')
+  })
+
+  it("someone else's post reports through a comment-required confirm", async () => {
+    clearToasts()
+    const post = makePost({author: makeAccount({id: 'other', acct: 'other@example.social'})})
+    const backend = fakeBackend()
+    live(post, backend, {user: {onReport: (comment: string) => backend.reportAccount('other', comment)}})
+    fireEvent.press(screen.getByTestId('post-menu-p1'))
+    fireEvent.press(screen.getByTestId('post-menu-p1-item-report'))
+    expect(screen.getByText('Report @other@example.social?')).toBeTruthy()
+    fireEvent.changeText(screen.getByTestId('post-menu-p1-comment'), 'spam')
+    fireEvent.press(screen.getByTestId('post-menu-p1-confirm'))
+    await waitFor(() => expect(backend.reportAccount).toHaveBeenCalledWith('other', 'spam'))
+  })
+
+  it("someone else's post without a reporter shows the honest reason", () => {
+    live(makePost({author: makeAccount({id: 'other'})}))
+    fireEvent.press(screen.getByTestId('post-menu-p1'))
+    expect(screen.getByTestId('post-menu-p1-item-report')).toBeTruthy()
+    expect(screen.getByText(/not connected to this view/)).toBeTruthy()
+  })
+
+  it('own post has no report row', () => {
+    live(makePost({author: makeAccount({id: 'a1'})}))
+    fireEvent.press(screen.getByTestId('post-menu-p1'))
+    expect(screen.queryByTestId('post-menu-p1-item-report')).toBeNull()
   })
 
   it('edit on own post calls onEdit', () => {

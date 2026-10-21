@@ -24,8 +24,16 @@ export type PostMenuItem = {
   disabled?: boolean
   reason?: string
   destructive?: boolean
-  /** Ask for confirmation first; `run` only fires after "action". */
-  confirm?: {title: string; action: string}
+  /** Ask for confirmation first. Without a confirm `run`, the item's
+   * `run` only fires after "action". With a confirm `run` (report
+   * flow), that runs instead and receives the dialog comment. */
+  confirm?: {
+    title: string
+    action: string
+    /** When set, the dialog shows a required text field with this label. */
+    commentLabel?: string
+    run?: (comment?: string) => void | Promise<void>
+  }
   run?: () => void | Promise<void>
   /** Opens tier 2. */
   submenu?: PostMenuSection[]
@@ -38,6 +46,9 @@ export interface UserActionHandlers {
   onMute?: () => void | Promise<void>
   onMuteBoosts?: () => void | Promise<void>
   onBlock?: () => void | Promise<void>
+  /** Report the author with a required comment (both families implement
+   * `Backend.reportAccount`; the dialog enforces the non-empty reason). */
+  onReport?: (comment: string) => void | Promise<void>
   /** Current relation snapshot for label flips (C16): `undefined` means
    * unknown and keeps the default (enable-direction) labels. */
   muted?: boolean
@@ -152,6 +163,41 @@ export function buildUserSubmenu(input: PostMenuInput): PostMenuSection[] {
   ]
 }
 
+/** Report row (v1 `NoteMenu` parity): hidden for own posts (a viewer
+ * never reports themselves), disabled with a reason when signed out or
+ * when no reporter is connected, otherwise a confirm dialog that
+ * requires a comment — reports without a reason are never sent. */
+function reportRow(input: PostMenuInput): PostMenuItem[] {
+  if (input.isOwn) return []
+  const onReport = input.handlers.user?.onReport
+  if (!input.capabilities) {
+    return [{key: 'report', label: t`Report`, disabled: true, reason: t`Sign in to do this.`}]
+  }
+  if (!onReport) {
+    return [
+      {
+        key: 'report',
+        label: t`Report`,
+        disabled: true,
+        reason: t`Account actions are not connected to this view yet.`,
+      },
+    ]
+  }
+  const handle = `@${input.post.author.acct}`
+  return [
+    {
+      key: 'report',
+      label: t`Report`,
+      confirm: {
+        title: t`Report ${handle}?`,
+        action: t`Report`,
+        commentLabel: t`Reason`,
+        run: comment => onReport(comment ?? ''),
+      },
+    },
+  ]
+}
+
 export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
   const {post, family, capabilities, handlers, bookmark, del} = input
   const link = postLink(post, family, input.origin)
@@ -219,9 +265,7 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
   }
   group2.push({key: 'user', label: t`User`, submenu: buildUserSubmenu(input)})
 
-  const group3: PostMenuItem[] = [
-    {key: 'report', label: t`Report`, disabled: true, reason: LATER('Reporting')},
-  ]
+  const group3: PostMenuItem[] = reportRow(input)
   if (input.isOwn) {
     group3.push(
       del.gate.enabled
