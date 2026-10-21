@@ -126,6 +126,11 @@ screen.
 
 ## E4 — Bio + field formatting preserves newlines
 
+Status: DONE 2026-10-21 (`pf-bio` 82711a3 cherry-picked as fd51138, trio
+pending re-run on main). Repro showed the pipeline already preserves `\n`
+(no source change — 6 pinning tests); multi-line bio + field proven live on
+Akkoma `:4000`. Misskey-family `not verified` (no host up).
+
 Owner report: profile bio formatting broken; newlines possibly pruned
 (they must not be). Suspects: `contentFromHtml` whitespace collapsing
 on HTML bios/fields (`ProfileHeader.tsx:130-148` sends Misskey plain
@@ -156,6 +161,12 @@ Acceptance: open the picker from the composer on the Android device,
 scroll, search, retry-after-error, insert — captured on device.
 
 ## E6 — Translation actually implemented
+
+Status: OPEN — 2026-10-21: `pf-bio` concluded "no rig server exposes it"
+(probe-backed, honest given the rig) but the owner reports testing against
+a LIVE Misskey server that DOES provide translation (same mechanism as v1).
+The E6 commit (3052f59) is HELD OFF main — not merged. Waiting on owner for
+server origin + auth to redo E6 against the real server instead of the rig.
 
 Owner report: translation still isn't implemented. The wiring exists
 (`PostCard.tsx:308-365` auto + manual paths, menu row, `detect.ts`
