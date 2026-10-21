@@ -2,6 +2,7 @@ import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {fireEvent, render, screen} from '@testing-library/react-native'
 import {useState} from 'react'
+import {StyleSheet} from 'react-native'
 import type {Media} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
@@ -127,5 +128,18 @@ describe('Lightbox', () => {
       <Lightbox media={[]} index={0} onClose={() => {}} />,
     )
     expect(toJSON()).toBeNull()
+  })
+
+  it('keeps captions near-white on the black backdrop in the light theme', () => {
+    const media = [imageMedia({id: 'm9', url: 'notaurl', description: 'Unfetchable'})]
+    renderWithProviders(<Harness media={media} />)
+    // Both the frame fallback and the caption bar show the alt text —
+    // neither may fall back to dark theme text on the black backdrop.
+    const nodes = screen.getAllByText('Unfetchable')
+    expect(nodes.length).toBeGreaterThanOrEqual(1)
+    for (const node of nodes) {
+      expect(StyleSheet.flatten(node.props.style)?.color).toBe('#fff')
+    }
+    expect(StyleSheet.flatten(screen.getByText('1 / 1').props.style)?.color).toBe('#fff')
   })
 })

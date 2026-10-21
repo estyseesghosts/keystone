@@ -1,8 +1,11 @@
 import {Circle, Line, Path, Svg} from 'react-native-svg'
 
+import {useTheme} from '#/alf/index'
+
 // Butterfly icon set: monochrome stroke icons on a 24×24 grid
 // (stroke width 2, round caps/joins), drawn for this app in the v1 style.
-// Color always comes from the caller (alf palette), never baked in.
+// Color defaults to the theme text (readable in both themes — never baked
+// black); callers may pass an explicit alf palette color instead.
 
 export type IconProps = {
   size?: number
@@ -12,16 +15,17 @@ export type IconProps = {
 
 function Base({
   size = 24,
-  color = '#000',
+  color,
   children,
 }: IconProps & {children: React.ReactNode}) {
+  const theme = useTheme()
   return (
     <Svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      stroke={color}
+      stroke={color ?? theme.palette.text}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -128,7 +132,8 @@ export function CloseIcon(p: IconProps) {
 }
 
 export function MoreIcon(p: IconProps) {
-  const {size = 24, color = '#000'} = p
+  const theme = useTheme()
+  const {size = 24, color = theme.palette.text} = p
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
       <Circle cx={5} cy={12} r={1.6} />
@@ -159,9 +164,9 @@ export function RepostIcon(p: IconProps) {
 }
 
 export function HeartIcon(p: IconProps) {
-  const {filled, ...rest} = p
+  const theme = useTheme()
+  const {filled, size = 24, color = theme.palette.text} = p
   if (filled) {
-    const {size = 24, color = '#000'} = rest
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
         <Path d="M12 21C7 16.5 3 13 3 8.8 3 6 5.2 4 7.8 4c1.7 0 3.2.9 4.2 2.3C13 4.9 14.5 4 16.2 4 18.8 4 21 6 21 8.8c0 4.2-4 7.7-9 12.2z" />
@@ -169,7 +174,7 @@ export function HeartIcon(p: IconProps) {
     )
   }
   return (
-    <Base {...rest}>
+    <Base size={size} color={color}>
       <Path d="M12 21C7 16.5 3 13 3 8.8 3 6 5.2 4 7.8 4c1.7 0 3.2.9 4.2 2.3C13 4.9 14.5 4 16.2 4 18.8 4 21 6 21 8.8c0 4.2-4 7.7-9 12.2z" />
     </Base>
   )

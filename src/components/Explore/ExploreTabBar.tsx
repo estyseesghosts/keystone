@@ -1,9 +1,6 @@
-import {View} from 'react-native'
-
 import {msg} from '@lingui/macro'
 
-import {atoms} from '#/alf/atoms'
-import {Button} from '#/components/Button'
+import {Tabs} from '#/components/Tabs'
 import {i18n} from '#/locale/i18n'
 import type {ExploreTab} from '#/routes'
 
@@ -36,16 +33,13 @@ export function ExploreTabBar({
   onChange: (tab: ExploreTab) => void
 }) {
   return (
-    <View style={[atoms.row, atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="explore-tabs">
-      {tabs.map(t => (
-        <Button
-          key={t}
-          label={exploreTabLabel(t)}
-          variant={t === active ? 'primary' : 'secondary'}
-          onPress={() => onChange(t)}
-          testID={`explore-tab-${t}`}
-        />
-      ))}
-    </View>
+    <Tabs
+      tabs={tabs.map(t => ({key: t, label: exploreTabLabel(t)}))}
+      active={active}
+      onChange={onChange}
+      testID="explore-tabs"
+      testIDPrefix="explore-tab"
+      accessibilityLabel="Explore"
+    />
   )
 }

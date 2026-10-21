@@ -24,6 +24,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {SignInButton} from '#/components/SignInButton'
+import {Tabs} from '#/components/Tabs'
 import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
@@ -251,34 +252,32 @@ export function NotificationsScreen() {
         </View>
       ) : (
         <View style={atoms.flex1}>
-          <View style={[atoms.row, atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="notification-filters">
-            {NOTIFICATION_FILTER_PRESETS.map(p => (
-              <Button
-                key={p.id}
-                label={p.label}
-                variant={p.id === filterId ? 'primary' : 'secondary'}
-                onPress={() => setFilterId(p.id)}
-                testID={`notification-filter-${p.id}`}
-              />
-            ))}
-          </View>
-          <View style={[atoms.row, atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="notification-grouping">
-            <Button
-              label={i18n._(msg`Grouped`)}
-              variant={groupedPref ? 'primary' : 'secondary'}
-              onPress={() => {
+          <Tabs
+            tabs={NOTIFICATION_FILTER_PRESETS.map(p => ({key: p.id, label: p.label}))}
+            active={filterId}
+            onChange={setFilterId}
+            testID="notification-filters"
+            testIDPrefix="notification-filter"
+            accessibilityLabel="Notification filters"
+          />
+          <Tabs
+            tabs={[
+              {key: 'grouped', label: i18n._(msg`Grouped`)},
+              {key: 'flat', label: i18n._(msg`Flat`)},
+            ]}
+            active={groupedPref ? 'grouped' : 'flat'}
+            onChange={key => {
+              if (key === 'grouped') {
                 setGroupedPref(true)
                 setGroupedUnsupported(false)
-              }}
-              testID="notification-grouping-grouped"
-            />
-            <Button
-              label={i18n._(msg`Flat`)}
-              variant={groupedPref ? 'secondary' : 'primary'}
-              onPress={() => setGroupedPref(false)}
-              testID="notification-grouping-flat"
-            />
-          </View>
+              } else {
+                setGroupedPref(false)
+              }
+            }}
+            testID="notification-grouping"
+            testIDPrefix="notification-grouping"
+            accessibilityLabel="Notification grouping"
+          />
           {groupedUnsupported ? (
             <View style={[atoms.px_md]}>
               <Caption color="faint" testID="notification-grouping-fallback">

@@ -46,7 +46,7 @@ function LightboxFrame({item, index, width}: {item: Media; index: number; width:
   }
   return (
     <View style={{width, padding: space.xl, justifyContent: 'center'}}>
-      <Caption>{alt}</Caption>
+      <Caption style={{color: CHROME_FG}}>{alt}</Caption>
     </View>
   )
 }
@@ -66,6 +66,13 @@ function LightboxVideo({item, index, width, url}: {item: Media; index: number; w
     />
   )
 }
+
+// Fixed light-on-dark chrome: the viewer backdrop is always black in both
+// themes, so the counter, alt caption, and fallback caption stay fixed
+// near-white for contrast (theme text would be dark-on-dark in light mode).
+// The caption bar keeps its own semi-opaque scrim so text never sits
+// directly on media pixels.
+const CHROME_FG = '#fff'
 
 const styles = StyleSheet.create({
   backdrop: {...StyleSheet.absoluteFill, backgroundColor: '#000'},
@@ -137,10 +144,10 @@ export function Lightbox({media, index, onIndexChange, onClose, testID}: Lightbo
             },
           ]}
           testID="lightbox-chrome">
-          <Caption style={{color: '#fff'}}>
+          <Caption style={{color: CHROME_FG}}>
             {safe + 1} / {media.length}
           </Caption>
-          <Button label="Close" variant="secondary" onPress={onClose} testID="lightbox-close" />
+          <Button label="Close" variant="primary" onPress={onClose} testID="lightbox-close" />
         </View>
         <View
           style={[
@@ -152,7 +159,7 @@ export function Lightbox({media, index, onIndexChange, onClose, testID}: Lightbo
             },
           ]}
           testID="lightbox-caption">
-          <Caption style={{color: '#fff'}}>{alt}</Caption>
+          <Caption style={{color: CHROME_FG}}>{alt}</Caption>
         </View>
       </View>
     </Modal>

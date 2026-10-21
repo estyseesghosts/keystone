@@ -60,4 +60,31 @@ describe('icons', () => {
     )
     expect(tree.toJSON()).toBeTruthy()
   })
+
+  it('defaults to the theme text color (readable in both themes)', () => {
+    for (const [theme, fg] of [
+      ['light', '#111111'],
+      ['dark', '#ededed'],
+    ] as const) {
+      const tree = render(
+        <ThemeProvider theme={theme}>
+          <HomeIcon size={24} />
+        </ThemeProvider>,
+      )
+      expect(JSON.stringify(tree.toJSON())).toContain(fg)
+      tree.unmount()
+    }
+  })
+
+  it('MoreIcon and filled HeartIcon default to the theme text too', () => {
+    const tree = render(
+      <ThemeProvider theme="dark">
+        <MoreIcon size={24} />
+        <HeartIcon size={24} filled />
+      </ThemeProvider>,
+    )
+    const hits = JSON.stringify(tree.toJSON()).split('#ededed').length - 1
+    expect(hits).toBeGreaterThanOrEqual(2)
+    tree.unmount()
+  })
 })

@@ -1,5 +1,5 @@
-import {useContext, useMemo, useState} from 'react'
-import {Image, Platform, Pressable, StyleSheet, View, type ViewStyle} from 'react-native'
+import {useContext, useMemo, useRef, useState} from 'react'
+import {Image, Platform, Pressable, StyleSheet, View, type View as ViewType, type ViewStyle} from 'react-native'
 import {useOptionalSafeAreaInsets} from '#/components/insets'
 import {t} from '@lingui/macro'
 import {
@@ -20,7 +20,8 @@ import {msg} from '@lingui/macro'
 import {useTheme as useAlfTheme} from '#/alf'
 import {useLayoutBreakpoints, useShellLayout, type ShellLayout} from '#/alf/breakpoints'
 import {butterflyPx} from '#/alf/tokens'
-import {Body, Heading} from '#/alf/typography'
+import {Body, Caption, Heading} from '#/alf/typography'
+import {AnchoredPopup, PopupDesc, PopupHead, PopupRadioDot, PopupRow, PopupSep} from '#/components/Popup'
 import {
   BackIcon,
   BellIcon,
@@ -35,7 +36,7 @@ import {
 import {navigationRef} from '#/navigationRef'
 import type {RootParamList} from '#/routes'
 import {linkingScreens, rewriteLegacyPath, titleForRoute} from '#/routes'
-import {useOptionalActiveSession} from '#/state/session/SessionProvider'
+import {useOptionalActiveSession, useSessionStore, useSessions} from '#/state/session/SessionProvider'
 import {useHosting} from '#/state/hosting'
 import {AuthCallbackScreen} from '#/screens/AuthCallback'
 import {AntennaScreen} from '#/screens/Antenna'
@@ -298,65 +299,126 @@ function NotificationsUnreadBadgeInner({
 
 // --- Account menu (N16) ------------------------------------------------------
 // v1 `AccountCard` parity, shell-chrome edition: the sidebar footer avatar
-// and the mobile strip avatar open a small menu — Profile shortcut (own
-// User tab) + Accounts & settings (Settings). No new screens; sign-out
-// stays where it is (Settings). Plain anchored list reusing Button text
-// styles; closes on selection.
+// and the mobile strip avatar open the full account list — every stored
+// session as a row (name + origin), the active account labelled (never an
+// inert switch button), one-tap switch for inactive accounts, per-account
+// sign-out, Add account, Profile shortcut, Accounts & settings. Rendered in
+// `AnchoredPopup` (above the sidebar trigger, below the strip trigger),
+// which flips and clamps so the menu can never hang off-screen.
 function AccountMenu({onClose, testPrefix}: {onClose: () => void; testPrefix: string}) {
-  const alf = useAlfTheme()
-  const item = (key: string, label: string, onPress: () => void) => (
-    <Pressable
-      key={key}
-      onPress={() => {
-        onClose()
-        onPress()
-      }}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      testID={`${testPrefix}-${key}`}
-      style={{
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-      }}>
-      <Body>{label}</Body>
-    </Pressable>
-  )
+  const {i18n} = useLingui()
+  const store = useSessionStore()
+  const sessions = useSessions()
+  const activeId = store.activeId()
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const closeAnd = (fn: () => void) => {
+    onClose()
+    fn()
+  }
+  const signOut = (id: string) => {
+    setBusyId(id)
+    setError(null)
+    void store
+      .signOut(id)
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Sign-out failed.')
+      })
+      .finally(() => setBusyId(null))
+  }
+
   return (
-    <View
-      testID={testPrefix}
-      accessibilityRole="menu"
-      style={{
-        position: 'absolute',
-        minWidth: 200,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: alf.palette.border,
-        backgroundColor: alf.palette.bg,
-        overflow: 'hidden',
-      }}>
-      {item('profile', t`Profile`, () => goMainTab('User'))}
-      {item('settings', t`Accounts & settings`, () => {
-        if (navigationRef.isReady()) navigationRef.navigate('Settings')
+    <>
+      <PopupHead>{i18n._(msg`Accounts`)}</PopupHead>
+      {sessions.map(session => {
+        const name = session.user?.displayName ?? session.accountId
+        const isActive = session.id === activeId
+        return (
+          <View key={session.id}>
+            {isActive ? (
+              <PopupRow
+                testID={`${testPrefix}-current-${session.id}`}
+                label={name}
+                disabled
+                reason={i18n._(msg`Current account`)}
+                onPress={() => {}}
+                right={<PopupRadioDot on />}
+              >
+                <PopupDesc>{`${name} · ${session.origin}`}</PopupDesc>
+              </PopupRow>
+            ) : (
+              <PopupRow
+                testID={`${testPrefix}-switch-${session.id}`}
+                label={i18n._(msg`Switch to ${name}`)}
+                onPress={() => closeAnd(() => store.switch(session.id))}
+                right={<PopupRadioDot on={false} />}
+              >
+                <PopupDesc>{`${name} · ${session.origin}`}</PopupDesc>
+              </PopupRow>
+            )}
+            <PopupRow
+              testID={`${testPrefix}-signout-${session.id}`}
+              label={i18n._(msg`Sign out ${name}`)}
+              disabled={busyId === session.id}
+              reason={busyId === session.id ? i18n._(msg`Working…`) : undefined}
+              onPress={() => signOut(session.id)}
+            />
+          </View>
+        )
       })}
-    </View>
+      <PopupSep />
+      <PopupRow
+        testID={`${testPrefix}-add`}
+        label={i18n._(msg`Add account`)}
+        onPress={() => closeAnd(() => navigationRef.navigate('Login'))}
+      />
+      <PopupSep />
+      <PopupRow
+        testID={`${testPrefix}-profile`}
+        label={i18n._(msg`Profile`)}
+        onPress={() => closeAnd(() => goMainTab('User'))}
+      />
+      <PopupRow
+        testID={`${testPrefix}-settings`}
+        label={i18n._(msg`Accounts & settings`)}
+        onPress={() => {
+          onClose()
+          if (navigationRef.isReady()) navigationRef.navigate('Settings')
+        }}
+      />
+      {error ? <Caption testID={`${testPrefix}-error`}>{error}</Caption> : null}
+    </>
   )
 }
 
-function AccountButton({testPrefix}: {testPrefix: string}) {
+function AccountButton({testPrefix, menuSide}: {testPrefix: string; menuSide: 'below' | 'above'}) {
   const [open, setOpen] = useState(false)
+  const anchor = useRef<ViewType | null>(null)
   return (
-    <View>
-      <Pressable
-        onPress={() => setOpen(v => !v)}
-        accessibilityRole="button"
-        accessibilityLabel={t`Account menu`}
-        accessibilityState={{expanded: open}}
-        hitSlop={8}
-        testID={testPrefix}>
-        <AccountAvatar />
-      </Pressable>
-      {open ? <AccountMenu onClose={() => setOpen(false)} testPrefix={`${testPrefix}-menu`} /> : null}
-    </View>
+    <>
+      <View ref={anchor} collapsable={false}>
+        <Pressable
+          onPress={() => setOpen(v => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={t`Account menu`}
+          accessibilityState={{expanded: open}}
+          hitSlop={8}
+          testID={testPrefix}>
+          <AccountAvatar />
+        </Pressable>
+      </View>
+      {open ? (
+        <AnchoredPopup
+          anchor={anchor}
+          onClose={() => setOpen(false)}
+          side={menuSide}
+          minWidth={240}
+          testID={`${testPrefix}-menu`}>
+          <AccountMenu onClose={() => setOpen(false)} testPrefix={`${testPrefix}-menu`} />
+        </AnchoredPopup>
+      ) : null}
+    </>
   )
 }
 
@@ -394,7 +456,7 @@ function MobileStrip({leaf}: {leaf: LeafState}) {
       </Body>
       <View style={[styles.stripSide, styles.stripRight]}>
         {session ? (
-          <AccountButton testPrefix="strip-account" />
+          <AccountButton testPrefix="strip-account" menuSide="below" />
         ) : (
           <Pressable
             onPress={() => navigationRef.navigate('Login')}
@@ -550,7 +612,7 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
       <View style={[styles.navuser, {borderTopColor: alf.palette.border}]}>
         {session ? (
           <View style={[styles.navlink, rail && styles.navlinkRail]}>
-            <AccountButton testPrefix="sidebar-account" />
+            <AccountButton testPrefix="sidebar-account" menuSide="above" />
             {rail ? null : (
               <Body numberOfLines={1} style={{flex: 1, minWidth: 0}}>
                 {session.user?.displayName ?? session.accountId}
