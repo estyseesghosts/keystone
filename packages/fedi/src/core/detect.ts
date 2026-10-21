@@ -140,6 +140,10 @@ export interface DetectionEvidence {
   /** Misskey-family `meta.translatorAvailable`, when the probe saw it
    * (lets `buildCapabilities` set `translation` honestly). */
   translatorAvailable?: boolean | null;
+  /** Mastodon-family `configuration.translation.enabled`, when a probed
+   * instance body carried it (lets `buildCapabilities` set `translation`
+   * honestly on servers the probe reached). Null/absent = not advertised. */
+  translationAdvertised?: boolean | null;
 }
 
 /** NodeInfo `software.name` → flavor. Exact names only; anything else falls
@@ -349,7 +353,12 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     lists: "supported",
     clips: "unsupported",
     favourites_distinct_from_reactions: "supported",
-    translation: "supported",
+    // No static translation claim: Akkoma only translates when the admin
+    // enables a machine-translation backend, advertised as the
+    // `akkoma:machine_translation` feature flag (live 2026-10-21: the rig
+    // Akkoma has no such flag and `POST .../translate` 403s "Translation
+    // is not enabled"). An unknown flag unlocks nothing; the flag below
+    // raises it where the server actually offers it.
     streaming: "supported",
     password_grant: "supported",
     mfa_challenge: "supported",
@@ -395,6 +404,14 @@ export function buildCapabilities(
   }
   if (has("editing")) out.status_editing = "supported";
   if (has("akkoma:machine_translation")) out.translation = "supported";
+
+  // Instance-level advertisement (Mastodon-family
+  // `configuration.translation.enabled`, when a probed instance body
+  // carried it). Authoritative where present: an explicit false means the
+  // server turned translation off, not that the probe missed it.
+  if (typeof evidence.translationAdvertised === "boolean") {
+    out.translation = evidence.translationAdvertised ? "supported" : "unsupported";
+  }
 
   // Meta-level hint (Misskey-family `translatorAvailable`, when present).
   if (typeof evidence.translatorAvailable === "boolean") {
@@ -475,6 +492,30 @@ export function pleromaFeaturesOf(body: unknown): string[] {
 function versionOf(body: unknown): string | null {
   if (!isPlainObject(body)) return null;
   return typeof body.version === "string" && body.version.length > 0 ? body.version : null;
+}
+
+/** Mastodon-family `configuration.translation.enabled` (v1 or v2 instance
+ * body), or null when the body does not advertise it. Pure. */
+export function translationEnabledOf(body: unknown): boolean | null {
+  if (!isPlainObject(body)) return null;
+  const configuration = body.configuration;
+  if (!isPlainObject(configuration)) return null;
+  const translation = configuration.translation;
+  if (!isPlainObject(translation)) return null;
+  return typeof translation.enabled === "boolean" ? translation.enabled : null;
+}
+
+/** Mastodon-family instance fetch: GET v2, fall back to v1 on 404/405
+ * ONLY (never on timeout/401/403/5xx). Returns the first body that
+ * arrives, or null. Pure probe plumbing. */
+async function fetchInstance(prober: Prober, origin: string): Promise<unknown> {
+  const v2 = await prober("GET", `${origin}/api/v2/instance`);
+  if (v2.status === 200) return v2.body;
+  if (v2.status === 404 || v2.status === 405) {
+    const v1 = await prober("GET", `${origin}/api/v1/instance`);
+    if (v1.status === 200) return v1.body;
+  }
+  return null;
 }
 
 /** NodeInfo secondary source: discovery document → 2.1 (or last) link. Only
@@ -589,23 +630,38 @@ export async function detectServer(
     } else {
       // Mastodon-family probe: v2 → v1 fallback on 404/405 ONLY (never on
       // timeout/401/403/5xx — see the header comment).
-      const v2 = await prober("GET", `${origin}/api/v2/instance`);
-      let instanceBody: unknown = null;
-      if (v2.status === 200) {
-        instanceBody = v2.body;
-      } else if (v2.status === 404 || v2.status === 405) {
-        const v1 = await prober("GET", `${origin}/api/v1/instance`);
-        if (v1.status === 200) instanceBody = v1.body;
-      }
+      const instanceBody = await fetchInstance(prober, origin);
       if (instanceBody !== null && looksMastodon(instanceBody)) {
         evidence.mastodonBody = true;
         evidence.version = versionOf(instanceBody);
         evidence.pleromaBody = isPlainObject(instanceBody) && "pleroma" in instanceBody;
         evidence.pleromaFeatures = pleromaFeaturesOf(instanceBody);
+        evidence.translationAdvertised = translationEnabledOf(instanceBody);
       }
     }
   } else {
     evidence.version = evidence.nodeinfoVersion;
+    // NodeInfo named the software but carries no translation signal, and
+    // the flag the table needs lives on the family endpoint: a
+    // translation-capable server decided here would otherwise keep the
+    // conservative "unknown" forever (E6: the rig Akkoma proved the
+    // static claim wrong, so the probe is the only honest source).
+    const family = familyOf(nodeinfoFlavor);
+    if (family === "misskey") {
+      const meta = await prober("POST", `${origin}/api/meta`, {});
+      if (meta.status === 200 && looksMisskey(meta.body)) {
+        const translator = (meta.body as { translatorAvailable?: unknown }).translatorAvailable;
+        evidence.translatorAvailable = typeof translator === "boolean" ? translator : null;
+      }
+    } else if (family === "mastodon") {
+      const instanceBody = await fetchInstance(prober, origin);
+      if (instanceBody !== null && looksMastodon(instanceBody)) {
+        evidence.mastodonBody = true;
+        evidence.pleromaBody = isPlainObject(instanceBody) && "pleroma" in instanceBody;
+        evidence.pleromaFeatures = pleromaFeaturesOf(instanceBody);
+        evidence.translationAdvertised = translationEnabledOf(instanceBody);
+      }
+    }
   }
 
   // 3. Heuristics over the collected evidence.

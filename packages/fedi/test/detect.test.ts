@@ -14,6 +14,7 @@ import {
   flavorFromVersion,
   looksMastodon,
   looksMisskey,
+  translationEnabledOf,
   type Prober,
   type ProbeResponse,
 } from "../src/core/detect";
@@ -462,5 +463,166 @@ describe("three-state capabilities", () => {
     expect(buildCapabilities("catodon").like).toBe("unknown");
     expect(buildCapabilities("pinetree").like).toBe("unknown");
     expect(buildCapabilities("unknown").like).toBe("unknown");
+  });
+});
+
+describe("E6 translation evidence (probe-backed, rig :4000 2026-10-21)", () => {
+  // The rig Akkoma's live /api/v1/instance body shape: pleroma feature
+  // list WITHOUT `akkoma:machine_translation`, no `configuration`
+  // block — and `POST .../translate` answers 403 "Translation is not
+  // enabled". The table must not claim "supported" for this shape.
+  const AKKOMA_RIG_V1 = {
+    uri: "localhost",
+    title: "Keystodon Test Instance",
+    version: "2.7.2 (compatible; Akkoma 3.20.1-454-ga69f0b9e-develop+dev)",
+    short_description: "Akkoma: The cooler fediverse server",
+    description: "Keystodon Test Instance",
+    stats: { user_count: 1, status_count: 75, domain_count: 0 },
+    max_toot_chars: 5000,
+    urls: { streaming_api: "wss://localhost" },
+    pleroma: {
+      metadata: {
+        features: [
+          "pleroma_api",
+          "akkoma_api",
+          "mastodon_api",
+          "mastodon_api_streaming",
+          "polls",
+          "v2_suggestions",
+          "pleroma_explicit_addressing",
+          "shareable_emoji_packs",
+          "multifetch",
+          "pleroma:api/v1/notifications:include_types_filter",
+          "quote_posting",
+          "editing",
+          "pleroma_emoji_reactions",
+          "exposable_reactions",
+          "profile_directory",
+          "custom_emoji_reactions",
+          "pleroma:get:main/ostatus",
+        ],
+        federation: { enabled: true },
+      },
+    },
+  };
+
+  function instanceV2(translationEnabled: boolean) {
+    return {
+      domain: "mastodon.example",
+      version: "4.4.3",
+      configuration: {
+        statuses: { max_characters: 500, max_media_attachments: 4 },
+        translation: { enabled: translationEnabled },
+        urls: { streaming: "wss://mastodon.example" },
+      },
+    };
+  }
+
+  it("akkoma via NodeInfo without the flag reads translation unknown (rig shape)", async () => {
+    const prober = proberFor([
+      { method: "GET", match: "/.well-known/nodeinfo", status: 200, body: NODEINFO_DISCOVERY },
+      nodeinfoRoute("akkoma", "3.20.1-454-ga69f0b9e-develop+dev"),
+      { method: "GET", match: "/api/v2/instance", status: 404, body: null },
+      { method: "GET", match: "/api/v1/instance", status: 200, body: AKKOMA_RIG_V1 },
+    ]);
+    const d = await detectServer(ORIGIN, { prober });
+    expect(d.flavor).toBe("akkoma");
+    expect(d.decidedBy).toBe("nodeinfo");
+    // The evidence probe ran anyway: features collected, no flag, no
+    // configuration block — so translation stays unknown, never assumed.
+    expect(d.evidence.pleromaFeatures).toContain("akkoma_api");
+    expect(d.evidence.pleromaFeatures).not.toContain("akkoma:machine_translation");
+    expect(d.evidence.translationAdvertised).toBeNull();
+    expect(d.features.translation).toBe("unknown");
+  });
+
+  it("akkoma via NodeInfo with the flag reads translation supported", async () => {
+    const prober = proberFor([
+      { method: "GET", match: "/.well-known/nodeinfo", status: 200, body: NODEINFO_DISCOVERY },
+      nodeinfoRoute("akkoma", "3.20.0"),
+      { method: "GET", match: "/api/v2/instance", status: 404, body: null },
+      {
+        method: "GET",
+        match: "/api/v1/instance",
+        status: 200,
+        body: fixture("akkoma/instance-v1.json"),
+      },
+    ]);
+    const d = await detectServer(ORIGIN, { prober });
+    expect(d.flavor).toBe("akkoma");
+    expect(d.features.translation).toBe("supported");
+  });
+
+  it("mastodon via NodeInfo honors configuration.translation.enabled", async () => {
+    for (const enabled of [true, false]) {
+      const prober = proberFor([
+        { method: "GET", match: "/.well-known/nodeinfo", status: 200, body: NODEINFO_DISCOVERY },
+        nodeinfoRoute("mastodon", "4.4.3"),
+        { method: "GET", match: "/api/v2/instance", status: 200, body: instanceV2(enabled) },
+      ]);
+      const d = await detectServer(ORIGIN, { prober });
+      expect(d.flavor).toBe("mastodon");
+      expect(d.evidence.translationAdvertised).toBe(enabled);
+      expect(d.features.translation).toBe(enabled ? "supported" : "unsupported");
+    }
+  });
+
+  it("mastodon via NodeInfo without the block stays unknown", async () => {
+    const v2 = instanceV2(true);
+    delete (v2.configuration as Record<string, unknown>).translation;
+    const prober = proberFor([
+      { method: "GET", match: "/.well-known/nodeinfo", status: 200, body: NODEINFO_DISCOVERY },
+      nodeinfoRoute("mastodon", "4.4.3"),
+      { method: "GET", match: "/api/v2/instance", status: 200, body: v2 },
+    ]);
+    const d = await detectServer(ORIGIN, { prober });
+    expect(d.evidence.translationAdvertised).toBeNull();
+    expect(d.features.translation).toBe("unknown");
+  });
+
+  it("misskey via NodeInfo honors meta translatorAvailable", async () => {
+    for (const available of [true, false]) {
+      const prober = proberFor([
+        { method: "GET", match: "/.well-known/nodeinfo", status: 200, body: NODEINFO_DISCOVERY },
+        nodeinfoRoute("misskey", "2026.10.1-alpha.0"),
+        {
+          method: "POST",
+          match: "/api/meta",
+          status: 200,
+          body: { ...fixture<Record<string, unknown>>("misskey/meta.json"), translatorAvailable: available },
+        },
+      ]);
+      const d = await detectServer(ORIGIN, { prober });
+      expect(d.flavor).toBe("misskey");
+      expect(d.evidence.translatorAvailable).toBe(available);
+      expect(d.features.translation).toBe(available ? "supported" : "unsupported");
+    }
+  });
+
+  it("translationEnabledOf reads the v1+v2 advertisement, null otherwise", () => {
+    expect(translationEnabledOf(instanceV2(true))).toBe(true);
+    expect(translationEnabledOf(instanceV2(false))).toBe(false);
+    expect(translationEnabledOf({ configuration: { translation: { enabled: "yes" } } })).toBeNull();
+    expect(translationEnabledOf({ domain: "x.example" })).toBeNull();
+    expect(translationEnabledOf(null)).toBeNull();
+  });
+
+  it("buildCapabilities: evidence decides translation, nothing assumed", () => {
+    expect(buildCapabilities("akkoma").translation).toBe("unknown");
+    expect(
+      buildCapabilities("akkoma", { pleromaFeatures: ["akkoma:machine_translation"] }).translation,
+    ).toBe("supported");
+    expect(buildCapabilities("mastodon", { translationAdvertised: true }).translation).toBe(
+      "supported",
+    );
+    expect(buildCapabilities("mastodon", { translationAdvertised: false }).translation).toBe(
+      "unsupported",
+    );
+    expect(buildCapabilities("misskey", { translatorAvailable: true }).translation).toBe(
+      "supported",
+    );
+    expect(buildCapabilities("misskey", { translatorAvailable: false }).translation).toBe(
+      "unsupported",
+    );
   });
 });
