@@ -2,7 +2,7 @@
 
 Plan ref: cross-cutting; supersedes nothing (`rn-rebuild-plan.md` still
 governs phases 5–7). Gap register: `docs/parity-gaps.md`.
-Status: W1 done 2026-10-20 (on `main` per owner direction; one workstream per session still applies), W2 done 2026-10-21 (F21 + honest deferrals; log `state/logs/2026-10-21-w2-remainder.md`), W3 done 2026-10-21 (log `state/logs/2026-10-21-w3-composer.md`), W4 done 2026-10-21 (log `state/logs/2026-10-21-w4-social.md`; trio 94 suites / 1142 tests green), W5 done 2026-10-21 (log `state/logs/2026-10-21-w5-screens.md`; trio 106 suites / 1251 tests green), W6 done 2026-10-21 (log `state/logs/2026-10-21-w6-mobile.md`; trio 110 suites / 1270 tests green; Helium signed-in phone/rail/full + Note + composer in `state/logs/assets-w6/`)
+Status: W1 done 2026-10-20 (on `main` per owner direction; one workstream per session still applies), W2 done 2026-10-21 (F21 + honest deferrals; log `state/logs/2026-10-21-w2-remainder.md`), W3 done 2026-10-21 (log `state/logs/2026-10-21-w3-composer.md`), W4 done 2026-10-21 (log `state/logs/2026-10-21-w4-social.md`; trio 94 suites / 1142 tests green), W5 done 2026-10-21 (log `state/logs/2026-10-21-w5-screens.md`; trio 106 suites / 1251 tests green), W6 done 2026-10-21 (log `state/logs/2026-10-21-w6-mobile.md`; trio 110 suites / 1270 tests green; Helium signed-in phone/rail/full + Note + composer in `state/logs/assets-w6/`), W7 done 2026-10-21 (log `state/logs/2026-10-21-w7-settings.md`; trio 117+ suites / 1316 tests green; Helium en/fr switch + hover attempt in `state/logs/assets-w7/`)
 Branch: `main` (W1 landed directly; `p6.0-w1-foundations` left at the pre-W1 consolidation point)
 
 ## Goal
@@ -165,17 +165,17 @@ keyboard; TalkBack pass notes in log; 360 dp device screenshots.
 
 ### W7 — Settings, appearance, i18n
 
-- [ ] P1 Text scaling for prose (posts, bios, composer, quotes) via one alf source.
-- [ ] P2 Reactive feed prefs.
-- [ ] P3 Theme/palette/user-font/content-mode (with schema migration).
-- [ ] P4 Import/export/emoji backup (document picker/file sharing deps).
-- [ ] C17 Mute/block search relation undo.
-- [ ] P5 LocaleProvider + `setLocale` + message-macro pass + catalogs +
-      locale-aware numbers/dates + error-code localization.
-- [ ] P6 Account identity details.
-- [ ] P7/P8 Hover cards + web keyboard support.
-- [ ] Q9 Carry `mobile.md`, `mobile_2.md`, `clients.md`, `my_network.md`
-      into v2 `docs/` (or record why not).
+Status: done 2026-10-21 on `main` (log `state/logs/2026-10-21-w7-settings.md`; trio 117+ suites / 1316 tests green; Helium en→fr switch proven live in `state/logs/assets-w7/`; hover needs a real-pointer pass; P5 management-screen English tail logged; Oppo/iOS not verified).
+
+- [x] P1 Text scaling for prose (posts, bios, composer, quotes) via one alf source.
+- [x] P2 Reactive feed prefs.
+- [x] P3 Theme/palette/user-font/content-mode (with schema migration; content-mode wired real, rest stay honest placeholders per DECISIONS).
+- [x] P4 Import/export/emoji backup (assessed: stays deferred — no picker/sharing deps, no pnpm, rebuild needed; DECISIONS line).
+- [x] C17 Mute/block search relation undo.
+- [x] P5 LocaleProvider + `setLocale` + message-macro pass + catalogs + locale-aware numbers/dates + error-code localization.
+- [x] P6 Account identity details.
+- [x] P7/P8 Hover cards + web keyboard support.
+- [x] Q9 Carry `mobile.md`, `mobile_2.md`, `clients.md`, `my_network.md` into v2 `docs/` (verbatim + provenance header).
 
 Acceptance: text-size row changes post text; locale switch changes UI;
 Settings rows are either real or honestly disabled; trio + screenshots.

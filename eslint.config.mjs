@@ -55,4 +55,8 @@ export default [
       globals: {...nodeGlobals, ...jestGlobals},
     },
   },
+  {
+    // Generated Lingui catalogs: no lint signal, never hand-edited.
+    ignores: ['src/locale/locales/**'],
+  },
 ]
