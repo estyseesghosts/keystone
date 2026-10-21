@@ -10,6 +10,7 @@ import {
   WordFilterParseError,
   type Account,
   type Backend,
+  type Relationship,
 } from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
@@ -28,9 +29,9 @@ import {PlaceholderRow, SectionHint, SettingRow} from './rows'
 //
 // Scope rule (plan §2.2): renote-mute LISTS render only when the backend
 // exposes `renoteMutes` (Misskey family, when implemented); otherwise the
-// honest placeholder stays. The search row can always renote-mute, but
-// has no relationship data to offer an unmute path without new queries,
-// so search stays mute-only.
+// honest placeholder stays. The search row below offers state-aware
+// undo (Mute/Unmute, Mute reposts/Unmute, Block/Unblock per v1) by
+// re-reading `relationships` after search and after every action.
 
 type WordFieldName = 'mutedWords' | 'hardMutedWords' | 'mutedInstances'
 
@@ -161,10 +162,53 @@ function UserRow({
 function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () => void}) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Account[]>([])
+  // Relation state per result id. `live` is false until a `relationships`
+  // read succeeds — unsupported (or missing, in test fakes) keeps the
+  // current one-way buttons, never an error.
+  const [relations, setRelations] = useState<Record<string, Relationship>>({})
+  const [relationsLive, setRelationsLive] = useState(false)
+  // Renote-mute state comes from the `renoteMutes` LIST when the backend
+  // exposes it; null means unknown (no list — the one-way button stays).
+  const [renoteMutedIds, setRenoteMutedIds] = useState<Set<string> | null>(null)
   const [busy, setBusy] = useState(false)
   const [actBusy, setActBusy] = useState(false)
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  /** Best-effort relation read (never throws, never surfaces an error). */
+  const readRelations = useCallback(
+    async (ids: string[]): Promise<void> => {
+      if (ids.length === 0) return
+      if (typeof backend.relationships !== 'function') {
+        setRelationsLive(false)
+        return
+      }
+      try {
+        const rels = await backend.relationships(ids)
+        setRelations(Object.fromEntries(rels.map(r => [r.id, r])))
+        setRelationsLive(true)
+      } catch (err) {
+        if (isUnsupportedError(err)) setRelationsLive(false)
+        // Any other failure: keep the last-known state (or one-way
+        // buttons), never an error row — mute/block still work below.
+      }
+    },
+    [backend],
+  )
+
+  /** Best-effort renote-mute list read (null = unknown, keep one-way). */
+  const readRenoteMutes = useCallback(async (): Promise<void> => {
+    if (typeof backend.renoteMutes !== 'function') {
+      setRenoteMutedIds(null)
+      return
+    }
+    try {
+      const page = await backend.renoteMutes()
+      setRenoteMutedIds(new Set(page.items.map(a => a.id)))
+    } catch {
+      setRenoteMutedIds(null)
+    }
+  }, [backend])
 
   const run = async () => {
     const q = query.trim()
@@ -175,6 +219,11 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
       const page = await backend.search.accounts(q, {limit: 10})
       setResults(page.items)
       setSearched(true)
+      setRelations({})
+      await Promise.all([
+        readRelations(page.items.map(a => a.id)),
+        readRenoteMutes(),
+      ])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed.')
     } finally {
@@ -188,6 +237,12 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
     setError(null)
     try {
       await fn()
+      // Re-read relation state after every action (callers show the new
+      // label immediately); the list refresh below stays authoritative.
+      await Promise.all([
+        readRelations(results.map(a => a.id)),
+        readRenoteMutes(),
+      ])
       onChanged()
     } catch (err) {
       if (isPermissionError(err)) setError('Your account cannot do that here.')
@@ -220,35 +275,76 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
       {searched && results.length === 0 && !busy ? (
         <Caption color="faint">No accounts found.</Caption>
       ) : null}
-      {results.map(user => (
-        <View key={user.id} style={[atoms.gap_sm]}>
-          <Body>{user.displayName}</Body>
-          <Caption color="faint">@{user.acct}</Caption>
-          <View style={[atoms.row, atoms.gap_sm]}>
-            <Button
-              label="Mute"
-              variant="secondary"
-              disabled={actBusy}
-              onPress={() => void act(() => backend.mute(user.id))}
-              testID={`mute-search-mute-${user.id}`}
-            />
-            <Button
-              label="Mute reposts"
-              variant="secondary"
-              disabled={actBusy}
-              onPress={() => void act(() => backend.muteRenotes(user.id))}
-              testID={`mute-search-muterenotes-${user.id}`}
-            />
-            <Button
-              label="Block"
-              variant="secondary"
-              disabled={actBusy}
-              onPress={() => void act(() => backend.block(user.id))}
-              testID={`mute-search-block-${user.id}`}
-            />
+      {results.map(user => {
+        // State-aware labels (v1 parity): a KNOWN true/false relation
+        // renders the undo path; unknown (unsupported endpoint, failed
+        // read) keeps the one-way button with its stable testID.
+        const rel = relationsLive ? relations[user.id] : undefined
+        const muted = rel?.isMuted
+        const blocked = rel?.isBlocked
+        // Renote state comes ONLY from the renoteMutes list (when the
+        // backend exposes it); otherwise the one-way button stays.
+        const renoteMuted = renoteMutedIds ? renoteMutedIds.has(user.id) : undefined
+        return (
+          <View key={user.id} style={[atoms.gap_sm]}>
+            <Body>{user.displayName}</Body>
+            <Caption color="faint">@{user.acct}</Caption>
+            <View style={[atoms.row, atoms.gap_sm]}>
+              {muted === true ? (
+                <Button
+                  label="Unmute"
+                  variant="secondary"
+                  disabled={actBusy}
+                  onPress={() => void act(() => backend.unmute(user.id))}
+                  testID={`mute-search-unmute-${user.id}`}
+                />
+              ) : (
+                <Button
+                  label="Mute"
+                  variant="secondary"
+                  disabled={actBusy}
+                  onPress={() => void act(() => backend.mute(user.id))}
+                  testID={`mute-search-mute-${user.id}`}
+                />
+              )}
+              {renoteMuted === true ? (
+                <Button
+                  label="Unmute"
+                  variant="secondary"
+                  disabled={actBusy}
+                  onPress={() => void act(() => backend.unmuteRenotes(user.id))}
+                  testID={`mute-search-unmuterenotes-${user.id}`}
+                />
+              ) : (
+                <Button
+                  label="Mute reposts"
+                  variant="secondary"
+                  disabled={actBusy}
+                  onPress={() => void act(() => backend.muteRenotes(user.id))}
+                  testID={`mute-search-muterenotes-${user.id}`}
+                />
+              )}
+              {blocked === true ? (
+                <Button
+                  label="Unblock"
+                  variant="secondary"
+                  disabled={actBusy}
+                  onPress={() => void act(() => backend.unblock(user.id))}
+                  testID={`mute-search-unblock-${user.id}`}
+                />
+              ) : (
+                <Button
+                  label="Block"
+                  variant="secondary"
+                  disabled={actBusy}
+                  onPress={() => void act(() => backend.block(user.id))}
+                  testID={`mute-search-block-${user.id}`}
+                />
+              )}
+            </View>
           </View>
-        </View>
-      ))}
+        )
+      })}
     </SettingRow>
   )
 }

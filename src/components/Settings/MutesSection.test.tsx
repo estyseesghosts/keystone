@@ -140,3 +140,151 @@ describe('Mutes section renote-mutes (C18)', () => {
     }
   })
 })
+
+describe('Mutes section search undo (C17)', () => {
+  // Stateful fake: relations and the renote-mute list move with actions.
+  const relationBackend = () => {
+    const muted = new Set<string>(['s1'])
+    const blocked = new Set<string>(['s2'])
+    const renoteMuted = new Set<string>(['s1'])
+    const rels = (ids: string[]) =>
+      ids.map(id => ({id, isMuted: muted.has(id), isBlocked: blocked.has(id)}))
+    return {
+      ...baseBackend(),
+      relationships: jest.fn(async (ids: string[]) => rels(ids)),
+      mute: jest.fn(async (id: string) => {
+        muted.add(id)
+      }),
+      unmute: jest.fn(async (id: string) => {
+        muted.delete(id)
+      }),
+      block: jest.fn(async (id: string) => {
+        blocked.add(id)
+      }),
+      unblock: jest.fn(async (id: string) => {
+        blocked.delete(id)
+      }),
+      muteRenotes: jest.fn(async (id: string) => {
+        renoteMuted.add(id)
+      }),
+      unmuteRenotes: jest.fn(async (id: string) => {
+        renoteMuted.delete(id)
+      }),
+      renoteMutes: jest.fn(async () => ({
+        items: [...renoteMuted].map(id =>
+          fakeAccount({id, displayName: `name-${id}`, acct: `acct-${id}`}),
+        ),
+        cursor: null,
+        end: true,
+      })),
+      search: {
+        accounts: jest.fn(async () => ({
+          items: [
+            fakeAccount({id: 's1', displayName: 'found-one', acct: 'found-one'}),
+            fakeAccount({id: 's2', displayName: 'found-two', acct: 'found-two'}),
+          ],
+          cursor: null,
+          end: true,
+        })),
+      },
+    }
+  }
+
+  async function searchOnce() {
+    fireEvent.changeText(screen.getByTestId('mute-search-input'), 'found')
+    fireEvent.press(screen.getByTestId('mute-search-run'))
+    expect(await screen.findByText('found-one')).toBeTruthy()
+  }
+
+  it('renders relation-loaded labels after search', async () => {
+    const {done} = await setup({backend: relationBackend()})
+    try {
+      await searchOnce()
+      // s1 starts muted + renote-muted: undo paths.
+      expect(await screen.findByTestId('mute-search-unmute-s1')).toBeTruthy()
+      expect(screen.getByTestId('mute-search-unmuterenotes-s1')).toBeTruthy()
+      expect(screen.getByTestId('mute-search-block-s1')).toBeTruthy()
+      // s2 starts blocked only: one-way mute, one-way renote-mute, unblock.
+      expect(screen.getByTestId('mute-search-mute-s2')).toBeTruthy()
+      expect(screen.getByTestId('mute-search-muterenotes-s2')).toBeTruthy()
+      expect(screen.getByTestId('mute-search-unblock-s2')).toBeTruthy()
+      expect(screen.queryByTestId('mute-search-mute-s1')).toBeNull()
+      expect(screen.queryByTestId('mute-search-block-s2')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('unmute round-trips through a relation re-read', async () => {
+    const backend = relationBackend()
+    const {done} = await setup({backend})
+    try {
+      await searchOnce()
+      fireEvent.press(await screen.findByTestId('mute-search-unmute-s1'))
+      await waitFor(() => expect(backend.unmute).toHaveBeenCalledWith('s1'))
+      // The re-read flips the label back to the one-way Mute.
+      expect(await screen.findByTestId('mute-search-mute-s1')).toBeTruthy()
+      expect(screen.queryByTestId('mute-search-unmute-s1')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('unblock round-trips through a relation re-read', async () => {
+    const backend = relationBackend()
+    const {done} = await setup({backend})
+    try {
+      await searchOnce()
+      fireEvent.press(await screen.findByTestId('mute-search-unblock-s2'))
+      await waitFor(() => expect(backend.unblock).toHaveBeenCalledWith('s2'))
+      expect(await screen.findByTestId('mute-search-block-s2')).toBeTruthy()
+      expect(screen.queryByTestId('mute-search-unblock-s2')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('renote unmute round-trips through the list re-read', async () => {
+    const backend = relationBackend()
+    const {done} = await setup({backend})
+    try {
+      await searchOnce()
+      fireEvent.press(await screen.findByTestId('mute-search-unmuterenotes-s1'))
+      await waitFor(() => expect(backend.unmuteRenotes).toHaveBeenCalledWith('s1'))
+      expect(await screen.findByTestId('mute-search-muterenotes-s1')).toBeTruthy()
+      expect(screen.queryByTestId('mute-search-unmuterenotes-s1')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('keeps one-way buttons when relations are unsupported', async () => {
+    const backend = {
+      ...baseBackend(),
+      // No `relationships`, no `renoteMutes`: the misskeyBackend shape in
+      // Settings.test (and old servers) must not crash or error.
+      search: {
+        accounts: jest.fn(async () => ({
+          items: [fakeAccount({id: 's1', displayName: 'found-one', acct: 'found-one'})],
+          cursor: null,
+          end: true,
+        })),
+      },
+    }
+    const {done} = await setup({backend})
+    try {
+      await searchOnce()
+      expect(await screen.findByTestId('mute-search-mute-s1')).toBeTruthy()
+      expect(screen.getByTestId('mute-search-muterenotes-s1')).toBeTruthy()
+      expect(screen.getByTestId('mute-search-block-s1')).toBeTruthy()
+      expect(screen.queryByTestId('mute-search-unmute-s1')).toBeNull()
+      expect(screen.queryByTestId('mute-search-unblock-s1')).toBeNull()
+      expect(screen.queryByTestId('mute-search-unmuterenotes-s1')).toBeNull()
+      // One-way actions still work.
+      fireEvent.press(screen.getByTestId('mute-search-mute-s1'))
+      await waitFor(() => expect(backend.mute).toHaveBeenCalledWith('s1'))
+    } finally {
+      done()
+    }
+  })
+})

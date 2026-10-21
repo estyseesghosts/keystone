@@ -1,13 +1,14 @@
 import {useEffect, useState} from 'react'
 import {View} from 'react-native'
 
-import {isUnsupportedError, type Account} from '@keystone/fedi'
+import {isUnsupportedError, type Account, type Session} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {AccountSwitcher} from '#/components/AccountSwitcher'
 import {Button} from '#/components/Button'
 import {useActiveBackend} from '#/screens/HomeFeed'
+import {useHosting} from '#/state/hosting'
 import {useActiveSession} from '#/state/session/SessionProvider'
 
 import {PlaceholderRow, SettingRow} from './rows'
@@ -17,6 +18,74 @@ import {PlaceholderRow, SettingRow} from './rows'
 // everywhere, add another) over the session store, and the Sharkey-family
 // account-wide quote refusal. Profile editing lives ONLY on your own
 // profile page — never here.
+
+// v1 `/settings/account` parity: the backend family/flavor label and the
+// account handle. Flavor labels are display strings (never wire types);
+// an unrecognized flavor falls back to the family name.
+const FLAVOR_LABELS: Record<string, string> = {
+  misskey: 'Misskey',
+  sharkey: 'Sharkey',
+  catodon: 'Catodon',
+  pinetree: 'Pinetree',
+  mastodon: 'Mastodon',
+  akkoma: 'Akkoma',
+  pleroma: 'Pleroma',
+}
+
+export function backendLabelFor(session: Pick<Session, 'family' | 'flavor'>): string {
+  const familyLabel = session.family === 'mastodon' ? 'Mastodon family' : 'Misskey family'
+  const flavorLabel = FLAVOR_LABELS[session.flavor]
+  return flavorLabel ? `${flavorLabel} · ${familyLabel}` : familyLabel
+}
+
+/** Handle shown for the session: the cached profile acct, else the stored id. */
+export function handleFor(session: Pick<Session, 'accountId'> & {user?: {acct?: string} | null}): string {
+  const acct = session.user?.acct?.trim()
+  return `@${acct && acct.length > 0 ? acct : session.accountId}`
+}
+
+function IdentityBlock() {
+  const session = useActiveSession()
+  const hosting = useHosting()
+  if (!session) {
+    return (
+      <SettingRow
+        title="This device"
+        hint="Signed out. Add an account to sign in."
+        testID="account-identity-row">
+        {null}
+      </SettingRow>
+    )
+  }
+  // External when the session origin is not the app's home origin. The
+  // home origin is known only in first-party mode (`homeOrigin` is null
+  // for third-party clients, where every account is external); there the
+  // session's own `hosting` flag — set at sign-in (`screens/Login.tsx`:
+  // internal logins store `first-party`, every external flow `third-party`)
+  // — is the authority. Read-only use of both APIs, no new seam.
+  const homeOrigin = hosting?.homeOrigin ?? null
+  const isExternal =
+    homeOrigin != null ? session.origin !== homeOrigin : session.hosting === 'third-party'
+  return (
+    <SettingRow
+      title="This device"
+      hint={`Signed in as ${session.accountId} on ${session.origin}.`}
+      testID="account-identity-row">
+      <Body>
+        {session.user?.displayName ?? session.accountId} · {session.origin}
+      </Body>
+      <Body testID="account-backend-label">
+        {backendLabelFor(session)} · {handleFor(session)}
+      </Body>
+      {isExternal ? (
+        <Caption testID="account-external-note">
+          External account: sign-in and requests go to {session.origin}, not this app&apos;s home
+          server.
+        </Caption>
+      ) : null}
+    </SettingRow>
+  )
+}
 
 function RejectQuotesRow() {
   const {backend} = useActiveBackend()
@@ -106,20 +175,7 @@ export function AccountSection({
   const session = useActiveSession()
   return (
     <View style={[atoms.gap_sm]} testID="settings-section-account">
-      <SettingRow
-        title="This device"
-        hint={
-          session
-            ? `Signed in as ${session.accountId} on ${session.origin}.`
-            : 'Signed out. Add an account to sign in.'
-        }
-        testID="account-identity-row">
-        {session ? (
-          <Body>
-            {session.user?.displayName ?? session.accountId} · {session.origin}
-          </Body>
-        ) : null}
-      </SettingRow>
+      <IdentityBlock />
       <AccountSwitcher onAddAccount={onAddAccount} />
       {session ? (
         <SettingRow

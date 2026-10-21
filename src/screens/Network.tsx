@@ -8,6 +8,7 @@ import {networkTabFromParam, type RootParamList, type NetworkTab} from '#/routes
 import {useActiveBackend, FeedView} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
 import {defaultNetworkTab, descriptorForNetworkTab, visibleNetworkTabs} from '#/state/queries'
+import {useFeedPrefs} from '#/state/feedPrefs'
 
 // Network (`/network/:tab?`): social / local / federated timelines.
 //
@@ -31,7 +32,10 @@ export function NetworkScreen() {
   const navigation = useNavigation<NavigationProp<RootParamList>>()
   const {session, backend} = useActiveBackend()
   const family = backend?.family ?? session?.family ?? null
-  const visible = visibleNetworkTabs(family)
+  // Reactive reader prefs: a mounted screen re-renders when
+  // Settings → Feeds toggles change (the store notifies subscribers).
+  const prefs = useFeedPrefs()
+  const visible = visibleNetworkTabs(family, prefs)
   const requested = networkTabFromParam(route.params?.tab)
   const active: NetworkTab =
     requested && visible.includes(requested) ? requested : defaultNetworkTab(family)
