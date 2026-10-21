@@ -692,6 +692,10 @@ export interface NotificationExt {
    * so a row can list "who reacted with what" even where the actor set and
    * the reaction set differ. */
   groupedReactions?: Array<{ userId: string; reaction: string }>;
+  /** Grouped rows (`notification_groups`) keep the server's total beside
+   * the sampled actors, so a row never rounds the packed samples up into
+   * the count. Absent on flat rows and on groups that report none. */
+  groupedCount?: number;
 }
 
 // --- Pagination ------------------------------------------------------------

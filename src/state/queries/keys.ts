@@ -59,3 +59,8 @@ export function serverBlocksQueryKey(sessionId: string): AppQueryKey {
 export function serverRenoteMutesQueryKey(sessionId: string): AppQueryKey {
   return createQueryKey(sessionId, "server-renote-mutes");
 }
+
+/** Key for the server-side word-filter phrases (feed filter source). */
+export function serverFiltersQueryKey(sessionId: string): AppQueryKey {
+  return createQueryKey(sessionId, "server-filters");
+}

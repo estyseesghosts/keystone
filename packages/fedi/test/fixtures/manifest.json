@@ -203,6 +203,13 @@
       "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (Notification)"],
       "recordedAt": null
     },
+    "mastodon/notification-grouped-v2.json": {
+      "endpoint": "GET /api/v2/notifications (accounts + statuses + notification_groups envelope)",
+      "source": "synthesised",
+      "synthesisedFrom": ["Mastodon NotificationGroup entity shape (group_key, notifications_count, type, sample_account_ids, status_id, most_recent_notification_id, page_min/max_id, latest_page_notification_at)", "packages/fedi/src/mastodon/wire.ts (Account, Status)"],
+      "recordedAt": null,
+      "unverified": "No grouped-capable server on the rig (live Akkoma 404s the v2 endpoint); shaped from the documented entity, not recorded. The emoji_reaction group exercises an extension type no live server emits yet."
+    },
     "akkoma/status.json": {
       "endpoint": "GET /api/v1/accounts/:id/statuses (Akkoma shape)",
       "source": "synthesised",

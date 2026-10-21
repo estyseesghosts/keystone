@@ -830,10 +830,10 @@ export function createMastodonBackend(
           if (v2 !== null) {
             // The v2 Link header drives REAL paging (contract §5): the
             // cursor advances via fetchMore instead of stalling at null.
-            // Grouped actors/count fidelity is the adapter's job — see
-            // the adaptV2Notification gap note in the session log.
+            // Grouped rows adapt with their sampled actors, server count,
+            // and resolved post (see `adaptV2Notification`).
             return {
-              items: v2.rows.map((n) => adaptV2Notification(n, v2.accounts)),
+              items: v2.rows.map((n) => adaptV2Notification(n, v2.accounts, v2.statuses)),
               cursor: encodeContinuation(v2.continuation),
               end: v2.end,
             };

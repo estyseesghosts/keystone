@@ -482,21 +482,17 @@ describe("MD12 — direct throws adapt so the shared predicates read them", () =
     expect(isUnsupportedError(err)).toBe(true);
   });
 
-  it("a real grouped-v2 envelope still falls back to honest flat rows", async () => {
+  it("a real grouped-v2 envelope adapts in place (no v1 call)", async () => {
+    // WS-F (V2_GAPS MD1): the grouped envelope is no longer "unreadable"
+    // — it adapts to grouped rows directly. The error boundary itself is
+    // unchanged: real transport errors still arrive as shared ApiErrors
+    // (pinned by the tests above).
     const grouped = fixture<Record<string, unknown>>("mastodon", "notification-grouped-v2.json");
-    const fav = fixture<import("../src/mastodon/wire").Notification>(
-      "mastodon",
-      "notification.json",
-    );
-    const { client, calls } = stubClient((_m, path) =>
-      path === "/api/v2/notifications" ? { data: grouped } : { data: [fav] },
-    );
+    const { client, calls } = stubClient(() => ({ data: grouped }));
     const page = await createMastodonBackend(client).notifications();
-    expect(calls.map((c) => c.path)).toEqual([
-      "/api/v2/notifications",
-      "/api/v1/notifications",
-    ]);
+    expect(calls.map((c) => c.path)).toEqual(["/api/v2/notifications"]);
     expect(page.items[0].kind).toBe("favourite");
+    expect(page.items[0].actors).toHaveLength(3);
   });
 });
 
