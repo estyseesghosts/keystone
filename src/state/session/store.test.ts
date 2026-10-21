@@ -3,6 +3,8 @@ import {
   createMemoryStore,
   createMisskeyClient,
   getActiveSessionId,
+  MASTO_SCOPES,
+  OAUTH_APPS_KEY,
   setActiveSessionId,
   type KeyValueStore,
 } from '@keystone/fedi'
@@ -300,5 +302,194 @@ describe('cross-origin token isolation (store level)', () => {
     const headers = calls[0].init.headers as Record<string, string>
     expect(headers.Authorization).toBe('Bearer masto-b')
     expect(calls[0].url).not.toContain(ORIGIN_A)
+  })
+})
+
+describe('verifySession / verifyActive (MD5 boot re-verify)', () => {
+  const mePayload = {id: 'alice', username: 'alice', isBot: false, isCat: false}
+
+  function stubMe(status: number, body: unknown = {}): void {
+    globalThis.fetch = jest.fn(() =>
+      Promise.resolve(new Response(JSON.stringify(body), {status})),
+    ) as unknown as typeof fetch
+  }
+
+  it('signed out verifies as signed-out (never an error)', async () => {
+    const {store} = setup()
+    await expect(store.verifyActive()).resolves.toEqual({
+      ok: false,
+      reason: 'signed-out',
+      cleared: false,
+    })
+  })
+
+  it('unknown ids never resolve', async () => {
+    const {store} = setup()
+    await store.add(sessionA())
+    await expect(store.verifySession('https://gone.example ghost')).resolves.toEqual({
+      ok: false,
+      reason: 'unknown-session',
+      cleared: false,
+    })
+  })
+
+  it('a live token verifies ok and stays stored', async () => {
+    const {store} = setup()
+    const a = await store.add(sessionA())
+    stubMe(200, mePayload)
+    await expect(store.verifyActive()).resolves.toEqual({ok: true, reason: 'ok', cleared: false})
+    expect(store.list().map(s => s.id)).toEqual([a.id])
+    expect(store.activeId()).toBe(a.id)
+  })
+
+  it('401 drops the dead session (clear on 401) and nothing else', async () => {
+    const {storage, map, store} = setup()
+    const a = await store.add(sessionA())
+    const b = await store.add(sessionB())
+    stubMe(401, {error: {message: 'unauthorized', code: 'AUTHENTICATION_FAILED'}})
+    await expect(store.verifySession(a.id)).resolves.toEqual({
+      ok: false,
+      reason: 'unauthorized',
+      cleared: true,
+    })
+    expect(store.list().map(s => s.id)).toEqual([b.id])
+    expect(map.has(`${ORIGIN_A} ${a.id}`)).toBe(false)
+    expect(storage.getItem('keystone_sessions')).not.toContain('token-a')
+  })
+
+  it('401 on the active session clears the pointer and mirror', async () => {
+    const {storage, store} = setup()
+    await store.add(sessionA())
+    stubMe(401, {error: {message: 'unauthorized', code: 'AUTHENTICATION_FAILED'}})
+    await expect(store.verifyActive()).resolves.toEqual({
+      ok: false,
+      reason: 'unauthorized',
+      cleared: true,
+    })
+    expect(store.activeId()).toBeNull()
+    expect(readDeviceState(storage).activeSessionId).toBeNull()
+  })
+
+  it('403 never clears (scope failure, not a dead token)', async () => {
+    const {store} = setup()
+    const a = await store.add(sessionA())
+    stubMe(403, {error: {message: 'forbidden', code: 'PERMISSION_DENIED'}})
+    await expect(store.verifyActive()).resolves.toEqual({
+      ok: false,
+      reason: 'forbidden',
+      cleared: false,
+    })
+    expect(store.list().map(s => s.id)).toEqual([a.id])
+  })
+
+  it('network failure never clears', async () => {
+    const {store} = setup()
+    const a = await store.add(sessionA())
+    globalThis.fetch = jest.fn(() => Promise.reject(new TypeError('fetch failed'))) as unknown as typeof fetch
+    await expect(store.verifyActive()).resolves.toEqual({
+      ok: false,
+      reason: 'network',
+      cleared: false,
+    })
+    expect(store.list().map(s => s.id)).toEqual([a.id])
+  })
+})
+
+describe('refreshActive (MD5 honest no-op)', () => {
+  it('signed out reports signed-out', async () => {
+    const {store} = setup()
+    await expect(store.refreshActive()).resolves.toEqual({refreshed: false, reason: 'signed-out'})
+  })
+
+  it('a stored session reports unsupported (no refresh token persisted)', async () => {
+    const {store} = setup()
+    await store.add(sessionA())
+    await expect(store.refreshActive()).resolves.toEqual({refreshed: false, reason: 'unsupported'})
+  })
+})
+
+describe('scopeHealth (MD5 scope generations)', () => {
+  const mastoInput = (over: Record<string, unknown> = {}) => ({
+    origin: ORIGIN_B,
+    family: 'mastodon' as const,
+    flavor: 'mastodon' as const,
+    accountId: 'bob',
+    token: 'masto-b',
+    grant: 'oauth-pkce' as const,
+    hosting: 'third-party' as const,
+    ...over,
+  })
+
+  function cacheScopes(storage: KeyValueStore, origin: string, scopes: string): void {
+    storage.setItem(
+      OAUTH_APPS_KEY,
+      JSON.stringify({[origin]: {client_id: 'id', client_secret: 'secret', scopes}}),
+    )
+  }
+
+  it('signed out reports signed-out', async () => {
+    const {store} = setup()
+    expect(store.scopeHealth()).toMatchObject({needsReauth: false, needsUpgrade: false, generation: 'signed-out'})
+  })
+
+  it('misskey-family sessions carry no OAuth scopes', async () => {
+    const {store} = setup()
+    await store.add(sessionA())
+    expect(store.scopeHealth()).toMatchObject({
+      needsReauth: false,
+      needsUpgrade: false,
+      generation: 'not-applicable',
+      reason: 'misskey-no-scopes',
+    })
+  })
+
+  it('mastodon without an app cache is unknown (never a verdict)', async () => {
+    const {store} = setup()
+    await store.add(mastoInput())
+    expect(store.scopeHealth()).toMatchObject({
+      needsReauth: false,
+      needsUpgrade: false,
+      generation: 'unknown',
+      reason: 'no-app-cache',
+    })
+  })
+
+  it('current scopes verify clean', async () => {
+    const {storage, store} = setup()
+    const b = await store.add(mastoInput())
+    cacheScopes(storage, ORIGIN_B, MASTO_SCOPES.join(' '))
+    expect(store.scopeHealth()).toEqual({
+      needsReauth: false,
+      needsUpgrade: false,
+      generation: 'current',
+      reason: 'current',
+      missingScopes: [],
+    })
+    expect(store.scopeHealth(b.id).generation).toBe('current')
+  })
+
+  it('granular-only cache reads as the W4 generation with missing umbrellas', async () => {
+    const {storage, store} = setup()
+    await store.add(mastoInput())
+    const granular = MASTO_SCOPES.filter(s => s !== 'read' && s !== 'write' && s !== 'follow')
+    cacheScopes(storage, ORIGIN_B, granular.join(' '))
+    expect(store.scopeHealth()).toEqual({
+      needsReauth: false,
+      needsUpgrade: true,
+      generation: 'granular',
+      reason: 'stale-scopes',
+      missingScopes: ['read', 'write', 'follow'],
+    })
+  })
+
+  it('umbrella-only cache reads as the pre-scopes generation', async () => {
+    const {storage, store} = setup()
+    await store.add(mastoInput())
+    cacheScopes(storage, ORIGIN_B, 'read write follow')
+    const health = store.scopeHealth()
+    expect(health.generation).toBe('pre-scopes')
+    expect(health.needsUpgrade).toBe(true)
+    expect(health.needsReauth).toBe(false)
+    expect(health.missingScopes).toContain('read:accounts')
   })
 })

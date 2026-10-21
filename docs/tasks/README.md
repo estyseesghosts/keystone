@@ -21,11 +21,11 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p3.3-postfeed](p3.3-postfeed.md) | §5 P3.3 | done | `main` | `state/logs/2026-10-20-p3.3-postfeed.md` |
 | [p3.4-home-network](p3.4-home-network.md) | §5 P3.4 | done | `main` | `state/logs/2026-10-20-p3.4-screens.md` |
 | [p3.5-thread](p3.5-thread.md) | §5 P3.5 | done | `main` | `state/logs/2026-10-20-p3.4-screens.md` |
-| [p3.6-profile](p3.6-profile.md) | §5 P3.6 | done | `main` | `state/logs/2026-10-20-p3.4-screens.md` |
-| [p3.7-notifications](p3.7-notifications.md) | §5 P3.7 | done | `main` | `state/logs/2026-10-20-p3.4-screens.md` |
-| [p3.8-media](p3.8-media.md) | §5 P3.8 | done | `main` | `state/logs/2026-10-20-p3.8-streaming.md` |
+| [p3.6-profile](p3.6-profile.md) | §5 P3.6 | done, acceptance unchecked (Q1) | `main` | `state/logs/2026-10-20-p3.4-screens.md` |
+| [p3.7-notifications](p3.7-notifications.md) | §5 P3.7 | done, acceptance unchecked (Q1) | `main` | `state/logs/2026-10-20-p3.4-screens.md` |
+| [p3.8-media](p3.8-media.md) | §5 P3.8 | done, acceptance unchecked (Q1) | `main` | `state/logs/2026-10-20-p3.8-streaming.md` |
 | [p3.9-emoji](p3.9-emoji.md) | §5 P3.9 | done | `main` | `state/logs/2026-10-20-p3.3-postfeed.md` |
-| [p3.10-streaming](p3.10-streaming.md) | §5 P3.10 | done | `main` | `state/logs/2026-10-20-p3.8-streaming.md` |
+| [p3.10-streaming](p3.10-streaming.md) | §5 P3.10 | done, acceptance unchecked (Q1) | `main` | `state/logs/2026-10-20-p3.8-streaming.md` |
 | [p3.11-feed-unification](p3.11-feed-unification.md) | §5 P3 | done | `main` | `state/logs/2026-10-20-p3.11-feed-unification.md` |
 | [p4.1-post-shadow-toggle-queue](p4.1-post-shadow-toggle-queue.md) | §5 P4.1 | done | `main` | `state/logs/2026-10-20-p4.1-post-shadow-toggle-queue.md` |
 | [p4.2-post-actions-menu](p4.2-post-actions-menu.md) | §5 P4.2 | done | `main` | `state/logs/2026-10-20-p4.2-post-actions-menu.md` |

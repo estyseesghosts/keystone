@@ -1,4 +1,4 @@
-import type {FeedSource, StreamHandle, StreamState} from '@keystone/fedi'
+import type {FeedSource, PostUpdateEvent, StreamHandle, StreamState} from '@keystone/fedi'
 import type {Post} from '@keystone/fedi'
 
 import {
@@ -154,6 +154,95 @@ describe('createPostLive', () => {
     const noop = createPostLive(null, 'p1', {onDeleted: () => (deleted += 1)})
     noop()
     expect(deleted).toBe(1)
+  })
+})
+
+describe('createFeedLive delete/update capture (MD10 app half)', () => {
+  function captureHandle(): {
+    handle: StreamHandle
+    emitPost: (post: Post) => void
+    postHandlers: Map<string, {onUpdated?: (e: PostUpdateEvent) => void; onDeleted?: () => void}>
+    released: string[]
+  } {
+    const base = fakeHandle()
+    const postHandlers = new Map<
+      string,
+      {onUpdated?: (e: PostUpdateEvent) => void; onDeleted?: () => void}
+    >()
+    const released: string[] = []
+    const handle: StreamHandle = {
+      ...base,
+      subscribePost: (id: string, h) => {
+        postHandlers.set(id, h)
+        return () => {
+          released.push(id)
+          postHandlers.delete(id)
+        }
+      },
+    }
+    return {handle, emitPost: base.emitPost, postHandlers, released}
+  }
+
+  it('routes watched-post deletes/updates to onDelete/onUpdate', () => {
+    const {handle, postHandlers} = captureHandle()
+    const deleted: string[] = []
+    const updated: PostUpdateEvent[] = []
+    const live = createFeedLive({
+      handle,
+      source: {kind: 'home'},
+      knownIds: ['k1'],
+      onInsert: () => {},
+      onDelete: id => deleted.push(id),
+      onUpdate: e => updated.push(e),
+    })
+    // knownIds are watched from creation (cache baseline).
+    postHandlers.get('k1')?.onUpdated?.({id: 'k1', type: 'reacted', reaction: '❤'})
+    postHandlers.get('k1')?.onDeleted?.()
+    expect(updated).toEqual([{id: 'k1', type: 'reacted', reaction: '❤'}])
+    expect(deleted).toEqual(['k1'])
+    live.dispose()
+  })
+
+  it('watches buffered arrivals on insert', () => {
+    const {handle, emitPost, postHandlers} = captureHandle()
+    const deleted: string[] = []
+    const live = createFeedLive({
+      handle,
+      source: {kind: 'home'},
+      onInsert: () => {},
+      onDelete: id => deleted.push(id),
+    })
+    emitPost(fakePost('p9'))
+    expect(postHandlers.has('p9')).toBe(true)
+    postHandlers.get('p9')?.onDeleted?.()
+    expect(deleted).toEqual(['p9'])
+    live.dispose()
+  })
+
+  it('subscribes nothing without delete/update handlers', () => {
+    const {handle, emitPost, postHandlers} = captureHandle()
+    const live = createFeedLive({
+      handle,
+      source: {kind: 'home'},
+      knownIds: ['k1'],
+      onInsert: () => {},
+    })
+    emitPost(fakePost('p1'))
+    expect(postHandlers.size).toBe(0)
+    live.dispose()
+  })
+
+  it('dispose releases every per-post capture', () => {
+    const {handle, released} = captureHandle()
+    const live = createFeedLive({
+      handle,
+      source: {kind: 'home'},
+      knownIds: ['k1', 'k2'],
+      onInsert: () => {},
+      onDelete: () => {},
+    })
+    live.dispose()
+    expect(released.sort()).toEqual(['k1', 'k2'])
   })
 })
 

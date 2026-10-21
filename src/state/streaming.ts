@@ -45,7 +45,10 @@ export interface FeedLiveOpts {
   knownIds?: Iterable<string>
   /** Called ONLY from `flush()` (pill tap) with the buffered batch. */
   onInsert: (posts: Post[]) => void
+  /** A watched post was deleted (Misskey capture; Mastodon-family pending
+   * the adapter half — see `createFeedLive` S4 seam). */
   onDelete?: (id: string) => void
+  /** A watched post changed (reaction/reply/renote/poll deltas). */
   onUpdate?: (event: PostUpdateEvent) => void
 }
 
@@ -67,25 +70,64 @@ export interface FeedLive {
  * Follow one feed's live channel. When the backend has no streaming
  * (`handle` null or the source unsupported), the returned live is
  * `unavailable` and feeds keep paging + manual refresh — never an error.
+ *
+ * Delete/update capture (MD10 app half): every watched post id gets a
+ * per-post `subscribePost` capture forwarding to `onDelete`/`onUpdate`
+ * (buffered arrivals are watched on insert; `knownIds` seeds the cache
+ * baseline). Misskey-family captures broadcast reacted/unreacted/deleted/
+ * pollVoted for watched ids. S4 seam: Mastodon-family `subscribePost` is a
+ * no-op and its `subscribeTimeline` drops `delete` frames at the adapter
+ * (family half, MD10 remainder) — feed deletes there never reach
+ * `onDelete` until the adapter wires its `StreamHandlers.onDelete` through.
+ * No pill UI here: arrivals still buffer behind `pending()`/`flush()`.
  */
 export function createFeedLive(opts: FeedLiveOpts): FeedLive {
-  const {handle, source, onInsert} = opts
+  const {handle, source, onInsert, onDelete, onUpdate} = opts
   const seen = new Set<string>(opts.knownIds ?? [])
   let buffer: Post[] = []
   let subscription: {unsubscribe(): void} | null = null
-  let postUnsub: (() => void) | null = null
+  const postUnsubs = new Map<string, () => void>()
+
+  /** Watch one post id for delete/update events (best-effort: capture is
+   * never on any load path — paging + refresh stay the source of truth). */
+  function watchPost(id: string): void {
+    if (!handle || !id || postUnsubs.has(id)) return
+    if (!onDelete && !onUpdate) return
+    try {
+      const off = handle.subscribePost(id, {
+        onUpdated: event => onUpdate?.(event),
+        onDeleted: () => {
+          postUnsubs.delete(id)
+          onDelete?.(id)
+        },
+      })
+      postUnsubs.set(id, off)
+    } catch {
+      // A capture that throws at subscribe time is dropped, never fatal.
+    }
+  }
+
+  function unwatchAll(): void {
+    for (const off of postUnsubs.values()) {
+      try {
+        off()
+      } catch {
+        // Ignore — dispose is best-effort.
+      }
+    }
+    postUnsubs.clear()
+  }
+
+  // Seed the cache baseline so already-loaded posts report deletes/updates.
+  for (const id of seen) watchPost(id)
 
   if (handle) {
     subscription = handle.subscribeTimeline(source, post => {
       if (seen.has(post.id)) return
       seen.add(post.id)
+      watchPost(post.id)
       buffer = [...buffer, post]
     })
-    // Post-level deletes route through the same handle where supported
-    // (Misskey note capture; Mastodon delete events arrive on the feed
-    // channel and are filtered by the adapter — both surface via onPost
-    // with the existing shape, so no second socket here).
-    postUnsub = null
   }
 
   return {
@@ -119,8 +161,7 @@ export function createFeedLive(opts: FeedLiveOpts): FeedLive {
     dispose(): void {
       subscription?.unsubscribe()
       subscription = null
-      postUnsub?.()
-      postUnsub = null
+      unwatchAll()
       buffer = []
     },
   }

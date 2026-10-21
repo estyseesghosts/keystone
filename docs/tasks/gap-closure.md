@@ -192,8 +192,8 @@ Settings rows are either real or honestly disabled; trio + screenshots.
 - [ ] MK10–MK12 Pinetree fixtures/manifest, smoke auth/write coverage,
       missing module tests.
 - [ ] F21 Feed dedupe/retry polish.
-- [ ] Q1–Q8 Status/index/DECISIONS cleanup, stale copy, duplicate feed,
-      route/back tests.
+- [x] Q1 index overstatements fixed (W8 2026-10-21: p3.6/p3.7/p3.8/p3.10 index rows now read `done, acceptance unchecked` — the task files' acceptance boxes were never checked; register states untouched, coordinator owns them).
+- [ ] Q2–Q8 stale copy, duplicate feed, route/back tests (Q2–Q4 DECISIONS corrections land 2026-10-21 — see DECISIONS; Q5 ReactionChips/User/p4.2 copy, Q6 feed-duplicate, Q7 route/back tests, Q8 safeHttpUrl model-URL tests are outside the W8-app slice — reported, not fixed).
 
 Acceptance: no false "done" in the index; streaming observed live (or
 `not verified`); token failure re-auths; trio + rig evidence.
