@@ -9,6 +9,7 @@ import {
   defaultAccountState,
   defaultDeviceState,
   deviceStateSchema,
+  migrateDeviceState,
   parseOrFallback,
   type AccountState,
   type DeviceState,
@@ -56,7 +57,7 @@ export function __setStorageForTests(next: {storage?: KeyValueStore; vault?: Tok
 }
 
 export function readDeviceState(store: KeyValueStore): DeviceState {
-  return parseOrFallback(deviceStateSchema, store.getItem(DEVICE_KEY), defaultDeviceState)
+  return migrateDeviceState(store.getItem(DEVICE_KEY))
 }
 
 export function writeDeviceState(store: KeyValueStore, state: DeviceState): void {

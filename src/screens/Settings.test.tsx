@@ -189,11 +189,16 @@ describe('Display section', () => {
       expect(readDeviceState(storage).prefs.textScale).toBe(1)
       // Emoji style lives here per v1 (relocated, not duplicated).
       expect(screen.getByTestId('emoji-style-openmoji')).toBeTruthy()
-      // Theme/palette/font/content-mode have no consumer: placeholders.
+      // Theme/palette/font have no consumer: placeholders. Content mode
+      // is real (P3): auto by default, persists to device storage.
       expect(screen.getByTestId('placeholder-theme').props.accessibilityState.disabled).toBe(true)
       expect(screen.getByTestId('placeholder-palette')).toBeTruthy()
       expect(screen.getByTestId('placeholder-font')).toBeTruthy()
-      expect(screen.getByTestId('placeholder-content-mode')).toBeTruthy()
+      expect(screen.queryByTestId('placeholder-content-mode')).toBeNull()
+      expect(screen.getByTestId('content-mode-auto').props.accessibilityState.selected).toBe(true)
+      fireEvent.press(screen.getByTestId('content-mode-plain'))
+      expect(readDeviceState(storage).prefs.contentMode).toBe('plain')
+      expect(screen.getByTestId('content-mode-plain').props.accessibilityState.selected).toBe(true)
     } finally {
       done()
     }

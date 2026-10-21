@@ -51,7 +51,7 @@ describe('appearance store (device emoji style)', () => {
     writeDeviceState(storage, {
       ...readDeviceState(storage),
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark', emojiStyle: 'openmoji', textScale: 1},
+      prefs: {theme: 'dark', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto'},
     })
     store.setEmojiStyle('noto')
     const state = readDeviceState(storage)
@@ -104,5 +104,31 @@ describe('appearance store (text scale)', () => {
     expect(store.getTextScale()).toBe(0.5)
     store.setTextScale(Number.NaN)
     expect(store.getTextScale()).toBe(1)
+  })
+})
+
+describe('appearance store (content mode)', () => {
+  it('defaults to auto on a fresh install', () => {
+    const {store} = setup()
+    expect(store.getContentMode()).toBe('auto')
+  })
+
+  it('persists the selected mode and notifies once', () => {
+    const {storage, store} = setup()
+    const listener = jest.fn()
+    store.subscribe(listener)
+    store.setContentMode('plain')
+    expect(store.getContentMode()).toBe('plain')
+    expect(readDeviceState(storage).prefs.contentMode).toBe('plain')
+    expect(listener).toHaveBeenCalledTimes(1)
+    store.setContentMode('plain')
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to auto on garbage', () => {
+    const {storage, store} = setup()
+    store.setContentMode('bogus' as never)
+    expect(store.getContentMode()).toBe('auto')
+    expect(readDeviceState(storage).prefs.contentMode).toBe('auto')
   })
 })

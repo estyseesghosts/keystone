@@ -9,6 +9,7 @@ import {Text, type StyleProp, type TextStyle} from 'react-native'
 
 import {splitNameEmojis, type Account} from '@keystone/fedi'
 
+import {useTheme} from '#/alf/index'
 import {CustomEmojiGlyph} from '#/components/EmojiImage'
 
 function splitCode(code: string): {name: string; host: string | null} {
@@ -45,13 +46,16 @@ export function DisplayName({
   testID?: string
 }) {
   const parts = useMemo(() => splitNameEmojis(account.displayName), [account.displayName])
+  // P1: names scale with the device text setting, like every other prose.
+  const theme = useTheme()
+  const scaledSize = size * theme.fontScaleMultiplier
   return (
-    <Text style={[{fontSize: size}, textStyle]} numberOfLines={numberOfLines} testID={testID}>
+    <Text style={[{fontSize: scaledSize}, textStyle]} numberOfLines={numberOfLines} testID={testID}>
       {parts.map((part, i) =>
         part.kind === 'text' ? (
           <Fragment key={i}>{part.text}</Fragment>
         ) : (
-          <NameEmoji key={i} code={part.code} emojis={account.emojis} size={size} />
+          <NameEmoji key={i} code={part.code} emojis={account.emojis} size={scaledSize} />
         ),
       )}
     </Text>

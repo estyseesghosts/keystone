@@ -22,10 +22,11 @@ import {
   type ViewStyle,
 } from 'react-native'
 
-import {DEFAULT_EMOJI_STYLE, type ContentNode, type EmojiStyle} from '@keystone/fedi'
+import {DEFAULT_EMOJI_STYLE, plainTextOf, type ContentNode, type EmojiStyle} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {CustomEmojiGlyph, UnicodeEmoji} from '#/components/EmojiImage'
+import {useContentMode} from '#/state/appearance'
 
 export type RichTextProps = {
   nodes: readonly ContentNode[]
@@ -251,11 +252,18 @@ export function RichText({
   testID,
 }: RichTextProps) {
   const theme = useTheme()
+  // P1: prose scales with the device text setting — the one alf source
+  // (`fontScaleMultiplier`) reaches every post body, bio, quote and CW
+  // rendered through this sole renderer.
+  const scaledSize = size * theme.fontScaleMultiplier
+  // P3: the `plain` content mode renders the plain-text projection instead
+  // of the rich tree (one mode per string, never both).
+  const contentMode = useContentMode()
   const ctx: Ctx = useMemo(
     () => ({
       emojis,
       emojiStyle,
-      size,
+      size: scaledSize,
       onMentionPress,
       onHashtagPress,
       onLinkPress,
@@ -263,15 +271,29 @@ export function RichText({
       codeBg: theme.palette.bgSoft,
       quoteEdge: theme.palette.edge,
     }),
-    [emojis, emojiStyle, size, onMentionPress, onHashtagPress, onLinkPress, theme],
+    [emojis, emojiStyle, scaledSize, onMentionPress, onHashtagPress, onLinkPress, theme],
   )
+  if (contentMode === 'plain') {
+    return (
+      <View style={style} testID={testID}>
+        <Text
+          numberOfLines={numberOfLines}
+          style={[
+            {fontSize: scaledSize, lineHeight: scaledSize + 5, color: theme.palette.text},
+            textStyle,
+          ]}>
+          {plainTextOf(nodes)}
+        </Text>
+      </View>
+    )
+  }
   const hasBlock = useMemo(() => nodes.some(isBlock), [nodes])
   if (!hasBlock) {
     return (
       <View style={style} testID={testID}>
         <Text
           numberOfLines={numberOfLines}
-          style={[{fontSize: size, lineHeight: size + 5, color: theme.palette.text}, textStyle]}>
+          style={[{fontSize: scaledSize, lineHeight: scaledSize + 5, color: theme.palette.text}, textStyle]}>
           <Inline nodes={nodes} ctx={ctx} depth={0} />
         </Text>
       </View>

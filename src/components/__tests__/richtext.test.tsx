@@ -6,6 +6,7 @@ import {contentFromHtml, contentFromMfm} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {RichText} from '#/components/RichText'
+import {appearanceStore} from '#/state/appearance'
 
 i18n.load('en', {})
 i18n.activate('en')
@@ -91,5 +92,33 @@ describe('RichText mentions (F9)', () => {
     )
     fireEvent.press(screen.getByText('@bob@ex.ample'))
     expect(onMention).toHaveBeenCalledWith(null, '@bob@ex.ample')
+  })
+})
+
+describe('RichText text scale + content mode (P1/P3)', () => {
+  it('scales the body size with the alf font scale', () => {
+    render(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light" fontScale={2}>
+          <RichText nodes={contentFromMfm('hello')} />
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    const text = screen.getByText('hello')
+    const flattened = (Array.isArray(text.props.style) ? text.props.style : [text.props.style]).flat()
+    const sized = flattened.find(s => s && typeof s.fontSize === 'number')
+    expect(sized.fontSize).toBe(30)
+  })
+
+  it('renders the plain-text projection in plain content mode', () => {
+    appearanceStore.setContentMode('plain')
+    try {
+      renderRichText(
+        <RichText nodes={contentFromMfm('**bold** and [label](https://example.com)')} testID="plain" />,
+      )
+      expect(screen.getByText('bold and label')).toBeTruthy()
+    } finally {
+      appearanceStore.setContentMode('auto')
+    }
   })
 })

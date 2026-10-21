@@ -5,6 +5,7 @@ import {
   defaultAccountState,
   defaultDeviceState,
   deviceStateSchema,
+  migrateDeviceState,
   parseOrFallback,
 } from './schema'
 
@@ -18,7 +19,7 @@ describe('parseOrFallback', () => {
     expect(parseOrFallback(deviceStateSchema, raw, defaultDeviceState)).toEqual({
       version: STORAGE_VERSION,
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark', emojiStyle: 'openmoji', textScale: 1},
+      prefs: {theme: 'dark', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto'},
     })
   })
 
@@ -104,6 +105,49 @@ describe('parseOrFallback', () => {
     expect(parseOrFallback(accountStateSchema, '"x"', defaultAccountState)).toEqual(
       defaultAccountState,
     )
+  })
+})
+
+describe('migrateDeviceState (v1 → v2)', () => {
+  it('migrates a full v1 payload, carrying every pref', () => {
+    const raw = JSON.stringify({
+      version: 1,
+      activeSessionId: 'https://a.example u1',
+      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 2},
+    })
+    expect(migrateDeviceState(raw)).toEqual({
+      version: 2,
+      activeSessionId: 'https://a.example u1',
+      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 2, contentMode: 'auto'},
+    })
+  })
+
+  it('migrates a sparse v1 payload with defaults', () => {
+    const raw = JSON.stringify({version: 1, activeSessionId: null})
+    expect(migrateDeviceState(raw)).toEqual(defaultDeviceState)
+  })
+
+  it('passes a v2 payload through untouched', () => {
+    const raw = JSON.stringify({
+      version: 2,
+      activeSessionId: null,
+      prefs: {theme: 'light', emojiStyle: 'noto', textScale: 1.5, contentMode: 'plain'},
+    })
+    expect(migrateDeviceState(raw)).toEqual(JSON.parse(raw))
+  })
+
+  it('falls back on corrupt, versioned-junk, or garbage payloads', () => {
+    expect(migrateDeviceState(null)).toEqual(defaultDeviceState)
+    expect(migrateDeviceState('{nope')).toEqual(defaultDeviceState)
+    expect(migrateDeviceState(JSON.stringify({version: 999}))).toEqual(defaultDeviceState)
+    expect(migrateDeviceState(JSON.stringify({version: 1, activeSessionId: 42}))).toEqual(
+      defaultDeviceState,
+    )
+  })
+
+  it('falls back on an unknown stored content mode', () => {
+    const raw = JSON.stringify({version: 2, activeSessionId: null, prefs: {contentMode: 'mfm'}})
+    expect(migrateDeviceState(raw)).toEqual(defaultDeviceState)
   })
 })
 

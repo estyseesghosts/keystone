@@ -8,6 +8,7 @@ import {
   readDeviceState,
   writeAccountState,
   writeDeviceState,
+  defaultAccountState,
   defaultDeviceState,
 } from './index'
 
@@ -19,14 +20,31 @@ describe('device scope', () => {
   it('round-trips write/read', () => {
     const store = createMemoryStore()
     writeDeviceState(store, {
-      version: 1,
+      version: 2,
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 1},
+      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 1, contentMode: 'auto'},
     })
     expect(readDeviceState(store)).toEqual({
-      version: 1,
+      version: 2,
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 1},
+      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 1, contentMode: 'auto'},
+    })
+  })
+
+  it('migrates a v1 payload forward, carrying prefs', () => {
+    const store = createMemoryStore()
+    store.setItem(
+      'keystone.device',
+      JSON.stringify({
+        version: 1,
+        activeSessionId: 'https://a.example u1',
+        prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 2},
+      }),
+    )
+    expect(readDeviceState(store)).toEqual({
+      version: 2,
+      activeSessionId: 'https://a.example u1',
+      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 2, contentMode: 'auto'},
     })
   })
 
@@ -34,7 +52,7 @@ describe('device scope', () => {
     const store = createMemoryStore()
     store.setItem('keystone.device', '{corrupt')
     expect(readDeviceState(store)).toEqual(defaultDeviceState)
-    store.setItem('keystone.device', JSON.stringify({version: 2, activeSessionId: 7}))
+    store.setItem('keystone.device', JSON.stringify({version: 999, activeSessionId: 7}))
     expect(readDeviceState(store)).toEqual(defaultDeviceState)
   })
 })
@@ -42,20 +60,26 @@ describe('device scope', () => {
 describe('per-account scope', () => {
   it('round-trips per session id with isolation', () => {
     const store = createMemoryStore()
-    expect(readAccountState(store, 'https://a.example u1').prefs.contentMode).toBe('mfm')
-    writeAccountState(store, 'https://a.example u1', {
-      version: 1,
-      prefs: {contentMode: 'plain'},
-    })
-    expect(readAccountState(store, 'https://a.example u1').prefs.contentMode).toBe('plain')
+    expect(readAccountState(store, 'https://a.example u1')).toEqual(defaultAccountState)
+    writeAccountState(store, 'https://a.example u1', {version: 2, prefs: {}})
+    expect(readAccountState(store, 'https://a.example u1')).toEqual({version: 2, prefs: {}})
     // Another session (even another origin) is untouched.
-    expect(readAccountState(store, 'https://b.example u1').prefs.contentMode).toBe('mfm')
+    expect(readAccountState(store, 'https://b.example u1')).toEqual(defaultAccountState)
+  })
+
+  it('strips the dead v1 contentMode field on read', () => {
+    const store: KeyValueStore = createMemoryStore()
+    store.setItem(
+      'keystone.account.https://a.example u1',
+      JSON.stringify({version: 1, prefs: {contentMode: 'plain'}}),
+    )
+    expect(readAccountState(store, 'https://a.example u1')).toEqual(defaultAccountState)
   })
 
   it('invalid stored data falls back to safe defaults', () => {
     const store: KeyValueStore = createMemoryStore()
     store.setItem('keystone.account.https://a.example u1', 'nope{')
-    expect(readAccountState(store, 'https://a.example u1').prefs.contentMode).toBe('mfm')
+    expect(readAccountState(store, 'https://a.example u1')).toEqual(defaultAccountState)
   })
 })
 

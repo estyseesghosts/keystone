@@ -16,6 +16,16 @@ import {appStorage, readDeviceState, writeDeviceState} from '#/storage'
 
 export type ColorMode = 'system' | 'light' | 'dark'
 
+/** Post-content override (v1 `contentMode.tsx` parity): `auto` renders
+ * every post through its own source parser; `plain` renders the
+ * plain-text projection everywhere. Device-local, like text scale. */
+export type ContentMode = 'auto' | 'plain'
+
+/** Validated content-mode parse: anything unknown falls back to auto. Pure. */
+export function parseContentMode(raw: string | null | undefined): ContentMode {
+  return raw === 'plain' ? 'plain' : 'auto'
+}
+
 export const TEXT_SCALE_MIN = 0.5
 export const TEXT_SCALE_MAX = 4
 export const TEXT_SCALE_DEFAULT = 1
@@ -38,6 +48,8 @@ export interface AppearanceStore {
   setColorMode(mode: ColorMode): void
   getTextScale(): number
   setTextScale(scale: number): void
+  getContentMode(): ContentMode
+  setContentMode(mode: ContentMode): void
   subscribe(fn: () => void): () => void
 }
 
@@ -90,6 +102,19 @@ export function createAppearanceStore(
       })
       emit()
     },
+    getContentMode(): ContentMode {
+      return parseContentMode(readDeviceState(storage()).prefs.contentMode ?? null)
+    },
+    setContentMode(mode: ContentMode): void {
+      const validated = parseContentMode(mode)
+      const state = readDeviceState(storage())
+      if (state.prefs.contentMode === validated) return
+      writeDeviceState(storage(), {
+        ...state,
+        prefs: {...state.prefs, contentMode: validated},
+      })
+      emit()
+    },
     subscribe(fn: () => void): () => void {
       listeners.add(fn)
       return () => {
@@ -111,6 +136,10 @@ export function useColorMode(store: AppearanceStore = appearanceStore): ColorMod
 
 export function useTextScale(store: AppearanceStore = appearanceStore): number {
   return useSyncExternalStore(store.subscribe, store.getTextScale)
+}
+
+export function useContentMode(store: AppearanceStore = appearanceStore): ContentMode {
+  return useSyncExternalStore(store.subscribe, store.getContentMode)
 }
 
 export {DEFAULT_EMOJI_STYLE}

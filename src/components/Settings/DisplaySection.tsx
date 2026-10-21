@@ -10,9 +10,11 @@ import {
   TEXT_SCALE_MIN,
   appearanceStore,
   useColorMode,
+  useContentMode,
   useTextScale,
   type AppearanceStore,
   type ColorMode,
+  type ContentMode,
 } from '#/state/appearance'
 
 import {EmojiStyleSetting} from './EmojiStyleSetting'
@@ -110,6 +112,51 @@ function TextSizeRow({store = appearanceStore}: {store?: AppearanceStore}) {
   )
 }
 
+const CONTENT_MODES: Array<{value: ContentMode; title: string; hint: string}> = [
+  {value: 'auto', title: 'Automatic', hint: 'Each post renders through its own source parser.'},
+  {value: 'plain', title: 'Plain text', hint: 'Posts, bios and quotes render as plain text.'},
+]
+
+function ContentModeRow({store = appearanceStore}: {store?: AppearanceStore}) {
+  const selected = useContentMode(store)
+  const theme = useTheme()
+  return (
+    <SettingRow
+      title="Post content"
+      hint="How post bodies, bios and quotes render."
+      testID="content-mode-row">
+      <View style={[atoms.gap_sm]} accessibilityRole="radiogroup" accessibilityLabel="Post content">
+        {CONTENT_MODES.map(option => {
+          const active = selected === option.value
+          return (
+            <Pressable
+              key={option.value}
+              testID={`content-mode-${option.value}`}
+              accessibilityRole="radio"
+              accessibilityState={{selected: active}}
+              accessibilityLabel={`${option.title}${active ? ', selected' : ''}. ${option.hint}`}
+              onPress={() => store.setContentMode(option.value)}
+              style={[atoms.row, atoms.itemsCenter, {gap: 12, paddingVertical: 8}]}>
+              <View
+                style={{
+                  width: DOT_SIZE,
+                  height: DOT_SIZE,
+                  borderRadius: DOT_SIZE / 2,
+                  backgroundColor: active ? theme.palette.text : 'transparent',
+                }}
+              />
+              <View style={[atoms.flex1, atoms.gap_sm]}>
+                <Body>{option.title}</Body>
+                <Caption color="faint">{option.hint}</Caption>
+              </View>
+            </Pressable>
+          )
+        })}
+      </View>
+    </SettingRow>
+  )
+}
+
 export function DisplaySection() {
   return (
     <View style={[atoms.gap_sm]} testID="settings-section-display">
@@ -121,6 +168,7 @@ export function DisplaySection() {
         testID="emoji-style-row">
         <EmojiStyleSetting />
       </SettingRow>
+      <ContentModeRow />
       <PlaceholderRow
         title="Theme"
         hint="Keystone modern or terminal."
@@ -138,12 +186,6 @@ export function DisplaySection() {
         hint="Override the theme typeface."
         reason="Not wired yet — no custom-font loading on native."
         testID="placeholder-font"
-      />
-      <PlaceholderRow
-        title="Post content"
-        hint="Render every post as MFM instead of HTML."
-        reason="Not wired yet — the renderer always follows the post source."
-        testID="placeholder-content-mode"
       />
     </View>
   )

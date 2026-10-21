@@ -15,6 +15,7 @@ import {
   link,
   mention,
   mentionAccountIdOf,
+  plainTextOf,
   quoteNode,
   safeHttpUrl,
   safeUrl,
@@ -110,6 +111,30 @@ describe("textOf", () => {
 
   it("br contributes nothing", () => {
     expect(textOf([t("a"), br(), t("b")])).toBe("ab");
+  });
+});
+
+describe("plainTextOf", () => {
+  it("projects labels, emoji literals, and code like textOf", () => {
+    expect(
+      plainTextOf([
+        t("a"),
+        link("https://a.b/", [t("label")]),
+        mention(null, [t("@u@h")]),
+        hashtag("tag", null, [t("#tag")]),
+        customEmoji("b", null, null),
+        customEmoji("r", "h.example", null),
+        unicodeEmoji("😂"),
+        codeNode("x"),
+        bold([t("y")]),
+        quoteNode([t("q")]),
+      ]),
+    ).toBe("alabel@u@h#tag:b::r@h.example:😂xyq");
+  });
+
+  it("keeps line breaks as newlines", () => {
+    expect(plainTextOf([t("a"), br(), t("b")])).toBe("a\nb");
+    expect(plainTextOf([t("a"), br(), br(), t("b")])).toBe("a\n\nb");
   });
 });
 

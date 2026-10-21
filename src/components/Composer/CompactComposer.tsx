@@ -186,7 +186,15 @@ export function CompactComposer(props: ComposerProps) {
             placeholder={c.state.replyTo ? 'Write your reply' : "What's happening?"}
             placeholderTextColor={theme.palette.faint}
             accessibilityLabel="Post text"
-            style={[styles.input, {color: theme.palette.text}]}
+            // P1: the compose box is prose — it scales with the text setting.
+            style={[
+              styles.input,
+              {
+                color: theme.palette.text,
+                fontSize: 15 * theme.fontScaleMultiplier,
+                lineHeight: 21 * theme.fontScaleMultiplier,
+              },
+            ]}
           />
           <CwSection c={c} />
         </View>

@@ -139,6 +139,38 @@ export function textOf(nodes: readonly ContentNode[]): string {
   return out;
 }
 
+/** Plain-text projection of a tree for the `plain` content mode: like
+ * `textOf`, but line breaks survive as `\n` so the paragraph shape is
+ * kept. Links/mentions/hashtags contribute their labels (never raw
+ * URLs); formatting nodes are transparent. Pure. */
+export function plainTextOf(nodes: readonly ContentNode[]): string {
+  let out = "";
+  for (const node of nodes) {
+    switch (node.kind) {
+      case "text":
+        out += node.text;
+        break;
+      case "br":
+        out += "\n";
+        break;
+      case "unicodeEmoji":
+        out += node.emoji;
+        break;
+      case "customEmoji":
+        out += node.host ? `:${node.name}@${node.host}:` : `:${node.name}:`;
+        break;
+      case "code":
+      case "codeBlock":
+        out += node.code;
+        break;
+      default:
+        out += plainTextOf(node.children);
+        break;
+    }
+  }
+  return out;
+}
+
 /** True when the tree renders nothing (whitespace text and lone breaks
  * only — custom emoji always counts as content). Pure. */
 export function isBlankContent(nodes: readonly ContentNode[]): boolean {

@@ -404,7 +404,8 @@ export function useComposerController({
       padding: space.md,
       color: theme.palette.text,
       backgroundColor: theme.palette.bg,
-      fontSize: typeSize.body,
+      // P1: the compose box is prose — it scales with the text setting.
+      fontSize: typeSize.body * theme.fontScaleMultiplier,
       textAlignVertical: 'top',
     },
     row: {flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center'},

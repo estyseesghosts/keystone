@@ -15,7 +15,7 @@ import {z} from 'zod'
 // Invalid stored data → safe defaults (`parseOrFallback`, tested). The
 // version literal rejects forward-incompatible payloads the same way.
 
-export const STORAGE_VERSION = 1 as const
+export const STORAGE_VERSION = 2 as const
 
 const devicePrefsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).default('system'),
@@ -26,6 +26,11 @@ const devicePrefsSchema = z.object({
   // parity). Out-of-range stored values fail validation and fall back
   // with the rest of the device state, never a half-prefs object.
   textScale: z.number().min(0.5).max(4).default(1),
+  // Device-local post-content override (v1 `contentMode.tsx` parity, P3):
+  // `auto` renders every post through its own source parser (current
+  // behaviour); `plain` renders the plain-text projection everywhere.
+  // One shared preference across every account, like text scale.
+  contentMode: z.enum(['auto', 'plain']).default('auto'),
 })
 
 export const deviceStateSchema = z.object({
@@ -39,12 +44,58 @@ export type DeviceState = z.infer<typeof deviceStateSchema>
 export const defaultDeviceState: DeviceState = {
   version: STORAGE_VERSION,
   activeSessionId: null,
-  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1},
+  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto'},
 }
 
-const accountPrefsSchema = z.object({
-  contentMode: z.enum(['mfm', 'plain']).default('mfm'),
+// v1 device shape (frozen for migration): v1 had no `contentMode` and
+// the version literal was 1. `migrateDeviceState` carries v1 prefs
+// forward so upgrading never wipes theme/text-scale/emoji choices.
+const deviceStateSchemaV1 = z.object({
+  version: z.literal(1),
+  activeSessionId: z.string().nullable(),
+  prefs: z
+    .object({
+      theme: z.enum(['system', 'light', 'dark']).optional(),
+      emojiStyle: z.enum(['openmoji', 'twemoji', 'noto', 'fluent', 'system']).optional(),
+      textScale: z.number().min(0.5).max(4).optional(),
+    })
+    .default({}),
 })
+
+/** Parse stored device JSON across schema versions: current payloads
+ * validate directly; v1 payloads migrate (prefs carried, `contentMode`
+ * defaults to `auto`); anything else is the safe default. Never throws. */
+export function migrateDeviceState(raw: string | null): DeviceState {
+  if (!raw) return defaultDeviceState
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return defaultDeviceState
+  }
+  const current = deviceStateSchema.safeParse(parsed)
+  if (current.success) return current.data
+  const legacy = deviceStateSchemaV1.safeParse(parsed)
+  if (legacy.success) {
+    return {
+      version: STORAGE_VERSION,
+      activeSessionId: legacy.data.activeSessionId,
+      prefs: {
+        theme: legacy.data.prefs.theme ?? 'system',
+        emojiStyle: legacy.data.prefs.emojiStyle ?? 'openmoji',
+        textScale: legacy.data.prefs.textScale ?? 1,
+        contentMode: 'auto',
+      },
+    }
+  }
+  return defaultDeviceState
+}
+
+// Per-account prefs (v2): the v1 `contentMode` field was dead (never
+// read) and content mode is device-local per v1 parity, so the account
+// scope carries no prefs today. The scope and keying stay: future
+// per-account prefs land here without a version bump.
+const accountPrefsSchema = z.object({})
 
 export const accountStateSchema = z.object({
   version: z.literal(STORAGE_VERSION),
