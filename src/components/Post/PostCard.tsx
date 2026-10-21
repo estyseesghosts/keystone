@@ -42,6 +42,7 @@ import {usePostCardHandlers, type PostCardHandlers} from './handlers'
 import {buildPostMenu, type PostMenuSection} from './menuModel'
 import {Lightbox} from '#/components/Lightbox'
 import {PostMediaGrid} from './PostMediaGrid'
+import {PostPoll} from './PostPoll'
 import {PostQuote} from './PostQuote'
 import {ReactionChips} from './ReactionChips'
 import {formatRelativeTime} from './time'
@@ -144,6 +145,7 @@ type LiveBits = {
   handlers: PostCardHandlers
   translation: Translation | null
   hideTranslation: () => void
+  votePoll: (postId: string, choices: number[]) => Promise<void>
 }
 
 /** Wires the write path when session + query providers exist; otherwise
@@ -239,6 +241,10 @@ function LivePostCard(props: PostCardProps) {
         handlers,
         translation,
         hideTranslation: () => setTranslation(null),
+        votePoll: async (postId, choices) => {
+          if (!backend) throw new Error('Sign in to vote.')
+          await backend.votePoll(postId, choices)
+        },
       }}
     />
   )
@@ -401,6 +407,13 @@ function PostCardView({
             onIndexChange={index => setLightbox({items: lightbox.items, index})}
             onClose={() => setLightbox(null)}
             testID={`post-lightbox-${post.id}`}
+          />
+        )}
+        {!bodyHidden && effective.poll !== null && (
+          <PostPoll
+            poll={effective.poll}
+            onVote={live?.votePoll ? choices => live.votePoll(effective.id, choices) : undefined}
+            testID={`post-poll-${post.id}`}
           />
         )}
         {live?.translation && (
