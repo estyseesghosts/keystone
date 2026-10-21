@@ -65,6 +65,32 @@ describe("blocks and inline formatting", () => {
   });
 });
 
+describe("bio/field newlines (E4: no normalization eats \\n)", () => {
+  it("Akkoma <br/>-joined bios keep every line break", () => {
+    // Wire shape recorded live 2026-10-21 (akk1 @ :4000, set via
+    // accounts/update_credentials, read back verbatim).
+    const wire = "line one of the bio<br/>line two of the bio<br/><br/>line four after a blank";
+    expect(plainTextOf(contentFromHtml(wire))).toBe(
+      "line one of the bio\nline two of the bio\n\nline four after a blank",
+    );
+  });
+
+  it("paragraph bios keep their breaks (blank line between blocks)", () => {
+    expect(plainTextOf(contentFromHtml("<p>line one</p><p>line two</p>"))).toBe(
+      "line one\n\nline two",
+    );
+  });
+
+  it("plain field values with newlines survive the HTML path untouched", () => {
+    // Misskey-family field values are plain text (Akkoma recorded the
+    // same shape live); the ProfileHeader sends them through
+    // contentFromHtml, which must not collapse the breaks.
+    const nodes = contentFromHtml("first link\nsecond link");
+    expect(nodes).toEqual([{ kind: "text", text: "first link\nsecond link" }]);
+    expect(plainTextOf(nodes)).toBe("first link\nsecond link");
+  });
+});
+
 describe("anchors and emoji", () => {
   const mentionHtml =
     '<p>hi <span class="h-card"><a href="https://a.b/@u" class="u-url mention">@<span>u</span></a></span></p>';

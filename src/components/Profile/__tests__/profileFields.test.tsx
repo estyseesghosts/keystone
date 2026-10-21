@@ -96,6 +96,61 @@ describe('ProfileHeader fields (C14)', () => {
     expect(screen.queryByText('<a href="https://x.example">x</a>')).toBeNull()
   })
 
+  it('renders a multi-line HTML bio with every line break (E4)', () => {
+    // Wire shape recorded live 2026-10-21 (akk1 @ Akkoma :4000).
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          bio: {
+            html: 'line one of the bio<br/>line two of the bio<br/><br/>line four after a blank',
+            plain: 'line one of the bio\nline two of the bio\n\nline four after a blank',
+          },
+        })}
+        isSelf
+        relationship={null}
+      />,
+    )
+    // Exact breaks (no whitespace collapsing): the fedi suite pins the
+    // AST; this pins the rendered block end to end.
+    expect(screen.getByTestId('profile-bio')).toHaveTextContent(
+      'line one of the bio\nline two of the bio\n\nline four after a blank',
+      {normalizer: (s: string) => s},
+    )
+  })
+
+  it('renders a multi-line plain field value with every line break (E4)', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          fields: [{name: 'links', value: 'first link\nsecond link', verifiedAt: null}],
+        })}
+        isSelf
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('profile-field-0')).toHaveTextContent('linksfirst link\nsecond link', {
+      normalizer: (s: string) => s,
+    })
+  })
+
+  it('renders a multi-line MFM bio with every line break (E4)', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          bio: {mfm: 'line one\nline two\n\nline four', plain: 'line one\nline two\n\nline four'},
+        })}
+        isSelf
+        relationship={null}
+      />,
+    )
+    for (const line of ['line one', 'line two', 'line four']) {
+      expect(screen.getByText(new RegExp(line))).toBeTruthy()
+    }
+    expect(screen.getByTestId('profile-bio')).toHaveTextContent('line one\nline two\n\nline four', {
+      normalizer: (s: string) => s,
+    })
+  })
+
   it('omits the fields block when the account has none', () => {
     renderWithProviders(<ProfileHeader account={account()} isSelf relationship={null} />)
     expect(screen.queryByTestId('profile-fields')).toBeNull()
