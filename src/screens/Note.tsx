@@ -26,6 +26,7 @@ import {
   isUnsupportedError,
   type Account,
   type Backend,
+  type ClipSummary,
   type Page,
   type Post,
 } from '@keystone/fedi'
@@ -202,6 +203,50 @@ function ReplyEntry({focused}: {focused: Post}) {
   )
 }
 
+// "In clips" row (F20, v1 `Note` parity): which of the viewer's clips
+// contain the focused post. Misskey-family only — without `backend.clips`
+// the row hides, never an honest-disabled stub (the menu's add-to-clip
+// flow is the way in).
+function InClipsRow({backend, postId}: {backend: Backend; postId: string}) {
+  const [clips, setClips] = useState<ClipSummary[] | null>(null)
+  useEffect(() => {
+    if (!backend.clips) return
+    let cancelled = false
+    setClips(null)
+    void backend.clips
+      .containing(postId)
+      .then(rows => {
+        if (!cancelled) setClips(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setClips([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [backend, postId])
+  if (!backend.clips || clips == null || clips.length === 0) return null
+  return (
+    <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]} testID={`in-clips-${postId}`}>
+      <Caption color="faint">In clips</Caption>
+      <View style={[atoms.row, atoms.gap_sm, {flexWrap: 'wrap'}]}>
+        {clips.map(c => (
+          <Pressable
+            key={c.id}
+            testID={`in-clip-${c.id}`}
+            onPress={() => {
+              if (navigationRef.isReady()) navigationRef.navigate('Clip', {id: c.id})
+            }}
+            accessibilityRole="link"
+            accessibilityLabel={`Open clip ${c.name}`}>
+            <Body>{c.name}</Body>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  )
+}
+
 function ReplyBranch({
   sessionId,
   backend,
@@ -335,7 +380,7 @@ export function NoteScreen() {
 
   return (
     <View style={atoms.flex1} testID="note-screen">
-      <Pagehead title="Post" />
+      <Pagehead title="Note" />
       {!session || !backend || !sessionId ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>Sign in to see this thread.</Body>
@@ -385,6 +430,7 @@ export function NoteScreen() {
             testID={`focused-${focused.id}`}>
             <PostCard post={focused} sessionId={sessionId} foldBody={false} />
           </View>
+          <InClipsRow backend={backend} postId={focused.id} />
           <ReplyEntry focused={focused} />
           <View style={[atoms.px_md, {flexDirection: 'row', gap: 16}]} testID="note-tabs">
             {(

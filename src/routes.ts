@@ -208,13 +208,13 @@ export function titleForRoute(
     case 'Network':
       return 'My Network'
     case 'Explore':
-      return 'Explore'
+      return 'Search'
     case 'Notifications':
       return 'Notifications'
     case 'User':
       return 'Profile'
     case 'Note':
-      return 'Post'
+      return 'Note'
     case 'Tag':
       return typeof params?.tag === 'string' && params.tag ? `#${params.tag}` : 'Tag'
     case 'List':
@@ -238,7 +238,7 @@ export function titleForRoute(
     case 'Following':
       return 'Following'
     case 'FollowRequests':
-      return 'Follow requests'
+      return 'Follows'
     case 'ProfileEdit':
       return 'Edit profile'
     case 'Settings': {

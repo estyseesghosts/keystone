@@ -3,7 +3,7 @@
 // `usePostFeedQuery` (`#/state/queries`); the descriptor grammar is in
 // `@keystone/fedi`, the key is `feedQueryKey`, and the visibility rules live
 // in `#/state/queries/feeds` (slice 3.11 unified the former stub onto them).
-import {useMemo, useSyncExternalStore, useState, useCallback, useRef} from 'react'
+import {useMemo, useSyncExternalStore, useState, useCallback, useRef, useEffect} from 'react'
 import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
 
 import {
@@ -28,6 +28,7 @@ import {Loader} from '#/components/Loader'
 import {SignInButton} from '#/components/SignInButton'
 import {ThreadRow} from '#/components/PostFeed/ThreadRow'
 import {countNewItems, feedItems, filterModerated, filterSoftMuted, useModerationRules, useSoftMutedIds, usePostFeedQuery} from '#/state/queries'
+import {feedScrollKey, readFeedScroll, saveFeedScroll} from '#/state/feedMemory'
 import {useSessionStore} from '#/state/session/SessionProvider'
 
 // --- Session / backend access -----------------------------------------------
@@ -172,6 +173,18 @@ export function FeedView({
   // The pill scrolls to the new posts, then dismisses (F21): the list is
   // newest-first, so the top is where the unseen items are.
   const listRef = useRef<FlatList<Post>>(null)
+  // Scroll restoration (N14): offsets are remembered per session +
+  // descriptor and restored once per mount, so back-navigation returns
+  // to the same position. The write happens on every scroll event (a
+  // Map set — no re-render); the read fires once when content exists.
+  const scrollKey = feedScrollKey(sessionId, descriptor)
+  const restoredScrollRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (restoredScrollRef.current === scrollKey || feed.isPending || visibleItems.length === 0) return
+    restoredScrollRef.current = scrollKey
+    const offset = readFeedScroll(scrollKey)
+    if (offset != null && offset > 0) listRef.current?.scrollToOffset({offset, animated: false})
+  }, [scrollKey, feed.isPending, visibleItems.length])
   const seeNewPosts = useCallback(() => {
     listRef.current?.scrollToOffset({offset: 0, animated: true})
     acknowledge()
@@ -232,6 +245,8 @@ export function FeedView({
         testID="feed-list"
         data={visibleItems}
         keyExtractor={item => `${sessionId}:${item.id}`}
+        onScroll={e => saveFeedScroll(scrollKey, e.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={32}
         renderItem={({item, index}) => (
           <ThreadRow
             post={item}

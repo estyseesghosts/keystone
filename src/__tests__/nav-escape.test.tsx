@@ -89,7 +89,7 @@ describe('Settings escape (regression)', () => {
     renderShell()
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     fireEvent.press(screen.getByTestId('tab-Explore'))
-    expect(await screen.findByText('Explore — not built')).toBeTruthy()
+    expect(await screen.findByText('Sign in to explore.')).toBeTruthy()
     fireEvent.press(screen.getByTestId('tab-Home'))
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
   })

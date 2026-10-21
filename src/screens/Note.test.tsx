@@ -146,6 +146,26 @@ describe('NoteScreen', () => {
     await waitFor(() => expect(screen.getByTestId('replies-retry-p1')).toBeTruthy())
     expect(screen.queryByText('child reply')).toBeNull()
   })
+
+  it('shows the containing clips (F20 in-clips row)', async () => {
+    setup(
+      fakeBackend({
+        clips: {containing: jest.fn(async () => [{id: 'c1', name: 'Fun'}])},
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    expect(await screen.findByTestId('in-clips-p1')).toBeTruthy()
+    expect(screen.getByTestId('in-clip-c1')).toBeTruthy()
+    // navigationRef is not ready in this tree, so the tap is a safe no-op.
+    fireEvent.press(screen.getByTestId('in-clip-c1'))
+    expect(screen.getByTestId('in-clip-c1')).toBeTruthy()
+  })
+
+  it('hides the in-clips row without clips support or when empty', async () => {
+    setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    expect(screen.queryByTestId('in-clips-p1')).toBeNull()
+  })
 })
 
 describe('NoteScreen detail tabs (F19)', () => {

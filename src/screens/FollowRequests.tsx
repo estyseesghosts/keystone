@@ -126,7 +126,7 @@ export function FollowRequestsScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="follow-requests-screen">
-        <Pagehead title="Follow requests" />
+        <Pagehead title="Follows" />
         <Body>Sign in to see follow requests.</Body>
         <Caption color="faint">Requests never show sample data when signed out.</Caption>
         <SignInButton />
@@ -137,7 +137,7 @@ export function FollowRequestsScreen() {
   if (unsupported) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="follow-requests-screen">
-        <Pagehead title="Follow requests" />
+        <Pagehead title="Follows" />
         <Body>Follow requests are not available on this server.</Body>
       </View>
     )
@@ -145,7 +145,7 @@ export function FollowRequestsScreen() {
 
   return (
     <View style={atoms.flex1} testID="follow-requests-screen">
-      <Pagehead title="Follow requests" />
+      <Pagehead title="Follows" />
       {loading ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
           <Loader testID="follow-requests-loading" />

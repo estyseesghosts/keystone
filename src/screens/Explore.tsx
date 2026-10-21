@@ -670,7 +670,7 @@ export function ExploreScreen() {
   if (!session || !backend) {
     return (
       <View style={atoms.flex1} testID="explore-screen">
-        <Pagehead title="Explore" />
+        <Pagehead title="Search" />
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
           <Body>Sign in to explore.</Body>
           <Caption color="faint">Explore never shows sample data when signed out.</Caption>
@@ -681,7 +681,7 @@ export function ExploreScreen() {
   }
   return (
     <View style={atoms.flex1} testID="explore-screen">
-      <Pagehead title="Explore" />
+      <Pagehead title="Search" />
       <ExploreSearchBar
         value={query}
         onChangeText={setQuery}
