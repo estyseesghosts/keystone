@@ -130,3 +130,87 @@ export function useThreadRepliesQuery(
   })
   return {...query, queryKey}
 }
+
+/** Key for one session's repost-account pages for a post. */
+export function repostsQueryKey(sessionId: string, postId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'post-reposts', postId)
+}
+
+/** Key for one session's reaction rows for a post. */
+export function noteReactionsQueryKey(sessionId: string, postId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'post-reactions', postId)
+}
+
+function infinitePages<PageT>(
+  sessionId: string | null,
+  id: string,
+  backend: Backend | null,
+  queryKey: AppQueryKey,
+  fetch: (backend: Backend, cursor: Cursor | null) => Promise<{end: boolean; cursor: Cursor | null} & PageT>,
+  stale: number,
+  gc: number,
+  retry?: number | false,
+) {
+  const query = useInfiniteQuery({
+    queryKey,
+    queryFn: ({pageParam}: {pageParam: Cursor | null}) => {
+      if (!backend) throw new Error('usePostThreadListQuery: no backend for session')
+      return fetch(backend, pageParam)
+    },
+    initialPageParam: null as Cursor | null,
+    getNextPageParam: last => (last.end ? undefined : (last.cursor ?? undefined)),
+    enabled: sessionId != null && id.length > 0 && backend != null,
+    staleTime: stale,
+    gcTime: gc,
+    retry: retry ?? 2,
+    refetchOnWindowFocus: false,
+  })
+  return {...query, queryKey}
+}
+
+/**
+ * Accounts that reposted a note, cursor-paged, one session. Disabled
+ * (no fetch, no data) when signed out or the backend is unknown.
+ */
+export function useRepostsQuery(
+  sessionId: string | null,
+  postId: string,
+  options: PostThreadQueryOptions = {},
+) {
+  const backend = options.backend ?? null
+  const queryKey = repostsQueryKey(sessionId ?? 'signed-out', postId)
+  return infinitePages(
+    sessionId,
+    postId,
+    backend,
+    queryKey,
+    (b, cursor) => b.reposts(postId, {cursor}),
+    STALE.FEED,
+    GC_TIME.FEED,
+    options.retry,
+  )
+}
+
+/**
+ * Reaction rows for a note, cursor-paged, one session. Backends without
+ * a reactor listing (Mastodon-family) reject; the tab renders the honest
+ * unavailable state instead of a faked list.
+ */
+export function useNoteReactionsQuery(
+  sessionId: string | null,
+  postId: string,
+  options: PostThreadQueryOptions = {},
+) {
+  const backend = options.backend ?? null
+  const queryKey = noteReactionsQueryKey(sessionId ?? 'signed-out', postId)
+  return infinitePages(
+    sessionId,
+    postId,
+    backend,
+    queryKey,
+    (b, cursor) => b.noteReactions(postId, {cursor}),
+    STALE.FEED,
+    GC_TIME.FEED,
+    options.retry,
+  )
+}

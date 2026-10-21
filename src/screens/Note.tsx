@@ -10,7 +10,7 @@
 // token. Card taps navigating TO this route are owned elsewhere — this
 // screen only reads the `Note: {id: string}` route param.
 
-import {useState} from 'react'
+import {useEffect, useState} from 'react'
 import {RefreshControl, ScrollView, StyleSheet, View} from 'react-native'
 import {
   useNavigation,
@@ -21,7 +21,12 @@ import {
 
 import {
   appearNoteOf,
+  displayNameOf,
+  handleOf,
+  isUnsupportedError,
+  type Account,
   type Backend,
+  type Page,
   type Post,
 } from '@keystone/fedi'
 
@@ -33,11 +38,15 @@ import {Loader} from '#/components/Loader'
 import {PostCard} from '#/components/Post/index'
 import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
+import {usePostShadowState} from '#/state/cache'
+import {navigationRef} from '#/navigationRef'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
 import {
+  useNoteReactionsQuery,
   usePostThreadQuery,
+  useRepostsQuery,
   useThreadRepliesQuery,
 } from '#/state/queries'
 
@@ -57,6 +66,118 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 })
+
+function AccountRow({account}: {account: Account}) {
+  return (
+    <Pressable
+      testID={`account-row-${account.id}`}
+      onPress={() => {
+        if (!navigationRef.isReady()) return
+        navigationRef.navigate('Main', {screen: 'User', params: {id: account.id}} as never)
+      }}
+      accessibilityRole="link"
+      accessibilityLabel={`Open profile of ${displayNameOf(account)}`}>
+      <View style={[atoms.px_md, atoms.py_sm, {flexDirection: 'row', alignItems: 'center', gap: 12}]}>
+        <Body numberOfLines={1}>{displayNameOf(account)}</Body>
+        <Caption color="muted" numberOfLines={1}>
+          {handleOf(account)}
+        </Caption>
+      </View>
+    </Pressable>
+  )
+}
+
+function PagedList<T>({
+  state,
+  kind,
+  testID,
+  renderItem,
+}: {
+  state: {
+    isPending: boolean
+    isError: boolean
+    error: unknown
+    data: {pages: Page<T>[]} | undefined
+    hasNextPage: boolean
+    isFetchingNextPage: boolean
+    refetch: () => void
+    fetchNextPage: () => void
+  }
+  kind: string
+  testID: string
+  renderItem: (item: T, index: number) => React.ReactNode
+}) {
+  if (state.isPending) {
+    return (
+      <View style={[atoms.centered, atoms.py_sm]}>
+        <Loader testID={`${testID}-loading`} />
+      </View>
+    )
+  }
+  if (state.isError) {
+    const unavailable = isUnsupportedError(state.error)
+    return (
+      <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
+        <Caption color="faint">
+          {unavailable ? `No ${kind} listing on this server.` : `Could not load ${kind}.`}
+        </Caption>
+        <Button label="Retry" variant="secondary" onPress={() => void state.refetch()} testID={`${testID}-retry`} />
+      </View>
+    )
+  }
+  const items = state.data?.pages.flatMap(page => page.items) ?? []
+  if (items.length === 0) {
+    return (
+      <View style={[atoms.centered, atoms.p_md]} testID={testID}>
+        <Body>Nothing here yet.</Body>
+      </View>
+    )
+  }
+  return (
+    <View testID={testID}>
+      {items.map((item, i) => renderItem(item, i))}
+      {state.hasNextPage ? (
+        <View style={[atoms.px_md, atoms.py_sm]}>
+          <Button
+            label={state.isFetchingNextPage ? 'Loading…' : `Load more ${kind}`}
+            variant="secondary"
+            onPress={() => void state.fetchNextPage()}
+            testID={`${testID}-more`}
+          />
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+function RepostsList({sessionId, backend, postId}: {sessionId: string; backend: Backend; postId: string}) {
+  const list = useRepostsQuery(sessionId, postId, {backend})
+  return (
+    <PagedList
+      state={list}
+      kind="boosts"
+      testID={`reposts-${postId}`}
+      renderItem={(item: Account) => <AccountRow key={item.id} account={item} />}
+    />
+  )
+}
+
+function ReactionsList({sessionId, backend, postId}: {sessionId: string; backend: Backend; postId: string}) {
+  const list = useNoteReactionsQuery(sessionId, postId, {backend})
+  return (
+    <PagedList
+      state={list}
+      kind="reactions"
+      testID={`reactions-${postId}`}
+      renderItem={(row: {id: string; reaction: string; account: Account}) => (
+        <View key={row.id} style={[atoms.px_md, atoms.py_sm, {flexDirection: 'row', alignItems: 'center', gap: 12}]}>
+          <Body>{row.reaction}</Body>
+          <AccountRow account={row.account} />
+        </View>
+      )}
+    />
+  )
+}
 
 function ReplyEntry({focused}: {focused: Post}) {
   const nav = useNavigation<NavigationProp<RootParamList>>()
@@ -193,6 +314,7 @@ function ReplyBranch({
 
 export function NoteScreen() {
   const route = useRoute<RouteProp<RootParamList, 'Note'>>()
+  const nav = useNavigation<NavigationProp<RootParamList>>()
   const id = route.params.id
   const {session, backend} = useActiveBackend()
   const sessionId = session?.id ?? null
@@ -201,6 +323,15 @@ export function NoteScreen() {
     ...(backend ? {backend} : {}),
   })
   const focused = thread.data?.focused ?? null
+  // Deleting the focused post blanks its card (shadow isDeleted): leave
+  // the detail for the previous screen instead (v1 `navigate("/")`, F20).
+  const shadow = usePostShadowState(sessionId ?? '', focused?.id ?? '')
+  useEffect(() => {
+    if (shadow?.isDeleted) nav.goBack()
+  }, [shadow?.isDeleted, nav])
+  // Detail tabs (v1 `Note` parity, F19): replies live below the
+  // composer entry; boosts and reactions list the actors.
+  const [tab, setTab] = useState<'replies' | 'reposts' | 'reactions'>('replies')
 
   return (
     <View style={atoms.flex1} testID="note-screen">
@@ -255,14 +386,39 @@ export function NoteScreen() {
             <PostCard post={focused} sessionId={sessionId} foldBody={false} />
           </View>
           <ReplyEntry focused={focused} />
-          <ReplyBranch
-            sessionId={sessionId}
-            backend={backend}
-            parentId={focused.id}
-            expandedByDefault
-            depth={0}
-            rootCount={focused.counts.replies}
-          />
+          <View style={[atoms.px_md, {flexDirection: 'row', gap: 16}]} testID="note-tabs">
+            {(
+              [
+                {key: 'replies', label: 'Replies'},
+                {key: 'reposts', label: 'Reposts'},
+                {key: 'reactions', label: 'Reactions'},
+              ] as const
+            ).map(({key, label}) => (
+              <Pressable
+                key={key}
+                testID={`note-tab-${key}`}
+                onPress={() => setTab(key)}
+                accessibilityRole="tab"
+                accessibilityState={{selected: tab === key}}
+                accessibilityLabel={label}>
+                <Body color={tab === key ? 'text' : 'faint'}>{label}</Body>
+              </Pressable>
+            ))}
+          </View>
+          {tab === 'replies' ? (
+            <ReplyBranch
+              sessionId={sessionId}
+              backend={backend}
+              parentId={focused.id}
+              expandedByDefault
+              depth={0}
+              rootCount={focused.counts.replies}
+            />
+          ) : tab === 'reposts' ? (
+            <RepostsList sessionId={sessionId} backend={backend} postId={focused.id} />
+          ) : (
+            <ReactionsList sessionId={sessionId} backend={backend} postId={focused.id} />
+          )}
         </ScrollView>
       )}
     </View>

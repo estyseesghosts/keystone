@@ -9,7 +9,7 @@ import {FEATURE_KEYS} from '@keystone/fedi'
 import {ThemeProvider} from '#/alf/index'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
-import {makePost} from '#/components/__tests__/fixtures'
+import {makeAccount, makePost} from '#/components/__tests__/fixtures'
 import {NoteScreen} from './Note'
 
 // Post-detail screen tests (v1 `Note` parity): the focused post renders with
@@ -18,9 +18,10 @@ import {NoteScreen} from './Note'
 // — never faked thread data.
 
 const mockNavigate = jest.fn()
+const mockGoBack = jest.fn()
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
-  useNavigation: () => ({navigate: mockNavigate}),
+  useNavigation: () => ({navigate: mockNavigate, goBack: mockGoBack}),
   useRoute: () => ({params: {id: 'p1'}}),
 }))
 
@@ -108,6 +109,7 @@ function setup(backend: ReturnType<typeof fakeBackend>) {
 describe('NoteScreen', () => {
   beforeEach(() => {
     mockNavigate.mockClear()
+    mockGoBack.mockClear()
     mockBackends.clear()
   })
 
@@ -143,5 +145,64 @@ describe('NoteScreen', () => {
     expect(screen.getByTestId('focused-p1')).toBeTruthy()
     await waitFor(() => expect(screen.getByTestId('replies-retry-p1')).toBeTruthy())
     expect(screen.queryByText('child reply')).toBeNull()
+  })
+})
+
+describe('NoteScreen detail tabs (F19)', () => {
+  const booster = makeAccount({id: 'b1', username: 'bob'})
+  const reactor = makeAccount({id: 'c1', username: 'carol'})
+
+  function tabbedBackend(over: Record<string, unknown> = {}) {
+    return fakeBackend({
+      reposts: jest.fn(async () => ({items: [booster], cursor: null, end: true})),
+      noteReactions: jest.fn(async () => ({
+        items: [{id: 'nr1', createdAt: '2026-10-20T00:00:00.000Z', reaction: '👍', account: reactor}],
+        cursor: null,
+        end: true,
+      })),
+      ...over,
+    })
+  }
+
+  it('shows reply/repost/reaction tabs with the actors', async () => {
+    setup(tabbedBackend())
+    await waitFor(() => expect(screen.getByTestId('note-tabs')).toBeTruthy())
+    fireEvent.press(screen.getByTestId('note-tab-reposts'))
+    await waitFor(() => expect(screen.getByTestId('reposts-p1')).toBeTruthy())
+    expect(screen.getByTestId('account-row-b1')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('note-tab-reactions'))
+    await waitFor(() => expect(screen.getByTestId('reactions-p1')).toBeTruthy())
+    expect(screen.getByText('👍')).toBeTruthy()
+    expect(screen.getByTestId('account-row-c1')).toBeTruthy()
+  })
+
+  it('a failed reactions load is an honest error with a retry', async () => {
+    setup(tabbedBackend({noteReactions: jest.fn(async () => { throw new Error('nope') })}))
+    await waitFor(() => expect(screen.getByTestId('note-tabs')).toBeTruthy())
+    fireEvent.press(screen.getByTestId('note-tab-reactions'))
+    await waitFor(() => expect(screen.getByTestId('reactions-p1-retry')).toBeTruthy())
+    expect(screen.queryByTestId('account-row-c1')).toBeNull()
+  })
+
+  it('an empty reposts list is an honest empty state, never faked rows', async () => {
+    setup(tabbedBackend({reposts: jest.fn(async () => ({items: [], cursor: null, end: true}))}))
+    await waitFor(() => expect(screen.getByTestId('note-tabs')).toBeTruthy())
+    fireEvent.press(screen.getByTestId('note-tab-reposts'))
+    await waitFor(() => expect(screen.getByTestId('reposts-p1')).toBeTruthy())
+    expect(screen.queryByTestId(/account-row-/)).toBeNull()
+  })
+})
+
+describe('NoteScreen delete navigation (F20)', () => {
+  it('leaves the detail when the focused post is deleted', async () => {
+    const {postShadowStore} = await import('#/state/cache')
+    postShadowStore.reset()
+    setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    const {act} = await import('@testing-library/react-native')
+    act(() => {
+      postShadowStore.patch(SESSION.id, 'p1', {isDeleted: true})
+    })
+    expect(mockGoBack).toHaveBeenCalled()
   })
 })
