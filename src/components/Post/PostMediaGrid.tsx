@@ -7,7 +7,7 @@
 import {useState} from 'react'
 import {Image, ScrollView, StyleSheet, View} from 'react-native'
 
-import type {Media} from '@keystone/fedi'
+import {safeHttpUrl, type Media} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {Caption} from '#/alf/typography'
@@ -68,7 +68,11 @@ function Still({
   const theme = useTheme()
   const [failed, setFailed] = useState(false)
   const [measured, setMeasured] = useState<number | null>(null)
-  if (item.url === null || failed) {
+  // Server strings are never trusted as image sources (F4): anything
+  // but http(s) renders the missing-image placeholder, never a fetch.
+  const full = safeHttpUrl(item.url)
+  const preview = safeHttpUrl(item.previewUrl) ?? full
+  if (full === null || preview === null || failed) {
     return <Placeholder label="Image unavailable" reason="The server sent no image URL." testID={`media-missing-${item.id}`} />
   }
   const ar = measured ?? metaAspect(item) ?? (single ? SINGLE_AR : STRIP_AR)
@@ -80,7 +84,7 @@ function Still({
       ]}
       testID={testID ?? `media-${item.id}`}>
       <Image
-        source={{uri: item.previewUrl ?? item.url}}
+        source={{uri: preview}}
         style={styles.image}
         accessibilityRole="image"
         accessibilityLabel={item.description ?? item.name}

@@ -6,6 +6,7 @@
 // post); unsupported or not-yet-wired rows render disabled WITH a reason.
 
 import type {Capabilities, ServerFamily, Post} from '@keystone/fedi'
+import {safeHttpUrl} from '@keystone/fedi'
 
 import type {ActionGate} from '#/state/cache'
 
@@ -57,11 +58,14 @@ const NO_CLIPBOARD = 'Clipboard is not available on this platform.'
 const LATER = (what: string) => `${what} is not available in this build yet.`
 
 /** The local permalink: the server's own `url`, else a family-shaped guess
- * only where the route is known (Misskey `/notes/:id`). */
+ * only where the route is known (Misskey `/notes/:id`). Every candidate
+ * goes through `safeHttpUrl` — model URLs are server strings, never
+ * trusted schemes (F4). */
 export function postLink(post: Post, family: ServerFamily, origin: string): string | null {
-  if (post.url) return post.url
-  if (family === 'misskey') return `${origin.replace(/\/$/, '')}/notes/${post.id}`
-  return post.uri
+  const direct = safeHttpUrl(post.url)
+  if (direct) return direct
+  if (family === 'misskey') return safeHttpUrl(`${origin.replace(/\/$/, '')}/notes/${post.id}`)
+  return safeHttpUrl(post.uri)
 }
 
 function copyRow(
@@ -80,15 +84,16 @@ export function buildUserSubmenu(input: PostMenuInput): PostMenuSection[] {
   const {post, handlers} = input
   const author = post.author
   const handle = `@${author.acct}`
-  const profileUrl = author.url ?? author.uri ?? ''
+  const profileUrl = safeHttpUrl(author.url) ?? safeHttpUrl(author.uri) ?? ''
   const u = handlers.user
   const rel = (key: string, label: string, fn?: () => void | Promise<void>): PostMenuItem =>
     fn
       ? {key, label, run: fn, ...(key === 'block' ? {confirm: {title: `Block ${handle}?`, action: 'Block'}} : {})}
       : {key, label, disabled: true, reason: 'Account relations are not connected to this view yet.'}
+  const remoteUrl = safeHttpUrl(author.url)
   const remoteUser: PostMenuItem[] =
-    author.host !== null && author.url
-      ? [{key: 'view-remote-user', label: 'View on remote instance', run: () => handlers.open(author.url!)}]
+    author.host !== null && remoteUrl
+      ? [{key: 'view-remote-user', label: 'View on remote instance', run: () => handlers.open(remoteUrl)}]
       : []
   return [
     [
@@ -119,7 +124,7 @@ export function buildUserSubmenu(input: PostMenuInput): PostMenuSection[] {
 export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
   const {post, family, capabilities, handlers, bookmark, del} = input
   const link = postLink(post, family, input.origin)
-  const uri = post.uri
+  const uri = safeHttpUrl(post.uri)
   const remoteDiffers = uri !== null && uri !== link
   const caps = capabilities
 

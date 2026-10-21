@@ -19,6 +19,7 @@ import {
   handleOf,
   isPureRenote,
   parseAcct,
+  safeHttpUrl,
   type Capabilities,
   type EmojiStyle,
   type Post,
@@ -87,8 +88,11 @@ function openTagPosts(tag: string) {
 function Avatar({post}: {post: Post}) {
   const theme = useTheme()
   const [failed, setFailed] = useState(false)
+  // Server strings are never trusted as image sources: anything but
+  // http(s) renders the initial fallback (F4).
+  const avatarUri = safeHttpUrl(post.author.avatarUrl)
   const inner =
-    post.author.avatarUrl === null || failed ? (
+    avatarUri === null || failed ? (
       <View
         testID={`avatar-fallback-${post.author.id}`}
         accessibilityRole="image"
@@ -98,7 +102,7 @@ function Avatar({post}: {post: Post}) {
       </View>
     ) : (
       <Image
-        source={{uri: post.author.avatarUrl}}
+        source={{uri: avatarUri}}
         style={[styles.avatar, {borderColor: theme.palette.border}]}
         accessibilityRole="image"
         accessibilityLabel={displayNameOf(post.author)}

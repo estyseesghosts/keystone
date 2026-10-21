@@ -152,3 +152,22 @@ describe('PostQuote (F6)', () => {
     expect(onMentionPress).not.toHaveBeenCalled()
   })
 })
+
+describe('safeHttpUrl gating (F4)', () => {
+  it('renders the avatar fallback for a non-http avatar URL', () => {
+    renderCard(
+      <PostCard
+        post={makePost({author: makeAccount({id: 'evil', avatarUrl: 'javascript:alert(1)'})})}
+        sessionId={SESSION}
+      />,
+    )
+    expect(screen.getByTestId('avatar-fallback-evil')).toBeTruthy()
+  })
+
+  it('renders the missing-image placeholder for a non-http media URL', () => {
+    renderCard(
+      <PostCard post={makePost({media: [makeMedia({id: 'bad', url: 'ftp://evil/x.png'})]})} sessionId={SESSION} />,
+    )
+    expect(screen.getByTestId('media-missing-bad')).toBeTruthy()
+  })
+})

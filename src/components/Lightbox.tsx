@@ -1,7 +1,7 @@
 import {Image} from 'expo-image'
 import {useVideoPlayer, VideoView} from 'expo-video'
 import {Modal, ScrollView, StyleSheet, View, useWindowDimensions} from 'react-native'
-import type {Media} from '@keystone/fedi'
+import {safeHttpUrl, type Media} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
 import {space} from '#/alf/tokens'
@@ -19,13 +19,16 @@ export type LightboxProps = {
 
 function LightboxFrame({item, index, width}: {item: Media; index: number; width: number}) {
   const alt = mediaAlt(item, index)
-  if ((item.kind === 'video' || item.kind === 'gifv') && item.url) {
-    return <LightboxVideo item={item} index={index} width={width} />
+  // Server strings are never trusted as player/image sources (F4):
+  // anything but http(s) renders the alt caption only, never a fetch.
+  const safeUrl = safeHttpUrl(item.url)
+  if ((item.kind === 'video' || item.kind === 'gifv') && safeUrl) {
+    return <LightboxVideo item={item} index={index} width={width} url={safeUrl} />
   }
-  if (item.kind === 'image' && item.url) {
+  if (item.kind === 'image' && safeUrl) {
     return (
       <Image
-        source={{uri: item.url}}
+        source={{uri: safeUrl}}
         alt={alt}
         accessibilityLabel={alt}
         contentFit="contain"
@@ -40,8 +43,8 @@ function LightboxFrame({item, index, width}: {item: Media; index: number; width:
   )
 }
 
-function LightboxVideo({item, index, width}: {item: Media; index: number; width: number}) {
-  const player = useVideoPlayer(item.url ?? '', player => {
+function LightboxVideo({item, index, width, url}: {item: Media; index: number; width: number; url: string}) {
+  const player = useVideoPlayer(url, player => {
     player.loop = item.kind === 'gifv'
     player.play()
   })
