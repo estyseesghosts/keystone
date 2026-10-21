@@ -44,7 +44,7 @@ describe('filterModerated (F22/MK1)', () => {
     })
     const wrapper = makePost({
       id: 'wrap',
-      content: {mfm: null, plain: ''},
+      content: {plain: ''},
       renote: original,
       renoteId: 'orig',
     })
