@@ -42,12 +42,12 @@ msgstr "(poll / CW only)"
 
 #. placeholder {0}: names[0]
 #. placeholder {1}: rest === 1 ? '' : 's'
-#: src/components/Post/PostCard.tsx:112
+#: src/components/Post/PostCard.tsx:118
 msgid "{0} and {rest} other{1} boosted"
 msgstr "{0} and {rest} other{1} boosted"
 
 #. placeholder {0}: displayNameOf(post.author)
-#: src/components/Post/PostCard.tsx:110
+#: src/components/Post/PostCard.tsx:116
 msgid "{0} boosted"
 msgstr "{0} boosted"
 
@@ -90,7 +90,7 @@ msgstr "a poll ended"
 msgid "A post cannot have both media and a poll."
 msgstr "A post cannot have both media and a poll."
 
-#: src/components/Settings/DisplaySection.tsx:201
+#: src/components/Settings/DisplaySection.tsx:227
 msgid "A variation within a theme."
 msgstr "A variation within a theme."
 
@@ -212,23 +212,23 @@ msgstr "All"
 msgid "All reactions"
 msgstr "All reactions"
 
-#: src/components/Settings/DisplaySection.tsx:119
+#: src/components/Settings/DisplaySection.tsx:120
 msgid "Already at the default size."
 msgstr "Already at the default size."
 
-#: src/components/Settings/DisplaySection.tsx:111
+#: src/components/Settings/DisplaySection.tsx:112
 msgid "Already at the largest size."
 msgstr "Already at the largest size."
 
-#: src/components/Settings/DisplaySection.tsx:102
+#: src/components/Settings/DisplaySection.tsx:103
 msgid "Already at the smallest size."
 msgstr "Already at the smallest size."
 
-#: src/components/Settings/DisplaySection.tsx:47
+#: src/components/Settings/DisplaySection.tsx:48
 msgid "Always dark."
 msgstr "Always dark."
 
-#: src/components/Settings/DisplaySection.tsx:45
+#: src/components/Settings/DisplaySection.tsx:46
 msgid "Always light."
 msgstr "Always light."
 
@@ -263,7 +263,7 @@ msgstr "Applies to posts, reactions, and the emoji picker. System uses your devi
 msgid "Approve on {0}, then continue here."
 msgstr "Approve on {0}, then continue here."
 
-#: src/components/Settings/DisplaySection.tsx:188
+#: src/components/Settings/DisplaySection.tsx:213
 msgid "Art set for unicode emoji everywhere."
 msgstr "Art set for unicode emoji everywhere."
 
@@ -289,7 +289,7 @@ msgstr "Audience"
 msgid "Audio unavailable"
 msgstr "Audio unavailable"
 
-#: src/components/Settings/DisplaySection.tsx:134
+#: src/components/Settings/DisplaySection.tsx:135
 msgid "Automatic"
 msgstr "Automatic"
 
@@ -393,8 +393,8 @@ msgstr "Close dialog"
 msgid "Code"
 msgstr "Code"
 
-#: src/components/Settings/DisplaySection.tsx:55
 #: src/components/Settings/DisplaySection.tsx:56
+#: src/components/Settings/DisplaySection.tsx:57
 msgid "Colour mode"
 msgstr "Colour mode"
 
@@ -408,7 +408,7 @@ msgstr "Content warning"
 msgid "Continue"
 msgstr "Continue"
 
-#: src/components/Post/PostCard.tsx:323
+#: src/components/Post/PostCard.tsx:349
 msgid "Copied"
 msgstr "Copied"
 
@@ -564,7 +564,7 @@ msgstr "Current language."
 msgid "CW"
 msgstr "CW"
 
-#: src/components/Settings/DisplaySection.tsx:47
+#: src/components/Settings/DisplaySection.tsx:48
 msgid "Dark"
 msgstr "Dark"
 
@@ -621,7 +621,7 @@ msgstr "Drafts ({0})"
 msgid "Drive"
 msgstr "Drive"
 
-#: src/components/Settings/DisplaySection.tsx:134
+#: src/components/Settings/DisplaySection.tsx:135
 msgid "Each post renders through its own source parser."
 msgstr "Each post renders through its own source parser."
 
@@ -660,7 +660,7 @@ msgstr "Either"
 msgid "Emoji"
 msgstr "Emoji"
 
-#: src/components/Settings/DisplaySection.tsx:187
+#: src/components/Settings/DisplaySection.tsx:212
 #: src/components/Settings/EmojiStyleSetting.tsx:70
 msgid "Emoji style"
 msgstr "Emoji style"
@@ -747,7 +747,7 @@ msgstr "Follow"
 msgid "Follow requests"
 msgstr "Follow requests"
 
-#: src/components/Settings/DisplaySection.tsx:43
+#: src/components/Settings/DisplaySection.tsx:44
 msgid "Follow the device setting."
 msgstr "Follow the device setting."
 
@@ -772,7 +772,7 @@ msgstr "Following"
 msgid "Follows"
 msgstr "Follows"
 
-#: src/components/Settings/DisplaySection.tsx:206
+#: src/components/Settings/DisplaySection.tsx:232
 msgid "Font"
 msgstr "Font"
 
@@ -796,13 +796,17 @@ msgstr "Hard word mutes"
 msgid "Hidden from global timelines"
 msgstr "Hidden from global timelines"
 
-#: src/components/Post/PostCard.tsx:606
+#: src/components/Post/PostCard.tsx:773
 msgid "Hide"
 msgstr "Hide"
 
-#: src/components/Post/PostCard.tsx:605
+#: src/components/Post/PostCard.tsx:772
 msgid "Hide content"
 msgstr "Hide content"
+
+#: src/components/Settings/DisplaySection.tsx:191
+msgid "Hide quotes the author has not approved behind a tap-to-reveal row. Off shows every quote."
+msgstr "Hide quotes the author has not approved behind a tap-to-reveal row. Off shows every quote."
 
 #: src/Navigation.tsx:482
 #: src/Navigation.tsx:548
@@ -811,7 +815,7 @@ msgstr "Hide content"
 msgid "Home"
 msgstr "Home"
 
-#: src/components/Settings/DisplaySection.tsx:146
+#: src/components/Settings/DisplaySection.tsx:147
 msgid "How post bodies, bios and quotes render."
 msgstr "How post bodies, bios and quotes render."
 
@@ -854,7 +858,7 @@ msgstr "It may be deleted, suspended, or unreachable."
 msgid "Keystone"
 msgstr "Keystone"
 
-#: src/components/Settings/DisplaySection.tsx:195
+#: src/components/Settings/DisplaySection.tsx:221
 msgid "Keystone modern or terminal."
 msgstr "Keystone modern or terminal."
 
@@ -863,15 +867,15 @@ msgstr "Keystone modern or terminal."
 msgid "Language"
 msgstr "Language"
 
-#: src/components/Settings/DisplaySection.tsx:108
+#: src/components/Settings/DisplaySection.tsx:109
 msgid "Larger"
 msgstr "Larger"
 
-#: src/components/Settings/DisplaySection.tsx:45
+#: src/components/Settings/DisplaySection.tsx:46
 msgid "Light"
 msgstr "Light"
 
-#: src/components/Settings/DisplaySection.tsx:55
+#: src/components/Settings/DisplaySection.tsx:56
 msgid "Light or dark app chrome."
 msgstr "Light or dark app chrome."
 
@@ -1152,12 +1156,12 @@ msgstr "Not offered yet."
 msgid "Not on this server."
 msgstr "Not on this server."
 
-#: src/components/Settings/DisplaySection.tsx:208
+#: src/components/Settings/DisplaySection.tsx:234
 msgid "Not wired yet — no custom-font loading on native."
 msgstr "Not wired yet — no custom-font loading on native."
 
-#: src/components/Settings/DisplaySection.tsx:196
-#: src/components/Settings/DisplaySection.tsx:202
+#: src/components/Settings/DisplaySection.tsx:222
+#: src/components/Settings/DisplaySection.tsx:228
 msgid "Not wired yet — the app ships one light/dark pair."
 msgstr "Not wired yet — the app ships one light/dark pair."
 
@@ -1198,12 +1202,22 @@ msgstr "Notifications never show sample data when signed out."
 msgid "Notify about new posts"
 msgstr "Notify about new posts"
 
+#: src/components/Settings/DisplaySection.tsx:196
+msgid "off"
+msgstr "off"
+
 #: src/components/Settings/AccountSection.tsx:168
+#: src/components/Settings/DisplaySection.tsx:200
 #: src/components/Settings/FeedsSection.tsx:41
 msgid "Off"
 msgstr "Off"
 
+#: src/components/Settings/DisplaySection.tsx:196
+msgid "on"
+msgstr "on"
+
 #: src/components/Settings/AccountSection.tsx:168
+#: src/components/Settings/DisplaySection.tsx:200
 #: src/components/Settings/FeedsSection.tsx:41
 msgid "On"
 msgstr "On"
@@ -1227,6 +1241,11 @@ msgstr "One phrase; matches everywhere."
 #: src/components/Composer/CompactComposer.tsx:75
 msgid "Only people you name"
 msgstr "Only people you name"
+
+#: src/components/Settings/DisplaySection.tsx:190
+#: src/components/Settings/DisplaySection.tsx:196
+msgid "Only show authorized quotes"
+msgstr "Only show authorized quotes"
 
 #: src/components/Composer/CompactComposer.tsx:73
 msgid "Only your followers"
@@ -1255,8 +1274,8 @@ msgid "Open media: {label}"
 msgstr "Open media: {label}"
 
 #. placeholder {0}: displayNameOf(effective.author)
-#: src/components/Post/PostCard.tsx:592
-#: src/components/Post/PostCard.tsx:635
+#: src/components/Post/PostCard.tsx:751
+#: src/components/Post/PostCard.tsx:802
 msgid "Open post by {0}"
 msgstr "Open post by {0}"
 
@@ -1269,8 +1288,8 @@ msgstr "Open profile"
 #. placeholder {0}: displayNameOf(shownAccount)
 #: src/components/Notification/NotificationRow.tsx:150
 #: src/components/Notification/NotificationRow.tsx:165
-#: src/components/Post/PostCard.tsx:218
-#: src/components/Post/PostCard.tsx:569
+#: src/components/Post/PostCard.tsx:224
+#: src/components/Post/PostCard.tsx:728
 msgid "Open profile of {0}"
 msgstr "Open profile of {0}"
 
@@ -1280,7 +1299,7 @@ msgid "Open profile of the notifier"
 msgstr "Open profile of the notifier"
 
 #. placeholder {0}: quote.author.displayName
-#: src/components/Post/PostQuote.tsx:78
+#: src/components/Post/PostQuote.tsx:113
 msgid "Open quoted post by {0}"
 msgstr "Open quoted post by {0}"
 
@@ -1308,11 +1327,11 @@ msgstr "Over the character limit."
 msgid "Over the limit"
 msgstr "Over the limit"
 
-#: src/components/Settings/DisplaySection.tsx:207
+#: src/components/Settings/DisplaySection.tsx:233
 msgid "Override the theme typeface."
 msgstr "Override the theme typeface."
 
-#: src/components/Settings/DisplaySection.tsx:200
+#: src/components/Settings/DisplaySection.tsx:226
 msgid "Palette"
 msgstr "Palette"
 
@@ -1339,7 +1358,7 @@ msgid "Pin to profile"
 msgstr "Pin to profile"
 
 #: src/components/Post/badges.ts:20
-#: src/components/Post/PostCard.tsx:358
+#: src/components/Post/PostCard.tsx:384
 msgid "Pinned"
 msgstr "Pinned"
 
@@ -1348,7 +1367,7 @@ msgstr "Pinned"
 msgid "errors.unsupported.pinned"
 msgstr "Pinned-post listings are not available on this server."
 
-#: src/components/Settings/DisplaySection.tsx:136
+#: src/components/Settings/DisplaySection.tsx:137
 msgid "Plain text"
 msgstr "Plain text"
 
@@ -1375,8 +1394,8 @@ msgstr "Post at (ISO time)"
 msgid "Post at a later time"
 msgstr "Post at a later time"
 
-#: src/components/Settings/DisplaySection.tsx:145
-#: src/components/Settings/DisplaySection.tsx:148
+#: src/components/Settings/DisplaySection.tsx:146
+#: src/components/Settings/DisplaySection.tsx:149
 msgid "Post content"
 msgstr "Post content"
 
@@ -1408,7 +1427,7 @@ msgstr "Posts"
 msgid "Posts {0}"
 msgstr "Posts {0}"
 
-#: src/components/Settings/DisplaySection.tsx:136
+#: src/components/Settings/DisplaySection.tsx:137
 msgid "Posts, bios and quotes render as plain text."
 msgstr "Posts, bios and quotes render as plain text."
 
@@ -1424,7 +1443,7 @@ msgstr "Profile"
 msgid "Profile preview for {name}"
 msgstr "Profile preview for {name}"
 
-#: src/components/Settings/DisplaySection.tsx:95
+#: src/components/Settings/DisplaySection.tsx:96
 msgid "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 msgstr "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 
@@ -1438,11 +1457,15 @@ msgstr "Pull to refresh."
 msgid "Quote"
 msgstr "Quote"
 
-#: src/components/Post/PostQuote.tsx:62
+#: src/components/Post/PostQuote.tsx:78
+msgid "Quote hidden — tap to reveal"
+msgstr "Quote hidden — tap to reveal"
+
+#: src/components/Post/PostQuote.tsx:89
 msgid "Quoted post unavailable"
 msgstr "Quoted post unavailable"
 
-#: src/components/Post/PostQuote.tsx:60
+#: src/components/Post/PostQuote.tsx:87
 msgid "Quoted post unavailable. The target could not be shown."
 msgstr "Quoted post unavailable. The target could not be shown."
 
@@ -1555,7 +1578,7 @@ msgstr "Reply, {0} replies"
 #. placeholder {0}: replyTo.author.acct
 #: src/components/Composer/CompactComposer.tsx:180
 #: src/components/Composer/Composer.tsx:479
-#: src/components/Post/PostCard.tsx:556
+#: src/components/Post/PostCard.tsx:715
 msgid "Replying to @{0}"
 msgstr "Replying to @{0}"
 
@@ -1610,9 +1633,13 @@ msgstr "Requested"
 msgid "requested to follow you"
 msgstr "requested to follow you"
 
-#: src/components/Settings/DisplaySection.tsx:116
+#: src/components/Settings/DisplaySection.tsx:117
 msgid "Reset"
 msgstr "Reset"
+
+#: src/components/Post/PostCard.tsx:842
+msgid "Resolving quote…"
+msgstr "Resolving quote…"
 
 #: src/components/Composer/ComposerSections.tsx:440
 msgid "Restore"
@@ -1758,11 +1785,11 @@ msgstr "Settings"
 msgid "Share"
 msgstr "Share"
 
-#: src/components/Post/PostCard.tsx:606
+#: src/components/Post/PostCard.tsx:773
 msgid "Show"
 msgstr "Show"
 
-#: src/components/Post/PostCard.tsx:605
+#: src/components/Post/PostCard.tsx:772
 msgid "Show content"
 msgstr "Show content"
 
@@ -1770,11 +1797,15 @@ msgstr "Show content"
 msgid "Show Federated tab"
 msgstr "Show Federated tab"
 
-#: src/components/Post/PostCard.tsx:666
+#: src/components/Post/PostQuote.tsx:73
+msgid "Show hidden quote"
+msgstr "Show hidden quote"
+
+#: src/components/Post/PostCard.tsx:833
 msgid "Show less"
 msgstr "Show less"
 
-#: src/components/Post/PostCard.tsx:665
+#: src/components/Post/PostCard.tsx:832
 msgid "Show less of this post"
 msgstr "Show less of this post"
 
@@ -1786,16 +1817,16 @@ msgstr "Show Local even while Social is available. Local always shows when Socia
 msgid "Show Local tab"
 msgstr "Show Local tab"
 
-#: src/components/Post/PostCard.tsx:654
+#: src/components/Post/PostCard.tsx:821
 #: src/screens/Explore.tsx:536
 msgid "Show more"
 msgstr "Show more"
 
-#: src/components/Post/PostCard.tsx:653
+#: src/components/Post/PostCard.tsx:820
 msgid "Show more of this post"
 msgstr "Show more of this post"
 
-#: src/components/Post/PostCard.tsx:616
+#: src/components/Post/PostCard.tsx:783
 msgid "Show original"
 msgstr "Show original"
 
@@ -1803,15 +1834,19 @@ msgstr "Show original"
 msgid "Show sensitive media. The author marked this media sensitive."
 msgstr "Show sensitive media. The author marked this media sensitive."
 
+#: src/components/Post/TagBubble.tsx:65
+msgid "Show tags"
+msgstr "Show tags"
+
 #: src/components/Settings/FeedsSection.tsx:60
 msgid "Show the Federated timeline alongside the default tab."
 msgstr "Show the Federated timeline alongside the default tab."
 
-#: src/components/Post/PostCard.tsx:616
+#: src/components/Post/PostCard.tsx:783
 msgid "Show translation"
 msgstr "Show translation"
 
-#: src/components/Post/PostCard.tsx:620
+#: src/components/Post/PostCard.tsx:787
 msgid "Showing original · Show translation?"
 msgstr "Showing original · Show translation?"
 
@@ -1865,7 +1900,7 @@ msgstr "Sign in to see suggested users."
 msgid "Sign in to see this feed."
 msgstr "Sign in to see this feed."
 
-#: src/components/Post/PostCard.tsx:381
+#: src/components/Post/PostCard.tsx:408
 msgid "Sign in to vote."
 msgstr "Sign in to vote."
 
@@ -1921,7 +1956,7 @@ msgstr "Signing in."
 msgid "Signing in…"
 msgstr "Signing in…"
 
-#: src/components/Settings/DisplaySection.tsx:99
+#: src/components/Settings/DisplaySection.tsx:100
 msgid "Smaller"
 msgstr "Smaller"
 
@@ -1969,7 +2004,7 @@ msgstr "Switch"
 msgid "Switch to {name}"
 msgstr "Switch to {name}"
 
-#: src/components/Settings/DisplaySection.tsx:43
+#: src/components/Settings/DisplaySection.tsx:44
 msgid "System"
 msgstr "System"
 
@@ -1978,10 +2013,11 @@ msgid "Tag"
 msgstr "Tag"
 
 #: src/components/Explore/ExploreTabBar.tsx:18
+#: src/components/Post/TagBubble.tsx:76
 msgid "Tags"
 msgstr "Tags"
 
-#: src/components/Settings/DisplaySection.tsx:94
+#: src/components/Settings/DisplaySection.tsx:95
 msgid "Text size"
 msgstr "Text size"
 
@@ -2049,7 +2085,7 @@ msgstr "The server sent no audio URL."
 msgid "errors.unsupported.social"
 msgstr "The social timeline is not available on this server."
 
-#: src/components/Settings/DisplaySection.tsx:194
+#: src/components/Settings/DisplaySection.tsx:220
 msgid "Theme"
 msgstr "Theme"
 
@@ -2120,7 +2156,7 @@ msgstr "This server has no repost-mute list."
 msgid "This server has no translation service."
 msgstr "This server has no translation service."
 
-#: src/components/Post/PostCard.tsx:348
+#: src/components/Post/PostCard.tsx:374
 msgid "Thread muted"
 msgstr "Thread muted"
 
@@ -2138,12 +2174,12 @@ msgstr "Tomorrow 9:00"
 msgid "Translate"
 msgstr "Translate"
 
-#: src/components/Post/PostCard.tsx:623
+#: src/components/Post/PostCard.tsx:790
 msgid "Translated · Show original?"
 msgstr "Translated · Show original?"
 
 #. placeholder {0}: translation.sourceLang
-#: src/components/Post/PostCard.tsx:622
+#: src/components/Post/PostCard.tsx:789
 msgid "Translated from {0} · Show original?"
 msgstr "Translated from {0} · Show original?"
 
@@ -2255,7 +2291,7 @@ msgstr "Unmute to see their posts again."
 msgid "Unpin from profile"
 msgstr "Unpin from profile"
 
-#: src/components/Post/PostCard.tsx:358
+#: src/components/Post/PostCard.tsx:384
 msgid "Unpinned"
 msgstr "Unpinned"
 

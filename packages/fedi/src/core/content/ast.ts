@@ -9,14 +9,23 @@
 // framework-free, `JSON.stringify`-safe. Decorative MFM extras (`fn`)
 // survive with name + args + children; renderers that do not implement a
 // given function degrade to the children. Block structure (paragraphs,
-// headings, list items) is expressed with `br` pairs between blocks —
-// there are no paragraph/list/heading nodes by design (the allow-list
-// stays inline-only).
+// headings, list items) is expressed with `br` pairs between blocks, plus
+// two structural markers that stay inline by design: `bullet` (one per
+// `<li>`, the renderer owns the glyph) and `heading` (level + children,
+// styled by level instead of flattened to bold). `invisible` carries
+// server-hidden text (`span.invisible` URL-shortening spans): it is never
+// rendered visibly and never counted as text, but the structure survives
+// so pruning can never leak it and wrapping matches the server.
 
 /** A parsed content node. `children` order is document order. */
+export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
 export type ContentNode =
   | { kind: "text"; text: string }
   | { kind: "br" }
+  | { kind: "bullet" }
+  | { kind: "heading"; level: HeadingLevel; children: ContentNode[] }
+  | { kind: "invisible"; text: string }
   | { kind: "link"; href: string; children: ContentNode[] }
   | { kind: "mention"; href: string | null; children: ContentNode[] }
   | { kind: "hashtag"; tag: string; href: string | null; children: ContentNode[] }
@@ -40,6 +49,24 @@ export function t(text: string): ContentNode {
 /** Explicit line break (`<br>`, MFM newline). */
 export function br(): ContentNode {
   return { kind: "br" };
+}
+
+/** List-item marker (one per `<li>`): the renderer draws the bullet glyph,
+ * never server text — so a pruned tag block can never leave a stray "• ". */
+export function bullet(): ContentNode {
+  return { kind: "bullet" };
+}
+
+/** Heading (HTML `h1`–`h6`; no MFM source): level + children, styled by
+ * level instead of flattened to bold body. */
+export function heading(level: HeadingLevel, children: ContentNode[]): ContentNode {
+  return { kind: "heading", level, children };
+}
+
+/** Server-hidden text (`span.invisible` URL-shortening spans): carried so
+ * structure survives, never rendered visibly and never counted as text. */
+export function invisible(text: string): ContentNode {
+  return { kind: "invisible", text };
 }
 
 /** Outbound link. `href` is always a vetted absolute URL (see `safeUrl`). */
@@ -111,13 +138,19 @@ export function fnNode(
 // --- Readers ------------------------------------------------------------------
 
 /** Visible text of a tree (links/mentions/hashtags contribute their
- * labels; custom emoji its `:code:` literal; emoji its sequence). Pure. */
+ * labels; custom emoji its `:code:` literal; emoji its sequence; bullets
+ * their marker; headings their children; invisible nodes nothing). Pure. */
 export function textOf(nodes: readonly ContentNode[]): string {
   let out = "";
   for (const node of nodes) {
     switch (node.kind) {
       case "text":
         out += node.text;
+        break;
+      case "bullet":
+        out += "\u2022 ";
+        break;
+      case "invisible":
         break;
       case "unicodeEmoji":
         out += node.emoji;
@@ -142,7 +175,8 @@ export function textOf(nodes: readonly ContentNode[]): string {
 /** Plain-text projection of a tree for the `plain` content mode: like
  * `textOf`, but line breaks survive as `\n` so the paragraph shape is
  * kept. Links/mentions/hashtags contribute their labels (never raw
- * URLs); formatting nodes are transparent. Pure. */
+ * URLs); formatting nodes are transparent; invisible nodes contribute
+ * nothing (hidden text never leaks into the projection). Pure. */
 export function plainTextOf(nodes: readonly ContentNode[]): string {
   let out = "";
   for (const node of nodes) {
@@ -152,6 +186,11 @@ export function plainTextOf(nodes: readonly ContentNode[]): string {
         break;
       case "br":
         out += "\n";
+        break;
+      case "bullet":
+        out += "\u2022 ";
+        break;
+      case "invisible":
         break;
       case "unicodeEmoji":
         out += node.emoji;
@@ -171,8 +210,9 @@ export function plainTextOf(nodes: readonly ContentNode[]): string {
   return out;
 }
 
-/** True when the tree renders nothing (whitespace text and lone breaks
- * only — custom emoji always counts as content). Pure. */
+/** True when the tree renders nothing (whitespace text and lone breaks,
+ * bullets and invisible nodes only — custom emoji always counts as
+ * content). Pure. */
 export function isBlankContent(nodes: readonly ContentNode[]): boolean {
   for (const node of nodes) {
     switch (node.kind) {
@@ -180,6 +220,8 @@ export function isBlankContent(nodes: readonly ContentNode[]): boolean {
         if (node.text.trim().length > 0) return false;
         break;
       case "br":
+      case "bullet":
+      case "invisible":
         break;
       case "customEmoji":
       case "unicodeEmoji":

@@ -5,7 +5,9 @@ import {
   contentFromHtml,
   contentFromMfm,
   findTextualQuoteMarker,
+  parseTagBlocks as parseMfmTagBlockText,
   parseTextualQuotes,
+  pruneTagBlocks as pruneHtmlTagBlockTree,
   stripQuoteMarker,
   structuredUrisOf,
   t,
@@ -44,11 +46,14 @@ export function postBodyNodes(
   const c = post.content
   if (c.mfm) {
     const stripped = stripDuplicateMfmMarkers(c.mfm, covered)
-    if (stripped.trim() === '') return []
-    return contentFromMfm(stripped)
+    // WS-B (F10): tag blocks prune after the quote strip (v1 order).
+    const pruned = pruneMfmTagBlocks(stripped)
+    if (pruned.trim() === '') return []
+    return contentFromMfm(pruned)
   }
   if (c.html) {
-    const nodes = contentFromHtml(c.html)
+    // WS-B (F10): tag blocks prune before the marker scan (v1 order).
+    const nodes = pruneHtmlTagBlocks(contentFromHtml(c.html))
     if (covered.length === 0) return nodes
     const marker = findTextualQuoteMarker(nodes)
     if (!marker || !covered.some(uri => urisMatch(uri, marker.uri))) return nodes
@@ -62,4 +67,46 @@ export function postBodyNodes(
 // `lookupPackedEmojis`; this only unions the sources. */
 export function postEmojis(post: Post): Record<string, string> {
   return {...post.author.emojis, ...post.emojis}
+}
+
+// --- WS-B (F10): tag-block pruning -------------------------------------------
+// v1 `NoteCard`/`NoteBody` parity: tag blocks leave the body and surface in
+// the header bubble (`TagBubble`). MFM text prunes through the MFM parser
+// (`parseTagBlocks`); server HTML prunes through the AST (`pruneTagBlocks`).
+// Both are view transformations — persisted/server text is never mutated.
+// Order per pipeline: MFM quote-strip → tag-prune → fold; HTML parse →
+// tag-prune → marker-strip → fold. Pure.
+
+/** Tag-bubble view model for one post (v1 `NoteCard.tagView` parity):
+ * MFM posts bubble the pruned block tags; HTML posts bubble every tag when
+ * a block was pruned (owner requirement). `hasBlocks` false means no
+ * bubble — lone hashtags stay inline only. Pure. */
+export interface TagBubbleView {
+  tags: string[]
+  hasBlocks: boolean
+}
+
+export function postTagBubble(post: Post): TagBubbleView {
+  const c = post.content
+  if (c.html) {
+    const pruned = pruneHtmlTagBlockTree(contentFromHtml(c.html))
+    return {tags: pruned.allTags, hasBlocks: pruned.blocks.length > 0}
+  }
+  if (c.mfm) {
+    const parsed = parseMfmTagBlockText(c.mfm)
+    return {tags: parsed.blockedTags, hasBlocks: parsed.blocks.length > 0}
+  }
+  return {tags: [], hasBlocks: false}
+}
+
+/** MFM body text with tag blocks pruned (v1 `NoteBody` text-pipeline
+ * order: quote-strip → tag-prune). Pure. */
+export function pruneMfmTagBlocks(mfm: string): string {
+  return parseMfmTagBlockText(mfm).prunedText
+}
+
+/** HTML body tree with tag blocks pruned (v1 `NoteBody` HTML-pipeline
+ * order: parse → tag-prune → marker-strip). Pure. */
+export function pruneHtmlTagBlocks(nodes: readonly ContentNode[]): ContentNode[] {
+  return pruneHtmlTagBlockTree(nodes).nodes
 }

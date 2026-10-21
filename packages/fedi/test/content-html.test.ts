@@ -2,7 +2,7 @@
 // from the old DOM sanitizer, and the quoteMarker/presentation reunion
 // running over parser output.
 import { contentFromHtml, shortcodeOf } from "../src/core/content/fromHtml";
-import { bold, br, t, textOf, type ContentNode } from "../src/core/content/ast";
+import { bold, br, isBlankContent, plainTextOf, t, textOf, type ContentNode } from "../src/core/content/ast";
 import {
   findTextualQuoteMarker,
   stripQuoteMarker,
@@ -238,13 +238,52 @@ describe("reunion: prune + fold over parser output", () => {
   });
 });
 
-describe("MD4: invisible spans, list bullets, headings", () => {
-  it("drops span.invisible URL-shortening spans (v1 hid them with CSS)", () => {
+describe("MD4 remainder (WS-B): invisible spans, bullets, headings", () => {
+  it("keeps span.invisible as a hidden node — never visible text (v1 hid them with CSS)", () => {
+    const nodes = contentFromHtml(
+      '<p>https://example.social/<span class="invisible">very/long/hidden/part</span><span class="ellipsis">…</span></p>',
+    );
+    expect(nodes).toEqual([
+      t("https://example.social/"),
+      { kind: "invisible", text: "very/long/hidden/part" },
+      t("\u2026"),
+    ]);
+    // The hidden run never surfaces: not in the visible text, not in the
+    // plain-text projection, and it budgets nothing against the fold.
+    expect(textOf(nodes)).toBe("https://example.social/\u2026");
+    expect(plainTextOf(nodes)).toBe("https://example.social/\u2026");
+    expect(isBlankContent([{ kind: "invisible", text: "x" }])).toBe(true);
+  });
+
+  it("an invisible span inside an anchor keeps the link whole", () => {
+    const nodes = contentFromHtml(
+      '<p><a href="https://example.social/very/long">https://example.social/<span class="invisible">very/long</span></a></p>',
+    );
+    expect(nodes).toEqual([
+      {
+        kind: "link",
+        href: "https://example.social/very/long",
+        children: [
+          t("https://example.social/"),
+          { kind: "invisible", text: "very/long" },
+        ],
+      },
+    ]);
+  });
+
+  it("span.mchip content renders inline (never dropped, never a block)", () => {
     expect(
       contentFromHtml(
-        '<p>https://example.social/<span class="invisible">very/long/hidden/part</span><span class="ellipsis">…</span></p>',
+        '<p><span class="mchip"><a href="https://example.com/x">label</a></span> after</p>',
       ),
-    ).toEqual([t("https://example.social/\u2026")]);
+    ).toEqual([
+      {
+        kind: "link",
+        href: "https://example.com/x",
+        children: [{ kind: "text", text: "label" }],
+      },
+      { kind: "text", text: " after" },
+    ]);
   });
 
   it("keeps h-card mention spans (never invisible)", () => {
@@ -254,16 +293,32 @@ describe("MD4: invisible spans, list bullets, headings", () => {
     expect(JSON.stringify(nodes)).toContain("mention");
   });
 
-  it("bullets list items (v1 rendered real <li>)", () => {
+  it("list items open with a bullet marker, not a text prefix", () => {
     expect(contentFromHtml("<ul><li>one</li><li>two</li></ul>")).toEqual([
-      t("\u2022 one"),
+      { kind: "bullet" },
+      t("one"),
       br(),
       br(),
-      t("\u2022 two"),
+      { kind: "bullet" },
+      t("two"),
     ]);
   });
 
-  it("bolds headings instead of flattening them", () => {
-    expect(contentFromHtml("<h1>Title</h1>")).toEqual([bold([t("Title")])]);
+  it("empty list items are skipped (no stray bullet)", () => {
+    expect(contentFromHtml("<ul><li></li><li>two</li></ul>")).toEqual([
+      { kind: "bullet" },
+      t("two"),
+    ]);
+    expect(contentFromHtml("<ul><li>   </li></ul>")).toEqual([]);
+  });
+
+  it("headings keep their level instead of flattening to bold", () => {
+    expect(contentFromHtml("<h1>Title</h1>")).toEqual([
+      { kind: "heading", level: 1, children: [t("Title")] },
+    ]);
+    expect(contentFromHtml("<h6>fine</h6>")).toEqual([
+      { kind: "heading", level: 6, children: [t("fine")] },
+    ]);
+    expect(isBlankContent(contentFromHtml("<h2>  </h2>"))).toBe(true);
   });
 });

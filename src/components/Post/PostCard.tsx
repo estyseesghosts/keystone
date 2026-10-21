@@ -53,7 +53,7 @@ import {useOnlyAuthorizedQuotes} from '#/state/appearance'
 
 import {ActionBar, StaticActionBar, toastError} from './ActionBar'
 import {badgesFor} from './badges'
-import {postBodyNodes, postEmojis} from './body'
+import {postBodyNodes, postEmojis, postTagBubble} from './body'
 import {usePostCardHandlers, type PostCardHandlers} from './handlers'
 import {LinkCard} from './LinkCard'
 import {buildPostMenu, type PostMenuSection} from './menuModel'
@@ -61,6 +61,7 @@ import {Lightbox} from '#/components/Lightbox'
 import {PostMediaGrid} from './PostMediaGrid'
 import {PostPoll} from './PostPoll'
 import {PostQuote} from './PostQuote'
+import {TagBubble} from './TagBubble'
 import {UserHoverCard} from '#/components/Profile/UserHoverCard'
 import {formatCount, useLocale} from '#/locale/i18n'
 import {ReactionChips} from './ReactionChips'
@@ -595,6 +596,9 @@ function PostCardView({
   )
   const emojis = useMemo(() => postEmojis(effective), [effective])
   const badges = useMemo(() => badgesFor(effective), [effective])
+  // WS-B (F10): tag-block bubble — pruned block tags surface here, the
+  // body stays pruned (v1 `NoteCard` parity). No bubble without blocks.
+  const tagBubble = useMemo(() => postTagBubble(effective), [effective])
   const cw = effective.cw
   const bodyHidden = cw !== null && !cwOpen
 
@@ -749,6 +753,14 @@ function PostCardView({
               {`· ${formatRelativeTime(effective.createdAt, undefined, locale)}`}
             </Caption>
           </Pressable>
+          {/* WS-B (F10): tag-block bubble at the header end (v1 parity). */}
+          {tagBubble.hasBlocks ? (
+            <TagBubble
+              tags={tagBubble.tags}
+              onHashtagPress={handleHashtagPress}
+              testID={`post-tags-${effective.id}`}
+            />
+          ) : null}
         </View>
         {cw !== null && (
           <View style={[styles.cwBox, {backgroundColor: theme.palette.bg, borderColor: theme.palette.borderStrong}]} testID={`cw-${post.id}`}>

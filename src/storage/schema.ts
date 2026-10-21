@@ -111,7 +111,7 @@ export type AccountState = z.infer<typeof accountStateSchema>
 
 export const defaultAccountState: AccountState = {
   version: STORAGE_VERSION,
-  prefs: {contentMode: 'mfm'},
+  prefs: {},
 }
 
 export const DEVICE_KEY = 'keystone.device'

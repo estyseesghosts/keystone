@@ -17,12 +17,15 @@ import { parseDocument } from "htmlparser2";
 import {
   bold,
   br,
+  bullet,
   codeBlock,
   codeNode,
   customEmoji,
   fnNode,
   hashtag,
   hashtagTagOf,
+  heading,
+  invisible,
   isBlankContent,
   italic,
   link,
@@ -34,6 +37,7 @@ import {
   t,
   unicodeEmoji,
   type ContentNode,
+  type HeadingLevel,
 } from "./ast";
 
 /** Structural view of an htmlparser2 DOM node — duck-typed on purpose
@@ -221,22 +225,22 @@ function convertElement(node: DomNode, out: ContentNode[]): void {
     if (code.length > 0) out.push(codeBlock(null, code));
     return;
   }
-  // Lists have no AST node: `ul`/`ol` are transparent wrappers and each
-  // `li` keeps its bullet as text (v1 rendered real `<li>` bullets;
-  // without them the items run together — MD4).
+  // Lists have no AST list node: `ul`/`ol` are transparent wrappers and
+  // each `li` opens with a `bullet()` marker (the renderer owns the glyph,
+  // never server text — so a pruned tag block can never leave a stray
+  // "• "). An `li` with no other content is skipped, like a blank block.
   if (tag === "li") {
-    const inner: ContentNode[] = [t("\u2022 ")];
+    const inner: ContentNode[] = [bullet()];
     convertFlow(node.children ?? [], inner);
     if (!isBlankContent(inner)) out.push(...inner);
     return;
   }
-  // Headings have no AST node either: v1 rendered real `<h1>`–`<h6>`
-  // (browser-sized); v2 keeps the emphasis as bold rather than
-  // flattening to plain prose (MD4).
+  // Headings keep their level in a `heading` node (styled by level at
+  // render) instead of flattening to bold body.
   if (tag.length === 2 && tag[0] === "h" && tag[1] >= "1" && tag[1] <= "6") {
     const inner: ContentNode[] = [];
     convertFlow(node.children ?? [], inner);
-    if (!isBlankContent(inner)) out.push(bold(inner));
+    if (!isBlankContent(inner)) out.push(heading(Number(tag[1]) as HeadingLevel, inner));
     return;
   }
   convertFlow(node.children ?? [], out);
@@ -301,13 +305,17 @@ function convertNode(node: DomNode, out: ContentNode[]): void {
   const tag = (node.name ?? "").toLowerCase();
   if (DROP_SUBTREE_TAGS.has(tag)) return;
 
-  // v1 hid `span.invisible` (URL-shortening spans) with CSS; v2 has no
-  // CSS layer, so the parse drops the subtree (MD4). Mention/hashtag
-  // spans (`h-card`, `name`, `emoji`) are never invisible — only the
-  // shortening spans carry the class, so no content is lost.
+  // `span.invisible` (URL-shortening spans) survives as an `invisible`
+  // node: zero-width at render, never visible text, never counted — the
+  // structure outlives the parse so pruning can never leak it. Mention /
+  // hashtag spans (`h-card`, `name`, `emoji`) are never invisible; only
+  // the shortening spans carry the class.
   if (node.attribs) {
     const classAttr = Object.entries(node.attribs).find(([k]) => k.toLowerCase() === "class")?.[1];
-    if (classList(classAttr).includes("invisible")) return;
+    if (classList(classAttr).includes("invisible")) {
+      out.push(invisible(innerText(node)));
+      return;
+    }
   }
 
   if (tag === "br") {
@@ -355,6 +363,13 @@ function convertNode(node: DomNode, out: ContentNode[]): void {
       // `emoji` becomes one opaque emoji node so tag-block spacing and
       // fold accounting treat it as one glyph, never prose.
       const classes = classList(attrsOf(node)["class"]);
+      // `span.mchip` (mention/url chips) renders its content inline as a
+      // chip — the anchor child carries the link. Never dropped, never a
+      // block; the renderer styles the chip.
+      if (classes.includes("mchip")) {
+        convertTransparent(node, out);
+        return;
+      }
       const kids = node.children ?? [];
       if (
         classes.includes("emoji") &&
