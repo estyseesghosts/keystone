@@ -73,8 +73,15 @@ export function Root() {
   return (
     // SafeAreaProvider sits outside everything (N21): insets must reach
     // every shell layer — strip, tab bar, FAB, Lightbox, Toast — and none
-    // of them may own a nested provider.
-    <SafeAreaProvider>
+    // of them may own a nested provider. `initialMetrics` is the zero
+    // fallback: bare trees (jest, no native module) render immediately
+    // instead of waiting on inset events; on device the live insets
+    // replace these on the first native pass.
+    <SafeAreaProvider
+      initialMetrics={{
+        frame: {x: 0, y: 0, width: 0, height: 0},
+        insets: {top: 0, bottom: 0, left: 0, right: 0},
+      }}>
       <I18nProvider i18n={i18n}>
         <ThemedProviders store={store} homeOrigin={homeOrigin} ready={ready} hosting={hosting} />
       </I18nProvider>
