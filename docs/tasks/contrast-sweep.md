@@ -1,6 +1,6 @@
 # Contrast sweep — no black-on-dark / white-on-light anywhere
 
-Status: in progress
+Status: done
 Branch: `main` (owner direction: main only)
 
 ## Goal
