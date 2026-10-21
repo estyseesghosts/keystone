@@ -1,16 +1,16 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: V2_GAPS WS-B (content) + WS-A + WS-D + WS-E MERGED
-2026-10-21 on `main` (MFM decorations, invisible nodes,
-bullets/headings, TagBubble, `auto`=MFM confirmed, schema `:109`
-fixed — coordinator resolved 3 code conflicts + duplicate
-`quoteStatus` + locale regen at merge). FULL suite green: 133 suites
-/ 1602 tests; tsc ios+android+web clean; eslint + oxlint clean.
-WS-C still running (own worktree); WS-F unblocked by this merge —
-spawning next; WS-G runs last.
-Latest logs: `state/logs/2026-10-21-wsB-content.md` (agent, 3 Helium
-shots in `assets-wsB/`, showcase posts created + deleted on Akkoma),
-prior WS-A/D/E logs. Coordinator re-verified the trio after merge.
+Phase/slice: V2_GAPS WS-C (emoji) + WS-B + WS-A + WS-D + WS-E
+MERGED 2026-10-21 on `main` (remote-host fallback + per-session store
+registry, store-backed picker, display-name emoji; live Akkoma probe
+8/8, writes cleaned; web-visual `not verified` — Helium CDP closed).
+Merge was conflict-free. FULL suite green: 135 suites / 1619 tests;
+tsc ios+android+web clean; eslint + oxlint clean. WS-F running (own
+worktree, branched post-B); WS-G runs last.
+Latest log: `state/logs/2026-10-21-wsC-emoji.md` (load-bearing
+finding: React Compiler freezes bare store reads — selector
+discipline recorded in DECISIONS). Coordinator re-verified the
+trio after merge.
 Prior: UI batch 2 + slim tabs + W8 (see logs).
 (MD5 boot re-verify + scope-health, MD6–MD9 live Akkoma round-trips,
 MD10 pooled streaming + app capture, MD11 fork collapse, MD12/MD13

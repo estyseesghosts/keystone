@@ -40,9 +40,9 @@ Acceptance: MFM showcase post renders decorations; invisible spans hidden; tag p
 
 ## WS-C — Emoji: remote + custom + picker store (MK8) (PARALLEL-SAFE)
 
-- [ ] **Remote emoji fallback.** `fromMfm.ts:164-188` emits `customEmoji(name,host,null)`; `EmojiImage.tsx:89` resolves packed-map only. Wire `createCustomEmojiStore.ensureHostEmojis/remoteUrlFor` (`misskey/customEmoji.ts:226-245`, states `unavailable` vs `error` at `:200-210`) into the render path session-scoped. Unknown codes still render literally, never blank.
-- [ ] **Display-name emoji.** Extend the `DisplayName` path (cards done) to `ProfileHeader` + notification rows if regressed; verify live on Akkoma.
-- [ ] **MK8 picker.** `EmojiPicker.tsx:39` reads only `backend.customEmojis()`. Subscribe to the same store (remote-host results included), keep per-session recents (cap 24). `unavailable` vs `error` + retry states from the store.
+- [x] **Remote emoji fallback.** DONE 2026-10-21 (WS-C): `remoteEmojis()` (+ reference-stable cache) on the fedi store; `src/state/customEmojiStores.ts` per-session registry (`customEmojiStoreFor`, rebuilt on origin/token/family drift) + `useCustomEmojiSelect` live selectors; `EmojiImage` chain packed → remote-host → author-host → session listing → literal (never blank). Live probe 8/8 on Akkoma (remote listing `misskey.io`, 14,019 entries; images 200; writes cleaned). Web-visual `not verified` (Helium CDP closed).
+- [x] **Display-name emoji.** DONE 2026-10-21 (WS-C): `DisplayName`/`ProfileHeader`/`NotificationRow` accept optional `sessionId` (explicit → active session → packed-only); remote display-name/bio verified regressed, now fixed + tested.
+- [x] **MK8 picker.** DONE 2026-10-21 (WS-C): picker store-backed (local + remote-host tables), react-query kept for Mastodon-family, per-session recents cap 24, Remote search section (query-only, cap 60); `unavailable` omits Custom, `error` + Retry re-arm both sources.
 
 Acceptance: `:name@host:` post + remote display-name render images; picker shows remote-host emoji; retry works on error.
 

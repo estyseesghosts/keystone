@@ -122,3 +122,7 @@ in `adr/` when load-bearing.
 | 2026-10-21 | WS-B: `invisible` is an AST node, not a drop (structure survives; renderer zero-width; readers exclude) | Dropping loses structure; hiding keeps both paths honest |
 | 2026-10-21 | WS-B: HTML quote heads follow the card bubble rule (v1 was MFM-only; bodies prune both paths) | One rule for both heads; bodies stay consistent |
 | 2026-10-21 | WS-B: empty `<li>` renders nothing (was stray `• `) | No visible artifact for empty items |
+| 2026-10-21 | WS-C: remote emoji reads go through `useCustomEmojiSelect` (selector inside `useSyncExternalStore`) — bare `store.state()` calls in render are frozen by the React Compiler (memoized on stable store identity); same discipline as the recents shims | If any WS reads a mutable store bare in render, switch it to a selector |
+| 2026-10-21 | WS-C: no `Capabilities` flag for emoji listing/remote fetch — both are public endpoints (same as before; v1 identical) | Public data needs no capability gate |
+| 2026-10-21 | WS-C: picker merges store + `backend.customEmojis()` (store wins on name) — the query covers Mastodon-family (whose store is `unavailable` by design) and seeded trees | One picker path for both families |
+| 2026-10-21 | WS-C: `PostQuote` intentionally untouched (WS-A file) — its `DisplayName`/`RichText` inherit the active-session fallback; explicit per-column sessionId threading for quotes is proposed, not done | No cross-WS edit; fallback covers quotes |
