@@ -16,6 +16,7 @@ import {
   type Post,
   type PostDraft,
   type ScheduledNote,
+  type ServerDraft,
   type Session,
 } from '@keystone/fedi'
 
@@ -285,4 +286,119 @@ export function useUploads(backend: Backend | null) {
   }, [files])
 
   return {items, add, remove, setAlt, ensureUploaded, clear}
+}
+
+// --- Edit post (C7) ------------------------------------------------------------
+
+export interface EditPostInput {
+  id: string
+  draft: PostDraft
+}
+
+/** Edit a post through the owning session's backend, then patch every cached
+ * copy of it for THIS session only. */
+export function useEditPost(session: Session | null, backend: Backend | null) {
+  const client = useQueryClient()
+  const sessionId = session?.id ?? null
+  return useMutation<Post, unknown, EditPostInput>({
+    mutationFn: async input => {
+      if (!backend || !sessionId) throw new Error('Sign in to post.')
+      return backend.editPost(input.id, input.draft)
+    },
+    onSuccess: (updated, input) => {
+      if (!sessionId) return
+      patchPostInCaches(client, sessionId, input.id, () => updated)
+    },
+  })
+}
+
+// --- Scheduled posts (C8b) -----------------------------------------------------
+
+export function scheduledPostsKey(sessionId: string) {
+  return createQueryKey(sessionId, 'scheduled-posts')
+}
+
+/** The session's scheduled posts. Disabled unless the backend offers the
+ * `scheduled` sub-module — never a faked list. */
+export function useScheduledPosts(session: Session | null, backend: Backend | null) {
+  return useQuery<ScheduledNote[]>({
+    queryKey: scheduledPostsKey(session?.id ?? 'signed-out'),
+    enabled: !!session && !!backend?.scheduled,
+    queryFn: () => backend!.scheduled!.list(),
+  })
+}
+
+/** Cancel one scheduled post, then invalidate the session's scheduled list. */
+export function useCancelScheduled(session: Session | null, backend: Backend | null) {
+  const client = useQueryClient()
+  const sessionId = session?.id ?? null
+  return useMutation<void, unknown, string>({
+    mutationFn: async id => {
+      if (!backend || !sessionId) throw new Error('Sign in to manage scheduled posts.')
+      if (!backend.scheduled) throw new Error('This server does not support scheduled posts.')
+      await backend.scheduled.delete(id)
+    },
+    onSuccess: () => {
+      if (!sessionId) return
+      void client.invalidateQueries({queryKey: scheduledPostsKey(sessionId)})
+    },
+  })
+}
+
+// --- Server drafts (C9/MK5) ----------------------------------------------------
+
+export function serverDraftsKey(sessionId: string) {
+  return createQueryKey(sessionId, 'server-drafts')
+}
+
+/** The session's server-side drafts. Disabled unless the backend offers the
+ * `serverDrafts` sub-module — family-agnostic (a backend without it, e.g.
+ * Mastodon, simply leaves the query disabled). */
+export function useServerDrafts(session: Session | null, backend: Backend | null) {
+  return useQuery<ServerDraft[]>({
+    queryKey: serverDraftsKey(session?.id ?? 'signed-out'),
+    enabled: !!session && !!backend?.serverDrafts,
+    queryFn: () => backend!.serverDrafts!.list(),
+  })
+}
+
+export interface SaveServerDraftInput {
+  /** When present the draft is updated, otherwise it is created. */
+  id?: string | null
+  draft: PostDraft & {scheduledAt?: string | null}
+}
+
+/** Create-or-update a server draft, then invalidate the session's draft list. */
+export function useSaveServerDraft(session: Session | null, backend: Backend | null) {
+  const client = useQueryClient()
+  const sessionId = session?.id ?? null
+  return useMutation<ServerDraft, unknown, SaveServerDraftInput>({
+    mutationFn: async input => {
+      if (!backend || !sessionId) throw new Error('Sign in to manage drafts.')
+      if (!backend.serverDrafts) throw new Error('This server does not support drafts.')
+      if (input.id) return backend.serverDrafts.update(input.id, input.draft)
+      return backend.serverDrafts.create(input.draft)
+    },
+    onSuccess: () => {
+      if (!sessionId) return
+      void client.invalidateQueries({queryKey: serverDraftsKey(sessionId)})
+    },
+  })
+}
+
+/** Delete a server draft, then invalidate the session's draft list. */
+export function useDeleteServerDraft(session: Session | null, backend: Backend | null) {
+  const client = useQueryClient()
+  const sessionId = session?.id ?? null
+  return useMutation<void, unknown, string>({
+    mutationFn: async id => {
+      if (!backend || !sessionId) throw new Error('Sign in to manage drafts.')
+      if (!backend.serverDrafts) throw new Error('This server does not support drafts.')
+      await backend.serverDrafts.delete(id)
+    },
+    onSuccess: () => {
+      if (!sessionId) return
+      void client.invalidateQueries({queryKey: serverDraftsKey(sessionId)})
+    },
+  })
 }

@@ -1,9 +1,24 @@
-import {QueryClient} from '@tanstack/react-query'
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
+import {renderHook, waitFor} from '@testing-library/react-native'
+import React from 'react'
 
-import type {Backend, Post} from '@keystone/fedi'
+import type {Backend, Post, ScheduledNote, ServerDraft, Session} from '@keystone/fedi'
 
 import {feedQueryKey} from './keys'
-import {insertCreatedPost, submitPost, uploadAll, type UploadItem} from './composer'
+import {
+  insertCreatedPost,
+  scheduledPostsKey,
+  serverDraftsKey,
+  submitPost,
+  uploadAll,
+  useCancelScheduled,
+  useDeleteServerDraft,
+  useEditPost,
+  useSaveServerDraft,
+  useScheduledPosts,
+  useServerDrafts,
+  type UploadItem,
+} from './composer'
 
 const post = (id: string, over: Partial<Post> = {}): Post =>
   ({
@@ -99,5 +114,133 @@ describe('uploadAll', () => {
     expect(ids).toBeNull()
     expect(patches.a.status).toBe('done')
     expect(patches.b).toMatchObject({status: 'error', error: 'too big'})
+  })
+})
+
+const SESS = {id: 's1', origin: 'https://x.example', family: 'misskey'} as unknown as Session
+
+function testClient(): QueryClient {
+  return new QueryClient({defaultOptions: {queries: {retry: false, gcTime: 60_000}}})
+}
+
+function wrapper(client: QueryClient) {
+  return function Wrapper({children}: {children: React.ReactNode}) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  }
+}
+
+describe('useEditPost (C7)', () => {
+  it('keys session-scoped edit: calls through and patches the cached copy', async () => {
+    const updated = post('p1', {content: {edited: true}} as unknown as Partial<Post>)
+    const editPost = jest.fn().mockResolvedValue(updated)
+    const backend = {editPost} as unknown as Backend
+    const client = testClient()
+    client.setQueryData(feedQueryKey(SESS.id, 'timeline|home'), feed([post('p1')]))
+    const {result} = renderHook(() => useEditPost(SESS, backend), {wrapper: wrapper(client)})
+    await result.current.mutateAsync({id: 'p1', draft: {text: 'new'}})
+    expect(editPost).toHaveBeenCalledWith('p1', {text: 'new'})
+    const data = client.getQueryData<ReturnType<typeof feed>>(feedQueryKey(SESS.id, 'timeline|home'))!
+    expect(data.pages[0].items[0].content).toEqual({edited: true})
+  })
+
+  it('throws Sign in when session/backend missing', async () => {
+    const backend = {editPost: jest.fn()} as unknown as Backend
+    const client = testClient()
+    const {result} = renderHook(() => useEditPost(null, backend), {wrapper: wrapper(client)})
+    await expect(result.current.mutateAsync({id: 'p1', draft: {}})).rejects.toThrow(/sign in/i)
+    expect(backend.editPost as jest.Mock).not.toHaveBeenCalled()
+  })
+})
+
+describe('scheduled hooks (C8b)', () => {
+  const sched = (id: string): ScheduledNote => ({id, scheduledAt: '2030-01-01T00:00:00Z', post: null, draft: null})
+
+  it('scheduledPostsKey is session-first; list query calls backend.scheduled.list', async () => {
+    expect(scheduledPostsKey('s1')[0]).toBe('s1')
+    expect(scheduledPostsKey('s1')).not.toEqual(scheduledPostsKey('s2'))
+    const list = jest.fn().mockResolvedValue([sched('a')])
+    const backend = {scheduled: {list}} as unknown as Backend
+    const {result} = renderHook(() => useScheduledPosts(SESS, backend), {wrapper: wrapper(testClient())})
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(list).toHaveBeenCalled()
+    expect(result.current.data?.map(s => s.id)).toEqual(['a'])
+  })
+
+  it('list stays disabled without the sub-module and fetches nothing', () => {
+    const backend = {} as unknown as Backend
+    const {result} = renderHook(() => useScheduledPosts(SESS, backend), {wrapper: wrapper(testClient())})
+    expect(result.current.fetchStatus).toBe('idle')
+  })
+
+  it('cancel calls delete and invalidates the scheduled list key', async () => {
+    const del = jest.fn().mockResolvedValue(undefined)
+    const backend = {scheduled: {delete: del}} as unknown as Backend
+    const client = testClient()
+    client.setQueryData(scheduledPostsKey(SESS.id), [sched('a')])
+    const {result} = renderHook(() => useCancelScheduled(SESS, backend), {wrapper: wrapper(client)})
+    await result.current.mutateAsync('a')
+    expect(del).toHaveBeenCalledWith('a')
+    expect(client.getQueryState(scheduledPostsKey(SESS.id))?.isInvalidated).toBe(true)
+  })
+
+  it('cancel throws Sign in when signed out, honest error without the sub-module', async () => {
+    const client = testClient()
+    const {result} = renderHook(() => useCancelScheduled(null, null), {wrapper: wrapper(client)})
+    await expect(result.current.mutateAsync('a')).rejects.toThrow(/sign in/i)
+    const noMod = renderHook(() => useCancelScheduled(SESS, {} as unknown as Backend), {
+      wrapper: wrapper(testClient()),
+    })
+    await expect(noMod.result.current.mutateAsync('a')).rejects.toThrow(/schedul/i)
+  })
+})
+
+describe('server draft hooks (C9/MK5)', () => {
+  const draft = (id: string): ServerDraft => ({id, text: 'hi'})
+
+  it('serverDraftsKey is session-first; list query calls backend.serverDrafts.list', async () => {
+    expect(serverDraftsKey('s1')[0]).toBe('s1')
+    expect(serverDraftsKey('s1')).not.toEqual(serverDraftsKey('s2'))
+    const list = jest.fn().mockResolvedValue([draft('d1')])
+    const backend = {serverDrafts: {list}} as unknown as Backend
+    const {result} = renderHook(() => useServerDrafts(SESS, backend), {wrapper: wrapper(testClient())})
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.map(d => d.id)).toEqual(['d1'])
+  })
+
+  it('list stays disabled without the sub-module (e.g. Mastodon) and fetches nothing', () => {
+    const backend = {} as unknown as Backend
+    const {result} = renderHook(() => useServerDrafts(SESS, backend), {wrapper: wrapper(testClient())})
+    expect(result.current.fetchStatus).toBe('idle')
+  })
+
+  it('save creates without id, updates with id, and invalidates the drafts key', async () => {
+    const create = jest.fn().mockResolvedValue(draft('new'))
+    const update = jest.fn().mockResolvedValue(draft('d1'))
+    const backend = {serverDrafts: {create, update}} as unknown as Backend
+    const client = testClient()
+    client.setQueryData(serverDraftsKey(SESS.id), [draft('d1')])
+    const {result} = renderHook(() => useSaveServerDraft(SESS, backend), {wrapper: wrapper(client)})
+    await result.current.mutateAsync({draft: {text: 'fresh'}})
+    expect(create).toHaveBeenCalledWith({text: 'fresh'})
+    await result.current.mutateAsync({id: 'd1', draft: {text: 'edited'}})
+    expect(update).toHaveBeenCalledWith('d1', {text: 'edited'})
+    expect(client.getQueryState(serverDraftsKey(SESS.id))?.isInvalidated).toBe(true)
+  })
+
+  it('delete calls through and invalidates; missing session/module throw honestly', async () => {
+    const del = jest.fn().mockResolvedValue(undefined)
+    const backend = {serverDrafts: {delete: del}} as unknown as Backend
+    const client = testClient()
+    client.setQueryData(serverDraftsKey(SESS.id), [draft('d1')])
+    const {result} = renderHook(() => useDeleteServerDraft(SESS, backend), {wrapper: wrapper(client)})
+    await result.current.mutateAsync('d1')
+    expect(del).toHaveBeenCalledWith('d1')
+    expect(client.getQueryState(serverDraftsKey(SESS.id))?.isInvalidated).toBe(true)
+    const signedOut = renderHook(() => useDeleteServerDraft(null, null), {wrapper: wrapper(testClient())})
+    await expect(signedOut.result.current.mutateAsync('d1')).rejects.toThrow(/sign in/i)
+    const noMod = renderHook(() => useDeleteServerDraft(SESS, {} as unknown as Backend), {
+      wrapper: wrapper(testClient()),
+    })
+    await expect(noMod.result.current.mutateAsync('d1')).rejects.toThrow(/draft/i)
   })
 })
