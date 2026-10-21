@@ -1,6 +1,7 @@
 import {msg} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
-import {Animated, Modal, StyleSheet, View} from 'react-native'
+import {useEffect} from 'react'
+import {Animated, Modal, Platform, StyleSheet, View} from 'react-native'
 
 import {atoms} from '#/alf/atoms'
 import {useTheme} from '#/alf/index'
@@ -24,6 +25,19 @@ export function Dialog({open, onClose, title, children, testID}: DialogProps) {
   const {i18n} = useLingui()
   const closeLabel = i18n._(msg`Close dialog`)
   const enter = usePopupEnter()
+  // Web keyboard (P8): Escape closes the dialog. Guarded to web with
+  // cleanup on unmount; native keeps backdrop tap + `onRequestClose`.
+  useEffect(() => {
+    if (!open || Platform.OS !== 'web' || typeof document === 'undefined') return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
   if (!open) {
     return null
   }

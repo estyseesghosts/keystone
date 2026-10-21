@@ -1,0 +1,362 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-21 01:16-0400\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: de\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/components/Profile/UserHoverCard.tsx:182
+msgid " · automated"
+msgstr " · automatisiert"
+
+#: src/components/Profile/UserHoverCard.tsx:181
+msgid " · locked"
+msgstr " · gesperrt"
+
+#: src/components/Profile/UserHoverCard.tsx:149
+msgid "{notes} notes · {following} following · {followers} followers"
+msgstr "{notes} Notizen · {following} folgt · {followers} Follower"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:56
+msgid "errors.shape.account"
+msgstr "Konto {id} hat ein unerwartetes Antwortformat geliefert."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:71
+msgid "errors.compose.actionFailed"
+msgstr "Aktion fehlgeschlagen."
+
+#: src/components/Profile/UserHoverCard.tsx:90
+msgid "Action failed."
+msgstr "Aktion fehlgeschlagen."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:28
+msgid "errors.network.apiError"
+msgstr "API-Fehler: HTTP {status}"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:40
+msgid "errors.unsupported.avatar"
+msgstr "Avatar- und Banneränderungen werden in der Mastodon-Familie noch nicht unterstützt."
+
+#: src/components/Dialog.tsx:26
+msgid "Close dialog"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:21
+msgid "errors.network.unreachableBare"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:25
+msgid "errors.network.unreachableOrigin"
+msgstr "{origin} nicht erreichbar ({reason}). Läuft der Server und ist der Host korrekt?"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:24
+msgid "errors.network.unreachableInstance"
+msgstr "Instanz nicht erreichbar ({reason}). Ist der Host korrekt?"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:26
+msgid "errors.network.unreachableServer"
+msgstr "Server nicht erreichbar ({reason}). Läuft er?"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:35
+msgid "errors.auth.savePending"
+msgstr ""
+
+#: src/components/Settings/LanguageSection.tsx:30
+msgid "Current language."
+msgstr ""
+
+#: src/components/Popup.tsx:170
+msgid "Dismiss"
+msgstr "Schließen"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:16
+msgid "errors.validation.hostRequired"
+msgstr "Instanz-Host eingeben, z. B. example.com."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:62
+msgid "errors.shape.expectedList"
+msgstr "Eine {kind}-Liste erwartet (HTTP {status})."
+
+#: src/Navigation.tsx:487
+#: src/Navigation.tsx:616
+msgid "Explore"
+msgstr "Entdecken"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:64
+msgid "errors.compose.fileTooLarge"
+msgstr "Datei zu groß ({kb} KB — Limit: 10 MB)."
+
+#: src/components/Profile/UserHoverCard.tsx:142
+msgid "Follow"
+msgstr "Folgen"
+
+#: src/Navigation.tsx:485
+#: src/Navigation.tsx:606
+msgid "Home"
+msgstr "Start"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:66
+msgid "errors.feeds.invalidDescriptor"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:65
+msgid "errors.filter.invalidRegex"
+msgstr "Ungültiger regulärer Ausdruck in Zeile {line}."
+
+#: src/components/Settings/LanguageSection.tsx:31
+msgid "Language"
+msgstr "Sprache"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:54
+msgid "errors.shape.mediaLookup"
+msgstr "Mediensuche hat ein unerwartetes Antwortformat geliefert."
+
+#: src/Navigation.tsx:486
+msgid "My Network"
+msgstr "Mein Netzwerk"
+
+#: src/Navigation.tsx:611
+msgid "Network"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:42
+msgid "errors.unsupported.noAccountFound"
+msgstr "Kein Konto für {acct} gefunden."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:41
+msgid "errors.unsupported.noAccountRef"
+msgstr "Keine Kontoreferenz angegeben."
+
+#: src/Navigation.tsx:491
+#: src/Navigation.tsx:623
+msgid "Notifications"
+msgstr "Mitteilungen"
+
+#: src/components/Profile/UserHoverCard.tsx:143
+msgid "Open profile"
+msgstr "Profil öffnen"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:36
+msgid "errors.unsupported.pinned"
+msgstr "Angeheftete Beiträge sind auf diesem Server nicht verfügbar."
+
+#: src/Navigation.tsx:492
+#: src/Navigation.tsx:628
+msgid "Profile"
+msgstr "Profil"
+
+#: src/components/Profile/UserHoverCard.tsx:136
+msgid "Profile preview for {name}"
+msgstr "Profilvorschau für {name}"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:38
+msgid "errors.unsupported.reactions"
+msgstr "Reaktionslisten sind auf diesem Server nicht verfügbar."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:19
+msgid "errors.network.crossOrigin"
+msgstr "Diese Anfrage wird verweigert: Die URL zeigt auf eine andere Origin als die der Sitzung."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:52
+msgid "errors.shape.relationships"
+msgstr "Beziehungen haben ein unerwartetes Antwortformat geliefert."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:20
+msgid "errors.network.badPath"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:22
+msgid "errors.network.timeoutInstance"
+msgstr "Zeitüberschreitung ({target}): Die Instanz hat nicht innerhalb von {n} s geantwortet. Erneut versuchen."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:23
+msgid "errors.network.timeoutServer"
+msgstr "Zeitüberschreitung ({target}): Der Server hat nicht innerhalb von {n} s geantwortet. Erneut versuchen oder das Dev-Server-Terminal prüfen."
+
+#: src/components/Profile/UserHoverCard.tsx:141
+msgid "Requested"
+msgstr "Angefragt"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:27
+msgid "errors.network.badJson"
+msgstr "Server hat einen Nicht-JSON-Body geliefert (HTTP {status}) für {target}."
+
+#: src/Navigation.tsx:635
+msgid "Sign in"
+msgstr "Anmelden"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:31
+msgid "errors.auth.signinFailed"
+msgstr "Anmeldung fehlgeschlagen."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:57
+msgid "errors.shape.status"
+msgstr "Status {id} hat ein unerwartetes Antwortformat geliefert."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:53
+msgid "errors.shape.statusContext"
+msgstr "Statuskontext hat ein unerwartetes Antwortformat geliefert."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:61
+msgid "errors.shape.suggestions"
+msgstr "Vorschläge haben ein unerwartetes Antwortformat geliefert."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:18
+msgid "errors.validation.hostInvalid"
+msgstr "Dieser Host sieht nicht wie eine gültige Instanzadresse aus."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:39
+msgid "errors.unsupported.featured"
+msgstr "Die Liste hervorgehobener Notizen ist auf diesem Server nicht verfügbar."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:29
+msgid "errors.auth.noKeystoneToken"
+msgstr "Der Server hat für diese Sitzung kein Keystone-Token ausgestellt."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:45
+msgid "errors.shape.createdList"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:44
+msgid "errors.shape.createdPost"
+msgstr "Der Server hat den erstellten Beitrag nicht zurückgegeben."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:50
+msgid "errors.shape.noScheduled"
+msgstr "Der Server hat den geplanten Status nicht zurückgegeben."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:46
+msgid "errors.shape.updatedList"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:47
+msgid "errors.shape.updatedProfile"
+msgstr "Der Server hat das aktualisierte Profil nicht zurückgegeben."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:48
+msgid "errors.shape.uploadedMedia"
+msgstr "Der Server hat die hochgeladenen Medien nicht zurückgegeben."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:30
+msgid "errors.auth.noCredentials"
+msgstr "Der Server hat eine App registriert, aber keine verwendbaren Zugangsdaten geliefert."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:49
+msgid "errors.shape.noTranslation"
+msgstr "Der Server hat keine Übersetzung für diesen Beitrag geliefert."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:37
+msgid "errors.unsupported.social"
+msgstr "Die soziale Timeline ist auf diesem Server nicht verfügbar."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:32
+msgid "errors.auth.mfaRequired"
+msgstr "Dieses Konto erfordert Zwei-Faktor-Authentifizierung. Code eingeben, um die Anmeldung abzuschließen."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:51
+msgid "errors.shape.noPoll"
+msgstr "Dieser Beitrag enthält keine Umfrage zum Abstimmen."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:63
+msgid "errors.reactions.likeUnsupported"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:55
+msgid "errors.shape.timeline"
+msgstr "Timeline {kind} hat ein unerwartetes Antwortformat geliefert (HTTP {status})."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:60
+msgid "errors.shape.trendingLinks"
+msgstr "Trend-Links haben ein unerwartetes Antwortformat geliefert."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:59
+msgid "errors.shape.trendingStatuses"
+msgstr "Trend-Beiträge haben ein unerwartetes Antwortformat geliefert."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:58
+msgid "errors.shape.trendingTags"
+msgstr "Trend-Tags haben ein unerwartetes Antwortformat geliefert."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:33
+msgid "errors.auth.mfaFailed"
+msgstr "Zwei-Faktor-Anmeldung fehlgeschlagen."
+
+#: src/components/Profile/UserHoverCard.tsx:139
+msgid "Unfollow"
+msgstr "Entfolgen"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:17
+msgid "errors.validation.hostScheme"
+msgstr "Eine http(s)-Instanzadresse verwenden, z. B. example.com."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:34
+msgid "errors.auth.noVerifyAccount"
+msgstr "verify_credentials hat kein Konto geliefert."
+
+#: src/Navigation.tsx:588
+msgid "Widgets land in Phase 5."
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:43
+msgid "errors.unsupported.boostVisibility"
+msgstr "Boost-Sichtbarkeit kann nur bei gefolgten Konten geändert werden."

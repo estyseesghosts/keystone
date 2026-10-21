@@ -1,10 +1,10 @@
 import {defineConfig} from '@lingui/cli'
 
-// Minimal catalog config. Only `en` for the scaffold; the 8 Keystone
-// locales land via the translation-import script (plan slice 6.x).
+// Catalog config: the 8 Keystone locales (plan slices 5.x/6.x). `en` is
+// the source; the 7 carried locales seed from the v1 reference dicts.
 export default defineConfig({
   sourceLocale: 'en',
-  locales: ['en'],
+  locales: ['en', 'fr', 'de', 'zh-CN', 'zh-TW', 'yue-HK', 'ja', 'hi'],
   catalogs: [
     {
       path: '<rootDir>/src/locale/locales/{locale}/messages',

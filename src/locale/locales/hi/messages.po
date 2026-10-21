@@ -1,0 +1,362 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-21 01:16-0400\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: hi\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/components/Profile/UserHoverCard.tsx:182
+msgid " · automated"
+msgstr " · स्वचालित"
+
+#: src/components/Profile/UserHoverCard.tsx:181
+msgid " · locked"
+msgstr " · लॉक्ड"
+
+#: src/components/Profile/UserHoverCard.tsx:149
+msgid "{notes} notes · {following} following · {followers} followers"
+msgstr "{notes} नोट · {following} फ़ॉलोइंग · {followers} फ़ॉलोअर"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:56
+msgid "errors.shape.account"
+msgstr "खाता {id} का उत्तर अप्रत्याशित रूप में आया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:71
+msgid "errors.compose.actionFailed"
+msgstr "कार्रवाई विफल।"
+
+#: src/components/Profile/UserHoverCard.tsx:90
+msgid "Action failed."
+msgstr "कार्रवाई विफल।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:28
+msgid "errors.network.apiError"
+msgstr "API त्रुटि: HTTP {status}"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:40
+msgid "errors.unsupported.avatar"
+msgstr "Mastodon परिवार में अवतार और बैनर बदलना अभी समर्थित नहीं है।"
+
+#: src/components/Dialog.tsx:26
+msgid "Close dialog"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:21
+msgid "errors.network.unreachableBare"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:25
+msgid "errors.network.unreachableOrigin"
+msgstr "{origin} तक नहीं पहुँच सके ({reason})। क्या सर्वर चल रहा है और होस्ट सही है?"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:24
+msgid "errors.network.unreachableInstance"
+msgstr "इंस्टेंस तक नहीं पहुँच सके ({reason})। क्या होस्ट सही है?"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:26
+msgid "errors.network.unreachableServer"
+msgstr "सर्वर तक नहीं पहुँच सके ({reason})। क्या यह चल रहा है?"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:35
+msgid "errors.auth.savePending"
+msgstr ""
+
+#: src/components/Settings/LanguageSection.tsx:30
+msgid "Current language."
+msgstr ""
+
+#: src/components/Popup.tsx:170
+msgid "Dismiss"
+msgstr "खारिज करें"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:16
+msgid "errors.validation.hostRequired"
+msgstr "इंस्टेंस होस्ट लिखें, जैसे example.com।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:62
+msgid "errors.shape.expectedList"
+msgstr "{kind} सूची अपेक्षित थी (HTTP {status})।"
+
+#: src/Navigation.tsx:487
+#: src/Navigation.tsx:616
+msgid "Explore"
+msgstr "एक्सप्लोर"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:64
+msgid "errors.compose.fileTooLarge"
+msgstr "फ़ाइल बहुत बड़ी है ({kb} KB — सीमा 10 MB है)।"
+
+#: src/components/Profile/UserHoverCard.tsx:142
+msgid "Follow"
+msgstr "फ़ॉलो"
+
+#: src/Navigation.tsx:485
+#: src/Navigation.tsx:606
+msgid "Home"
+msgstr "होम"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:66
+msgid "errors.feeds.invalidDescriptor"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:65
+msgid "errors.filter.invalidRegex"
+msgstr "पंक्ति {line} पर अमान्य नियमित अभिव्यक्ति।"
+
+#: src/components/Settings/LanguageSection.tsx:31
+msgid "Language"
+msgstr "भाषा"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:54
+msgid "errors.shape.mediaLookup"
+msgstr "मीडिया खोज का उत्तर अप्रत्याशित रूप में आया।"
+
+#: src/Navigation.tsx:486
+msgid "My Network"
+msgstr "मेरा नेटवर्क"
+
+#: src/Navigation.tsx:611
+msgid "Network"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:42
+msgid "errors.unsupported.noAccountFound"
+msgstr "{acct} के लिए कोई खाता नहीं मिला।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:41
+msgid "errors.unsupported.noAccountRef"
+msgstr "कोई खाता संदर्भ नहीं दिया गया।"
+
+#: src/Navigation.tsx:491
+#: src/Navigation.tsx:623
+msgid "Notifications"
+msgstr "सूचनाएँ"
+
+#: src/components/Profile/UserHoverCard.tsx:143
+msgid "Open profile"
+msgstr "प्रोफ़ाइल खोलें"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:36
+msgid "errors.unsupported.pinned"
+msgstr "इस सर्वर पर पिन किए गए पोस्ट उपलब्ध नहीं हैं।"
+
+#: src/Navigation.tsx:492
+#: src/Navigation.tsx:628
+msgid "Profile"
+msgstr "प्रोफ़ाइल"
+
+#: src/components/Profile/UserHoverCard.tsx:136
+msgid "Profile preview for {name}"
+msgstr "{name} की प्रोफ़ाइल झलक"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:38
+msgid "errors.unsupported.reactions"
+msgstr "इस सर्वर पर रिएक्शन सूची उपलब्ध नहीं है।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:19
+msgid "errors.network.crossOrigin"
+msgstr "यह अनुरोध भेजने से इनकार: URL सत्र के स्रोत से अलग है।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:52
+msgid "errors.shape.relationships"
+msgstr "रिलेशनशिप का उत्तर अप्रत्याशित रूप में आया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:20
+msgid "errors.network.badPath"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:22
+msgid "errors.network.timeoutInstance"
+msgstr "अनुरोध समयबाह्य ({target}): इंस्टेंस ने {n} सेकंड में उत्तर नहीं दिया। पुनः प्रयास करें।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:23
+msgid "errors.network.timeoutServer"
+msgstr "अनुरोध समयबाह्य ({target}): सर्वर ने {n} सेकंड में उत्तर नहीं दिया। पुनः प्रयास करें, या डेव-सर्वर टर्मिनल देखें।"
+
+#: src/components/Profile/UserHoverCard.tsx:141
+msgid "Requested"
+msgstr "अनुरोधित"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:27
+msgid "errors.network.badJson"
+msgstr "सर्वर ने {target} के लिए गैर-JSON उत्तर दिया (HTTP {status})।"
+
+#: src/Navigation.tsx:635
+msgid "Sign in"
+msgstr "साइन इन"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:31
+msgid "errors.auth.signinFailed"
+msgstr "साइन-इन विफल।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:57
+msgid "errors.shape.status"
+msgstr "स्टेटस {id} का उत्तर अप्रत्याशित रूप में आया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:53
+msgid "errors.shape.statusContext"
+msgstr "स्टेटस संदर्भ का उत्तर अप्रत्याशित रूप में आया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:61
+msgid "errors.shape.suggestions"
+msgstr "सुझावों का उत्तर अप्रत्याशित रूप में आया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:18
+msgid "errors.validation.hostInvalid"
+msgstr "यह होस्ट मान्य इंस्टेंस पता नहीं लगता।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:39
+msgid "errors.unsupported.featured"
+msgstr "इस सर्वर पर चुनिंदा-नोट सूची उपलब्ध नहीं है।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:29
+msgid "errors.auth.noKeystoneToken"
+msgstr "सर्वर ने इस सत्र के लिए Keystone टोकन जारी नहीं किया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:45
+msgid "errors.shape.createdList"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:44
+msgid "errors.shape.createdPost"
+msgstr "सर्वर ने बनाया गया पोस्ट नहीं दिया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:50
+msgid "errors.shape.noScheduled"
+msgstr "सर्वर ने निर्धारित स्टेटस नहीं दिया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:46
+msgid "errors.shape.updatedList"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:47
+msgid "errors.shape.updatedProfile"
+msgstr "सर्वर ने अद्यतन प्रोफ़ाइल नहीं दी।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:48
+msgid "errors.shape.uploadedMedia"
+msgstr "सर्वर ने अपलोड किया गया मीडिया नहीं दिया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:30
+msgid "errors.auth.noCredentials"
+msgstr "सर्वर ने ऐप पंजीकृत किया पर उपयोगी क्रेडेंशियल नहीं दिए।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:49
+msgid "errors.shape.noTranslation"
+msgstr "सर्वर ने इस पोस्ट का कोई अनुवाद नहीं दिया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:37
+msgid "errors.unsupported.social"
+msgstr "इस सर्वर पर सोशल टाइमलाइन उपलब्ध नहीं है।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:32
+msgid "errors.auth.mfaRequired"
+msgstr "इस खाते में दो-चरणीय प्रमाणीकरण आवश्यक है। साइन-इन पूरा करने के लिए अपना कोड लिखें।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:51
+msgid "errors.shape.noPoll"
+msgstr "इस पोस्ट में वोट करने के लिए कोई पोल नहीं है।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:63
+msgid "errors.reactions.likeUnsupported"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:55
+msgid "errors.shape.timeline"
+msgstr "टाइमलाइन {kind} का उत्तर अप्रत्याशित रूप में आया (HTTP {status})।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:60
+msgid "errors.shape.trendingLinks"
+msgstr "ट्रेंडिंग लिंक का उत्तर अप्रत्याशित रूप में आया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:59
+msgid "errors.shape.trendingStatuses"
+msgstr "ट्रेंडिंग पोस्ट का उत्तर अप्रत्याशित रूप में आया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:58
+msgid "errors.shape.trendingTags"
+msgstr "ट्रेंडिंग टैग का उत्तर अप्रत्याशित रूप में आया।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:33
+msgid "errors.auth.mfaFailed"
+msgstr "दो-चरणीय साइन-इन विफल।"
+
+#: src/components/Profile/UserHoverCard.tsx:139
+msgid "Unfollow"
+msgstr "अनफ़ॉलो"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:17
+msgid "errors.validation.hostScheme"
+msgstr "http(s) इंस्टेंस पता लिखें, जैसे example.com।"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:34
+msgid "errors.auth.noVerifyAccount"
+msgstr "verify_credentials ने कोई खाता नहीं दिया।"
+
+#: src/Navigation.tsx:588
+msgid "Widgets land in Phase 5."
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:43
+msgid "errors.unsupported.boostVisibility"
+msgstr "आप केवल फ़ॉलो किए गए खातों की बूस्ट दृश्यता बदल सकते हैं।"

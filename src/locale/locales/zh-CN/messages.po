@@ -1,0 +1,362 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-21 01:16-0400\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: zh-CN\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/components/Profile/UserHoverCard.tsx:182
+msgid " · automated"
+msgstr " · 机器人"
+
+#: src/components/Profile/UserHoverCard.tsx:181
+msgid " · locked"
+msgstr " · 已锁定"
+
+#: src/components/Profile/UserHoverCard.tsx:149
+msgid "{notes} notes · {following} following · {followers} followers"
+msgstr "{notes} 条帖子 · 正在关注 {following} · 关注者 {followers}"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:56
+msgid "errors.shape.account"
+msgstr "账号 {id} 返回了意外的结构。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:71
+msgid "errors.compose.actionFailed"
+msgstr "操作失败。"
+
+#: src/components/Profile/UserHoverCard.tsx:90
+msgid "Action failed."
+msgstr "操作失败。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:28
+msgid "errors.network.apiError"
+msgstr "API 错误：HTTP {status}"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:40
+msgid "errors.unsupported.avatar"
+msgstr "Mastodon 系暂不支持更换头像和横幅。"
+
+#: src/components/Dialog.tsx:26
+msgid "Close dialog"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:21
+msgid "errors.network.unreachableBare"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:25
+msgid "errors.network.unreachableOrigin"
+msgstr "无法连接 {origin}（{reason}）。服务器运行中吗？域名正确吗？"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:24
+msgid "errors.network.unreachableInstance"
+msgstr "无法连接实例（{reason}）。域名正确吗？"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:26
+msgid "errors.network.unreachableServer"
+msgstr "无法连接服务器（{reason}）。它运行中吗？"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:35
+msgid "errors.auth.savePending"
+msgstr ""
+
+#: src/components/Settings/LanguageSection.tsx:30
+msgid "Current language."
+msgstr ""
+
+#: src/components/Popup.tsx:170
+msgid "Dismiss"
+msgstr "关闭"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:16
+msgid "errors.validation.hostRequired"
+msgstr "请输入实例域名，例如 example.com。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:62
+msgid "errors.shape.expectedList"
+msgstr "应为 {kind} 列表（HTTP {status}）。"
+
+#: src/Navigation.tsx:487
+#: src/Navigation.tsx:616
+msgid "Explore"
+msgstr "发现"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:64
+msgid "errors.compose.fileTooLarge"
+msgstr "文件太大（{kb} KB——上限为 10 MB）。"
+
+#: src/components/Profile/UserHoverCard.tsx:142
+msgid "Follow"
+msgstr "关注"
+
+#: src/Navigation.tsx:485
+#: src/Navigation.tsx:606
+msgid "Home"
+msgstr "主页"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:66
+msgid "errors.feeds.invalidDescriptor"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:65
+msgid "errors.filter.invalidRegex"
+msgstr "第 {line} 行的正则表达式无效。"
+
+#: src/components/Settings/LanguageSection.tsx:31
+msgid "Language"
+msgstr "语言"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:54
+msgid "errors.shape.mediaLookup"
+msgstr "媒体查询返回了意外的结构。"
+
+#: src/Navigation.tsx:486
+msgid "My Network"
+msgstr "我的网络"
+
+#: src/Navigation.tsx:611
+msgid "Network"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:42
+msgid "errors.unsupported.noAccountFound"
+msgstr "找不到 {acct} 对应的账号。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:41
+msgid "errors.unsupported.noAccountRef"
+msgstr "没有给出账号引用。"
+
+#: src/Navigation.tsx:491
+#: src/Navigation.tsx:623
+msgid "Notifications"
+msgstr "通知"
+
+#: src/components/Profile/UserHoverCard.tsx:143
+msgid "Open profile"
+msgstr "打开个人资料"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:36
+msgid "errors.unsupported.pinned"
+msgstr "此服务器不支持置顶帖子列表。"
+
+#: src/Navigation.tsx:492
+#: src/Navigation.tsx:628
+msgid "Profile"
+msgstr "个人主页"
+
+#: src/components/Profile/UserHoverCard.tsx:136
+msgid "Profile preview for {name}"
+msgstr "{name} 的资料预览"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:38
+msgid "errors.unsupported.reactions"
+msgstr "此服务器不支持回应列表。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:19
+msgid "errors.network.crossOrigin"
+msgstr "已拒绝发送此请求：该网址与当前会话的来源不一致。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:52
+msgid "errors.shape.relationships"
+msgstr "关系数据返回了意外的结构。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:20
+msgid "errors.network.badPath"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:22
+msgid "errors.network.timeoutInstance"
+msgstr "请求超时（{target}）：实例在 {n} 秒内没有响应。请重试。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:23
+msgid "errors.network.timeoutServer"
+msgstr "请求超时（{target}）：服务器在 {n} 秒内没有响应。请重试，或查看开发服务器终端。"
+
+#: src/components/Profile/UserHoverCard.tsx:141
+msgid "Requested"
+msgstr "已请求"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:27
+msgid "errors.network.badJson"
+msgstr "服务器返回了非 JSON 响应（HTTP {status}），目标：{target}。"
+
+#: src/Navigation.tsx:635
+msgid "Sign in"
+msgstr "登录"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:31
+msgid "errors.auth.signinFailed"
+msgstr "登录失败。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:57
+msgid "errors.shape.status"
+msgstr "帖子 {id} 返回了意外的结构。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:53
+msgid "errors.shape.statusContext"
+msgstr "帖子上下文返回了意外的结构。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:61
+msgid "errors.shape.suggestions"
+msgstr "推荐返回了意外的结构。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:18
+msgid "errors.validation.hostInvalid"
+msgstr "该地址看起来不是有效的实例地址。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:39
+msgid "errors.unsupported.featured"
+msgstr "此服务器不支持精选帖子列表。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:29
+msgid "errors.auth.noKeystoneToken"
+msgstr "服务器没有为此会话签发 Keystone 令牌。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:45
+msgid "errors.shape.createdList"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:44
+msgid "errors.shape.createdPost"
+msgstr "服务器没有返回已发布的帖子。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:50
+msgid "errors.shape.noScheduled"
+msgstr "服务器没有返回定时帖子。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:46
+msgid "errors.shape.updatedList"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:47
+msgid "errors.shape.updatedProfile"
+msgstr "服务器没有返回更新后的个人资料。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:48
+msgid "errors.shape.uploadedMedia"
+msgstr "服务器没有返回已上传的媒体。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:30
+msgid "errors.auth.noCredentials"
+msgstr "服务器注册了应用，但没有返回可用的凭证。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:49
+msgid "errors.shape.noTranslation"
+msgstr "服务器没有返回此帖子的翻译。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:37
+msgid "errors.unsupported.social"
+msgstr "此服务器不支持社交时间线。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:32
+msgid "errors.auth.mfaRequired"
+msgstr "此账号需要两步验证。请输入验证码以完成登录。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:51
+msgid "errors.shape.noPoll"
+msgstr "此帖子没有可以投票的投票。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:63
+msgid "errors.reactions.likeUnsupported"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:55
+msgid "errors.shape.timeline"
+msgstr "时间线 {kind} 返回了意外的结构（HTTP {status}）。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:60
+msgid "errors.shape.trendingLinks"
+msgstr "热门链接返回了意外的结构。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:59
+msgid "errors.shape.trendingStatuses"
+msgstr "热门帖子返回了意外的结构。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:58
+msgid "errors.shape.trendingTags"
+msgstr "热门标签返回了意外的结构。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:33
+msgid "errors.auth.mfaFailed"
+msgstr "两步验证登录失败。"
+
+#: src/components/Profile/UserHoverCard.tsx:139
+msgid "Unfollow"
+msgstr "取消关注"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:17
+msgid "errors.validation.hostScheme"
+msgstr "请使用 http(s) 实例地址，例如 example.com。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:34
+msgid "errors.auth.noVerifyAccount"
+msgstr "verify_credentials 没有返回账号。"
+
+#: src/Navigation.tsx:588
+msgid "Widgets land in Phase 5."
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:43
+msgid "errors.unsupported.boostVisibility"
+msgstr "你只能修改你关注的账号的转发可见性。"

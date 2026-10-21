@@ -1,0 +1,362 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-21 01:16-0400\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: zh-TW\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/components/Profile/UserHoverCard.tsx:182
+msgid " · automated"
+msgstr " · 自動化帳號"
+
+#: src/components/Profile/UserHoverCard.tsx:181
+msgid " · locked"
+msgstr " · 已鎖定"
+
+#: src/components/Profile/UserHoverCard.tsx:149
+msgid "{notes} notes · {following} following · {followers} followers"
+msgstr "{notes} 則貼文 · 追蹤中 {following} · 追蹤者 {followers}"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:56
+msgid "errors.shape.account"
+msgstr "帳號 {id} 回傳了非預期的資料格式。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:71
+msgid "errors.compose.actionFailed"
+msgstr "操作失敗。"
+
+#: src/components/Profile/UserHoverCard.tsx:90
+msgid "Action failed."
+msgstr "操作失敗。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:28
+msgid "errors.network.apiError"
+msgstr "API 錯誤：HTTP {status}"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:40
+msgid "errors.unsupported.avatar"
+msgstr "Mastodon 系列尚不支援更換頭像與橫幅。"
+
+#: src/components/Dialog.tsx:26
+msgid "Close dialog"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:21
+msgid "errors.network.unreachableBare"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:25
+msgid "errors.network.unreachableOrigin"
+msgstr "無法連上 {origin}（{reason}）。伺服器是否正在運作、主機位址是否正確？"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:24
+msgid "errors.network.unreachableInstance"
+msgstr "無法連上站台（{reason}）。主機位址是否正確？"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:26
+msgid "errors.network.unreachableServer"
+msgstr "無法連上伺服器（{reason}）。伺服器是否正在運作？"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:35
+msgid "errors.auth.savePending"
+msgstr ""
+
+#: src/components/Settings/LanguageSection.tsx:30
+msgid "Current language."
+msgstr ""
+
+#: src/components/Popup.tsx:170
+msgid "Dismiss"
+msgstr "關閉"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:16
+msgid "errors.validation.hostRequired"
+msgstr "請輸入站台位址，例如 example.com。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:62
+msgid "errors.shape.expectedList"
+msgstr "預期收到 {kind} 列表（HTTP {status}）。"
+
+#: src/Navigation.tsx:487
+#: src/Navigation.tsx:616
+msgid "Explore"
+msgstr "探索"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:64
+msgid "errors.compose.fileTooLarge"
+msgstr "檔案太大（{kb} KB，上限為 10 MB）。"
+
+#: src/components/Profile/UserHoverCard.tsx:142
+msgid "Follow"
+msgstr "追蹤"
+
+#: src/Navigation.tsx:485
+#: src/Navigation.tsx:606
+msgid "Home"
+msgstr "首頁"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:66
+msgid "errors.feeds.invalidDescriptor"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:65
+msgid "errors.filter.invalidRegex"
+msgstr "第 {line} 行的規則運算式無效。"
+
+#: src/components/Settings/LanguageSection.tsx:31
+msgid "Language"
+msgstr "語言"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:54
+msgid "errors.shape.mediaLookup"
+msgstr "媒體查詢回傳了非預期的資料格式。"
+
+#: src/Navigation.tsx:486
+msgid "My Network"
+msgstr "我的網路"
+
+#: src/Navigation.tsx:611
+msgid "Network"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:42
+msgid "errors.unsupported.noAccountFound"
+msgstr "找不到帳號 {acct}。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:41
+msgid "errors.unsupported.noAccountRef"
+msgstr "未提供帳號參照。"
+
+#: src/Navigation.tsx:491
+#: src/Navigation.tsx:623
+msgid "Notifications"
+msgstr "通知"
+
+#: src/components/Profile/UserHoverCard.tsx:143
+msgid "Open profile"
+msgstr "開啟個人資料"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:36
+msgid "errors.unsupported.pinned"
+msgstr "此伺服器不提供置頂貼文列表。"
+
+#: src/Navigation.tsx:492
+#: src/Navigation.tsx:628
+msgid "Profile"
+msgstr "個人資料"
+
+#: src/components/Profile/UserHoverCard.tsx:136
+msgid "Profile preview for {name}"
+msgstr "{name} 的個人預覽"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:38
+msgid "errors.unsupported.reactions"
+msgstr "此伺服器不提供表情回應列表。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:19
+msgid "errors.network.crossOrigin"
+msgstr "拒絕傳送此請求：網址與目前工作階段的來源不同。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:52
+msgid "errors.shape.relationships"
+msgstr "Relationships 回傳了非預期的資料格式。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:20
+msgid "errors.network.badPath"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:22
+msgid "errors.network.timeoutInstance"
+msgstr "請求逾時（{target}）：站台在 {n} 秒內沒有回應。請重試。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:23
+msgid "errors.network.timeoutServer"
+msgstr "請求逾時（{target}）：伺服器在 {n} 秒內沒有回應。請重試，或查看開發伺服器的終端機輸出。"
+
+#: src/components/Profile/UserHoverCard.tsx:141
+msgid "Requested"
+msgstr "已請求"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:27
+msgid "errors.network.badJson"
+msgstr "伺服器回傳了非 JSON 的回應（HTTP {status}），對象為 {target}。"
+
+#: src/Navigation.tsx:635
+msgid "Sign in"
+msgstr "登入"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:31
+msgid "errors.auth.signinFailed"
+msgstr "登入失敗。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:57
+msgid "errors.shape.status"
+msgstr "貼文 {id} 回傳了非預期的資料格式。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:53
+msgid "errors.shape.statusContext"
+msgstr "Status context 回傳了非預期的資料格式。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:61
+msgid "errors.shape.suggestions"
+msgstr "推薦帳號回傳了非預期的資料格式。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:18
+msgid "errors.validation.hostInvalid"
+msgstr "該位址看起來不是有效的站台位址。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:39
+msgid "errors.unsupported.featured"
+msgstr "此伺服器不提供精選貼文列表。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:29
+msgid "errors.auth.noKeystoneToken"
+msgstr "伺服器沒有為此工作階段核發 Keystone 權杖。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:45
+msgid "errors.shape.createdList"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:44
+msgid "errors.shape.createdPost"
+msgstr "伺服器沒有回傳已建立的貼文。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:50
+msgid "errors.shape.noScheduled"
+msgstr "伺服器沒有回傳已排程的貼文。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:46
+msgid "errors.shape.updatedList"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:47
+msgid "errors.shape.updatedProfile"
+msgstr "伺服器沒有回傳更新後的個人資料。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:48
+msgid "errors.shape.uploadedMedia"
+msgstr "伺服器沒有回傳已上傳的媒體。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:30
+msgid "errors.auth.noCredentials"
+msgstr "伺服器註冊了應用程式，但沒有回傳可用的憑證。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:49
+msgid "errors.shape.noTranslation"
+msgstr "伺服器沒有回傳此貼文的翻譯。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:37
+msgid "errors.unsupported.social"
+msgstr "此伺服器不提供社交時間軸。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:32
+msgid "errors.auth.mfaRequired"
+msgstr "此帳號需要兩步驟驗證。請輸入驗證碼以完成登入。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:51
+msgid "errors.shape.noPoll"
+msgstr "此貼文沒有可投票的投票。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:63
+msgid "errors.reactions.likeUnsupported"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:55
+msgid "errors.shape.timeline"
+msgstr "時間軸 {kind} 回傳了非預期的資料格式（HTTP {status}）。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:60
+msgid "errors.shape.trendingLinks"
+msgstr "熱門連結回傳了非預期的資料格式。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:59
+msgid "errors.shape.trendingStatuses"
+msgstr "熱門貼文回傳了非預期的資料格式。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:58
+msgid "errors.shape.trendingTags"
+msgstr "熱門標籤回傳了非預期的資料格式。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:33
+msgid "errors.auth.mfaFailed"
+msgstr "兩步驟驗證登入失敗。"
+
+#: src/components/Profile/UserHoverCard.tsx:139
+msgid "Unfollow"
+msgstr "取消追蹤"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:17
+msgid "errors.validation.hostScheme"
+msgstr "請使用 http(s) 開頭的站台位址，例如 example.com。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:34
+msgid "errors.auth.noVerifyAccount"
+msgstr "verify_credentials 沒有回傳帳號資料。"
+
+#: src/Navigation.tsx:588
+msgid "Widgets land in Phase 5."
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:43
+msgid "errors.unsupported.boostVisibility"
+msgstr "只能變更你所追蹤帳號的轉發可見度。"

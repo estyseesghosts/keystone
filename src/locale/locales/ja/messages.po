@@ -1,0 +1,362 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-21 01:16-0400\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: ja\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/components/Profile/UserHoverCard.tsx:182
+msgid " · automated"
+msgstr " · 自動"
+
+#: src/components/Profile/UserHoverCard.tsx:181
+msgid " · locked"
+msgstr " · 鍵付き"
+
+#: src/components/Profile/UserHoverCard.tsx:149
+msgid "{notes} notes · {following} following · {followers} followers"
+msgstr "ノート{notes}件 · フォロー中{following}人 · フォロワー{followers}人"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:56
+msgid "errors.shape.account"
+msgstr "アカウント{id}の応答形式が想定外でした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:71
+msgid "errors.compose.actionFailed"
+msgstr "操作に失敗しました。"
+
+#: src/components/Profile/UserHoverCard.tsx:90
+msgid "Action failed."
+msgstr "操作に失敗しました。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:28
+msgid "errors.network.apiError"
+msgstr "APIエラー: HTTP {status}"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:40
+msgid "errors.unsupported.avatar"
+msgstr "アバターとバナーの変更はMastodonファミリーでは未対応です。"
+
+#: src/components/Dialog.tsx:26
+msgid "Close dialog"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:21
+msgid "errors.network.unreachableBare"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:25
+msgid "errors.network.unreachableOrigin"
+msgstr "{origin}に接続できませんでした（{reason}）。サーバーは起動し、ホストは正しいですか。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:24
+msgid "errors.network.unreachableInstance"
+msgstr "インスタンスに接続できませんでした（{reason}）。ホストは正しいですか。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:26
+msgid "errors.network.unreachableServer"
+msgstr "サーバーに接続できませんでした（{reason}）。起動していますか。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:35
+msgid "errors.auth.savePending"
+msgstr ""
+
+#: src/components/Settings/LanguageSection.tsx:30
+msgid "Current language."
+msgstr ""
+
+#: src/components/Popup.tsx:170
+msgid "Dismiss"
+msgstr "閉じる"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:16
+msgid "errors.validation.hostRequired"
+msgstr "インスタンスのホストを入力してください（例: example.com）。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:62
+msgid "errors.shape.expectedList"
+msgstr "{kind}の一覧を想定していました（HTTP {status}）。"
+
+#: src/Navigation.tsx:487
+#: src/Navigation.tsx:616
+msgid "Explore"
+msgstr "見つける"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:64
+msgid "errors.compose.fileTooLarge"
+msgstr "ファイルが大きすぎます（{kb} KB — 上限は10 MB）。"
+
+#: src/components/Profile/UserHoverCard.tsx:142
+msgid "Follow"
+msgstr "フォロー"
+
+#: src/Navigation.tsx:485
+#: src/Navigation.tsx:606
+msgid "Home"
+msgstr "ホーム"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:66
+msgid "errors.feeds.invalidDescriptor"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:65
+msgid "errors.filter.invalidRegex"
+msgstr "{line}行目の正規表現が無効です。"
+
+#: src/components/Settings/LanguageSection.tsx:31
+msgid "Language"
+msgstr "言語"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:54
+msgid "errors.shape.mediaLookup"
+msgstr "メディア検索の応答形式が想定外でした。"
+
+#: src/Navigation.tsx:486
+msgid "My Network"
+msgstr "マイネットワーク"
+
+#: src/Navigation.tsx:611
+msgid "Network"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:42
+msgid "errors.unsupported.noAccountFound"
+msgstr "{acct}のアカウントが見つかりませんでした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:41
+msgid "errors.unsupported.noAccountRef"
+msgstr "アカウントの指定がありません。"
+
+#: src/Navigation.tsx:491
+#: src/Navigation.tsx:623
+msgid "Notifications"
+msgstr "通知"
+
+#: src/components/Profile/UserHoverCard.tsx:143
+msgid "Open profile"
+msgstr "プロフィールを開く"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:36
+msgid "errors.unsupported.pinned"
+msgstr "ピン留め投稿の一覧はこのサーバーでは利用できません。"
+
+#: src/Navigation.tsx:492
+#: src/Navigation.tsx:628
+msgid "Profile"
+msgstr "プロフィール"
+
+#: src/components/Profile/UserHoverCard.tsx:136
+msgid "Profile preview for {name}"
+msgstr "{name}のプロフィールプレビュー"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:38
+msgid "errors.unsupported.reactions"
+msgstr "リアクションの一覧はこのサーバーでは利用できません。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:19
+msgid "errors.network.crossOrigin"
+msgstr "このリクエストは送信できません: URLがセッションと異なるオリジンを指しています。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:52
+msgid "errors.shape.relationships"
+msgstr "フォロー関係の応答形式が想定外でした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:20
+msgid "errors.network.badPath"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:22
+msgid "errors.network.timeoutInstance"
+msgstr "タイムアウトしました（{target}）: インスタンスが{n}秒以内に応答しませんでした。再試行してください。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:23
+msgid "errors.network.timeoutServer"
+msgstr "タイムアウトしました（{target}）: サーバーが{n}秒以内に応答しませんでした。再試行するか、開発サーバーのターミナルを確認してください。"
+
+#: src/components/Profile/UserHoverCard.tsx:141
+msgid "Requested"
+msgstr "リクエスト済み"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:27
+msgid "errors.network.badJson"
+msgstr "サーバーが非JSONの応答を返しました（HTTP {status}、{target}）。"
+
+#: src/Navigation.tsx:635
+msgid "Sign in"
+msgstr "サインイン"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:31
+msgid "errors.auth.signinFailed"
+msgstr "サインインに失敗しました。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:57
+msgid "errors.shape.status"
+msgstr "投稿{id}の応答形式が想定外でした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:53
+msgid "errors.shape.statusContext"
+msgstr "投稿コンテキストの応答形式が想定外でした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:61
+msgid "errors.shape.suggestions"
+msgstr "おすすめの応答形式が想定外でした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:18
+msgid "errors.validation.hostInvalid"
+msgstr "そのホストは有効なインスタンスアドレスではないようです。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:39
+msgid "errors.unsupported.featured"
+msgstr "注目ノートの一覧はこのサーバーでは利用できません。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:29
+msgid "errors.auth.noKeystoneToken"
+msgstr "サーバーがこのセッション用のKeystoneトークンを発行しませんでした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:45
+msgid "errors.shape.createdList"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:44
+msgid "errors.shape.createdPost"
+msgstr "サーバーが作成した投稿を返しませんでした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:50
+msgid "errors.shape.noScheduled"
+msgstr "サーバーが予約投稿を返しませんでした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:46
+msgid "errors.shape.updatedList"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:47
+msgid "errors.shape.updatedProfile"
+msgstr "サーバーが更新後のプロフィールを返しませんでした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:48
+msgid "errors.shape.uploadedMedia"
+msgstr "サーバーがアップロードしたメディアを返しませんでした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:30
+msgid "errors.auth.noCredentials"
+msgstr "サーバーはアプリを登録しましたが、使用可能な認証情報を返しませんでした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:49
+msgid "errors.shape.noTranslation"
+msgstr "サーバーはこの投稿の翻訳を返しませんでした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:37
+msgid "errors.unsupported.social"
+msgstr "ソーシャルタイムラインはこのサーバーでは利用できません。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:32
+msgid "errors.auth.mfaRequired"
+msgstr "このアカウントは二要素認証が必要です。コードを入力してサインインを完了してください。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:51
+msgid "errors.shape.noPoll"
+msgstr "この投稿には投票できるアンケートがありません。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:63
+msgid "errors.reactions.likeUnsupported"
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:55
+msgid "errors.shape.timeline"
+msgstr "タイムライン{kind}の応答形式が想定外でした（HTTP {status}）。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:60
+msgid "errors.shape.trendingLinks"
+msgstr "急上昇リンクの応答形式が想定外でした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:59
+msgid "errors.shape.trendingStatuses"
+msgstr "急上昇投稿の応答形式が想定外でした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:58
+msgid "errors.shape.trendingTags"
+msgstr "急上昇タグの応答形式が想定外でした。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:33
+msgid "errors.auth.mfaFailed"
+msgstr "二要素認証のサインインに失敗しました。"
+
+#: src/components/Profile/UserHoverCard.tsx:139
+msgid "Unfollow"
+msgstr "フォロー解除"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:17
+msgid "errors.validation.hostScheme"
+msgstr "http(s)のインスタンスアドレスを使用してください（例: example.com）。"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:34
+msgid "errors.auth.noVerifyAccount"
+msgstr "verify_credentialsはアカウントを返しませんでした。"
+
+#: src/Navigation.tsx:588
+msgid "Widgets land in Phase 5."
+msgstr ""
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:43
+msgid "errors.unsupported.boostVisibility"
+msgstr "フォロー中のアカウントのブースト表示のみ変更できます。"

@@ -1,3 +1,4 @@
+import {msg} from '@lingui/macro'
 import {useEffect, useRef, useState, type ReactNode, type RefObject} from 'react'
 import {
   Animated,
@@ -14,6 +15,7 @@ import {
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
+import {i18n} from '#/locale/i18n'
 import {useReducedMotionSetting} from '#/lib/motion'
 
 // Anchored popup (Keystone v1 `.vispick-menu` style): a floating card
@@ -86,6 +88,19 @@ export function AnchoredPopup({
 }) {
   const theme = useTheme()
   const enter = usePopupEnter()
+  // Web keyboard (P8): Escape dismisses the popup. Guarded to web with
+  // cleanup on unmount; native keeps the backdrop tap + `onRequestClose`.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
   // Synchronously-initialized fallback position (viewport-centered): content
   // renders on first paint everywhere, then snaps to the anchor once
   // measured. Effects inside freshly-mounted Modal subtrees are not
@@ -150,13 +165,16 @@ export function AnchoredPopup({
     })
   }, [anchor, minWidth, side])
 
+  // The backdrop label is UI chrome (Lingui macro); the singleton call
+  // (not the hook) keeps provider-less trees — jest, previews — working.
+  const dismissLabel = i18n._(msg`Dismiss`)
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose}>
       <Pressable
         style={styles.backdrop}
         onPress={onClose}
         accessibilityRole="button"
-        accessibilityLabel="Dismiss"
+        accessibilityLabel={dismissLabel}
         testID={testID ? `${testID}-backdrop` : undefined}
       />
       <Animated.View
