@@ -1,5 +1,8 @@
 import {fireEvent, render, screen} from '@testing-library/react-native'
+import {StyleSheet} from 'react-native'
 
+import {ThemeProvider} from '#/alf/index'
+import {themes} from '#/alf/themes'
 import {makeAccount} from '#/components/__tests__/fixtures'
 
 import {ExploreSearchBar} from './ExploreSearchBar'
@@ -105,5 +108,27 @@ describe('ExploreSuggestPopup', () => {
     expect(screen.getByText('@bob@example.social')).toBeTruthy()
     fireEvent.press(screen.getByTestId('explore-suggest-0'))
     expect(onPick).toHaveBeenCalledWith(0)
+  })
+})
+
+describe.each(['light', 'dark'] as const)('ExploreSearchBar contrast (%s theme)', theme => {
+  it('pairs themed input text with a themed placeholder on a themed field', () => {
+    render(
+      <ThemeProvider theme={theme}>
+        <ExploreSearchBar
+          value="cats"
+          onChangeText={() => {}}
+          onSubmit={() => {}}
+          onClear={() => {}}
+        />
+      </ThemeProvider>,
+    )
+    const input = screen.getByTestId('explore-search-input')
+    const inputStyle = StyleSheet.flatten(input.props.style) as
+      | {color?: string; backgroundColor?: string}
+      | undefined
+    expect(inputStyle?.color).toBe(themes[theme].palette.text)
+    expect(inputStyle?.backgroundColor).toBe(themes[theme].palette.bg)
+    expect(input.props.placeholderTextColor).toBe(themes[theme].palette.faint)
   })
 })

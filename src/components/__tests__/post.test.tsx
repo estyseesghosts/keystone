@@ -313,8 +313,10 @@ describe('display-name color (black-on-dark fix)', () => {
   it('an explicit textStyle color still wins', async () => {
     const {DisplayName} = await import('#/components/DisplayName')
     const {makeAccount} = await import('./fixtures')
-    renderCard(<DisplayName account={makeAccount()} textStyle={{color: '#ff0000'}} testID="dn-override" />)
-    expect(renderedColor('dn-override')).toBe('#ff0000')
+    // Cross-theme palette ref: distinct from the light default, and no
+    // literal — the point is explicit-beats-default, not the hue.
+    renderCard(<DisplayName account={makeAccount()} textStyle={{color: themes.dark.palette.text}} testID="dn-override" />)
+    expect(renderedColor('dn-override')).toBe(themes.dark.palette.text)
   })
 })
 

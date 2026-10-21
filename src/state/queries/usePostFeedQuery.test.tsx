@@ -1,4 +1,4 @@
-import {Text} from 'react-native'
+import {Body} from '#/alf/typography'
 import {QueryClient} from '@tanstack/react-query'
 import {render, renderHook, screen, waitFor} from '@testing-library/react-native'
 
@@ -241,7 +241,7 @@ describe('QueryProvider persistence', () => {
     })
     render(
       <QueryProvider client={client} persister={persister}>
-        <Text testID="child">child</Text>
+        <Body testID="child">child</Body>
       </QueryProvider>,
     )
     expect(screen.getByTestId('child')).toBeTruthy()

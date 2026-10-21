@@ -5,6 +5,7 @@ import type {ComponentProps} from 'react'
 import {safeHttpUrl, type Media} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
+import {overlayChrome} from '#/alf/themes'
 import {space} from '#/alf/tokens'
 import {Caption} from '#/components/Typography'
 import {Button} from '#/components/Button'
@@ -68,14 +69,14 @@ function LightboxVideo({item, index, width, url}: {item: Media; index: number; w
 }
 
 // Fixed light-on-dark chrome: the viewer backdrop is always black in both
-// themes, so the counter, alt caption, and fallback caption stay fixed
-// near-white for contrast (theme text would be dark-on-dark in light mode).
-// The caption bar keeps its own semi-opaque scrim so text never sits
-// directly on media pixels.
-const CHROME_FG = '#fff'
+// themes, so the counter, alt caption, and fallback caption use the shared
+// `overlayChrome` pair (near-white on near-black) — theme text would be
+// dark-on-dark in light mode. The caption bar keeps its own semi-opaque
+// scrim so text never sits directly on media pixels.
+const CHROME_FG = overlayChrome.fg
 
 const styles = StyleSheet.create({
-  backdrop: {...StyleSheet.absoluteFill, backgroundColor: '#000'},
+  backdrop: {...StyleSheet.absoluteFill, backgroundColor: overlayChrome.backdrop},
   pager: {flex: 1},
   chrome: {
     position: 'absolute',
@@ -93,7 +94,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: space.md,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: overlayChrome.captionScrim,
   },
 })
 

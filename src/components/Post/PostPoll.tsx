@@ -115,7 +115,7 @@ export function PostPoll({
   }
 
   return (
-    <View style={[styles.box, {borderColor: theme.palette.edge}]} testID={testID}>
+    <View style={[styles.box, {borderColor: theme.palette.edge, backgroundColor: theme.palette.bg}]} testID={testID}>
       {poll.options.map((opt, i) => {
         const mine = voted ? selected.includes(i) || opt.voted : selected.includes(i)
         const ratio = total !== null && total > 0 ? opt.votesCount / total : 0

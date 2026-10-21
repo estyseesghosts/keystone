@@ -135,7 +135,10 @@ function LikeGlyph({glyphKey, url, mine, likeEmoji}: {glyphKey: string | null; u
         />
       )
     }
-    return <UnicodeEmoji sequence={glyphKey} size={ICON} />
+    // On an active (mine) button the background is `text`, so a system-font
+    // fallback must draw in `bg` — the unthemed default is invisible in
+    // dark mode.
+    return <UnicodeEmoji sequence={glyphKey} size={ICON} textStyle={{color: mine ? theme.palette.bg : theme.palette.text}} />
   }
   return <HeartIcon size={ICON} color={mine ? theme.palette.bg : theme.palette.muted} filled={mine} />
 }

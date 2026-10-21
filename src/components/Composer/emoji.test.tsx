@@ -15,11 +15,12 @@ jest.mock('@keystone/fedi', () => ({
   fetchComposeLimits: jest.fn(async () => ({maxChars: 500, maxMedia: 4, maxPollOptions: 4})),
 }))
 jest.mock('#/components/EmojiPicker', () => {
-  const {Pressable, Text} = require('react-native')
+  const {Pressable} = require('react-native')
+  const {Body} = require('#/alf/typography')
   return {
     EmojiPicker: ({onPick}: {onPick: (e: {key: string; url: string | null}) => void}) => (
       <Pressable testID="fake-pick" onPress={() => onPick({key: ':blobcat:', url: 'u'})}>
-        <Text>pick</Text>
+        <Body>pick</Body>
       </Pressable>
     ),
   }

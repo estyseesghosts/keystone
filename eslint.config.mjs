@@ -37,7 +37,10 @@ export default [
       parserOptions: {ecmaFeatures: {jsx: true}},
     },
     plugins: {keystone},
-    rules: {'keystone/no-wire-in-app': 'error'},
+    rules: {
+      'keystone/no-wire-in-app': 'error',
+      'keystone/no-hardcoded-color': 'error',
+    },
   },
   {
     files: ['scripts/**/*.ts'],

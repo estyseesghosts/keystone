@@ -5,6 +5,7 @@ import {Animated, Modal, Platform, StyleSheet, View} from 'react-native'
 
 import {atoms} from '#/alf/atoms'
 import {useTheme} from '#/alf/index'
+import {overlayChrome} from '#/alf/themes'
 import {radius, space} from '#/alf/tokens'
 import {Heading} from '#/alf/typography'
 import {usePopupEnter} from '#/components/Popup'
@@ -44,7 +45,7 @@ export function Dialog({open, onClose, title, children, testID}: DialogProps) {
   const styles = StyleSheet.create({
     backdrop: {
       ...StyleSheet.absoluteFill,
-      backgroundColor: '#000000',
+      backgroundColor: overlayChrome.backdrop,
       opacity: 0.4,
     },
     sheet: {

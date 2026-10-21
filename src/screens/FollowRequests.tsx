@@ -16,6 +16,7 @@ import {
   type FollowRequest,
 } from '@keystone/fedi'
 
+import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
@@ -85,6 +86,7 @@ function RequestRow({
 }
 
 export function FollowRequestsScreen() {
+  const theme = useTheme()
   const {session, backend} = useActiveBackend()
   const [items, setItems] = useState<FollowRequest[] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -173,6 +175,9 @@ export function FollowRequestsScreen() {
               refreshing={fetching}
               onRefresh={() => void load()}
               testID="follow-requests-refresh"
+              tintColor={theme.palette.muted}
+              colors={[theme.palette.muted]}
+              progressBackgroundColor={theme.palette.bg}
             />
           }
           ListEmptyComponent={

@@ -11,6 +11,7 @@ import {FlatList, RefreshControl, View} from 'react-native'
 
 import {isPermissionError, isUnsupportedError, type Cursor, type DriveFolder, type Media} from '@keystone/fedi'
 
+import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
@@ -212,6 +213,7 @@ function FileRow({
 }
 
 export function DriveScreen() {
+  const theme = useTheme()
   const {session, backend} = useActiveBackend()
   const [folders, setFolders] = useState<DriveFolder[] | null>(null)
   const [files, setFiles] = useState<Media[]>([])
@@ -369,7 +371,14 @@ export function DriveScreen() {
             />
           )}
           refreshControl={
-            <RefreshControl refreshing={fetching} onRefresh={() => void load()} testID="drive-refresh" />
+            <RefreshControl
+              refreshing={fetching}
+              onRefresh={() => void load()}
+              testID="drive-refresh"
+              tintColor={theme.palette.muted}
+              colors={[theme.palette.muted]}
+              progressBackgroundColor={theme.palette.bg}
+            />
           }
           ListHeaderComponent={
             foldersSupported ? (

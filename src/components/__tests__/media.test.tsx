@@ -6,6 +6,7 @@ import {StyleSheet} from 'react-native'
 import type {Media} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
+import {overlayChrome} from '#/alf/themes'
 import {Lightbox} from '#/components/Lightbox'
 import {MediaGrid, mediaAlt} from '#/components/MediaGrid'
 
@@ -138,8 +139,8 @@ describe('Lightbox', () => {
     const nodes = screen.getAllByText('Unfetchable')
     expect(nodes.length).toBeGreaterThanOrEqual(1)
     for (const node of nodes) {
-      expect(StyleSheet.flatten(node.props.style)?.color).toBe('#fff')
+      expect(StyleSheet.flatten(node.props.style)?.color).toBe(overlayChrome.fg)
     }
-    expect(StyleSheet.flatten(screen.getByText('1 / 1').props.style)?.color).toBe('#fff')
+    expect(StyleSheet.flatten(screen.getByText('1 / 1').props.style)?.color).toBe(overlayChrome.fg)
   })
 })

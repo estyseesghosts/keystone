@@ -51,3 +51,14 @@ export const themes: Record<ThemeName, Theme> = {
   light: {name: 'light', palette: lightPalette, fontScaleMultiplier: 1},
   dark: {name: 'dark', palette: darkPalette, fontScaleMultiplier: 1},
 }
+
+// Fixed overlay chrome for surfaces that stay dark in both themes (dialog
+// scrims, the fullscreen media viewer): near-white foreground on a
+// near-black surface, so the pairing contrasts in either theme. This is the
+// only sanctioned home for color literals outside `palette` — everything in
+// `src/` must reference `palette` or this constant (lint: no-hardcoded-color).
+export const overlayChrome = {
+  backdrop: '#000000',
+  captionScrim: 'rgba(0,0,0,0.6)',
+  fg: '#ffffff',
+} as const

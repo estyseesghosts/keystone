@@ -1,9 +1,11 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
+import {StyleSheet} from 'react-native'
 
 import {ApiError, buildCapabilities, createMemoryStore, type Backend, type Session} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
+import {themes, type ThemeName} from '#/alf/themes'
 import {draftsKeyFor, listDrafts} from '#/storage/drafts'
 
 import {Composer, sheetKeyboardInset, sheetVisibleMaxHeight} from './Composer'
@@ -226,6 +228,36 @@ describe('Composer', () => {
     expect(editPost).toHaveBeenCalledWith('p9', expect.objectContaining({mediaIds: ['m1']}))
     expect(onClose).toHaveBeenCalled()
   })
+
+  it.each(['light', 'dark'] as ThemeName[])(
+    'pairs the themed input text, placeholder, and counter with the theme (%s)',
+    theme => {
+      const store = createMemoryStore()
+      const s = session('misskey', 'sharkey')
+      const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+      render(
+        <QueryClientProvider client={qc}>
+          <ThemeProvider theme={theme}>
+            <Composer session={s} backend={backendFor('sharkey')} store={store} onClose={() => {}} />
+          </ThemeProvider>
+        </QueryClientProvider>,
+      )
+      const input = screen.getByTestId('composer-text')
+      const flat = StyleSheet.flatten(input.props.style) as
+        | {color?: string; backgroundColor?: string}
+        | undefined
+      expect(flat?.color).toBe(themes[theme].palette.text)
+      expect(flat?.backgroundColor).toBe(themes[theme].palette.bg)
+      expect(input.props.placeholderTextColor).toBe(themes[theme].palette.faint)
+      const counter = screen.getByTestId('composer-counter')
+      const counterFlat = StyleSheet.flatten(counter.props.style) as
+        | {color?: string}
+        | undefined
+      expect([themes[theme].palette.text, themes[theme].palette.muted]).toContain(
+        counterFlat?.color,
+      )
+    },
+  )
 })
 
 describe('sheet keyboard helpers (C3)', () => {

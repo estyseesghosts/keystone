@@ -1,8 +1,8 @@
 import {render, screen} from '@testing-library/react-native'
-import {Text} from 'react-native'
 
 import {createMemoryStore} from '@keystone/fedi'
 
+import {Body} from '#/alf/typography'
 import type {TokenVault} from '#/storage'
 
 import {createSessionStore} from './store'
@@ -18,12 +18,12 @@ const memVault = (): TokenVault => ({
 
 function ActiveLabel() {
   const active = useActiveSession()
-  return <Text testID="active">{active ? active.id : 'none'}</Text>
+  return <Body testID="active">{active ? active.id : 'none'}</Body>
 }
 
 function CountLabel() {
   const sessions = useSessions()
-  return <Text testID="count">{String(sessions.length)}</Text>
+  return <Body testID="count">{String(sessions.length)}</Body>
 }
 
 describe('SessionProvider', () => {

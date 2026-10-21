@@ -25,6 +25,7 @@ import {
 
 import {useTheme as useAlfTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
+import {overlayChrome} from '#/alf/themes'
 import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
@@ -376,7 +377,11 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    // Fixed light-on-dark chrome (`overlayChrome`): the scrim stays black
+    // in both themes. No foreground text ever renders on it — the card
+    // above carries its own paired theme background.
+    backgroundColor: overlayChrome.backdrop,
+    opacity: 0.5,
   },
   card: {
     flex: 1,

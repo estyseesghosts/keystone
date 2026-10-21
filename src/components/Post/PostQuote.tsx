@@ -76,7 +76,9 @@ export function PostQuote({
       onPress={() => onPress?.(quote)}
       accessibilityRole="link"
       accessibilityLabel={i18n._(msg`Open quoted post by ${quote.author.displayName}`)}>
-      <View style={[styles.card, {borderColor: theme.palette.edge}]}>
+      <View
+        style={[styles.card, {borderColor: theme.palette.edge, backgroundColor: theme.palette.bg}]}
+        testID={testID ? `${testID}-card` : undefined}>
         <Caption color="muted" numberOfLines={1}>
           <DisplayName
             account={collapsed ? {...quote.author, displayName: handleOf(quote.author)} : quote.author}

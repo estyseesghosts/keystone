@@ -110,7 +110,7 @@ export function MediaTile({
     return (
       <View
         testID={`media-tile-${index}`}
-        style={[styles.tile, {borderColor: theme.palette.border}]}>
+        style={[styles.tile, {borderColor: theme.palette.border, backgroundColor: theme.palette.bg}]}>
         {inner}
       </View>
     )
@@ -121,7 +121,7 @@ export function MediaTile({
       onPress={() => onOpen(index)}
       accessibilityRole="button"
       accessibilityLabel={`Open media: ${label}`}
-      style={[styles.tile, {borderColor: theme.palette.border}]}>
+      style={[styles.tile, {borderColor: theme.palette.border, backgroundColor: theme.palette.bg}]}>
       {inner}
     </Pressable>
   )
@@ -134,7 +134,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: radius.md,
     borderWidth: 1,
-    backgroundColor: 'transparent',
     aspectRatio: 16 / 9,
     flexBasis: '48%',
     flexGrow: 1,

@@ -24,6 +24,7 @@ import {
   type Cursor,
 } from '@keystone/fedi'
 
+import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
@@ -67,6 +68,7 @@ function FollowingRow({account}: {account: Account}) {
 }
 
 export function FollowingScreen() {
+  const theme = useTheme()
   const route = useRoute<RouteProp<RootParamList, 'Following'>>()
   const id = route.params.id
   const {session, backend} = useActiveBackend()
@@ -263,6 +265,9 @@ export function FollowingScreen() {
             refreshing={refreshing}
             onRefresh={() => void load('refresh')}
             testID="following-refresh"
+            tintColor={theme.palette.muted}
+            colors={[theme.palette.muted]}
+            progressBackgroundColor={theme.palette.bg}
           />
         }
         ListEmptyComponent={

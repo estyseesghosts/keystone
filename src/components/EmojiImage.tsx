@@ -20,6 +20,8 @@ import {
   type EmojiStyle,
 } from '@keystone/fedi'
 
+import {useTheme} from '#/alf/index'
+
 const GLYPH = 16
 
 const styles = StyleSheet.create({
@@ -39,11 +41,14 @@ export type UnicodeEmojiProps = {
 // to the system font when the style is `system`, the asset is unknown,
 // or the image fails to load (never a broken-image icon).
 export function UnicodeEmoji({sequence, style = DEFAULT_EMOJI_STYLE, size = GLYPH, textStyle, testID}: UnicodeEmojiProps) {
+  const theme = useTheme()
   const [failed, setFailed] = useState(false)
   const url = style === 'system' ? null : resolveEmojiUrl(style, sequence)
   if (url === null || failed) {
     return (
-      <Text style={[styles.fallback, {fontSize: size, lineHeight: size + 4}, textStyle]} testID={testID}>
+      <Text
+        style={[styles.fallback, {fontSize: size, lineHeight: size + 4}, {color: theme.palette.text}, textStyle]}
+        testID={testID}>
         {sequence}
       </Text>
     )
@@ -68,6 +73,9 @@ export type CustomEmojiProps = {
   /** The post's packed emoji map (MFM codes resolve here). */
   packed?: Record<string, string> | null
   size?: number
+  /** Overrides the literal-`:code:` fallback color (e.g. a chip that
+   * inverts its background when active). Defaults to `text`. */
+  textStyle?: StyleProp<TextStyle>
   testID?: string
 }
 
@@ -75,14 +83,19 @@ export type CustomEmojiProps = {
 // node's vetted `src`, then the packed map. A URL that fails to load
 // falls through to the next source; with no source left, the literal
 // `:code:` renders.
-export function CustomEmojiGlyph({name, host, src, packed, size = GLYPH + 2, testID}: CustomEmojiProps) {
+export function CustomEmojiGlyph({name, host, src, packed, size = GLYPH + 2, textStyle, testID}: CustomEmojiProps) {
+  const theme = useTheme()
   const code = host ? `:${name}@${host}:` : `:${name}:`
   const candidates = [safeHttpUrl(src), safeHttpUrl(lookupPackedEmojis(packed, code))].filter(
     (u): u is string => u !== null,
   )
   const [index, setIndex] = useState(0)
   if (index >= candidates.length) {
-    return <Text testID={testID}>{code}</Text>
+    return (
+      <Text testID={testID} style={[{color: theme.palette.text}, textStyle]}>
+        {code}
+      </Text>
+    )
   }
   return (
     <Image

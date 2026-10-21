@@ -1,6 +1,7 @@
 import {render} from '@testing-library/react-native'
 
 import {ThemeProvider} from '#/alf/index'
+import {themes} from '#/alf/themes'
 
 import {
   BackIcon,
@@ -45,7 +46,7 @@ describe('icons', () => {
     it(`${name} renders an svg`, () => {
       const tree = render(
         <ThemeProvider theme="light">
-          <Icon size={24} color="#111111" />
+          <Icon size={24} color={themes.light.palette.text} />
         </ThemeProvider>,
       )
       expect(tree.toJSON()).toBeTruthy()
@@ -55,7 +56,7 @@ describe('icons', () => {
   it('HeartIcon fills when asked', () => {
     const tree = render(
       <ThemeProvider theme="light">
-        <HeartIcon size={24} color="#111111" filled />
+        <HeartIcon size={24} color={themes.light.palette.text} filled />
       </ThemeProvider>,
     )
     expect(tree.toJSON()).toBeTruthy()
@@ -63,8 +64,8 @@ describe('icons', () => {
 
   it('defaults to the theme text color (readable in both themes)', () => {
     for (const [theme, fg] of [
-      ['light', '#111111'],
-      ['dark', '#ededed'],
+      ['light', themes.light.palette.text],
+      ['dark', themes.dark.palette.text],
     ] as const) {
       const tree = render(
         <ThemeProvider theme={theme}>
@@ -83,7 +84,7 @@ describe('icons', () => {
         <HeartIcon size={24} filled />
       </ThemeProvider>,
     )
-    const hits = JSON.stringify(tree.toJSON()).split('#ededed').length - 1
+    const hits = JSON.stringify(tree.toJSON()).split(themes.dark.palette.text).length - 1
     expect(hits).toBeGreaterThanOrEqual(2)
     tree.unmount()
   })

@@ -37,12 +37,18 @@ function ChipArt({
   reactionKey,
   url,
   pending,
+  mine,
 }: {
   reactionKey: string
   url: string | null
   pending?: boolean
+  mine: boolean
 }) {
+  const theme = useTheme()
   const [failed, setFailed] = useState(false)
+  // An inverted (mine) chip paints its background with `text`, so its
+  // foreground must be `bg` — otherwise the fallback label vanishes.
+  const fallbackColor = mine ? theme.palette.bg : theme.palette.text
   // Optimistic custom emoji with unknown art: fixed box, never `:code:`.
   if (pending && url === null) return <PendingEmoji />
   if (url !== null && !failed) {
@@ -57,8 +63,8 @@ function ChipArt({
   }
   // Custom `:code:` keys without art render as their literal text —
   // the read-only display fallback, never a fabricated image.
-  if (reactionKey.includes(':')) return <Caption>{reactionKey}</Caption>
-  return <UnicodeEmoji sequence={reactionKey} size={14} />
+  if (reactionKey.includes(':')) return <Caption style={{color: fallbackColor}}>{reactionKey}</Caption>
+  return <UnicodeEmoji sequence={reactionKey} size={14} textStyle={{color: fallbackColor}} />
 }
 
 export function ReactionChips({
@@ -111,7 +117,7 @@ export function ReactionChips({
                 backgroundColor: mine ? theme.palette.text : theme.palette.bgSoft,
               },
             ]}>
-            <ChipArt reactionKey={entry.key} url={entry.url} pending={pendingKeys?.has(entry.key)} />
+            <ChipArt reactionKey={entry.key} url={entry.url} pending={pendingKeys?.has(entry.key)} mine={mine} />
             <Caption style={{color: mine ? theme.palette.bg : theme.palette.muted}}>
               {String(entry.count)}
             </Caption>

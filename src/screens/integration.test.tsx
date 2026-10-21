@@ -2,11 +2,11 @@ import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {act, fireEvent, render, screen} from '@testing-library/react-native'
-import {Text} from 'react-native'
 
 import {createMemoryStore} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
+import {Body} from '#/alf/typography'
 import {ComposeFab} from '#/components/ComposeFab'
 import {PostCardHandlersContext} from '#/components/Post/handlers'
 import {filterSoftMuted, softMuteStore} from '#/state/queries'
@@ -89,15 +89,15 @@ describe('PostHandlersProvider', () => {
     const h = useContext(PostCardHandlersContext)
     return (
       <>
-        <Text testID="reply" onPress={() => h.onReply?.(post)}>
+        <Body testID="reply" onPress={() => h.onReply?.(post)}>
           r
-        </Text>
-        <Text testID="quote" onPress={() => h.onQuote?.(post)}>
+        </Body>
+        <Body testID="quote" onPress={() => h.onQuote?.(post)}>
           q
-        </Text>
-        <Text testID="edit" onPress={() => h.onEdit?.(post)}>
+        </Body>
+        <Body testID="edit" onPress={() => h.onEdit?.(post)}>
           {h.onEdit ? 'has-edit' : 'no-edit'}
-        </Text>
+        </Body>
       </>
     )
   }

@@ -53,6 +53,7 @@ type Ctx = {
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
   linkColor: string
+  textColor: string
   codeBg: string
   quoteEdge: string
 }
@@ -181,7 +182,7 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
             // Block nodes are hoisted by Flow; reaching here means a
             // container nested them inline — render their text content.
             return (
-              <Text key={key}>
+              <Text key={key} style={{color: ctx.textColor}}>
                 <Inline
                   nodes={node.kind === 'quote' ? node.children : [{kind: 'text', text: node.code}]}
                   ctx={ctx}
@@ -208,7 +209,7 @@ function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ctx: Ctx}) {
   const flush = () => {
     if (run.length === 0) return
     parts.push(
-      <Text key={`t-${n++}`} style={{fontSize: ctx.size, lineHeight: ctx.size + 5}}>
+      <Text key={`t-${n++}`} style={{fontSize: ctx.size, lineHeight: ctx.size + 5, color: ctx.textColor}}>
         <Inline nodes={run} ctx={ctx} depth={n} />
       </Text>,
     )
@@ -223,7 +224,7 @@ function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ctx: Ctx}) {
     if (node.kind === 'codeBlock') {
       parts.push(
         <View key={`b-${n++}`} style={[styles.codeBlock, {backgroundColor: ctx.codeBg}]}>
-          <Text style={[styles.code, {fontSize: ctx.size - 1}]}>{node.code}</Text>
+          <Text style={[styles.code, {fontSize: ctx.size - 1, color: ctx.textColor}]}>{node.code}</Text>
         </View>,
       )
     } else if (node.kind === 'quote') {
@@ -268,6 +269,7 @@ export function RichText({
       onHashtagPress,
       onLinkPress,
       linkColor: theme.palette.text,
+      textColor: theme.palette.text,
       codeBg: theme.palette.bgSoft,
       quoteEdge: theme.palette.edge,
     }),

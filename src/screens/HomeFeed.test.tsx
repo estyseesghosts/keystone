@@ -2,11 +2,12 @@ import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
-import {Text, View} from 'react-native'
+import {View} from 'react-native'
 
 import {ApiError, createMemoryStore, type Backend} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
+import {Body} from '#/alf/typography'
 import type {TokenVault} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
@@ -172,7 +173,7 @@ describe('FeedView states', () => {
   it('sanity: test renderer works', () => {
     render(
       <ThemeProvider theme="light">
-        <Text>ok</Text>
+        <Body>ok</Body>
       </ThemeProvider>,
     )
     expect(screen.getByText('ok')).toBeTruthy()

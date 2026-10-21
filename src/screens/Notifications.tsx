@@ -19,6 +19,7 @@ import {
   type Notification,
 } from '@keystone/fedi'
 
+import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
@@ -201,6 +202,7 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
 // --- Screen ------------------------------------------------------------------
 
 export function NotificationsScreen() {
+  const theme = useTheme()
   const {session, backend} = useActiveBackend()
   const [filterId, setFilterId] = useState('all')
   const [groupedPref, setGroupedPref] = useState(true)
@@ -325,6 +327,9 @@ export function NotificationsScreen() {
                 <RefreshControl
                   refreshing={query.isRefetching}
                   onRefresh={() => void query.refetch()}
+                  tintColor={theme.palette.muted}
+                  colors={[theme.palette.muted]}
+                  progressBackgroundColor={theme.palette.bg}
                 />
               }
               onEndReached={() => {

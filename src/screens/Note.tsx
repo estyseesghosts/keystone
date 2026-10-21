@@ -547,7 +547,13 @@ export function NoteScreen() {
             )
           }
           refreshControl={
-            <RefreshControl refreshing={thread.isRefetching} onRefresh={() => void thread.refetch()} />
+            <RefreshControl
+              refreshing={thread.isRefetching}
+              onRefresh={() => void thread.refetch()}
+              tintColor={theme.palette.muted}
+              colors={[theme.palette.muted]}
+              progressBackgroundColor={theme.palette.bg}
+            />
           }
         />
       )}

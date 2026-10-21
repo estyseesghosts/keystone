@@ -7,6 +7,7 @@ import type {Media} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {space} from '#/alf/tokens'
+import {themes} from '#/alf/themes'
 import {ComposeFab} from '#/components/ComposeFab'
 import {Lightbox} from '#/components/Lightbox'
 import {useSystemUI} from '#/state/systemUI'
@@ -156,10 +157,10 @@ describe('useSystemUI single owner (P11)', () => {
   }
 
   it('light theme uses dark-content bars and a white root', () => {
-    expectSystemUI('light', 'dark-content', '#ffffff')
+    expectSystemUI('light', 'dark-content', themes.light.palette.bg)
   })
 
   it('dark theme uses light-content bars and a near-black root', () => {
-    expectSystemUI('dark', 'light-content', '#111111')
+    expectSystemUI('dark', 'light-content', themes.dark.palette.bg)
   })
 })

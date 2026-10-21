@@ -16,8 +16,20 @@ describe('themes', () => {
         expect([m![1], m![2], m![3]].every(c => c === m![1])).toBe(true)
       }
     }
-    expect(themes.light.palette.text).toBe('#111111')
-    expect(themes.dark.palette.bg).toBe('#111111')
+    // Contrast direction without pinning exact literals: light text is
+    // darker than the light background; the dark theme inverts the pair.
+    // A theme edit that flips either pairing fails here instead of
+    // shipping black-on-dark / white-on-light.
+    const luminance = (hex: string): number =>
+      parseInt(hex.slice(1, 3), 16) / 255
+    expect(luminance(themes.light.palette.text)).toBeLessThan(
+      luminance(themes.light.palette.bg),
+    )
+    expect(luminance(themes.dark.palette.bg)).toBeLessThan(
+      luminance(themes.dark.palette.text),
+    )
+    expect(themes.light.palette.text).not.toBe(themes.light.palette.bg)
+    expect(themes.dark.palette.text).not.toBe(themes.dark.palette.bg)
   })
 
   it('renders the debug screen in both modes with all swatches', () => {

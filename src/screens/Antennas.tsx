@@ -13,6 +13,7 @@ import {useNavigation, type NavigationProp} from '@react-navigation/native'
 
 import {isPermissionError, isUnsupportedError, type Antenna, type AntennaSrc} from '@keystone/fedi'
 
+import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
@@ -231,6 +232,7 @@ function AntennaRow({
 }
 
 export function AntennasScreen() {
+  const theme = useTheme()
   const {session, backend} = useActiveBackend()
   const navigation = useNavigation<NavigationProp<RootParamList>>()
   const [antennas, setAntennas] = useState<Antenna[] | null>(null)
@@ -361,7 +363,14 @@ export function AntennasScreen() {
             />
           )}
           refreshControl={
-            <RefreshControl refreshing={fetching} onRefresh={() => void load()} testID="antennas-refresh" />
+            <RefreshControl
+              refreshing={fetching}
+              onRefresh={() => void load()}
+              testID="antennas-refresh"
+              tintColor={theme.palette.muted}
+              colors={[theme.palette.muted]}
+              progressBackgroundColor={theme.palette.bg}
+            />
           }
           ListEmptyComponent={
             <View style={[atoms.centered, atoms.p_md]}>

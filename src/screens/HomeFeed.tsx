@@ -360,6 +360,9 @@ export function FeedView({  sessionId,
             refreshing={feed.isRefetching}
             onRefresh={() => void feed.refetch()}
             testID="feed-refresh"
+            tintColor={theme.palette.muted}
+            colors={[theme.palette.muted]}
+            progressBackgroundColor={theme.palette.bg}
           />
         }
         onEndReached={() => {

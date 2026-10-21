@@ -10,6 +10,7 @@ import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@rea
 
 import {isPermissionError, isUnsupportedError, type ClipSummary} from '@keystone/fedi'
 
+import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
@@ -203,6 +204,7 @@ function ClipRow({
 }
 
 export function ClipsScreen() {
+  const theme = useTheme()
   const {session, backend} = useActiveBackend()
   const navigation = useNavigation<NavigationProp<RootParamList>>()
   const route = useRoute<RouteProp<RootParamList, 'Clips'>>()
@@ -352,7 +354,14 @@ export function ClipsScreen() {
             />
           )}
           refreshControl={
-            <RefreshControl refreshing={fetching} onRefresh={() => void load()} testID="clips-refresh" />
+            <RefreshControl
+              refreshing={fetching}
+              onRefresh={() => void load()}
+              testID="clips-refresh"
+              tintColor={theme.palette.muted}
+              colors={[theme.palette.muted]}
+              progressBackgroundColor={theme.palette.bg}
+            />
           }
           ListEmptyComponent={
             <View style={[atoms.centered, atoms.p_md]}>

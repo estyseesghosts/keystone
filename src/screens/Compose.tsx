@@ -19,6 +19,7 @@ import {
 import type {Post} from '@keystone/fedi'
 
 import {useTheme as useAlfTheme} from '#/alf'
+import {overlayChrome} from '#/alf/themes'
 import {atoms} from '#/alf/atoms'
 import {useShellLayout} from '#/alf/breakpoints'
 import {Body} from '#/alf/typography'
@@ -187,7 +188,12 @@ const styles = StyleSheet.create({
       web: {position: 'fixed', inset: 0, zIndex: 100} as unknown as ViewStyle,
       default: {},
     }),
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    // Fixed light-on-dark chrome (`overlayChrome`): the scrim stays black
+    // in both themes, dimming whatever surface sits behind the sheet.
+    // No foreground text ever renders on it — the card above carries its
+    // own paired theme background.
+    backgroundColor: overlayChrome.backdrop,
+    opacity: 0.55,
   },
   cardWrap: {
     flex: 1,

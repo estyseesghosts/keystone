@@ -1,12 +1,12 @@
-import {Text} from 'react-native'
 import {render, waitFor} from '@testing-library/react-native'
 import {AccessibilityInfo} from 'react-native'
 
+import {Body} from '#/alf/typography'
 import {__resetReducedMotionForTests, useReducedMotionSetting} from '#/lib/motion'
 
 function Probe() {
   const reduced = useReducedMotionSetting()
-  return <Text testID="probe">{reduced ? 'reduced' : 'full'}</Text>
+  return <Body testID="probe">{reduced ? 'reduced' : 'full'}</Body>
 }
 
 describe('useReducedMotionSetting (P9)', () => {

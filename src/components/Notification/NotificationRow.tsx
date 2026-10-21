@@ -26,6 +26,7 @@ import {
 } from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
+import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
@@ -95,16 +96,19 @@ export function idOnlyActorLabel(actorId: string): string {
 }
 
 function NotificationAvatar({account, actorId}: {account: Account | null; actorId: string | null}) {
+  const theme = useTheme()
   const uri = account ? safeHttpUrl(account.avatarUrl) : null
   const name = account ? displayNameOf(account) : actorId ? idOnlyActorLabel(actorId) : t`Someone`
   const initial = name.trim().slice(0, 1).toUpperCase() || '?'
   if (uri === null) {
+    // Explicit disc background behind the initial (same pairing as
+    // `ProfileAvatar`): text never sits on an unknown surface.
     return (
       <View
         testID={actorId ? `notification-avatar-fallback-${actorId}` : 'notification-avatar-fallback'}
         accessibilityRole="image"
         accessibilityLabel={name}
-        style={[styles.avatar, styles.avatarFallback]}>
+        style={[styles.avatar, styles.avatarFallback, {backgroundColor: theme.palette.bgSoft}]}>
         <Body>{initial}</Body>
       </View>
     )

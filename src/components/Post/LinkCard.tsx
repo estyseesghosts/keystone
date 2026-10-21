@@ -41,7 +41,9 @@ export function LinkCard({card, testID}: {card: LinkCardModel; testID?: string})
       onPress={() => void Linking.openURL(url).catch(e => showToast(`Could not open: ${String(e)}`))}
       accessibilityRole="link"
       accessibilityLabel={`Open link: ${card.title || url}`}>
-      <View style={[styles.card, {borderColor: theme.palette.edge}]}>
+      <View
+        style={[styles.card, {borderColor: theme.palette.edge, backgroundColor: theme.palette.bg}]}
+        testID={testID ? `${testID}-card` : undefined}>
         {imageUrl !== null && !imageFailed ? (
           <Image
             source={{uri: imageUrl}}

@@ -3,5 +3,6 @@ module.exports = {
   rules: {
     'no-ui-in-fedi': require('./no-ui-in-fedi'),
     'no-wire-in-app': require('./no-wire-in-app'),
+    'no-hardcoded-color': require('./no-hardcoded-color'),
   },
 }
