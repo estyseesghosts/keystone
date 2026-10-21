@@ -7,12 +7,17 @@ import {__setStorageForTests, appStorage, readDeviceState} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {ThemeProvider} from '#/alf/index'
+import {SETTINGS_SECTIONS} from '#/routes'
 
 import {SettingsScreen} from './Settings'
 
+const mockNavigateHolder: {current: jest.Mock} = {current: jest.fn()}
+const mockRouteHolder: {current: {params?: unknown}} = {current: {}}
+
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
-  useNavigation: () => ({navigate: jest.fn()}),
+  useNavigation: () => ({navigate: (...args: Array<unknown>) => mockNavigateHolder.current(...args)}),
+  useRoute: () => mockRouteHolder.current,
 }))
 
 const mockBackendHolder: {current: any} = {current: null}
@@ -73,11 +78,13 @@ const misskeyBackend = () => ({
   },
 })
 
-async function setup({backend}: {backend?: any} = {}) {
+async function setup({backend, section}: {backend?: any; section?: unknown} = {}) {
   const storage = createMemoryStore()
   const restore = appStorage()
   __setStorageForTests({storage})
   mockBackendHolder.current = backend ?? null
+  mockRouteHolder.current = section === undefined ? {} : {params: {section}}
+  mockNavigateHolder.current = jest.fn()
   const sessionStore = createSessionStore({
     storage: createMemoryStore(),
     vault: memVault(),
@@ -95,7 +102,7 @@ async function setup({backend}: {backend?: any} = {}) {
       hosting: 'third-party',
     })
   }
-  render(
+  const rendered = render(
     <ThemeProvider theme="light">
       <SessionProvider store={sessionStore} homeOrigin={HOME_ORIGIN}>
         <SettingsScreen />
@@ -105,40 +112,63 @@ async function setup({backend}: {backend?: any} = {}) {
   return {
     sessionStore,
     storage,
+    navigate: mockNavigateHolder.current,
     done: () => {
+      rendered.unmount()
       __setStorageForTests({storage: restore})
       mockBackendHolder.current = null
+      mockRouteHolder.current = {}
     },
   }
 }
 
-const openSection = (id: string) => {
-  fireEvent.press(screen.getByTestId(`settings-row-${id}`))
-}
-
 describe('Settings tree index', () => {
-  it('lists all nine v1 sections and navigates with a working Back', async () => {
+  it('lists all nine v1 sections', async () => {
     const {done} = await setup()
     try {
-      for (const id of [
-        'account',
-        'display',
-        'reactions',
-        'feeds',
-        'mutes',
-        'import',
-        'export',
-        'filters',
-        'language',
-      ]) {
+      for (const id of SETTINGS_SECTIONS) {
         expect(screen.getByTestId(`settings-row-${id}`)).toBeTruthy()
       }
-      openSection('display')
-      expect(screen.getByTestId('settings-section-display')).toBeTruthy()
-      expect(screen.queryByTestId('settings-row-account')).toBeNull()
-      fireEvent.press(screen.getByTestId('settings-back'))
-      expect(screen.getByTestId('settings-row-account')).toBeTruthy()
-      expect(screen.queryByTestId('settings-section-display')).toBeNull()
+      expect(screen.queryByTestId('settings-back')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('navigates to the section route on row press', async () => {
+    for (const id of SETTINGS_SECTIONS) {
+      const {navigate, done} = await setup()
+      try {
+        fireEvent.press(screen.getByTestId(`settings-row-${id}`))
+        expect(navigate).toHaveBeenCalledWith('Settings', {section: id})
+      } finally {
+        done()
+      }
+    }
+  })
+
+  it('deep-linked sections render directly with a working Back', async () => {
+    for (const id of SETTINGS_SECTIONS) {
+      const {navigate, done} = await setup({section: id})
+      try {
+        expect(screen.getByTestId(`settings-section-${id}`)).toBeTruthy()
+        expect(screen.queryByTestId(`settings-row-${id}`)).toBeNull()
+        fireEvent.press(screen.getByTestId('settings-back'))
+        expect(navigate).toHaveBeenCalledWith('Settings', {})
+      } finally {
+        done()
+      }
+    }
+  })
+
+  it('falls back to the index on an unknown section', async () => {
+    const {navigate, done} = await setup({section: 'nope'})
+    try {
+      for (const id of SETTINGS_SECTIONS) {
+        expect(screen.getByTestId(`settings-row-${id}`)).toBeTruthy()
+      }
+      expect(screen.queryByTestId('settings-back')).toBeNull()
+      expect(navigate).not.toHaveBeenCalled()
     } finally {
       done()
     }
@@ -147,9 +177,8 @@ describe('Settings tree index', () => {
 
 describe('Display section', () => {
   it('persists colour mode and text size to device storage', async () => {
-    const {storage, done} = await setup()
+    const {storage, done} = await setup({section: 'display'})
     try {
-      openSection('display')
       expect(screen.getByTestId('color-mode-system').props.accessibilityState.selected).toBe(true)
       fireEvent.press(screen.getByTestId('color-mode-dark'))
       expect(readDeviceState(storage).prefs.theme).toBe('dark')
@@ -174,9 +203,8 @@ describe('Display section', () => {
 describe('Reactions section', () => {
   it('saves a custom like emoji device-locally and sends it to the server', async () => {
     const backend = misskeyBackend()
-    const {storage, done} = await setup({backend})
+    const {storage, done} = await setup({backend, section: 'reactions'})
     try {
-      openSection('reactions')
       expect(await screen.findByTestId('like-emoji-row')).toBeTruthy()
       fireEvent.changeText(screen.getByTestId('like-emoji-field'), '🍮')
       fireEvent.press(screen.getByTestId('like-emoji-save'))
@@ -192,9 +220,8 @@ describe('Reactions section', () => {
   })
 
   it('manages favourites per session', async () => {
-    const {storage, done} = await setup({backend: misskeyBackend()})
+    const {storage, done} = await setup({backend: misskeyBackend(), section: 'reactions'})
     try {
-      openSection('reactions')
       expect(await screen.findByTestId('favourites-row')).toBeTruthy()
       fireEvent.changeText(screen.getByTestId('favourite-field'), '👍')
       fireEvent.press(screen.getByTestId('favourite-add'))
@@ -208,9 +235,8 @@ describe('Reactions section', () => {
   })
 
   it('pins and hides unicode groups device-globally', async () => {
-    const {storage, done} = await setup({backend: misskeyBackend()})
+    const {storage, done} = await setup({backend: misskeyBackend(), section: 'reactions'})
     try {
-      openSection('reactions')
       expect(await screen.findByTestId('unicode-groups-row')).toBeTruthy()
       fireEvent.press(screen.getByTestId('group-pin-symbols'))
       expect(JSON.parse(storage.getItem('keystone.pinnedemojigroups')!)).toEqual(['symbols'])
@@ -227,9 +253,8 @@ describe('Reactions section', () => {
 
 describe('Feeds section', () => {
   it('persists tab prefs device-locally', async () => {
-    const {storage, done} = await setup()
+    const {storage, done} = await setup({section: 'feeds'})
     try {
-      openSection('feeds')
       fireEvent.press(screen.getByTestId('feed-show-local-toggle'))
       expect(JSON.parse(storage.getItem('keystone.feedprefs')!)).toEqual({
         showLocal: true,
@@ -249,9 +274,8 @@ describe('Feeds section', () => {
 describe('Mutes section', () => {
   it('lists mutes and blocks from fakes and unmutes/unblocks', async () => {
     const backend = misskeyBackend()
-    const {done} = await setup({backend})
+    const {done} = await setup({backend, section: 'mutes'})
     try {
-      openSection('mutes')
       expect(await screen.findByText('muted-one')).toBeTruthy()
       expect(screen.getByText('blocked-one')).toBeTruthy()
       fireEvent.press(screen.getAllByText('Unmute')[0])
@@ -269,9 +293,8 @@ describe('Mutes section', () => {
 
   it('saves a word filter through updateProfile', async () => {
     const backend = misskeyBackend()
-    const {done} = await setup({backend})
+    const {done} = await setup({backend, section: 'mutes'})
     try {
-      openSection('mutes')
       expect(await screen.findByTestId('wordfield-mutedWords')).toBeTruthy()
       fireEvent.changeText(screen.getByTestId('wordfield-mutedWords-input'), 'spoiler')
       fireEvent.press(screen.getByTestId('wordfield-mutedWords-save'))
@@ -285,9 +308,8 @@ describe('Mutes section', () => {
 
   it('searches accounts and mutes from results', async () => {
     const backend = misskeyBackend()
-    const {done} = await setup({backend})
+    const {done} = await setup({backend, section: 'mutes'})
     try {
-      openSection('mutes')
       expect(await screen.findByTestId('mute-search')).toBeTruthy()
       fireEvent.changeText(screen.getByTestId('mute-search-input'), 'found')
       fireEvent.press(screen.getByTestId('mute-search-run'))
@@ -300,9 +322,8 @@ describe('Mutes section', () => {
   })
 
   it('requires sign-in', async () => {
-    const {done} = await setup()
+    const {done} = await setup({section: 'mutes'})
     try {
-      openSection('mutes')
       expect(screen.getByText('Sign in to manage mutes and blocks.')).toBeTruthy()
     } finally {
       done()
@@ -312,9 +333,8 @@ describe('Mutes section', () => {
 
 describe('Filters section', () => {
   it('renders a placeholder on the Misskey family (no filter endpoints)', async () => {
-    const {done} = await setup({backend: misskeyBackend()})
+    const {done} = await setup({backend: misskeyBackend(), section: 'filters'})
     try {
-      openSection('filters')
       expect(await screen.findByTestId('placeholder-filters')).toBeTruthy()
     } finally {
       done()
@@ -327,9 +347,8 @@ describe('Filters section', () => {
       create: jest.fn(async (phrase: string) => ({id: 'f2', phrase, context: [], expiresAt: null, irreversible: false, wholeWord: false})),
       delete: jest.fn(async () => undefined),
     }
-    const {done} = await setup({backend: {...misskeyBackend(), family: 'mastodon', filters}})
+    const {done} = await setup({backend: {...misskeyBackend(), family: 'mastodon', filters}, section: 'filters'})
     try {
-      openSection('filters')
       expect(await screen.findByText('spoiler')).toBeTruthy()
       fireEvent.changeText(screen.getByTestId('filter-phrase-input'), 'leak')
       fireEvent.press(screen.getByTestId('filter-add'))
@@ -345,15 +364,17 @@ describe('Filters section', () => {
 
 describe('Import/export/language sections', () => {
   it('renders every v1 row as a disabled placeholder with a reason', async () => {
-    const {done} = await setup({backend: misskeyBackend()})
+    const {done} = await setup({backend: misskeyBackend(), section: 'import'})
     try {
-      openSection('import')
       for (const kind of ['following', 'blocking', 'mute', 'notes']) {
         const row = screen.getByTestId(`placeholder-import-${kind}`)
         expect(row.props.accessibilityState.disabled).toBe(true)
       }
-      fireEvent.press(screen.getByTestId('settings-back'))
-      openSection('export')
+    } finally {
+      done()
+    }
+    const second = await setup({backend: misskeyBackend(), section: 'export'})
+    try {
       for (const kind of [
         'following',
         'blocking',
@@ -366,13 +387,16 @@ describe('Import/export/language sections', () => {
       ]) {
         expect(screen.getByTestId(`placeholder-export-${kind}`)).toBeTruthy()
       }
-      fireEvent.press(screen.getByTestId('settings-back'))
-      openSection('language')
+    } finally {
+      second.done()
+    }
+    const third = await setup({backend: misskeyBackend(), section: 'language'})
+    try {
       for (const code of ['en', 'fr', 'de', 'zh-CN', 'zh-TW', 'yue-HK', 'ja', 'hi']) {
         expect(screen.getByTestId(`placeholder-locale-${code}`)).toBeTruthy()
       }
     } finally {
-      done()
+      third.done()
     }
   })
 })
@@ -380,9 +404,8 @@ describe('Import/export/language sections', () => {
 describe('Account section', () => {
   it('shows the session identity and persists quote refusal server-side', async () => {
     const backend = misskeyBackend()
-    const {done} = await setup({backend})
+    const {done} = await setup({backend, section: 'account'})
     try {
-      openSection('account')
       expect(await screen.findByTestId('settings-section-account')).toBeTruthy()
       expect(screen.getByText(`Signed in as alice on ${ORIGIN}.`)).toBeTruthy()
       const toggle = await screen.findByTestId('reject-quotes-toggle')
@@ -396,10 +419,22 @@ describe('Account section', () => {
   })
 
   it('shows a placeholder for quote refusal on the Mastodon family', async () => {
-    const {done} = await setup({backend: {...misskeyBackend(), family: 'mastodon'}})
+    const {done} = await setup({backend: {...misskeyBackend(), family: 'mastodon'}, section: 'account'})
     try {
-      openSection('account')
       expect(await screen.findByTestId('reject-quotes-placeholder')).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
+
+  it('routes add-account and follow-requests through the navigator', async () => {
+    const {navigate, done} = await setup({backend: misskeyBackend(), section: 'account'})
+    try {
+      expect(await screen.findByTestId('settings-section-account')).toBeTruthy()
+      fireEvent.press(screen.getByText('Add account'))
+      expect(navigate).toHaveBeenCalledWith('Login')
+      fireEvent.press(screen.getByTestId('follow-requests-open'))
+      expect(navigate).toHaveBeenCalledWith('FollowRequests')
     } finally {
       done()
     }
