@@ -1,11 +1,15 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: Contrast sweep DONE 2026-10-21 on `main` (RichText bodies,
-emoji fallbacks, chrome, scrims, spinners all themed; new
-`keystone/no-hardcoded-color` lint rule).
-FULL suite green: 127 suites / 1521 tests; tsc ios+android+web clean;
-eslint + oxlint clean. Visual pass still owner-side.
-Latest log: `state/logs/2026-10-21-contrast-sweep.md`.
+Phase/slice: V2_GAPS WS-E (Misskey correctness) MERGED 2026-10-21 on
+`main` (fedi drafts/reactionActions deleted, `"like"` key + seed, polls
+probed-no-change, MK17 verified-already-wired).
+FULL suite green: 126 suites / 1518 tests; tsc ios+android+web clean;
+eslint + oxlint clean. WS-A/B/C/D running in parallel (own worktrees);
+WS-F waits for WS-B (sanitizer); WS-G runs last.
+Latest log: `state/logs/2026-10-21-wsE-misskey.md` (agent) + merge trio
+re-verified by coordinator (tsc×3, oxlint, eslint exit 0, 126/1518).
+Prior: Contrast sweep DONE (127/1521 pre-WS-E; delta −4 deleted suites
+−4 deleted drafts tests +5 new = 1518, verified).
 Prior: UI batch 2 + slim tabs + W8 (see logs).
 (MD5 boot re-verify + scope-health, MD6–MD9 live Akkoma round-trips,
 MD10 pooled streaming + app capture, MD11 fork collapse, MD12/MD13
@@ -25,7 +29,12 @@ G1–G4 reviews open.
 
 ## Next 3 steps
 
-1. Owner reviews stay open (G1–G4); P5 tail (management-screen
+1. Merge WS-A/B/C/D as each reports green (serial merges to `main`,
+   trio re-verified per merge; shared-file hunks in
+   `PostCard.tsx`/`body.ts`/`menuModel.ts` resolved at merge time).
+2. Spawn WS-F after WS-B merges (sanitizer dependency); WS-G last
+   (owns `FeedView`/`Navigation`).
+3. Owner reviews stay open (G1–G4); P5 tail (management-screen
    English, W7-log inventory) can ride any session — mechanical.
 2. Still blocked: Oppo `3B15A500TQD00000` pass, iOS anything,
    Misskey-family live probes (rig `:3101`/`:3102` down), live GTS,

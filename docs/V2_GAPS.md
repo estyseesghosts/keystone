@@ -58,11 +58,11 @@ Acceptance: menu rows never inert; mute/block/report round-trip or honest reason
 
 ## WS-E — Misskey correctness: drafts, like key, pinetree polls, reactionActions, menu copy (PARALLEL-SAFE, fedi-only + one `src/` touch)
 
-- [ ] **Misskey drafts dupe (MK6/Q6).** Authority is `src/storage/drafts.ts`. Delete or freeze `packages/fedi/src/misskey/drafts.ts` (needs `src/` edits — planned). `carryLegacyDrafts` must run or be deleted, never dead. Update Q6.
-- [ ] **MK13 like capability key.** Add `"like"` (or `notes_like`) to `FEATURE_KEYS` (`core/detect.ts:79-101`) + flavor facts; gate `likeKind` in `gates.ts:53-63` so stock Misskey never fires a doomed `notes/like` (`misskey/like.ts:30-58`) before falling back to ❤ reaction. Needs live vanilla rig (`:3101` down = unit-proof + `not verified`).
-- [ ] **MK14 Pinetree polls.** `pinetree.polls_multi:"unsupported"` (`detect.ts:300`) vs unconditional composer toggle (`CompactComposer.tsx:271-275`, gate ctor moved from `api/composer.ts:164` — re-find it). Keep v1 parity (offer, let server reject) OR gate — probe live, record in DECISIONS, then code. Do not change the fact without a probe.
-- [ ] **MK16 reactionActions.** Reference-only (`reactionActions.ts:33-35` throws). Either wire the provider or delete the module + its test. No third state.
-- [ ] **MK17 menu copy.** "Copy remote link" uses raw `post.uri` (`menuModel.ts:134`); `resolveRemotePostUrl` is live in `PostCard.tsx:499`. Use the resolver in the menu row with raw-URI fallback.
+- [x] **Misskey drafts dupe (MK6/Q6).** DELETED 2026-10-21 (WS-E): `packages/fedi/src/misskey/drafts.ts` removed (zero `src/` importers ever; dead `carryLegacyDrafts` gone with it). Authority stays `src/storage/drafts.ts`. Register MK6 ticked.
+- [x] **MK13 like capability key.** DONE fedi-side 2026-10-21 (WS-E): `"like"` in `FEATURE_KEYS` + flavor facts; `misskey/backend.ts` seeds the per-origin cache from the table, `like.ts` short-circuits known-absent — stock Misskey never fires `notes/like`; `gates.ts` untouched (`postActions.ts` already gates on `isSupported()`). Unit-proof + `not verified` (vanilla rig down).
+- [x] **MK14 Pinetree polls.** PROBED 2026-10-21 (WS-E), no fact change: live Pinetree `:3000` unauth `notes/create` 401s before poll validation for all poll shapes (auth gate precedes validation), so `polls_multi:"unsupported"` stands = v1 parity (offer, server rejects). DECISIONS line recorded.
+- [x] **MK16 reactionActions.** DELETED 2026-10-21 (WS-E): `reactionActions.ts` + `myReactions.ts` (sole importer was the deleted module) + suite removed; no producer ever set the provider.
+- [x] **MK17 menu copy.** VERIFIED 2026-10-21 (WS-E), no diff: row already does `cachedRemotePostUrl(uri) ?? uri` (`menuModel.ts:170`) + `PostCard.tsx:499` warms the cache; tests pass.
 
 Acceptance: no dead/dupe modules; like never pre-fails where unsupported; poll gate matches a recorded probe; copy-link resolves remotely.
 
