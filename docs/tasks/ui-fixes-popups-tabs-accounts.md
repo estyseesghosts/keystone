@@ -1,6 +1,6 @@
 # UI fixes — popups on-screen, plain tabs, easy account switching, contrast safety
 
-Status: in progress
+Status: done
 Branch: `main` (owner direction: main only)
 
 ## Goal
