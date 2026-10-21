@@ -289,6 +289,15 @@ describe('PostCard write wiring', () => {
     await waitFor(() => expect(b.boost).toHaveBeenCalledWith('p1'))
   })
 
+  it('bookmark menu row toggles end-to-end and badges optimistically', async () => {
+    const b = live(makePost(), fakeBackend())
+    expect(screen.queryByTestId('post-badge-bookmarked-p1')).toBeNull()
+    fireEvent.press(screen.getByTestId('post-menu-p1'))
+    fireEvent.press(screen.getByTestId('post-menu-p1-item-bookmark'))
+    await waitFor(() => expect(b.bookmarks.add).toHaveBeenCalledWith('p1'))
+    expect(await screen.findByTestId('post-badge-bookmarked-p1')).toBeTruthy()
+  })
+
   it('without composer callbacks reply is disabled with a reason; react picks locally', () => {
     live()
     expect(screen.getByLabelText(/Reply, 2 replies\. No composer is connected/)).toBeTruthy()
