@@ -94,6 +94,9 @@ function ActionButton({
       accessibilityRole="button"
       accessibilityState={{disabled, selected: active}}
       accessibilityLabel={disabled && reason ? `${label}. ${reason}` : label}
+      // Compact visual, 44dp effective target (P10): the row art stays
+      // small but the tap area reaches the minimum.
+      hitSlop={{top: 10, bottom: 10, left: 8, right: 8}}
       style={disabled && styles.actionDisabled}>
       <ActionContent icon={icon} text={text} active={active} />
     </Pressable>
@@ -256,7 +259,7 @@ export function ActionBar({
             onPress={() => setPickOpen(v => !v)}
             accessibilityRole="button"
             accessibilityLabel="React with emoji"
-            hitSlop={8}>
+            hitSlop={12}>
             <ActionContent icon={<SmileIcon size={ICON} color={muted} />} text="" />
           </RNPressable>
           {pickOpen ? (

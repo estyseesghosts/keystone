@@ -10,6 +10,7 @@ import {Caption} from '#/components/Typography'
 import {Button} from '#/components/Button'
 import {useOptionalSafeAreaInsets} from '#/components/insets'
 import {mediaAlt} from '#/components/MediaGrid'
+import {useReducedMotionSetting} from '#/lib/motion'
 
 // SDK 57 web types: `VideoView` wants the web player class while
 // `useVideoPlayer` returns the native type. The runtime instance is
@@ -98,6 +99,8 @@ const styles = StyleSheet.create({
 export function Lightbox({media, index, onIndexChange, onClose, testID}: LightboxProps) {
   const {width} = useWindowDimensions()
   const insets = useOptionalSafeAreaInsets()
+  // Reduced motion (P9): no fade transition into the viewer.
+  const reduceMotion = useReducedMotionSetting()
   if (media.length === 0) return null
   const safe = Math.min(Math.max(index, 0), media.length - 1)
   const current = media[safe]
@@ -107,7 +110,7 @@ export function Lightbox({media, index, onIndexChange, onClose, testID}: Lightbo
       testID={testID}
       visible
       transparent={false}
-      animationType="fade"
+      animationType={reduceMotion ? 'none' : 'fade'}
       onRequestClose={onClose}>
       <View style={[styles.backdrop, atoms.flex1]}>
         <ScrollView

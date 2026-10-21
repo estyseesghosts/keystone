@@ -493,7 +493,9 @@ export function NoteScreen() {
                     onPress={() => setTab(key)}
                     accessibilityRole="tab"
                     accessibilityState={{selected: tab === key}}
-                    accessibilityLabel={label}>
+                    accessibilityLabel={label}
+                    // Small text tabs, 44dp effective target (P10).
+                    hitSlop={{top: 12, bottom: 12, left: 12, right: 12}}>
                     <Body color={tab === key ? 'text' : 'faint'}>{label}</Body>
                   </Pressable>
                 ))}

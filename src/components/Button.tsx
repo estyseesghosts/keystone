@@ -30,6 +30,8 @@ export function Button({
     base: {
       paddingHorizontal: space.lg,
       paddingVertical: space.sm,
+      // 44dp minimum touch target (P10): short labels still tap reliably.
+      minHeight: 44,
       borderRadius: radius.full,
       alignItems: 'center',
       justifyContent: 'center',

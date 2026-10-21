@@ -14,6 +14,7 @@ import {
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
+import {useReducedMotionSetting} from '#/lib/motion'
 
 // Anchored popup (Keystone v1 `.vispick-menu` style): a floating card
 // measured off its trigger — below by default, flipped above when space
@@ -24,10 +25,16 @@ const ENTER_MS = 150
 
 /** Quick fade-and-scale entrance shared by every popup. It also masks the
  * first-paint jump: the card paints at its fallback position, then snaps to
- * the measured anchor — the fade keeps that snap from flashing. */
+ * the measured anchor — the fade keeps that snap from flashing. Under the
+ * OS reduced-motion setting the card appears instantly (P9). */
 export function usePopupEnter(): {opacity: Animated.Value; scale: Animated.AnimatedInterpolation<number>} {
   const motion = useRef(new Animated.Value(0)).current
+  const reduceMotion = useReducedMotionSetting()
   useEffect(() => {
+    if (reduceMotion) {
+      motion.setValue(1)
+      return
+    }
     const anim = Animated.timing(motion, {
       toValue: 1,
       duration: ENTER_MS,
@@ -36,7 +43,7 @@ export function usePopupEnter(): {opacity: Animated.Value; scale: Animated.Anima
     })
     anim.start()
     return () => anim.stop()
-  }, [motion])
+  }, [motion, reduceMotion])
   const scale = motion.interpolate({inputRange: [0, 1], outputRange: [0.96, 1]})
   return {opacity: motion, scale}
 }
@@ -263,6 +270,8 @@ const popupRowStyles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
+    // 44dp minimum touch target (P10): short rows still tap reliably.
+    minHeight: 44,
     borderRadius: 8,
   },
   disabled: {opacity: 0.5},
