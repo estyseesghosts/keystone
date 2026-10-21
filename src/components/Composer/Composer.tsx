@@ -2,6 +2,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {ScrollView, StyleSheet, TextInput, View} from 'react-native'
 
 import {
+  ApiError,
   applyCompletion,
   buildPostDraft,
   composeDefaultsFor,
@@ -43,6 +44,7 @@ import {
   CwSection,
   DraftsSection,
   PollSection,
+  RecipientSection,
   ScheduleSection,
   SuggestEmojiSection,
   UploadsSection,
@@ -81,6 +83,7 @@ function stateFromDraft(d: LocalDraft): Partial<ComposeState> {
     cw: d.cw,
     cwEnabled: d.cwEnabled,
     visibilityRaw: d.visibilityRaw,
+    visibleUserIds: d.visibleUserIds,
     localOnly: d.localOnly,
     poll: d.pollChoices
       ? {choices: d.pollChoices, multiple: d.pollMultiple, durationSeconds: d.pollDurationSeconds}
@@ -124,6 +127,9 @@ export function useComposerController({
   })
   const [caret, setCaret] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  // Success notice (e.g. quote-refusal recovery posted without the quote):
+  // informational, never an error — the post went through.
+  const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [showDrafts, setShowDrafts] = useState(false)
   const [pickingEmoji, setPickingEmoji] = useState(false)
@@ -141,6 +147,7 @@ export function useComposerController({
         cw: state.cw,
         cwEnabled: state.cwEnabled,
         visibilityRaw: state.visibilityRaw,
+        visibleUserIds: state.visibleUserIds,
         localOnly: state.localOnly,
         replyToId: state.replyTo?.id ?? null,
         quoteId: state.quote?.id ?? null,
@@ -153,6 +160,36 @@ export function useComposerController({
     }, 400)
     return () => clearTimeout(timer)
   }, [state, store, session.id, id])
+
+  // Draft target restore (C6): the stored draft keeps reply/quote ids only,
+  // so re-attach the posts through the owning session's backend. Runs for
+  // the `draftId` restore above and for restores from the drafts list.
+  // Targets that no longer resolve keep the text and report honestly.
+  const attachTargets = useCallback(
+    async (replyToId: string | null, quoteId: string | null) => {
+      if (!replyToId && !quoteId) return
+      const [replyTo, quote] = await Promise.all([
+        replyToId ? backend.post(replyToId).catch(() => null) : Promise.resolve(null),
+        quoteId ? backend.post(quoteId).catch(() => null) : Promise.resolve(null),
+      ])
+      if (replyTo || quote) {
+        setState(s => ({...s, ...(replyTo ? {replyTo} : {}), ...(quote ? {quote} : {})}))
+      } else {
+        setError('The original reply or quote target could not be loaded; the text was kept.')
+      }
+    },
+    [backend],
+  )
+
+  // Opening on a `draftId` with targets but no live props (deep link into
+  // a reply/quote draft): attach once on mount.
+  const attachedRef = useRef(false)
+  useEffect(() => {
+    if (attachedRef.current || !draftId || replyTo || quote) return
+    attachedRef.current = true
+    const saved = listDrafts(store, session.id).find(d => d.id === draftId)
+    if (saved) void attachTargets(saved.replyToId, saved.quoteId)
+  }, [draftId, replyTo, quote, store, session.id, attachTargets])
 
   const {trigger, suggestions} = useSuggestions(state.text, caret, backend, emojis.data)
   const onPickSuggestion = (s: Suggestion) => {
@@ -169,8 +206,26 @@ export function useComposerController({
   const pollBlockedByMedia = uploads.items.length > 0
   const mediaBlockedByPoll = !!state.poll
 
+  // Clear-after-post (C1): the inline composer stays mounted, so success
+  // resets it to a fresh empty draft (text, CW, poll, uploads, schedule).
+  // Reply/quote context is the caller's (props) and stays.
+  const resetAfterPost = useCallback(() => {
+    uploads.clear()
+    setState(s =>
+      emptyComposeState({
+        visibilityRaw: defaultVisibilityFor(family, s.replyTo).raw,
+        replyTo: s.replyTo,
+        quote: s.quote,
+      }),
+    )
+    setCaret(0)
+    setError(null)
+    postedRef.current = false
+  }, [family, uploads])
+
   const submit = async () => {
     setError(null)
+    setNotice(null)
     // Validate text rules first (media ids are filled after upload).
     const pre = buildPostDraft(
       {...state, media: uploads.items.map(u => ({id: u.mediaId ?? u.key, alt: u.alt}))},
@@ -191,6 +246,13 @@ export function useComposerController({
         }
         mediaIds = ids
       }
+      const finish = (result: {kind: 'posted' | 'scheduled'}) => {
+        postedRef.current = true
+        deleteDraft(store, session.id, id)
+        resetAfterPost()
+        onPosted?.(result.kind)
+        onClose?.()
+      }
       const built = buildPostDraft(
         {...state, media: mediaIds.map(m => ({id: m, alt: ''}))},
         {family, gates, limits},
@@ -199,11 +261,37 @@ export function useComposerController({
         setError(built.reason)
         return
       }
-      const result = await create.mutateAsync({draft: built.draft, scheduledAt: built.scheduledAt})
-      postedRef.current = true
-      deleteDraft(store, session.id, id)
-      onPosted?.(result.kind)
-      onClose?.()
+      try {
+        const result = await create.mutateAsync({draft: built.draft, scheduledAt: built.scheduledAt})
+        finish(result)
+      } catch (err) {
+        // Quote-refusal recovery (C5, v1 §4 parity): keep the text, drop
+        // the quote, post once more, and show the server reason as a
+        // notice — the post went through, just unquoted.
+        const refused =
+          state.quote != null &&
+          err instanceof ApiError &&
+          (err.code === 'QUOTE_DISABLED_FOR_USER' || err.message.includes('QUOTE_DISABLED'))
+        if (!refused) throw err
+        const unquoted = buildPostDraft(
+          {...state, quote: null, media: mediaIds.map(m => ({id: m, alt: ''}))},
+          {family, gates, limits},
+        )
+        if (!unquoted.ok) {
+          setError(unquoted.reason)
+          return
+        }
+        try {
+          const result = await create.mutateAsync({
+            draft: unquoted.draft,
+            scheduledAt: unquoted.scheduledAt,
+          })
+          setNotice(err instanceof Error ? err.message : 'The quoted account does not allow quotes; posted without it.')
+          finish(result)
+        } catch (retryErr) {
+          setError(retryErr instanceof Error ? retryErr.message : 'Could not post.')
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not post.')
     } finally {
@@ -248,12 +336,16 @@ export function useComposerController({
   const restore = (d: LocalDraft) => {
     setState(s => ({...s, ...stateFromDraft(d)}))
     setShowDrafts(false)
+    // Restored reply/quote drafts keep their targets (C6): the ids resolve
+    // through the owning session's backend; failures keep the text.
+    void attachTargets(d.replyToId, d.quoteId)
   }
   const drafts = showDrafts ? listDrafts(store, session.id).filter(d => d.id !== id) : []
 
   return {
     theme, family, gates, limitsQuery, limits, emojis, uploads, create,
     id, state, caret, setCaret, error, setError, busy, showDrafts, setShowDrafts,
+    notice, setNotice, attachTargets, resetAfterPost,
     pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
     submit, addMedia, styles, restore, drafts,
@@ -268,11 +360,15 @@ export function Composer(props: ComposerProps) {
   const {
     theme, family, gates, limits, emojis, uploads, create,
     id, state, caret, setCaret, error, busy, showDrafts, setShowDrafts,
-    pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
+    notice, pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
     submit, addMedia, styles, restore, drafts,
-    session, backend, store, replyTo, quote, draftId, onClose,
+    session, backend, store, draftId, onClose,
   } = controller
+  // Reply/quote context reads STATE, not props: restoring a draft re-attaches
+  // its targets into state (C6), and state initializes from props otherwise.
+  const replyTo = state.replyTo
+  const quote = state.quote
 
   return (
     <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
@@ -325,6 +421,11 @@ export function Composer(props: ComposerProps) {
       {error ? (
         <Body testID="composer-error" accessibilityRole="alert">
           {error}
+        </Body>
+      ) : null}
+      {notice ? (
+        <Body testID="composer-notice">
+          {notice}
         </Body>
       ) : null}
 
@@ -398,6 +499,8 @@ export function Composer(props: ComposerProps) {
       </View>
 
       <ScheduleSection c={controller} />
+
+      <RecipientSection c={controller} />
 
       {gates.reactionAcceptance.enabled ? (
         <View style={styles.row}>

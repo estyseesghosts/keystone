@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react'
-import {Platform, StyleSheet, View, type ViewStyle} from 'react-native'
+import {KeyboardAvoidingView, Platform, StyleSheet, View, type ViewStyle} from 'react-native'
 import {
   CommonActions,
   useNavigation,
@@ -57,7 +57,12 @@ export function ComposeScreen() {
             layout === 'mobile' ? styles.cardMobile : styles.cardFloat,
             {backgroundColor: alf.palette.bg, borderColor: alf.palette.edge},
           ]}>
-          {content}
+          <KeyboardAvoidingView
+            style={styles.kav}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={0}>
+            {content}
+          </KeyboardAvoidingView>
         </View>
       </View>
     </View>
@@ -142,6 +147,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 600,
     overflow: 'hidden',
+  },
+  kav: {
+    flex: 1,
   },
   cardFloat: {
     maxHeight: '85%',

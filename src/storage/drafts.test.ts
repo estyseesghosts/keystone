@@ -19,6 +19,7 @@ const draft = (over: Partial<LocalDraft> = {}): LocalDraft => ({
   cw: '',
   cwEnabled: false,
   visibilityRaw: 'home',
+  visibleUserIds: [],
   localOnly: false,
   replyToId: null,
   quoteId: null,

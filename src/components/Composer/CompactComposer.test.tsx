@@ -1,5 +1,6 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
+import {KeyboardAvoidingView} from 'react-native'
 
 import {buildCapabilities, type Backend, type Session} from '@keystone/fedi'
 
@@ -29,7 +30,7 @@ const session = (): Session =>
     user: {id: 'me', displayName: 'Me', avatarUrl: null},
   }) as unknown as Session
 
-function setup() {
+function setup(props?: {onClose?: () => void}) {
   const store = createMemoryStore()
   const backend = {
     family: 'misskey',
@@ -48,7 +49,7 @@ function setup() {
   render(
     <QueryClientProvider client={qc}>
       <ThemeProvider>
-        <CompactComposer session={s} backend={backend} store={store} />
+        <CompactComposer session={s} backend={backend} store={store} onClose={props?.onClose} />
       </ThemeProvider>
     </QueryClientProvider>,
   )
@@ -92,5 +93,23 @@ describe('CompactComposer', () => {
     fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
     fireEvent.press(screen.getByTestId('composer-submit'))
     await waitFor(() => expect(backend.createPost).toHaveBeenCalled())
+  })
+
+  it('shows Cancel and calls onClose when onClose is set', () => {
+    const onClose = jest.fn()
+    setup({onClose})
+    expect(screen.getByTestId('composer-cancel')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides Cancel when onClose is omitted (inline composer stays chrome-free)', () => {
+    setup()
+    expect(screen.queryByTestId('composer-cancel')).toBeNull()
+  })
+
+  it('wraps content in a KeyboardAvoidingView so the toolbar stays reachable', () => {
+    setup()
+    expect(screen.UNSAFE_getByType(KeyboardAvoidingView)).toBeTruthy()
   })
 })

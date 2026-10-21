@@ -1,5 +1,14 @@
 import {useRef, useState} from 'react'
-import {Image, Pressable as RNPressable, StyleSheet, TextInput, View, type View as ViewType} from 'react-native'
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable as RNPressable,
+  StyleSheet,
+  TextInput,
+  View,
+  type View as ViewType,
+} from 'react-native'
 
 import type {ReactionAcceptance} from '@keystone/fedi'
 import {REACTION_ACCEPTANCE_LABELS} from '@keystone/fedi'
@@ -32,6 +41,7 @@ import {useComposerController, type ComposerProps} from './Composer'
 import {
   CwSection,
   PollSection,
+  RecipientSection,
   ScheduleSection,
   UploadsSection,
 } from './ComposerSections'
@@ -127,9 +137,9 @@ export function CompactComposer(props: ComposerProps) {
     c.state.reactionAcceptance != null || c.state.localOnly || c.state.scheduledAt != null
   const submitLabel = c.state.scheduledAt && c.gates.schedule.enabled
     ? 'Schedule'
-    : c.replyTo
+    : c.state.replyTo
       ? 'Reply'
-      : c.quote
+      : c.state.quote
         ? 'Quote'
         : 'Post'
   const remaining = c.limits.maxChars - c.count
@@ -137,15 +147,27 @@ export function CompactComposer(props: ComposerProps) {
   const avatarName = c.session.user?.displayName ?? c.session.accountId
 
   return (
-    <View style={styles.root} testID="composer-compact">
-      {c.replyTo ? (
-        <View style={styles.context} testID="composer-reply-context">
-          <Caption color="muted">Replying to @{c.replyTo.author.acct}</Caption>
+    <KeyboardAvoidingView
+      style={styles.root}
+      testID="composer-compact"
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}>
+      {/* C2 close control: inline Home composer has no onClose and stays
+          chrome-free (v1 postbox). The full mobile-sheet redesign rides W6 —
+          this header button is only a dismiss escape hatch until then. */}
+      {c.onClose ? (
+        <View style={styles.closeRow}>
+          <Button label="Cancel" variant="secondary" onPress={c.onClose} testID="composer-cancel" />
         </View>
       ) : null}
-      {c.quote ? (
+      {c.state.replyTo ? (
+        <View style={styles.context} testID="composer-reply-context">
+          <Caption color="muted">Replying to @{c.state.replyTo.author.acct}</Caption>
+        </View>
+      ) : null}
+      {c.state.quote ? (
         <View style={styles.context} testID="composer-quote-context">
-          <Caption color="muted">Quoting @{c.quote.author.acct}</Caption>
+          <Caption color="muted">Quoting @{c.state.quote.author.acct}</Caption>
         </View>
       ) : null}
       <View style={styles.topRow}>
@@ -157,7 +179,7 @@ export function CompactComposer(props: ComposerProps) {
             value={c.state.text}
             onChangeText={text => c.patch({text})}
             onSelectionChange={e => c.setCaret(e.nativeEvent.selection.end)}
-            placeholder={c.replyTo ? 'Write your reply' : "What's happening?"}
+            placeholder={c.state.replyTo ? 'Write your reply' : "What's happening?"}
             placeholderTextColor={theme.palette.faint}
             accessibilityLabel="Post text"
             style={[styles.input, {color: theme.palette.text}]}
@@ -167,6 +189,7 @@ export function CompactComposer(props: ComposerProps) {
       </View>
       <PollSection c={c} />
       <UploadsSection c={c} />
+      <RecipientSection c={c} />
       <SuggestionList suggestions={c.suggestions} onPick={c.onPickSuggestion} />
       <View style={styles.pillRow}>
         <RNPressable
@@ -396,12 +419,14 @@ export function CompactComposer(props: ComposerProps) {
           {c.error}
         </Body>
       ) : null}
-    </View>
+      {c.notice ? <Body testID="composer-notice">{c.notice}</Body> : null}
+    </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
   root: {paddingHorizontal: 16, paddingVertical: 12, gap: 8},
+  closeRow: {flexDirection: 'row', justifyContent: 'flex-start'},
   topRow: {flexDirection: 'row', gap: 8},
   avatar: {width: 40, height: 40, borderRadius: 20},
   avatarFallback: {alignItems: 'center', justifyContent: 'center'},

@@ -1,7 +1,7 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 
-import {buildCapabilities, createMemoryStore, type Backend, type Session} from '@keystone/fedi'
+import {ApiError, buildCapabilities, createMemoryStore, type Backend, type Session} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {draftsKeyFor, listDrafts} from '#/storage/drafts'
@@ -118,5 +118,80 @@ describe('Composer', () => {
       </QueryClientProvider>,
     )
     expect(screen.getByTestId('composer-text').props.value).toBe('from before')
+  })
+
+  it('clears the inline composer after posting (no onClose)', async () => {
+    const store = createMemoryStore()
+    const backend = backendFor('sharkey')
+    const s = session('misskey', 'sharkey')
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <QueryClientProvider client={qc}>
+        <ThemeProvider>
+          <Composer session={s} backend={backend} store={store} />
+        </ThemeProvider>
+      </QueryClientProvider>,
+    )
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(backend.createPost).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.getByTestId('composer-text').props.value).toBe(''))
+    expect(listDrafts(store, s.id)).toEqual([])
+  })
+
+  it('recovers from quote refusal by posting without the quote', async () => {
+    const quote = {id: 'q1', author: {acct: 'quoted'}} as never
+    const store = createMemoryStore()
+    const s = session('misskey', 'sharkey')
+    const createPost = jest
+      .fn()
+      .mockRejectedValueOnce(new ApiError('QUOTE_DISABLED', 403, 'QUOTE_DISABLED_FOR_USER' as never))
+      .mockResolvedValue({id: 'new', author: {id: 'me'}, counts: {replies: 0, boosts: 0, quotes: 0}})
+    const backend = backendFor('sharkey', {createPost})
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <QueryClientProvider client={qc}>
+        <ThemeProvider>
+          <Composer session={s} backend={backend} store={store} quote={quote} onClose={() => {}} />
+        </ThemeProvider>
+      </QueryClientProvider>,
+    )
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'my take')
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(createPost).toHaveBeenCalledTimes(2))
+    expect(createPost.mock.calls[0][0]).toMatchObject({renoteId: 'q1'})
+    expect(createPost.mock.calls[1][0]).not.toHaveProperty('renoteId')
+    expect(await screen.findByTestId('composer-notice')).toBeTruthy()
+  })
+
+  it('restored reply/quote drafts re-attach their targets', async () => {
+    const store = createMemoryStore()
+    const sid = 'https://s.example me'
+    store.setItem(
+      draftsKeyFor(sid),
+      JSON.stringify({
+        version: 1,
+        drafts: [{id: 'dd', updatedAt: 1, text: 'reply text', replyToId: 'p1', quoteId: 'p2'}],
+      }),
+    )
+    const replyTo = {id: 'p1', author: {acct: 'alice'}} as never
+    const quote = {id: 'p2', author: {acct: 'bob'}} as never
+    const post = jest.fn(async (id: string) => (id === 'p1' ? replyTo : quote))
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <QueryClientProvider client={qc}>
+        <ThemeProvider>
+          <Composer
+            session={session('misskey', 'sharkey')}
+            backend={backendFor('sharkey', {post})}
+            store={store}
+            draftId="dd"
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </QueryClientProvider>,
+    )
+    expect(await screen.findByText('Replying to @alice')).toBeTruthy()
+    expect(await screen.findByText('Quoting @bob')).toBeTruthy()
   })
 })

@@ -20,6 +20,8 @@ export const localDraftSchema = z.object({
   cw: z.string().default(''),
   cwEnabled: z.boolean().default(false),
   visibilityRaw: z.string().default('public'),
+  /** Specified-visibility recipients (C4); empty unless chosen. */
+  visibleUserIds: z.array(z.string()).default([]),
   localOnly: z.boolean().default(false),
   replyToId: z.string().nullable().default(null),
   quoteId: z.string().nullable().default(null),
@@ -65,11 +67,14 @@ function write(store: KeyValueStore, sessionId: string, drafts: LocalDraft[]): v
 }
 
 /** True when there is nothing worth saving. */
-export function isDraftEmpty(d: Pick<LocalDraft, 'text' | 'cw' | 'pollChoices'>): boolean {
+export function isDraftEmpty(
+  d: Pick<LocalDraft, 'text' | 'cw' | 'pollChoices' | 'visibleUserIds'>,
+): boolean {
   return (
     d.text.trim() === '' &&
     d.cw.trim() === '' &&
-    !(d.pollChoices ?? []).some(c => c.trim() !== '')
+    !(d.pollChoices ?? []).some(c => c.trim() !== '') &&
+    (d.visibleUserIds ?? []).length === 0
   )
 }
 
