@@ -17,6 +17,8 @@ import {SettingsScreen} from '#/screens/Settings'
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({navigate: jest.fn()}),
+  // The mutes rows live on the `mutes` settings section route (W5 N3).
+  useRoute: () => ({params: {section: 'mutes'}}),
 }))
 
 const mockBackendHolder: {current: any} = {current: null}
@@ -106,7 +108,7 @@ describe('Mutes section renote-mutes (C18)', () => {
   it('keeps the honest placeholder when the backend has no list endpoint', async () => {
     const {done} = await setup({backend: baseBackend()})
     try {
-      fireEvent.press(screen.getByTestId('settings-row-mutes'))
+      // Deep-linked straight to the mutes section route (W5 N3).
       expect(await screen.findByTestId('muted-list')).toBeTruthy()
       expect(screen.getByTestId('placeholder-renote-mutes').props.accessibilityState.disabled).toBe(
         true,
@@ -128,7 +130,6 @@ describe('Mutes section renote-mutes (C18)', () => {
     }
     const {done} = await setup({backend})
     try {
-      fireEvent.press(screen.getByTestId('settings-row-mutes'))
       expect(await screen.findByTestId('renote-mutes-list')).toBeTruthy()
       expect(screen.getByText('renote-muted')).toBeTruthy()
       expect(screen.queryByTestId('placeholder-renote-mutes')).toBeNull()
