@@ -87,7 +87,7 @@ describe('Navigation', () => {
     for (const name of ['Home', 'Network', 'Explore', 'Notifications', 'User'] as const) {
       expect(main[name]).toBe(strip(paths[name]))
     }
-    for (const name of ['Note', 'Tag', 'List', 'Settings', 'Login', 'AuthCallback', 'SysDebug', 'Compose'] as const) {
+    for (const name of ['Note', 'Tag', 'List', 'Lists', 'FollowRequests', 'ProfileEdit', 'Settings', 'Login', 'AuthCallback', 'SysDebug', 'Compose'] as const) {
       expect(screens[name]).toBe(strip(paths[name]))
     }
     // Legacy rewrites land on canonical paths table entries.

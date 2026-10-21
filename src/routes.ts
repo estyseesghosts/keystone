@@ -35,6 +35,9 @@ export type RootParamList = {
   Note: {id: string}
   Tag: {tag: string}
   List: {id: string}
+  Lists: undefined
+  FollowRequests: undefined
+  ProfileEdit: undefined
   Settings: undefined
   Login: undefined
   AuthCallback: undefined
@@ -51,6 +54,9 @@ export const paths: Record<keyof RootParamList, string> = {
   Note: '/notes/:id',
   Tag: '/tags/:tag',
   List: '/lists/:id',
+  Lists: '/lists',
+  FollowRequests: '/follow-requests',
+  ProfileEdit: '/profile/edit',
   Settings: '/settings',
   Login: '/login',
   AuthCallback: '/auth/callback',
@@ -111,6 +117,9 @@ export function linkingScreens(): LinkingScreens {
     Note: leaf('Note'),
     Tag: leaf('Tag'),
     List: leaf('List'),
+    Lists: leaf('Lists'),
+    FollowRequests: leaf('FollowRequests'),
+    ProfileEdit: leaf('ProfileEdit'),
     Settings: leaf('Settings'),
     Login: leaf('Login'),
     AuthCallback: leaf('AuthCallback'),
@@ -142,6 +151,12 @@ export function titleForRoute(
       return typeof params?.tag === 'string' && params.tag ? `#${params.tag}` : 'Tag'
     case 'List':
       return 'List'
+    case 'Lists':
+      return 'Lists'
+    case 'FollowRequests':
+      return 'Follow requests'
+    case 'ProfileEdit':
+      return 'Edit profile'
     case 'Settings':
       return 'Settings'
     case 'Login':
