@@ -155,7 +155,7 @@ describe('PostCard', () => {
       urls: {},
     }
     renderCard(<PostCard post={post} sessionId={SESSION} />)
-    expect(screen.getByLabelText('👍, 3. Reactions are read-only in this build — the write path lands in Phase 4.')).toBeTruthy()
+    expect(screen.getByLabelText('👍, 3. Reactions are read-only here.')).toBeTruthy()
   })
 
   it('hides the heart chip: hearts live on the like button (F18)', () => {

@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
   art: {width: 14, height: 14, resizeMode: 'contain'},
 })
 
-const READONLY_REASON = 'Reactions are read-only in this build — the write path lands in Phase 4.'
+const READONLY_REASON = 'Reactions are read-only here.'
 
 function ChipArt({
   reactionKey,

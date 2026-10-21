@@ -21,10 +21,9 @@ import {profileTabDescriptor, type ProfileFeedTab} from '#/state/queries'
 
 // Profile (`/users/:id?`): v1-style header (banner, overlapping avatar
 // row, name/handle, bio, gated stats) plus an underline tablist over the
-// shared FeedView. Follow state is READ-ONLY here: follow/unfollow ships
-// in Phase 4, so no follow buttons render in this file at all — the
-// action slot holds the Phase 4 `ProfileActions` (others) or the
-// settings entry (self), never an inert control.
+// shared FeedView. The action slot holds `ProfileActions` (follow/unfollow
+// and friends on others) or the settings entry (self) — never an inert
+// control.
 export function UserScreen() {
   const route = useRoute<RouteProp<RootParamList, 'User'>>()
   const nav = useNavigation<NavigationProp<RootParamList>>()
