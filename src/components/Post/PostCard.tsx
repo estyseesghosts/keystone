@@ -35,6 +35,7 @@ import {showToast} from '#/lib/toast'
 import {navigationRef} from '#/navigationRef'
 import {usePostActions, type PostActions} from '#/state/cache'
 import {useOptionalSessionStore} from '#/state/session/SessionProvider'
+import {useLikeEmoji} from '#/state/emojiPrefs'
 
 import {ActionBar, StaticActionBar, toastError} from './ActionBar'
 import {postBodyNodes, postEmojis} from './body'
@@ -263,6 +264,9 @@ function PostCardView({
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
   const [cwOpen, setCwOpen] = useState(false)
+  // Per-session configured like key (F18): chips hide it, the like
+  // button sets it. Device-local store, server default underneath.
+  const likeEmoji = useLikeEmoji(sessionId)
   // Lightbox target: the exact media array shown plus the tapped index.
   // Main-grid taps open the post's array; quote-card taps open the
   // quote's slice — never a mixed or reindexed array.
@@ -435,6 +439,7 @@ function PostCardView({
           reactions={effective.reactions}
           capabilities={capabilities}
           pendingKeys={live?.actions.shadowed.pendingEmojiKeys}
+          likeEmoji={likeEmoji}
           onToggle={
             live && live.actions.reaction.gate.enabled
               ? key =>
@@ -454,6 +459,7 @@ function PostCardView({
             handlers={live.handlers}
             menu={live.menu}
             sessionId={sessionId}
+            likeEmoji={likeEmoji}
           />
         ) : (
           <StaticActionBar post={effective} />

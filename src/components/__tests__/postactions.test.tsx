@@ -239,17 +239,39 @@ describe('PostCard write wiring', () => {
   })
 
   it('tapping a reaction chip reacts optimistically and calls the backend', async () => {
-    const b = live()
-    fireEvent.press(screen.getByTestId('reaction-❤'))
-    await waitFor(() => expect(b.react).toHaveBeenCalledWith('p1', '❤'))
+    const post = makePost()
+    post.reactions = {
+      total: 8,
+      entries: [
+        {key: '👍', count: 3, mine: false, url: null},
+        {key: '❤', count: 5, mine: false, url: null},
+      ],
+      mine: null,
+      myReactions: [],
+      urls: {},
+    }
+    const b = live(post)
+    fireEvent.press(screen.getByTestId('reaction-👍'))
+    await waitFor(() => expect(b.react).toHaveBeenCalledWith('p1', '👍'))
   })
 
   it('rejected reaction rolls back and toasts', async () => {
     const b = fakeBackend({react: jest.fn(async () => { throw new Error('server said no') })})
-    live(makePost(), b)
-    fireEvent.press(screen.getByTestId('reaction-❤'))
+    const post = makePost()
+    post.reactions = {
+      total: 8,
+      entries: [
+        {key: '👍', count: 3, mine: false, url: null},
+        {key: '❤', count: 5, mine: false, url: null},
+      ],
+      mine: null,
+      myReactions: [],
+      urls: {},
+    }
+    live(post, b)
+    fireEvent.press(screen.getByTestId('reaction-👍'))
     await waitFor(() => expect(toastStore.getSnapshot().map(t => t.message)).toContain('server said no'))
-    expect(screen.getByLabelText('❤, 5')).toBeTruthy()
+    expect(screen.getByLabelText('👍, 3')).toBeTruthy()
   })
 
   it('boost menu boosts; quote calls onQuote; reply calls onReply', async () => {
@@ -341,5 +363,19 @@ describe('PostCard write wiring', () => {
     fireEvent.press(screen.getByTestId('post-menu-p1'))
     fireEvent.press(screen.getByTestId('post-menu-p1-item-edit'))
     expect(onEdit).toHaveBeenCalled()
+  })
+})
+
+describe('like-key wiring (F18)', () => {
+  it('the like button sets the configured like emoji, not a hardcoded heart', async () => {
+    const {likeEmojiStore} = await import('#/state/emojiPrefs')
+    likeEmojiStore.set(SESSION.id, '⭐')
+    try {
+      const b = live(makePost(), fakeBackend())
+      fireEvent.press(screen.getByTestId('action-react-p1'))
+      await waitFor(() => expect(b.react).toHaveBeenCalledWith('p1', '⭐'))
+    } finally {
+      likeEmojiStore.reset(SESSION.id)
+    }
   })
 })

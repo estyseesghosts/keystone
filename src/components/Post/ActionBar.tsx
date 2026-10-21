@@ -8,6 +8,7 @@ import {StyleSheet, View} from 'react-native'
 import {useRef, useState} from 'react'
 
 import type {Capabilities, Post, ReactionSummary, ServerFamily} from '@keystone/fedi'
+import {HEART_REACTION} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {Caption} from '#/alf/typography'
@@ -104,9 +105,9 @@ function artFor(key: string, reactions: ReactionSummary | null): string | null {
   return reactions.entries.find(e => e.key === key)?.url ?? null
 }
 
-function LikeGlyph({glyphKey, url, mine}: {glyphKey: string | null; url: string | null; mine: boolean}) {
+function LikeGlyph({glyphKey, url, mine, likeEmoji}: {glyphKey: string | null; url: string | null; mine: boolean; likeEmoji: string}) {
   const theme = useTheme()
-  if (glyphKey && glyphKey !== '❤') {
+  if (glyphKey && glyphKey !== likeEmoji) {
     if (url) {
       return (
         <Image
@@ -129,6 +130,7 @@ export function ActionBar({
   handlers,
   menu,
   sessionId,
+  likeEmoji = HEART_REACTION,
 }: {
   /** The shown (appeared) post — shadow-merged for display. */
   post: Post
@@ -139,6 +141,8 @@ export function ActionBar({
   menu: PostMenuSection[]
   /** Owning session (emoji picker + reaction writes bind to it). */
   sessionId: string
+  /** Configured like key (F18): the button sets this, never a hardcoded heart. */
+  likeEmoji?: string
 }) {
   const theme = useTheme()
   const id = post.id
@@ -204,14 +208,14 @@ export function ActionBar({
             ? `Liked with ${mine} — remove reaction`
             : `Like, ${total} reactions`
         }
-        icon={<LikeGlyph glyphKey={mine} url={mine ? artFor(mine, post.reactions) : null} mine={!!mine} />}
+        icon={<LikeGlyph glyphKey={mine} url={mine ? artFor(mine, post.reactions) : null} mine={!!mine} likeEmoji={likeEmoji} />}
         text={String(total)}
         active={!!mine}
         disabled={!gate.enabled}
         reason={gate.enabled ? undefined : gate.reason}
         onPress={() => {
           if (mine) void actions.reaction.set(null).catch(toastError)
-          else void actions.reaction.set('❤').catch(toastError)
+          else void actions.reaction.set(likeEmoji).catch(toastError)
         }}
       />
     )

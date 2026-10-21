@@ -141,8 +141,25 @@ describe('PostCard', () => {
   })
 
   it('renders read-only reaction chips, disabled with a reason', () => {
+    const post = makePost()
+    post.reactions = {
+      total: 8,
+      entries: [
+        {key: '👍', count: 3, mine: false, url: null},
+        {key: '❤', count: 5, mine: false, url: null},
+      ],
+      mine: null,
+      myReactions: [],
+      urls: {},
+    }
+    renderCard(<PostCard post={post} sessionId={SESSION} />)
+    expect(screen.getByLabelText('👍, 3. Reactions are read-only in this build — the write path lands in Phase 4.')).toBeTruthy()
+  })
+
+  it('hides the heart chip: hearts live on the like button (F18)', () => {
     renderCard(<PostCard post={makePost()} sessionId={SESSION} />)
-    expect(screen.getByLabelText('❤, 5. Reactions are read-only in this build — the write path lands in Phase 4.')).toBeTruthy()
+    expect(screen.queryByTestId('reaction-❤')).toBeNull()
+    expect(screen.queryByTestId('post-reactions-p1')).toBeNull()
   })
 
   it('hides reaction chips when reactions are unsupported', () => {

@@ -9,6 +9,7 @@ import {useState} from 'react'
 import {Image, StyleSheet, View} from 'react-native'
 
 import type {Capabilities, ReactionSummary} from '@keystone/fedi'
+import {HEART_REACTION, shouldHideChip} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {Caption} from '#/alf/typography'
@@ -64,6 +65,7 @@ export function ReactionChips({
   reactions,
   capabilities,
   pendingKeys,
+  likeEmoji = HEART_REACTION,
   onToggle,
   testID,
 }: {
@@ -72,15 +74,22 @@ export function ReactionChips({
   reactions: ReactionSummary | null
   /** `usePostShadow(...).pendingEmojiKeys` */
   pendingKeys?: ReadonlySet<string>
+  /** The configured like key: like-kind reactions live on the like
+   * button, never as chips (v1 `visibleReactions` parity, F18). */
+  likeEmoji?: string
   capabilities?: Capabilities | null
   testID?: string
 }) {
   const theme = useTheme()
   if (!reactions || reactions.entries.length === 0) return null
   if (capabilities?.reactions === 'unsupported') return null
+  // Hearts always hide (they live on the like button), plus the
+  // configured custom like emoji.
+  const entries = reactions.entries.filter(e => !shouldHideChip(e.key, likeEmoji))
+  if (entries.length === 0) return null
   return (
     <View style={styles.row} testID={testID}>
-      {reactions.entries.map(entry => {
+      {entries.map(entry => {
         const mine = reactions.mine === entry.key
         return (
           <Pressable
