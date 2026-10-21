@@ -248,12 +248,17 @@ describe('FeedView scroll layout (header content, sticky bar, prefetch)', () => 
     expect(screen.getByTestId('stub-tabs')).toBeTruthy()
     expect(screen.queryByTestId('feed-sticky-bar')).toBeNull()
     // Scrolled past the tabs (jest has no layout engine, so the measured
-    // offset is 0 and any scroll crosses it): the single pinned copy mounts
-    // above the list, the in-flow copy unmounts (no duplicate testIDs).
+    // offset is 0 and any scroll crosses it): the pinned overlay copy
+    // mounts above the list while the in-flow copy stays mounted but
+    // hidden from assistive tech (no layout jump, no remount).
     const list = screen.getByTestId('feed-list')
     fireEvent.scroll(list, scrollEvent(600, 5000, 800))
     expect(screen.getByTestId('feed-sticky-bar')).toBeTruthy()
-    expect(screen.getAllByTestId('stub-tabs')).toHaveLength(1)
+    // One visible copy; two counting the AT-hidden in-flow copy.
+    expect(screen.getByTestId('stub-tabs')).toBeTruthy()
+    expect(
+      screen.getAllByTestId('stub-tabs', {includeHiddenElements: true}),
+    ).toHaveLength(2)
   })
 
   it('fetches the next page well before the bottom edge', async () => {

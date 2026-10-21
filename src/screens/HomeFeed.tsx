@@ -113,8 +113,30 @@ function FeedSkeleton({testID}: {testID?: string}) {
   )
 }
 
-export function FeedView({
-  sessionId,
+// Chrome overlays: absolutely positioned so they never take layout space
+// (mounting must not shift the feed). The pill floats over the content;
+// the pinned tab copy covers the in-flow copy exactly once scrolled past.
+const feedChromeStyles = StyleSheet.create({
+  floatingPill: {
+    position: 'absolute',
+    top: 8,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+    elevation: 5,
+  },
+  pinnedBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 4,
+    elevation: 4,
+  },
+})
+
+export function FeedView({  sessionId,
   descriptor,
   backend,
   retry,
@@ -138,18 +160,20 @@ export function FeedView({
   /**
    * Bar with true-sticky behavior: rendered in-flow directly under
    * `scrollHeader` (correct rest order — bio, then tabs), plus a pinned
-   * copy above the list once the in-flow copy scrolls off the top.
-   * Hand-rolled (no `stickyHeaderIndices` — unsupported on web): the
+   * copy overlaid above the list once the in-flow copy scrolls off the
+   * top. Hand-rolled (no `stickyHeaderIndices` — unsupported on web): the
    * in-flow copy reports its offset via `onLayout`, the scroll handler
-   * flips a boolean only on crossing, and the in-flow slot keeps a
-   * same-height placeholder while pinned so content never jumps. Only
-   * one copy is ever mounted, so testIDs never duplicate. Optional,
-   * off by default.
+   * flips a boolean only on crossing. The pinned copy is absolutely
+   * positioned (no layout space, so pinning never shifts the feed) with
+   * an opaque background; the covered in-flow copy stays mounted (no
+   * jump, no remount) but is hidden from assistive tech while covered.
+   * Optional, off by default.
    */
   stickyBar?: ReactNode
 }) {
   const storeBackend = useBackendForSessionId(sessionId)
   const resolved = backend !== undefined ? backend : storeBackend
+  const theme = useTheme()
   const feed = usePostFeedQuery(sessionId, descriptor, {
     ...(resolved ? {backend: resolved} : {}),
     ...(retry !== undefined ? {retry} : {}),
@@ -191,12 +215,10 @@ export function FeedView({
   // never re-renders until the crossing actually happens.
   const [tabsPinned, setTabsPinned] = useState(false)
   const tabsOffsetY = useRef(0)
-  const tabsHeight = useRef(0)
   const tabsPinnedRef = useRef(false)
   const hasStickyBar = stickyBar != null
   const onStickyBarLayout = useCallback((e: LayoutChangeEvent) => {
     tabsOffsetY.current = e.nativeEvent.layout.y
-    tabsHeight.current = e.nativeEvent.layout.height
   }, [])
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -274,7 +296,10 @@ export function FeedView({
   return (
     <View testID={testID} style={atoms.flex1}>
       {newCount > 0 ? (
-        <View style={[atoms.itemsCenter, atoms.py_sm]}>
+        // Floating pill over the content (no layout bar behind it): the
+        // wrapper ignores touches so the feed stays scrollable beneath,
+        // the button itself stays tappable.
+        <View pointerEvents="box-none" style={feedChromeStyles.floatingPill}>
           <Button
             label={i18n._(msg`${newCount} new posts`)}
             variant="secondary"
@@ -283,7 +308,16 @@ export function FeedView({
           />
         </View>
       ) : null}
-      {tabsPinned && stickyBar != null ? <View testID="feed-sticky-bar">{stickyBar}</View> : null}
+      {tabsPinned && stickyBar != null ? (
+        // Absolute overlay: takes no layout space, so pinning never shifts
+        // the feed. Opaque background — scrolled content must not show
+        // through the stuck bar.
+        <View
+          testID="feed-sticky-bar"
+          style={[feedChromeStyles.pinnedBar, {backgroundColor: theme.palette.bg}]}>
+          {stickyBar}
+        </View>
+      ) : null}
       <FlatList
         ref={listRef}
         testID="feed-list"
@@ -298,14 +332,15 @@ export function FeedView({
                 <View testID="feed-scroll-header">{scrollHeader}</View>
               ) : null}
               {stickyBar != null ? (
-                tabsPinned ? (
-                  // Same-height placeholder: the in-flow copy is unmounted
-                  // while pinned (single mounted copy, no duplicate
-                  // testIDs) and the feed must not jump.
-                  <View style={{height: tabsHeight.current}} />
-                ) : (
-                  <View onLayout={onStickyBarLayout}>{stickyBar}</View>
-                )
+                // Always mounted (mount/unmount would jump the feed); while
+                // pinned the overlay covers this copy, so hide it from
+                // assistive tech instead of removing it.
+                <View
+                  onLayout={onStickyBarLayout}
+                  accessibilityElementsHidden={tabsPinned}
+                  importantForAccessibility={tabsPinned ? 'no-hide-descendants' : 'auto'}>
+                  {stickyBar}
+                </View>
               ) : null}
             </View>
           ) : undefined

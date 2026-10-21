@@ -86,7 +86,8 @@ describe('UserScreen scroll layout (bio scrolls, tabs stick, no reactions)', () 
     expect(screen.getByTestId('profile-header')).toBeTruthy()
     expect(screen.getByTestId('profile-tabs')).toBeTruthy()
     expect(screen.queryByTestId('feed-sticky-bar')).toBeNull()
-    // Scrolled past the tabs: the single pinned copy mounts above the list.
+    // Scrolled past the tabs: the pinned overlay copy mounts above the
+    // list; the in-flow copy stays mounted but AT-hidden (no jump).
     fireEvent.scroll(screen.getByTestId('feed-list'), {
       nativeEvent: {
         contentOffset: {x: 0, y: 900},
@@ -95,7 +96,10 @@ describe('UserScreen scroll layout (bio scrolls, tabs stick, no reactions)', () 
       },
     })
     expect(screen.getByTestId('feed-sticky-bar')).toBeTruthy()
-    expect(screen.getAllByTestId('profile-tabs')).toHaveLength(1)
+    expect(screen.getByTestId('profile-tabs')).toBeTruthy()
+    expect(
+      screen.getAllByTestId('profile-tabs', {includeHiddenElements: true}),
+    ).toHaveLength(2)
     // The recent-reactions block is gone: never mounted, never fetched.
     expect(screen.queryByTestId('account-reactions')).toBeNull()
     expect(accountReactions).not.toHaveBeenCalled()
