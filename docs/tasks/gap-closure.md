@@ -2,7 +2,7 @@
 
 Plan ref: cross-cutting; supersedes nothing (`rn-rebuild-plan.md` still
 governs phases 5–7). Gap register: `docs/parity-gaps.md`.
-Status: W1 done 2026-10-20 (on `main` per owner direction; one workstream per session still applies), W2 done 2026-10-21 (F21 + honest deferrals; log `state/logs/2026-10-21-w2-remainder.md`), W3 done 2026-10-21 (log `state/logs/2026-10-21-w3-composer.md`), W4 done 2026-10-21 (log `state/logs/2026-10-21-w4-social.md`; trio 94 suites / 1142 tests green)
+Status: W1 done 2026-10-20 (on `main` per owner direction; one workstream per session still applies), W2 done 2026-10-21 (F21 + honest deferrals; log `state/logs/2026-10-21-w2-remainder.md`), W3 done 2026-10-21 (log `state/logs/2026-10-21-w3-composer.md`), W4 done 2026-10-21 (log `state/logs/2026-10-21-w4-social.md`; trio 94 suites / 1142 tests green), W5 done 2026-10-21 (log `state/logs/2026-10-21-w5-screens.md`; trio 106 suites / 1251 tests green)
 Branch: `main` (W1 landed directly; `p6.0-w1-foundations` left at the pre-W1 consolidation point)
 
 ## Goal
@@ -131,16 +131,20 @@ visible and listable (MD2 live round-trip; saved-posts screen stays W5/N10); fol
 
 ### W5 — Screens & routing
 
-- [ ] N4 Explore + subroutes/search/autocomplete.
-- [ ] N5 Tag screen.
-- [ ] N6/N7/N8/N9 Lists, clips, antennas, drive screens.
-- [ ] N10 Favorites/bookmarks screen.
-- [ ] N12 Followers/following screens + linked counters.
-- [ ] N3 Settings section routes + correct back/deep-link behavior.
-- [ ] N13 Base-path/hosting routing.
-- [ ] N14/N15 Scroll restoration, last-feed back fallback, shared back.
-- [ ] N16/N17 Account menu entry points + title copy.
-- [ ] N22 App icon/splash/favicon + system UI.
+Status: done 2026-10-21 on `main` (log `state/logs/2026-10-21-w5-screens.md`; trio 106 suites / 1251 tests green; Helium signed-in phone/rail/full in `state/logs/assets-w5/`; authed Akkoma probe `scripts/fedi-w5-probe.ts` green).
+
+- [x] N4 Explore + subroutes/search/autocomplete (`explore|posts` descriptor through shared `FeedView`).
+- [x] N5 Tag screen.
+- [x] N6/N7/N8/N9/N10 Lists (W4, confirm-only re-run green), clips (+ menu add-to-clip flow), antennas, drive, favorites screens.
+- [x] N12 Followers/following screens + linked counters.
+- [x] N3 Settings section routes + correct back/deep-link behavior.
+- [x] N13 Base-path/hosting routing.
+- [x] N14 Scroll restoration (offset memory in `FeedView`), last-feed fallback, shared back.
+- [x] N15 Back affordance on rail/full (`Pagehead`).
+- [x] N16/N17 Account menu entry points + title copy (Search/Note/Follows).
+- [x] N22 App icon/splash/favicon + assets (system-UI rides W6/P11 — see DECISIONS).
+- [x] F19 Reactor/repost lists + detail tabs (already composed — verified, register corrected, no new code).
+- [x] F20 In-clips row (`InClipsRow` via `clips.containing`; live capture still rides S4).
 
 Acceptance: every route in the new table resolves; deep links and back
 behave; no placeholder screens in primary navigation; trio + web/device.
