@@ -10,9 +10,10 @@
 // token. Card taps navigating TO this route are owned elsewhere — this
 // screen only reads the `Note: {id: string}` route param.
 
-import {useEffect, useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
 import {
+  useFocusEffect,
   useNavigation,
   useRoute,
   type NavigationProp,
@@ -68,6 +69,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 })
+
+// Thread connectors (E8, v1 `Note` parity, own code): a 1px left edge
+// ties same-thread cards together — the ancestor chain above the
+// focused post, each root reply row below it, and every nested branch
+// level. v1 draws the same idea through the avatar column with
+// `::before` rules (web-only); the edge is the native equivalent —
+// adjacent rows share the indent so the segments read as one spine.
+// PostCard internals are untouched: the edge wraps each card.
+function threadEdge(borderColor: string) {
+  return {borderLeftWidth: 1, borderLeftColor: borderColor, marginLeft: 16, paddingLeft: 12}
+}
 
 function AccountRow({account}: {account: Account}) {
   return (
@@ -266,6 +278,8 @@ function ReplyBranch({
 }) {
   const [expanded, setExpanded] = useState(expandedByDefault)
   const replies = useThreadRepliesQuery(sessionId, parentId, {backend})
+  const theme = useTheme()
+  const edge = depth > 0 ? {borderLeftWidth: 1, borderLeftColor: theme.palette.border} : null
 
   if (!expanded) {
     return (
@@ -283,7 +297,9 @@ function ReplyBranch({
   const items = replies.data?.pages.flatMap(page => page.items) ?? []
 
   return (
-    <View style={{paddingLeft: depth > 0 ? 12 : 0}} testID={`replies-${parentId}`}>
+    <View
+      style={[{paddingLeft: depth > 0 ? 12 : 0}, edge]}
+      testID={`replies-${parentId}`}>
       {expandedByDefault ? null : (
         <View style={[atoms.px_md, atoms.py_sm]}>
           <Button
@@ -371,9 +387,10 @@ function RootReplyRow({
   backend: Backend
   child: Post
 }) {
+  const theme = useTheme()
   const shown = appearNoteOf(child)
   return (
-    <View>
+    <View style={threadEdge(theme.palette.border)} testID={`thread-edge-${child.id}`}>
       <PostCard post={child} sessionId={sessionId} testID={`reply-${child.id}`} />
       {0 + 1 >= MAX_DEPTH ? (
         <View style={[atoms.px_md, atoms.py_sm]}>
@@ -424,6 +441,35 @@ export function NoteScreen() {
   })
   const rootItems = rootReplies.data?.pages.flatMap(page => page.items) ?? []
 
+  // E10: the thread query is never invalidated on create-success (the
+  // create-post mutation only writes feed keys), and the old
+  // pull-to-refresh refetched the focused post but NOT its replies — so
+  // a reply posted from detail never appeared without exiting +
+  // reopening. Both paths refetch here, event-driven, never polling:
+  // manual refresh reloads post + replies, and returning from the
+  // Compose overlay (which blurs this screen) refetches on focus.
+  const refreshThread = useCallback(() => {
+    void thread.refetch()
+    if (rootParentId.length > 0) void rootReplies.refetch()
+  }, [thread, rootParentId, rootReplies])
+  // The focus callback subscribes ONCE (empty deps): its body must see
+  // fresh queries without resubscribing, or every re-render would
+  // resubscribe-while-focused and refetch — a polling loop by accident.
+  const refreshThreadRef = useRef(refreshThread)
+  useEffect(() => {
+    refreshThreadRef.current = refreshThread
+  })
+  const seenFocus = useRef(false)
+  useFocusEffect(
+    useCallback(() => {
+      if (!seenFocus.current) {
+        seenFocus.current = true
+        return
+      }
+      refreshThreadRef.current()
+    }, []),
+  )
+
   return (
     <View style={atoms.flex1} testID="note-screen">
       <Pagehead title="Note" />
@@ -458,9 +504,13 @@ export function NoteScreen() {
           renderItem={({item}) => <RootReplyRow sessionId={sessionId} backend={backend} child={item} />}
           ListHeaderComponent={
             <>
-              {thread.data.ancestors.map(a => (
-                <PostCard key={a.id} post={a} sessionId={sessionId} testID={`ancestor-${a.id}`} />
-              ))}
+              {thread.data.ancestors.length > 0 ? (
+                <View style={threadEdge(theme.palette.border)} testID="ancestor-chain">
+                  {thread.data.ancestors.map(a => (
+                    <PostCard key={a.id} post={a} sessionId={sessionId} testID={`ancestor-${a.id}`} />
+                  ))}
+                </View>
+              ) : null}
               {thread.data.incomplete ? (
                 <View style={[atoms.px_md, atoms.py_sm]}>
                   <Caption color="faint">Earlier reply context unavailable.</Caption>
@@ -498,7 +548,10 @@ export function NoteScreen() {
                 <View testID={`replies-${focused.id}`}>
                   <View style={[atoms.px_md, atoms.py_sm]}>
                     <Caption color="faint" testID={`replies-count-${focused.id}`}>
-                      {`Replies (${focused.counts.replies})`}
+                      {/* Loaded rows are a true subset of the server total,
+                          so the header never reads below what is on screen
+                          while the focused post's counts catch up. */}
+                      {`Replies (${Math.max(focused.counts.replies, rootItems.length)})`}
                     </Caption>
                   </View>
                   {rootReplies.isPending ? (
@@ -548,8 +601,8 @@ export function NoteScreen() {
           }
           refreshControl={
             <RefreshControl
-              refreshing={thread.isRefetching}
-              onRefresh={() => void thread.refetch()}
+              refreshing={thread.isRefetching || rootReplies.isRefetching}
+              onRefresh={() => refreshThread()}
               tintColor={theme.palette.muted}
               colors={[theme.palette.muted]}
               progressBackgroundColor={theme.palette.bg}
