@@ -69,14 +69,15 @@ server; `nav.test` covers redirects + `/network/federated`; trio green.
 - [ ] F7 Strip/render textual `RE:` quotes.
 - [ ] F8 Poll UI + voting.
 - [ ] F9 Route MFM/HTML mentions to the profile screen.
-- [ ] F11 Remote custom emoji fallback + display-name emoji.
-- [ ] F12/F13 Link previews, fold/"Open post", tag bubble (v1 parity).
+- [ ] F11 Remote custom emoji fallback + display-name emoji. (W2 2026-10-21: card half done via `DisplayName`; profile/notification rows ride W4; remote-host store fallback deferred — see DECISIONS)
+- [ ] F12/F13 Link previews, fold/"Open post", tag bubble (v1 parity). (W2 2026-10-21: server cards + fold done; client unfurl declined — see DECISIONS)
 - [ ] F15–F18 filter badges, post badges, boost collapsing, like-key/emoji.
 - [ ] F19 Reactor/repost lists + detail tabs.
-- [ ] F20 Detail parity (in-clips, live capture, delete-navigate, reply insert).
-- [ ] F21/F22 dedupe/retry/skeletons/pill, moderation filters in feeds.
+- [ ] F20 Detail parity (in-clips, live capture, delete-navigate, reply insert). (W2 2026-10-21: tabs + delete-navigate done; clips row deferred to W5; reply-insert via W3 C1/C6)
+- [x] F21 dedupe/retry/skeletons/pill (W2 2026-10-21 on `main`: `feedItems` dedupe, `FeedSkeleton`, footer `feed-more-retry`, pill scroll-to-top; live feed for the pill stays S4).
+- [ ] F22 moderation filters in feeds — DEFERRED to W4 (see DECISIONS 2026-10-21; needs `me` query + backend lists).
 - [ ] MD4 Sanitizer `span.invisible` + list bullets.
-- [ ] MK8/MK17 remote emoji store, remote-link resolver.
+- [ ] MK8/MK17 remote emoji store, remote-link resolver. (W2 2026-10-21: MK17 done; MK8 remote-host fallback deferred — see DECISIONS)
 
 Acceptance: media opens/plays on device; quote/poll/mention cases tested;
 trio green; screenshots in log.
