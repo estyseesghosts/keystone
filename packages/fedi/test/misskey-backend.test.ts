@@ -366,6 +366,39 @@ describe("MisskeyBackend notifications, drive, emojis, translate", () => {
     expect(calls[1]).toEqual({ endpoint: "drive/files/delete", params: { fileId: "f1" } });
   });
 
+  it("drive folders list/create/update/delete hit drive/folders/*", async () => {
+    const folder = { id: "d1", createdAt: "2026-10-15T11:59:00.000Z", name: "Uploads", parentId: null };
+    const { transport, calls } = stubTransport((endpoint, params) => {
+      if (endpoint === "drive/folders") return [folder];
+      if (endpoint === "drive/folders/create")
+        return { ...folder, id: "d2", name: params.name, parentId: params.parentId ?? null };
+      if (endpoint === "drive/folders/update") return { ...folder, name: params.name };
+      return folder;
+    });
+    const backend = createMisskeyBackend(transport);
+    // The real backend exposes folders: the Drive folder section renders.
+    expect(backend.drive!.folders).toBeDefined();
+    const listed = await backend.drive!.folders!.list();
+    expect(calls[0]).toEqual({ endpoint: "drive/folders", params: {} });
+    expect(listed).toEqual([{ id: "d1", name: "Uploads", parentId: null }]);
+    const created = await backend.drive!.folders!.create("Memes");
+    expect(calls[1]).toEqual({ endpoint: "drive/folders/create", params: { name: "Memes" } });
+    expect(created).toEqual({ id: "d2", name: "Memes", parentId: null });
+    await backend.drive!.folders!.create("Nested", { parentId: "d1" });
+    expect(calls[2]).toEqual({
+      endpoint: "drive/folders/create",
+      params: { name: "Nested", parentId: "d1" },
+    });
+    const updated = await backend.drive!.folders!.update("d1", { name: "Renamed" });
+    expect(calls[3]).toEqual({
+      endpoint: "drive/folders/update",
+      params: { folderId: "d1", name: "Renamed" },
+    });
+    expect(updated.name).toBe("Renamed");
+    await backend.drive!.folders!.delete("d1");
+    expect(calls[4]).toEqual({ endpoint: "drive/folders/delete", params: { folderId: "d1" } });
+  });
+
   it("customEmojis validates entries exactly as the loader did", async () => {
     const { transport } = stubTransport(() => ({
       emojis: [

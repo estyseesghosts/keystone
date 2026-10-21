@@ -23,6 +23,7 @@
 //   User.bannerUrl         -> Account.headerUrl
 //   User.notesCount        -> Account.statusesCount
 //   DriveFile.*            -> Media.* (properties -> meta verbatim)
+//   DriveFolder.*          -> core DriveFolder (id/name/parentId only)
 //   NotificationItem.type  -> Notification.kind (+ rawType verbatim)
 //
 // Discipline: unknown wire values are never rounded up (visibility, kind
@@ -51,9 +52,11 @@ import {
 } from "../core/models";
 import type {
   FollowRequest as CoreFollowRequest,
+  DriveFolder as CoreDriveFolder,
 } from "../core/backend";
 import type {
   DriveFile,
+  DriveFolder as WireDriveFolder,
   GroupedNotificationItem,
   NotificationItem,
   Note,
@@ -190,6 +193,18 @@ export function adaptDriveFile(file: DriveFile): Media {
     createdAt: file.createdAt ?? null,
     folderId: file.folderId ?? null,
     userId: file.userId ?? null,
+  };
+}
+
+// --- Drive folders -----------------------------------------------------------
+
+/** Wire `DriveFolder` -> core DriveFolder. Only id/name/parentId surface;
+ * packed parents/counts never cross into `src/`. */
+export function adaptDriveFolder(folder: WireDriveFolder): CoreDriveFolder {
+  return {
+    id: folder.id,
+    name: folder.name,
+    parentId: folder.parentId ?? null,
   };
 }
 

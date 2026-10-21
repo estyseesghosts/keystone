@@ -1,7 +1,7 @@
 // Drive screen: signed-out, unsupported, file rows with rename +
 // sensitivity toggle + two-tap delete, folder section hidden when the
-// backend has no folders module and listed with create/delete when it
-// does. No upload UI: the composer owns uploads.
+// backend has no folders module and listed with create/rename/delete
+// when it does. No upload UI: the composer owns uploads.
 
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
@@ -92,6 +92,11 @@ const backendWithFolders = () => ({
     folders: {
       list: jest.fn(async () => [{id: 'd1', name: 'Uploads', parentId: null}]),
       create: jest.fn(async (name: string) => ({id: 'd2', name, parentId: null})),
+      update: jest.fn(async (id: string, patch: {name?: string}) => ({
+        id,
+        name: patch.name ?? 'Uploads',
+        parentId: null,
+      })),
       delete: jest.fn(async () => undefined),
     },
   }),
@@ -175,6 +180,23 @@ describe('Drive screen', () => {
       fireEvent.press(screen.getByTestId('drive-folder-delete-confirm-d2'))
       await waitFor(() => expect(backend.drive.folders.delete).toHaveBeenCalledWith('d2'))
       await waitFor(() => expect(screen.queryByText('Memes')).toBeNull())
+    } finally {
+      done()
+    }
+  })
+
+  it('renames a folder inline', async () => {
+    const backend: any = backendWithFolders()
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('Uploads')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('drive-folder-rename-d1'))
+      fireEvent.changeText(screen.getByTestId('drive-folder-rename-input-d1'), 'Photos')
+      fireEvent.press(screen.getByTestId('drive-folder-rename-save-d1'))
+      await waitFor(() =>
+        expect(backend.drive.folders.update).toHaveBeenCalledWith('d1', {name: 'Photos'}),
+      )
+      expect(await screen.findByText('Photos')).toBeTruthy()
     } finally {
       done()
     }
