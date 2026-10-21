@@ -24,5 +24,6 @@ web-build/
 # ---> State scratch (keep STATE.md + logs, ignore temp)
 state/tmp/
 
-# ---> Smoke bundle (built by `pnpm smoke`, never committed)
+# ---> Smoke/probe bundles (built by `pnpm smoke` / probe scripts, never committed)
 scripts/.fedi-smoke.bundle.cjs
+scripts/.fedi-*-probe.bundle.cjs
