@@ -215,6 +215,11 @@ server surface + owner decision on scope).
 
 ## E8 — Thread lines in post detail (F20 remainder)
 
+Status: DONE 2026-10-21 (`pf-detail` 2593da3, trio pending re-run on main).
+Own-code 1px edges on ancestor chain/root rows/nested levels
+(`ancestor-chain`, `thread-edge-<id>`, `replies-<id>`); MAX_DEPTH + FlatList
+kept. 3+-deep connectors proven on Helium + Akkoma `:4000`.
+
 Post detail (`Note.tsx`: `ReplyBranch`, `RootReplyRow`) renders bare
 nested `PostCard`s — no connectors between threaded replies. Add
 v1-parity thread lines (`Note.tsx:181-203,542-605` behavior, own code).
@@ -243,6 +248,13 @@ no duplicate/in-flight fetches (prove with a fetch count test + device
 capture).
 
 ## E10 — Reply-from-detail appears without leaving
+
+Status: DONE 2026-10-21 (`pf-detail` 8df27b7, trio pending re-run on main).
+Root cause was missing invalidation; fix wires `refreshThread()` to
+RefreshControl + return-focus refetch (non-polling proven by 90s idle).
+Reply visible in-thread on goBack, proven live; all 11 probe posts deleted.
+Pull-*gesture* itself `not verified` (Helium reports no touch points —
+needs Oppo).
 
 Owner report: replying from detail view (`Note.tsx:184-192`
 `ReplyEntry` → Compose with `replyToId`) never shows the reply —

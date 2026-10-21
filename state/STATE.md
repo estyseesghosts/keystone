@@ -1,10 +1,11 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: V2_GAPS COMPLETE 2026-10-21 — all WS-A…WS-G MERGED
-on `main` and registers closed (quotes full-mile, MFM content +
-TagBubble + schema fix, remote emoji + picker, post menu, Misskey
-correctness, grouped notifications + Filters UI, scroll + S4
-streaming mount). Worktrees removed; repo is one `main`.
+Phase/slice: V2_FUNCTIONAL nearly closed 2026-10-21 — E1–E5 + E8–E10
+MERGED on `main` (trio 145/1727 green; Helium + Akkoma `:4000` proofs in
+`state/logs/2026-10-21-pf-{links,drive,unfurl,emoji,bio,detail,navigate}.md`).
+OPEN: E6 translation (owner's live Misskey provides it — origin + auth
+needed; stale "no server" commit held off main) and E7 live round-trip
+(page reachable since E7-nav; needs a live Misskey host).
 FULL suite green: 141 suites / 1665 tests; tsc ios+android+web
 clean; eslint + oxlint clean.
 Latest logs: `state/logs/2026-10-21-ws{A,B,C,D,E,F,G}-*.md` (agents;
@@ -21,14 +22,11 @@ Earlier: contrast sweep + UI batch 2 + W1–W8 done on `main`
 
 ## Next 3 steps
 
-1. V2_FUNCTIONAL partial 2026-10-21: E1/E2/E3/E5/E9 MERGED (trio green,
-   Helium `:8088`-`:8098` + Akkoma `:4000` proofs in logs); E7 folders-backend
-   merged + Drive page made reachable (sidebar + account menu, v1-gated) but
-   the live Misskey-family round-trip is still OPEN (`:3101`/`:3102` down).
-2. In flight in `/private/var/folders/…/v2f/` worktrees: `pf-bio` (E4/E6),
-   `pf-detail` (E8/E10) — merge serially on completion; do NOT edit their
-   owned files from `main` meanwhile.
-3. Owner reviews stay open (G1–G4 visual/parity; P5 tail); Oppo `3B15A500TQD00000`
+1. All `pf-*` workstreams complete and merged; lanes free. `pf-bio` E6
+   commit (3052f59) deliberately HELD OFF main (stale premise).
+2. To close E6 + E7-live: owner's live Misskey origin + auth (probe writes
+   OK? with cleanup).
+3. Owner reviews stay open (G1–G4 visual/parity); Oppo `3B15A500TQD00000`
    device pass still never attempted.
 
 ## Blockers
@@ -44,7 +42,7 @@ Earlier: contrast sweep + UI batch 2 + W1–W8 done on `main`
 
 - Gap register: `docs/parity-gaps.md` (V2 rows closed; §9 deferred untouched)
 - Build list: `docs/V2_GAPS.md` (COMPLETE — all WS-A…WS-G ticked)
-- Active handoff: `docs/V2_FUNCTIONAL.md` (E1–E10, owner audit — NOT started)
+- Active handoff: `docs/V2_FUNCTIONAL.md` (E1–E5 + E8–E10 done; E6/E7 open)
 - Gap program: `docs/tasks/gap-closure.md` (W1–W8 COMPLETE)
 - Tasks: `docs/tasks/` (index current)
 - ADRs: `docs/adr/0001-patterns-not-code.md`,
