@@ -126,6 +126,56 @@ describe('clip row (W5)', () => {
   })
 })
 
+describe('report row (WS-D)', () => {
+  function reportInput(opts: {isOwn?: boolean; caps?: unknown; user?: unknown} = {}) {
+    const post = makePost()
+    return {
+      family: 'mastodon',
+      capabilities: opts.caps === undefined ? {} : opts.caps,
+      post,
+      origin: 'https://example.social',
+      isOwn: opts.isOwn ?? false,
+      copyAvailable: true,
+      bookmark: {gate: {enabled: false, reason: 'x'}, value: false, set: jest.fn()},
+      del: {gate: {enabled: false, reason: 'x'}, run: jest.fn()},
+      handlers: {
+        copy: jest.fn(),
+        share: jest.fn(),
+        open: jest.fn(),
+        translate: jest.fn(),
+        muteThread: jest.fn(),
+        togglePin: jest.fn(),
+        ...(opts.user ? {user: opts.user} : {}),
+      },
+    } as never
+  }
+
+  it('is hidden for own posts', () => {
+    const onReport = jest.fn()
+    expect(flatten(buildPostMenu(reportInput({isOwn: true, user: {onReport}}))).find(i => i.key === 'report')).toBeUndefined()
+  })
+
+  it('is disabled with a sign-in reason when signed out', () => {
+    const row = flatten(buildPostMenu(reportInput({caps: null, user: {onReport: jest.fn()}}))).find(i => i.key === 'report')!
+    expect(row.disabled).toBe(true)
+    expect(row.reason).toMatch(/Sign in/)
+  })
+
+  it('is disabled with a reason when no reporter is connected', () => {
+    const row = flatten(buildPostMenu(reportInput({}))).find(i => i.key === 'report')!
+    expect(row.disabled).toBe(true)
+    expect(row.reason).toMatch(/connected/)
+  })
+
+  it('asks for a comment and passes it to the reporter', () => {
+    const onReport = jest.fn()
+    const row = flatten(buildPostMenu(reportInput({user: {onReport}}))).find(i => i.key === 'report')!
+    expect(row.disabled).toBeUndefined()
+    expect(row.confirm?.commentLabel).toBeTruthy()
+    void row.confirm!.run!('spam')
+    expect(onReport).toHaveBeenCalledWith('spam')
+  })
+})
 describe('remote-link resolution (MK17)', () => {
   const realFetch = globalThis.fetch
   afterEach(() => {

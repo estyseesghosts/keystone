@@ -12,6 +12,7 @@ import {Button} from '#/components/Button'
 import {AnchoredPopup} from '#/components/Popup'
 import {Divider} from '#/components/Divider'
 import {Pressable} from '#/components/Pressable'
+import {TextField} from '#/components/forms/TextField'
 import {showToast} from '#/lib/toast'
 
 import type {PostMenuItem, PostMenuSection} from './menuModel'
@@ -40,6 +41,9 @@ export function PostMenu({
   const [open, setOpen] = useState(false)
   const [tier2, setTier2] = useState<PostMenuSection[] | null>(null)
   const [confirming, setConfirming] = useState<PostMenuItem | null>(null)
+  // Report-style confirms require a comment: held here so the dialog
+  // stays controlled, reset every time a confirm opens.
+  const [comment, setComment] = useState('')
   const anchor = useRef<ViewType | null>(null)
   const id = `post-menu-${postId}`
 
@@ -61,10 +65,29 @@ export function PostMenu({
     }
   }
 
+  /** Confirm-path runner: a confirm with its own `run` (report) gets the
+   * dialog comment; every other confirm falls through to the item's
+   * `run` exactly as before (delete, block). */
+  const execConfirm = (item: PostMenuItem) => {
+    const c = item.confirm!
+    close()
+    try {
+      const r = c.run ? c.run(c.commentLabel ? comment : undefined) : item.run?.()
+      if (r && typeof (r as Promise<void>).catch === 'function') {
+        ;(r as Promise<void>).catch(e => showToast(errorMessage(e)))
+      }
+    } catch (e) {
+      showToast(errorMessage(e))
+    }
+  }
+
   const select = (item: PostMenuItem) => {
     if (item.disabled) return
     if (item.submenu) return setTier2(item.submenu)
-    if (item.confirm) return setConfirming(item)
+    if (item.confirm) {
+      setComment('')
+      return setConfirming(item)
+    }
     exec(item)
   }
 
@@ -89,11 +112,20 @@ export function PostMenu({
           {confirming ? (
             <View style={atoms.gap_sm}>
               <Body>{confirming.confirm!.title}</Body>
+              {confirming.confirm!.commentLabel ? (
+                <TextField
+                  label={confirming.confirm!.commentLabel}
+                  value={comment}
+                  onChangeText={setComment}
+                  testID={`${id}-comment`}
+                />
+              ) : null}
               <Button
                 testID={`${id}-confirm`}
                 label={confirming.confirm!.action}
                 variant="secondary"
-                onPress={() => exec(confirming)}
+                disabled={!!confirming.confirm!.commentLabel && comment.trim() === ''}
+                onPress={() => execConfirm(confirming)}
               />
               <Button testID={`${id}-cancel`} label="Cancel" variant="secondary" onPress={() => setConfirming(null)} />
             </View>
