@@ -1,11 +1,6 @@
-// Feed list (slice 3.3): FlatList of PostCards with empty / loading /
-// error states, a pull-to-refresh hook point, and a new-posts pill
-// hook point.
-//
-// Data arrives via props in this slice — the TanStack
-// `usePostFeedQuery(sessionId, descriptor)` hook lands in slice 3.2
-// and will feed THESE props. The component accepts (not fetches)
-// `descriptor + sessionId`, and keys off `feedQueryKey` (`#/state/queries`).
+// Test-only feed harness (Q6): props-driven FlatList of ThreadRows for
+// unit tests. Production renders FeedView (`src/screens/HomeFeed.tsx`),
+// which owns the query + moderation + pill. Do not mount this in screens.
 
 import {useMemo} from 'react'
 import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'

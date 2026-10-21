@@ -1,8 +1,10 @@
-// Shared feed UI for the read-path screens (slices 3.4–3.7): session/backend
-// access, the read-only PostRow, and FeedView. Data comes from the canonical
-// `usePostFeedQuery` (`#/state/queries`); the descriptor grammar is in
-// `@keystone/fedi`, the key is `feedQueryKey`, and the visibility rules live
-// in `#/state/queries/feeds` (slice 3.11 unified the former stub onto them).
+// Shared feed UI for the read-path screens: session/backend access and
+// FeedView. Data comes from the canonical `usePostFeedQuery`
+// (`#/state/queries`); the descriptor grammar is in `@keystone/fedi`, the
+// key is `feedQueryKey`, and the visibility rules live in
+// `#/state/queries/feeds`. Rows render via ThreadRow → PostCard (the
+// production path; Q6: the read-only PostRow was deleted, PostFeed is the
+// test-only harness in components/PostFeed).
 import {useMemo, useSyncExternalStore, useState, useCallback, useRef, useEffect} from 'react'
 import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
 
@@ -12,9 +14,6 @@ import {
   backendForSession,
   collapseReposts,
   computeFeedThreadLinks,
-  displayNameOf,
-  handleOf,
-  isPureRenote,
   isUnsupportedError,
   type Backend,
   type FeedDescriptor,
@@ -72,33 +71,6 @@ function useNewPosts(feedKey: string, items: Post[]) {
     [feedKey, firstId],
   )
   return {newCount, acknowledge}
-}
-
-// --- Post row (read-only; actions are Phase 4) ------------------------------
-
-function countsLine(post: Post): string {
-  const parts = [`${post.counts.replies} replies`, `${post.counts.boosts} boosts`]
-  if (post.reactions) parts.push(`${post.reactions.total} reactions`)
-  if (post.favourite) parts.push(`${post.favourite.count} likes`)
-  return parts.join(' · ')
-}
-
-export function PostRow({post, testID}: {post: Post; testID?: string}) {
-  const renoteHeader = isPureRenote(post) ? (
-    <Caption color="faint">{i18n._(msg`@${post.author.username} reposted`)}</Caption>
-  ) : null
-  const shown = isPureRenote(post) && post.renote ? post.renote : post
-  return (
-    <View testID={testID ?? `post-${shown.id}`} style={[atoms.py_sm, atoms.px_md]}>
-      {renoteHeader}
-      <Body>{displayNameOf(shown.author)}</Body>
-      <Caption color="faint">{handleOf(shown.author)}</Caption>
-      <Caption color="faint">{shown.createdAt}</Caption>
-      {shown.cw ? <Body>{i18n._(msg`CW: ${shown.cw}`)}</Body> : null}
-      <Body>{shown.content.plain}</Body>
-      <Caption color="faint">{countsLine(shown)}</Caption>
-    </View>
-  )
 }
 
 // --- Feed view: refresh + pill + empty/loading/error ------------------------
