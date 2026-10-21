@@ -30,6 +30,8 @@ export function PostQuote({
   quote,
   unavailable,
   status,
+  concealed,
+  onReveal,
   emojiStyle = 'twemoji',
   onPress,
   onOpenMedia,
@@ -43,6 +45,12 @@ export function PostQuote({
   /** Quote-authorization display label for the wrapper's relationship
    * (pending/rejected/…); null hides it. Approved/missing never label. */
   status?: string | null
+  /** Tap-to-reveal gate (device "only authorized quotes" policy): the
+   * card stays hidden behind a reveal row until the viewer opts in.
+   * The caller owns the revealed state; the body marker stays visible
+   * while concealed (strip-only-when-rendered). */
+  concealed?: boolean
+  onReveal?: () => void
   emojiStyle?: EmojiStyle
   onPress?: (post: Post) => void
   onOpenMedia?: (media: Media[], index: number) => void
@@ -53,6 +61,22 @@ export function PostQuote({
 }) {
   const theme = useTheme()
   const {i18n} = useLingui()
+  if (concealed === true) {
+    return (
+      <Pressable
+        testID={testID}
+        onPress={() => onReveal?.()}
+        accessibilityRole="button"
+        accessibilityLabel={i18n._(msg`Show hidden quote`)}>
+        <View
+          style={[styles.card, {borderColor: theme.palette.edge, backgroundColor: theme.palette.bg}]}
+          testID={testID ? `${testID}-concealed` : undefined}>
+          {status ? <Caption color="muted">{status}</Caption> : null}
+          <Caption color="muted">{i18n._(msg`Quote hidden — tap to reveal`)}</Caption>
+        </View>
+      </Pressable>
+    )
+  }
   if (unavailable || quote === null) {
     return (
       <View
@@ -63,7 +87,10 @@ export function PostQuote({
       </View>
     )
   }
-  const nodes: ContentNode[] = postBodyNodes(quote)
+  // One level: a quoted post never renders its own nested quote card,
+  // so its markers stay visible (strip-only-when-rendered) — an empty
+  // coverage list keeps every marker.
+  const nodes: ContentNode[] = postBodyNodes(quote, {coveredQuoteUris: []})
   // One level, first four attachments of any kind: the card stays
   // compact, and the viewer opens this exact slice at the tapped index.
   const slice = quote.media.slice(0, 4)

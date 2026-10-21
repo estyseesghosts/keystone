@@ -19,7 +19,7 @@ describe('parseOrFallback', () => {
     expect(parseOrFallback(deviceStateSchema, raw, defaultDeviceState)).toEqual({
       version: STORAGE_VERSION,
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto'},
+      prefs: {theme: 'dark', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false},
     })
   })
 
@@ -118,7 +118,7 @@ describe('migrateDeviceState (v1 → v2)', () => {
     expect(migrateDeviceState(raw)).toEqual({
       version: 2,
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 2, contentMode: 'auto'},
+      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 2, contentMode: 'auto', onlyAuthorizedQuotes: false},
     })
   })
 
@@ -131,7 +131,7 @@ describe('migrateDeviceState (v1 → v2)', () => {
     const raw = JSON.stringify({
       version: 2,
       activeSessionId: null,
-      prefs: {theme: 'light', emojiStyle: 'noto', textScale: 1.5, contentMode: 'plain'},
+      prefs: {theme: 'light', emojiStyle: 'noto', textScale: 1.5, contentMode: 'plain', onlyAuthorizedQuotes: true},
     })
     expect(migrateDeviceState(raw)).toEqual(JSON.parse(raw))
   })

@@ -51,7 +51,7 @@ describe('appearance store (device emoji style)', () => {
     writeDeviceState(storage, {
       ...readDeviceState(storage),
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto'},
+      prefs: {theme: 'dark', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false},
     })
     store.setEmojiStyle('noto')
     const state = readDeviceState(storage)

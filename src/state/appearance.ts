@@ -50,6 +50,10 @@ export interface AppearanceStore {
   setTextScale(scale: number): void
   getContentMode(): ContentMode
   setContentMode(mode: ContentMode): void
+  /** Quote display policy: `false` (default) renders every quote card;
+   * `true` hides unauthorized quote cards behind a tap-to-reveal row. */
+  getOnlyAuthorizedQuotes(): boolean
+  setOnlyAuthorizedQuotes(value: boolean): void
   subscribe(fn: () => void): () => void
 }
 
@@ -115,6 +119,19 @@ export function createAppearanceStore(
       })
       emit()
     },
+    getOnlyAuthorizedQuotes(): boolean {
+      return readDeviceState(storage()).prefs.onlyAuthorizedQuotes ?? false
+    },
+    setOnlyAuthorizedQuotes(value: boolean): void {
+      const next = value === true
+      const state = readDeviceState(storage())
+      if ((state.prefs.onlyAuthorizedQuotes ?? false) === next) return
+      writeDeviceState(storage(), {
+        ...state,
+        prefs: {...state.prefs, onlyAuthorizedQuotes: next},
+      })
+      emit()
+    },
     subscribe(fn: () => void): () => void {
       listeners.add(fn)
       return () => {
@@ -140,6 +157,10 @@ export function useTextScale(store: AppearanceStore = appearanceStore): number {
 
 export function useContentMode(store: AppearanceStore = appearanceStore): ContentMode {
   return useSyncExternalStore(store.subscribe, store.getContentMode)
+}
+
+export function useOnlyAuthorizedQuotes(store: AppearanceStore = appearanceStore): boolean {
+  return useSyncExternalStore(store.subscribe, store.getOnlyAuthorizedQuotes)
 }
 
 export {DEFAULT_EMOJI_STYLE}
