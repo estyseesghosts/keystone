@@ -95,11 +95,13 @@ describe('PostHandlersProvider', () => {
         <Text testID="quote" onPress={() => h.onQuote?.(post)}>
           q
         </Text>
-        <Text testID="edit">{h.onEdit ? 'has-edit' : 'no-edit'}</Text>
+        <Text testID="edit" onPress={() => h.onEdit?.(post)}>
+          {h.onEdit ? 'has-edit' : 'no-edit'}
+        </Text>
       </>
     )
   }
-  it('reply and quote navigate to Compose; edit is left unset', async () => {
+  it('reply, quote and edit navigate to Compose', async () => {
     const post = makePost({id: 'p9'})
     await setup(
       true,
@@ -111,7 +113,9 @@ describe('PostHandlersProvider', () => {
     expect(mockNavigate).toHaveBeenCalledWith('Compose', {replyToId: 'p9'})
     fireEvent.press(screen.getByTestId('quote'))
     expect(mockNavigate).toHaveBeenCalledWith('Compose', {quoteId: 'p9'})
-    expect(screen.getByTestId('edit').props.children).toBe('no-edit')
+    expect(screen.getByTestId('edit').props.children).toBe('has-edit')
+    fireEvent.press(screen.getByTestId('edit'))
+    expect(mockNavigate).toHaveBeenCalledWith('Compose', {editId: 'p9'})
   })
 })
 
