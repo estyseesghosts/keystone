@@ -51,7 +51,7 @@ msgstr "{0} and {rest} other{1} boosted"
 msgid "{0} boosted"
 msgstr "{0} boosted"
 
-#: src/screens/HomeFeed.tsx:304
+#: src/screens/HomeFeed.tsx:343
 msgid "{newCount} new posts"
 msgstr "{newCount} new posts"
 
@@ -59,7 +59,7 @@ msgstr "{newCount} new posts"
 msgid "{notes} notes · {following} following · {followers} followers"
 msgstr "{notes} notes · {following} following · {followers} followers"
 
-#: src/screens/Notifications.tsx:290
+#: src/screens/Notifications.tsx:295
 msgid "{unread} new"
 msgstr "{unread} new"
 
@@ -233,7 +233,7 @@ msgid "Always light."
 msgstr "Always light."
 
 #. placeholder {0}: extraCount === 1 ? '' : 's'
-#: src/components/Notification/NotificationRow.tsx:210
+#: src/components/Notification/NotificationRow.tsx:217
 msgid "and {extraCount} other{0}"
 msgstr "and {extraCount} other{0}"
 
@@ -347,7 +347,7 @@ msgstr "Browser sign-in — approve on {0}."
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/screens/HomeFeed.tsx:289
+#: src/screens/HomeFeed.tsx:327
 msgid "Check your connection and try again."
 msgstr "Check your connection and try again."
 
@@ -361,7 +361,7 @@ msgstr "Checking…"
 msgid "Choice {0}"
 msgstr "Choice {0}"
 
-#: src/screens/Notifications.tsx:168
+#: src/screens/Notifications.tsx:169
 msgid "Choose who notifies you, per type. Empty means the server default."
 msgstr "Choose who notifies you, per type. Empty means the server default."
 
@@ -398,6 +398,10 @@ msgstr "Code"
 #: src/components/Settings/DisplaySection.tsx:57
 msgid "Colour mode"
 msgstr "Colour mode"
+
+#: src/components/StreamBadge.tsx:41
+msgid "Connecting…"
+msgstr "Connecting…"
 
 #: src/components/Composer/CompactComposer.tsx:295
 #: src/components/Composer/ComposerSections.tsx:46
@@ -454,19 +458,19 @@ msgstr "Could not delete."
 msgid "Could not load filters."
 msgstr "Could not load filters."
 
-#: src/screens/HomeFeed.tsx:385
+#: src/screens/HomeFeed.tsx:425
 msgid "Could not load more posts."
 msgstr "Could not load more posts."
 
-#: src/screens/Notifications.tsx:351
+#: src/screens/Notifications.tsx:356
 msgid "Could not load more."
 msgstr "Could not load more."
 
-#: src/screens/Notifications.tsx:126
+#: src/screens/Notifications.tsx:127
 msgid "Could not load notification settings."
 msgstr "Could not load notification settings."
 
-#: src/screens/Notifications.tsx:313
+#: src/screens/Notifications.tsx:318
 msgid "Could not load notifications."
 msgstr "Could not load notifications."
 
@@ -478,7 +482,7 @@ msgstr "Could not load scheduled posts."
 msgid "Could not load server drafts."
 msgstr "Could not load server drafts."
 
-#: src/screens/HomeFeed.tsx:285
+#: src/screens/HomeFeed.tsx:323
 msgid "Could not load this feed."
 msgstr "Could not load this feed."
 
@@ -490,7 +494,7 @@ msgstr "Could not load this profile."
 msgid "Could not load."
 msgstr "Could not load."
 
-#: src/screens/Notifications.tsx:240
+#: src/screens/Notifications.tsx:245
 msgid "Could not mark notifications read."
 msgstr "Could not mark notifications read."
 
@@ -524,7 +528,7 @@ msgstr "Could not remove the filter."
 msgid "Could not resolve \"{raw}\"."
 msgstr "Could not resolve \"{raw}\"."
 
-#: src/screens/Notifications.tsx:144
+#: src/screens/Notifications.tsx:145
 msgid "Could not save notification settings."
 msgstr "Could not save notification settings."
 
@@ -577,7 +581,7 @@ msgstr "Dark"
 msgid "Debug"
 msgstr "Debug"
 
-#: src/screens/Notifications.tsx:69
+#: src/screens/Notifications.tsx:70
 msgid "Default"
 msgstr "Default"
 
@@ -658,7 +662,7 @@ msgstr "Edited"
 msgid "Editing your post"
 msgstr "Editing your post"
 
-#: src/screens/Notifications.tsx:65
+#: src/screens/Notifications.tsx:66
 msgid "Either"
 msgstr "Either"
 
@@ -724,7 +728,7 @@ msgstr "Federated"
 msgid "Feeds"
 msgstr "Feeds"
 
-#: src/screens/HomeFeed.tsx:262
+#: src/screens/HomeFeed.tsx:300
 msgid "Feeds never show sample data when signed out."
 msgstr "Feeds never show sample data when signed out."
 
@@ -741,7 +745,7 @@ msgstr "Filters"
 msgid "Finishing sign-in"
 msgstr "Finishing sign-in"
 
-#: src/screens/Notifications.tsx:265
+#: src/screens/Notifications.tsx:270
 msgid "Flat"
 msgstr "Flat"
 
@@ -761,7 +765,7 @@ msgstr "Follow the device setting."
 msgid "followed you"
 msgstr "followed you"
 
-#: src/screens/Notifications.tsx:61
+#: src/screens/Notifications.tsx:62
 msgid "Follower"
 msgstr "Follower"
 
@@ -770,7 +774,7 @@ msgid "Followers"
 msgstr "Followers"
 
 #: src/routes.ts:247
-#: src/screens/Notifications.tsx:59
+#: src/screens/Notifications.tsx:60
 msgid "Following"
 msgstr "Following"
 
@@ -786,11 +790,11 @@ msgstr "Font"
 msgid "Google’s set."
 msgstr "Google’s set."
 
-#: src/screens/Notifications.tsx:264
+#: src/screens/Notifications.tsx:269
 msgid "Grouped"
 msgstr "Grouped"
 
-#: src/screens/Notifications.tsx:283
+#: src/screens/Notifications.tsx:288
 msgid "Grouped rows are not on this server — showing a flat list."
 msgstr "Grouped rows are not on this server — showing a flat list."
 
@@ -906,7 +910,7 @@ msgid "liked your post"
 msgstr "liked your post"
 
 #: src/routes.ts:229
-#: src/screens/Notifications.tsx:67
+#: src/screens/Notifications.tsx:68
 msgid "List"
 msgstr "List"
 
@@ -914,15 +918,23 @@ msgstr "List"
 msgid "Lists"
 msgstr "Lists"
 
+#: src/components/StreamBadge.tsx:39
+msgid "Live"
+msgstr "Live"
+
+#: src/components/StreamBadge.tsx:44
+msgid "Live updates unavailable"
+msgstr "Live updates unavailable"
+
 #: src/components/Settings/AccountSection.tsx:171
 msgid "Loading account…"
 msgstr "Loading account…"
 
-#: src/screens/HomeFeed.tsx:98
+#: src/screens/HomeFeed.tsx:100
 msgid "Loading feed"
 msgstr "Loading feed"
 
-#: src/screens/Notifications.tsx:161
+#: src/screens/Notifications.tsx:162
 msgid "Loading notification settings."
 msgstr "Loading notification settings."
 
@@ -930,7 +942,7 @@ msgstr "Loading notification settings."
 msgid "Loading profile…"
 msgstr "Loading profile…"
 
-#: src/screens/Notifications.tsx:154
+#: src/screens/Notifications.tsx:155
 msgid "Loading settings…"
 msgstr "Loading settings…"
 
@@ -938,7 +950,7 @@ msgstr "Loading settings…"
 #: src/components/Settings/MutesSection.tsx:411
 #: src/screens/Explore.tsx:536
 #: src/screens/Login.tsx:426
-#: src/screens/Notifications.tsx:309
+#: src/screens/Notifications.tsx:314
 msgid "Loading…"
 msgstr "Loading…"
 
@@ -955,19 +967,19 @@ msgstr "Local only"
 msgid "Locked after upload"
 msgstr "Locked after upload"
 
-#: src/screens/Notifications.tsx:296
+#: src/screens/Notifications.tsx:301
 msgid "Mark all read"
 msgstr "Mark all read"
 
-#: src/screens/Notifications.tsx:237
+#: src/screens/Notifications.tsx:242
 msgid "Mark-all-read is not on this server."
 msgstr "Mark-all-read is not on this server."
 
-#: src/screens/Notifications.tsx:300
+#: src/screens/Notifications.tsx:305
 msgid "Marking notifications read."
 msgstr "Marking notifications read."
 
-#: src/screens/Notifications.tsx:296
+#: src/screens/Notifications.tsx:301
 msgid "Marking read…"
 msgstr "Marking read…"
 
@@ -1027,7 +1039,7 @@ msgstr "Muted servers"
 msgid "Mutes and blocks"
 msgstr "Mutes and blocks"
 
-#: src/screens/Notifications.tsx:63
+#: src/screens/Notifications.tsx:64
 msgid "Mutual"
 msgstr "Mutual"
 
@@ -1050,11 +1062,11 @@ msgstr "Needs a server with word filters (this one has none)."
 msgid "Network"
 msgstr "Network"
 
-#: src/screens/Notifications.tsx:57
+#: src/screens/Notifications.tsx:58
 msgid "Never"
 msgstr "Never"
 
-#: src/components/Notification/NotificationRow.tsx:230
+#: src/components/Notification/NotificationRow.tsx:237
 msgid "New"
 msgstr "New"
 
@@ -1117,7 +1129,7 @@ msgstr "No filters. Matching posts stay hidden once you add one."
 msgid "No news right now."
 msgstr "No news right now."
 
-#: src/screens/Notifications.tsx:341
+#: src/screens/Notifications.tsx:346
 msgid "No notifications."
 msgstr "No notifications."
 
@@ -1158,7 +1170,7 @@ msgid "Not offered yet."
 msgstr "Not offered yet."
 
 #: src/components/Settings/AccountSection.tsx:141
-#: src/screens/HomeFeed.tsx:285
+#: src/screens/HomeFeed.tsx:323
 msgid "Not on this server."
 msgstr "Not on this server."
 
@@ -1175,7 +1187,7 @@ msgstr "Not wired yet — the app ships one light/dark pair."
 msgid "Note"
 msgstr "Note"
 
-#: src/screens/HomeFeed.tsx:374
+#: src/screens/HomeFeed.tsx:414
 msgid "Nothing here yet."
 msgstr "Nothing here yet."
 
@@ -1183,13 +1195,13 @@ msgstr "Nothing here yet."
 msgid "Nothing to copy."
 msgstr "Nothing to copy."
 
-#: src/screens/Notifications.tsx:104
-#: src/screens/Notifications.tsx:154
+#: src/screens/Notifications.tsx:105
+#: src/screens/Notifications.tsx:155
 msgid "Notification settings"
 msgstr "Notification settings"
 
-#: src/screens/Notifications.tsx:125
-#: src/screens/Notifications.tsx:143
+#: src/screens/Notifications.tsx:126
+#: src/screens/Notifications.tsx:144
 msgid "Notification settings are not on this server."
 msgstr "Notification settings are not on this server."
 
@@ -1200,7 +1212,7 @@ msgstr "Notification settings are not on this server."
 msgid "Notifications"
 msgstr "Notifications"
 
-#: src/screens/Notifications.tsx:249
+#: src/screens/Notifications.tsx:254
 msgid "Notifications never show sample data when signed out."
 msgstr "Notifications never show sample data when signed out."
 
@@ -1292,15 +1304,15 @@ msgstr "Open profile"
 #. placeholder {0}: displayNameOf(effective.author)
 #. placeholder {0}: displayNameOf(post.author)
 #. placeholder {0}: displayNameOf(shownAccount)
-#: src/components/Notification/NotificationRow.tsx:161
-#: src/components/Notification/NotificationRow.tsx:176
+#: src/components/Notification/NotificationRow.tsx:168
+#: src/components/Notification/NotificationRow.tsx:183
 #: src/components/Post/PostCard.tsx:224
 #: src/components/Post/PostCard.tsx:728
 msgid "Open profile of {0}"
 msgstr "Open profile of {0}"
 
-#: src/components/Notification/NotificationRow.tsx:162
-#: src/components/Notification/NotificationRow.tsx:177
+#: src/components/Notification/NotificationRow.tsx:169
+#: src/components/Notification/NotificationRow.tsx:184
 msgid "Open profile of the notifier"
 msgstr "Open profile of the notifier"
 
@@ -1309,7 +1321,7 @@ msgstr "Open profile of the notifier"
 msgid "Open quoted post by {0}"
 msgstr "Open quoted post by {0}"
 
-#: src/components/Notification/NotificationRow.tsx:220
+#: src/components/Notification/NotificationRow.tsx:227
 msgid "Open the post"
 msgstr "Open the post"
 
@@ -1351,7 +1363,7 @@ msgstr "Password"
 msgid "Pause {0}"
 msgstr "Pause {0}"
 
-#: src/screens/Notifications.tsx:108
+#: src/screens/Notifications.tsx:109
 msgid "Per-type notification settings are only available on Misskey-family servers."
 msgstr "Per-type notification settings are only available on Misskey-family servers."
 
@@ -1454,7 +1466,7 @@ msgstr "Profile preview for {name}"
 msgid "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 msgstr "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 
-#: src/screens/HomeFeed.tsx:375
+#: src/screens/HomeFeed.tsx:415
 msgid "Pull to refresh."
 msgstr "Pull to refresh."
 
@@ -1513,7 +1525,7 @@ msgstr "Reactions"
 msgid "Reactions and emoji"
 msgstr "Reactions and emoji"
 
-#: src/components/Notification/NotificationRow.tsx:229
+#: src/components/Notification/NotificationRow.tsx:236
 msgid "Read"
 msgstr "Read"
 
@@ -1524,6 +1536,10 @@ msgstr "ready to upload"
 #: src/components/Post/menuModel.ts:194
 msgid "Reason"
 msgstr "Reason"
+
+#: src/components/StreamBadge.tsx:43
+msgid "Reconnecting…"
+msgstr "Reconnecting…"
 
 #: src/components/Post/menuModel.ts:161
 msgid "Refresh remote data"
@@ -1657,14 +1673,15 @@ msgstr "Restore"
 msgid "Restore draft: {0}"
 msgstr "Restore draft: {0}"
 
+#: src/components/StreamBadge.tsx:75
 #: src/screens/Explore.tsx:157
 #: src/screens/Explore.tsx:248
 #: src/screens/Explore.tsx:381
 #: src/screens/Explore.tsx:498
-#: src/screens/HomeFeed.tsx:291
-#: src/screens/HomeFeed.tsx:387
-#: src/screens/Notifications.tsx:315
-#: src/screens/Notifications.tsx:353
+#: src/screens/HomeFeed.tsx:329
+#: src/screens/HomeFeed.tsx:427
+#: src/screens/Notifications.tsx:320
+#: src/screens/Notifications.tsx:358
 #: src/screens/User.tsx:146
 msgid "Retry"
 msgstr "Retry"
@@ -1677,7 +1694,7 @@ msgstr "Review accounts waiting for your approval."
 #: src/components/Composer/Composer.tsx:469
 #: src/components/Settings/FiltersSection.tsx:128
 #: src/components/Settings/MutesSection.tsx:129
-#: src/screens/Notifications.tsx:189
+#: src/screens/Notifications.tsx:190
 msgid "Save"
 msgstr "Save"
 
@@ -1689,13 +1706,13 @@ msgstr "Save current as server draft"
 msgid "Saved."
 msgstr "Saved."
 
-#: src/screens/Notifications.tsx:193
+#: src/screens/Notifications.tsx:194
 msgid "Saving notification settings."
 msgstr "Saving notification settings."
 
 #: src/components/Composer/ComposerSections.tsx:459
 #: src/components/Settings/MutesSection.tsx:129
-#: src/screens/Notifications.tsx:189
+#: src/screens/Notifications.tsx:190
 msgid "Saving…"
 msgstr "Saving…"
 
@@ -1892,11 +1909,11 @@ msgstr "Sign in to manage mutes and blocks."
 msgid "Sign in to manage word filters."
 msgstr "Sign in to manage word filters."
 
-#: src/screens/Notifications.tsx:239
+#: src/screens/Notifications.tsx:244
 msgid "Sign in to mark notifications read."
 msgstr "Sign in to mark notifications read."
 
-#: src/screens/Notifications.tsx:248
+#: src/screens/Notifications.tsx:253
 msgid "Sign in to see notifications."
 msgstr "Sign in to see notifications."
 
@@ -1904,7 +1921,7 @@ msgstr "Sign in to see notifications."
 msgid "Sign in to see suggested users."
 msgstr "Sign in to see suggested users."
 
-#: src/screens/HomeFeed.tsx:261
+#: src/screens/HomeFeed.tsx:299
 msgid "Sign in to see this feed."
 msgstr "Sign in to see this feed."
 
@@ -1977,7 +1994,7 @@ msgid "Soft words, hard words, muted servers."
 msgstr "Soft words, hard words, muted servers."
 
 #: src/components/Notification/NotificationRow.tsx:102
-#: src/components/Notification/NotificationRow.tsx:203
+#: src/components/Notification/NotificationRow.tsx:210
 msgid "Someone"
 msgstr "Someone"
 
@@ -2147,7 +2164,7 @@ msgstr "This server does not support quote posts."
 msgid "This server has no clips."
 msgstr "This server has no clips."
 
-#: src/screens/HomeFeed.tsx:288
+#: src/screens/HomeFeed.tsx:326
 msgid "This server has no equivalent for this timeline."
 msgstr "This server has no equivalent for this timeline."
 

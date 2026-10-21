@@ -39,7 +39,9 @@ import {ThreadRow} from '#/components/PostFeed/ThreadRow'
 import {i18n} from '#/locale/i18n'
 import {countNewItems, feedItems, filterModerated, filterSoftMuted, useModerationRules, useSoftMutedIds, usePostFeedQuery} from '#/state/queries'
 import {feedScrollKey, readFeedScroll, saveFeedScroll} from '#/state/feedMemory'
+import {LIVE_CAPTURE_LIMIT, useFeedLive} from '#/state/streaming'
 import {useSessionStore} from '#/state/session/SessionProvider'
+import {StreamStatusBadge} from '#/components/StreamBadge'
 
 // --- Session / backend access -----------------------------------------------
 
@@ -192,7 +194,7 @@ export function FeedView({  sessionId,
   // never collapse — they carry their own commentary.
   const collapsed = useMemo(() => collapseReposts(items), [items])
   const visibleItems = useMemo(() => items.filter(i => collapsed.reps.has(i.id)), [items, collapsed])
-  const {newCount, acknowledge} = useNewPosts(feed.queryKey.join('|'), visibleItems)
+  const {newCount: localNewCount, acknowledge} = useNewPosts(feed.queryKey.join('|'), visibleItems)
   // Same avatar-column links as PostFeed: adjacent parent/child pairs
   // share one connected column (newest-first, `replyToId` only).
   // Computed over the COLLAPSED rows so indices match the FlatList.
@@ -202,6 +204,20 @@ export function FeedView({  sessionId,
   const listRef = useRef<FlatList<Post>>(null)
   // Scroll restoration (N14) key: session + descriptor, read once per mount.
   const scrollKey = feedScrollKey(sessionId, descriptor)
+  // Latest offset mirror (no re-render): the scroll handler keeps it, the
+  // unmount cleanup saves it — a list that never emitted scroll (or only
+  // moved via the pill) still records its position for the way back.
+  const offsetRef = useRef(0)
+  // Live channel (WS-G S4): arrivals buffer behind the pill, deletes and
+  // updates reconcile into the cache. Inactive on paging-only feeds
+  // (unsupported server/channel/capability) — the local-diff pill below
+  // stays the fallback there.
+  const watchIds = useMemo(
+    () => visibleItems.slice(0, LIVE_CAPTURE_LIMIT).map(i => i.id),
+    [visibleItems],
+  )
+  const feedLive = useFeedLive({sessionId, descriptor, backend: resolved, watchIds})
+  const {active: liveActive, pendingCount: livePending, status: liveStatus, flush: flushLive} = feedLive
   // Seamless infinite scroll: the next page starts ~1200px before the
   // bottom edge, well ahead of `onEndReached` (which is itself raised to
   // 2.5 screens). Guards match the threshold handler — `hasNextPage` and
@@ -223,6 +239,7 @@ export function FeedView({  sessionId,
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const native = e.nativeEvent
+      offsetRef.current = native.contentOffset.y
       saveFeedScroll(scrollKey, native.contentOffset.y)
       const {contentSize, layoutMeasurement} = native
       if (contentSize == null || layoutMeasurement == null) return
@@ -241,19 +258,40 @@ export function FeedView({  sessionId,
   )
   // Scroll restoration (N14): offsets are remembered per session +
   // descriptor and restored once per mount, so back-navigation returns
-  // to the same position. The write happens on every scroll event (a
-  // Map set — no re-render); the read fires once when content exists.
+  // to the same position. A key change with no saved offset (fresh feed
+  // or descriptor switch) resets to the top — the list would otherwise
+  // keep the previous feed's position. The write happens on every scroll
+  // event (a Map set — no re-render) plus unmount; the read fires once
+  // when content exists. Feed ENTRIES (notes/cursor/exhausted) are not
+  // duplicated here: the persisted react-query cache (24h MMKV, 30min
+  // GC) already serves them per session + descriptor, including across
+  // restarts — see the N14 note in the session log.
   const restoredScrollRef = useRef<string | null>(null)
   useEffect(() => {
     if (restoredScrollRef.current === scrollKey || feed.isPending || visibleItems.length === 0) return
     restoredScrollRef.current = scrollKey
-    const offset = readFeedScroll(scrollKey)
-    if (offset != null && offset > 0) listRef.current?.scrollToOffset({offset, animated: false})
+    const offset = readFeedScroll(scrollKey) ?? 0
+    listRef.current?.scrollToOffset({offset, animated: false})
   }, [scrollKey, feed.isPending, visibleItems.length])
+  // Unmount save (covers descriptor switches too: the cleanup runs with
+  // the outgoing key before the restore effect reads the incoming one).
+  useEffect(() => {
+    const key = scrollKey
+    return () => {
+      saveFeedScroll(key, offsetRef.current)
+    }
+  }, [scrollKey])
+  // The pill count is live-fed when the channel is up (buffered
+  // arrivals) and local-diff otherwise (paging-only feeds). One
+  // identifier — `newCount` — so the catalog msgid never changes.
+  const newCount = liveActive ? livePending : localNewCount
   const seeNewPosts = useCallback(() => {
     listRef.current?.scrollToOffset({offset: 0, animated: true})
-    acknowledge()
-  }, [acknowledge])
+    offsetRef.current = 0
+    saveFeedScroll(scrollKey, 0)
+    if (liveActive) flushLive()
+    else acknowledge()
+  }, [acknowledge, flushLive, liveActive, scrollKey])
 
   if (!sessionId || !resolved) {
     return (
@@ -298,7 +336,8 @@ export function FeedView({  sessionId,
       {newCount > 0 ? (
         // Floating pill over the content (no layout bar behind it): the
         // wrapper ignores touches so the feed stays scrollable beneath,
-        // the button itself stays tappable.
+        // the button itself stays tappable. Live-fed when the channel is
+        // up (buffered arrivals), local-diff otherwise (paging-only).
         <View pointerEvents="box-none" style={feedChromeStyles.floatingPill}>
           <Button
             label={i18n._(msg`${newCount} new posts`)}
@@ -318,6 +357,7 @@ export function FeedView({  sessionId,
           {stickyBar}
         </View>
       ) : null}
+      {liveActive ? <StreamStatusBadge status={liveStatus} onRetry={feedLive.resubscribe} /> : null}
       <FlatList
         ref={listRef}
         testID="feed-list"
