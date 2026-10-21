@@ -221,6 +221,24 @@ function convertElement(node: DomNode, out: ContentNode[]): void {
     if (code.length > 0) out.push(codeBlock(null, code));
     return;
   }
+  // Lists have no AST node: `ul`/`ol` are transparent wrappers and each
+  // `li` keeps its bullet as text (v1 rendered real `<li>` bullets;
+  // without them the items run together — MD4).
+  if (tag === "li") {
+    const inner: ContentNode[] = [t("\u2022 ")];
+    convertFlow(node.children ?? [], inner);
+    if (!isBlankContent(inner)) out.push(...inner);
+    return;
+  }
+  // Headings have no AST node either: v1 rendered real `<h1>`–`<h6>`
+  // (browser-sized); v2 keeps the emphasis as bold rather than
+  // flattening to plain prose (MD4).
+  if (tag.length === 2 && tag[0] === "h" && tag[1] >= "1" && tag[1] <= "6") {
+    const inner: ContentNode[] = [];
+    convertFlow(node.children ?? [], inner);
+    if (!isBlankContent(inner)) out.push(bold(inner));
+    return;
+  }
   convertFlow(node.children ?? [], out);
 }
 
@@ -282,6 +300,15 @@ function convertNode(node: DomNode, out: ContentNode[]): void {
   if (node.type !== "tag") return; // comments, directives: dropped
   const tag = (node.name ?? "").toLowerCase();
   if (DROP_SUBTREE_TAGS.has(tag)) return;
+
+  // v1 hid `span.invisible` (URL-shortening spans) with CSS; v2 has no
+  // CSS layer, so the parse drops the subtree (MD4). Mention/hashtag
+  // spans (`h-card`, `name`, `emoji`) are never invisible — only the
+  // shortening spans carry the class, so no content is lost.
+  if (node.attribs) {
+    const classAttr = Object.entries(node.attribs).find(([k]) => k.toLowerCase() === "class")?.[1];
+    if (classList(classAttr).includes("invisible")) return;
+  }
 
   if (tag === "br") {
     out.push(br());

@@ -2,7 +2,7 @@
 // from the old DOM sanitizer, and the quoteMarker/presentation reunion
 // running over parser output.
 import { contentFromHtml, shortcodeOf } from "../src/core/content/fromHtml";
-import { textOf, type ContentNode } from "../src/core/content/ast";
+import { bold, br, t, textOf, type ContentNode } from "../src/core/content/ast";
 import {
   findTextualQuoteMarker,
   stripQuoteMarker,
@@ -54,7 +54,7 @@ describe("blocks and inline formatting", () => {
   });
 
   it("headings and list items break, entities decode once", () => {
-    expect(textOf(contentFromHtml("<h1>T</h1><ul><li>a</li><li>b</li></ul>"))).toBe("Tab");
+    expect(textOf(contentFromHtml("<h1>T</h1><ul><li>a</li><li>b</li></ul>"))).toBe("T\u2022 a\u2022 b");
     expect(contentFromHtml("<p>a &amp; b &lt;c&gt;</p>")).toEqual([
       { kind: "text", text: "a & b <c>" },
     ]);
@@ -235,5 +235,35 @@ describe("reunion: prune + fold over parser output", () => {
     expect(folded.folded).toBe(true);
     expect(textOf(folded.nodes).length).toBeLessThanOrEqual(752);
     expect(textOf(folded.nodes).endsWith("…")).toBe(true);
+  });
+});
+
+describe("MD4: invisible spans, list bullets, headings", () => {
+  it("drops span.invisible URL-shortening spans (v1 hid them with CSS)", () => {
+    expect(
+      contentFromHtml(
+        '<p>https://example.social/<span class="invisible">very/long/hidden/part</span><span class="ellipsis">…</span></p>',
+      ),
+    ).toEqual([t("https://example.social/\u2026")]);
+  });
+
+  it("keeps h-card mention spans (never invisible)", () => {
+    const nodes = contentFromHtml(
+      '<p><span class="h-card"><a href="https://example.social/@a" class="u-url mention">@<span>a</span></a></span></p>',
+    );
+    expect(JSON.stringify(nodes)).toContain("mention");
+  });
+
+  it("bullets list items (v1 rendered real <li>)", () => {
+    expect(contentFromHtml("<ul><li>one</li><li>two</li></ul>")).toEqual([
+      t("\u2022 one"),
+      br(),
+      br(),
+      t("\u2022 two"),
+    ]);
+  });
+
+  it("bolds headings instead of flattening them", () => {
+    expect(contentFromHtml("<h1>Title</h1>")).toEqual([bold([t("Title")])]);
   });
 });
