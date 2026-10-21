@@ -13,6 +13,7 @@ import {
   appearanceStore,
   useColorMode,
   useContentMode,
+  useOnlyAuthorizedQuotes,
   useTextScale,
   type AppearanceStore,
   type ColorMode,
@@ -178,6 +179,30 @@ function ContentModeRow({store = appearanceStore}: {store?: AppearanceStore}) {
   )
 }
 
+/** Quote display policy (WS-A): Mastodon "authorized quotes" is a
+ * filter, not the data model. OFF (default) renders every quote card;
+ * ON hides unauthorized cards behind a tap-to-reveal row. Device-local,
+ * like text size. */
+export function QuotePolicyRow({store = appearanceStore}: {store?: AppearanceStore}) {
+  const onlyAuthorized = useOnlyAuthorizedQuotes(store)
+  return (
+    <SettingRow
+      title={i18n._(msg`Only show authorized quotes`)}
+      hint={i18n._(msg`Hide quotes the author has not approved behind a tap-to-reveal row. Off shows every quote.`)}
+      testID="quote-policy-row">
+      <Pressable
+        accessibilityRole="switch"
+        accessibilityState={{checked: onlyAuthorized}}
+        accessibilityLabel={`${i18n._(msg`Only show authorized quotes`)}: ${onlyAuthorized ? i18n._(msg`on`) : i18n._(msg`off`)}`}
+        onPress={() => store.setOnlyAuthorizedQuotes(!onlyAuthorized)}
+        testID="quote-policy-row-toggle"
+        style={[atoms.row, atoms.itemsCenter, {paddingVertical: 8}]}>
+        <Body>{onlyAuthorized ? i18n._(msg`On`) : i18n._(msg`Off`)}</Body>
+      </Pressable>
+    </SettingRow>
+  )
+}
+
 export function DisplaySection() {
   return (
     <View style={[atoms.gap_sm]} testID="settings-section-display">
@@ -190,6 +215,7 @@ export function DisplaySection() {
         <EmojiStyleSetting />
       </SettingRow>
       <ContentModeRow />
+      <QuotePolicyRow />
       <PlaceholderRow
         title={i18n._(msg`Theme`)}
         hint={i18n._(msg`Keystone modern or terminal.`)}

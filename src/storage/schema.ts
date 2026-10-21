@@ -31,6 +31,10 @@ const devicePrefsSchema = z.object({
   // behaviour); `plain` renders the plain-text projection everywhere.
   // One shared preference across every account, like text scale.
   contentMode: z.enum(['auto', 'plain']).default('auto'),
+  // Device-local quote display policy (WS-A): `false` (default) renders
+  // every quote card; `true` hides unauthorized quote cards behind a
+  // tap-to-reveal row. One shared preference across every account.
+  onlyAuthorizedQuotes: z.boolean().default(false),
 })
 
 export const deviceStateSchema = z.object({
@@ -44,7 +48,7 @@ export type DeviceState = z.infer<typeof deviceStateSchema>
 export const defaultDeviceState: DeviceState = {
   version: STORAGE_VERSION,
   activeSessionId: null,
-  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto'},
+  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false},
 }
 
 // v1 device shape (frozen for migration): v1 had no `contentMode` and
@@ -85,6 +89,7 @@ export function migrateDeviceState(raw: string | null): DeviceState {
         emojiStyle: legacy.data.prefs.emojiStyle ?? 'openmoji',
         textScale: legacy.data.prefs.textScale ?? 1,
         contentMode: 'auto',
+        onlyAuthorizedQuotes: false,
       },
     }
   }

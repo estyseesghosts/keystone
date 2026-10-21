@@ -18,14 +18,18 @@ import {
   appearNoteOf,
   backendForSession,
   type Translation,
+  contentFromHtml,
   displayNameOf,
+  findTextualQuoteMarker,
   foldTree,
   handleOf,
   isPureRenote,
   parseAcct,
+  registerSeenNote,
   safeHttpUrl,
   getQuoteTarget,
   statusLabelFor,
+  structuredUrisOf,
   resolveRemotePostUrl,
   type Account,
   type Capabilities,
@@ -45,6 +49,7 @@ import {navigationRef} from '#/navigationRef'
 import {usePostActions, type PostActions} from '#/state/cache'
 import {useOptionalSessionStore} from '#/state/session/SessionProvider'
 import {useLikeEmoji} from '#/state/emojiPrefs'
+import {useOnlyAuthorizedQuotes} from '#/state/appearance'
 
 import {ActionBar, StaticActionBar, toastError} from './ActionBar'
 import {badgesFor} from './badges'
@@ -246,6 +251,17 @@ export type PostCardProps = {
   testID?: string
   /** Screen-supplied composer/picker callbacks (override the context). */
   handlers?: PostCardHandlers
+  /** Textual/URI quote fallback resolver (WS-A full-mile quotes): the
+   * live card injects the session backend's `resolveQuoteUri`
+   * (Misskey `ap/show`, Mastodon `/api/v2/search` + strict match);
+   * tests inject fakes. Omit for no resolution — packed structured
+   * quotes still render, failed lookups keep their text. */
+  resolveQuoteUri?: (uri: string) => Promise<Post | null>
+  /** Device quote-display policy override (default: the appearance
+   * store's `onlyAuthorizedQuotes`). When true, unauthorized quote
+   * cards hide behind a tap-to-reveal row; when false (default) every
+   * quote renders. */
+  onlyAuthorizedQuotes?: boolean
 }
 
 /** Auto-translate fetch seam (v1): one `backend.translate(id, lang)`
@@ -304,6 +320,15 @@ function LivePostCard(props: PostCardProps) {
       fetch: (id, lang) => backend.translate(id, lang),
     }
   }, [backend, handlers.targetLang])
+
+  // Quote fallback resolver for the view (WS-A): the session backend's
+  // own `resolveQuoteUri` — Misskey `ap/show`, Mastodon `/api/v2/search`.
+  // Memoized so the view's lookup effect fires once per URI, not once
+  // per render.
+  const resolveQuoteUri = useMemo(
+    () => (backend ? (uri: string) => backend.resolveQuoteUri(uri) : undefined),
+    [backend],
+  )
 
   if (actions.shadowed.isDeleted) return null
 
@@ -371,6 +396,7 @@ function LivePostCard(props: PostCardProps) {
       {...props}
       capabilities={props.capabilities ?? backend?.capabilities ?? null}
       translationSource={translationSource ?? props.translationSource ?? null}
+      resolveQuoteUri={props.resolveQuoteUri ?? resolveQuoteUri}
       live={{
         actions,
         family: session?.family ?? 'misskey',
@@ -399,6 +425,8 @@ function PostCardView({
   live,
   sessionId,
   translationSource,
+  resolveQuoteUri,
+  onlyAuthorizedQuotes,
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
   const {i18n} = useLingui()
@@ -424,7 +452,140 @@ function PostCardView({
   const base = useMemo(() => appearNoteOf(post), [post])
   const effective = live ? live.actions.shadowed.post : base
   const isBoost = base !== post
-  const fullNodes = useMemo(() => postBodyNodes(effective), [effective])
+  // --- Quote cards: structured + textual/URI fallback (WS-A) --------
+  // The normalized target (packed renote/quote, Pinetree ext, or the
+  // MFM textual fallback). Authorization status is display metadata
+  // only — never a render filter by itself (the device opt-in below is
+  // the only gate, and it defaults to showing everything).
+  const quoteTarget = useMemo(() => getQuoteTarget(effective), [effective])
+  // Server-HTML posts carry no MFM for `getQuoteTarget`: their textual
+  // marker (an `RE:` line or a bare quote-URL anchor) is read off the
+  // AST. Never consulted when a structured relationship exists — it wins.
+  const htmlQuoteMarkerUri = useMemo(() => {
+    if (quoteTarget?.source === 'structured' || !effective.content.html) return null
+    return findTextualQuoteMarker(contentFromHtml(effective.content.html))?.uri ?? null
+  }, [quoteTarget, effective])
+  // The URI needing a lookup: a structured URI-only target with no
+  // packed note and no local id, or a textual marker. Never fetched
+  // when the server flagged the target unavailable (never chase
+  // protected URIs) or when no resolver is wired (presentational).
+  const pendingQuoteUri = useMemo(() => {
+    if (resolveQuoteUri === undefined) return null
+    if (effective.quote !== null) return null
+    const target = quoteTarget
+    if (target && target.uri && !target.targetUnavailable) {
+      if (target.source === 'structured' && target.noteId) return null
+      return target.uri
+    }
+    if (!target && htmlQuoteMarkerUri) return htmlQuoteMarkerUri
+    return null
+  }, [resolveQuoteUri, effective.quote, quoteTarget, htmlQuoteMarkerUri])
+  // Lookup state: one resolution per URI. A finished miss never retries
+  // implicitly (the backend owns its TTL); the fallback keeps the
+  // original text or the honest unavailable state below.
+  const [resolvedQuote, setResolvedQuote] = useState<Post | null>(null)
+  const [quoteLookupFailed, setQuoteLookupFailed] = useState(false)
+  const resolveRef = useRef(resolveQuoteUri)
+  resolveRef.current = resolveQuoteUri
+  useEffect(() => {
+    setResolvedQuote(null)
+    setQuoteLookupFailed(false)
+    const uri = pendingQuoteUri
+    const fetch = resolveRef.current
+    if (uri === null || fetch === undefined) return
+    let cancelled = false
+    void fetch(uri).then(
+      found => {
+        if (cancelled) return
+        setResolvedQuote(found)
+        setQuoteLookupFailed(found === null)
+      },
+      () => {
+        if (!cancelled) setQuoteLookupFailed(true)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [pendingQuoteUri])
+  // Notes rendered here become reuse candidates for Misskey textual
+  // fallbacks (the backend's `ap/show` consults the seen set first).
+  useEffect(() => {
+    registerSeenNote(effective)
+    if (effective.renote) registerSeenNote(effective.renote)
+    if (effective.quote) registerSeenNote(effective.quote)
+  }, [effective])
+  // The card's target: the packed quote, or a URI that resolved to a
+  // post. Anything else falls through to the resolving indicator or the
+  // unavailable fallback below.
+  const visibleQuote = effective.quote ?? (pendingQuoteUri !== null ? resolvedQuote : null)
+  const resolvingQuote = pendingQuoteUri !== null && resolvedQuote === null && !quoteLookupFailed
+  // Stable fallback for a structured relationship with no viewable
+  // target (v1 parity): a renote id with no packed note (the server
+  // knows it locally — no fetch), or a URI lookup that finished with
+  // no post. Textual fallbacks never reach here — a failed lookup
+  // keeps the original `RE:` text.
+  const structuredQuoteUnavailable =
+    quoteTarget?.source === 'structured' &&
+    effective.quote === null &&
+    (pendingQuoteUri !== null
+      ? resolvedQuote === null && quoteLookupFailed
+      : quoteTarget.noteId != null)
+  // Quote-authorization display label for the wrapper's relationship
+  // (pending/rejected/…); approved or missing never labels.
+  const quoteStatus = useMemo(
+    () =>
+      quoteTarget?.authorizationStatus
+        ? statusLabelFor(quoteTarget.authorizationStatus)
+        : null,
+    [quoteTarget],
+  )
+  // Device opt-in gate (default OFF — show everything): an
+  // unauthorized card hides behind a tap-to-reveal row until the viewer
+  // opts in. The body marker stays visible while concealed.
+  const storeOnlyAuthorized = useOnlyAuthorizedQuotes()
+  const onlyAuthorized = onlyAuthorizedQuotes ?? storeOnlyAuthorized
+  const quoteUnauthorized = quoteStatus !== null
+  const [quoteRevealed, setQuoteRevealed] = useState(false)
+  useEffect(() => {
+    setQuoteRevealed(false)
+  }, [effective.id])
+  const quoteConcealed =
+    onlyAuthorized &&
+    quoteUnauthorized &&
+    (visibleQuote !== null || structuredQuoteUnavailable || effective.quoteUnavailable) &&
+    !quoteRevealed
+  // Body markers strip only when their card (or its honest unavailable
+  // fallback) renders — otherwise the `RE:` text stays visible.
+  const coveredQuoteUris = useMemo(() => {
+    const out: string[] = []
+    if (quoteConcealed) return out
+    if (visibleQuote === null && !structuredQuoteUnavailable && !effective.quoteUnavailable) {
+      return out
+    }
+    const push = (uri: string | null | undefined) => {
+      if (uri && !out.includes(uri)) out.push(uri)
+    }
+    for (const uri of structuredUrisOf(effective)) push(uri)
+    push(quoteTarget?.uri)
+    if (visibleQuote !== null) {
+      push(visibleQuote.uri)
+      push(visibleQuote.url)
+    }
+    if (htmlQuoteMarkerUri !== null && visibleQuote !== null) push(htmlQuoteMarkerUri)
+    return out
+  }, [
+    quoteConcealed,
+    visibleQuote,
+    structuredQuoteUnavailable,
+    effective,
+    quoteTarget,
+    htmlQuoteMarkerUri,
+  ])
+  const fullNodes = useMemo(
+    () => postBodyNodes(effective, {coveredQuoteUris}),
+    [effective, coveredQuoteUris],
+  )
   // Timeline fold (F13): long bodies fold to the budget with an
   // in-place Show more/less toggle; the body tap still opens detail.
   const [expanded, setExpanded] = useState(false)
@@ -434,12 +595,6 @@ function PostCardView({
   )
   const emojis = useMemo(() => postEmojis(effective), [effective])
   const badges = useMemo(() => badgesFor(effective), [effective])
-  // Quote-authorization display label for the wrapper's relationship
-  // (pending/rejected/…); approved or missing never labels.
-  const quoteStatus = useMemo(() => {
-    const target = getQuoteTarget(effective)
-    return target?.authorizationStatus ? statusLabelFor(target.authorizationStatus) : null
-  }, [effective])
   const cw = effective.cw
   const bodyHidden = cw !== null && !cwOpen
 
@@ -670,10 +825,31 @@ function PostCardView({
           )
         )}
         {!bodyHidden && <PostMediaGrid media={effective.media} onOpen={index => setLightbox({items: effective.media, index})} testID={`post-media-${post.id}`} />}
-        {!bodyHidden && (effective.quote !== null || effective.quoteUnavailable) && (
+        {!bodyHidden && resolvingQuote && (
+          <Caption color="muted" testID={`post-quote-resolving-${post.id}`}>
+            {i18n._(msg`Resolving quote…`)}
+          </Caption>
+        )}
+        {!bodyHidden &&
+          quoteConcealed &&
+          (visibleQuote !== null || structuredQuoteUnavailable || effective.quoteUnavailable) && (
+            <PostQuote
+              quote={null}
+              unavailable={false}
+              status={quoteStatus}
+              concealed
+              onReveal={() => setQuoteRevealed(true)}
+              emojiStyle={emojiStyle}
+              onMentionPress={handleMentionPress}
+              onHashtagPress={handleHashtagPress}
+              onLinkPress={handleLinkPress}
+              testID={`post-quote-${post.id}`}
+            />
+          )}
+        {!bodyHidden && !quoteConcealed && visibleQuote !== null && (
           <PostQuote
-            quote={effective.quote}
-            unavailable={effective.quoteUnavailable}
+            quote={visibleQuote}
+            unavailable={false}
             status={quoteStatus}
             emojiStyle={emojiStyle}
             onPress={openQuoted}
@@ -684,6 +860,21 @@ function PostCardView({
             testID={`post-quote-${post.id}`}
           />
         )}
+        {!bodyHidden &&
+          !quoteConcealed &&
+          visibleQuote === null &&
+          (effective.quoteUnavailable || structuredQuoteUnavailable) && (
+            <PostQuote
+              quote={null}
+              unavailable
+              status={quoteStatus}
+              emojiStyle={emojiStyle}
+              onMentionPress={handleMentionPress}
+              onHashtagPress={handleHashtagPress}
+              onLinkPress={handleLinkPress}
+              testID={`post-quote-${post.id}`}
+            />
+          )}
         {lightbox !== null && (
           <Lightbox
             media={lightbox.items}
