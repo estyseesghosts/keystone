@@ -12,7 +12,17 @@ export type PickedEmoji = {kind: 'unicode' | 'custom'; key: string; url?: string
 
 export type PickerSection = {id: string; title: string; items: PickedEmoji[]}
 
+/** A remote-host custom emoji known to the session store (`:name@host:`). */
+export interface RemoteCustomEmoji {
+  name: string
+  host: string
+  url: string
+}
+
 export const PICKER_COLUMNS = 8
+
+/** Cap on remote-host search hits (host tables can be thousands deep). */
+export const REMOTE_RESULT_CAP = 60
 
 export function customKey(name: string): string {
   return `:${name}:`
@@ -55,6 +65,10 @@ export function buildPickerSections(opts: {
   /** Hidden unicode group categories (Settings → Reactions): filtered
    * out of the unicode list. Defaults to none hidden. */
   hiddenGroups?: string[]
+  /** Remote-host entries from the session store (`remoteEmojis()`):
+   * searched only with a query (never dumped whole) — name or host
+   * matching, capped. Keys stay `:name@host:` so picks re-resolve. */
+  remote?: RemoteCustomEmoji[]
   /** Pinned unicode group categories: ordered first among the unicode
    * groups. Defaults to server order. */
   pinnedGroups?: string[]
@@ -82,6 +96,22 @@ export function buildPickerSections(opts: {
       title: group.category,
       items: group.items.map(e => toCustom({name: e.name, url: e.url, category: e.category})),
     })
+  }
+
+  // Remote-host results (WS-C): only under a query, name-or-host
+  // match, capped — the store's per-host tables stay out of the
+  // default view.
+  if (q !== '') {
+    const hits = (opts.remote ?? [])
+      .filter(e => e.name.toLowerCase().includes(q) || e.host.toLowerCase().includes(q) || `${e.name}@${e.host}`.toLowerCase().includes(q))
+      .slice(0, REMOTE_RESULT_CAP)
+    if (hits.length > 0) {
+      sections.push({
+        id: 'remote',
+        title: 'Remote',
+        items: hits.map(e => ({kind: 'custom' as const, key: `:${e.name}@${e.host}:`, url: e.url})),
+      })
+    }
   }
 
   for (const group of orderedUnicodeGroups(opts.pinnedGroups ?? [], opts.hiddenGroups ?? [])) {

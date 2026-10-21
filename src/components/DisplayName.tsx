@@ -11,6 +11,7 @@ import {splitNameEmojis, type Account} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {CustomEmojiGlyph} from '#/components/EmojiImage'
+import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 
 function splitCode(code: string): {name: string; host: string | null} {
   const inner = code.replace(/^:|:$/g, '')
@@ -22,14 +23,18 @@ function splitCode(code: string): {name: string; host: string | null} {
 function NameEmoji({
   code,
   emojis,
+  sessionId,
+  authorHost,
   size,
 }: {
   code: string
   emojis: Record<string, string>
+  sessionId: string | null
+  authorHost: string | null
   size: number
 }) {
   const {name, host} = splitCode(code)
-  return <CustomEmojiGlyph name={name} host={host} src={null} packed={emojis} size={size + 2} />
+  return <CustomEmojiGlyph name={name} host={host} src={null} packed={emojis} sessionId={sessionId} authorHost={authorHost} size={size + 2} />
 }
 
 /** Name==handle collapse (v1): when the shown display name is just the
@@ -59,18 +64,24 @@ export function shouldCollapseName(
 
 export function DisplayName({
   account,
+  sessionId = null,
   size = 15,
   textStyle,
   numberOfLines = 1,
   testID,
 }: {
-  account: Pick<Account, 'displayName' | 'emojis'>
+  account: Pick<Account, 'displayName' | 'emojis'> & {host?: string | null}
+  /** Owning session (WS-C remote fallback): explicit wins (per-column
+   * accounts); otherwise the active session; null = packed-only. */
+  sessionId?: string | null
   size?: number
   textStyle?: StyleProp<TextStyle>
   numberOfLines?: number
   testID?: string
 }) {
   const parts = useMemo(() => splitNameEmojis(account.displayName), [account.displayName])
+  const activeId = useOptionalActiveSession()?.id ?? null
+  const sid = sessionId ?? activeId
   // P1: names scale with the device text setting, like every other prose.
   const theme = useTheme()
   const scaledSize = size * theme.fontScaleMultiplier
@@ -86,7 +97,7 @@ export function DisplayName({
         part.kind === 'text' ? (
           <Fragment key={i}>{part.text}</Fragment>
         ) : (
-          <NameEmoji key={i} code={part.code} emojis={account.emojis} size={scaledSize} />
+          <NameEmoji key={i} code={part.code} emojis={account.emojis} sessionId={sid} authorHost={account.host ?? null} size={scaledSize} />
         ),
       )}
     </Text>

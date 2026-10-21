@@ -48,6 +48,11 @@ export interface CustomEmojiStore {
   /** Hosted URL for a remote emoji, or null (unknown / not yet loaded /
    * host failed). Exact-name match on that host's listing only. */
   remoteUrlFor(host: string, name: string): string | null;
+  /** Every remote-host entry fetched so far (picker search surface).
+   * Empty until host listings land; hosts that failed are absent. The
+   * returned array is stable by reference until the next host lands, so
+   * it is safe as a `useSyncExternalStore` snapshot. */
+  remoteEmojis(): Array<{ host: string; name: string; url: string }>;
   /** Best-effort fetch of one host's public emoji listing. Idempotent —
    * safe to call from render derivations; exactly one round-trip per host
    * per store, failures remembered. */
@@ -97,6 +102,11 @@ export function createCustomEmojiStore(
   const hostMaps: Record<string, Record<string, string>> = {};
   const startedHosts = new Set<string>();
   const deadHosts = new Set<string>();
+  // Flattened remote entries, cached by reference: `useSyncExternalStore`
+  // snapshots must be referentially stable (a fresh array every read
+  // would re-render forever), so the flat list is rebuilt only when a
+  // host table lands and invalidated here.
+  let remoteCache: Array<{ host: string; name: string; url: string }> | null = null;
 
   function setState(next: CustomEmojiState): void {
     if (state === next) return;
@@ -142,6 +152,7 @@ export function createCustomEmojiStore(
           }
         }
         hostMaps[key] = table;
+        remoteCache = null;
         emit();
       })
       .catch(() => {
@@ -227,6 +238,20 @@ export function createCustomEmojiStore(
       const table = hostMaps[normalizeHost(host)];
       if (!table) return null;
       return table[name] ?? null;
+    },
+    remoteEmojis: (): Array<{ host: string; name: string; url: string }> => {
+      if (!remoteCache) {
+        const out: Array<{ host: string; name: string; url: string }> = [];
+        for (const host of Object.keys(hostMaps)) {
+          const table = hostMaps[host];
+          for (const name of Object.keys(table)) {
+            const url = table[name];
+            if (typeof url === "string" && url.length > 0) out.push({ host, name, url });
+          }
+        }
+        remoteCache = out;
+      }
+      return remoteCache;
     },
     ensureHostEmojis: (host: string): void => {
       ensureHost(host);

@@ -17,6 +17,7 @@ import {
 } from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
+import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 import {Body, Caption} from '#/alf/typography'
 import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
@@ -100,6 +101,7 @@ function StatsLine({
 
 export function ProfileHeader({
   account,
+  sessionId = null,
   isSelf,
   relationship,
   actions,
@@ -107,6 +109,9 @@ export function ProfileHeader({
   onPressFollowing,
 }: {
   account: Account
+  /** Owning session (WS-C remote emoji fallback): explicit wins;
+   * otherwise the active session; null = packed-only resolution. */
+  sessionId?: string | null
   isSelf: boolean
   relationship: Relationship | null
   /** Follow controls (others) or settings entry (self), supplied by the caller. */
@@ -117,6 +122,11 @@ export function ProfileHeader({
   onPressFollowing?: () => void
 }) {
   const theme = useTheme()
+  // WS-C: the profile screen passes its session when known; the
+  // DisplayName/RichText pair falls back to the active session, so
+  // remote `:name@host:` codes in names and bios resolve there too.
+  const activeId = useOptionalActiveSession()?.id ?? null
+  const sid = sessionId ?? activeId
   const bioNodes = useMemo(
     () =>
       account.bio.mfm
@@ -152,12 +162,13 @@ export function ProfileHeader({
         {shouldCollapseName(account) ? (
           <DisplayName
             account={{...account, displayName: handleOf(account)}}
+            sessionId={sid}
             size={20}
             testID="profile-name"
           />
         ) : (
           <>
-            <DisplayName account={account} size={20} testID="profile-name" />
+            <DisplayName account={account} sessionId={sid} size={20} testID="profile-name" />
             <Caption color="faint" testID="profile-handle">
               {handleOf(account)}
             </Caption>
@@ -170,6 +181,8 @@ export function ProfileHeader({
             testID="profile-bio"
             nodes={bioNodes}
             emojis={account.emojis}
+            sessionId={sid}
+            authorHost={account.host}
             textStyle={{color: theme.palette.text}}
           />
         ) : account.bio.plain ? (
@@ -187,6 +200,8 @@ export function ProfileHeader({
                   <RichText
                     nodes={fieldNodes[i]}
                     emojis={account.emojis}
+                    sessionId={sid}
+                    authorHost={account.host}
                     textStyle={{color: theme.palette.text}}
                   />
                 ) : (

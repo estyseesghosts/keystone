@@ -9,11 +9,12 @@
 //   `lookupPackedEmojis`). Anything else renders the literal `:code:` —
 //   never a fabricated URL, never a local lookalike for a remote code.
 
-import {useState} from 'react'
+import {useEffect, useState} from 'react'
 import {Image, StyleSheet, Text, type StyleProp, type TextStyle} from 'react-native'
 
 import {
   DEFAULT_EMOJI_STYLE,
+  isLocalEmojiHost,
   lookupPackedEmojis,
   resolveEmojiUrl,
   safeHttpUrl,
@@ -21,6 +22,7 @@ import {
 } from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
+import {useCustomEmojiSelect, useCustomEmojiStore} from '#/state/customEmojiStores'
 
 const GLYPH = 16
 
@@ -72,6 +74,14 @@ export type CustomEmojiProps = {
   src: string | null
   /** The post's packed emoji map (MFM codes resolve here). */
   packed?: Record<string, string> | null
+  /** Owning session id (WS-C remote fallback): the session-scoped
+   * custom-emoji store resolves `:name@host:` through that host's
+   * public listing and local codes through the session listing. Omit
+   * for packed-only resolution (tests, session-less trees). */
+  sessionId?: string | null
+  /** Origin host hint for host-less codes in remote-authored content
+   * (a `:code:` typed on instance H means H's emoji). Null skips it. */
+  authorHost?: string | null
   size?: number
   /** Overrides the literal-`:code:` fallback color (e.g. a chip that
    * inverts its background when active). Defaults to `text`. */
@@ -79,14 +89,46 @@ export type CustomEmojiProps = {
   testID?: string
 }
 
-// A `:code:` emoji from packed sources only. Resolution order: the
-// node's vetted `src`, then the packed map. A URL that fails to load
-// falls through to the next source; with no source left, the literal
-// `:code:` renders.
-export function CustomEmojiGlyph({name, host, src, packed, size = GLYPH + 2, textStyle, testID}: CustomEmojiProps) {
+// A `:code:` emoji from packed sources, with the session-scoped remote
+// fallback (WS-C). Resolution order: the node's vetted `src`, the
+// packed map, then the session store — the remote host's listing for
+// `:name@host:` codes, the author's host listing for host-less codes in
+// remote-authored content, then the session's local listing. A URL that
+// fails to load falls through to the next source; with no source left,
+// the literal `:code:` renders — never a fabricated URL, never blank,
+// never a local lookalike for a remote code.
+export function CustomEmojiGlyph({
+  name,
+  host,
+  src,
+  packed,
+  sessionId = null,
+  authorHost = null,
+  size = GLYPH + 2,
+  textStyle,
+  testID,
+}: CustomEmojiProps) {
   const theme = useTheme()
+  const store = useCustomEmojiStore(sessionId)
   const code = host ? `:${name}@${host}:` : `:${name}:`
-  const candidates = [safeHttpUrl(src), safeHttpUrl(lookupPackedEmojis(packed, code))].filter(
+  // Remote fetches are idempotent per store (one round-trip per host);
+  // the kick lives in an effect and the read in a store selector — bare
+  // `store.remoteUrlFor(...)` calls in render would be frozen by the
+  // React Compiler (memoized on the stable store identity), so a host
+  // listing landing later would never swap in.
+  useEffect(() => {
+    if (!store) return
+    if (host && !isLocalEmojiHost(host)) store.ensureHostEmojis(host)
+    else if (authorHost && !isLocalEmojiHost(authorHost)) store.ensureHostEmojis(authorHost)
+  }, [store, host, authorHost])
+  const storeUrl = useCustomEmojiSelect(store, s => {
+    if (!s) return null
+    if (host && !isLocalEmojiHost(host)) return s.remoteUrlFor(host, name)
+    const hinted = authorHost && !isLocalEmojiHost(authorHost) ? s.remoteUrlFor(authorHost, name) : null
+    if (hinted !== null) return hinted
+    return s.urlFor(host ? `:${name}@${host}:` : `:${name}:`)
+  })
+  const candidates = [safeHttpUrl(src), safeHttpUrl(lookupPackedEmojis(packed, code)), safeHttpUrl(storeUrl)].filter(
     (u): u is string => u !== null,
   )
   const [index, setIndex] = useState(0)
