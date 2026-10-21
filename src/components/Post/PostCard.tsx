@@ -6,7 +6,7 @@
 // disabled WITH their reason — hidden only when the capability is
 // `unsupported`. Never wired, never inert, never faked.
 
-import {useContext, useMemo, useRef, useState, useSyncExternalStore} from 'react'
+import {useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore} from 'react'
 import {Image, Linking, Share, StyleSheet, View} from 'react-native'
 
 import {QueryClientContext} from '@tanstack/react-query'
@@ -22,6 +22,7 @@ import {
   safeHttpUrl,
   getQuoteTarget,
   statusLabelFor,
+  resolveRemotePostUrl,
   type Account,
   type Capabilities,
   type EmojiStyle,
@@ -315,6 +316,13 @@ function PostCardView({
   }, [effective])
   const cw = effective.cw
   const bodyHidden = cw !== null && !cwOpen
+
+  // Warm the remote-page cache for federated posts (MK17): by the
+  // time the menu opens, "Copy remote link" carries the human page
+  // URL instead of the raw AP id. Best-effort, never blocking.
+  useEffect(() => {
+    if (effective.uri) void resolveRemotePostUrl(effective.uri)
+  }, [effective.uri])
 
   const replyTarget = post.replyToId !== null ? (post.reply ?? null) : null
 

@@ -6,7 +6,7 @@
 // post); unsupported or not-yet-wired rows render disabled WITH a reason.
 
 import type {Capabilities, ServerFamily, Post} from '@keystone/fedi'
-import {safeHttpUrl} from '@keystone/fedi'
+import {cachedRemotePostUrl, safeHttpUrl} from '@keystone/fedi'
 
 import type {ActionGate} from '#/state/cache'
 
@@ -125,7 +125,6 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
   const {post, family, capabilities, handlers, bookmark, del} = input
   const link = postLink(post, family, input.origin)
   const uri = safeHttpUrl(post.uri)
-  const remoteDiffers = uri !== null && uri !== link
   const caps = capabilities
 
   const group1: PostMenuItem[] = [
@@ -134,10 +133,14 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
       ? copyRow(input, 'copy-link', 'Copy link', link)
       : {key: 'copy-link', label: 'Copy link', disabled: true, reason: 'This post has no known link.'},
   ]
-  if (remoteDiffers) {
+  // Remote posts open best at their human page (`url`), not the raw AP
+  // id (`uri`): the resolver cache holds the warmed page URL, falling
+  // back to the raw id until (or when) it resolves (MK17).
+  const remote = uri && uri !== link ? (cachedRemotePostUrl(uri) ?? uri) : null
+  if (remote) {
     group1.push(
-      copyRow(input, 'copy-remote-link', 'Copy remote link', uri!),
-      {key: 'view-remote', label: 'View on remote instance', run: () => handlers.open(uri!)},
+      copyRow(input, 'copy-remote-link', 'Copy remote link', remote),
+      {key: 'view-remote', label: 'View on remote instance', run: () => handlers.open(remote)},
     )
   }
   group1.push(
