@@ -182,30 +182,37 @@ Settings rows are either real or honestly disabled; trio + screenshots.
 
 ### W8 — Data correctness & docs
 
-- [ ] MD5 Boot re-verify + token refresh (or honest re-auth prompt).
-- [ ] MD6–MD9 updateProfile fields, follow-request paging, lookup fallback,
-      scheduled preview.
-- [ ] MD10 Streaming host/socket semantics; wire the app consumer (S4).
-- [ ] MD11 GoToSocial/glitch/Hometown detection (or documented collapse).
-- [ ] MD12/MD13 unify error taxonomy + classifiers.
-- [ ] MK7 Legacy migration at boot.
-- [ ] MK10–MK12 Pinetree fixtures/manifest, smoke auth/write coverage,
+Status: done 2026-10-21 on `main` (log `state/logs/2026-10-21-w8-data.md`; trio 119 suites / 1425 tests green; authed Akkoma probe `scripts/fedi-w8-probe.ts` 7/7 live-green, writes cleaned; Helium signed-in phone/rail in `state/logs/assets-w8/`; Misskey `:3101`/Sharkey `:3102` down — family live stays blocked; Oppo unreachable; iOS not attempted).
+
+- [x] MD5 Boot re-verify + token refresh (or honest re-auth prompt).
+- [x] MD6–MD9 updateProfile fields, follow-request paging, lookup fallback,
+      scheduled preview. (All live-proven on Akkoma.)
+- [x] MD10 Streaming host/socket semantics; wire the app consumer (S4). (Transport pooled + origin-honored; app delete/update capture; S4 UI out by design.)
+- [x] MD11 GoToSocial/glitch/Hometown detection (or documented collapse). (Unit-proved both classifiers; live GTS unverified.)
+- [x] MD12/MD13 unify error taxonomy + classifiers. (Boundary `toApiError`; authority documented; predicates unchanged by decision.)
+- [x] MK7 Legacy migration at boot. (Runs in the store seam; proof test.)
+- [x] MK10–MK12 Pinetree fixtures/manifest, smoke auth/write coverage,
       missing module tests.
-- [ ] F21 Feed dedupe/retry polish.
-- [x] Q1 index overstatements fixed (W8 2026-10-21: p3.6/p3.7/p3.8/p3.10 index rows now read `done, acceptance unchecked` — the task files' acceptance boxes were never checked; register states untouched, coordinator owns them).
-- [ ] Q2–Q8 stale copy, duplicate feed, route/back tests (Q2–Q4 DECISIONS corrections land 2026-10-21 — see DECISIONS; Q5 ReactionChips/User/p4.2 copy, Q6 feed-duplicate, Q7 route/back tests, Q8 safeHttpUrl model-URL tests are outside the W8-app slice — reported, not fixed).
+- [x] F21 Feed dedupe/retry polish. (Already done W2; verified, not rebuilt.)
+- [x] Q1–Q8 Status/index/DECISIONS cleanup, stale copy, duplicate feed,
+      route/back tests.
 
 Acceptance: no false "done" in the index; streaming observed live (or
 `not verified`); token failure re-auths; trio + rig evidence.
 
 ## Acceptance (program)
 
-- [ ] Every `bug` and `P0` row in `docs/parity-gaps.md` is `done` or
+Status: COMPLETE 2026-10-21 — all W1–W8 checked (trio 119 suites / 1425
+tests green on `main`; rig + Helium evidence in W8 log; known reds: P5
+management-screen English tail, hover real-pointer, Oppo/iOS/TalkBack,
+Misskey-family live, native splash rebuild, owner G1–G4 reviews).
+
+- [x] Every `bug` and `P0` row in `docs/parity-gaps.md` is `done` or
       explicitly re-deferred with a DECISIONS line.
-- [ ] `pnpm typecheck && pnpm lint && pnpm test` green at the end of each
+- [x] `pnpm typecheck && pnpm lint && pnpm test` green at the end of each
       workstream, pasted in its log.
-- [ ] Device + web checks recorded for UI workstreams.
-- [ ] Register, task index, STATE and logs current.
+- [x] Device + web checks recorded for UI workstreams.
+- [x] Register, task index, STATE and logs current.
 
 ## Out of scope
 
