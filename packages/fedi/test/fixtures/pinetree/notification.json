@@ -1,0 +1,21 @@
+{
+  "id": "9pinetreenoti0001",
+  "createdAt": "2026-10-15T16:30:00.000Z",
+  "type": "follow",
+  "isRead": true,
+  "userId": "9pinetreeuser0002",
+  "user": {
+    "id": "9pinetreeuser0002",
+    "name": null,
+    "username": "follower2",
+    "host": null,
+    "avatarUrl": null,
+    "avatarBlurhash": null,
+    "isBot": false,
+    "isCat": false,
+    "emojis": {},
+    "onlineStatus": "active"
+  },
+  "note": null,
+  "reaction": null
+}

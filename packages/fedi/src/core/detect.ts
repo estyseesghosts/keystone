@@ -18,6 +18,17 @@
 // "compatible; Akkoma"), so markers are combined with shape evidence
 // (`pleroma.metadata`, `pleroma.features`) and NodeInfo, and detection
 // stays unknown when the evidence is ambiguous.
+//
+// MD13 — classifier authority: THIS module (`detectServer` / `detectFlavor`)
+// is the single authority for family/flavor. `mastodon/instance.ts`
+// `detectFamily` is a transport-level fallback for the instance-probe path
+// only: it sees version markers + pleroma shape + NodeInfo, never the
+// Misskey-family probe or the `mastodonBody` shape flag, so on a vanilla
+// Mastodon v2 body (version "4.4.3", no pleroma markers) it answers
+// "unknown" where this module answers "mastodon" via probe-shape. Callers
+// must treat a transport "unknown" as "defer to core", never as evidence
+// of absence — and never branch UI on it. The agreement matrix is pinned
+// in `packages/fedi/test/detect.test.ts` ("MD13 classifier authority").
 
 export type ServerFamily = "misskey" | "mastodon";
 

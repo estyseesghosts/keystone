@@ -5,6 +5,18 @@
 // reaction acceptance, quote refusal) — restoring a draft restores the
 // whole form, not just text. Anything with text, a warning, attachments,
 // a poll, or scheduling counts as worth keeping; bare settings don't.
+//
+// MK6 / Q6 — AUTHORITY PROPOSAL (W8, no behavior change): the app-owned
+// `src/storage/drafts.ts` is the production draft store (per-session id
+// keys, zod-validated, reply/quote re-attach, empty-draft suppression);
+// THIS module is legacy compat — no production importer (tests only).
+// Proposed unification (needs `src/` files outside the W8-misskey slice,
+// so it lands as a plan, not an edit):
+//   1. keep `src/storage/drafts.ts` as the single store;
+//   2. delete this module and re-point its tests at the app store;
+//   3. carry `carryLegacyDrafts` semantics (legacy key → session key,
+//      copy-once) into the app store boot if any legacy key is still live.
+// Until then this module is frozen: bug fixes only, no new callers.
 
 import type { KeyValueStore } from "../core/sessions";
 import type { ReactionAcceptance } from "../core/backend";

@@ -355,6 +355,81 @@ describe("heuristics (the old detectFamily shape, generalised)", () => {
   });
 });
 
+describe("MD13 classifier authority (core/detect is the authority)", () => {
+  // The Mastodon transport classifier (`mastodon/instance.detectFamily`)
+  // is a probe-path fallback only: it never sees the Misskey probe or the
+  // `mastodonBody` shape flag. This matrix pins the contract — no behavior
+  // break, documentation as test:
+  // - wherever the transport classifier is decisive, core agrees;
+  // - a transport "unknown" defers to core (shape/NodeInfo), and core may
+  //   still decide (vanilla Mastodon v2 body is the canonical case).
+  it("transport-decisive inputs agree with core", async () => {
+    const { detectFamily } = await import("../src/mastodon/instance");
+    const cases: Array<{
+      version: string | null;
+      pleromaBody: boolean;
+      features: string[];
+      nodeinfo: string | null;
+      core: Parameters<typeof detectFlavor>[0];
+    }> = [
+      {
+        version: "compatible; Akkoma 3.20.0",
+        pleromaBody: true,
+        features: ["akkoma_api"],
+        nodeinfo: null,
+        core: { pleromaBody: true, pleromaFeatures: ["akkoma_api"], version: "compatible; Akkoma 3.20.0" },
+      },
+      {
+        version: "compatible; Pleroma 2.7.0",
+        pleromaBody: true,
+        features: [],
+        nodeinfo: null,
+        core: { pleromaBody: true, pleromaFeatures: [], version: "compatible; Pleroma 2.7.0" },
+      },
+      {
+        version: "4.4.3",
+        pleromaBody: false,
+        features: [],
+        nodeinfo: "mastodon",
+        core: { nodeinfoName: "mastodon", version: "4.4.3" },
+      },
+      {
+        version: "2.7.0",
+        pleromaBody: false,
+        features: [],
+        nodeinfo: "akkoma",
+        core: { nodeinfoName: "akkoma", version: "2.7.0" },
+      },
+    ];
+    for (const c of cases) {
+      const transport = detectFamily(c.version, c.pleromaBody, c.features, c.nodeinfo);
+      expect(detectFlavor(c.core)).toBe(transport);
+    }
+  });
+
+  it("documents the one order divergence: NodeInfo-first (core) beats version-first (transport)", async () => {
+    const { detectFamily } = await import("../src/mastodon/instance");
+    // A stale "compatible; Mastodon" version marker with an Akkoma
+    // NodeInfo: the transport classifier reads the version marker first
+    // and answers "mastodon"; core follows the plan §2.1 order
+    // (NodeInfo first) and answers "akkoma". The authority wins — the
+    // mastodon-side reorder rides with the coordinator (not this slice).
+    const version = "3.5.3 (compatible; Mastodon 4.2.0)";
+    expect(detectFamily(version, false, [], "akkoma")).toBe("mastodon");
+    expect(detectFlavor({ nodeinfoName: "akkoma", version })).toBe("akkoma");
+  });
+
+  it("transport unknown defers to core probe-shape (vanilla Mastodon v2)", async () => {
+    const { detectFamily } = await import("../src/mastodon/instance");
+    // No version marker, no pleroma shape, no NodeInfo: the transport
+    // classifier cannot name it — but the v2 body IS Mastodon-shaped, so
+    // the authority decides via probe-shape.
+    expect(detectFamily("4.4.3", false, [], null)).toBe("unknown");
+    expect(detectFlavor({ mastodonBody: true, version: "4.4.3" })).toBe("mastodon");
+    expect(detectFlavor({ misskeyBody: true, version: "2026.10.1" })).toBe("misskey");
+  });
+});
+
 describe("three-state capabilities", () => {
   it("unknown flavor is all-unknown — never unlocks an affordance", () => {
     const caps = buildCapabilities("unknown");

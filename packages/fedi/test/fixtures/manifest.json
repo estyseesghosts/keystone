@@ -1,0 +1,219 @@
+{
+  "note": "Fixture provenance manifest. source=synthesised means the file was shaped from the type definitions and docs in this repo and was NOT recorded from a live server. scripts/fedi-smoke.ts exercises the same endpoints against live rig servers; run it to replace synthesised bodies with recorded ones (each rewrite flips source to recorded with the real recordedAt). Tests must not treat synthesised fixtures as proof of live-server behaviour. Carried from the v1 Keystone repo (frontend/test/fixtures/manifest.json); misskey/sharkey bodies are byte-identical to v1, pinetree bodies are carried verbatim (the four bodies misskey-adapt.test.ts used to inline).",
+  "fixtures": {
+    "misskey/meta.json": {
+      "endpoint": "POST /api/meta",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts", "docs/api-surface.md"],
+      "recordedAt": null
+    },
+    "misskey/nodeinfo.json": {
+      "endpoint": "GET /.well-known/nodeinfo -> 2.1 doc",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Misskey-family shape)", "docs/api-surface.md"],
+      "recordedAt": null
+    },
+    "misskey/note.json": {
+      "endpoint": "POST /api/notes/show (packed Note shape)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Note)", "docs/api-surface.md"],
+      "recordedAt": null
+    },
+    "misskey/user.json": {
+      "endpoint": "POST /api/users/show (UserDetailed shape)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserDetailed)", "docs/api-surface.md"],
+      "recordedAt": null
+    },
+    "misskey/drive-file.json": {
+      "endpoint": "POST /api/drive/files (DriveFile shape)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (DriveFile)", "docs/api-surface.md"],
+      "recordedAt": null
+    },
+    "misskey/notification.json": {
+      "endpoint": "POST /api/i/notifications (flat NotificationItem)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (NotificationItem)"],
+      "recordedAt": null
+    },
+    "misskey/notification-grouped.json": {
+      "endpoint": "POST /api/i/notifications-grouped (GroupedNotificationItem)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (GroupedNotificationItem)"],
+      "recordedAt": null,
+      "unverified": "The grouped endpoint shape is Sharkey/newer-Misskey; recorded only where the server answers it."
+    },
+    "sharkey/meta.json": {
+      "endpoint": "POST /api/meta",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts", "docs/api-surface.md"],
+      "recordedAt": null
+    },
+    "sharkey/nodeinfo.json": {
+      "endpoint": "GET /.well-known/nodeinfo -> 2.1 doc",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Misskey-family shape)", "docs/api-surface.md"],
+      "recordedAt": null
+    },
+    "sharkey/note.json": {
+      "endpoint": "POST /api/notes/show (packed Note shape)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Note)", "docs/api-surface.md"],
+      "recordedAt": null,
+      "unverified": "Carries Sharkey extras (isAdmin/isModerator on user, a remote reaction key) that adapt must ignore/keep; shaped from docs, not recorded."
+    },
+    "sharkey/user.json": {
+      "endpoint": "POST /api/users/show (UserDetailed shape)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserDetailed)"],
+      "recordedAt": null,
+      "unverified": "Carries Sharkey extras (isAdmin/isModerator/rejectQuotes) that adapt must ignore/keep; shaped from docs, not recorded."
+    },
+    "sharkey/drive-file.json": {
+      "endpoint": "POST /api/drive/files (DriveFile shape)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (DriveFile)"],
+      "recordedAt": null
+    },
+    "sharkey/notification.json": {
+      "endpoint": "POST /api/i/notifications (flat NotificationItem)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (NotificationItem)"],
+      "recordedAt": null
+    },
+    "sharkey/notification-grouped.json": {
+      "endpoint": "POST /api/i/notifications-grouped (GroupedNotificationItem)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (GroupedNotificationItem)"],
+      "recordedAt": null
+    },
+    "pinetree/meta.json": {
+      "endpoint": "POST /api/meta",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Misskey-family shape)"],
+      "recordedAt": null,
+      "unverified": "Pinetree's real meta output is not recorded; only maxNoteTextLength=3000 is verified (docs/api-surface.md)."
+    },
+    "pinetree/nodeinfo.json": {
+      "endpoint": "GET /.well-known/nodeinfo -> 2.1 doc",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Misskey-family shape)"],
+      "recordedAt": null,
+      "unverified": "Pinetree's NodeInfo software.name is ASSUMED to be \"pinetree\"; never confirmed against a live server."
+    },
+    "pinetree/note.json": {
+      "endpoint": "POST /api/notes/show (packed Note shape)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Note + Pinetree quote extensions)"],
+      "recordedAt": null,
+      "unverified": "Carries the Pinetree quote extensions (quoteTargetUri/quoteTargetUnavailable/quoteAuthorizationStatus, keystone.md) and no poll (Pinetree rejects polls at create); shaped from docs, not recorded."
+    },
+    "pinetree/user.json": {
+      "endpoint": "POST /api/users/show (UserDetailed shape)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserDetailed)"],
+      "recordedAt": null,
+      "unverified": "Shaped WITHOUT the newer Misskey fields (no ffVisibility/pinnedNoteIds/hasPending*) to exercise the absent-field paths; not recorded."
+    },
+    "pinetree/drive-file.json": {
+      "endpoint": "POST /api/drive/files/create (DriveFile shape)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (DriveFile)"],
+      "recordedAt": null,
+      "unverified": "Pinetree has no drive/files LISTING (docs/api-surface.md); the create-response file shape is still exercised."
+    },
+    "pinetree/notification.json": {
+      "endpoint": "POST /api/i/notifications (flat NotificationItem with isRead)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (NotificationItem, Pinetree-only isRead)"],
+      "recordedAt": null,
+      "unverified": "isRead presence is documented (Pinetree packs it, Misskey/Sharkey omit) but not recorded here."
+    },
+    "pinetree/notification-grouped.json": {
+      "endpoint": "NOT APPLICABLE — the grouped endpoint is absent on Pinetree",
+      "source": "not-applicable",
+      "recordedAt": null,
+      "unverified": "i/notifications-grouped is not part of Pinetree's surface (docs/api-surface.md): no fixture exists and none is faked. The grouped mapping is tested against the misskey and sharkey fixtures only."
+    },
+    "mastodon/instance-v2.json": {
+      "endpoint": "GET /api/v2/instance",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (InstanceV2)", "docs/mastoapi-contract.md"],
+      "recordedAt": null
+    },
+    "mastodon/instance-v1.json": {
+      "endpoint": "GET /api/v1/instance",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (InstanceV1)", "docs/mastoapi-contract.md"],
+      "recordedAt": null
+    },
+    "mastodon/nodeinfo.json": {
+      "endpoint": "GET /.well-known/nodeinfo -> 2.1 doc",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (NodeInfo)"],
+      "recordedAt": null
+    },
+    "akkoma/instance-v1.json": {
+      "endpoint": "GET /api/v1/instance (Akkoma has no v2)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (InstanceV1 + pleroma.metadata)", "docs/mastoapi-contract.md"],
+      "recordedAt": null
+    },
+    "akkoma/nodeinfo.json": {
+      "endpoint": "GET /.well-known/nodeinfo -> 2.1 doc",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (NodeInfo)"],
+      "recordedAt": null
+    },
+    "mastodon/status.json": {
+      "endpoint": "GET /api/v1/accounts/:id/statuses (rich own status)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (Status)", "docs/mastoapi-contract.md"],
+      "recordedAt": null,
+      "unverified": "Carries the full documented 4.x shape in one body; shaped from docs + source checkouts, not recorded."
+    },
+    "mastodon/status-reblog.json": {
+      "endpoint": "GET /api/v1/accounts/:id/statuses (reblog wrapper)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (Status.reblog)"],
+      "recordedAt": null
+    },
+    "mastodon/status-quote-pending.json": {
+      "endpoint": "GET /api/v1/statuses/:id (quote state pending)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (MastodonQuoteState)"],
+      "recordedAt": null
+    },
+    "mastodon/account.json": {
+      "endpoint": "GET /api/v1/accounts/verify_credentials",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (CredentialAccount)"],
+      "recordedAt": null
+    },
+    "mastodon/relationship.json": {
+      "endpoint": "GET /api/v1/accounts/relationships",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (Relationship)"],
+      "recordedAt": null
+    },
+    "mastodon/notification.json": {
+      "endpoint": "GET /api/v1/notifications (flat favourite row)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (Notification)"],
+      "recordedAt": null
+    },
+    "akkoma/status.json": {
+      "endpoint": "GET /api/v1/accounts/:id/statuses (Akkoma shape)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (Status + pleroma/akkoma extras)"],
+      "recordedAt": null
+    },
+    "akkoma/notification.json": {
+      "endpoint": "GET /api/v1/notifications (pleroma:emoji_reaction row)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (Notification + emoji/pleroma.is_seen)"],
+      "recordedAt": null
+    }
+  }
+}

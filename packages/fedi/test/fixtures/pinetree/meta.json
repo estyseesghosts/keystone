@@ -1,0 +1,10 @@
+{
+  "maintainerName": "SYNTHESISED FIXTURE — not recorded from a live server",
+  "name": "Pinetree",
+  "version": "0.0.0",
+  "uri": "https://pinetree.example",
+  "description": "Synthesised from the Misskey-family shape in frontend/src/api/types.ts. The only verified field is maxNoteTextLength=3000 (docs/api-surface.md). Pinetree's real meta output is NOT recorded yet — re-record with scripts/record_fixtures.py against a live Pinetree.",
+  "langs": ["en"],
+  "disableRegistration": false,
+  "maxNoteTextLength": 3000
+}

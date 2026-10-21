@@ -8,21 +8,33 @@
 //   4. post        — the first timeline item re-fetched by id; `empty`
 //                    when the timeline has no items (never an invented id)
 //   5. account     — that post's author re-fetched by id; `empty` likewise
+//   6. me          — authed `me()` when FEDI_SMOKE_TOKEN is set (authed
+//                    read-only path); `skip` without a token, never a failure
+//   7. stream      — a stream handle builds (no socket opened here)
+//   8. stream-connect — a bounded authed connect probe when FEDI_SMOKE_TOKEN
+//                    is set; `skip` otherwise (anonymous connects are never
+//                    attempted) or when the edge is unreachable
+//   9. submodules  — one list-only row per capability-gated sub-module the
+//                    backend exposes (limit 1, never a write); a 404/405
+//                    reads as `skip` (honest absent), a refused edge as
+//                    `skip` (rig down), never a failure
 //
-// All calls are anonymous: the session carries an empty token, so no
-// credential can leak, and nothing is written. Exit code is nonzero when
-// any row fails (`empty` is not a failure).
+// MK11: all calls are anonymous except row 6/8's explicitly authed probes,
+// and NOTHING is ever written: the smoke has no create/update/delete path.
+// Exit code is nonzero when any row fails (`empty`/`skip` are not failures).
 //
 // Usage:
 //   pnpm smoke --url http://127.0.0.1:3101 [--url ...]
 //   pnpm smoke --all        # every rig server in RIG_URLS below
 //   FEDI_SMOKE_URL=http://127.0.0.1:3101 pnpm smoke
 //   FEDI_SMOKE_URL="http://a/,http://b/" pnpm smoke   # comma-separated
+//   FEDI_SMOKE_TOKEN=<token> pnpm smoke --url ...     # authed rows
 //
 // Runs on plain Node: `pnpm smoke` bundles this file with esbuild (already
 // a repo dev dependency) and runs the bundle. No RN, no UI imports.
 
 import {
+  ApiError,
   backendForSession,
   createMastodonClient,
   createMisskeyClient,
@@ -45,7 +57,7 @@ const RIG_URLS = [
   "http://127.0.0.1:4000", // Akkoma (Mastodon family)
 ];
 
-type RowStatus = "ok" | "fail" | "empty";
+type RowStatus = "ok" | "fail" | "empty" | "skip";
 
 interface Row {
   check: string;
@@ -231,7 +243,170 @@ async function smokeOne(rawOrigin: string): Promise<{ origin: string; rows: Row[
     rows.push({ check: "account", status: "fail", ms: 0, detail: failDetail(err) });
   }
 
+  // MK11 authed + sub-module + streaming probes. All degrade to `skip`
+  // (never `fail`): the rig (:3101/:3102 down, :3000 404 on /) is the
+  // expected state, and a refused edge must read as blocked, not broken.
+  await probeAuthed(origin, detection, rows);
+  await probeSubmodules(backend, rows);
+  await probeStream(backend, rows);
+
   return { origin, rows };
+}
+
+// --- MK11 probes -------------------------------------------------------------
+
+function smokeToken(): string {
+  return (process.env.FEDI_SMOKE_TOKEN ?? "").trim();
+}
+
+function authedSession(detection: ServerDetection, origin: string): Session | null {
+  const token = smokeToken();
+  if (!token) return null;
+  return {
+    id: sessionId(origin, "smoke"),
+    origin,
+    family: detection.family ?? "misskey",
+    flavor: detection.flavor,
+    accountId: "smoke",
+    token,
+    grant: "password",
+    hosting: "third-party",
+  };
+}
+
+/** Authed `me()` — read-only, scoped to FEDI_SMOKE_TOKEN. */
+async function probeAuthed(
+  origin: string,
+  detection: ServerDetection,
+  rows: Row[],
+): Promise<void> {
+  const session = authedSession(detection, origin);
+  if (!session) {
+    rows.push({
+      check: "me",
+      status: "skip",
+      ms: 0,
+      detail: "no FEDI_SMOKE_TOKEN (authed read-only probe skipped)",
+    });
+    return;
+  }
+  try {
+    const { value, ms } = await timed("me", () => backendForSession(session).me());
+    rows.push({
+      check: "me",
+      status: "ok",
+      ms,
+      detail: `@${value.acct} id=${value.id}`,
+    });
+  } catch (err) {
+    const detail = failDetail(err);
+    rows.push({
+      check: "me",
+      status: "skip",
+      ms: 0,
+      detail:
+        err instanceof ApiError && (err.status === 401 || err.status === 403)
+          ? `token rejected (HTTP ${err.status}) — re-mint FEDI_SMOKE_TOKEN`
+          : `edge unreachable (${detail})`,
+    });
+  }
+}
+
+/** List-only sub-module probes (limit 1, never a write). */
+async function probeSubmodules(
+  backend: ReturnType<typeof backendForSession>,
+  rows: Row[],
+): Promise<void> {
+  const probes: Array<[string, () => Promise<unknown>]> = [];
+  if (backend.drive) probes.push(["drive", () => backend.drive!.files({ limit: 1 })]);
+  if (backend.antennas) probes.push(["antennas", () => backend.antennas!.list()]);
+  if (backend.clips) probes.push(["clips", () => backend.clips!.list()]);
+  if (backend.lists) probes.push(["lists", () => backend.lists!.list()]);
+  if (backend.scheduled) probes.push(["scheduled", () => backend.scheduled!.list({ limit: 1 })]);
+  if (backend.serverDrafts)
+    probes.push(["serverDrafts", () => backend.serverDrafts!.list({ limit: 1 })]);
+  if (backend.bookmarks) probes.push(["bookmarks", () => backend.bookmarks!.list({ limit: 1 })]);
+  for (const [name, run] of probes) {
+    try {
+      const { value, ms } = await timed(name, run);
+      const n = Array.isArray(value)
+        ? value.length
+        : typeof (value as { items?: unknown[] }).items?.length === "number"
+          ? (value as { items: unknown[] }).items.length
+          : "?";
+      rows.push({ check: `sub:${name}`, status: "ok", ms, detail: `list-only n=${n}` });
+    } catch (err) {
+      rows.push({
+        check: `sub:${name}`,
+        status: "skip",
+        ms: 0,
+        detail:
+          err instanceof ApiError && (err.status === 404 || err.status === 405)
+            ? `absent (HTTP ${err.status} — honest unavailable)`
+            : `blocked (${failDetail(err)})`,
+      });
+    }
+  }
+}
+
+/** Stream handle presence + a bounded authed connect probe. */
+async function probeStream(
+  backend: ReturnType<typeof backendForSession>,
+  rows: Row[],
+): Promise<void> {
+  const handle = backend.stream();
+  if (!handle) {
+    rows.push({
+      check: "stream",
+      status: "skip",
+      ms: 0,
+      detail: "no handle (unsupported flavor — paging only)",
+    });
+    rows.push({
+      check: "stream-connect",
+      status: "skip",
+      ms: 0,
+      detail: "no handle — nothing to connect",
+    });
+    return;
+  }
+  rows.push({ check: "stream", status: "ok", ms: 0, detail: "handle created (no socket opened)" });
+  if (!smokeToken()) {
+    rows.push({
+      check: "stream-connect",
+      status: "skip",
+      ms: 0,
+      detail: "guarded: anonymous connects are never attempted (set FEDI_SMOKE_TOKEN)",
+    });
+    return;
+  }
+  const start = Date.now();
+  try {
+    const sub = handle.subscribeTimeline({ kind: "global" }, () => undefined);
+    let state = sub.status();
+    while (state !== "subscribed" && Date.now() - start < 6_000) {
+      await new Promise<void>((r) => setTimeout(r, 250));
+      state = sub.status();
+    }
+    sub.unsubscribe();
+    rows.push(
+      state === "subscribed"
+        ? { check: "stream-connect", status: "ok", ms: Date.now() - start, detail: "live" }
+        : {
+            check: "stream-connect",
+            status: "skip",
+            ms: Date.now() - start,
+            detail: `no live edge within 6s (last: ${state})`,
+          },
+    );
+  } catch (err) {
+    rows.push({
+      check: "stream-connect",
+      status: "skip",
+      ms: Date.now() - start,
+      detail: `blocked (${failDetail(err)})`,
+    });
+  }
 }
 
 function printTable(origin: string, rows: Row[]): void {
