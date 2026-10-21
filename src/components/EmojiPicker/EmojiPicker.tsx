@@ -181,7 +181,16 @@ export function EmojiPicker({sessionId, onPick, recentsStore = emojiRecentsStore
         </View>
       ) : null}
       {rows.length === 0 ? <Body>No emoji found.</Body> : null}
-      <FlatList data={rows} renderItem={render} keyExtractor={r => r.id} keyboardShouldPersistTaps="handled" />
+      <FlatList
+        data={rows}
+        renderItem={render}
+        keyExtractor={r => r.id}
+        keyboardShouldPersistTaps="handled"
+        // E5: the popup card wraps this list in a ScrollView
+        // (AnchoredPopup) — without this the inner list never receives
+        // the scroll gesture on Android (nested virtualized list).
+        nestedScrollEnabled
+      />
     </View>
   )
 }

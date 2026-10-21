@@ -1,5 +1,5 @@
-import {useState} from 'react'
-import {Image, View} from 'react-native'
+import {useEffect, useState} from 'react'
+import {Image, Keyboard, View} from 'react-native'
 
 import {msg} from '@lingui/macro'
 
@@ -468,6 +468,12 @@ export function ServerDraftsSection({c}: {c: ComposerController}) {
 }
 
 export function SuggestEmojiSection({c}: {c: ComposerController}) {
+  // E5: the dialog is a centered Modal — same Android keyboard-cover
+  // problem as the compact popup. Dismiss on open; the search field
+  // re-opens the keyboard on focus.
+  useEffect(() => {
+    if (c.pickingEmoji) Keyboard.dismiss()
+  }, [c.pickingEmoji])
   return (
     <>
       <SuggestionList suggestions={c.suggestions} onPick={c.onPickSuggestion} />

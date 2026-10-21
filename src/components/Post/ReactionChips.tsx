@@ -5,17 +5,17 @@
 // servers render disabled chips carrying the reason; unsupported
 // servers hide the row entirely. Never wired, never inert, never faked.
 
-import {useState} from 'react'
-import {Image, StyleSheet, View} from 'react-native'
+import {StyleSheet, View} from 'react-native'
 
 import type {Capabilities, ReactionSummary} from '@keystone/fedi'
-import {HEART_REACTION, shouldHideChip} from '@keystone/fedi'
+import {HEART_REACTION, parseEmojiCode, shouldHideChip} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {Caption} from '#/alf/typography'
-import {UnicodeEmoji} from '#/components/EmojiImage'
+import {CustomEmojiGlyph, UnicodeEmoji} from '#/components/EmojiImage'
 import {PendingEmoji} from '#/components/PendingEmoji'
 import {Pressable} from '#/components/Pressable'
+import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 
 const styles = StyleSheet.create({
   row: {flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, marginBottom: 4},
@@ -28,7 +28,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 2,
   },
-  art: {width: 14, height: 14, resizeMode: 'contain'},
 })
 
 const READONLY_REASON = 'Reactions are read-only here.'
@@ -36,34 +35,52 @@ const READONLY_REASON = 'Reactions are read-only here.'
 function ChipArt({
   reactionKey,
   url,
+  packed,
+  sessionId,
+  authorHost,
   pending,
   mine,
 }: {
   reactionKey: string
   url: string | null
+  /** Packed per-object map (`reactions.urls`) for tolerant lookup. */
+  packed: Record<string, string> | null
+  /** Owning session (WS-C remote fallback): explicit wins, otherwise
+   * the active session; null = packed-only resolution. */
+  sessionId: string | null
+  /** Origin host hint for host-less codes in remote-authored content. */
+  authorHost: string | null
   pending?: boolean
   mine: boolean
 }) {
   const theme = useTheme()
-  const [failed, setFailed] = useState(false)
   // An inverted (mine) chip paints its background with `text`, so its
   // foreground must be `bg` — otherwise the fallback label vanishes.
   const fallbackColor = mine ? theme.palette.bg : theme.palette.text
   // Optimistic custom emoji with unknown art: fixed box, never `:code:`.
   if (pending && url === null) return <PendingEmoji />
-  if (url !== null && !failed) {
+  // Custom keys route through the glyph's full chain (E1): the packed
+  // entry URL, the tolerant packed-map lookup (colon-wrapped or bare
+  // server key shapes), the session listing, then the remote/author
+  // host tables — literal `:code:` only when nothing resolves, never a
+  // fabricated image. Mastodon-family keys arrive as bare shortcodes
+  // (`hehe` with a packed URL); those take the same path.
+  const parsed = parseEmojiCode(reactionKey)
+  const bareCustom = parsed === null && url !== null && /^[A-Za-z0-9_+-]+$/.test(reactionKey)
+  if (parsed !== null || bareCustom) {
     return (
-      <Image
-        source={{uri: url}}
-        style={styles.art}
-        accessibilityLabel={reactionKey}
-        onError={() => setFailed(true)}
+      <CustomEmojiGlyph
+        name={parsed ? parsed.name : reactionKey}
+        host={parsed ? parsed.host : null}
+        src={url}
+        packed={packed}
+        sessionId={sessionId}
+        authorHost={authorHost}
+        size={14}
+        textStyle={{color: fallbackColor}}
       />
     )
   }
-  // Custom `:code:` keys without art render as their literal text —
-  // the read-only display fallback, never a fabricated image.
-  if (reactionKey.includes(':')) return <Caption style={{color: fallbackColor}}>{reactionKey}</Caption>
   return <UnicodeEmoji sequence={reactionKey} size={14} textStyle={{color: fallbackColor}} />
 }
 
@@ -74,6 +91,8 @@ export function ReactionChips({
   likeEmoji = HEART_REACTION,
   onToggle,
   testID,
+  sessionId = null,
+  authorHost = null,
 }: {
   /** Tap a chip to react with / clear that key. Omit = read-only chips. */
   onToggle?: (key: string) => void
@@ -85,8 +104,18 @@ export function ReactionChips({
   likeEmoji?: string
   capabilities?: Capabilities | null
   testID?: string
+  /** Owning session for the WS-C remote fallback (E1): explicit wins
+   * (per-column accounts), otherwise the active session, else
+   * packed-only. PostCard does not thread this yet (WS-A file) — the
+   * fallback covers cards until it does. */
+  sessionId?: string | null
+  /** Origin host hint for host-less codes in remote-authored content
+   * (v1 `host={note.author.host}` parity). */
+  authorHost?: string | null
 }) {
   const theme = useTheme()
+  const activeId = useOptionalActiveSession()?.id ?? null
+  const sid = sessionId ?? activeId
   if (!reactions || reactions.entries.length === 0) return null
   if (capabilities?.reactions === 'unsupported') return null
   // Hearts always hide (they live on the like button), plus the
@@ -117,7 +146,7 @@ export function ReactionChips({
                 backgroundColor: mine ? theme.palette.text : theme.palette.bgSoft,
               },
             ]}>
-            <ChipArt reactionKey={entry.key} url={entry.url} pending={pendingKeys?.has(entry.key)} mine={mine} />
+            <ChipArt reactionKey={entry.key} url={entry.url} packed={reactions.urls} sessionId={sid} authorHost={authorHost} pending={pendingKeys?.has(entry.key)} mine={mine} />
             <Caption style={{color: mine ? theme.palette.bg : theme.palette.muted}}>
               {String(entry.count)}
             </Caption>

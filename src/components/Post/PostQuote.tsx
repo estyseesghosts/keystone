@@ -18,6 +18,7 @@ import {Caption} from '#/alf/typography'
 import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
+import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 
 import {postBodyNodes, postEmojis, postTagBubble} from './body'
 import {PostMediaGrid} from './PostMediaGrid'
@@ -42,6 +43,7 @@ export function PostQuote({
   onHashtagPress,
   onLinkPress,
   testID,
+  sessionId = null,
 }: {
   quote: Post | null
   unavailable: boolean
@@ -61,9 +63,16 @@ export function PostQuote({
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
   testID?: string
+  /** Owning session for the WS-C remote-emoji fallback (E1): explicit
+   * wins (per-column quotes), otherwise the active session, else
+   * packed-only. PostCard does not thread this yet (WS-A file) — the
+   * fallback covers quotes until it does. No layout change. */
+  sessionId?: string | null
 }) {
   const theme = useTheme()
   const {i18n} = useLingui()
+  const activeId = useOptionalActiveSession()?.id ?? null
+  const sid = sessionId ?? activeId
   if (concealed === true) {
     return (
       <Pressable
@@ -118,6 +127,7 @@ export function PostQuote({
           <Caption color="muted" style={styles.headText} numberOfLines={1}>
             <DisplayName
               account={collapsed ? {...quote.author, displayName: handleOf(quote.author)} : quote.author}
+              sessionId={sid}
               size={14}
             />
             {collapsed ? null : ` @${quote.author.acct}`}
@@ -139,6 +149,8 @@ export function PostQuote({
         <RichText
           nodes={nodes}
           emojis={postEmojis(quote)}
+          sessionId={sid}
+          authorHost={quote.author.host ?? null}
           emojiStyle={emojiStyle}
           size={14}
           numberOfLines={4}
