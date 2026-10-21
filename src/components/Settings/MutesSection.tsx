@@ -22,12 +22,15 @@ import {useActiveSession} from '#/state/session/SessionProvider'
 import {PlaceholderRow, SectionHint, SettingRow} from './rows'
 
 // Mutes section (v1 `/settings/mutes` parity): word/instance filters,
-// account search-to-mute/block, and the blocked + muted account lists
-// with unblock/unmute. Each block gates independently — unsupported
-// backends render an honest placeholder, never an error.
+// account search-to-mute/block, and the muted, blocked, and repost-muted
+// account lists with unmute/unblock. Each block gates independently —
+// unsupported backends render an honest placeholder, never an error.
 //
-// Scope rule (plan §2.2): renote-mute LISTS have no backend method, so
-// they render as a placeholder; the search row can still renote-mute.
+// Scope rule (plan §2.2): renote-mute LISTS render only when the backend
+// exposes `renoteMutes` (Misskey family, when implemented); otherwise the
+// honest placeholder stays. The search row can always renote-mute, but
+// has no relationship data to offer an unmute path without new queries,
+// so search stays mute-only.
 
 type WordFieldName = 'mutedWords' | 'hardMutedWords' | 'mutedInstances'
 
@@ -418,12 +421,24 @@ export function MutesSection() {
         run={(b, id) => b.unblock(id)}
         refreshKey={refreshKey}
       />
-      <PlaceholderRow
-        title="Repost-muted accounts"
-        hint="Accounts whose reposts are hidden."
-        reason="Not wired yet — the backend has no list endpoint."
-        testID="placeholder-renote-mutes"
-      />
+      {backend.renoteMutes ? (
+        <AccountList
+          title="Repost-muted accounts"
+          hint="Unmute reposts to see them again."
+          testID="renote-mutes-list"
+          load={b => (b.renoteMutes ? b.renoteMutes().then(p => p.items) : Promise.resolve([]))}
+          action="Unmute reposts"
+          run={(b, id) => b.unmuteRenotes(id)}
+          refreshKey={refreshKey}
+        />
+      ) : (
+        <PlaceholderRow
+          title="Repost-muted accounts"
+          hint="Accounts whose reposts are hidden."
+          reason="Not wired yet — the backend has no list endpoint."
+          testID="placeholder-renote-mutes"
+        />
+      )}
     </View>
   )
 }
