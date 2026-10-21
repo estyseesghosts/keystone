@@ -8,6 +8,7 @@ import {FlatList, RefreshControl, View} from 'react-native'
 
 import {
   backendForSession,
+  collapseReposts,
   computeFeedThreadLinks,
   displayNameOf,
   handleOf,
@@ -120,10 +121,16 @@ export function FeedView({
   })
   const softMuted = useSoftMutedIds(sessionId)
   const items = useMemo(() => filterSoftMuted(feedItems(feed.data), softMuted), [feed.data, softMuted])
-  const {newCount, acknowledge} = useNewPosts(feed.queryKey.join('|'), items)
+  // Boost collapsing (F17): an original plus its reposts shows only the
+  // first repost, with the aggregated renoters on the banner. Quotes
+  // never collapse — they carry their own commentary.
+  const collapsed = useMemo(() => collapseReposts(items), [items])
+  const visibleItems = useMemo(() => items.filter(i => collapsed.reps.has(i.id)), [items, collapsed])
+  const {newCount, acknowledge} = useNewPosts(feed.queryKey.join('|'), visibleItems)
   // Same avatar-column links as PostFeed: adjacent parent/child pairs
   // share one connected column (newest-first, `replyToId` only).
-  const links = useMemo(() => computeFeedThreadLinks(items), [items])
+  // Computed over the COLLAPSED rows so indices match the FlatList.
+  const links = useMemo(() => computeFeedThreadLinks(visibleItems), [visibleItems])
 
   if (!sessionId || !resolved) {
     return (
@@ -172,13 +179,14 @@ export function FeedView({
         </View>
       ) : null}
       <FlatList
-        data={items}
+        data={visibleItems}
         keyExtractor={item => `${sessionId}:${item.id}`}
         renderItem={({item, index}) => (
           <ThreadRow
             post={item}
             sessionId={sessionId}
             capabilities={resolved.capabilities}
+            renoters={collapsed.renotersByRep.get(item.id)}
             connectedAbove={links.connectedAbove[index] ?? false}
             connectedBelow={links.connectedBelow[index] ?? false}
           />

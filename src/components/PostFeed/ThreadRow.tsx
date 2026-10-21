@@ -6,7 +6,7 @@
 
 import {StyleSheet, View} from 'react-native'
 
-import type {Capabilities, EmojiStyle, Post} from '@keystone/fedi'
+import type {Account, Capabilities, EmojiStyle, Post} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {PostCard} from '#/components/Post/index'
@@ -31,6 +31,8 @@ export type ThreadRowProps = {
   sessionId: string
   capabilities?: Capabilities | null
   emojiStyle?: EmojiStyle
+  /** Aggregated reposters for a collapsed boost group (F17). */
+  renoters?: Account[]
   connectedAbove?: boolean
   connectedBelow?: boolean
   testID?: string
@@ -41,6 +43,7 @@ export function ThreadRow({
   sessionId,
   capabilities,
   emojiStyle = 'twemoji',
+  renoters,
   connectedAbove = false,
   connectedBelow = false,
   testID,
@@ -57,7 +60,7 @@ export function ThreadRow({
           style={[styles.line, variant, {left: LINE_LEFT, backgroundColor: theme.palette.border}]}
         />
       ) : null}
-      <PostCard post={post} sessionId={sessionId} capabilities={capabilities} emojiStyle={emojiStyle} />
+      <PostCard post={post} sessionId={sessionId} capabilities={capabilities} emojiStyle={emojiStyle} renoters={renoters} />
     </View>
   )
 }

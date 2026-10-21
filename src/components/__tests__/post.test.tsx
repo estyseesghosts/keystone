@@ -257,3 +257,28 @@ describe('post badges (F15/F16)', () => {
     expect(screen.getByTestId('post-quote-qw-status')).toBeTruthy()
   })
 })
+
+describe('boost collapsing banner (F17)', () => {
+  it('reads "X and N others boosted" with aggregated renoters', async () => {
+    const {boostLabel} = await import('#/components/Post/PostCard')
+    const bob = makeAccount({id: 'b1', username: 'bob', acct: 'bob', name: 'Bob', displayName: 'Bob'})
+    const carol = makeAccount({id: 'c1', username: 'carol', acct: 'carol', name: 'Carol', displayName: 'Carol'})
+    expect(boostLabel(makePost(), [bob])).toBe('Alice boosted')
+    expect(boostLabel(makePost(), [bob, carol])).toBe('Bob and 1 other boosted')
+  })
+
+  it('renders the aggregated banner on the card', () => {
+    const bob = makeAccount({id: 'b1', username: 'bob', acct: 'bob', name: 'Bob', displayName: 'Bob'})
+    const carol = makeAccount({id: 'c1', username: 'carol', acct: 'carol', name: 'Carol', displayName: 'Carol'})
+    const original = makePost({id: 'orig'})
+    const wrapper = makePost({
+      id: 'wrap2',
+      author: bob,
+      content: {plain: ''},
+      renoteId: 'orig',
+      renote: original,
+    })
+    renderCard(<PostCard post={wrapper} sessionId={SESSION} renoters={[bob, carol]} />)
+    expect(screen.getByTestId('boost-header-wrap2')).toHaveTextContent('Bob and 1 other boosted')
+  })
+})

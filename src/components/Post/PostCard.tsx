@@ -22,6 +22,7 @@ import {
   safeHttpUrl,
   getQuoteTarget,
   statusLabelFor,
+  type Account,
   type Capabilities,
   type EmojiStyle,
   type Media,
@@ -93,6 +94,15 @@ function openTagPosts(tag: string) {
   navigationRef.navigate('Tag', {tag})
 }
 
+/** Collapsed-boost banner (v1 `TimelineFeed` parity, F17): one reposter
+ * reads "X boosted", several read "X and N others boosted". Pure. */
+export function boostLabel(post: Post, renoters?: Account[]): string {
+  const names = (renoters ?? []).map(displayNameOf)
+  if (names.length <= 1) return `${displayNameOf(post.author)} boosted`
+  const rest = names.length - 1
+  return `${names[0]} and ${rest} other${rest === 1 ? '' : 's'} boosted`
+}
+
 function Avatar({post}: {post: Post}) {
   const theme = useTheme()
   const [failed, setFailed] = useState(false)
@@ -138,6 +148,10 @@ export type PostCardProps = {
   onMentionPress?: (href: string | null, label: string) => void
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
+  /** Aggregated reposters for a collapsed boost group (F17): the banner
+   * reads "X and N others boosted". Omit for single boosts and outside
+   * feeds — the header falls back to the wrapper author alone. */
+  renoters?: Account[]
   testID?: string
   /** Screen-supplied composer/picker callbacks (override the context). */
   handlers?: PostCardHandlers
@@ -262,6 +276,7 @@ function PostCardView({
   onMentionPress,
   onHashtagPress,
   onLinkPress,
+  renoters,
   testID,
   live,
   sessionId,
@@ -340,7 +355,7 @@ function PostCardView({
       <View style={styles.main}>
         {isBoost && (
           <Caption color="muted" style={styles.context} testID={`boost-header-${post.id}`}>
-            {displayNameOf(post.author)} boosted
+            {boostLabel(post, renoters)}
           </Caption>
         )}
         {badges.length > 0 && (
