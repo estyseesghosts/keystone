@@ -117,3 +117,38 @@ describe('PostCard', () => {
     expect(screen.queryByLabelText('Boost. Sign in to boost.')).toBeNull()
   })
 })
+
+describe('PostQuote (F6)', () => {
+  it('quote card is a pressable link into the quoted post', async () => {
+    const {PostQuote} = await import('#/components/Post/PostQuote')
+    const onPress = jest.fn()
+    const quote = makePost({id: 'q9', content: {mfm: 'quoted body', plain: 'quoted body'}})
+    renderCard(<PostQuote quote={quote} unavailable={false} onPress={onPress} testID="quote-f6" />)
+    const card = screen.getByTestId('quote-f6')
+    expect(card.props.accessibilityRole).toBe('link')
+    fireEvent.press(card)
+    expect(onPress).toHaveBeenCalledWith(quote)
+  })
+
+  it('card mention taps route through the card handler, not the nav', async () => {
+    const {PostQuote} = await import('#/components/Post/PostQuote')
+    const onPress = jest.fn()
+    const onMentionPress = jest.fn()
+    const quote = makePost({
+      id: 'q10',
+      content: {mfm: 'hi @bob@example.social', plain: 'hi @bob@example.social'},
+    })
+    renderCard(
+      <PostQuote
+        quote={quote}
+        unavailable={false}
+        onPress={onPress}
+        onMentionPress={onMentionPress}
+        testID="quote-f6-mention"
+      />,
+    )
+    expect(screen.getByTestId('quote-f6-mention')).toBeTruthy()
+    expect(onPress).not.toHaveBeenCalled()
+    expect(onMentionPress).not.toHaveBeenCalled()
+  })
+})

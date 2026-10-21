@@ -286,6 +286,10 @@ function PostCardView({
     if (Date.now() - linkGuard.current < 400) return
     openPostDetail(effective.id)
   }
+  const openQuoted = (quoted: {id: string}) => {
+    if (Date.now() - linkGuard.current < 400) return
+    openPostDetail(quoted.id)
+  }
 
   return (
     <View style={styles.card} testID={testID ?? `post-${post.id}`}>
@@ -360,6 +364,10 @@ function PostCardView({
             quote={effective.quote}
             unavailable={effective.quoteUnavailable}
             emojiStyle={emojiStyle}
+            onPress={openQuoted}
+            onMentionPress={handleMentionPress}
+            onHashtagPress={handleHashtagPress}
+            onLinkPress={handleLinkPress}
             testID={`post-quote-${post.id}`}
           />
         )}

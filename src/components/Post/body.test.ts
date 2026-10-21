@@ -1,9 +1,12 @@
 // F7: duplicate `RE:` markers strip when a structured quote card renders.
-import {adaptNote, type Note, type Post} from '@keystone/fedi'
+import {adaptNote, type Post} from '@keystone/fedi'
 
 import {postBodyNodes} from './body'
 
-function user(id: string): Note['user'] {
+type WireNote = Parameters<typeof adaptNote>[0]
+type WireUser = WireNote['user']
+
+function user(id: string): WireUser {
   return {
     id,
     name: null,
@@ -18,7 +21,7 @@ function user(id: string): Note['user'] {
   }
 }
 
-function wire(over: Partial<Note> & {id: string}): Note {
+function wire(over: Partial<WireNote> & {id: string}): WireNote {
   return {
     createdAt: '2026-01-01T00:00:00.000Z',
     userId: 'u1',
@@ -106,7 +109,6 @@ describe('postBodyNodes quote-marker stripping (F7)', () => {
     const post: Post = {
       ...adaptNote(wire({id: 'm2'})),
       content: {
-        mfm: null,
         html: '<p>commentary<br>RE: <a href="https://remote.example/notes/1">https://remote.example/notes/1</a></p>',
         plain: 'commentary RE: https://remote.example/notes/1',
       },
