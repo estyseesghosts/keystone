@@ -38,15 +38,26 @@ import type {
  * when registration fails AND no discovery doc exists. */
 export const MASTO_SCOPES: string[] = [
   "read:accounts",
+  "read:blocks",
+  "read:bookmarks",
+  "read:filters",
+  "read:lists",
+  "read:mutes",
   "read:statuses",
   "read:notifications",
   "read:search",
   "read:follows",
+  "write:accounts",
+  "write:blocks",
+  "write:bookmarks",
+  "write:filters",
+  "write:follows",
+  "write:lists",
+  "write:media",
+  "write:mutes",
+  "write:notifications",
   "write:statuses",
   "write:favourites",
-  "write:follows",
-  "write:media",
-  "write:notifications",
 ];
 
 /** Legacy umbrella fallback: `read write follow` (contract §2.1). */
