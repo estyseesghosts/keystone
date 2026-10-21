@@ -305,3 +305,45 @@ describe('display-name emoji (F11)', () => {
     expect(screen.getByTestId('dn2')).toHaveTextContent('Bob :nope:')
   })
 })
+
+describe('fold (F13)', () => {
+  const long = 'word '.repeat(200).trim()
+  it('folds long bodies with an in-place expand/collapse', () => {
+    renderCard(
+      <PostCard post={makePost({id: 'fold1', content: {mfm: long, plain: long}})} sessionId={SESSION} />,
+    )
+    expect(screen.getByTestId('post-expand-fold1')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('post-expand-fold1'))
+    expect(screen.getByTestId('post-collapse-fold1')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('post-collapse-fold1'))
+    expect(screen.getByTestId('post-expand-fold1')).toBeTruthy()
+  })
+
+  it('does not fold short bodies', () => {
+    renderCard(<PostCard post={makePost({id: 'fold2'})} sessionId={SESSION} />)
+    expect(screen.queryByTestId('post-expand-fold2')).toBeNull()
+  })
+
+  it('renders the server link card', () => {
+    renderCard(
+      <PostCard
+        post={makePost({
+          id: 'lc1',
+          card: {
+            url: 'https://example.com/article',
+            title: 'An article',
+            description: 'Read all about it.',
+            image: null,
+            type: 'link',
+            authorName: null,
+            authorUrl: null,
+            providerName: null,
+          },
+        })}
+        sessionId={SESSION}
+      />,
+    )
+    expect(screen.getByTestId('post-card-lc1')).toBeTruthy()
+    expect(screen.getByText('An article')).toBeTruthy()
+  })
+})

@@ -252,7 +252,7 @@ export function NoteScreen() {
               },
             ]}
             testID={`focused-${focused.id}`}>
-            <PostCard post={focused} sessionId={sessionId} />
+            <PostCard post={focused} sessionId={sessionId} foldBody={false} />
           </View>
           <ReplyEntry focused={focused} />
           <ReplyBranch

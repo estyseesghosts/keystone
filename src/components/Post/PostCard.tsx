@@ -16,6 +16,7 @@ import {
   backendForSession,
   type Translation,
   displayNameOf,
+  foldTree,
   handleOf,
   isPureRenote,
   parseAcct,
@@ -46,6 +47,7 @@ import {ActionBar, StaticActionBar, toastError} from './ActionBar'
 import {badgesFor} from './badges'
 import {postBodyNodes, postEmojis} from './body'
 import {usePostCardHandlers, type PostCardHandlers} from './handlers'
+import {LinkCard} from './LinkCard'
 import {buildPostMenu, type PostMenuSection} from './menuModel'
 import {Lightbox} from '#/components/Lightbox'
 import {PostMediaGrid} from './PostMediaGrid'
@@ -154,6 +156,9 @@ export type PostCardProps = {
    * reads "X and N others boosted". Omit for single boosts and outside
    * feeds — the header falls back to the wrapper author alone. */
   renoters?: Account[]
+  /** Fold long bodies to the timeline budget with a Show more/less
+   * toggle (F13). Feeds fold; the detail screen passes false. */
+  foldBody?: boolean
   testID?: string
   /** Screen-supplied composer/picker callbacks (override the context). */
   handlers?: PostCardHandlers
@@ -279,6 +284,7 @@ function PostCardView({
   onHashtagPress,
   onLinkPress,
   renoters,
+  foldBody = true,
   testID,
   live,
   sessionId,
@@ -305,7 +311,14 @@ function PostCardView({
   const base = useMemo(() => appearNoteOf(post), [post])
   const effective = live ? live.actions.shadowed.post : base
   const isBoost = base !== post
-  const nodes = useMemo(() => postBodyNodes(effective), [effective])
+  const fullNodes = useMemo(() => postBodyNodes(effective), [effective])
+  // Timeline fold (F13): long bodies fold to the budget with an
+  // in-place Show more/less toggle; the body tap still opens detail.
+  const [expanded, setExpanded] = useState(false)
+  const {nodes, folded} = useMemo(
+    () => (foldBody && !expanded ? foldTree(fullNodes) : {nodes: fullNodes, folded: false}),
+    [fullNodes, foldBody, expanded],
+  )
   const emojis = useMemo(() => postEmojis(effective), [effective])
   const badges = useMemo(() => badgesFor(effective), [effective])
   // Quote-authorization display label for the wrapper's relationship
@@ -435,6 +448,30 @@ function PostCardView({
               onLinkPress={handleLinkPress}
               testID={`post-body-${post.id}`}
             />
+            {folded && !expanded ? (
+              <Pressable
+                testID={`post-expand-${post.id}`}
+                onPress={() => {
+                  markLink()
+                  setExpanded(true)
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Show more of this post">
+                <Caption color="muted">Show more</Caption>
+              </Pressable>
+            ) : null}
+            {expanded && foldBody ? (
+              <Pressable
+                testID={`post-collapse-${post.id}`}
+                onPress={() => {
+                  markLink()
+                  setExpanded(false)
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Show less of this post">
+                <Caption color="muted">Show less</Caption>
+              </Pressable>
+            ) : null}
           </Pressable>
         )}
         {!bodyHidden && <PostMediaGrid media={effective.media} onOpen={index => setLightbox({items: effective.media, index})} testID={`post-media-${post.id}`} />}
@@ -467,6 +504,9 @@ function PostCardView({
             onVote={live?.votePoll ? choices => live.votePoll(effective.id, choices) : undefined}
             testID={`post-poll-${post.id}`}
           />
+        )}
+        {!bodyHidden && effective.card !== null && (
+          <LinkCard card={effective.card} testID={`post-card-${post.id}`} />
         )}
         {live?.translation && (
           <View style={[styles.cwBox, {backgroundColor: theme.palette.bgSoft}]} testID={`translation-${post.id}`}>
