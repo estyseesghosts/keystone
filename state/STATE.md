@@ -1,16 +1,16 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: V2_GAPS WS-A (quotes) + WS-D + WS-E MERGED 2026-10-21
-on `main` (show-all default + authorized-only opt-in, resolveQuoteUri
-+ textual RE fallbacks, strip-only-on-resolve; report live, boost
-re-read, translate retry/error; fedi deletions, `"like"` key, polls
-probed). FULL suite green: 129 suites / 1556 tests; tsc
-ios+android+web clean; eslint + oxlint clean. WS-B/C running in
-parallel (own worktrees); WS-F waits for WS-B (sanitizer); WS-G last.
-Latest logs: `state/logs/2026-10-21-wsA-quotes.md` (agent, 5 Helium
-shots in `assets-wsA/`, Akkoma card + toggle proven live),
-`wsD-postmenu.md`, `wsE-misskey.md`. Coordinator re-verified the
-trio on `main` after each merge.
+Phase/slice: V2_GAPS WS-B (content) + WS-A + WS-D + WS-E MERGED
+2026-10-21 on `main` (MFM decorations, invisible nodes,
+bullets/headings, TagBubble, `auto`=MFM confirmed, schema `:109`
+fixed — coordinator resolved 3 code conflicts + duplicate
+`quoteStatus` + locale regen at merge). FULL suite green: 133 suites
+/ 1602 tests; tsc ios+android+web clean; eslint + oxlint clean.
+WS-C still running (own worktree); WS-F unblocked by this merge —
+spawning next; WS-G runs last.
+Latest logs: `state/logs/2026-10-21-wsB-content.md` (agent, 3 Helium
+shots in `assets-wsB/`, showcase posts created + deleted on Akkoma),
+prior WS-A/D/E logs. Coordinator re-verified the trio after merge.
 Prior: UI batch 2 + slim tabs + W8 (see logs).
 (MD5 boot re-verify + scope-health, MD6–MD9 live Akkoma round-trips,
 MD10 pooled streaming + app capture, MD11 fork collapse, MD12/MD13

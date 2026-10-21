@@ -118,3 +118,7 @@ in `adr/` when load-bearing.
 | 2026-10-21 | WS-D: no live mute/block/report round-trip on Akkoma — single-user rig (mute/block need a second user, reports non-retractable) | Unit-proven UI→backend; translate-refusal + menu shots proven live via Helium |
 | 2026-10-21 | WS-A: no new `Capabilities` flag — quote resolution reuses existing `Backend.resolveQuoteUri`; the toggle is a device-local display filter, not a server action | Display filter needs no capability gate |
 | 2026-10-21 | WS-A: Mastodon `resolveTextualQuote` not rebuilt — wired via the backend method that already wraps it with the TTL cache | Wire, don't rebuild |
+| 2026-10-21 | WS-B: motion MFM fns render statically (motion-free renderer; reduced-motion default; per-node loops would cost lists); `blur` → children (no honest RN primitive) | No animation framework for per-node MFM motion |
+| 2026-10-21 | WS-B: `invisible` is an AST node, not a drop (structure survives; renderer zero-width; readers exclude) | Dropping loses structure; hiding keeps both paths honest |
+| 2026-10-21 | WS-B: HTML quote heads follow the card bubble rule (v1 was MFM-only; bodies prune both paths) | One rule for both heads; bodies stay consistent |
+| 2026-10-21 | WS-B: empty `<li>` renders nothing (was stray `• `) | No visible artifact for empty items |

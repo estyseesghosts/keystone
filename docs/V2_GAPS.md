@@ -30,11 +30,11 @@ Acceptance: Misskey renote, Mastodon quote, and bare `RE:` URL all yield cards b
 
 ## WS-B — Content rendering: MFM, `span.mchip`, sanitizer, TagBubble (PARALLEL-SAFE vs A/C, conflicts on `RichText.tsx` — serialize edits inside this WS)
 
-- [ ] **MFM decorations (F14).** v1 `MfmRenderer.tsx:242-330` → v2 `core/content/fromMfm.ts:40-63` parses, `RichText.tsx:177-179` degrades to children. Implement `$[x2/x3/x4/size/scale/color/bg/blur/rotate/font/small/center]` + spin in `RichText`. Keep allow-listed, no WebView. Tests per fn.
-- [ ] **`span.mchip` (was lumped in MD4).** v1 `sanitize.ts` class allow-list keeps `span.invisible` with class (CSS hides URL-shortening spans); v2 `core/content/fromHtml.ts:302-311` drops the subtree. Decide per node: `invisible` → zero-width/hidden span (never visible text); `mchip`/hashtag chips → chip inline. Pin with regression tests proving invisible text never renders visibly.
-- [ ] **MD4 sanitizer remainder.** `li` → real bullets (not `"• "` text prefix), headings → styled heading (not bold body) per v1 `HtmlBody.tsx:105-133`. Keep blocks→`br` pairs (intentional).
-- [ ] **TagBubble (F10).** v1 `TagBubble.tsx` + `NoteCard.tsx:146-160` + `api/tags.ts`. Mount bubble in card headers + quote heads; prune tag blocks from body (`parseTagBlocks`/`pruneTagBlocks` in `body.ts`). No-op where no tags.
-- [ ] Confirm `auto` = full MFM always; `plain` = projection (`RichText.tsx:278-287`). Fix schema bug above.
+- [x] **MFM decorations (F14).** DONE 2026-10-21 (WS-B): `$[x2/x3/x4/size/scale/small/color/bg(hex-only)/rotate/font(mono+serif)/center]` + spin in `RichText`; blur/motion/unknown → children (motion-free renderer; per-node loops cost lists). Allow-listed, no WebView. Tests per fn. Proven live on Akkoma (showcase post, screenshots).
+- [x] **`span.mchip`.** DONE 2026-10-21 (WS-B): `invisible` is an AST node (`invisible(text)`), not a drop — structure survives, renderer zero-width, readers exclude; `mchip`/hashtag chips → chip inline. Regression tests prove invisible text never renders visibly (jest; live Akkoma emits full URLs, no shortening spans — `not verified` live).
+- [x] **MD4 sanitizer remainder.** DONE 2026-10-21 (WS-B): `li` → real `bullet()` nodes (empty `<li>` renders nothing, was stray `• `), headings → `heading(level)` styled headings. Blocks→`br` pairs kept.
+- [x] **TagBubble (F10).** DONE 2026-10-21 (WS-B): new `TagBubble.tsx` (`(#first +N)` + popup tag rows), mounted in card headers + quote heads; `postTagBubble`/`pruneMfmTagBlocks`/`pruneHtmlTagBlocks` in `body.ts` (prune order: MFM quote-strip→tag-prune, HTML tag-prune→marker-strip). No-op without blocks. Proven live on Akkoma.
+- [x] `auto` = full MFM always; `plain` = projection — CONFIRMED 2026-10-21 (WS-B). Schema bug FIXED: `defaultAccountState.prefs` `{contentMode:'mfm'}` → `{}` (+2 tests). Merge note: coordinator removed a duplicate `quoteStatus` in `PostCard.tsx` (WS-A's `quoteTarget`-keyed version kept; WS-B's recompute dropped) and re-ran `lingui extract+compile` (adds `Show tags`).
 
 Acceptance: MFM showcase post renders decorations; invisible spans hidden; tag posts show bubbles with pruned bodies; `auto` never shows raw MFM source.
 
