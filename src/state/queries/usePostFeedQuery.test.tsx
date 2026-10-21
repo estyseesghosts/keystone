@@ -165,6 +165,15 @@ describe('feedItems', () => {
       expect.objectContaining({id: 'b'}),
     ])
   })
+
+  it('dedupes overlapping page edges, keeping the newest occurrence', () => {
+    expect(
+      feedItems({
+        pages: [page([post('a'), post('b')]), page([post('b'), post('c')])],
+        pageParams: [null, null],
+      }).map(p => p.id),
+    ).toEqual(['a', 'b', 'c'])
+  })
 })
 
 describe('usePostFeedQuery account isolation (plan §3 lesson)', () => {

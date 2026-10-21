@@ -3,8 +3,8 @@
 // `usePostFeedQuery` (`#/state/queries`); the descriptor grammar is in
 // `@keystone/fedi`, the key is `feedQueryKey`, and the visibility rules live
 // in `#/state/queries/feeds` (slice 3.11 unified the former stub onto them).
-import {useMemo, useSyncExternalStore, useState, useCallback} from 'react'
-import {FlatList, RefreshControl, View} from 'react-native'
+import {useMemo, useSyncExternalStore, useState, useCallback, useRef} from 'react'
+import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
 
 import {
   backendForSession,
@@ -21,6 +21,7 @@ import {
 } from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
+import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
@@ -98,6 +99,36 @@ export function PostRow({post, testID}: {post: Post; testID?: string}) {
 
 // --- Feed view: refresh + pill + empty/loading/error ------------------------
 
+// Skeleton rows for the initial load (F21): grey boxes in the shape of a
+// post row, so the layout does not jump when the first page lands. Plain
+// Views only — no animation dependency (reduced-motion safe by default).
+function FeedSkeleton({testID}: {testID?: string}) {
+  const theme = useTheme()
+  const styles = StyleSheet.create({
+    row: {flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 12},
+    avatar: {width: 40, height: 40, borderRadius: 20, backgroundColor: theme.palette.raise},
+    col: {flex: 1, gap: 8},
+    bar: {height: 12, borderRadius: 6, backgroundColor: theme.palette.raise},
+  })
+  return (
+    <View testID={testID} style={atoms.flex1} accessibilityLabel="Loading feed">
+      {[0, 1, 2, 3].map(i => (
+        <View key={i} style={styles.row}>
+          <View style={styles.avatar} />
+          <View style={styles.col}>
+            <View style={[styles.bar, {width: '40%'}]} />
+            <View style={styles.bar} />
+            <View style={[styles.bar, {width: '70%'}]} />
+          </View>
+        </View>
+      ))}
+      <View style={[atoms.centered, atoms.py_sm]}>
+        <Loader testID="feed-loading" />
+      </View>
+    </View>
+  )
+}
+
 export function FeedView({
   sessionId,
   descriptor,
@@ -131,6 +162,13 @@ export function FeedView({
   // share one connected column (newest-first, `replyToId` only).
   // Computed over the COLLAPSED rows so indices match the FlatList.
   const links = useMemo(() => computeFeedThreadLinks(visibleItems), [visibleItems])
+  // The pill scrolls to the new posts, then dismisses (F21): the list is
+  // newest-first, so the top is where the unseen items are.
+  const listRef = useRef<FlatList<Post>>(null)
+  const seeNewPosts = useCallback(() => {
+    listRef.current?.scrollToOffset({offset: 0, animated: true})
+    acknowledge()
+  }, [acknowledge])
 
   if (!sessionId || !resolved) {
     return (
@@ -144,14 +182,18 @@ export function FeedView({
 
   if (feed.isPending) {
     return (
-      <View testID={testID} style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Loader testID="feed-loading" />
-        <Caption color="faint">Loading…</Caption>
+      <View testID={testID} style={atoms.flex1}>
+        <FeedSkeleton testID="feed-skeleton" />
       </View>
     )
   }
 
-  if (feed.isError) {
+  // TanStack marks the whole query `error` even when only a next-page (or
+  // background refetch) fetch failed — `feed.data` still holds the loaded
+  // pages. The full error screen is only for having NO data; with data the
+  // list stays mounted and the footer offers the next-page retry (F21).
+  const hasData = feed.data != null && feed.data.pages.some(p => p.items.length > 0)
+  if (feed.isError && !hasData) {
     const unavailable = isUnsupportedError(feed.error)
     return (
       <View testID={testID} style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
@@ -173,12 +215,14 @@ export function FeedView({
           <Button
             label={`${newCount} new posts`}
             variant="secondary"
-            onPress={acknowledge}
+            onPress={seeNewPosts}
             testID="new-posts-pill"
           />
         </View>
       ) : null}
       <FlatList
+        ref={listRef}
+        testID="feed-list"
         data={visibleItems}
         keyExtractor={item => `${sessionId}:${item.id}`}
         renderItem={({item, index}) => (
@@ -192,7 +236,11 @@ export function FeedView({
           />
         )}
         refreshControl={
-          <RefreshControl refreshing={feed.isRefetching} onRefresh={() => void feed.refetch()} />
+          <RefreshControl
+            refreshing={feed.isRefetching}
+            onRefresh={() => void feed.refetch()}
+            testID="feed-refresh"
+          />
         }
         onEndReached={() => {
           if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage()
@@ -208,6 +256,16 @@ export function FeedView({
           feed.isFetchingNextPage ? (
             <View style={[atoms.centered, atoms.py_sm]}>
               <Loader testID="feed-more-loading" />
+            </View>
+          ) : feed.isFetchNextPageError ? (
+            <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
+              <Caption color="faint">Could not load more posts.</Caption>
+              <Button
+                label="Retry"
+                variant="secondary"
+                onPress={() => void feed.fetchNextPage()}
+                testID="feed-more-retry"
+              />
             </View>
           ) : null
         }

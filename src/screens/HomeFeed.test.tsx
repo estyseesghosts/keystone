@@ -96,6 +96,79 @@ describe('FeedView states', () => {
     expect(screen.getByTestId('post-p1')).toBeTruthy()
   })
 
+  it('shows skeletons while the first page loads', () => {
+    const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: HOME_ORIGIN})
+    const backend = {
+      timeline: jest.fn(() => new Promise(() => {})),
+    } as unknown as Backend
+    renderWithProviders(
+      <FeedView sessionId="sess-x" descriptor="timeline|home" backend={backend} testID="feed" />,
+      store,
+    )
+    expect(screen.getByTestId('feed-skeleton')).toBeTruthy()
+    expect(screen.getByTestId('feed-loading')).toBeTruthy()
+  })
+
+  it('retries the next page after a failure', async () => {
+    const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: HOME_ORIGIN})
+    const added = await store.add({
+      origin: 'https://a.example',
+      family: 'misskey',
+      flavor: 'misskey',
+      accountId: 'alice',
+      token: 'token-a',
+      grant: 'password',
+      hosting: 'third-party',
+    })
+    const post = makePost({id: 'p1', content: {mfm: 'first page', plain: 'first page'}})
+    const timeline = jest
+      .fn()
+      .mockResolvedValueOnce({items: [post], cursor: 'c1', end: false})
+      .mockRejectedValueOnce(new Error('flaky'))
+      .mockResolvedValue({items: [], cursor: null, end: true})
+    const backend = {timeline} as unknown as Backend
+    renderWithProviders(
+      <FeedView sessionId={added.id} descriptor="timeline|home" backend={backend} retry={false} testID="feed" />,
+      store,
+    )
+    expect(await screen.findByText('first page')).toBeTruthy()
+    const list = screen.getByTestId('feed-list')
+    ;(list.props as {onEndReached?: () => void}).onEndReached?.()
+    expect(await screen.findByTestId('feed-more-retry')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('feed-more-retry'))
+    await waitFor(() => expect(timeline).toHaveBeenCalledTimes(3))
+  })
+
+  it('the new-posts pill scrolls to top and dismisses', async () => {
+    const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: HOME_ORIGIN})
+    const added = await store.add({
+      origin: 'https://a.example',
+      family: 'misskey',
+      flavor: 'misskey',
+      accountId: 'alice',
+      token: 'token-a',
+      grant: 'password',
+      hosting: 'third-party',
+    })
+    const oldPost = makePost({id: 'p1', content: {mfm: 'old post', plain: 'old post'}})
+    const newPost = makePost({id: 'p2', content: {mfm: 'new post', plain: 'new post'}})
+    const timeline = jest.fn(() => Promise.resolve({items: [oldPost], cursor: null, end: true}))
+    const backend = {timeline} as unknown as Backend
+    renderWithProviders(
+      <FeedView sessionId={added.id} descriptor="timeline|home" backend={backend} testID="feed" />,
+      store,
+    )
+    expect(await screen.findByText('old post')).toBeTruthy()
+    expect(screen.queryByTestId('new-posts-pill')).toBeNull()
+    timeline.mockResolvedValue({items: [newPost, oldPost], cursor: null, end: true})
+    const list = screen.getByTestId('feed-list')
+    const control = (list.props as {refreshControl?: {props: {onRefresh: () => void}}}).refreshControl
+    control?.props.onRefresh()
+    expect(await screen.findByTestId('new-posts-pill')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('new-posts-pill'))
+    expect(screen.queryByTestId('new-posts-pill')).toBeNull()
+  })
+
   it('sanity: test renderer works', () => {
     render(
       <ThemeProvider theme="light">

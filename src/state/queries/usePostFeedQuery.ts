@@ -132,10 +132,20 @@ export async function fetchFeedPage(
   }
 }
 
-/** Flatten infinite pages into one list (screens render this). */
+/** Flatten infinite pages into one list (screens render this). Pages can
+ * overlap at their edges (a new post inserted between the first fetch and
+ * the next-page fetch shifts cursors), so ids are deduped keeping the
+ * FIRST (newest) occurrence — F21. */
 export function feedItems(data: InfiniteData<Page<Post>> | undefined): Post[] {
   if (!data) return []
-  return data.pages.flatMap(page => page.items)
+  const seen = new Set<string>()
+  const out: Post[] = []
+  for (const item of data.pages.flatMap(page => page.items)) {
+    if (seen.has(item.id)) continue
+    seen.add(item.id)
+    out.push(item)
+  }
+  return out
 }
 
 /**
