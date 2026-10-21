@@ -100,6 +100,69 @@ describe('PostFeed', () => {
   })
 })
 
+describe('PostFeed prefetch (seamless infinite scroll)', () => {
+  function scrollEvent(y: number, contentHeight: number, viewHeight: number) {
+    return {
+      nativeEvent: {
+        contentOffset: {x: 0, y},
+        contentSize: {width: 390, height: contentHeight},
+        layoutMeasurement: {width: 390, height: viewHeight},
+      },
+    }
+  }
+
+  function listNode() {
+    const list = screen.getByTestId('post-feed-list')
+    return {
+      threshold: (list.props as {onEndReachedThreshold?: number}).onEndReachedThreshold,
+      onScroll: (list.props as {onScroll: (e: unknown) => void}).onScroll,
+    }
+  }
+
+  it('fetches the next page well before the bottom edge', () => {
+    renderFeed(
+      <PostFeed sessionId={SESSION} descriptor="timeline|home" posts={[makePost()]} canLoadMore onLoadMore={() => {}} />,
+    )
+    expect(listNode().threshold).toBeGreaterThanOrEqual(2)
+  })
+
+  it('prefetches near the bottom, guarded by canLoadMore/isFetchingMore', () => {
+    const onLoadMore = jest.fn()
+    renderFeed(
+      <PostFeed sessionId={SESSION} descriptor="timeline|home" posts={[makePost()]} canLoadMore onLoadMore={onLoadMore} />,
+    )
+    const {onScroll} = listNode()
+    // Far from the bottom: no fetch.
+    onScroll(scrollEvent(0, 5000, 800))
+    expect(onLoadMore).not.toHaveBeenCalled()
+    // Near the bottom (distance to end < 1200px): prefetch fires.
+    onScroll(scrollEvent(4300, 5000, 800))
+    expect(onLoadMore).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not prefetch while a fetch is in flight or when no more pages exist', () => {
+    const onLoadMore = jest.fn()
+    const {unmount} = renderFeed(
+      <PostFeed
+        sessionId={SESSION}
+        descriptor="timeline|home"
+        posts={[makePost()]}
+        canLoadMore
+        isFetchingMore
+        onLoadMore={onLoadMore}
+      />,
+    )
+    listNode().onScroll(scrollEvent(4300, 5000, 800))
+    expect(onLoadMore).not.toHaveBeenCalled()
+    unmount()
+    renderFeed(
+      <PostFeed sessionId={SESSION} descriptor="timeline|home" posts={[makePost()]} onLoadMore={onLoadMore} />,
+    )
+    listNode().onScroll(scrollEvent(4300, 5000, 800))
+    expect(onLoadMore).not.toHaveBeenCalled()
+  })
+})
+
 describe('feed regression guard (plan §3 lesson)', () => {
   it('renders an App tree with a fixture session asserting a post appears', () => {
     function Harness() {

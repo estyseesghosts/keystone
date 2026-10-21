@@ -1,9 +1,11 @@
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
-import {fireEvent, render, screen} from '@testing-library/react-native'
+import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
 import {ThemeProvider} from '#/alf/index'
+import {themes} from '#/alf/themes'
 import {PostCard} from '#/components/Post/index'
+import type {TranslationSource} from '#/components/Post/PostCard'
 
 import {makeAccount, makeMedia, makePost} from './fixtures'
 
@@ -26,12 +28,23 @@ jest.mock('expo-video', () => {
 i18n.load('en', {})
 i18n.activate('en')
 
-function renderCard(ui: React.ReactElement) {
+function renderCard(ui: React.ReactElement, theme: 'light' | 'dark' = 'light') {
   return render(
     <I18nProvider i18n={i18n}>
-      <ThemeProvider theme="light">{ui}</ThemeProvider>
+      <ThemeProvider theme={theme}>{ui}</ThemeProvider>
     </I18nProvider>,
   )
+}
+
+/** Effective text color of a host Text element (style arrays flattened). */
+function renderedColor(testID: string): unknown {
+  const style = screen.getByTestId(testID).props.style as unknown
+  const parts = (Array.isArray(style) ? style : [style]).flat(Infinity) as Array<unknown>
+  const merged = parts.reduce<Record<string, unknown>>(
+    (acc, p) => ({...acc, ...(typeof p === 'object' && p !== null ? (p as Record<string, unknown>) : {})}),
+    {},
+  )
+  return merged.color
 }
 
 const SESSION = 'sess-1'
@@ -282,6 +295,173 @@ describe('boost collapsing banner (F17)', () => {
     })
     renderCard(<PostCard post={wrapper} sessionId={SESSION} renoters={[bob, carol]} />)
     expect(screen.getByTestId('boost-header-wrap2')).toHaveTextContent('Bob and 1 other boosted')
+  })
+})
+
+describe('display-name color (black-on-dark fix)', () => {
+  it('defaults to the themed text color in both themes', async () => {
+    const {DisplayName} = await import('#/components/DisplayName')
+    const {makeAccount} = await import('./fixtures')
+    const account = makeAccount()
+    const light = renderCard(<DisplayName account={account} testID="dn-light" />)
+    expect(renderedColor('dn-light')).toBe(themes.light.palette.text)
+    light.unmount()
+    renderCard(<DisplayName account={account} testID="dn-dark" />, 'dark')
+    expect(renderedColor('dn-dark')).toBe(themes.dark.palette.text)
+  })
+
+  it('an explicit textStyle color still wins', async () => {
+    const {DisplayName} = await import('#/components/DisplayName')
+    const {makeAccount} = await import('./fixtures')
+    renderCard(<DisplayName account={makeAccount()} textStyle={{color: '#ff0000'}} testID="dn-override" />)
+    expect(renderedColor('dn-override')).toBe('#ff0000')
+  })
+})
+
+describe('name==handle collapse (v1)', () => {
+  it('collapses handle spellings and exact username echoes, nothing else', async () => {
+    const {shouldCollapseName} = await import('#/components/DisplayName')
+    const remote = {username: 'rina', host: 'example.social'}
+    for (const displayName of [
+      'rina',
+      'rina@example.social',
+      '@rina@example.social',
+      '',
+      '   ',
+    ]) {
+      expect(shouldCollapseName({displayName, ...remote})).toBe(true)
+    }
+    // A host-less @-mention is not a remote user's handle.
+    expect(shouldCollapseName({displayName: '@rina', ...remote})).toBe(false)
+    // Ordinary names stay two lines — even a case-only near miss.
+    expect(shouldCollapseName({displayName: 'Rina', ...remote})).toBe(false)
+    expect(shouldCollapseName({displayName: 'Rina!', ...remote})).toBe(false)
+    expect(shouldCollapseName({displayName: 'RINA@EXAMPLE.SOCIAL', ...remote})).toBe(false)
+    expect(shouldCollapseName({displayName: 'bob', username: 'bob', host: null})).toBe(true)
+    expect(shouldCollapseName({displayName: '@bob', username: 'bob', host: null})).toBe(true)
+    expect(shouldCollapseName({displayName: 'Bobby', username: 'bob', host: null})).toBe(false)
+    // The established fixture name is NOT a handle echo.
+    expect(
+      shouldCollapseName({displayName: 'Alice', username: 'alice', host: 'example.social'}),
+    ).toBe(false)
+  })
+
+  it('PostCard header shows one line when the display name equals the handle', () => {
+    const author = makeAccount({
+      id: 'h1',
+      username: 'rina',
+      host: 'example.social',
+      name: 'rina@example.social',
+      displayName: 'rina@example.social',
+    })
+    renderCard(<PostCard post={makePost({id: 'hc', author})} sessionId={SESSION} />)
+    expect(screen.getByTestId('author-name-h1')).toHaveTextContent('@rina@example.social')
+    // One line only: no second smaller handle line underneath.
+    expect(screen.queryAllByText('@rina@example.social')).toHaveLength(1)
+  })
+
+  it('PostCard header keeps two lines for a real display name', () => {
+    renderCard(<PostCard post={makePost()} sessionId={SESSION} />)
+    expect(screen.getByText('Alice')).toBeTruthy()
+    expect(screen.queryAllByText('@alice@example.social')).toHaveLength(1)
+  })
+
+  it('PostQuote collapses to a single handle line', async () => {
+    const {PostQuote} = await import('#/components/Post/PostQuote')
+    const quote = makePost({
+      id: 'hq',
+      author: makeAccount({id: 'h2', username: 'rina', host: 'example.social', name: 'rina', displayName: 'rina'}),
+    })
+    renderCard(<PostQuote quote={quote} unavailable={false} testID="quote-collapse" />)
+    expect(screen.queryAllByText('@rina@example.social')).toHaveLength(1)
+    expect(screen.queryByText('rina')).toBeNull()
+  })
+})
+
+describe('auto-translate (v1)', () => {
+  function source(fetch: TranslationSource['fetch'], supported = true): TranslationSource {
+    return {supported, targetLang: 'en', fetch}
+  }
+
+  it('auto-fetches on mount and renders the translation with a header above the body', async () => {
+    const fetch: TranslationSource['fetch'] = jest.fn(async () => ({
+      sourceLang: 'es',
+      text: 'Hola traducido',
+    }))
+    renderCard(
+      <PostCard post={makePost({id: 'tr1'})} sessionId={SESSION} translationSource={source(fetch)} />,
+    )
+    expect(await screen.findByTestId('post-translation-tr1')).toBeTruthy()
+    expect(screen.getByText('Hola traducido')).toBeTruthy()
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch).toHaveBeenCalledWith('tr1', 'en')
+    expect(screen.getByTestId('translation-toggle-tr1')).toBeTruthy()
+    expect(screen.getByText(/Translated from es/)).toBeTruthy()
+    expect(screen.getByText(/Show original/)).toBeTruthy()
+    // The translation replaces the body — the original is hidden.
+    expect(screen.queryByTestId('post-body-tr1')).toBeNull()
+  })
+
+  it('tapping the header toggles between translation and original, once', async () => {
+    const fetch: TranslationSource['fetch'] = jest.fn(async () => ({
+      sourceLang: 'es',
+      text: 'Hola traducido',
+    }))
+    renderCard(
+      <PostCard post={makePost({id: 'tr2'})} sessionId={SESSION} translationSource={source(fetch)} />,
+    )
+    expect(await screen.findByTestId('post-translation-tr2')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('translation-toggle-tr2'))
+    expect(screen.getByTestId('post-body-tr2')).toBeTruthy()
+    expect(screen.queryByTestId('post-translation-tr2')).toBeNull()
+    expect(screen.getByText(/Showing original/)).toBeTruthy()
+    fireEvent.press(screen.getByTestId('translation-toggle-tr2'))
+    expect(await screen.findByTestId('post-translation-tr2')).toBeTruthy()
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('unsupported capability renders the original with no header and no request', async () => {
+    const fetch: TranslationSource['fetch'] = jest.fn(async () => ({
+      sourceLang: 'es',
+      text: 'Hola traducido',
+    }))
+    renderCard(
+      <PostCard post={makePost({id: 'tr3'})} sessionId={SESSION} translationSource={source(fetch, false)} />,
+    )
+    // Let any would-be request land.
+    await waitFor(() => expect(fetch).not.toHaveBeenCalled())
+    expect(screen.getByTestId('post-body-tr3')).toBeTruthy()
+    expect(screen.queryByTestId('translation-toggle-tr3')).toBeNull()
+  })
+
+  it('empty text never requests', () => {
+    const fetch: TranslationSource['fetch'] = jest.fn(async () => ({
+      sourceLang: 'es',
+      text: 'Hola traducido',
+    }))
+    renderCard(
+      <PostCard
+        post={makePost({id: 'tr4', content: {mfm: '', plain: ''}})}
+        sessionId={SESSION}
+        translationSource={source(fetch)}
+      />,
+    )
+    expect(screen.getByTestId('post-body-tr4')).toBeTruthy()
+    expect(screen.queryByTestId('translation-toggle-tr4')).toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('fetch failure keeps the original body silently', async () => {
+    const fetch: TranslationSource['fetch'] = jest.fn(async () => {
+      throw new Error('no translation service')
+    })
+    renderCard(
+      <PostCard post={makePost({id: 'tr5'})} sessionId={SESSION} translationSource={source(fetch)} />,
+    )
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.queryByTestId('post-translation-tr5')).toBeNull())
+    expect(screen.getByTestId('post-body-tr5')).toBeTruthy()
+    expect(screen.queryByTestId('translation-toggle-tr5')).toBeNull()
   })
 })
 

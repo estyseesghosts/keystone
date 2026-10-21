@@ -133,4 +133,16 @@ describe('ProfileHeader (v1 banner + avatar row + bio + stats)', () => {
     expect(screen.getByText('bold')).toBeTruthy()
     expect(screen.queryByText('**bold** bio')).toBeNull()
   })
+
+  it('collapses name==handle to a single handle line (v1)', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({username: 'jules', host: null, name: 'jules', displayName: 'jules'})}
+        isSelf
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('profile-name')).toHaveTextContent('@jules')
+    expect(screen.queryByTestId('profile-handle')).toBeNull()
+  })
 })

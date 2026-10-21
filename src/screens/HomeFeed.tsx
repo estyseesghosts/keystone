@@ -5,8 +5,16 @@
 // `#/state/queries/feeds`. Rows render via ThreadRow → PostCard (the
 // production path; Q6: the read-only PostRow was deleted, PostFeed is the
 // test-only harness in components/PostFeed).
-import {useMemo, useSyncExternalStore, useState, useCallback, useRef, useEffect} from 'react'
-import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
+import {useMemo, useSyncExternalStore, useState, useCallback, useRef, useEffect, type ReactNode} from 'react'
+import {
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native'
 
 import {msg} from '@lingui/macro'
 
@@ -111,6 +119,8 @@ export function FeedView({
   backend,
   retry,
   testID,
+  scrollHeader,
+  stickyBar,
 }: {
   sessionId: string | null
   descriptor: FeedDescriptor
@@ -119,6 +129,24 @@ export function FeedView({
   /** Retry count override (tests). */
   retry?: number | false
   testID?: string
+  /**
+   * Content rendered as the FlatList header: it scrolls away with the feed
+   * (Home mounts the composer here; the profile mounts its bio header).
+   * Optional — every other caller renders no header, as before.
+   */
+  scrollHeader?: ReactNode
+  /**
+   * Bar with true-sticky behavior: rendered in-flow directly under
+   * `scrollHeader` (correct rest order — bio, then tabs), plus a pinned
+   * copy above the list once the in-flow copy scrolls off the top.
+   * Hand-rolled (no `stickyHeaderIndices` — unsupported on web): the
+   * in-flow copy reports its offset via `onLayout`, the scroll handler
+   * flips a boolean only on crossing, and the in-flow slot keeps a
+   * same-height placeholder while pinned so content never jumps. Only
+   * one copy is ever mounted, so testIDs never duplicate. Optional,
+   * off by default.
+   */
+  stickyBar?: ReactNode
 }) {
   const storeBackend = useBackendForSessionId(sessionId)
   const resolved = backend !== undefined ? backend : storeBackend
@@ -148,11 +176,51 @@ export function FeedView({
   // The pill scrolls to the new posts, then dismisses (F21): the list is
   // newest-first, so the top is where the unseen items are.
   const listRef = useRef<FlatList<Post>>(null)
+  // Scroll restoration (N14) key: session + descriptor, read once per mount.
+  const scrollKey = feedScrollKey(sessionId, descriptor)
+  // Seamless infinite scroll: the next page starts ~1200px before the
+  // bottom edge, well ahead of `onEndReached` (which is itself raised to
+  // 2.5 screens). Guards match the threshold handler — `hasNextPage` and
+  // !`isFetchingNextPage`, so never a duplicate fetch, never a stall.
+  // The same handler also writes the N14 scroll offset (a Map set, no
+  // re-render).
+  const {hasNextPage, isFetchingNextPage, fetchNextPage} = feed
+  // True-sticky bar state: the in-flow copy reports its content offset via
+  // onLayout; the scroll handler pins a copy above the list once the
+  // in-flow copy scrolls off the top. Refs mirror the boolean so scrolling
+  // never re-renders until the crossing actually happens.
+  const [tabsPinned, setTabsPinned] = useState(false)
+  const tabsOffsetY = useRef(0)
+  const tabsHeight = useRef(0)
+  const tabsPinnedRef = useRef(false)
+  const hasStickyBar = stickyBar != null
+  const onStickyBarLayout = useCallback((e: LayoutChangeEvent) => {
+    tabsOffsetY.current = e.nativeEvent.layout.y
+    tabsHeight.current = e.nativeEvent.layout.height
+  }, [])
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const native = e.nativeEvent
+      saveFeedScroll(scrollKey, native.contentOffset.y)
+      const {contentSize, layoutMeasurement} = native
+      if (contentSize == null || layoutMeasurement == null) return
+      const distanceToEnd =
+        contentSize.height - (native.contentOffset.y + layoutMeasurement.height)
+      if (distanceToEnd < 1200 && hasNextPage && !isFetchingNextPage) void fetchNextPage()
+      if (hasStickyBar) {
+        const shouldPin = native.contentOffset.y >= tabsOffsetY.current - 1
+        if (shouldPin !== tabsPinnedRef.current) {
+          tabsPinnedRef.current = shouldPin
+          setTabsPinned(shouldPin)
+        }
+      }
+    },
+    [scrollKey, hasNextPage, isFetchingNextPage, fetchNextPage, hasStickyBar],
+  )
   // Scroll restoration (N14): offsets are remembered per session +
   // descriptor and restored once per mount, so back-navigation returns
   // to the same position. The write happens on every scroll event (a
   // Map set — no re-render); the read fires once when content exists.
-  const scrollKey = feedScrollKey(sessionId, descriptor)
   const restoredScrollRef = useRef<string | null>(null)
   useEffect(() => {
     if (restoredScrollRef.current === scrollKey || feed.isPending || visibleItems.length === 0) return
@@ -215,13 +283,33 @@ export function FeedView({
           />
         </View>
       ) : null}
+      {tabsPinned && stickyBar != null ? <View testID="feed-sticky-bar">{stickyBar}</View> : null}
       <FlatList
         ref={listRef}
         testID="feed-list"
         data={visibleItems}
         keyExtractor={item => `${sessionId}:${item.id}`}
-        onScroll={e => saveFeedScroll(scrollKey, e.nativeEvent.contentOffset.y)}
+        onScroll={handleScroll}
         scrollEventThrottle={32}
+        ListHeaderComponent={
+          scrollHeader != null || stickyBar != null ? (
+            <View>
+              {scrollHeader != null ? (
+                <View testID="feed-scroll-header">{scrollHeader}</View>
+              ) : null}
+              {stickyBar != null ? (
+                tabsPinned ? (
+                  // Same-height placeholder: the in-flow copy is unmounted
+                  // while pinned (single mounted copy, no duplicate
+                  // testIDs) and the feed must not jump.
+                  <View style={{height: tabsHeight.current}} />
+                ) : (
+                  <View onLayout={onStickyBarLayout}>{stickyBar}</View>
+                )
+              ) : null}
+            </View>
+          ) : undefined
+        }
         renderItem={({item, index}) => (
           <ThreadRow
             post={item}
@@ -242,7 +330,7 @@ export function FeedView({
         onEndReached={() => {
           if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage()
         }}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={2.5}
         ListEmptyComponent={
           <View style={[atoms.centered, atoms.p_md]}>
             <Body>{i18n._(msg`Nothing here yet.`)}</Body>

@@ -2,8 +2,15 @@
 // unit tests. Production renders FeedView (`src/screens/HomeFeed.tsx`),
 // which owns the query + moderation + pill. Do not mount this in screens.
 
-import {useMemo} from 'react'
-import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
+import {useCallback, useMemo} from 'react'
+import {
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native'
 
 import {computeFeedThreadLinks, type Capabilities, type EmojiStyle, type Post} from '@keystone/fedi'
 
@@ -66,6 +73,19 @@ export function PostFeed({
   // under its parent shares one connected column. Pure `replyToId`
   // check — quotes/renotes alone never link.
   const links = useMemo(() => computeFeedThreadLinks(posts), [posts])
+  // Scroll-proximity prefetch: start the next page ~1200px before the
+  // bottom edge, well ahead of `onEndReached` (itself raised to 2.5
+  // screens). Same guards as the threshold handler — `canLoadMore` and
+  // !`isFetchingMore`, so never a duplicate fetch.
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const {contentOffset, contentSize, layoutMeasurement} = e.nativeEvent
+      if (contentSize == null || layoutMeasurement == null) return
+      const distanceToEnd = contentSize.height - (contentOffset.y + layoutMeasurement.height)
+      if (distanceToEnd < 1200 && canLoadMore && !isFetchingMore) onLoadMore?.()
+    },
+    [canLoadMore, isFetchingMore, onLoadMore],
+  )
   return (
     <View style={{flex: 1}} testID={testID ?? 'post-feed'}>
       {hasNewPosts && (
@@ -98,7 +118,9 @@ export function PostFeed({
           ) : undefined
         }
         onEndReached={canLoadMore && !isFetchingMore ? () => onLoadMore?.() : undefined}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={2.5}
+        onScroll={handleScroll}
+        scrollEventThrottle={32}
         ListEmptyComponent={
           isLoading ? (
             <View style={styles.state} testID="post-feed-loading">

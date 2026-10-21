@@ -37,7 +37,7 @@ import {
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
-import {DisplayName} from '#/components/DisplayName'
+import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {RichText} from '#/components/RichText'
 import {canCopy, copyText} from '#/lib/clipboard'
 import {showToast} from '#/lib/toast'
@@ -228,6 +228,11 @@ export type PostCardProps = {
   sessionId: string
   capabilities?: Capabilities | null
   emojiStyle?: EmojiStyle
+  /** Auto-translate source (v1): when `supported`, the card fetches the
+   * translation on mount and renders it instead of the body. The live
+   * card derives this from the session backend; tests and previews
+   * inject a fake. Omit to render the original body only. */
+  translationSource?: TranslationSource | null
   onMentionPress?: (href: string | null, label: string) => void
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
@@ -243,13 +248,24 @@ export type PostCardProps = {
   handlers?: PostCardHandlers
 }
 
+/** Auto-translate fetch seam (v1): one `backend.translate(id, lang)`
+ * call per post, driven by `PostCardView`. The fetch itself is the only
+ * wire call — never invented here, only injected. */
+export type TranslationSource = {
+  /** `capabilities.translation === 'supported'`. False (or a missing
+   * source) means the original body, silently. */
+  supported: boolean
+  /** Viewer language (BCP47 primary subtag); the server derives the source. */
+  targetLang: string
+  fetch: (id: string, targetLang: string) => Promise<Translation>
+}
+
 type LiveBits = {
   actions: PostActions
   family: 'misskey' | 'mastodon'
   menu: PostMenuSection[]
   handlers: PostCardHandlers
   translation: Translation | null
-  hideTranslation: () => void
   votePoll: (postId: string, choices: number[]) => Promise<void>
 }
 
@@ -275,6 +291,19 @@ function LivePostCard(props: PostCardProps) {
   const [translation, setTranslation] = useState<Translation | null>(null)
   const shown = actions.shadowed.post
   const isOwn = session != null && effective.author.id === session.accountId
+  // Auto-translate source for the view: capability-gated, viewer language
+  // from the post handlers (the same `targetLang ?? 'en'` the manual
+  // menu row sends). Memoized so the view's fetch effect fires once per
+  // post instead of once per render.
+  const translationSource = useMemo<TranslationSource | null>(() => {
+    if (!backend) return null
+    const targetLang = handlers.targetLang ?? 'en'
+    return {
+      supported: backend.capabilities?.translation === 'supported',
+      targetLang,
+      fetch: (id, lang) => backend.translate(id, lang),
+    }
+  }, [backend, handlers.targetLang])
 
   if (actions.shadowed.isDeleted) return null
 
@@ -341,13 +370,13 @@ function LivePostCard(props: PostCardProps) {
     <PostCardView
       {...props}
       capabilities={props.capabilities ?? backend?.capabilities ?? null}
+      translationSource={translationSource ?? props.translationSource ?? null}
       live={{
         actions,
         family: session?.family ?? 'misskey',
         menu,
         handlers,
         translation,
-        hideTranslation: () => setTranslation(null),
         votePoll: async (postId, choices) => {
           if (!backend) throw new Error(i18n._(msg`Sign in to vote.`))
           await backend.votePoll(postId, choices)
@@ -369,6 +398,7 @@ function PostCardView({
   testID,
   live,
   sessionId,
+  translationSource,
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
   const {i18n} = useLingui()
@@ -412,6 +442,55 @@ function PostCardView({
   }, [effective])
   const cw = effective.cw
   const bodyHidden = cw !== null && !cwOpen
+
+  // Auto-translate (v1): on mount, when the capability is supported and
+  // the post has text, fetch once and render the translation INSTEAD of
+  // the body with a `Translated from XX` header above it. Unsupported
+  // capability, empty text, or fetch failure = original body, no header,
+  // silently. The `Post` model carries no post-language metadata, so
+  // there is nothing honest to match-skip against — the viewer's
+  // `targetLang` is the only gate besides capability and non-empty text.
+  // The manual menu row writes `live.translation`, which wins over this.
+  const [autoTranslation, setAutoTranslation] = useState<Translation | null>(null)
+  const [showOriginal, setShowOriginal] = useState(false)
+  // Post ids already requested: one request per post, no refetch loops
+  // (CW toggles and rerenders never re-fire). Reset when the post turns
+  // over. Unmount cancels the in-flight update, never the request.
+  const requestedFor = useRef<string | null>(null)
+  useEffect(() => {
+    setAutoTranslation(null)
+    setShowOriginal(false)
+    requestedFor.current = null
+  }, [effective.id])
+  const srcSupported = translationSource?.supported ?? false
+  const srcLang = translationSource?.targetLang ?? 'en'
+  const srcFetch = translationSource?.fetch
+  useEffect(() => {
+    if (!srcSupported || srcFetch === undefined) return
+    if (bodyHidden) return
+    if (effective.content.plain.trim() === '') return
+    if (requestedFor.current === effective.id) return
+    requestedFor.current = effective.id
+    let cancelled = false
+    void srcFetch(effective.id, srcLang).then(
+      tr => {
+        if (!cancelled) setAutoTranslation(tr)
+      },
+      () => {
+        // Failure is silent by design: the original body stays, no
+        // header, no toast. Keep the mark so a failure never retries
+        // itself into a loop.
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [effective.id, effective.content.plain, srcSupported, srcLang, srcFetch, bodyHidden])
+  const translation = live?.translation ?? autoTranslation
+  // The translated body replaces the original; the header above it
+  // toggles back and forth. Hidden with the CW gate so a closed warning
+  // never leaks the translated text early.
+  const showingTranslation = !bodyHidden && translation !== null && !showOriginal
 
   // Warm the remote-page cache for federated posts (MK17): by the
   // time the menu opens, "Copy remote link" carries the human page
@@ -490,14 +569,20 @@ function PostCardView({
               accessibilityLabel={i18n._(msg`Open profile of ${displayNameOf(effective.author)}`)}
               style={styles.headerAuthor}>
               <DisplayName
-                account={effective.author}
+                account={
+                  shouldCollapseName(effective.author)
+                    ? {...effective.author, displayName: handleOf(effective.author)}
+                    : effective.author
+                }
                 size={15}
                 textStyle={styles.headerName}
                 testID={`author-name-${effective.author.id}`}
               />
-              <Caption color="muted" numberOfLines={1}>
-                {handleOf(effective.author)}
-              </Caption>
+              {shouldCollapseName(effective.author) ? null : (
+                <Caption color="muted" numberOfLines={1}>
+                  {handleOf(effective.author)}
+                </Caption>
+              )}
             </Pressable>
           </HoverAuthor>
           <Pressable
@@ -522,7 +607,27 @@ function PostCardView({
             </Pressable>
           </View>
         )}
-        {!bodyHidden && (
+        {!bodyHidden && translation !== null && (
+          <Pressable
+            testID={`translation-toggle-${post.id}`}
+            onPress={() => setShowOriginal(v => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              showOriginal ? i18n._(msg`Show translation`) : i18n._(msg`Show original`)
+            }>
+            <Caption color="muted">
+              {showOriginal
+                ? i18n._(msg`Showing original · Show translation?`)
+                : translation.sourceLang
+                  ? i18n._(msg`Translated from ${translation.sourceLang} · Show original?`)
+                  : i18n._(msg`Translated · Show original?`)}
+            </Caption>
+          </Pressable>
+        )}
+        {showingTranslation ? (
+          <Body testID={`post-translation-${post.id}`}>{translation.text}</Body>
+        ) : (
+          !bodyHidden && (
           <Pressable
             testID={`post-open-${effective.id}`}
             onPress={openPost}
@@ -562,6 +667,7 @@ function PostCardView({
               </Pressable>
             ) : null}
           </Pressable>
+          )
         )}
         {!bodyHidden && <PostMediaGrid media={effective.media} onOpen={index => setLightbox({items: effective.media, index})} testID={`post-media-${post.id}`} />}
         {!bodyHidden && (effective.quote !== null || effective.quoteUnavailable) && (
@@ -596,23 +702,6 @@ function PostCardView({
         )}
         {!bodyHidden && effective.card !== null && (
           <LinkCard card={effective.card} testID={`post-card-${post.id}`} />
-        )}
-        {live?.translation && (
-          <View style={[styles.cwBox, {backgroundColor: theme.palette.bgSoft}]} testID={`translation-${post.id}`}>
-            <Caption color="muted">
-              {live.translation.sourceLang
-                ? i18n._(msg`Translated from ${live.translation.sourceLang}`)
-                : i18n._(msg`Translated`)}
-            </Caption>
-            <Body>{live.translation.text}</Body>
-            <Pressable
-              testID={`translation-hide-${post.id}`}
-              onPress={live.hideTranslation}
-              accessibilityRole="button"
-              accessibilityLabel={i18n._(msg`Hide translation`)}>
-              <Caption>{i18n._(msg`Hide`)}</Caption>
-            </Pressable>
-          </View>
         )}
         <ReactionChips
           reactions={effective.reactions}

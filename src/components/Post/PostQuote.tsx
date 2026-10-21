@@ -11,10 +11,11 @@ import {msg} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
 
 import type {ContentNode, EmojiStyle, Media, Post} from '@keystone/fedi'
+import {handleOf} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {Caption} from '#/alf/typography'
-import {DisplayName} from '#/components/DisplayName'
+import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
 
@@ -66,6 +67,9 @@ export function PostQuote({
   // One level, first four attachments of any kind: the card stays
   // compact, and the viewer opens this exact slice at the tapped index.
   const slice = quote.media.slice(0, 4)
+  // Name==handle collapse (v1): the handle renders AS the display name —
+  // one line, no second `@acct` suffix.
+  const collapsed = shouldCollapseName(quote.author)
   return (
     <Pressable
       testID={testID}
@@ -74,8 +78,11 @@ export function PostQuote({
       accessibilityLabel={i18n._(msg`Open quoted post by ${quote.author.displayName}`)}>
       <View style={[styles.card, {borderColor: theme.palette.edge}]}>
         <Caption color="muted" numberOfLines={1}>
-          <DisplayName account={quote.author} size={14} />
-          {` @${quote.author.acct}`}
+          <DisplayName
+            account={collapsed ? {...quote.author, displayName: handleOf(quote.author)} : quote.author}
+            size={14}
+          />
+          {collapsed ? null : ` @${quote.author.acct}`}
         </Caption>
         {status ? (
           <Caption color="muted" testID={testID ? `${testID}-status` : undefined}>

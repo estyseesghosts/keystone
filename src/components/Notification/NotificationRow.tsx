@@ -27,7 +27,7 @@ import {
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
-import {DisplayName} from '#/components/DisplayName'
+import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
 import {formatRelativeTime} from '#/components/Post/time'
 import {i18n, useLocale} from '#/locale/i18n'
@@ -162,17 +162,26 @@ export function NotificationRow({notification}: {notification: Notification}) {
                 : i18n._(msg`Open profile of the notifier`)
             }>
             {shownAccount ? (
-              <>
+              shouldCollapseName(shownAccount) ? (
                 <DisplayName
-                  account={shownAccount}
+                  account={{...shownAccount, displayName: handleOf(shownAccount)}}
                   size={15}
                   textStyle={styles.name}
                   testID={`notification-actor-displayname-${notification.id}`}
                 />
-                <Caption color="muted" numberOfLines={1}>
-                  {handleOf(shownAccount)}
-                </Caption>
-              </>
+              ) : (
+                <>
+                  <DisplayName
+                    account={shownAccount}
+                    size={15}
+                    textStyle={styles.name}
+                    testID={`notification-actor-displayname-${notification.id}`}
+                  />
+                  <Caption color="muted" numberOfLines={1}>
+                    {handleOf(shownAccount)}
+                  </Caption>
+                </>
+              )
             ) : (
               <Body>{first ? idOnlyActorLabel(first.id) : i18n._(msg`Someone`)}</Body>
             )}

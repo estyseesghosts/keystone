@@ -356,11 +356,26 @@ describe('PostCard write wiring', () => {
     expect(screen.queryByTestId('post-menu-p1-item-pin')).toBeNull()
   })
 
-  it('translate shows the result under the body; mute thread calls the backend', async () => {
+  it('auto-translates on mount with a source header; the header toggles to the original', async () => {
     const b = live()
-    fireEvent.press(screen.getByTestId('post-menu-p1'))
-    fireEvent.press(screen.getByTestId('post-menu-p1-item-translate'))
-    await waitFor(() => expect(screen.getByText('hello translated')).toBeTruthy())
+    // No menu press needed: the translation fetches once on mount and
+    // replaces the body, with the source header above it.
+    expect(await screen.findByTestId('post-translation-p1')).toBeTruthy()
+    expect(screen.getByText('hello translated')).toBeTruthy()
+    expect(b.translate).toHaveBeenCalledTimes(1)
+    expect(b.translate).toHaveBeenCalledWith('p1', 'en')
+    expect(screen.getByTestId('translation-toggle-p1')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('translation-toggle-p1'))
+    expect(screen.getByTestId('post-body-p1')).toBeTruthy()
+    expect(screen.queryByTestId('post-translation-p1')).toBeNull()
+    expect(screen.getByText(/Showing original/)).toBeTruthy()
+    fireEvent.press(screen.getByTestId('translation-toggle-p1'))
+    expect(await screen.findByTestId('post-translation-p1')).toBeTruthy()
+    expect(b.translate).toHaveBeenCalledTimes(1)
+  })
+
+  it('mute thread calls the backend', async () => {
+    const b = live()
     fireEvent.press(screen.getByTestId('post-menu-p1'))
     fireEvent.press(screen.getByTestId('post-menu-p1-item-mute-thread'))
     await waitFor(() => expect(b.muteThread).toHaveBeenCalledWith('p1'))

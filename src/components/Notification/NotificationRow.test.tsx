@@ -209,4 +209,25 @@ describe('NotificationRow content (F11-half, relative time)', () => {
     )
     expect(screen.getByText('customType')).toBeTruthy()
   })
+
+  it('collapses name==handle to a single handle line (v1)', () => {
+    const collapsed = notification({
+      actors: [
+        {
+          id: 'u2',
+          account: account({id: 'u2', username: 'ann', host: null, name: 'ann', displayName: 'ann'}),
+          reaction: null,
+        },
+      ],
+    })
+    renderWithTheme(<NotificationRow notification={collapsed} />)
+    expect(screen.getByTestId('notification-actor-displayname-n1')).toHaveTextContent('@ann')
+    expect(screen.queryByText('ann')).toBeNull()
+  })
+
+  it('keeps two lines for a real display name', () => {
+    renderWithTheme(<NotificationRow notification={notification()} />)
+    expect(screen.getByText('Bob')).toBeTruthy()
+    expect(screen.getByText('@bob')).toBeTruthy()
+  })
 })

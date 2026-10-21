@@ -330,7 +330,7 @@ export function NotificationsScreen() {
               onEndReached={() => {
                 if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage()
               }}
-              onEndReachedThreshold={0.5}
+              onEndReachedThreshold={2.5}
               ListEmptyComponent={
                 <View style={[atoms.centered, atoms.p_md]}>
                   <Body>{i18n._(msg`No notifications.`)}</Body>

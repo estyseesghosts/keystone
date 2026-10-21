@@ -12,14 +12,13 @@ import {
   contentFromMfm,
   displayNameOf,
   handleOf,
-  hasRealDisplayName,
   type Account,
   type Relationship,
 } from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
-import {DisplayName} from '#/components/DisplayName'
+import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
 import {space} from '#/alf/tokens'
@@ -147,13 +146,23 @@ export function ProfileHeader({
           </View>
           <View style={styles.actionSlot}>{actions}</View>
         </View>
-        {/* F11-half: custom-emoji names render through DisplayName. */}
-        <DisplayName account={account} size={20} testID="profile-name" />
-        {hasRealDisplayName(account) ? (
-          <Caption color="faint" testID="profile-handle">
-            {handleOf(account)}
-          </Caption>
-        ) : null}
+        {/* F11-half: custom-emoji names render through DisplayName.
+            Name==handle collapse (v1): the handle renders AS the display
+            name — one line, no second smaller handle line. */}
+        {shouldCollapseName(account) ? (
+          <DisplayName
+            account={{...account, displayName: handleOf(account)}}
+            size={20}
+            testID="profile-name"
+          />
+        ) : (
+          <>
+            <DisplayName account={account} size={20} testID="profile-name" />
+            <Caption color="faint" testID="profile-handle">
+              {handleOf(account)}
+            </Caption>
+          </>
+        )}
         {account.locked ? <Caption color="faint">Locked account.</Caption> : null}
         {account.bot ? <Caption color="faint">Automated account.</Caption> : null}
         {bioNodes ? (

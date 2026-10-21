@@ -1,10 +1,23 @@
+import {i18n} from '@lingui/core'
+import {I18nProvider} from '@lingui/react'
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {render, screen} from '@testing-library/react-native'
+import {FlatList} from 'react-native'
 
-import {NOTIFICATION_FILTER_PRESETS, type Notification} from '@keystone/fedi'
+import {NOTIFICATION_FILTER_PRESETS, createMemoryStore, type Backend, type Notification} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
+import type {TokenVault} from '#/storage'
+import {createSessionStore} from '#/state/session/store'
+import {SessionProvider} from '#/state/session/SessionProvider'
 
-import {NotificationRow} from './Notifications'
+import {NotificationRow, NotificationsScreen} from './Notifications'
+
+const mockBackends = new Map<string, unknown>()
+jest.mock('@keystone/fedi', () => ({
+  ...jest.requireActual('@keystone/fedi'),
+  backendForSession: (s: {id: string}) => mockBackends.get(s.id),
+}))
 
 function renderWithTheme(ui: React.ReactElement) {
   return render(<ThemeProvider theme="light">{ui}</ThemeProvider>)
@@ -101,5 +114,46 @@ describe('NotificationRow', () => {
       />,
     )
     expect(screen.getByText(/sent a notification|reacted/)).toBeTruthy()
+  })
+})
+
+describe('NotificationsScreen prefetch (seamless infinite scroll)', () => {
+  it('fetches the next page well before the bottom edge', async () => {
+    const vault: TokenVault = {
+      getToken: async () => null,
+      setToken: async () => {},
+      removeToken: async () => {},
+    }
+    const store = createSessionStore({storage: createMemoryStore(), vault, homeOrigin: 'https://a.example'})
+    const added = await store.add({
+      origin: 'https://a.example',
+      family: 'misskey',
+      flavor: 'misskey',
+      accountId: 'alice',
+      token: 'token-a',
+      grant: 'password',
+      hosting: 'third-party',
+    })
+    mockBackends.set(added.id, {
+      family: 'misskey',
+      capabilities: {},
+      notifications: jest.fn(async () => ({items: [], cursor: null, end: true})),
+    } as unknown as Backend)
+    i18n.load('en', {})
+    i18n.activate('en')
+    render(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <QueryClientProvider client={new QueryClient()}>
+            <SessionProvider store={store} homeOrigin="https://a.example">
+              <NotificationsScreen />
+            </SessionProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    expect(await screen.findByText('No notifications.')).toBeTruthy()
+    const list = screen.UNSAFE_getByType(FlatList)
+    expect((list.props as {onEndReachedThreshold?: number}).onEndReachedThreshold).toBeGreaterThanOrEqual(2)
   })
 })

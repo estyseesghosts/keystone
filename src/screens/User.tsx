@@ -12,7 +12,6 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {ProfileActions} from '#/components/ProfileActions'
-import {AccountReactionsBlock} from '#/components/Profile/AccountReactions'
 import {ProfileHeader, ProfileTabs} from '#/components/Profile'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
@@ -156,42 +155,41 @@ export function UserScreen() {
         </View>
       ) : (
         <View style={atoms.flex1} testID="profile-body">
-          <ProfileHeader
-            account={account}
-            isSelf={isSelf}
-            relationship={relationship}
-            onPressFollowers={() => nav.navigate('Followers', {id: account.id})}
-            onPressFollowing={() => nav.navigate('Following', {id: account.id})}
-            actions={
-              isSelf ? (
-                <View style={[atoms.row, atoms.gap_sm]}>
-                  <Button
-                    label={i18n._(msg`Edit profile`)}
-                    variant="secondary"
-                    testID="profile-edit"
-                    onPress={() => nav.navigate('ProfileEdit')}
-                  />
-                  <Button
-                    label={i18n._(msg`Accounts & settings`)}
-                    variant="secondary"
-                    testID="profile-settings"
-                    onPress={() => nav.navigate('Settings')}
-                  />
-                </View>
-              ) : (
-                <ProfileActions sessionId={session.id} account={account} />
-              )
+          <FeedView
+            sessionId={session.id}
+            descriptor={profileTabDescriptor(account.id, tab)}
+            testID="profile-feed"
+            scrollHeader={
+              <ProfileHeader
+                account={account}
+                isSelf={isSelf}
+                relationship={relationship}
+                onPressFollowers={() => nav.navigate('Followers', {id: account.id})}
+                onPressFollowing={() => nav.navigate('Following', {id: account.id})}
+                actions={
+                  isSelf ? (
+                    <View style={[atoms.row, atoms.gap_sm]}>
+                      <Button
+                        label={i18n._(msg`Edit profile`)}
+                        variant="secondary"
+                        testID="profile-edit"
+                        onPress={() => nav.navigate('ProfileEdit')}
+                      />
+                      <Button
+                        label={i18n._(msg`Accounts & settings`)}
+                        variant="secondary"
+                        testID="profile-settings"
+                        onPress={() => nav.navigate('Settings')}
+                      />
+                    </View>
+                  ) : (
+                    <ProfileActions sessionId={session.id} account={account} />
+                  )
+                }
+              />
             }
+            stickyBar={<ProfileTabs tab={tab} onChange={setTab} hasFeatured={hasFeatured} />}
           />
-          <AccountReactionsBlock backend={backend} accountId={account.id} />
-          <ProfileTabs tab={tab} onChange={setTab} hasFeatured={hasFeatured} />
-          <View style={atoms.flex1}>
-            <FeedView
-              sessionId={session.id}
-              descriptor={profileTabDescriptor(account.id, tab)}
-              testID="profile-feed"
-            />
-          </View>
         </View>
       )}
     </View>

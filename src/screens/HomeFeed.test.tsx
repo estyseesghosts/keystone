@@ -2,7 +2,7 @@ import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
-import {Text} from 'react-native'
+import {Text, View} from 'react-native'
 
 import {ApiError, createMemoryStore, type Backend} from '@keystone/fedi'
 
@@ -176,5 +176,114 @@ describe('FeedView states', () => {
       </ThemeProvider>,
     )
     expect(screen.getByText('ok')).toBeTruthy()
+  })
+})
+
+describe('FeedView scroll layout (header content, sticky bar, prefetch)', () => {
+  async function signedIn() {
+    const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: HOME_ORIGIN})
+    const added = await store.add({
+      origin: 'https://a.example',
+      family: 'misskey',
+      flavor: 'misskey',
+      accountId: 'alice',
+      token: 'token-a',
+      grant: 'password',
+      hosting: 'third-party',
+    })
+    return {store, sessionId: added.id}
+  }
+
+  function pagingBackend() {
+    const post = makePost({id: 'p1', content: {mfm: 'first page', plain: 'first page'}})
+    const timeline = jest
+      .fn()
+      .mockResolvedValueOnce({items: [post], cursor: 'c1', end: false})
+      .mockResolvedValue({items: [], cursor: null, end: true})
+    return {timeline, backend: {timeline} as unknown as Backend}
+  }
+
+  function scrollEvent(y: number, contentHeight: number, viewHeight: number) {
+    return {
+      nativeEvent: {
+        contentOffset: {x: 0, y},
+        contentSize: {width: 390, height: contentHeight},
+        layoutMeasurement: {width: 390, height: viewHeight},
+      },
+    }
+  }
+
+  it('renders scrollHeader as list header content and no sticky bar by default', async () => {
+    const {store, sessionId} = await signedIn()
+    const {backend} = pagingBackend()
+    renderWithProviders(
+      <FeedView sessionId={sessionId} descriptor="timeline|home" backend={backend} retry={false} testID="feed" />,
+      store,
+    )
+    expect(await screen.findByText('first page')).toBeTruthy()
+    expect(screen.queryByTestId('feed-scroll-header')).toBeNull()
+    expect(screen.queryByTestId('feed-sticky-bar')).toBeNull()
+  })
+
+  it('keeps header-then-tabs order at rest and pins the tabs once scrolled past', async () => {
+    const {store, sessionId} = await signedIn()
+    const {backend} = pagingBackend()
+    renderWithProviders(
+      <FeedView
+        sessionId={sessionId}
+        descriptor="timeline|home"
+        backend={backend}
+        retry={false}
+        testID="feed"
+        scrollHeader={<View testID="stub-composer" />}
+        stickyBar={<View testID="stub-tabs" />}
+      />,
+      store,
+    )
+    expect(await screen.findByText('first page')).toBeTruthy()
+    // Rest order: header content first, tabs in-flow directly under it,
+    // nothing pinned yet.
+    expect(screen.getByTestId('feed-scroll-header')).toBeTruthy()
+    expect(screen.getByTestId('stub-composer')).toBeTruthy()
+    expect(screen.getByTestId('stub-tabs')).toBeTruthy()
+    expect(screen.queryByTestId('feed-sticky-bar')).toBeNull()
+    // Scrolled past the tabs (jest has no layout engine, so the measured
+    // offset is 0 and any scroll crosses it): the single pinned copy mounts
+    // above the list, the in-flow copy unmounts (no duplicate testIDs).
+    const list = screen.getByTestId('feed-list')
+    fireEvent.scroll(list, scrollEvent(600, 5000, 800))
+    expect(screen.getByTestId('feed-sticky-bar')).toBeTruthy()
+    expect(screen.getAllByTestId('stub-tabs')).toHaveLength(1)
+  })
+
+  it('fetches the next page well before the bottom edge', async () => {
+    const {store, sessionId} = await signedIn()
+    const {backend} = pagingBackend()
+    renderWithProviders(
+      <FeedView sessionId={sessionId} descriptor="timeline|home" backend={backend} retry={false} testID="feed" />,
+      store,
+    )
+    expect(await screen.findByText('first page')).toBeTruthy()
+    const list = screen.getByTestId('feed-list')
+    expect((list.props as {onEndReachedThreshold?: number}).onEndReachedThreshold).toBeGreaterThanOrEqual(2)
+  })
+
+  it('prefetches on scroll proximity, guarded against duplicate fetches', async () => {
+    const {store, sessionId} = await signedIn()
+    const {timeline, backend} = pagingBackend()
+    renderWithProviders(
+      <FeedView sessionId={sessionId} descriptor="timeline|home" backend={backend} retry={false} testID="feed" />,
+      store,
+    )
+    expect(await screen.findByText('first page')).toBeTruthy()
+    expect(timeline).toHaveBeenCalledTimes(1)
+    const list = screen.getByTestId('feed-list')
+    const onScroll = (list.props as {onScroll: (e: unknown) => void}).onScroll
+    // Far from the bottom: no fetch.
+    onScroll(scrollEvent(0, 5000, 800))
+    expect(timeline).toHaveBeenCalledTimes(1)
+    // Near the bottom (distance to end < 1200px): prefetch fires.
+    onScroll(scrollEvent(4300, 5000, 800))
+    await waitFor(() => expect(timeline).toHaveBeenCalledTimes(2))
   })
 })

@@ -32,6 +32,31 @@ function NameEmoji({
   return <CustomEmojiGlyph name={name} host={host} src={null} packed={emojis} size={size + 2} />
 }
 
+/** Name==handle collapse (v1): when the shown display name is just the
+ * handle, render the handle AS the display name — one line, no second
+ * smaller handle line underneath.
+ *
+ * Rule, against `handleOf` semantics (`@user` local, `@user@host`
+ * remote): collapse when the trimmed display name exactly equals any of
+ * the four handle spellings — `user`, `@user`, `user@host`,
+ * `@user@host`. An empty display name collapses too (it falls back to
+ * the bare username, so the handle is the honest single line).
+ *
+ * Deliberately NOT `hasRealDisplayName`'s wider rule: that also folds
+ * case-insensitive username echoes (`Alice` for username `alice`),
+ * which would regress the established two-line PostCard header for
+ * ordinary names. The exact-echo case (`rina` for `rina`) still
+ * collapses — that is the no-name-set account, where the old
+ * `ProfileHeader` already hid the handle line. Pure. */
+export function shouldCollapseName(
+  account: Pick<Account, 'displayName' | 'username' | 'host'>,
+): boolean {
+  const shown = account.displayName.trim()
+  if (shown.length === 0) return true
+  const bare = account.host != null ? `${account.username}@${account.host}` : account.username
+  return shown === account.username || shown === `@${bare}` || shown === bare
+}
+
 export function DisplayName({
   account,
   size = 15,
@@ -49,8 +74,14 @@ export function DisplayName({
   // P1: names scale with the device text setting, like every other prose.
   const theme = useTheme()
   const scaledSize = size * theme.fontScaleMultiplier
+  // RN `Text` defaults to black — invisible on the dark theme. Default
+  // to the themed text color; an explicit `textStyle` color still wins
+  // (it sits later in the array).
   return (
-    <Text style={[{fontSize: scaledSize}, textStyle]} numberOfLines={numberOfLines} testID={testID}>
+    <Text
+      style={[{fontSize: scaledSize, color: theme.palette.text}, textStyle]}
+      numberOfLines={numberOfLines}
+      testID={testID}>
       {parts.map((part, i) =>
         part.kind === 'text' ? (
           <Fragment key={i}>{part.text}</Fragment>
