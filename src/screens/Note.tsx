@@ -11,7 +11,7 @@
 // screen only reads the `Note: {id: string}` route param.
 
 import {useEffect, useState} from 'react'
-import {RefreshControl, ScrollView, StyleSheet, View} from 'react-native'
+import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
 import {
   useNavigation,
   useRoute,
@@ -357,6 +357,41 @@ function ReplyBranch({
   )
 }
 
+// Root reply row (F24): one direct reply of the focused post as a FlatList
+// row — a PostCard plus its (collapsed, View-based) child branch. The
+// MAX_DEPTH cycle guard mirrors ReplyBranch: the nested branch starts at
+// depth 1, exactly as the old root ReplyBranch (depth 0) rendered it.
+function RootReplyRow({
+  sessionId,
+  backend,
+  child,
+}: {
+  sessionId: string
+  backend: Backend
+  child: Post
+}) {
+  const shown = appearNoteOf(child)
+  return (
+    <View>
+      <PostCard post={child} sessionId={sessionId} testID={`reply-${child.id}`} />
+      {0 + 1 >= MAX_DEPTH ? (
+        <View style={[atoms.px_md, atoms.py_sm]}>
+          <Caption color="faint">Thread is too deep to expand here.</Caption>
+        </View>
+      ) : (
+        <ReplyBranch
+          sessionId={sessionId}
+          backend={backend}
+          parentId={shown.id}
+          expandedByDefault={false}
+          depth={0 + 1}
+          rootCount={null}
+        />
+      )}
+    </View>
+  )
+}
+
 export function NoteScreen() {
   const route = useRoute<RouteProp<RootParamList, 'Note'>>()
   const nav = useNavigation<NavigationProp<RootParamList>>()
@@ -377,6 +412,16 @@ export function NoteScreen() {
   // Detail tabs (v1 `Note` parity, F19): replies live below the
   // composer entry; boosts and reactions list the actors.
   const [tab, setTab] = useState<'replies' | 'reposts' | 'reactions'>('replies')
+  // Root replies ride the outer FlatList's rows (F24): a single
+  // VirtualizedList whose header is the ancestors + focused post + entry +
+  // tabs, never PostCards inside a ScrollView. Nested branches stay
+  // View-based inside each row. Disabled until the focused post resolves,
+  // and prefetched across tabs off the same session-scoped query key.
+  const rootParentId = focused?.id ?? ''
+  const rootReplies = useThreadRepliesQuery(sessionId, rootParentId, {
+    ...(backend ? {backend} : {}),
+  })
+  const rootItems = rootReplies.data?.pages.flatMap(page => page.items) ?? []
 
   return (
     <View style={atoms.flex1} testID="note-screen">
@@ -404,68 +449,111 @@ export function NoteScreen() {
           />
         </View>
       ) : (
-        <ScrollView
+        <FlatList
           style={atoms.flex1}
           testID="thread-body"
+          data={tab === 'replies' ? rootItems : []}
+          keyExtractor={item => item.id}
+          renderItem={({item}) => <RootReplyRow sessionId={sessionId} backend={backend} child={item} />}
+          ListHeaderComponent={
+            <>
+              {thread.data.ancestors.map(a => (
+                <PostCard key={a.id} post={a} sessionId={sessionId} testID={`ancestor-${a.id}`} />
+              ))}
+              {thread.data.incomplete ? (
+                <View style={[atoms.px_md, atoms.py_sm]}>
+                  <Caption color="faint">Earlier reply context unavailable.</Caption>
+                </View>
+              ) : null}
+              <View
+                style={[
+                  {
+                    backgroundColor: theme.palette.bgSoft,
+                    borderTopWidth: 1,
+                    borderBottomWidth: 1,
+                    borderColor: theme.palette.border,
+                  },
+                ]}
+                testID={`focused-${focused.id}`}>
+                <PostCard post={focused} sessionId={sessionId} foldBody={false} />
+              </View>
+              <InClipsRow backend={backend} postId={focused.id} />
+              <ReplyEntry focused={focused} />
+              <View style={[atoms.px_md, {flexDirection: 'row', gap: 16}]} testID="note-tabs">
+                {(
+                  [
+                    {key: 'replies', label: 'Replies'},
+                    {key: 'reposts', label: 'Reposts'},
+                    {key: 'reactions', label: 'Reactions'},
+                  ] as const
+                ).map(({key, label}) => (
+                  <Pressable
+                    key={key}
+                    testID={`note-tab-${key}`}
+                    onPress={() => setTab(key)}
+                    accessibilityRole="tab"
+                    accessibilityState={{selected: tab === key}}
+                    accessibilityLabel={label}>
+                    <Body color={tab === key ? 'text' : 'faint'}>{label}</Body>
+                  </Pressable>
+                ))}
+              </View>
+              {tab === 'replies' ? (
+                <View testID={`replies-${focused.id}`}>
+                  <View style={[atoms.px_md, atoms.py_sm]}>
+                    <Caption color="faint" testID={`replies-count-${focused.id}`}>
+                      {`Replies (${focused.counts.replies})`}
+                    </Caption>
+                  </View>
+                  {rootReplies.isPending ? (
+                    <View style={[atoms.centered, atoms.py_sm]}>
+                      <Loader testID={`replies-loading-${focused.id}`} />
+                    </View>
+                  ) : rootReplies.isError ? (
+                    <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
+                      <Caption color="faint">Could not load replies.</Caption>
+                      <Button
+                        label="Retry"
+                        variant="secondary"
+                        onPress={() => void rootReplies.refetch()}
+                        testID={`replies-retry-${focused.id}`}
+                      />
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+            </>
+          }
+          ListEmptyComponent={
+            tab === 'replies' && !rootReplies.isPending && !rootReplies.isError ? (
+              <View style={[atoms.centered, atoms.p_md]}>
+                <Body>Nothing here yet.</Body>
+                <Caption color="faint">Be the first to reply.</Caption>
+              </View>
+            ) : null
+          }
+          ListFooterComponent={
+            tab === 'replies' ? (
+              rootReplies.hasNextPage ? (
+                <View style={[atoms.px_md, atoms.py_sm]}>
+                  <Button
+                    label={rootReplies.isFetchingNextPage ? 'Loading…' : 'Load more replies'}
+                    variant="secondary"
+                    onPress={() => void rootReplies.fetchNextPage()}
+                    testID={`more-replies-${focused.id}`}
+                  />
+                </View>
+              ) : null
+            ) : tab === 'reposts' ? (
+              <RepostsList sessionId={sessionId} backend={backend} postId={focused.id} />
+            ) : (
+              <ReactionsList sessionId={sessionId} backend={backend} postId={focused.id} />
+            )
+          }
           refreshControl={
             <RefreshControl refreshing={thread.isRefetching} onRefresh={() => void thread.refetch()} />
-          }>
-          {thread.data.ancestors.map(a => (
-            <PostCard key={a.id} post={a} sessionId={sessionId} testID={`ancestor-${a.id}`} />
-          ))}
-          {thread.data.incomplete ? (
-            <View style={[atoms.px_md, atoms.py_sm]}>
-              <Caption color="faint">Earlier reply context unavailable.</Caption>
-            </View>
-          ) : null}
-          <View
-            style={[
-              {
-                backgroundColor: theme.palette.bgSoft,
-                borderTopWidth: 1,
-                borderBottomWidth: 1,
-                borderColor: theme.palette.border,
-              },
-            ]}
-            testID={`focused-${focused.id}`}>
-            <PostCard post={focused} sessionId={sessionId} foldBody={false} />
-          </View>
-          <InClipsRow backend={backend} postId={focused.id} />
-          <ReplyEntry focused={focused} />
-          <View style={[atoms.px_md, {flexDirection: 'row', gap: 16}]} testID="note-tabs">
-            {(
-              [
-                {key: 'replies', label: 'Replies'},
-                {key: 'reposts', label: 'Reposts'},
-                {key: 'reactions', label: 'Reactions'},
-              ] as const
-            ).map(({key, label}) => (
-              <Pressable
-                key={key}
-                testID={`note-tab-${key}`}
-                onPress={() => setTab(key)}
-                accessibilityRole="tab"
-                accessibilityState={{selected: tab === key}}
-                accessibilityLabel={label}>
-                <Body color={tab === key ? 'text' : 'faint'}>{label}</Body>
-              </Pressable>
-            ))}
-          </View>
-          {tab === 'replies' ? (
-            <ReplyBranch
-              sessionId={sessionId}
-              backend={backend}
-              parentId={focused.id}
-              expandedByDefault
-              depth={0}
-              rootCount={focused.counts.replies}
-            />
-          ) : tab === 'reposts' ? (
-            <RepostsList sessionId={sessionId} backend={backend} postId={focused.id} />
-          ) : (
-            <ReactionsList sessionId={sessionId} backend={backend} postId={focused.id} />
-          )}
-        </ScrollView>
+          }
+        />
       )}
     </View>
   )

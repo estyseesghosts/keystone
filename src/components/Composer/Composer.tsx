@@ -65,6 +65,28 @@ const POLL_DURATIONS: Array<{label: string; seconds: number}> = [
   {label: '7 days', seconds: 604800},
 ]
 
+// Sheet keyboard helpers (C2/C3): pure, jest-covered. The sheet's
+// KeyboardAvoidingView already offsets on iOS; these drive the native-only
+// maxHeight/padding adjustments from keyboard show/hide listeners so the
+// toolbar/input stay above the keyboard. Web returns 0/undefined (CSS
+// handles it there) and non-mobile shells keep their centered card.
+export function sheetKeyboardInset(platformOS: string, keyboardHeight: number): number {
+  if (platformOS === 'web') return 0
+  if (!Number.isFinite(keyboardHeight) || keyboardHeight <= 0) return 0
+  return keyboardHeight
+}
+
+export function sheetVisibleMaxHeight(
+  platformOS: string,
+  layout: string,
+  windowHeight: number,
+  keyboardHeight: number,
+): number | undefined {
+  if (platformOS === 'web' || layout !== 'mobile') return undefined
+  if (!Number.isFinite(windowHeight) || windowHeight <= 0) return undefined
+  return Math.max(0, windowHeight - sheetKeyboardInset(platformOS, keyboardHeight))
+}
+
 export interface ComposerProps {
   session: Session
   backend: Backend

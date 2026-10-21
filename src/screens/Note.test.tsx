@@ -2,6 +2,7 @@ import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
+import {FlatList} from 'react-native'
 
 import type {Capabilities, Session} from '@keystone/fedi'
 import {FEATURE_KEYS} from '@keystone/fedi'
@@ -165,6 +166,16 @@ describe('NoteScreen', () => {
     setup(fakeBackend())
     await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
     expect(screen.queryByTestId('in-clips-p1')).toBeNull()
+  })
+
+  it('renders the thread as a single FlatList, never PostCards in a ScrollView (F24)', async () => {
+    setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    // The thread body IS the FlatList (header = ancestors + focused + entry
+    // + tabs, rows = root replies); nested branches stay collapsed Views.
+    expect(screen.UNSAFE_getByType(FlatList)).toBeTruthy()
+    await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
+    expect(screen.getByTestId('show-replies-r1')).toBeTruthy()
   })
 })
 

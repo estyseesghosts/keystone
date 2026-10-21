@@ -6,7 +6,7 @@ import {ApiError, buildCapabilities, createMemoryStore, type Backend, type Sessi
 import {ThemeProvider} from '#/alf/index'
 import {draftsKeyFor, listDrafts} from '#/storage/drafts'
 
-import {Composer} from './Composer'
+import {Composer, sheetKeyboardInset, sheetVisibleMaxHeight} from './Composer'
 
 jest.mock('./pickMedia', () => ({pickMedia: jest.fn(async () => [])}))
 jest.mock('@keystone/fedi', () => ({
@@ -225,5 +225,29 @@ describe('Composer', () => {
     await waitFor(() => expect(editPost).toHaveBeenCalledTimes(1))
     expect(editPost).toHaveBeenCalledWith('p9', expect.objectContaining({mediaIds: ['m1']}))
     expect(onClose).toHaveBeenCalled()
+  })
+})
+
+describe('sheet keyboard helpers (C3)', () => {
+  it('sheetKeyboardInset passes the native height through and zeroes web/invalid', () => {
+    expect(sheetKeyboardInset('ios', 300)).toBe(300)
+    expect(sheetKeyboardInset('android', 300)).toBe(300)
+    expect(sheetKeyboardInset('web', 300)).toBe(0)
+    expect(sheetKeyboardInset('ios', 0)).toBe(0)
+    expect(sheetKeyboardInset('ios', -10)).toBe(0)
+    expect(sheetKeyboardInset('ios', Number.NaN)).toBe(0)
+  })
+
+  it('sheetVisibleMaxHeight caps mobile native cards to the visible area', () => {
+    expect(sheetVisibleMaxHeight('ios', 'mobile', 800, 0)).toBe(800)
+    expect(sheetVisibleMaxHeight('ios', 'mobile', 800, 300)).toBe(500)
+    expect(sheetVisibleMaxHeight('android', 'mobile', 800, 300)).toBe(500)
+  })
+
+  it('sheetVisibleMaxHeight leaves desktop and web cards alone', () => {
+    expect(sheetVisibleMaxHeight('ios', 'rail', 800, 300)).toBeUndefined()
+    expect(sheetVisibleMaxHeight('ios', 'full', 800, 300)).toBeUndefined()
+    expect(sheetVisibleMaxHeight('web', 'mobile', 800, 300)).toBeUndefined()
+    expect(sheetVisibleMaxHeight('ios', 'mobile', 0, 300)).toBeUndefined()
   })
 })

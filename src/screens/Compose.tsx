@@ -1,5 +1,14 @@
 import {useEffect, useState} from 'react'
-import {KeyboardAvoidingView, Platform, StyleSheet, View, type ViewStyle} from 'react-native'
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type ViewStyle,
+} from 'react-native'
 import {
   CommonActions,
   useNavigation,
@@ -14,7 +23,9 @@ import {atoms} from '#/alf/atoms'
 import {useShellLayout} from '#/alf/breakpoints'
 import {Body} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {useOptionalSafeAreaInsets} from '#/components/insets'
 import {CompactComposer} from '#/components/Composer/CompactComposer'
+import {sheetKeyboardInset, sheetVisibleMaxHeight} from '#/components/Composer/Composer'
 import {Loader} from '#/components/Loader'
 import {Pressable} from '#/components/Pressable'
 import type {RootParamList} from '#/routes'
@@ -35,6 +46,31 @@ export function ComposeScreen() {
   const {replyToId, quoteId, draftId, editId} = route.params ?? {}
   const [targets, setTargets] = useState<{replyTo: Post | null; quote: Post | null; editing: Post | null} | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
+  // Native keyboard tracking (C3): the KeyboardAvoidingView already offsets
+  // on iOS, but the sheet card itself also caps to the visible area and (on
+  // Android, where the KAV uses `height`) pads below the content so the
+  // toolbar/input stay above the keyboard. Web needs neither (CSS).
+  const {height: windowHeight} = useWindowDimensions()
+  const [kbHeight, setKbHeight] = useState(0)
+  useEffect(() => {
+    if (Platform.OS === 'web') return
+    const show = Keyboard.addListener('keyboardDidShow', e => {
+      setKbHeight(e.endCoordinates?.height ?? 0)
+    })
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0))
+    return () => {
+      show.remove()
+      hide.remove()
+    }
+  }, [])
+  const mobile = layout === 'mobile'
+  const cappedMaxHeight = sheetVisibleMaxHeight(Platform.OS, layout, windowHeight, kbHeight)
+  // iOS KAV `padding` already offsets; the manual pad is Android-only so the
+  // toolbar does not sit exactly on the keyboard edge there either.
+  const bottomPad = Platform.OS === 'android' ? sheetKeyboardInset(Platform.OS, kbHeight) : 0
+  // Home-indicator clearance on the full-bleed mobile sheet (N21); the
+  // desktop card is untouched (insets read 0 on web anyway).
+  const insets = useOptionalSafeAreaInsets()
 
   const close = () => {
     if (nav.canGoBack()) nav.goBack()
@@ -52,16 +88,32 @@ export function ComposeScreen() {
       />
       <View pointerEvents="box-none" style={styles.cardWrap}>
         <View
+          testID="compose-card"
           style={[
             styles.card,
-            layout === 'mobile' ? styles.cardMobile : styles.cardFloat,
+            mobile ? styles.cardMobile : styles.cardFloat,
             {backgroundColor: alf.palette.bg, borderColor: alf.palette.edge},
+            cappedMaxHeight !== undefined ? {maxHeight: cappedMaxHeight} : null,
+            {paddingBottom: bottomPad + (mobile ? insets.bottom : 0)},
           ]}>
+          {mobile ? (
+            <View testID="compose-grabber" style={styles.grabberWrap} pointerEvents="none">
+              <View style={[styles.grabber, {backgroundColor: alf.palette.faint}]} />
+            </View>
+          ) : null}
           <KeyboardAvoidingView
             style={styles.kav}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={0}>
-            {content}
+            {/* Sheet content scrolls inside the card (never traps the page
+                behind it): popups render in a Modal, so this ScrollView never
+                nests a VirtualizedList. */}
+            <ScrollView
+              testID="compose-sheet-scroll"
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.sheetScrollContent}>
+              {content}
+            </ScrollView>
           </KeyboardAvoidingView>
         </View>
       </View>
@@ -161,5 +213,19 @@ const styles = StyleSheet.create({
   cardMobile: {
     flex: 1,
     marginTop: 0,
+  },
+  grabberWrap: {
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  grabber: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    opacity: 0.6,
+  },
+  sheetScrollContent: {
+    flexGrow: 1,
   },
 })
