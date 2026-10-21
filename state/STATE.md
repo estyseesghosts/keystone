@@ -1,46 +1,34 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: V2_GAPS WS-F (mastodon) MERGED 2026-10-21 on `main`
-(grouped `adaptV2Group` + `ext.groupedCount`, Filters CRUD +
-`filterModerated` wiring; Akkoma 13-row probe green, rig cleaned;
-web-create fails honestly per W8/MD12 boundary). Merge was clean.
-FULL suite green: 138 suites / 1638 tests; tsc ios+android+web
-clean; eslint + oxlint clean. WS-A–E + WS-C already merged (135
-suites / 1619 pre-F). Spawning WS-G (scroll + streaming UI) last.
-Latest log: `state/logs/2026-10-21-wsF-mastodon.md` (agent, 7 Helium
-shots in `assets-wsF/`). Coordinator re-verified the trio after
-merge.
-Prior: UI batch 2 + slim tabs + W8 (see logs).
-(MD5 boot re-verify + scope-health, MD6–MD9 live Akkoma round-trips,
-MD10 pooled streaming + app capture, MD11 fork collapse, MD12/MD13
-taxonomy + authority, MK7 boot migration, MK10 fixtures/manifest, MK11
-smoke auth/stream, MK12 55 tests, Q1–Q8 + Q6 PostRow delete, 52nd error
-code + catalog recompile).
-Tests green (119 suites / 1425 tests); tsc ios+android+web clean;
-oxlint + eslint clean. Web-visual: signed-in akk1 home phone/rail in
-`state/logs/assets-w8/`. Authed probe `scripts/fedi-w8-probe.ts` 7/7
-live-green (writes cleaned).
-Logs: `state/logs/2026-10-21-w8-data.md` (W8),
-`state/logs/2026-10-21-w7-settings.md` (W7).
-Register: `docs/parity-gaps.md` all W8 rows done; program COMPLETE
-(`docs/tasks/gap-closure.md` W1–W8 checked + acceptance).
-Earlier: W7/W6/W5/W4/W3/W2/W1 done on `main`; repo on one `main`;
-G1–G4 reviews open.
+Phase/slice: V2_GAPS COMPLETE 2026-10-21 — all WS-A…WS-G MERGED
+on `main` and registers closed (quotes full-mile, MFM content +
+TagBubble + schema fix, remote emoji + picker, post menu, Misskey
+correctness, grouped notifications + Filters UI, scroll + S4
+streaming mount). Worktrees removed; repo is one `main`.
+FULL suite green: 141 suites / 1665 tests; tsc ios+android+web
+clean; eslint + oxlint clean.
+Latest logs: `state/logs/2026-10-21-ws{A,B,C,D,E,F,G}-*.md` (agents;
+Helium/live evidence in `assets-ws{A,B,D,F}/`, Akkoma probes for
+C/F/G with writes cleaned). Coordinator re-verified the trio on
+`main` after every merge (B needed conflict resolution: duplicate
+`quoteStatus` dropped, locale union re-extracted).
+Register: `docs/parity-gaps.md` V2 rows closed (S4, F5/F6/F7, F10,
+F11, F14, MK6/MK8/MK13/MK14/MK16/MK17, MD1/MD3(+notes)/MD4/MD10,
+N14/N18, F20/F21 notes, C16 note); `docs/V2_GAPS.md` all WS boxes
+ticked; `docs/DECISIONS.md` +23 lines this program.
+Earlier: contrast sweep + UI batch 2 + W1–W8 done on `main`
+(see logs); G1–G4 reviews open.
 
 ## Next 3 steps
 
-1. Merge WS-A/B/C/D as each reports green (serial merges to `main`,
-   trio re-verified per merge; shared-file hunks in
-   `PostCard.tsx`/`body.ts`/`menuModel.ts` resolved at merge time).
-2. Spawn WS-F after WS-B merges (sanitizer dependency); WS-G last
-   (owns `FeedView`/`Navigation`).
-3. Owner reviews stay open (G1–G4); P5 tail (management-screen
-   English, W7-log inventory) can ride any session — mechanical.
-2. Still blocked: Oppo `3B15A500TQD00000` pass, iOS anything,
-   Misskey-family live probes (rig `:3101`/`:3102` down), live GTS,
-   hover real-pointer, native splash rebuild, TalkBack.
-3. S4 owns streaming UI (status badge, live pill insert, notification
-   channel); full drafts-module deletion needs `src/` edits (planned).
+1. Owner reviews stay open (G1–G4 visual/parity; P5 tail:
+   management-screen English, W7-log inventory) — mechanical.
+2. Still blocked/never-faked: Oppo `3B15A500TQD00000` pass, iOS
+   anything, Misskey-family live (`:3101`/`:3102` down), live GTS +
+   grouped-envelope v2 server, TalkBack, native splash rebuild.
+3. Known follow-ups (logged, not started): per-column sessionId
+   threading for quotes (WS-C proposal); Akkoma v2 filter writes/CORS;
+   detail ancestors/connectors (F20 remainder).
 
 ## Blockers
 
@@ -53,8 +41,9 @@ G1–G4 reviews open.
 
 ## Links
 
-- Gap register: `docs/parity-gaps.md` (W8 rows done; §9 deferred untouched)
-- Gap program: `docs/tasks/gap-closure.md` (COMPLETE)
+- Gap register: `docs/parity-gaps.md` (V2 rows closed; §9 deferred untouched)
+- Build list: `docs/V2_GAPS.md` (COMPLETE — all WS-A…WS-G ticked)
+- Gap program: `docs/tasks/gap-closure.md` (W1–W8 COMPLETE)
 - Tasks: `docs/tasks/` (index current)
 - ADRs: `docs/adr/0001-patterns-not-code.md`,
   `docs/adr/0002-butterfly-tarantula.md`

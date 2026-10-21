@@ -130,3 +130,7 @@ in `adr/` when load-bearing.
 | 2026-10-21 | WS-F: grouped "N others" counts off `ext.groupedCount`, floored by packed actors | Envelope count wins; packed list is the floor |
 | 2026-10-21 | WS-F: filter create defaults to warn-action (v1/web parity); only hide-action phrases filter | Match v1 semantics, not the strictest interpretation |
 | 2026-10-21 | WS-F: web-Akkoma filter writes fail honestly (CORS-less 404 pages + deliberate `isUnsupportedError` boundary); native/node CRUD proven | Widening the boundary would reverse W8/MD12 — do not |
+| 2026-10-21 | WS-G: no feed-entry cache in `feedMemory.ts` — persisted react-query cache (24h MMKV, session+descriptor keys) already serves entries; feedMemory stays offsets + last tab (N14 stays done, no downgrade — acceptance is position + entries, both integration-tested) | Redundant state never ships |
+| 2026-10-21 | WS-G: live mount requires streaming==='supported' AND non-null handle AND non-disabled channel; else paging-only + local-diff pill | Never a stuck badge, never faked inserts |
+| 2026-10-21 | WS-G: live notifications prepend into `all` listings only; filtered views invalidate (server is the filter authority) | Never guess cross-family type strings |
+| 2026-10-21 | WS-G: Mastodon `subscribePost` is NOT a no-op (shared user stream, id-filtered); feed-level deletes stay unsubscribed by interface design | Stale MD10 comment corrected, seam recorded not rewired |
