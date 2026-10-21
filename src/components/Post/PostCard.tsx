@@ -24,7 +24,6 @@ import {
   foldTree,
   handleOf,
   isPureRenote,
-  parseAcct,
   registerSeenNote,
   safeHttpUrl,
   getQuoteTarget,
@@ -42,7 +41,7 @@ import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
 import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
-import {RichText} from '#/components/RichText'
+import {RichText, defaultHashtagPress, defaultMentionPress} from '#/components/RichText'
 import {canCopy, copyText} from '#/lib/clipboard'
 import {showToast} from '#/lib/toast'
 import {navigationRef} from '#/navigationRef'
@@ -92,21 +91,12 @@ function openAuthorProfile(authorId: string) {
   navigationRef.navigate('Main', {screen: 'User', params: {id: authorId}} as never)
 }
 
-/** Mention tap → profile screen (F9): the label carries the handle
- * (`@user`, `@user@host`); the server URL is only the fallback. */
-function openMentionProfile(acct: string) {
-  if (!navigationRef.isReady()) return
-  navigationRef.navigate('Main', {screen: 'User', params: {acct}} as never)
-}
-
+// Post-detail navigation (Keystone v1 `NoteCard` parity): the body and
+// the time link to `/notes/:id`. Guarded: presentational trees stay
+// silent.
 function openPostDetail(postId: string) {
   if (!navigationRef.isReady()) return
   navigationRef.navigate('Note', {id: postId})
-}
-
-function openTagPosts(tag: string) {
-  if (!navigationRef.isReady()) return
-  navigationRef.navigate('Tag', {tag})
 }
 
 /** Collapsed-boost banner (v1 `TimelineFeed` parity, F17): one reposter
@@ -672,16 +662,12 @@ function PostCardView({
   const handleMentionPress = (href: string | null, label: string) => {
     markLink()
     if (onMentionPress) onMentionPress(href, label)
-    else {
-      const ref = parseAcct(label)
-      if (ref) openMentionProfile(ref.host ? `${ref.username}@${ref.host}` : ref.username)
-      else if (href) void Linking.openURL(href).catch(() => {})
-    }
+    else defaultMentionPress(href, label)
   }
   const handleHashtagPress = (tag: string) => {
     markLink()
     if (onHashtagPress) onHashtagPress(tag)
-    else openTagPosts(tag)
+    else defaultHashtagPress(tag)
   }
   const openPost = () => {
     if (Date.now() - linkGuard.current < 400) return

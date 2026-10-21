@@ -13,7 +13,8 @@
 // - The avatar is intentionally local (40px row avatar): `ProfileAvatar` is
 //   a fixed 72px header treatment and does not fit a row.
 
-import {Image, StyleSheet, View} from 'react-native'
+import {useMemo, useRef} from 'react'
+import {Image, Linking, StyleSheet, View} from 'react-native'
 
 import {msg, t} from '@lingui/macro'
 
@@ -30,6 +31,8 @@ import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
+import {RichText, defaultHashtagPress, defaultMentionPress} from '#/components/RichText'
+import {postBodyNodes, postEmojis} from '#/components/Post/body'
 import {formatRelativeTime} from '#/components/Post/time'
 import {i18n, useLocale} from '#/locale/i18n'
 import {navigationRef} from '#/navigationRef'
@@ -153,6 +156,21 @@ export function NotificationRow({
   // (total below the packed samples) from understating known actors.
   const serverTotal = notification.ext.groupedCount ?? 0
   const extraCount = Math.max(actors.length - 1, serverTotal > 0 ? serverTotal - 1 : 0)
+  const post = notification.post ?? null
+  // Tappable excerpt (E2/E3): posts carrying MFM/HTML render through the
+  // sole RichText renderer so mentions land on the profile and hashtags
+  // on the Tag screen; plain-only posts keep the text excerpt.
+  const excerptNodes = useMemo(
+    () => (post && (post.content.mfm || post.content.html) ? postBodyNodes(post) : null),
+    [post],
+  )
+  const excerptEmojis = useMemo(() => (post ? postEmojis(post) : null), [post])
+  // Inner mention/tag/link taps navigate themselves; the row press below
+  // stands down when one just landed (same guard as the card body).
+  const linkGuard = useRef(0)
+  const stampLink = () => {
+    linkGuard.current = Date.now()
+  }
   const excerpt = notification.post?.content.plain
   const label = notificationKindLabel(notification)
   return (
@@ -217,7 +235,36 @@ export function NotificationRow({
             {i18n._(msg`and ${extraCount} other${extraCount === 1 ? '' : 's'}`)}
           </Caption>
         ) : null}
-        {excerpt ? (
+        {excerptNodes !== null && excerptNodes.length > 0 ? (
+          <Pressable
+            testID={`notification-post-${notification.id}`}
+            onPress={() => {
+              if (Date.now() - linkGuard.current < 400) return
+              if (notification.post) openPostDetail(notification.post.id)
+            }}
+            accessibilityRole="link"
+            accessibilityLabel={i18n._(msg`Open the post`)}>
+            <RichText
+              nodes={excerptNodes}
+              emojis={excerptEmojis}
+              sessionId={sid}
+              authorHost={post?.author.host ?? null}
+              numberOfLines={2}
+              onMentionPress={(href, mentionLabel) => {
+                stampLink()
+                defaultMentionPress(href, mentionLabel)
+              }}
+              onHashtagPress={tag => {
+                stampLink()
+                defaultHashtagPress(tag)
+              }}
+              onLinkPress={href => {
+                stampLink()
+                void Linking.openURL(href).catch(() => {})
+              }}
+            />
+          </Pressable>
+        ) : excerpt ? (
           <Pressable
             testID={`notification-post-${notification.id}`}
             onPress={() => {

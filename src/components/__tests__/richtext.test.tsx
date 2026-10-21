@@ -1,11 +1,13 @@
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {fireEvent, render, screen} from '@testing-library/react-native'
+import {Linking} from 'react-native'
 
 import {contentFromHtml, contentFromMfm} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {RichText} from '#/components/RichText'
+import {navigationRef} from '#/navigationRef'
 import {appearanceStore} from '#/state/appearance'
 
 i18n.load('en', {})
@@ -92,6 +94,84 @@ describe('RichText mentions (F9)', () => {
     )
     fireEvent.press(screen.getByText('@bob@ex.ample'))
     expect(onMention).toHaveBeenCalledWith(null, '@bob@ex.ample')
+  })
+})
+
+// PF-E2/E3 repro: handler-less surfaces (bio, fields, notification
+// excerpt) must still land in-app — mentions on the profile, hashtags
+// on the Tag screen, never an external browser or a dead tap.
+describe('RichText handler-less mention/hashtag routing (PF-E2/E3)', () => {
+  let navigateSpy: jest.SpyInstance
+  let openSpy: jest.SpyInstance
+  beforeEach(() => {
+    jest.spyOn(navigationRef, 'isReady').mockReturnValue(true)
+    navigateSpy = jest.spyOn(navigationRef, 'navigate').mockImplementation(() => {})
+    openSpy = jest.spyOn(Linking, 'openURL').mockImplementation(() => Promise.resolve(true))
+  })
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  it('E2: an MFM mention with no handler opens the profile by handle', () => {
+    renderRichText(<RichText nodes={contentFromMfm('hi @bob@ex.ample')} />)
+    fireEvent.press(screen.getByText('@bob@ex.ample'))
+    expect(navigateSpy).toHaveBeenCalledWith('Main', {
+      screen: 'User',
+      params: {acct: 'bob@ex.ample'},
+    })
+    expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('E2: an HTML mention with no handler opens the profile by label', () => {
+    renderRichText(
+      <RichText
+        nodes={contentFromHtml(
+          '<p><a class="u-url mention" href="https://ex.ample/@bob">@<span>bob</span></a></p>',
+        )}
+      />,
+    )
+    fireEvent.press(screen.getByText('@bob'))
+    expect(navigateSpy).toHaveBeenCalledWith('Main', {
+      screen: 'User',
+      params: {acct: 'bob@ex.ample'},
+    })
+    expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('E2: an HTML mention with a display-name label resolves via the profile URL', () => {
+    renderRichText(
+      <RichText
+        nodes={contentFromHtml(
+          '<p><a class="u-url mention" href="https://ex.ample/users/bob">Bobby</a></p>',
+        )}
+      />,
+    )
+    fireEvent.press(screen.getByText('Bobby'))
+    expect(navigateSpy).toHaveBeenCalledWith('Main', {
+      screen: 'User',
+      params: {acct: 'bob@ex.ample'},
+    })
+    expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('E3: an MFM hashtag with no handler opens the Tag screen', () => {
+    renderRichText(<RichText nodes={contentFromMfm('hello #cats')} />)
+    fireEvent.press(screen.getByText('#cats'))
+    expect(navigateSpy).toHaveBeenCalledWith('Tag', {tag: 'cats'})
+    expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('E3: an HTML hashtag with no handler opens the Tag screen, not the browser', () => {
+    renderRichText(
+      <RichText
+        nodes={contentFromHtml(
+          '<p><a class="hashtag" data-tag="cats" href="https://ex.ample/tag/cats">#cats</a></p>',
+        )}
+      />,
+    )
+    fireEvent.press(screen.getByText('#cats'))
+    expect(navigateSpy).toHaveBeenCalledWith('Tag', {tag: 'cats'})
+    expect(openSpy).not.toHaveBeenCalled()
   })
 })
 

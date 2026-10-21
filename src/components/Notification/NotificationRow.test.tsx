@@ -59,6 +59,10 @@ function post(over: Partial<Post> = {}): Post {
   return {
     id: 'p1',
     content: {plain: 'hello excerpt world'},
+    author: account(),
+    emojis: {},
+    ext: {},
+    ...over,
   } as unknown as Post
 }
 
@@ -229,5 +233,48 @@ describe('NotificationRow content (F11-half, relative time)', () => {
     renderWithTheme(<NotificationRow notification={notification()} />)
     expect(screen.getByText('Bob')).toBeTruthy()
     expect(screen.getByText('@bob')).toBeTruthy()
+  })
+})
+
+describe('NotificationRow excerpt links (PF-E2/E3)', () => {
+  let navigateSpy: jest.SpyInstance
+  beforeEach(() => {
+    jest.spyOn(navigationRef, 'isReady').mockReturnValue(true)
+    navigateSpy = jest.spyOn(navigationRef, 'navigate').mockImplementation(() => {})
+  })
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  function mentionPost(): Post {
+    return post({
+      content: {mfm: 'hi @bob@ex.ample, see #cats', plain: 'hi @bob@ex.ample, see #cats'},
+      author: account(),
+      emojis: {},
+      ext: {},
+    })
+  }
+
+  it('E2: tapping an excerpt mention opens the profile, not the post', () => {
+    renderWithTheme(<NotificationRow notification={notification({post: mentionPost()})} />)
+    fireEvent.press(screen.getByText('@bob@ex.ample'))
+    expect(navigateSpy).toHaveBeenCalledWith('Main', {
+      screen: 'User',
+      params: {acct: 'bob@ex.ample'},
+    })
+    expect(navigateSpy).not.toHaveBeenCalledWith('Note', expect.anything())
+  })
+
+  it('E3: tapping an excerpt hashtag opens the Tag screen, not the post', () => {
+    renderWithTheme(<NotificationRow notification={notification({post: mentionPost()})} />)
+    fireEvent.press(screen.getByText('#cats'))
+    expect(navigateSpy).toHaveBeenCalledWith('Tag', {tag: 'cats'})
+    expect(navigateSpy).not.toHaveBeenCalledWith('Note', expect.anything())
+  })
+
+  it('tapping the excerpt body still opens the post', () => {
+    renderWithTheme(<NotificationRow notification={notification({post: mentionPost()})} />)
+    fireEvent.press(screen.getByTestId('notification-post-n1'))
+    expect(navigateSpy).toHaveBeenCalledWith('Note', {id: 'p1'})
   })
 })

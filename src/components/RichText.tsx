@@ -27,11 +27,12 @@ import {
   type ViewStyle,
 } from 'react-native'
 
-import {DEFAULT_EMOJI_STYLE, plainTextOf, type ContentNode, type EmojiStyle} from '@keystone/fedi'
+import {DEFAULT_EMOJI_STYLE, parseAcct, plainTextOf, type ContentNode, type EmojiStyle} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {CustomEmojiGlyph, UnicodeEmoji} from '#/components/EmojiImage'
 import {useContentMode} from '#/state/appearance'
+import {navigationRef} from '#/navigationRef'
 
 export type RichTextProps = {
   nodes: readonly ContentNode[]
@@ -85,6 +86,75 @@ const styles = StyleSheet.create({
 
 function openExternal(href: string) {
   void Linking.openURL(href).catch(() => {})
+}
+
+/** Profile navigation for a mention tap (E2): the `User` screen resolves
+ * an `acct` (`user` or `user@host`) through the session backend. Silent
+ * no-op in provider-less trees. */
+function openMentionProfile(acct: string) {
+  if (!navigationRef.isReady()) return
+  navigationRef.navigate('Main', {screen: 'User', params: {acct}} as never)
+}
+
+/** Tag navigation for a hashtag tap (E3): the tag route, never the
+ * browser. Silent no-op in provider-less trees. */
+function openTagPosts(tag: string) {
+  if (!navigationRef.isReady()) return
+  navigationRef.navigate('Tag', {tag})
+}
+
+/** Best-effort account handle from a profile URL (`/@user`,
+ * `/users/user` shapes — Mastodon/Misskey/Akkoma profile links).
+ * Returns `user@host` (bare hostname, no port) or null. Used when the
+ * mention label is not a full `user@host` handle — a bare `@user` label
+ * on a remote href, or a display-name label — where the server-provided
+ * URL is authoritative and the label is display text. Pure. */
+export function acctFromProfileUrl(href: string | null | undefined): string | null {
+  if (!href) return null
+  let url: URL
+  try {
+    url = new URL(href)
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+  const segments = url.pathname.split('/').filter(s => s.length > 0)
+  let username: string | null = null
+  if (segments.length >= 2 && segments[0] === 'users') username = segments[1] ?? null
+  else if (segments.length >= 1 && segments[0]?.startsWith('@')) username = segments[0].slice(1)
+  if (!username || !/^[\w-]+$/.test(username)) return null
+  if (!url.hostname) return null
+  return `${username}@${url.hostname}`
+}
+
+/** Default mention tap (E2): a full `user@host` label wins outright;
+ * otherwise the server-provided profile URL names the account (a bare
+ * `@user` label on a remote href, or a display-name label anywhere) —
+ * the URL is authoritative, the label is display text. A bare label with
+ * no URL resolves locally; only an unresolvable mention with a URL
+ * leaves the app (plain links still can). */
+export function defaultMentionPress(href: string | null, label: string): void {
+  const ref = parseAcct(label)
+  if (ref?.host) {
+    openMentionProfile(`${ref.username}@${ref.host}`)
+    return
+  }
+  const acct = acctFromProfileUrl(href)
+  if (acct) {
+    openMentionProfile(acct)
+    return
+  }
+  if (ref) {
+    openMentionProfile(ref.username)
+    return
+  }
+  if (href) openExternal(href)
+}
+
+/** Default hashtag tap (E3): the Tag screen, everywhere. Hashtags never
+ * open the browser — a tag is always a known in-app route. */
+export function defaultHashtagPress(tag: string): void {
+  openTagPosts(tag)
 }
 
 /** Visible label of a mention (`@user`, `@user@host`) for profile
@@ -265,7 +335,15 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
               </Text>
             )
           case 'mention': {
-            const pressable = node.href !== null || ctx.onMentionPress !== undefined
+            // Handler-less surfaces (bio, fields, notification excerpts)
+            // land in-app through the defaults — never the browser, never
+            // a dead tap for a resolvable mention.
+            const label = labelOf(node.children)
+            const pressable =
+              node.href !== null ||
+              ctx.onMentionPress !== undefined ||
+              parseAcct(label) !== null ||
+              acctFromProfileUrl(node.href) !== null
             return (
               <Text
                 key={key}
@@ -275,8 +353,8 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
                   pressable
                     ? () =>
                         ctx.onMentionPress
-                          ? ctx.onMentionPress(node.href, labelOf(node.children))
-                          : node.href && openExternal(node.href)
+                          ? ctx.onMentionPress(node.href, label)
+                          : defaultMentionPress(node.href, label)
                     : undefined
                 }>
                 <Inline nodes={node.children} ctx={ctx} depth={depth + 1} />
@@ -284,13 +362,15 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
             )
           }
           case 'hashtag':
+            // Handler-less surfaces land on the Tag screen through the
+            // default — hashtags never open the browser.
             return (
               <Text
                 key={key}
                 style={[styles.mention, {color: ctx.linkColor}]}
                 accessibilityRole="link"
                 onPress={() =>
-                  ctx.onHashtagPress ? ctx.onHashtagPress(node.tag) : node.href && openExternal(node.href)
+                  ctx.onHashtagPress ? ctx.onHashtagPress(node.tag) : defaultHashtagPress(node.tag)
                 }>
                 <Inline nodes={node.children} ctx={ctx} depth={depth + 1} />
               </Text>
