@@ -1,16 +1,38 @@
-import type {FeedSource, PostUpdateEvent, StreamHandle, StreamState} from '@keystone/fedi'
+import {QueryClient} from '@tanstack/react-query'
+
+import type {FeedSource, Notification, PostUpdateEvent, StreamHandle, StreamState} from '@keystone/fedi'
 import type {Post} from '@keystone/fedi'
 
 import {
   createFeedLive,
   createLiveRegistry,
   createPostLive,
+  feedSourceForDescriptor,
   feedSourceKey,
+  ingestLiveNotification,
   liveKey,
+  prependLivePosts,
+  removeLivePost,
 } from '#/state/streaming'
+import {feedQueryKey} from '#/state/queries/keys'
+import {notificationsFilterKey} from '#/state/queries/notifications'
+import {notificationsQueryKey} from '#/state/queries/keys'
 
 function fakePost(id: string): Post {
-  return {id} as Post
+  // author + content keep the row post-shaped for `patchPostInCaches`
+  // (bare `{id}` rows read as notification-shaped and are never dropped).
+  return {id, author: {id: 'a1'}, content: {plain: id}} as unknown as Post
+}
+
+function feedData(ids: string[]) {
+  return {
+    pages: [{items: ids.map(fakePost), cursor: null, end: true}],
+    pageParams: [null],
+  }
+}
+
+function notif(id: string): Notification {
+  return {id, read: false} as unknown as Notification
 }
 
 function fakeHandle(hooks: {
@@ -272,5 +294,178 @@ describe('createLiveRegistry', () => {
     expect(registry.size()).toBe(1)
     registry.clear()
     expect(registry.size()).toBe(0)
+  })
+})
+
+describe('feedSourceForDescriptor (WS-G)', () => {
+  it('maps channel-capable descriptors 1:1 onto FeedSource', () => {
+    expect(feedSourceForDescriptor('timeline|home')).toEqual({kind: 'home'})
+    expect(feedSourceForDescriptor('timeline|local')).toEqual({kind: 'local'})
+    expect(feedSourceForDescriptor('timeline|social')).toEqual({kind: 'social'})
+    expect(feedSourceForDescriptor('timeline|global')).toEqual({kind: 'global'})
+    expect(feedSourceForDescriptor('list|l1')).toEqual({listId: 'l1'})
+    expect(feedSourceForDescriptor('antenna|a1')).toEqual({antennaId: 'a1'})
+    expect(feedSourceForDescriptor('tag|cats')).toEqual({tag: 'cats'})
+  })
+
+  it('returns null for feeds with no live channel (paging-only, never faked)', () => {
+    for (const d of [
+      'clip|c1',
+      'bookmarks',
+      'mentions',
+      'user|u1|posts',
+      'user|u1|replies',
+      'search|query',
+      'explore|posts',
+    ]) {
+      expect(feedSourceForDescriptor(d)).toBeNull()
+    }
+    expect(feedSourceForDescriptor('bogus|descriptor')).toBeNull()
+  })
+})
+
+describe('createFeedLive pending + watch (WS-G)', () => {
+  it('notifies onPending per arrival, not for dedupe drops', () => {
+    const handle = fakeHandle()
+    let pending = 0
+    const live = createFeedLive({
+      handle,
+      source: {kind: 'home'},
+      knownIds: ['seen'],
+      onInsert: () => {},
+      onPending: () => (pending += 1),
+    })
+    handle.emitPost(fakePost('seen'))
+    handle.emitPost(fakePost('p1'))
+    expect(pending).toBe(1)
+    expect(live.pendingCount()).toBe(1)
+    live.dispose()
+  })
+
+  it('watch() is idempotent and routes deletes for late-watched ids', () => {
+    const base = fakeHandle()
+    const postHandlers = new Map<string, {onDeleted?: () => void}>()
+    const handle: StreamHandle = {
+      ...base,
+      subscribePost: (id: string, h) => {
+        postHandlers.set(id, h)
+        return () => {
+          postHandlers.delete(id)
+        }
+      },
+    }
+    const deleted: string[] = []
+    const live = createFeedLive({handle, source: {kind: 'home'}, onInsert: () => {}, onDelete: id => deleted.push(id)})
+    live.watch('late')
+    live.watch('late')
+    expect(postHandlers.has('late')).toBe(true)
+    postHandlers.get('late')?.onDeleted?.()
+    expect(deleted).toEqual(['late'])
+    live.dispose()
+  })
+
+  it('exposes the timeline channel state for the mount to stand down on gaps', () => {
+    const handle = fakeHandle()
+    const live = createFeedLive({handle, source: {kind: 'home'}, onInsert: () => {}})
+    expect(live.channelStatus()).toBe('subscribed')
+    live.dispose()
+    const disabled: StreamHandle = {
+      ...handle,
+      subscribeTimeline: () => ({unsubscribe: () => undefined, status: () => 'disabled' as const}),
+    }
+    const gap = createFeedLive({handle: disabled, source: {kind: 'social'}, onInsert: () => {}})
+    expect(gap.channelStatus()).toBe('disabled')
+    gap.dispose()
+  })
+})
+
+describe('prependLivePosts / removeLivePost (WS-G)', () => {
+  function clientWithFeed(): QueryClient {
+    const client = new QueryClient()
+    client.setQueryData(feedQueryKey('s', 'timeline|home'), feedData(['p1']))
+    return client
+  }
+
+  it('prepends newest-first and dedupes against the cache and the batch', () => {
+    const client = clientWithFeed()
+    const inserted = prependLivePosts(client, 's', 'timeline|home', [
+      fakePost('p2'),
+      fakePost('p1'),
+      fakePost('p2'),
+    ])
+    expect(inserted).toBe(1)
+    const data = client.getQueryData<{pages: Array<{items: Post[]}>}>(feedQueryKey('s', 'timeline|home'))!
+    expect(data.pages[0].items.map(p => p.id)).toEqual(['p2', 'p1'])
+  })
+
+  it('is a no-op without cached pages (the next fetch covers those posts)', () => {
+    const client = new QueryClient()
+    expect(prependLivePosts(client, 's', 'timeline|home', [fakePost('p9')])).toBe(0)
+    expect(prependLivePosts(client, 's', 'timeline|home', [])).toBe(0)
+  })
+
+  it('never touches another session’s cache', () => {
+    const client = clientWithFeed()
+    expect(prependLivePosts(client, 'other', 'timeline|home', [fakePost('p2')])).toBe(0)
+    const data = client.getQueryData<{pages: Array<{items: Post[]}>}>(feedQueryKey('s', 'timeline|home'))!
+    expect(data.pages[0].items.map(p => p.id)).toEqual(['p1'])
+  })
+
+  it('removeLivePost drops the row cache-wide via patchPostInCaches', () => {
+    const client = clientWithFeed()
+    expect(removeLivePost(client, 's', 'p1')).toBeGreaterThan(0)
+    const data = client.getQueryData<{pages: Array<{items: Post[]}>}>(feedQueryKey('s', 'timeline|home'))!
+    expect(data.pages[0].items).toEqual([])
+  })
+})
+
+describe('ingestLiveNotification (WS-G)', () => {
+  function clientWithNotifications(): QueryClient {
+    const client = new QueryClient()
+    client.setQueryData(notificationsQueryKey('s', notificationsFilterKey('all', true)), {
+      pages: [{items: [notif('n1')], cursor: null, end: true}],
+      pageParams: [null],
+    })
+    client.setQueryData(notificationsQueryKey('s', notificationsFilterKey('all', false)), {
+      pages: [{items: [notif('n1')], cursor: null, end: true}],
+      pageParams: [null],
+    })
+    client.setQueryData(notificationsQueryKey('s', notificationsFilterKey('mentions', true)), {
+      pages: [{items: [], cursor: null, end: true}],
+      pageParams: [null],
+    })
+    return client
+  }
+
+  function itemsOf(client: QueryClient, key: readonly unknown[]): string[] {
+    const data = client.getQueryData<{pages: Array<{items: Notification[]}>}>(key)
+    return data?.pages[0]?.items.map(n => n.id) ?? []
+  }
+
+  it('prepends into every `all` listing and invalidates filtered views', () => {
+    const client = clientWithNotifications()
+    const res = ingestLiveNotification(client, 's', notif('n2'))
+    expect(res).toEqual({prepended: 2, invalidated: 1})
+    expect(itemsOf(client, notificationsQueryKey('s', notificationsFilterKey('all', true)))).toEqual(['n2', 'n1'])
+    expect(itemsOf(client, notificationsQueryKey('s', notificationsFilterKey('all', false)))).toEqual(['n2', 'n1'])
+    const mentionsState = client.getQueryState(notificationsQueryKey('s', notificationsFilterKey('mentions', true)))
+    expect(mentionsState?.isInvalidated).toBe(true)
+  })
+
+  it('dedupes repeat deliveries (streaming redelivers on reconnect)', () => {
+    const client = clientWithNotifications()
+    ingestLiveNotification(client, 's', notif('n1'))
+    expect(itemsOf(client, notificationsQueryKey('s', notificationsFilterKey('all', true)))).toEqual(['n1'])
+  })
+
+  it('unknown filter shapes invalidate rather than guess (server is the filter authority)', () => {
+    const client = new QueryClient()
+    const oddKey = ['s', 'notifications', 'custom|grouped:0'] as const
+    client.setQueryData(oddKey as unknown as readonly unknown[], {
+      pages: [{items: [], cursor: null, end: true}],
+      pageParams: [null],
+    })
+    const res = ingestLiveNotification(client, 's', notif('n9'))
+    expect(res).toEqual({prepended: 0, invalidated: 1})
   })
 })
