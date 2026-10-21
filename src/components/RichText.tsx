@@ -8,8 +8,13 @@
 //
 // Node coverage: text, link, mention, hashtag, customEmoji (packed
 // sources only), unicodeEmoji (OpenMoji by default), bold,
-// italic, strike, code, codeBlock, quote, br. MFM `fn` extras degrade
-// to their children.
+// italic, strike, code, codeBlock, quote, br, plus the structural markers
+// `bullet` (list items), `heading` (h1–h6, styled by level) and
+// `invisible` (server-hidden spans: zero-width, never visible text).
+// MFM `fn` decorations render allow-listed styles (`x2`/`x3`/`x4`,
+// `size`/`scale`, `color`/`bg`, `rotate`, `font`, `small`, `center`);
+// motion (`spin`, `tada`, …), `blur` and unknown functions degrade to
+// their children — content is never dropped, effects never faked.
 
 import {Fragment, useMemo} from 'react'
 import {
@@ -56,6 +61,8 @@ type Ctx = {
   textColor: string
   codeBg: string
   quoteEdge: string
+  /** Set when rendering inside a centered block: every line centers. */
+  align?: 'center'
 }
 
 const styles = StyleSheet.create({
@@ -71,7 +78,8 @@ function openExternal(href: string) {
 }
 
 /** Visible label of a mention (`@user`, `@user@host`) for profile
- * resolution — text children concatenated, formatting transparent. */
+ * resolution — text children concatenated, formatting transparent.
+ * Structural markers contribute nothing. */
 function labelOf(nodes: readonly ContentNode[]): string {
   let out = ''
   for (const node of nodes) {
@@ -80,6 +88,131 @@ function labelOf(nodes: readonly ContentNode[]): string {
     else if ('children' in node) out += labelOf(node.children)
   }
   return out
+}
+
+// MFM decoration args (v1 `MfmRenderer` parity, real mfm-js 0.27 shapes):
+// `$[name.key=value …]` string values, `$[name.value …]` flag keys
+// (`{value: true}`), then any first string value. Unknown shapes degrade
+// to the children — content is never dropped, never faked.
+function fnArg(args: Record<string, string | true>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = args[key]
+    if (typeof value === 'string') return value
+  }
+  for (const key of Object.keys(args)) {
+    if (args[key] === true && key.length > 0) return key
+  }
+  for (const value of Object.values(args)) {
+    if (typeof value === 'string') return value
+  }
+  return null
+}
+
+function clampNum(raw: string | null, min: number, max: number, fallback: number): number {
+  if (raw === null) return fallback
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(max, Math.max(min, n))
+}
+
+/** Allow-listed MFM color: `#rgb`/`#rrggbb` only. Anything else (names,
+ * functions, URLs) is rejected — never a raw server string in a style. */
+function safeHexColor(raw: string | null): string | null {
+  if (!raw) return null
+  const trimmed = raw.trim()
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed) ? trimmed : null
+}
+
+/** Allow-listed MFM font: only families with a safe cross-platform
+ * mapping render; the rest degrade to the default. */
+function safeFontFamily(raw: string | null): 'monospace' | 'serif' | null {
+  const name = (raw ?? '').trim().toLowerCase()
+  if (name === 'monospace') return 'monospace'
+  if (name === 'serif') return 'serif'
+  return null
+}
+
+/** Heading size step over the body size, by level. */
+function headingDelta(level: number): number {
+  switch (level) {
+    case 1:
+      return 6
+    case 2:
+      return 4
+    case 3:
+      return 2
+    case 4:
+      return 1
+    case 5:
+      return 0
+    default:
+      return -1
+  }
+}
+
+// One MFM `fn` decoration. Static styles render; motion (`spin`, `tada`,
+// …), `blur` and unknown functions degrade to their children — the
+// renderer is motion-free by design (the OS reduced-motion setting is the
+// safe default, and per-node loops would cost every feed list), and RN
+// has no text-blur primitive to be honest with. Content never drops.
+//
+// Size changes thread through the context as well as the wrapper style,
+// so nested decorations compose multiplicatively (`$[x2 $[small …]]`).
+function Fn({node, ctx, depth}: {node: Extract<ContentNode, {kind: 'fn'}>; ctx: Ctx; depth: number}) {
+  const scaled = (size: number) => {
+    const next: Ctx = {...ctx, size}
+    return (
+      <Text style={{fontSize: size}}>
+        <Inline nodes={node.children} ctx={next} depth={depth + 1} />
+      </Text>
+    )
+  }
+  const inner = <Inline nodes={node.children} ctx={ctx} depth={depth + 1} />
+  switch (node.name) {
+    case 'x2':
+    case 'x3':
+    case 'x4': {
+      const mult = node.name === 'x2' ? 2 : node.name === 'x3' ? 3 : 4
+      return scaled(ctx.size * mult)
+    }
+    case 'size':
+    case 'scale': {
+      const mult = clampNum(fnArg(node.args, 'n', 'size', 'x'), 0.5, 4, 1)
+      if (mult === 1) return inner
+      return scaled(ctx.size * mult)
+    }
+    case 'small':
+      return scaled(ctx.size * 0.85)
+    case 'color':
+    case 'colour': {
+      const color = safeHexColor(fnArg(node.args, 'color', 'colour', 'c'))
+      if (color === null) return inner
+      return <Text style={{color}}>{inner}</Text>
+    }
+    case 'bg':
+    case 'background': {
+      const backgroundColor = safeHexColor(fnArg(node.args, 'color', 'colour', 'c'))
+      if (backgroundColor === null) return inner
+      return <Text style={{backgroundColor}}>{inner}</Text>
+    }
+    case 'rotate':
+    case 'rotation': {
+      const deg = clampNum(fnArg(node.args, 'deg'), -360, 360, 0)
+      if (deg === 0) return inner
+      return <Text style={{transform: [{rotate: `${deg}deg`}]}}>{inner}</Text>
+    }
+    case 'font': {
+      const fontFamily = safeFontFamily(fnArg(node.args, 'name'))
+      if (fontFamily === null) return inner
+      return <Text style={{fontFamily}}>{inner}</Text>
+    }
+    case 'center':
+      // Nested occurrences center best-effort; top-level `center` hoists
+      // to a block in Flow so the whole paragraph centers.
+      return <Text style={{textAlign: 'center'}}>{inner}</Text>
+    default:
+      return inner
+  }
 }
 
 // Inline nodes inside a parent <Text>. Block nodes (codeBlock, quote)
@@ -174,9 +307,26 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
                 {node.code}
               </Text>
             )
+          case 'bullet':
+            // List-item marker: the renderer owns the glyph so pruning can
+            // never leave a stray "• " text node behind.
+            return <Text key={key}>{'• '}</Text>
+          case 'heading': {
+            const size = ctx.size + headingDelta(node.level)
+            return (
+              <Text key={key} style={{fontWeight: '700', fontSize: size, lineHeight: size + 5}}>
+                <Inline nodes={node.children} ctx={ctx} depth={depth + 1} />
+              </Text>
+            )
+          }
+          case 'invisible':
+            // Server-hidden text: zero-width, never visible, never counted.
+            // The node survives in the AST (structure, not content); the
+            // renderer emits only a zero-width space so wrapping matches
+            // the server without ever showing the hidden run.
+            return <Fragment key={key}>{'\u200B'}</Fragment>
           case 'fn':
-            // MFM extras degrade to their children. Never interpreted.
-            return <Inline key={key} nodes={node.children} ctx={ctx} depth={depth + 1} />
+            return <Fn key={key} node={node} ctx={ctx} depth={depth} />
           case 'codeBlock':
           case 'quote':
             // Block nodes are hoisted by Flow; reaching here means a
@@ -197,11 +347,14 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
 }
 
 function isBlock(node: ContentNode): boolean {
-  return node.kind === 'codeBlock' || node.kind === 'quote'
+  if (node.kind === 'codeBlock' || node.kind === 'quote') return true
+  // A top-level `center` decoration is a block (the whole paragraph
+  // centers); nested occurrences stay inline best-effort.
+  return node.kind === 'fn' && node.name === 'center'
 }
 
 // Top-level flow: runs of inline nodes share one <Text>; block nodes
-// (codeBlock, quote) render as block views.
+// (codeBlock, quote, top-level center) render as block views.
 function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ctx: Ctx}) {
   const parts: React.ReactNode[] = []
   let run: ContentNode[] = []
@@ -209,7 +362,12 @@ function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ctx: Ctx}) {
   const flush = () => {
     if (run.length === 0) return
     parts.push(
-      <Text key={`t-${n++}`} style={{fontSize: ctx.size, lineHeight: ctx.size + 5, color: ctx.textColor}}>
+      <Text
+        key={`t-${n++}`}
+        style={[
+          {fontSize: ctx.size, lineHeight: ctx.size + 5, color: ctx.textColor},
+          ctx.align === 'center' ? {textAlign: 'center' as const} : null,
+        ]}>
         <Inline nodes={run} ctx={ctx} depth={n} />
       </Text>,
     )
@@ -231,6 +389,14 @@ function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ctx: Ctx}) {
       parts.push(
         <View key={`b-${n++}`} style={[styles.quote, {borderLeftColor: ctx.quoteEdge}]}>
           <Flow nodes={node.children} ctx={ctx} />
+        </View>,
+      )
+    } else if (node.kind === 'fn') {
+      // Top-level `center`: the whole paragraph centers (block view so
+      // the alignment actually applies on every target).
+      parts.push(
+        <View key={`b-${n++}`}>
+          <Flow nodes={node.children} ctx={{...ctx, align: 'center'}} />
         </View>,
       )
     }

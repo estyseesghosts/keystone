@@ -143,14 +143,17 @@ export function pruneTagBlocks(nodes: readonly ContentNode[]): TagPruneResult {
 // --- Workstream C: 750-char timeline fold ------------------------------------
 
 /** Nodes that are never sliced: emoji (one visible char), code (the
- * spec names code nodes atomic), and hashtag anchors (a cut `#ta` would
- * link wrong). Mentions/links cost 0 and are kept whole. */
+ * spec names code nodes atomic), the list bullet (one glyph), and hashtag
+ * anchors (a cut `#ta` would link wrong). Mentions/links cost 0 and are
+ * kept whole. Invisible nodes cost 0 and are always kept whole. */
 function isAtomic(node: ContentNode): boolean {
   switch (node.kind) {
     case "customEmoji":
     case "unicodeEmoji":
     case "code":
     case "codeBlock":
+    case "bullet":
+    case "invisible":
     case "hashtag":
       return true;
     default:
@@ -163,6 +166,10 @@ function atomCost(node: ContentNode): number {
   switch (node.kind) {
     case "text":
       return node.text.length;
+    case "bullet":
+      return 2; // the rendered "• " marker
+    case "invisible":
+      return 0; // never visible, never budgeted
     case "br":
     case "customEmoji":
     case "unicodeEmoji":

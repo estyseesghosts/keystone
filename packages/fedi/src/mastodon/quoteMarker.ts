@@ -62,6 +62,8 @@ function flatten(nodes: readonly ContentNode[], out: Token[] = []): Token[] {
       case "unicodeEmoji":
       case "code":
       case "codeBlock":
+      case "bullet":
+      case "invisible":
         out.push({ kind: "other", node });
         break;
       default:

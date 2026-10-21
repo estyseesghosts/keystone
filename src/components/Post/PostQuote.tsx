@@ -19,11 +19,14 @@ import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
 
-import {postBodyNodes, postEmojis} from './body'
+import {postBodyNodes, postEmojis, postTagBubble} from './body'
 import {PostMediaGrid} from './PostMediaGrid'
+import {TagBubble} from './TagBubble'
 
 const styles = StyleSheet.create({
   card: {borderWidth: 1, borderRadius: 10, padding: 8, marginTop: 8, gap: 4},
+  head: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  headText: {flex: 1, minWidth: 0},
 })
 
 export function PostQuote({
@@ -64,6 +67,11 @@ export function PostQuote({
     )
   }
   const nodes: ContentNode[] = postBodyNodes(quote)
+  // WS-B (F10): tag-block bubble in the quote head — MFM quotes bubble
+  // the pruned block tags (v1 `QuoteHead` parity); HTML quotes follow the
+  // card rule (every tag when a block was pruned). No bubble without
+  // blocks; the body stays pruned either way.
+  const quoteTags = postTagBubble(quote)
   // One level, first four attachments of any kind: the card stays
   // compact, and the viewer opens this exact slice at the tapped index.
   const slice = quote.media.slice(0, 4)
@@ -79,13 +87,23 @@ export function PostQuote({
       <View
         style={[styles.card, {borderColor: theme.palette.edge, backgroundColor: theme.palette.bg}]}
         testID={testID ? `${testID}-card` : undefined}>
-        <Caption color="muted" numberOfLines={1}>
-          <DisplayName
-            account={collapsed ? {...quote.author, displayName: handleOf(quote.author)} : quote.author}
-            size={14}
-          />
-          {collapsed ? null : ` @${quote.author.acct}`}
-        </Caption>
+        <View style={styles.head}>
+          <Caption color="muted" style={styles.headText} numberOfLines={1}>
+            <DisplayName
+              account={collapsed ? {...quote.author, displayName: handleOf(quote.author)} : quote.author}
+              size={14}
+            />
+            {collapsed ? null : ` @${quote.author.acct}`}
+          </Caption>
+          {/* WS-B (F10): tag-block bubble at the head end (v1 parity). */}
+          {quoteTags.hasBlocks ? (
+            <TagBubble
+              tags={quoteTags.tags}
+              onHashtagPress={onHashtagPress}
+              testID={testID ? `${testID}-tags` : undefined}
+            />
+          ) : null}
+        </View>
         {status ? (
           <Caption color="muted" testID={testID ? `${testID}-status` : undefined}>
             {status}

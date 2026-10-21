@@ -160,3 +160,16 @@ describe('accountKeyFor', () => {
     expect(b).toContain('https://b.example')
   })
 })
+
+describe('defaultAccountState (WS-B: contentMode is device-local)', () => {
+  it('carries no prefs — the old contentMode default was invalid', () => {
+    expect(defaultAccountState).toEqual({version: STORAGE_VERSION, prefs: {}})
+  })
+
+  it('strips unknown account prefs keys on read', () => {
+    const raw = JSON.stringify({version: 2, prefs: {contentMode: 'mfm'}})
+    expect(parseOrFallback(accountStateSchema, raw, defaultAccountState)).toEqual(
+      defaultAccountState,
+    )
+  })
+})
