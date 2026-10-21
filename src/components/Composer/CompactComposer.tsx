@@ -1,6 +1,7 @@
 import {useRef, useState} from 'react'
 import {
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable as RNPressable,
@@ -283,7 +284,15 @@ export function CompactComposer(props: ComposerProps) {
         <RNPressable
           ref={emojiAnchor}
           testID="composer-emoji-button"
-          onPress={() => setEmojiOpen(v => !v)}
+          onPress={() => {
+            // E5: the popup is a separate Modal window — on Android the
+            // soft keyboard covers modal content (no adjustResize there)
+            // and swallows the first tap. Dismissing first anchors the
+            // popup against the full window; the search field re-opens
+            // the keyboard on focus when the user wants it.
+            Keyboard.dismiss()
+            setEmojiOpen(v => !v)
+          }}
           accessibilityRole="button"
           accessibilityLabel={i18n._(msg`Insert emoji`)}
           hitSlop={8}
