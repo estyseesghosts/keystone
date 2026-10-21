@@ -55,7 +55,7 @@ import {ActionBar, StaticActionBar, toastError} from './ActionBar'
 import {badgesFor} from './badges'
 import {postBodyNodes, postEmojis, postTagBubble} from './body'
 import {usePostCardHandlers, type PostCardHandlers} from './handlers'
-import {LinkCard} from './LinkCard'
+import {LinkCard, UnfurledLinkCard, firstBareUrl} from './LinkCard'
 import {buildPostMenu, type PostMenuSection} from './menuModel'
 import {Lightbox} from '#/components/Lightbox'
 import {PostMediaGrid} from './PostMediaGrid'
@@ -587,6 +587,13 @@ function PostCardView({
     () => postBodyNodes(effective, {coveredQuoteUris}),
     [effective, coveredQuoteUris],
   )
+  // E9 honest client unfurl: a bare URL with no server card gets the
+  // tap-to-unfurl trigger (never an automatic fetch). Server card wins
+  // when present — one card per post, never two.
+  const unfurlUrl = useMemo(
+    () => (effective.card !== null ? null : firstBareUrl(fullNodes, coveredQuoteUris)),
+    [effective.card, fullNodes, coveredQuoteUris],
+  )
   // Timeline fold (F13): long bodies fold to the budget with an
   // in-place Show more/less toggle; the body tap still opens detail.
   const [expanded, setExpanded] = useState(false)
@@ -908,6 +915,9 @@ function PostCardView({
         )}
         {!bodyHidden && effective.card !== null && (
           <LinkCard card={effective.card} testID={`post-card-${post.id}`} />
+        )}
+        {!bodyHidden && effective.card === null && unfurlUrl !== null && (
+          <UnfurledLinkCard url={unfurlUrl} testID={`post-unfurl-${post.id}`} />
         )}
         <ReactionChips
           reactions={effective.reactions}

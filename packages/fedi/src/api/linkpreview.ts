@@ -7,7 +7,9 @@
 // worth knowing: the proxy operator sees which URLs users preview (hence
 // opt-in, off by default) — either leg failing just degrades to the
 // basic domain card, never an error. Results are cached in memory per URL
-// for the session.
+// for the session, and concurrent fetches for one URL share a single
+// in-flight request (E9 honest unfurl: tap-to-unfurl per card, never a
+// fetch storm).
 //
 // A first-party endpoint (Pinetree `url-preview`, or Misskey's where it
 // exists) should replace this: same card UI, `LinkCard` keeps its shape
@@ -37,6 +39,12 @@ const PREVIEW_TIMEOUT_MS = 10_000;
 const PREVIEW_MAX_BYTES = 256 * 1024;
 
 const previewCache = new Map<string, LinkPreview | null>();
+
+/** In-flight fetches by URL: concurrent callers share one promise, so N
+ * mounted cards for the same URL cost one fetch (E9: tap-to-unfurl per
+ * card, never a fetch storm). Entries are deleted on settle; the settled
+ * value lives in `previewCache` (hit or negative). */
+const inflight = new Map<string, Promise<LinkPreview | null>>();
 
 /** Injectable fetch (tests pass a stub; production uses global fetch). */
 export type PreviewFetch = (url: string, init?: RequestInit) => Promise<Response>;
@@ -198,13 +206,28 @@ function resolveAsset(raw: string | undefined, pageUrl: string): string | null {
 }
 
 /** Best-effort OpenGraph preview for a page URL, or null when anything
- * fails (network, proxy, parse, no usable tags). */
-export async function fetchLinkPreview(
+ * fails (network, proxy, parse, no usable tags). Single-flight per URL:
+ * concurrent calls share one fetch; settled results (hit or miss) come
+ * from the memory cache. */
+export function fetchLinkPreview(
   pageUrl: string,
   opts: PreviewOptions = {},
 ): Promise<LinkPreview | null> {
   const cached = previewCache.get(pageUrl);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) return Promise.resolve(cached);
+  const running = inflight.get(pageUrl);
+  if (running !== undefined) return running;
+  const task = loadPreview(pageUrl, opts).finally(() => {
+    if (inflight.get(pageUrl) === task) inflight.delete(pageUrl);
+  });
+  inflight.set(pageUrl, task);
+  return task;
+}
+
+async function loadPreview(
+  pageUrl: string,
+  opts: PreviewOptions,
+): Promise<LinkPreview | null> {
   let preview: LinkPreview | null = null;
   try {
     if (!isHttpUrl(pageUrl)) return null;
@@ -219,9 +242,12 @@ export async function fetchLinkPreview(
   return preview;
 }
 
-/** Clear the in-memory preview cache (tests). */
+/** Clear the in-memory preview cache (tests). In-flight joins are dropped
+ * too — a pending fetch still resolves for its holders, but the next call
+ * starts a fresh fetch. */
 export function clearPreviewCache(): void {
   previewCache.clear();
+  inflight.clear();
 }
 
 /** Host display for the basic card ("example.com", no scheme/path). */
