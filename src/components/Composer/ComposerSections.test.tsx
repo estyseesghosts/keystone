@@ -1,10 +1,11 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {useState} from 'react'
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 
 import {ThemeProvider} from '#/alf/index'
 
 import type {ComposerController} from './Composer'
-import {RecipientSection, ScheduleSection} from './ComposerSections'
+import {RecipientSection, ScheduledListSection, ScheduleSection, ServerDraftsSection} from './ComposerSections'
 
 type FakeState = {
   visibilityRaw: string
@@ -191,5 +192,138 @@ describe('ScheduleSection', () => {
       section: 'schedule',
     })
     expect(screen.queryByTestId('composer-schedule-invalid')).toBeNull()
+  })
+})
+
+describe('ScheduledListSection', () => {
+  const session = {id: 'sess-1'}
+  function scheduledBackend(list: unknown[]) {
+    return {
+      scheduled: {
+        list: jest.fn(async () => list),
+        delete: jest.fn(async () => undefined),
+      },
+    }
+  }
+  function listSetup(backend: unknown, scheduleEnabled = true) {
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    const c = {
+      session,
+      backend,
+      family: 'misskey',
+      gates: {schedule: scheduleEnabled ? {enabled: true} : {enabled: false, reason: 'no'}},
+      styles: {row: {}},
+    } as unknown as ComposerController
+    return render(
+      <QueryClientProvider client={qc}>
+        <ThemeProvider>
+          <ScheduledListSection c={c} />
+        </ThemeProvider>
+      </QueryClientProvider>,
+    )
+  }
+
+  it('lists scheduled posts and cancels one', async () => {
+    const backend = scheduledBackend([
+      {id: 's1', scheduledAt: new Date(Date.now() + 3600_000).toISOString(), post: null, draft: {text: 'later'}},
+    ])
+    listSetup(backend)
+    expect(await screen.findByTestId('composer-scheduled-s1')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('composer-scheduled-cancel-s1'))
+    await waitFor(() => expect(backend.scheduled.delete).toHaveBeenCalledWith('s1'))
+  })
+
+  it('renders nothing without the scheduled sub-module', () => {
+    listSetup({})
+    expect(screen.queryByTestId('composer-scheduled-list')).toBeNull()
+  })
+})
+
+describe('ServerDraftsSection', () => {
+  const session = {id: 'sess-1'}
+  const fullState = {
+    text: 'hi',
+    cw: '',
+    cwEnabled: false,
+    visibilityRaw: 'public',
+    visibleUserIds: [],
+    localOnly: false,
+    poll: null,
+    reactionAcceptance: null,
+    scheduledAt: null,
+    media: [],
+    replyTo: null,
+    quote: null,
+  }
+  function draftsBackend(list: unknown[]) {
+    return {
+      serverDrafts: {
+        list: jest.fn(async () => list),
+        create: jest.fn(async (d: unknown) => ({id: 'new-d', ...(d as object)})),
+        update: jest.fn(async (_id: string, d: unknown) => ({id: _id, ...(d as object)})),
+        delete: jest.fn(async () => undefined),
+      },
+    }
+  }
+  function draftsSetup(backend: unknown) {
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    const patch = jest.fn()
+    const setError = jest.fn()
+    const attachTargets = jest.fn()
+    const c = {
+      session,
+      backend,
+      family: 'misskey',
+      state: fullState,
+      patch,
+      setError,
+      attachTargets,
+      gates: {
+        poll: {enabled: false, reason: 'no'},
+        pollMultiple: {enabled: false, reason: 'no'},
+        localOnly: {enabled: false, reason: 'no'},
+        reactionAcceptance: {enabled: false, reason: 'no'},
+        schedule: {enabled: true},
+        quote: {enabled: true},
+      },
+      limits: {maxChars: 3000, maxMedia: 4, maxPollOptions: 4},
+      styles: {row: {}},
+    } as unknown as ComposerController
+    render(
+      <QueryClientProvider client={qc}>
+        <ThemeProvider>
+          <ServerDraftsSection c={c} />
+        </ThemeProvider>
+      </QueryClientProvider>,
+    )
+    return {patch, backend: backend as ReturnType<typeof draftsBackend>}
+  }
+
+  it('restores a server draft into the composer and deletes one', async () => {
+    const {patch, backend} = draftsSetup(
+      draftsBackend([
+        {id: 'd1', text: 'hello draft', cw: 'warn', visibilityRaw: 'home', replyId: 'p1', renoteId: null},
+      ]),
+    )
+    expect(await screen.findByTestId('composer-serverdraft-d1')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('composer-serverdraft-restore-d1'))
+    expect(patch).toHaveBeenCalledWith(
+      expect.objectContaining({text: 'hello draft', cw: 'warn', cwEnabled: true, visibilityRaw: 'home'}),
+    )
+    fireEvent.press(screen.getByTestId('composer-serverdraft-del-d1'))
+    await waitFor(() => expect(backend.serverDrafts.delete).toHaveBeenCalledWith('d1'))
+  })
+
+  it('saves the current composer state as a server draft', async () => {
+    const {backend} = draftsSetup(draftsBackend([]))
+    expect(await screen.findByText('No server drafts.')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('composer-serverdraft-save'))
+    await waitFor(() => expect(backend.serverDrafts.create).toHaveBeenCalled())
+    expect(backend.serverDrafts.create.mock.calls[0][0]).toMatchObject({text: 'hi'})
+  })
+
+  it('renders nothing without the serverDrafts sub-module', () => {
+    draftsSetup({})
+    expect(screen.queryByTestId('composer-server-drafts')).toBeNull()
   })
 })

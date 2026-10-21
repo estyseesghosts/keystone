@@ -1,11 +1,25 @@
 import {useState} from 'react'
 import {Image, View} from 'react-native'
 
+import {
+  buildPostDraft,
+  type ScheduledNote,
+  type ServerDraft,
+} from '@keystone/fedi'
+
 import {space} from '#/alf/tokens'
-import {Caption} from '#/alf/typography'
+import {Body, Caption} from '#/alf/typography'
 import {TextField} from '#/components/forms/TextField'
 import {Dialog} from '#/components/Dialog'
 import {EmojiPicker} from '#/components/EmojiPicker'
+import {Loader} from '#/components/Loader'
+import {
+  useCancelScheduled,
+  useDeleteServerDraft,
+  useSaveServerDraft,
+  useScheduledPosts,
+  useServerDrafts,
+} from '#/state/queries/composer'
 
 import {Chip} from './Chip'
 import type {ComposerController} from './Composer'
@@ -292,6 +306,160 @@ export function DraftsSection({c}: {c: ComposerController}) {
       {c.drafts.map(d => (
         <Chip key={d.id} label={d.text.slice(0, 40) || '(poll / CW only)'} onPress={() => c.restore(d)} />
       ))}
+    </View>
+  )
+}
+
+function scheduledSnippet(s: ScheduledNote): string {
+  if (s.post) return s.post.content.plain.slice(0, 80) || '(no text)'
+  const text = s.draft?.text
+  return typeof text === 'string' && text ? text.slice(0, 80) : '(no text)'
+}
+
+// Scheduled posts list + cancel (C8b). Rendered only where the backend
+// offers scheduling; the query stays disabled otherwise — never a faked
+// list. Mastodon's listing cannot preview bodies (`post: null`), so the
+// raw draft text is the fallback, never invented content.
+export function ScheduledListSection({c}: {c: ComposerController}) {
+  const list = useScheduledPosts(c.session, c.backend)
+  const cancel = useCancelScheduled(c.session, c.backend)
+  if (!c.gates.schedule.enabled || !c.backend.scheduled) return null
+  return (
+    <View style={{gap: space.sm}} testID="composer-scheduled-list">
+      <Caption color="muted">Scheduled posts</Caption>
+      {list.isPending ? (
+        <Loader testID="composer-scheduled-loading" />
+      ) : list.isError ? (
+        <Caption color="faint">Could not load scheduled posts.</Caption>
+      ) : list.data.length === 0 ? (
+        <Caption color="muted">No scheduled posts.</Caption>
+      ) : (
+        list.data.map(s => (
+          <View key={s.id} style={c.styles.row}>
+            <Caption color="muted" testID={`composer-scheduled-${s.id}`}>
+              {new Date(s.scheduledAt).toLocaleString()} — {scheduledSnippet(s)}
+            </Caption>
+            <Chip
+              label="Cancel"
+              disabled={cancel.isPending}
+              onPress={() =>
+                cancel.mutate(s.id, {
+                  onError: err => c.setError(err instanceof Error ? err.message : 'Could not cancel.'),
+                })
+              }
+              testID={`composer-scheduled-cancel-${s.id}`}
+            />
+          </View>
+        ))
+      )}
+    </View>
+  )
+}
+
+function serverDraftSnippet(d: ServerDraft): string {
+  return d.text?.slice(0, 80) || '(no text)'
+}
+
+// Server-side drafts (C9/MK5): list, restore into the composer, delete,
+// and save the current composer state. Rendered only where the backend
+// offers `serverDrafts` (Misskey family) — Mastodon never sees this block.
+// Restoring brings text/CW/visibility/recipients/schedule/poll and
+// reply/quote targets; attachments stay on the server draft and must be
+// re-attached (local files cannot round-trip through a listing).
+export function ServerDraftsSection({c}: {c: ComposerController}) {
+  const list = useServerDrafts(c.session, c.backend)
+  const save = useSaveServerDraft(c.session, c.backend)
+  const del = useDeleteServerDraft(c.session, c.backend)
+  const [busy, setBusy] = useState(false)
+  if (!c.backend.serverDrafts) return null
+
+  const restore = (d: ServerDraft) => {
+    c.patch({
+      text: d.text ?? '',
+      cw: d.cw ?? '',
+      cwEnabled: (d.cw ?? '') !== '',
+      visibilityRaw: d.visibilityRaw ?? c.state.visibilityRaw,
+      visibleUserIds: d.visibleUserIds ?? [],
+      localOnly: d.localOnly ?? false,
+      scheduledAt: d.scheduledAt ?? null,
+      poll:
+        d.poll && Array.isArray(d.poll.choices) && typeof d.poll.expiredAfter === 'number'
+          ? {
+              choices: d.poll.choices,
+              multiple: d.poll.multiple ?? false,
+              durationSeconds: Math.max(
+                1,
+                Math.round(
+                  c.family === 'mastodon' ? d.poll.expiredAfter : d.poll.expiredAfter / 1000,
+                ),
+              ),
+            }
+          : null,
+    })
+    if (d.replyId || d.renoteId) void c.attachTargets(d.replyId ?? null, d.renoteId ?? null)
+  }
+
+  const saveCurrent = async () => {
+    setBusy(true)
+    try {
+      const built = buildPostDraft(
+        {...c.state, media: []},
+        {family: c.family, gates: c.gates, limits: c.limits},
+      )
+      if (!built.ok) {
+        c.setError(built.reason)
+        return
+      }
+      await save.mutateAsync({draft: {...built.draft, scheduledAt: built.scheduledAt}})
+    } catch (err) {
+      c.setError(err instanceof Error ? err.message : 'Could not save the draft.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <View style={{gap: space.sm}} testID="composer-server-drafts">
+      <Caption color="muted">Server drafts</Caption>
+      {list.isPending ? (
+        <Loader testID="composer-server-drafts-loading" />
+      ) : list.isError ? (
+        <Caption color="faint">Could not load server drafts.</Caption>
+      ) : list.data.length === 0 ? (
+        <Caption color="muted">No server drafts.</Caption>
+      ) : (
+        list.data.map(d => (
+          <View key={d.id} style={c.styles.row}>
+            <Caption color="muted" testID={`composer-serverdraft-${d.id}`}>
+              {serverDraftSnippet(d)}
+            </Caption>
+            <Chip
+              label="Restore"
+              onPress={() => restore(d)}
+              testID={`composer-serverdraft-restore-${d.id}`}
+            />
+            <Chip
+              label="Delete"
+              disabled={del.isPending}
+              onPress={() =>
+                del.mutate(d.id, {
+                  onError: err => c.setError(err instanceof Error ? err.message : 'Could not delete.'),
+                })
+              }
+              testID={`composer-serverdraft-del-${d.id}`}
+            />
+          </View>
+        ))
+      )}
+      <View style={c.styles.row}>
+        <Chip
+          label={busy || save.isPending ? 'Saving…' : 'Save current as server draft'}
+          disabled={busy || save.isPending}
+          onPress={() => void saveCurrent()}
+          testID="composer-serverdraft-save"
+        />
+      </View>
+      {save.isError ? <Body testID="composer-serverdraft-error">Could not save the draft.</Body> : null}
     </View>
   )
 }

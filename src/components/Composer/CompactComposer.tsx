@@ -42,7 +42,9 @@ import {
   CwSection,
   PollSection,
   RecipientSection,
+  ScheduledListSection,
   ScheduleSection,
+  ServerDraftsSection,
   UploadsSection,
 } from './ComposerSections'
 import {SuggestionList} from './Autocomplete'
@@ -135,13 +137,15 @@ export function CompactComposer(props: ComposerProps) {
   const CurrentIcon = KIND_ICON[current.kind] ?? GlobeIcon
   const advancedActive =
     c.state.reactionAcceptance != null || c.state.localOnly || c.state.scheduledAt != null
-  const submitLabel = c.state.scheduledAt && c.gates.schedule.enabled
-    ? 'Schedule'
-    : c.state.replyTo
-      ? 'Reply'
-      : c.state.quote
-        ? 'Quote'
-        : 'Post'
+  const submitLabel = c.editing
+    ? 'Save'
+    : c.state.scheduledAt && c.gates.schedule.enabled
+      ? 'Schedule'
+      : c.state.replyTo
+        ? 'Reply'
+        : c.state.quote
+          ? 'Quote'
+          : 'Post'
   const remaining = c.limits.maxChars - c.count
   const avatarUri = c.session.user?.avatarUrl ?? null
   const avatarName = c.session.user?.displayName ?? c.session.accountId
@@ -353,7 +357,7 @@ export function CompactComposer(props: ComposerProps) {
               <PopupDesc>Visible only on this server</PopupDesc>
             </PopupRow>
           ) : null}
-          {c.gates.schedule.enabled ? (
+          {c.gates.schedule.enabled && !c.editing ? (
             <PopupRow
               testID="composer-schedule-toggle"
               label={c.state.scheduledAt ? 'Post now instead' : 'Schedule…'}
@@ -375,6 +379,12 @@ export function CompactComposer(props: ComposerProps) {
               <ScheduleSection c={c} />
             </View>
           ) : null}
+          <View style={styles.draftList}>
+            <ScheduledListSection c={c} />
+          </View>
+          <View style={styles.draftList}>
+            <ServerDraftsSection c={c} />
+          </View>
           <PopupRow
             testID="composer-drafts-toggle"
             label={c.drafts.length > 0 ? `Drafts (${c.drafts.length})` : 'Drafts'}

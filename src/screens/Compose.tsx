@@ -24,16 +24,16 @@ import {appStorage} from '#/storage'
 // Compose route (slice 4.3): floating overlay over the current screen
 // (v1 `.postbox-overlay`): dimmed backdrop (tap = close) + centered card.
 // Mobile goes full-bleed like the reference client; wider shells get the
-// 600px card. Resolves reply/quote targets through the ACTIVE session's
-// backend. Params: replyToId, quoteId, draftId.
+// 600px card. Resolves reply/quote/edit targets through the ACTIVE session's
+// backend. Params: replyToId, quoteId, draftId, editId.
 export function ComposeScreen() {
   const route = useRoute<RouteProp<RootParamList, 'Compose'>>()
   const nav = useNavigation()
   const layout = useShellLayout()
   const alf = useAlfTheme()
   const {session, backend} = useActiveBackend()
-  const {replyToId, quoteId, draftId} = route.params ?? {}
-  const [targets, setTargets] = useState<{replyTo: Post | null; quote: Post | null} | null>(null)
+  const {replyToId, quoteId, draftId, editId} = route.params ?? {}
+  const [targets, setTargets] = useState<{replyTo: Post | null; quote: Post | null; editing: Post | null} | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
 
   const close = () => {
@@ -76,14 +76,15 @@ export function ComposeScreen() {
     Promise.all([
       replyToId ? backend.post(replyToId) : Promise.resolve(null),
       quoteId ? backend.post(quoteId) : Promise.resolve(null),
+      editId ? backend.post(editId) : Promise.resolve(null),
     ]).then(
-      ([replyTo, quote]) => !cancelled && setTargets({replyTo, quote}),
+      ([replyTo, quote, editing]) => !cancelled && setTargets({replyTo, quote, editing}),
       err => !cancelled && setFailed(err instanceof Error ? err.message : 'Could not load the post.'),
     )
     return () => {
       cancelled = true
     }
-  }, [backend, session?.id, replyToId, quoteId])
+  }, [backend, session?.id, replyToId, quoteId, editId])
 
   if (!session || !backend) {
     return shell(
@@ -111,12 +112,13 @@ export function ComposeScreen() {
   return shell(
     <CompactComposer
       // Remount when the account or target changes: state never carries across.
-      key={`${session.id}|${replyToId ?? ''}|${quoteId ?? ''}|${draftId ?? ''}`}
+      key={`${session.id}|${replyToId ?? ''}|${quoteId ?? ''}|${draftId ?? ''}|${editId ?? ''}`}
       session={session}
       backend={backend}
       store={appStorage()}
       replyTo={targets.replyTo}
       quote={targets.quote}
+      editing={targets.editing}
       draftId={draftId ?? null}
       onClose={close}
     />,

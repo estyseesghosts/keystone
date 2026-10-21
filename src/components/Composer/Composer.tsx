@@ -27,6 +27,7 @@ import {Button} from '#/components/Button'
 import {
   useComposeLimits,
   useCreatePost,
+  useEditPost,
   useSessionCustomEmojis,
   useUploads,
 } from '#/state/queries/composer'
@@ -45,7 +46,9 @@ import {
   DraftsSection,
   PollSection,
   RecipientSection,
+  ScheduledListSection,
   ScheduleSection,
+  ServerDraftsSection,
   SuggestEmojiSection,
   UploadsSection,
 } from './ComposerSections'
@@ -69,6 +72,10 @@ export interface ComposerProps {
   store: KeyValueStore
   replyTo?: Post | null
   quote?: Post | null
+  /** Edit mode: seed text/CW/visibility from this post and save via
+   * `backend.editPost` instead of creating. Reply/quote/schedule/poll
+   * controls are hidden — the server keeps what the edit does not send. */
+  editing?: Post | null
   /** Restore this local draft on open. */
   draftId?: string | null
   /** Dismiss the composer. Omit for the inline (home) composer, which has
@@ -99,6 +106,7 @@ export function useComposerController({
   store,
   replyTo = null,
   quote = null,
+  editing = null,
   draftId = null,
   onClose,
   onPosted,
@@ -114,9 +122,25 @@ export function useComposerController({
   const emojis = useSessionCustomEmojis(session, backend)
   const uploads = useUploads(backend)
   const create = useCreatePost(session, backend)
+  const edit = useEditPost(session, backend)
 
   const [id] = useState(() => draftId ?? newDraftId())
   const [state, setState] = useState<ComposeState>(() => {
+    if (editing) {
+      // Edit mode seeds from the post, never from a draft: the text is the
+      // source MFM where the server packed it (plain otherwise), the CW
+      // re-arms when present, and the visibility round-trips verbatim.
+      const cw = editing.cw ?? ''
+      return emptyComposeState({
+        visibilityRaw: editing.visibility.raw,
+        localOnly: editing.visibility.localOnly,
+        replyTo: null,
+        quote: null,
+        text: editing.content.mfm ?? editing.content.plain,
+        cw,
+        cwEnabled: cw !== '',
+      })
+    }
     const restored = draftId ? listDrafts(store, session.id).find(d => d.id === draftId) : null
     return emptyComposeState({
       visibilityRaw: defaultVisibilityFor(family, replyTo).raw,
@@ -226,6 +250,46 @@ export function useComposerController({
   const submit = async () => {
     setError(null)
     setNotice(null)
+    // Edit mode (C7): validate the same rules, then save through
+    // `backend.editPost` (the hook patches every cached copy). Uploads
+    // replace the attachment set only when the user added new ones —
+    // otherwise the post's own media ids ride along so the edit cannot
+    // silently strip attachments. Polls are server-kept (the edit wire
+    // has no poll fields) and scheduling an edit is refused by hiding
+    // the control, not by erroring here.
+    if (editing) {
+      const pre = buildPostDraft({...state, replyTo: null, quote: null}, {family, gates, limits})
+      if (!pre.ok) {
+        setError(pre.reason)
+        return
+      }
+      setBusy(true)
+      try {
+        let mediaIds: string[] | undefined
+        if (uploads.items.length > 0) {
+          const ids = await uploads.ensureUploaded()
+          if (!ids) {
+            setError('Some attachments failed to upload. Retry or remove them.')
+            return
+          }
+          mediaIds = ids
+        }
+        const keepMediaIds = mediaIds ?? editing.mediaIds ?? []
+        await edit.mutateAsync({
+          id: editing.id,
+          draft: {...pre.draft, ...(keepMediaIds.length > 0 ? {mediaIds: keepMediaIds} : {})},
+        })
+        postedRef.current = true
+        deleteDraft(store, session.id, id)
+        onPosted?.('posted')
+        onClose?.()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not save the edit.')
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
     // Validate text rules first (media ids are filled after upload).
     const pre = buildPostDraft(
       {...state, media: uploads.items.map(u => ({id: u.mediaId ?? u.key, alt: u.alt}))},
@@ -349,7 +413,7 @@ export function useComposerController({
     pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
     submit, addMedia, styles, restore, drafts,
-    session, backend, store, replyTo, quote, draftId, onClose, onPosted,
+    session, backend, store, replyTo, quote, draftId, editing, onClose, onPosted,
   }
 }
 
@@ -363,7 +427,7 @@ export function Composer(props: ComposerProps) {
     notice, pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
     submit, addMedia, styles, restore, drafts,
-    session, backend, store, draftId, onClose,
+    session, backend, store, draftId, editing, onClose,
   } = controller
   // Reply/quote context reads STATE, not props: restoring a draft re-attaches
   // its targets into state (C6), and state initializes from props otherwise.
@@ -377,7 +441,7 @@ export function Composer(props: ComposerProps) {
           <Button label="Cancel" variant="secondary" onPress={onClose} testID="composer-cancel" />
         ) : null}
         <Button
-          label={state.scheduledAt && gates.schedule.enabled ? 'Schedule' : 'Post'}
+          label={editing ? 'Save' : state.scheduledAt && gates.schedule.enabled ? 'Schedule' : 'Post'}
           onPress={submit}
           disabled={busy || over}
           disabledReason={over ? 'Over the character limit.' : busy ? 'Posting...' : undefined}
@@ -393,6 +457,11 @@ export function Composer(props: ComposerProps) {
       {quote ? (
         <View style={styles.context} testID="composer-quote-context">
           <Caption color="muted">Quoting @{quote.author.acct}</Caption>
+        </View>
+      ) : null}
+      {editing ? (
+        <View style={styles.context} testID="composer-edit-context">
+          <Caption color="muted">Editing your post</Caption>
         </View>
       ) : null}
 
@@ -483,7 +552,7 @@ export function Composer(props: ComposerProps) {
           onPress={addMedia}
           testID="composer-media-add"
         />
-        {gates.schedule.enabled ? (
+        {gates.schedule.enabled && !editing ? (
           <Chip
             label="Schedule"
             selected={state.scheduledAt != null}
@@ -526,6 +595,10 @@ export function Composer(props: ComposerProps) {
       <UploadsSection c={controller} />
 
       <DraftsSection c={controller} />
+
+      <ScheduledListSection c={controller} />
+
+      <ServerDraftsSection c={controller} />
     </ScrollView>
   )
 }

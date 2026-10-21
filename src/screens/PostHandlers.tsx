@@ -14,10 +14,9 @@ import type {RootParamList} from '#/routes'
 import {graphControllerFor} from '#/state/queries'
 import {useOptionalSessionStore, useSessionStore} from '#/state/session/SessionProvider'
 
-// App-wide PostCard handlers (slice 4.6): reply/quote -> Compose route,
+// App-wide PostCard handlers (slice 4.6): reply/quote/edit -> Compose route,
 // mute/block through the graph controller. Reaction picking lives in the
-// action bar's anchored emoji popup, not here. Edit stays unset (Composer
-// has no edit mode yet), so PostCard renders it disabled with a reason.
+// action bar's anchored emoji popup, not here.
 
 export function PostHandlersProvider({children}: {children: React.ReactNode}) {
   // Bare navigation trees (tests) have no session/query providers: no handlers.
@@ -64,6 +63,7 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
     () => ({
       onReply: post => nav.navigate('Compose', {replyToId: post.id}),
       onQuote: post => nav.navigate('Compose', {quoteId: post.id}),
+      onEdit: post => nav.navigate('Compose', {editId: post.id}),
       userFor,
     }),
     [nav, userFor],

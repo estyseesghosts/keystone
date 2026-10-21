@@ -194,4 +194,36 @@ describe('Composer', () => {
     expect(await screen.findByText('Replying to @alice')).toBeTruthy()
     expect(await screen.findByText('Quoting @bob')).toBeTruthy()
   })
+
+  it('saves edits through editPost and keeps existing attachments', async () => {
+    const editing = {
+      id: 'p9',
+      content: {mfm: 'orig', plain: 'orig'},
+      cw: null,
+      visibility: {kind: 'public', localOnly: false, raw: 'public'},
+      mediaIds: ['m1'],
+      author: {id: 'me'},
+    } as never
+    const store = createMemoryStore()
+    const s = session('misskey', 'sharkey')
+    const updated = {...(editing as object), content: {mfm: 'fixed', plain: 'fixed'}}
+    const editPost = jest.fn().mockResolvedValue(updated)
+    const backend = backendFor('sharkey', {editPost})
+    const onClose = jest.fn()
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <QueryClientProvider client={qc}>
+        <ThemeProvider>
+          <Composer session={s} backend={backend} store={store} editing={editing} onClose={onClose} />
+        </ThemeProvider>
+      </QueryClientProvider>,
+    )
+    expect(screen.getByTestId('composer-text').props.value).toBe('orig')
+    expect(screen.getByTestId('composer-edit-context')).toBeTruthy()
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'fixed')
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(editPost).toHaveBeenCalledTimes(1))
+    expect(editPost).toHaveBeenCalledWith('p9', expect.objectContaining({mediaIds: ['m1']}))
+    expect(onClose).toHaveBeenCalled()
+  })
 })
