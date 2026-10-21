@@ -41,6 +41,7 @@ export const FEDI_ERROR_MESSAGES: Record<string, MessageDescriptor> = {
   'errors.unsupported.noAccountRef': msg({id: 'errors.unsupported.noAccountRef', message: 'No account reference given.'}),
   'errors.unsupported.noAccountFound': msg({id: 'errors.unsupported.noAccountFound', message: 'No account found for {acct}.'}),
   'errors.unsupported.boostVisibility': msg({id: 'errors.unsupported.boostVisibility', message: 'You can only change boost visibility for accounts you follow.'}),
+  'errors.unsupported.profileField': msg({id: 'errors.unsupported.profileField', message: 'This server has no profile field for {fields}.'}),
   'errors.shape.createdPost': msg({id: 'errors.shape.createdPost', message: 'The server did not return the created post.'}),
   'errors.shape.createdList': msg({id: 'errors.shape.createdList', message: 'The server did not return the created list.'}),
   'errors.shape.updatedList': msg({id: 'errors.shape.updatedList', message: 'The server did not return the updated list.'}),

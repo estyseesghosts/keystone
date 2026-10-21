@@ -36,6 +36,7 @@ describe('localeErrors', () => {
       'errors.unsupported.noAccountRef',
       'errors.unsupported.noAccountFound',
       'errors.unsupported.boostVisibility',
+      'errors.unsupported.profileField',
       'errors.shape.createdPost',
       'errors.shape.createdList',
       'errors.shape.updatedList',
@@ -60,7 +61,7 @@ describe('localeErrors', () => {
       'errors.filter.invalidRegex',
       'errors.feeds.invalidDescriptor',
     ]
-    expect(codes).toHaveLength(51)
+    expect(codes).toHaveLength(52)
     for (const code of codes) expect(isKnownErrorCode(code)).toBe(true)
   })
 

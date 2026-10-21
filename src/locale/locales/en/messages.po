@@ -51,7 +51,7 @@ msgstr "{0} and {rest} other{1} boosted"
 msgid "{0} boosted"
 msgstr "{0} boosted"
 
-#: src/screens/HomeFeed.tsx:239
+#: src/screens/HomeFeed.tsx:211
 msgid "{newCount} new posts"
 msgstr "{newCount} new posts"
 
@@ -66,11 +66,6 @@ msgstr "{unread} new"
 #: src/components/Post/menuModel.ts:86
 msgid "{what} is not available in this build yet."
 msgstr "{what} is not available in this build yet."
-
-#. placeholder {0}: post.author.username
-#: src/screens/HomeFeed.tsx:88
-msgid "@{0} reposted"
-msgstr "@{0} reposted"
 
 #: src/components/Composer/ComposerSections.tsx:283
 msgid "@user or @user@host"
@@ -108,7 +103,7 @@ msgid "Accessibility and display"
 msgstr "Accessibility and display"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:56
+#: src/lib/localeErrors.ts:57
 msgid "errors.shape.account"
 msgstr "Account {id} returned an unexpected response shape."
 
@@ -136,7 +131,7 @@ msgid "Accounts whose reposts are hidden."
 msgstr "Accounts whose reposts are hidden."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:71
+#: src/lib/localeErrors.ts:72
 msgid "errors.compose.actionFailed"
 msgstr "Action failed."
 
@@ -342,7 +337,7 @@ msgstr "Browser sign-in — approve on {0}."
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/screens/HomeFeed.tsx:227
+#: src/screens/HomeFeed.tsx:199
 msgid "Check your connection and try again."
 msgstr "Check your connection and try again."
 
@@ -449,7 +444,7 @@ msgstr "Could not delete."
 msgid "Could not load filters."
 msgstr "Could not load filters."
 
-#: src/screens/HomeFeed.tsx:287
+#: src/screens/HomeFeed.tsx:259
 msgid "Could not load more posts."
 msgstr "Could not load more posts."
 
@@ -473,7 +468,7 @@ msgstr "Could not load scheduled posts."
 msgid "Could not load server drafts."
 msgstr "Could not load server drafts."
 
-#: src/screens/HomeFeed.tsx:223
+#: src/screens/HomeFeed.tsx:195
 msgid "Could not load this feed."
 msgstr "Could not load this feed."
 
@@ -558,11 +553,6 @@ msgstr "Current language."
 #: src/components/Composer/Composer.tsx:550
 msgid "CW"
 msgstr "CW"
-
-#. placeholder {0}: shown.cw
-#: src/screens/HomeFeed.tsx:97
-msgid "CW: {0}"
-msgstr "CW: {0}"
 
 #: src/components/Settings/DisplaySection.tsx:47
 msgid "Dark"
@@ -675,7 +665,7 @@ msgid "example.social"
 msgstr "example.social"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:62
+#: src/lib/localeErrors.ts:63
 msgid "errors.shape.expectedList"
 msgstr "Expected a {kind} list (HTTP {status})."
 
@@ -718,12 +708,12 @@ msgstr "Federated"
 msgid "Feeds"
 msgstr "Feeds"
 
-#: src/screens/HomeFeed.tsx:200
+#: src/screens/HomeFeed.tsx:172
 msgid "Feeds never show sample data when signed out."
 msgstr "Feeds never show sample data when signed out."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:64
+#: src/lib/localeErrors.ts:65
 msgid "errors.compose.fileTooLarge"
 msgstr "File is too large ({kb} KB — limit is 10 MB)."
 
@@ -842,12 +832,12 @@ msgid "Insert emoji"
 msgstr "Insert emoji"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:66
+#: src/lib/localeErrors.ts:67
 msgid "errors.feeds.invalidDescriptor"
 msgstr "Invalid feed descriptor."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:65
+#: src/lib/localeErrors.ts:66
 msgid "errors.filter.invalidRegex"
 msgstr "Invalid regular expression on line {line}."
 
@@ -913,7 +903,7 @@ msgstr "Lists"
 msgid "Loading account…"
 msgstr "Loading account…"
 
-#: src/screens/HomeFeed.tsx:118
+#: src/screens/HomeFeed.tsx:90
 msgid "Loading feed"
 msgstr "Loading feed"
 
@@ -972,7 +962,7 @@ msgid "Media"
 msgstr "Media"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:54
+#: src/lib/localeErrors.ts:55
 msgid "errors.shape.mediaLookup"
 msgstr "Media lookup returned an unexpected response shape."
 
@@ -1153,7 +1143,7 @@ msgid "Not offered yet."
 msgstr "Not offered yet."
 
 #: src/components/Settings/AccountSection.tsx:141
-#: src/screens/HomeFeed.tsx:223
+#: src/screens/HomeFeed.tsx:195
 msgid "Not on this server."
 msgstr "Not on this server."
 
@@ -1174,7 +1164,7 @@ msgstr "Not wired yet — the backend has no list endpoint."
 msgid "Note"
 msgstr "Note"
 
-#: src/screens/HomeFeed.tsx:276
+#: src/screens/HomeFeed.tsx:248
 msgid "Nothing here yet."
 msgstr "Nothing here yet."
 
@@ -1437,7 +1427,7 @@ msgstr "Profile preview for {name}"
 msgid "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 msgstr "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 
-#: src/screens/HomeFeed.tsx:277
+#: src/screens/HomeFeed.tsx:249
 msgid "Pull to refresh."
 msgstr "Pull to refresh."
 
@@ -1520,7 +1510,7 @@ msgid "Related tags"
 msgstr "Related tags"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:52
+#: src/lib/localeErrors.ts:53
 msgid "errors.shape.relationships"
 msgstr "Relationships returned an unexpected response shape."
 
@@ -1625,8 +1615,8 @@ msgstr "Restore draft: {0}"
 #: src/screens/Explore.tsx:248
 #: src/screens/Explore.tsx:381
 #: src/screens/Explore.tsx:498
-#: src/screens/HomeFeed.tsx:229
-#: src/screens/HomeFeed.tsx:289
+#: src/screens/HomeFeed.tsx:201
+#: src/screens/HomeFeed.tsx:261
 #: src/screens/Notifications.tsx:317
 #: src/screens/Notifications.tsx:352
 #: src/screens/User.tsx:148
@@ -1846,7 +1836,7 @@ msgstr "Sign in to see notifications."
 msgid "Sign in to see suggested users."
 msgstr "Sign in to see suggested users."
 
-#: src/screens/HomeFeed.tsx:199
+#: src/screens/HomeFeed.tsx:171
 msgid "Sign in to see this feed."
 msgstr "Sign in to see this feed."
 
@@ -1920,12 +1910,12 @@ msgid "Someone"
 msgstr "Someone"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:57
+#: src/lib/localeErrors.ts:58
 msgid "errors.shape.status"
 msgstr "Status {id} returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:53
+#: src/lib/localeErrors.ts:54
 msgid "errors.shape.statusContext"
 msgstr "Status context returned an unexpected response shape."
 
@@ -1938,7 +1928,7 @@ msgid "Submitting…"
 msgstr "Submitting…"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:61
+#: src/lib/localeErrors.ts:62
 msgid "errors.shape.suggestions"
 msgstr "Suggestions returned an unexpected response shape."
 
@@ -1978,32 +1968,32 @@ msgid "errors.auth.noKeystoneToken"
 msgstr "The server did not issue a Keystone token for this session."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:45
+#: src/lib/localeErrors.ts:46
 msgid "errors.shape.createdList"
 msgstr "The server did not return the created list."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:44
+#: src/lib/localeErrors.ts:45
 msgid "errors.shape.createdPost"
 msgstr "The server did not return the created post."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:50
+#: src/lib/localeErrors.ts:51
 msgid "errors.shape.noScheduled"
 msgstr "The server did not return the scheduled status."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:46
+#: src/lib/localeErrors.ts:47
 msgid "errors.shape.updatedList"
 msgstr "The server did not return the updated list."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:47
+#: src/lib/localeErrors.ts:48
 msgid "errors.shape.updatedProfile"
 msgstr "The server did not return the updated profile."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:48
+#: src/lib/localeErrors.ts:49
 msgid "errors.shape.uploadedMedia"
 msgstr "The server did not return the uploaded media."
 
@@ -2013,7 +2003,7 @@ msgid "errors.auth.noCredentials"
 msgstr "The server registered an app but did not return usable credentials."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:49
+#: src/lib/localeErrors.ts:50
 msgid "errors.shape.noTranslation"
 msgstr "The server returned no translation for this post."
 
@@ -2046,7 +2036,7 @@ msgid "This post has no known link."
 msgstr "This post has no known link."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:51
+#: src/lib/localeErrors.ts:52
 msgid "errors.shape.noPoll"
 msgstr "This post has no poll to vote in."
 
@@ -2068,7 +2058,7 @@ msgid "This server does not support editing posts."
 msgstr "This server does not support editing posts."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:63
+#: src/lib/localeErrors.ts:64
 msgid "errors.reactions.likeUnsupported"
 msgstr "This server does not support likes yet."
 
@@ -2080,9 +2070,14 @@ msgstr "This server does not support quote posts."
 msgid "This server has no clips."
 msgstr "This server has no clips."
 
-#: src/screens/HomeFeed.tsx:226
+#: src/screens/HomeFeed.tsx:198
 msgid "This server has no equivalent for this timeline."
 msgstr "This server has no equivalent for this timeline."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:44
+msgid "errors.unsupported.profileField"
+msgstr "This server has no profile field for {fields}."
 
 #: src/components/Post/menuModel.ts:191
 msgid "This server has no translation service."
@@ -2093,7 +2088,7 @@ msgid "Thread muted"
 msgstr "Thread muted"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:55
+#: src/lib/localeErrors.ts:56
 msgid "errors.shape.timeline"
 msgstr "Timeline {kind} returned an unexpected response shape (HTTP {status})."
 
@@ -2116,12 +2111,12 @@ msgid "Translated from {0}"
 msgstr "Translated from {0}"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:60
+#: src/lib/localeErrors.ts:61
 msgid "errors.shape.trendingLinks"
 msgstr "Trending links returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:59
+#: src/lib/localeErrors.ts:60
 msgid "errors.shape.trendingStatuses"
 msgstr "Trending posts returned an unexpected response shape."
 
@@ -2130,7 +2125,7 @@ msgid "Trending tags are not available on this server."
 msgstr "Trending tags are not available on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:58
+#: src/lib/localeErrors.ts:59
 msgid "errors.shape.trendingTags"
 msgstr "Trending tags returned an unexpected response shape."
 
