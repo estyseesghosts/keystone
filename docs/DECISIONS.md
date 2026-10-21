@@ -126,3 +126,7 @@ in `adr/` when load-bearing.
 | 2026-10-21 | WS-C: no `Capabilities` flag for emoji listing/remote fetch — both are public endpoints (same as before; v1 identical) | Public data needs no capability gate |
 | 2026-10-21 | WS-C: picker merges store + `backend.customEmojis()` (store wins on name) — the query covers Mastodon-family (whose store is `unavailable` by design) and seeded trees | One picker path for both families |
 | 2026-10-21 | WS-C: `PostQuote` intentionally untouched (WS-A file) — its `DisplayName`/`RichText` inherit the active-session fallback; explicit per-column sessionId threading for quotes is proposed, not done | No cross-WS edit; fallback covers quotes |
+| 2026-10-21 | WS-F: `serverPhrases` belongs in the `useModerationRules` memo deps (React Compiler freezes stale memos) | Same selector/memo discipline as WS-C |
+| 2026-10-21 | WS-F: grouped "N others" counts off `ext.groupedCount`, floored by packed actors | Envelope count wins; packed list is the floor |
+| 2026-10-21 | WS-F: filter create defaults to warn-action (v1/web parity); only hide-action phrases filter | Match v1 semantics, not the strictest interpretation |
+| 2026-10-21 | WS-F: web-Akkoma filter writes fail honestly (CORS-less 404 pages + deliberate `isUnsupportedError` boundary); native/node CRUD proven | Widening the boundary would reverse W8/MD12 — do not |

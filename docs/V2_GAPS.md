@@ -68,9 +68,9 @@ Acceptance: no dead/dupe modules; like never pre-fails where unsupported; poll g
 
 ## WS-F — Mastodon correctness: grouped actors + sanitizer share + filters UI (depends on WS-B for sanitizer — run after or coordinate)
 
-- [ ] **MD1 grouped-actor fidelity.** `mastodon/adapt.ts:570-596` reads only legacy `notifications`+`accounts` envelope; real `notification_groups` envelopes fall back to flat v1. Implement `adaptV2Notification` with the grouped fixtures (`fixtures/mastodon/notification-grouped-v2.json`), preserve actor list/count/reactions, keep 404/405-only fallback. 20 existing tests must stay green.
-- [ ] **Filters UI (MD3 data done, no caller).** Build Settings → Filters CRUD on `Backend.filters` (v2 group shape + v1 fallback `backend.ts:903-1012`, live-verified on Akkoma). Wire to `filterModerated` so Mastodon-family word/server mutes actually filter. Misskey-family keeps honest no-endpoint placeholder.
-- [ ] Sanitizer share: consume WS-B output; no separate fix here.
+- [x] **MD1 grouped-actor fidelity.** DONE 2026-10-21 (WS-F): `adaptV2Group` + `statuses` map + `ext.groupedCount` ("N others" floored by packed actors), 20 existing adapter tests green; grouped-live `not verified` (no v2 server on rig).
+- [x] **Filters UI (MD3 data done, no caller).** DONE 2026-10-21 (WS-F): Settings → Filters CRUD + `filterModerated` wiring so Mastodon-family word/server mutes filter feeds; Akkoma round-trip green (13-row probe, rig cleaned). Web-Akkoma create fails honestly (no `POST /api/v2/filters`, CORS-less 404 page — boundary stays per W8/MD12, not overridden); Misskey-family keeps honest placeholder.
+- [x] Sanitizer share: consumed WS-B, no gap found, no rework (WS-F).
 
 Acceptance: grouped notifications show "N others" from real envelopes; filters CRUD round-trips; Mastodon mutes filter feeds.
 

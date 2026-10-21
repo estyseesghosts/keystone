@@ -1,16 +1,15 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: V2_GAPS WS-C (emoji) + WS-B + WS-A + WS-D + WS-E
-MERGED 2026-10-21 on `main` (remote-host fallback + per-session store
-registry, store-backed picker, display-name emoji; live Akkoma probe
-8/8, writes cleaned; web-visual `not verified` — Helium CDP closed).
-Merge was conflict-free. FULL suite green: 135 suites / 1619 tests;
-tsc ios+android+web clean; eslint + oxlint clean. WS-F running (own
-worktree, branched post-B); WS-G runs last.
-Latest log: `state/logs/2026-10-21-wsC-emoji.md` (load-bearing
-finding: React Compiler freezes bare store reads — selector
-discipline recorded in DECISIONS). Coordinator re-verified the
-trio after merge.
+Phase/slice: V2_GAPS WS-F (mastodon) MERGED 2026-10-21 on `main`
+(grouped `adaptV2Group` + `ext.groupedCount`, Filters CRUD +
+`filterModerated` wiring; Akkoma 13-row probe green, rig cleaned;
+web-create fails honestly per W8/MD12 boundary). Merge was clean.
+FULL suite green: 138 suites / 1638 tests; tsc ios+android+web
+clean; eslint + oxlint clean. WS-A–E + WS-C already merged (135
+suites / 1619 pre-F). Spawning WS-G (scroll + streaming UI) last.
+Latest log: `state/logs/2026-10-21-wsF-mastodon.md` (agent, 7 Helium
+shots in `assets-wsF/`). Coordinator re-verified the trio after
+merge.
 Prior: UI batch 2 + slim tabs + W8 (see logs).
 (MD5 boot re-verify + scope-health, MD6–MD9 live Akkoma round-trips,
 MD10 pooled streaming + app capture, MD11 fork collapse, MD12/MD13
