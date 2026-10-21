@@ -68,3 +68,36 @@ describe('PostCard navigation (v1 parity)', () => {
     expect(quiet).not.toHaveBeenCalled()
   })
 })
+
+describe('PostCard mention routing (F9)', () => {
+  let navigateSpy: jest.SpyInstance
+  beforeEach(() => {
+    jest.spyOn(navigationRef, 'isReady').mockReturnValue(true)
+    navigateSpy = jest.spyOn(navigationRef, 'navigate').mockImplementation(() => {})
+  })
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  it('tapping an MFM mention opens the profile by handle', () => {
+    renderCard(
+      <PostCard post={makePost({content: {mfm: 'hi @bob@ex.ample', plain: 'hi @bob@ex.ample'}})} sessionId={SESSION} />,
+    )
+    fireEvent.press(screen.getByText('@bob@ex.ample'))
+    expect(navigateSpy).toHaveBeenCalledWith('Main', {
+      screen: 'User',
+      params: {acct: 'bob@ex.ample'},
+    })
+  })
+
+  it('tapping a local MFM mention omits the host', () => {
+    renderCard(
+      <PostCard post={makePost({content: {mfm: 'hi @alice', plain: 'hi @alice'}})} sessionId={SESSION} />,
+    )
+    fireEvent.press(screen.getByText('@alice'))
+    expect(navigateSpy).toHaveBeenCalledWith('Main', {
+      screen: 'User',
+      params: {acct: 'alice'},
+    })
+  })
+})

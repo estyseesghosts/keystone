@@ -18,6 +18,7 @@ import {
   displayNameOf,
   handleOf,
   isPureRenote,
+  parseAcct,
   type Capabilities,
   type EmojiStyle,
   type Post,
@@ -64,6 +65,13 @@ const styles = StyleSheet.create({
 function openAuthorProfile(authorId: string) {
   if (!navigationRef.isReady()) return
   navigationRef.navigate('Main', {screen: 'User', params: {id: authorId}} as never)
+}
+
+/** Mention tap → profile screen (F9): the label carries the handle
+ * (`@user`, `@user@host`); the server URL is only the fallback. */
+function openMentionProfile(acct: string) {
+  if (!navigationRef.isReady()) return
+  navigationRef.navigate('Main', {screen: 'User', params: {acct}} as never)
 }
 
 function openPostDetail(postId: string) {
@@ -115,7 +123,7 @@ export type PostCardProps = {
   sessionId: string
   capabilities?: Capabilities | null
   emojiStyle?: EmojiStyle
-  onMentionPress?: (href: string | null) => void
+  onMentionPress?: (href: string | null, label: string) => void
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
   testID?: string
@@ -272,10 +280,14 @@ function PostCardView({
     if (onLinkPress) onLinkPress(href)
     else void Linking.openURL(href).catch(() => {})
   }
-  const handleMentionPress = (href: string | null) => {
+  const handleMentionPress = (href: string | null, label: string) => {
     markLink()
-    if (onMentionPress) onMentionPress(href)
-    else if (href) void Linking.openURL(href).catch(() => {})
+    if (onMentionPress) onMentionPress(href, label)
+    else {
+      const ref = parseAcct(label)
+      if (ref) openMentionProfile(ref.host ? `${ref.username}@${ref.host}` : ref.username)
+      else if (href) void Linking.openURL(href).catch(() => {})
+    }
   }
   const handleHashtagPress = (tag: string) => {
     markLink()

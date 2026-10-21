@@ -2,7 +2,7 @@ import {useCallback, useEffect, useRef, useState} from 'react'
 import {View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
-import {type Account, type Relationship} from '@keystone/fedi'
+import {type Account, type Relationship, parseAcct} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
@@ -25,9 +25,45 @@ export function UserScreen() {
   const route = useRoute<RouteProp<RootParamList, 'User'>>()
   const nav = useNavigation<NavigationProp<RootParamList>>()
   const routeId = route.params?.id
+  const routeAcct = route.params?.acct
   const {session, backend} = useActiveBackend()
-  // No id = the Profile tab = the viewer's own profile.
-  const targetId = routeId ?? session?.accountId ?? null
+  // Mention taps land here with an acct, not an id (F9): look the
+  // account up once, then run the normal id path. A failed lookup is
+  // an honest error, never a guessed profile.
+  const [resolvedId, setResolvedId] = useState<string | null>(routeId ?? null)
+  const [resolveError, setResolveError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    setResolveError(false)
+    if (routeId || !routeAcct) {
+      setResolvedId(routeId ?? null)
+      return
+    }
+    const ref = parseAcct(routeAcct)
+    if (!ref || !backend) {
+      // Unparseable handle is an honest error; no backend (signed out)
+      // just leaves the signed-out branch to render.
+      setResolvedId(null)
+      if (!ref) setResolveError(true)
+      return
+    }
+    let cancelled = false
+    setResolvedId(null)
+    backend
+      .account({username: ref.username, host: ref.host})
+      .then(a => {
+        if (!cancelled) setResolvedId(a.id)
+      })
+      .catch(() => {
+        if (!cancelled) setResolveError(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [routeId, routeAcct, backend, attempt])
+  // No id and no acct = the Profile tab = the viewer's own profile.
+  const targetId = resolvedId ?? (routeAcct ? null : (session?.accountId ?? null))
+  const resolving = routeId == null && routeAcct != null && resolvedId == null && !resolveError
   const [tab, setTab] = useState<ProfileFeedTab>('posts')
   const [account, setAccount] = useState<Account | null>(null)
   const [relationship, setRelationship] = useState<Relationship | null>(null)
@@ -44,7 +80,10 @@ export function UserScreen() {
     setLoading(true)
     setError(null)
     try {
-      const loaded = routeId ? await backend.account({id: routeId}) : await backend.me()
+      const loaded =
+        routeId || routeAcct
+          ? await backend.account({id: targetId})
+          : await backend.me()
       if (generationRef.current !== generation) return
       setAccount(loaded)
       // Read-only follow state: the relation endpoint names the state;
@@ -85,22 +124,31 @@ export function UserScreen() {
 
   return (
     <View style={atoms.flex1} testID="user-screen">
-      {!session || !backend || !targetId ? (
+      {!session || !backend || (!targetId && !resolving && !resolveError) ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
           <Body>Sign in to see profiles.</Body>
           <Caption color="faint">Profiles never show sample data when signed out.</Caption>
           <SignInButton />
         </View>
-      ) : loading ? (
+      ) : resolving || loading ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
           <Loader testID="profile-loading" />
           <Caption color="faint">Loading profile…</Caption>
         </View>
-      ) : error || !account ? (
+      ) : resolveError || error || !account ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>Could not load this profile.</Body>
           <Caption color="faint">It may be deleted, suspended, or unreachable.</Caption>
-          <Button label="Retry" variant="secondary" onPress={() => void load()} testID="profile-retry" />
+          <Button
+            label="Retry"
+            variant="secondary"
+            onPress={() => {
+              setResolveError(false)
+              setAttempt(a => a + 1)
+              void load()
+            }}
+            testID="profile-retry"
+          />
         </View>
       ) : (
         <View style={atoms.flex1} testID="profile-body">
@@ -125,7 +173,7 @@ export function UserScreen() {
           <View style={atoms.flex1}>
             <FeedView
               sessionId={session.id}
-              descriptor={profileTabDescriptor(targetId, tab)}
+              descriptor={profileTabDescriptor(account.id, tab)}
               testID="profile-feed"
             />
           </View>

@@ -82,3 +82,14 @@ describe('RichText (sole AST renderer)', () => {
     expect(screen.queryByText('alert(1)')).toBeNull()
   })
 })
+
+describe('RichText mentions (F9)', () => {
+  it('passes the mention href and visible label to the handler', () => {
+    const onMention = jest.fn()
+    renderRichText(
+      <RichText nodes={contentFromMfm('hi @bob@ex.ample')} onMentionPress={onMention} />,
+    )
+    fireEvent.press(screen.getByText('@bob@ex.ample'))
+    expect(onMention).toHaveBeenCalledWith(null, '@bob@ex.ample')
+  })
+})

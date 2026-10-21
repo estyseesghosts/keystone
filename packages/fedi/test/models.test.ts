@@ -4,6 +4,7 @@
 //
 // Jest port: `describe/it/expect` are globals (no vitest import).
 import {
+  parseAcct,
   appendOlder,
   collapseReposts,
   appearNoteOf,
@@ -337,6 +338,19 @@ describe("display-name helpers", () => {
   it("handleOf includes the host only for remote accounts", () => {
     expect(handleOf({ username: "a", host: null })).toBe("@a");
     expect(handleOf({ username: "a", host: "ex.ample" })).toBe("@a@ex.ample");
+  });
+
+  it("parseAcct splits mention labels into lookup refs, rejects non-handles", () => {
+    expect(parseAcct("@bob")).toEqual({ username: "bob", host: null });
+    expect(parseAcct("bob")).toEqual({ username: "bob", host: null });
+    expect(parseAcct("@bob@ex.ample")).toEqual({ username: "bob", host: "ex.ample" });
+    expect(parseAcct("bob@ex.ample")).toEqual({ username: "bob", host: "ex.ample" });
+    expect(parseAcct(null)).toBeNull();
+    expect(parseAcct("")).toBeNull();
+    expect(parseAcct("@")).toBeNull();
+    expect(parseAcct("not a handle")).toBeNull();
+    expect(parseAcct("@a@b@c")).toBeNull();
+    expect(parseAcct("@bob@")).toBeNull();
   });
 
   it("hasRealDisplayName rejects the handle echoed back as a name", () => {

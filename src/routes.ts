@@ -31,7 +31,7 @@ export type RootParamList = {
   Network: {tab?: NetworkTab} | undefined
   Explore: undefined
   Notifications: undefined
-  User: {id?: string} | undefined
+  User: {id?: string; acct?: string} | undefined
   Note: {id: string}
   Tag: {tag: string}
   List: {id: string}

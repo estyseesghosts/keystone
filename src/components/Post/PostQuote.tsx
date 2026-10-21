@@ -35,7 +35,7 @@ export function PostQuote({
   unavailable: boolean
   emojiStyle?: EmojiStyle
   onPress?: (post: Post) => void
-  onMentionPress?: (href: string | null) => void
+  onMentionPress?: (href: string | null, label: string) => void
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
   testID?: string

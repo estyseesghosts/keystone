@@ -74,11 +74,11 @@ export const linking: LinkingOptions<StackParamList> = {
  * chrome (strip, sidebar, tab bar) renders under the container — outside
  * any screen, where `useNavigationState` cannot run — so the root state is
  * tracked through the container callbacks and handed down as a prop. */
-type LeafState = {name: string | undefined; params?: {id?: unknown; tag?: unknown}}
+type LeafState = {name: string | undefined; params?: {id?: unknown; tag?: unknown; acct?: unknown}}
 
 function leafOf(state: object | undefined): LeafState {
   let node = state as
-    | {routes: {name: string; params?: {id?: unknown; tag?: unknown}; state?: object}[]; index?: number}
+    | {routes: {name: string; params?: {id?: unknown; tag?: unknown; acct?: unknown}; state?: object}[]; index?: number}
     | undefined
   for (;;) {
     const route = node?.routes[node.index ?? 0]
@@ -104,7 +104,8 @@ function isTabFocused(leaf: LeafState, key: keyof TabParamList, ownAccountId: st
   if (leaf.name !== key) return false
   if (key !== 'User') return true
   const id = leaf.params?.id
-  return id == null || id === ownAccountId
+  const acct = leaf.params?.acct
+  return (id == null || id === ownAccountId) && acct == null
 }
 
 function TabIcon({name, color}: {name: keyof TabParamList; color: string}) {

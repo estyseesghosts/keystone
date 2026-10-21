@@ -760,6 +760,24 @@ export function handleOf(user: Pick<Account, "username" | "host">): string {
   return user.host ? `@${user.username}@${user.host}` : `@${user.username}`;
 }
 
+/** Split a rendered mention label (`@user`, `user@host`, …) into a
+ * backend lookup ref. Returns null when the label is not a handle
+ * (display-name text, bare `@`, bad characters) — callers fall back
+ * to the href or leave the mention inert, never a guessed profile. Pure. */
+export function parseAcct(
+  label: string | null | undefined,
+): {username: string; host: string | null} | null {
+  if (!label) return null;
+  const bare = label.trim().replace(/^@+/, "");
+  if (bare.length === 0) return null;
+  const parts = bare.split("@");
+  if (parts.length > 2) return null;
+  const [username, host] = parts;
+  if (!username || !/^[\w-]+$/.test(username)) return null;
+  if (host !== undefined && (host.length === 0 || !/^[\w.-]+$/.test(host))) return null;
+  return {username, host: host ?? null};
+}
+
 /** True when the profile carries a real display name — not empty, and not
  * just the username/handle echoed back (`pndc`, `@pndc`,
  * `@pndc@host` all count as absent). Pure. */

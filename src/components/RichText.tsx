@@ -36,7 +36,7 @@ export type RichTextProps = {
   /** Inline text size. Block code stays fixed. */
   size?: number
   numberOfLines?: number
-  onMentionPress?: (href: string | null) => void
+  onMentionPress?: (href: string | null, label: string) => void
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
   style?: StyleProp<ViewStyle>
@@ -48,7 +48,7 @@ type Ctx = {
   emojis: Record<string, string> | null
   emojiStyle: EmojiStyle
   size: number
-  onMentionPress?: (href: string | null) => void
+  onMentionPress?: (href: string | null, label: string) => void
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
   linkColor: string
@@ -66,6 +66,18 @@ const styles = StyleSheet.create({
 
 function openExternal(href: string) {
   void Linking.openURL(href).catch(() => {})
+}
+
+/** Visible label of a mention (`@user`, `@user@host`) for profile
+ * resolution — text children concatenated, formatting transparent. */
+function labelOf(nodes: readonly ContentNode[]): string {
+  let out = ''
+  for (const node of nodes) {
+    if (node.kind === 'text') out += node.text
+    else if (node.kind === 'br') out += '\n'
+    else if ('children' in node) out += labelOf(node.children)
+  }
+  return out
 }
 
 // Inline nodes inside a parent <Text>. Block nodes (codeBlock, quote)
@@ -115,7 +127,9 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
                 onPress={
                   pressable
                     ? () =>
-                        ctx.onMentionPress ? ctx.onMentionPress(node.href) : node.href && openExternal(node.href)
+                        ctx.onMentionPress
+                          ? ctx.onMentionPress(node.href, labelOf(node.children))
+                          : node.href && openExternal(node.href)
                     : undefined
                 }>
                 <Inline nodes={node.children} ctx={ctx} depth={depth + 1} />
