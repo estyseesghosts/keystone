@@ -68,7 +68,7 @@ import {
   decodeCursor,
   pageOf,
 } from "./adapt";
-import { likeSupportFor, likeViaNotesLike } from "./like";
+import { likeSupportFor, likeViaNotesLike, seedLikeSupport } from "./like";
 import type {
   DriveFile,
   ServerDraft as WireServerDraft,
@@ -207,6 +207,17 @@ export function createMisskeyBackend(
   opts: MisskeyBackendOptions = {},
 ): Backend {
   const call = transport.call.bind(transport);
+
+  // Runtime detection (`core/detect.ts`) is the authority: the flavor
+  // table is the floor, `opts.evidence` (the session's stored probe
+  // evidence) raises it where the server is authoritative.
+  const capabilities = buildCapabilities(flavor, opts.evidence ?? {});
+  // MK13: where the table already proves `notes/like` absent (stock
+  // Misskey), seed the per-origin cache so the first heart press falls
+  // straight back to a ❤ reaction — never a doomed probe-by-fire 404.
+  if (capabilities.like === "unsupported" && opts.origin) {
+    seedLikeSupport(opts.origin, false);
+  }
 
   async function callNotes(
     endpoint: string,
@@ -453,10 +464,7 @@ export function createMisskeyBackend(
 
   return {
     family: "misskey",
-    // Runtime detection (`core/detect.ts`) is the authority: the flavor
-    // table is the floor, `opts.evidence` (the session's stored probe
-    // evidence) raises it where the server is authoritative.
-    capabilities: buildCapabilities(flavor, opts.evidence ?? {}),
+    capabilities,
 
     timeline(kind, opts = {}) {
       return callNotes(TIMELINE_ENDPOINTS[kind], {

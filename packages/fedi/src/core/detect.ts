@@ -48,6 +48,7 @@ export type FeatureKey =
   // Posting
   | "reactions"
   | "reaction_acceptance"
+  | "like"
   | "mfm"
   | "quote_posting"
   | "status_editing"
@@ -79,6 +80,7 @@ export type Capabilities = Record<FeatureKey, FeatureSupport>;
 export const FEATURE_KEYS: readonly FeatureKey[] = [
   "reactions",
   "reaction_acceptance",
+  "like",
   "mfm",
   "quote_posting",
   "status_editing",
@@ -218,6 +220,10 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     mfm: "supported",
     reactions: "supported",
     reaction_acceptance: "supported",
+    // Stock Misskey has no `POST notes/like` (unknown path 404s): heart
+    // presses fall back to a plain ❤ reaction, never a doomed probe
+    // (see `misskey/like.ts`; DECISIONS 2026-10-20 Sharkey line).
+    like: "unsupported",
     quote_posting: "supported",
     // `notes/create` poll takes `multiple` (v1 `docs/api-surface.md:67`,
     // verified against Misskey/Sharkey/Pinetree backends).
@@ -251,6 +257,8 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     mfm: "supported",
     reactions: "supported",
     reaction_acceptance: "supported",
+    // Sharkey implements `POST notes/like` (toggle shortcut; kissme spec).
+    like: "supported",
     quote_posting: "supported",
     // Same `notes/create` poll `multiple` support as Misskey (v1
     // `docs/api-surface.md:67`).
@@ -312,6 +320,7 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
   mastodon: {
     mfm: "unsupported",
     reactions: "unsupported",
+    like: "unsupported",
     polls_multi: "unsupported",
     status_editing: "supported",
     scheduled_posts: "supported",
@@ -334,6 +343,7 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
   akkoma: {
     mfm: "supported",
     reactions: "supported",
+    like: "unsupported",
     status_editing: "supported",
     local_only: "supported",
     lists: "supported",
@@ -349,6 +359,7 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
   pleroma: {
     status_editing: "supported",
     reactions: "supported",
+    like: "unsupported",
     favourites_distinct_from_reactions: "supported",
     clips: "unsupported",
     local_only: "supported",

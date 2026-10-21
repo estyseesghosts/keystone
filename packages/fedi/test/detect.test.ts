@@ -448,4 +448,19 @@ describe("three-state capabilities", () => {
     expect(caps.pkce).toBe("unsupported");
     expect(caps.miauth).toBe("unsupported");
   });
+
+  it("MK13 like facts: sharkey supported, stock misskey + mastodon-family unsupported, forks unknown", () => {
+    expect(buildCapabilities("sharkey").like).toBe("supported");
+    expect(buildCapabilities("misskey").like).toBe("unsupported");
+    expect(buildCapabilities("mastodon").like).toBe("unsupported");
+    expect(buildCapabilities("akkoma").like).toBe("unsupported");
+    expect(buildCapabilities("pleroma").like).toBe("unsupported");
+    // Unverified forks stay unknown: catodon is a Sharkey fork and
+    // pinetree is Misskey-based, but neither `notes/like` presence claim
+    // has a live probe behind it (rig :3101/:3102 down, Pinetree authed
+    // probes blocked) — unknown probes once, never assumes.
+    expect(buildCapabilities("catodon").like).toBe("unknown");
+    expect(buildCapabilities("pinetree").like).toBe("unknown");
+    expect(buildCapabilities("unknown").like).toBe("unknown");
+  });
 });

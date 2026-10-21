@@ -7,6 +7,7 @@ import {
   likeViaNotesLike,
   LikeUnsupportedError,
   resetLikeSupportCache,
+  seedLikeSupport,
 } from "../src/misskey/like";
 import { ApiError } from "../src/core/errors";
 
@@ -85,6 +86,21 @@ describe("likeViaNotesLike", () => {
   it("unprobed origins read null", () => {
     expect(likeSupportFor("https://fresh.example")).toBeNull();
   });
+
+  it("a seeded-absent origin refuses without touching the wire", async () => {
+    seedLikeSupport(ORIGIN, false);
+    expect(likeSupportFor(ORIGIN)).toBe(false);
+    const { transport, calls } = stubTransport(() => ({}));
+    await expect(
+      likeViaNotesLike(transport.call.bind(transport), ORIGIN, "n1", null),
+    ).rejects.toBeInstanceOf(LikeUnsupportedError);
+    expect(calls).toEqual([]);
+  });
+
+  it("seeding an empty origin is a no-op", () => {
+    seedLikeSupport("", false);
+    expect(likeSupportFor("")).toBeNull();
+  });
 });
 
 describe("misskey backend like member", () => {
@@ -108,5 +124,22 @@ describe("misskey backend like member", () => {
     expect(backend.like?.isSupported()).toBeNull();
     await expect(backend.like?.like("n9")).rejects.toBeInstanceOf(LikeUnsupportedError);
     expect(likeSupportFor("")).toBeNull();
+  });
+
+  it("stock-misskey flavor seeds the origin absent: never probes, falls back by contract", async () => {
+    const { transport, calls } = stubTransport(() => ({}));
+    const seededOrigin = "https://stock-misskey.example";
+    const backend = createMisskeyBackend(transport, "misskey", { origin: seededOrigin });
+    expect(backend.like?.isSupported()).toBe(false);
+    await expect(backend.like?.like("n9")).rejects.toBeInstanceOf(LikeUnsupportedError);
+    // No wire traffic at all: the doomed 404 never fires (the app-layer
+    // toggle queue reads isSupported() and reacts ❤ directly instead).
+    expect(calls).toEqual([]);
+  });
+
+  it("sharkey flavor leaves the origin unseeded: support probes by fire once", async () => {
+    const { transport } = stubTransport(() => ({}));
+    const backend = createMisskeyBackend(transport, "sharkey", { origin: ORIGIN });
+    expect(backend.like?.isSupported()).toBeNull();
   });
 });

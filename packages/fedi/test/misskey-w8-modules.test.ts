@@ -1,9 +1,13 @@
 // W8 MK12 — direct/indirect coverage for the ported Misskey modules that
-// had no tests (auth, external, customEmoji, drafts, favorites, featured,
+// had no tests (auth, external, customEmoji, favorites, featured,
 // importExport, likeEmoji, listMembership, mutes, followRequests,
 // renoteMutes, noteEdit, remotepost, schedule, serverDrafts, softMute,
 // clips, plus the backend's antennas/drive/reactions/pin/mute-thread/report
-// paths), and the MK10 manifest-provenance check.
+// paths), and the MK10 manifest-provenance check. (WS-E removed the
+// `misskey/drafts` + `reactionActions`/`myReactions` blocks with their
+// modules — authority is the app store / post-shadow — and added the MK13
+// `like` capability facts + seeding tests in `detect.test.ts` /
+// `misskey-like.test.ts`.)
 //
 // New file on purpose: existing per-file test counts stay untouched
 // (register rule — ported tests match original per-file counts).
@@ -41,16 +45,6 @@ import {
   type ExternalSession,
 } from "../src/misskey/external";
 import { createCustomEmojiStore } from "../src/misskey/customEmoji";
-import {
-  carryLegacyDrafts,
-  deleteDraft,
-  isKeepable,
-  listDrafts,
-  pruneDrafts,
-  saveDraft,
-  type Draft,
-  type DraftPayload,
-} from "../src/misskey/drafts";
 import { listFavorites, removeFavorite } from "../src/misskey/favorites";
 import { listFeaturedNotes, listUserFeaturedNotes, pinNote, unpinNote } from "../src/misskey/featured";
 import {
@@ -377,57 +371,6 @@ describe("misskey/customEmoji store", () => {
     } finally {
       globalThis.fetch = realFetch;
     }
-  });
-});
-
-// --- drafts -----------------------------------------------------------------
-
-describe("misskey/drafts", () => {
-  const payload = (over: Partial<DraftPayload> = {}): DraftPayload => ({
-    text: "",
-    cw: "",
-    visibility: "public",
-    localOnly: false,
-    ...over,
-  });
-
-  it("isKeepable: prose/warning/attachments/poll/schedule keep; bare settings do not", () => {
-    expect(isKeepable(payload({ text: "hi" }))).toBe(true);
-    expect(isKeepable(payload({ cw: "warn" }))).toBe(true);
-    expect(isKeepable(payload({ fileIds: ["f1"] }))).toBe(true);
-    expect(
-      isKeepable(payload({ poll: { choices: ["a", "b"], multiple: false, expiry: null } })),
-    ).toBe(true);
-    expect(isKeepable(payload({ scheduledAt: "2030-01-01T00:00:00.000Z" }))).toBe(true);
-    expect(isKeepable(payload({ localOnly: true }))).toBe(false);
-    expect(isKeepable(payload())).toBe(false);
-  });
-
-  it("pruneDrafts is newest-first and capped", () => {
-    const mk = (id: string, createdAt: number): Draft => ({ ...payload({ text: id }), id, createdAt });
-    const pruned = pruneDrafts([mk("a", 1), mk("b", 3), mk("c", 2)]);
-    expect(pruned.map((d) => d.id)).toEqual(["b", "c", "a"]);
-    const many = Array.from({ length: 30 }, (_, i) => mk(`d${i}`, i));
-    expect(pruneDrafts(many)).toHaveLength(20);
-  });
-
-  it("carryLegacyDrafts copies once and never overwrites", () => {
-    const store = createMemoryStore();
-    store.setItem("legacy_key", JSON.stringify([{ id: "l1", text: "old" }]));
-    carryLegacyDrafts(store, "sess", "legacy_key");
-    expect(store.getItem("keystone_drafts_sess")).toContain("old");
-    expect(store.getItem("legacy_key")).toBeNull();
-    carryLegacyDrafts(store, "sess", "legacy_key"); // no-op, nothing lost
-  });
-
-  it("save/list/delete round-trip; empty drafts never save", () => {
-    const store = createMemoryStore();
-    expect(saveDraft(store, "s", payload())).toBeNull();
-    const draft = saveDraft(store, "s", payload({ text: "keep", replyId: "r1" }));
-    expect(draft).not.toBeNull();
-    expect(listDrafts(store, "s").map((d) => d.id)).toEqual([draft!.id]);
-    deleteDraft(store, "s", draft!.id);
-    expect(listDrafts(store, "s")).toEqual([]);
   });
 });
 
