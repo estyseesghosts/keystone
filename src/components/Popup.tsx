@@ -72,11 +72,15 @@ export type PopupLayout = {
 
 /** Pure viewport-clamped layout for an anchored popup card. The card never
  * renders off-screen on either axis:
- * - width is capped to the window minus margins, left is clamped into
- *   `[EDGE, winW - EDGE - cardWidth]` (right-edge triggers pull fully on-screen)
+ * - width is content-driven between a floor and a cap: `effMinWidth`
+ *   (never wider than the window margins) keeps tiny content tappable while
+ *   `cardWidth` (capped at `CARD_MAX`, never wider than the window minus
+ *   margins) lets roomy content use the free space; `left` is clamped into
+ *   `[EDGE, winW - EDGE - cardWidth]` (right-edge triggers pull fully
+ *   on-screen), so `left + maxWidth` stays in-viewport at any content size
  * - the preferred side wins when it fits something useful (`MIN_SIDE`),
- *   otherwise the other side is tried; `maxH` is the chosen side's
- *   space minus `GAP`, so `top + maxH` / `bottom + maxH` stay in-viewport
+ *   otherwise the other side is tried; `maxH` is the chosen side's full
+ *   real space minus `GAP`, so `top + maxH` / `bottom + maxH` stay in-viewport
  * - when neither side fits (tiny viewport), the card falls back to a
  *   centered full-height sheet with no caret instead of hanging off-screen
  * - the caret aims at the trigger centre, clamped inside the card (or null
@@ -265,8 +269,15 @@ export function AnchoredPopup({
           {
             left: pos.left,
             ...(pos.top !== undefined ? {top: pos.top} : {bottom: pos.bottom}),
-            width: pos.cardWidth,
+            // Content-driven width: the absolutely-positioned card
+            // shrink-wraps its content between `minWidth` (floor, so tiny
+            // content stays tappable) and `maxWidth` (cap, so roomy content
+            // uses the free space up to CARD_MAX). Never a fixed `width`:
+            // pinning it would bloat small content to the cap and could
+            // never let content use the space. `left + maxWidth` stays
+            // in-viewport by construction (see computePopupLayout).
             minWidth: pos.effMinWidth,
+            maxWidth: pos.cardWidth,
             maxHeight: pos.maxH,
             backgroundColor: theme.palette.bg,
             borderColor: theme.palette.edge,

@@ -233,6 +233,49 @@ describe('ProfileEditorScreen (mastodon family)', () => {
   })
 })
 
+describe('ProfileEditorScreen (overlay)', () => {
+  it('renders the form as a floating card over a backdrop', async () => {
+    const backend = misskeyBackend()
+    const {done} = await setup({backend})
+    try {
+      await waitFor(() => expect(screen.getByTestId('profile-editor-name')).toBeTruthy())
+      expect(screen.getByTestId('profile-editor-overlay')).toBeTruthy()
+      expect(screen.getByTestId('profile-editor-backdrop')).toBeTruthy()
+      expect(screen.getByTestId('profile-editor-card')).toBeTruthy()
+      expect(screen.getByTestId('profile-editor-close')).toBeTruthy()
+      // All fields still render inside the card.
+      expect(screen.getByTestId('profile-editor-bio')).toBeTruthy()
+      expect(screen.getByTestId('profile-editor-save')).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
+
+  it('dismisses via the backdrop', async () => {
+    const backend = misskeyBackend()
+    const {done} = await setup({backend})
+    try {
+      await waitFor(() => expect(screen.getByTestId('profile-editor-backdrop')).toBeTruthy())
+      fireEvent.press(screen.getByTestId('profile-editor-backdrop'))
+      expect(mockGoBack).toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+
+  it('dismisses via the close control', async () => {
+    const backend = misskeyBackend()
+    const {done} = await setup({backend})
+    try {
+      await waitFor(() => expect(screen.getByTestId('profile-editor-close')).toBeTruthy())
+      fireEvent.press(screen.getByTestId('profile-editor-close'))
+      expect(mockGoBack).toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+})
+
 describe('ProfileEditorScreen (signed out)', () => {
   it('asks to sign in instead of showing the form', async () => {
     const {done} = await setup()

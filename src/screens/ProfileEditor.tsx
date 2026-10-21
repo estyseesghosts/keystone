@@ -13,8 +13,8 @@
 // Consumes the frozen interfaces as-is: session/backend via the existing
 // `useActiveBackend()` (`#/screens/HomeFeed`) and `useActiveSession()`
 // (`#/state/session/SessionProvider`), exit via `navigation.goBack()`.
-import {useEffect, useState} from 'react'
-import {ScrollView, View} from 'react-native'
+import {useEffect, useState, type ReactNode} from 'react'
+import {Pressable, ScrollView, StyleSheet, View} from 'react-native'
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
 
 import {
@@ -23,6 +23,7 @@ import {
   type ProfileUpdate,
 } from '@keystone/fedi'
 
+import {useTheme as useAlfTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
@@ -48,6 +49,7 @@ function extStr(account: Account, key: string): string {
 
 export function ProfileEditorScreen() {
   const nav = useNavigation<NavigationProp<RootParamList>>()
+  const alf = useAlfTheme()
   const {backend} = useActiveBackend()
   const session = useActiveSession()
   const isMastodon = (session?.family ?? backend?.family) === 'mastodon'
@@ -105,30 +107,61 @@ export function ProfileEditorScreen() {
     // Load once per backend identity; the family switch re-seeds the form.
   }, [backend])
 
+  // v1-style overlay: the `ProfileEdit` route is a transparent modal, so
+  // this screen renders as a floating card over a dismissible scrim. Every
+  // body branch (signed-out, loading, error, form) renders inside it, so all
+  // fields, gating, and testIDs stay exactly where they were.
+  const overlay = (content: ReactNode) => (
+    <View testID="profile-editor-overlay" style={styles.overlay}>
+      <Pressable
+        testID="profile-editor-backdrop"
+        style={styles.backdrop}
+        accessibilityRole="button"
+        accessibilityLabel="Close editor"
+        onPress={() => nav.goBack()}
+      />
+      <View
+        testID="profile-editor-card"
+        style={[styles.card, {backgroundColor: alf.palette.bg, borderColor: alf.palette.border}]}>
+        <View style={styles.cardBar}>
+          <Pressable
+            testID="profile-editor-close"
+            accessibilityRole="button"
+            accessibilityLabel="Close editor"
+            hitSlop={8}
+            onPress={() => nav.goBack()}>
+            <Body>Close</Body>
+          </Pressable>
+        </View>
+        {content}
+      </View>
+    </View>
+  )
+
   if (!backend) {
-    return (
+    return overlay(
       <View testID="profile-editor" style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
         <Body>Sign in to edit your profile.</Body>
         <Button label="Back" variant="secondary" onPress={() => nav.goBack()} testID="profile-editor-back" />
-      </View>
+      </View>,
     )
   }
 
   if (loading) {
-    return (
+    return overlay(
       <View testID="profile-editor" style={[atoms.flex1, atoms.centered, atoms.p_md]}>
         <Loader testID="profile-editor-loading" />
-      </View>
+      </View>,
     )
   }
 
   if (loadError || !me) {
-    return (
+    return overlay(
       <View testID="profile-editor" style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
         <Body>Could not load your profile.</Body>
         <Caption color="faint">{loadError}</Caption>
         <Button label="Back" variant="secondary" onPress={() => nav.goBack()} testID="profile-editor-back" />
-      </View>
+      </View>,
     )
   }
 
@@ -181,7 +214,7 @@ export function ProfileEditorScreen() {
 
   const misskeyOnlyReason = 'Only available on Misskey-family servers.'
 
-  return (
+  return overlay(
     <ScrollView testID="profile-editor" style={atoms.flex1}>
       <View style={[atoms.gap_sm, atoms.p_md]}>
         <Heading>Edit profile</Heading>
@@ -330,6 +363,33 @@ export function ProfileEditorScreen() {
           testID="profile-editor-cancel"
         />
       </View>
-    </ScrollView>
+    </ScrollView>,
   )
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  card: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 560,
+    borderWidth: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  cardBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+})

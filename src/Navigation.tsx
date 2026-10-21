@@ -793,7 +793,11 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <Stack.Screen name="Followers" component={FollowersScreen} />
               <Stack.Screen name="Following" component={FollowingScreen} />
               <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} />
-              <Stack.Screen name="ProfileEdit" component={ProfileEditorScreen} />
+              <Stack.Screen
+                name="ProfileEdit"
+                component={ProfileEditorScreen}
+                options={{presentation: 'transparentModal', animation: 'none'}}
+              />
               <Stack.Screen name="Settings" component={SettingsScreen} />
               <Stack.Screen name="Login" component={LoginScreen} />
               <Stack.Screen name="AuthCallback" component={AuthCallbackScreen} />
