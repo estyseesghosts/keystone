@@ -9,6 +9,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {ProfileActions} from '#/components/ProfileActions'
+import {AccountReactionsBlock} from '#/components/Profile/AccountReactions'
 import {ProfileHeader, ProfileTabs} from '#/components/Profile'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
@@ -158,17 +159,26 @@ export function UserScreen() {
             relationship={relationship}
             actions={
               isSelf ? (
-                <Button
-                  label="Accounts & settings"
-                  variant="secondary"
-                  testID="profile-settings"
-                  onPress={() => nav.navigate('Settings')}
-                />
+                <View style={[atoms.row, atoms.gap_sm]}>
+                  <Button
+                    label="Edit profile"
+                    variant="secondary"
+                    testID="profile-edit"
+                    onPress={() => nav.navigate('ProfileEdit')}
+                  />
+                  <Button
+                    label="Accounts & settings"
+                    variant="secondary"
+                    testID="profile-settings"
+                    onPress={() => nav.navigate('Settings')}
+                  />
+                </View>
               ) : (
                 <ProfileActions sessionId={session.id} account={account} />
               )
             }
           />
+          <AccountReactionsBlock backend={backend} accountId={account.id} />
           <ProfileTabs tab={tab} onChange={setTab} hasFeatured={hasFeatured} />
           <View style={atoms.flex1}>
             <FeedView

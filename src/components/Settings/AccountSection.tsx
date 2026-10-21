@@ -96,7 +96,13 @@ function RejectQuotesRow() {
   )
 }
 
-export function AccountSection({onAddAccount}: {onAddAccount: () => void}) {
+export function AccountSection({
+  onAddAccount,
+  onOpenFollowRequests,
+}: {
+  onAddAccount: () => void
+  onOpenFollowRequests: () => void
+}) {
   const session = useActiveSession()
   return (
     <View style={[atoms.gap_sm]} testID="settings-section-account">
@@ -115,6 +121,19 @@ export function AccountSection({onAddAccount}: {onAddAccount: () => void}) {
         ) : null}
       </SettingRow>
       <AccountSwitcher onAddAccount={onAddAccount} />
+      {session ? (
+        <SettingRow
+          title="Follow requests"
+          hint="Review accounts waiting for your approval."
+          testID="follow-requests-row">
+          <Button
+            label="View requests"
+            variant="secondary"
+            onPress={onOpenFollowRequests}
+            testID="follow-requests-open"
+          />
+        </SettingRow>
+      ) : null}
       <RejectQuotesRow />
     </View>
   )

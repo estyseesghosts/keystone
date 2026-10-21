@@ -1,4 +1,4 @@
-import {useState} from 'react'
+import {useContext, useState} from 'react'
 import {Image, Platform, Pressable, StyleSheet, View, type ViewStyle} from 'react-native'
 import {
   DarkTheme,
@@ -10,6 +10,7 @@ import {
 } from '@react-navigation/native'
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs'
 import {createNativeStackNavigator} from '@react-navigation/native-stack'
+import {QueryClientContext} from '@tanstack/react-query'
 import * as Linking from 'expo-linking'
 import {useLingui} from '@lingui/react'
 import {msg} from '@lingui/macro'
@@ -37,16 +38,20 @@ import {AuthCallbackScreen} from '#/screens/AuthCallback'
 import {ComposeScreen} from '#/screens/Compose'
 import {PostHandlersProvider} from '#/screens/PostHandlers'
 import {ExploreScreen} from '#/screens/Explore'
+import {FollowRequestsScreen} from '#/screens/FollowRequests'
 import {HomeScreen} from '#/screens/Home'
 import {ListScreen} from '#/screens/List'
+import {ListsScreen} from '#/screens/Lists'
 import {LoginScreen} from '#/screens/Login'
 import {NetworkScreen} from '#/screens/Network'
 import {NoteScreen} from '#/screens/Note'
 import {NotificationsScreen} from '#/screens/Notifications'
+import {ProfileEditorScreen} from '#/screens/ProfileEditor'
 import {SettingsScreen} from '#/screens/Settings'
 import {SysDebugScreen} from '#/screens/SysDebug'
 import {TagScreen} from '#/screens/Tag'
 import {UserScreen} from '#/screens/User'
+import {useUnreadNotificationsCount} from '#/state/queries'
 
 type TabParamList = Pick<
   RootParamList,
@@ -157,6 +162,57 @@ function AccountAvatar({size = 32}: {size?: number}) {
   )
 }
 
+// --- Unread-notifications badge (N18) --------------------------------------
+// Cache-derived count from `useUnreadNotificationsCount` (the
+// notifications query cache — never a second streaming-backed counter;
+// stream status UI stays with the streaming owner, S4). The guard keeps
+// provider-less trees (tests, bare shells) rendering: no QueryClient, no
+// badge, never a crash.
+export function NotificationsUnreadBadge({
+  sessionId,
+  compact,
+  testID = 'notifications-badge',
+}: {
+  sessionId: string | null
+  /** Rail-width dot instead of the count pill. */
+  compact?: boolean
+  testID?: string
+}) {
+  const qc = useContext(QueryClientContext)
+  if (!qc || !sessionId) return null
+  return <NotificationsUnreadBadgeInner sessionId={sessionId} compact={compact} testID={testID} />
+}
+
+function NotificationsUnreadBadgeInner({
+  sessionId,
+  compact,
+  testID,
+}: {
+  sessionId: string
+  compact?: boolean
+  testID: string
+}) {
+  const alf = useAlfTheme()
+  const unread = useUnreadNotificationsCount(sessionId)
+  if (unread == null || unread <= 0) return null
+  if (compact) {
+    return (
+      <View
+        testID={testID}
+        accessibilityLabel={`${unread} unread notifications`}
+        style={[styles.badgeDot, {backgroundColor: alf.palette.text}]}
+      />
+    )
+  }
+  return (
+    <View testID={testID} accessibilityLabel={`${unread} unread notifications`} style={[styles.badge, {backgroundColor: alf.palette.text}]}>
+      <Body style={[styles.badgeText, {color: alf.palette.bg}]} numberOfLines={1}>
+        {unread > 99 ? '99+' : String(unread)}
+      </Body>
+    </View>
+  )
+}
+
 // --- Mobile top strip (Keystone v1 `.mobile-account`): back | section
 // title | account. Only in the mobile layout; wider shells use the
 // sidebar + pageheads instead.
@@ -257,6 +313,9 @@ function ShellTabBar({leaf}: {leaf: LeafState}) {
             <Body style={[styles.tabLabel, {color: fg}]} numberOfLines={1}>
               {label}
             </Body>
+            {key === 'Notifications' ? (
+              <NotificationsUnreadBadge sessionId={session?.id ?? null} />
+            ) : null}
           </Pressable>
         )
       })}
@@ -314,7 +373,16 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
               active && {backgroundColor: alf.palette.text},
             ]}>
             <TabIcon name={e.key} color={fg} />
-            {rail ? null : <Body style={{color: fg}}>{e.label}</Body>}
+            {rail ? (
+              e.key === 'Notifications' ? (
+                <NotificationsUnreadBadge sessionId={session?.id ?? null} compact />
+              ) : null
+            ) : (
+              <Body style={{color: fg}}>{e.label}</Body>
+            )}
+            {!rail && e.key === 'Notifications' ? (
+              <NotificationsUnreadBadge sessionId={session?.id ?? null} />
+            ) : null}
           </Pressable>
         )
       })}
@@ -485,6 +553,9 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <Stack.Screen name="Note" component={NoteScreen} />
               <Stack.Screen name="Tag" component={TagScreen} />
               <Stack.Screen name="List" component={ListScreen} />
+              <Stack.Screen name="Lists" component={ListsScreen} />
+              <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} />
+              <Stack.Screen name="ProfileEdit" component={ProfileEditorScreen} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
               <Stack.Screen name="Login" component={LoginScreen} />
               <Stack.Screen name="AuthCallback" component={AuthCallbackScreen} />
@@ -614,5 +685,22 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 10,
     lineHeight: 12,
+  },
+  badge: {
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  badgeText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+  },
+  badgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 })

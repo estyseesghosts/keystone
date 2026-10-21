@@ -93,7 +93,10 @@ export function SettingsScreen() {
               testID="settings-back"
             />
             {section === 'account' ? (
-              <AccountSection onAddAccount={() => nav.navigate('Login')} />
+              <AccountSection
+                onAddAccount={() => nav.navigate('Login')}
+                onOpenFollowRequests={() => nav.navigate('FollowRequests')}
+              />
             ) : section === 'display' ? (
               <DisplaySection />
             ) : section === 'reactions' ? (
