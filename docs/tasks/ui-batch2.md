@@ -1,6 +1,6 @@
 # UI batch 2 — names, auto-translate, popup size, scroll layout, profile overlay, prefetch
 
-Status: in progress
+Status: done
 Branch: `main` (owner direction: main only)
 
 ## Goal

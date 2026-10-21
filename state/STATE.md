@@ -1,11 +1,13 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: UI fixes DONE 2026-10-21 on `main` (popups clamped on-screen,
-plain underline tabs app-wide, one-tap account menu, theme-aware contrast).
-Tests green for all touched suites; tsc web clean; oxlint + eslint clean.
-Full `pnpm` suite + visual pass left to owner (pnpm absent in this env).
-Latest log: `state/logs/2026-10-21-ui-fixes.md`.
-Prior: W8 Data correctness & docs DONE 2026-10-21 on `main`
+Phase/slice: UI batch 2 DONE 2026-10-21 on `main` (themed names,
+name==handle collapse, auto-translate with source header, content-sized
+popups, scrolling composer, true-sticky profile tabs, reactions removed,
+edit-profile overlay, prefetch before bottom).
+Tests green for all touched suites (136); tsc web clean; oxlint + eslint
+clean. Full `pnpm` suite + visual pass left to owner.
+Latest log: `state/logs/2026-10-21-ui-batch2.md`.
+Prior: UI fixes + slim tabs + W8 (see logs).
 (MD5 boot re-verify + scope-health, MD6–MD9 live Akkoma round-trips,
 MD10 pooled streaming + app capture, MD11 fork collapse, MD12/MD13
 taxonomy + authority, MK7 boot migration, MK10 fixtures/manifest, MK11
