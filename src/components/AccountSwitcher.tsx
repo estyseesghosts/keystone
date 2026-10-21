@@ -1,9 +1,12 @@
 import {useState} from 'react'
 import {View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {i18n} from '#/locale/i18n'
 import {useSessionStore, useSessions} from '#/state/session/SessionProvider'
 
 // Account switcher (slice 3.1): the stored sessions as a list — switch,
@@ -22,8 +25,8 @@ export function AccountSwitcher({onAddAccount}: {onAddAccount: () => void}) {
   if (sessions.length === 0) {
     return (
       <View style={[atoms.gap_sm]}>
-        <Caption color="faint">No accounts yet.</Caption>
-        <Button label="Add account" variant="secondary" onPress={onAddAccount} />
+        <Caption color="faint">{i18n._(msg`No accounts yet.`)}</Caption>
+        <Button label={i18n._(msg`Add account`)} variant="secondary" onPress={onAddAccount} />
       </View>
     )
   }
@@ -55,10 +58,10 @@ export function AccountSwitcher({onAddAccount}: {onAddAccount: () => void}) {
             </Body>
             <View style={[atoms.row, atoms.gap_sm]}>
               {isActive ? (
-                <Caption color="faint">Current account</Caption>
+                <Caption color="faint">{i18n._(msg`Current account`)}</Caption>
               ) : (
                 <Button
-                  label="Switch"
+                  label={i18n._(msg`Switch`)}
                   variant="secondary"
                   testID={`switch-${session.id}`}
                   onPress={() => {
@@ -67,7 +70,7 @@ export function AccountSwitcher({onAddAccount}: {onAddAccount: () => void}) {
                 />
               )}
               <Button
-                label="Sign out"
+                label={i18n._(msg`Sign out`)}
                 variant="secondary"
                 testID={`signout-${session.id}`}
                 onPress={() => void run(session.id, () => store.signOut(session.id))}
@@ -78,14 +81,14 @@ export function AccountSwitcher({onAddAccount}: {onAddAccount: () => void}) {
       })}
       {sessions.length > 1 ? (
         <Button
-          label="Sign out everywhere"
+          label={i18n._(msg`Sign out everywhere`)}
           variant="secondary"
           testID="signout-everywhere"
           onPress={() => void run(null, () => store.signOutEverywhere())}
         />
       ) : null}
-      <Button label="Add account" variant="secondary" onPress={onAddAccount} />
-      {busyId ? <Caption color="faint">Working…</Caption> : null}
+      <Button label={i18n._(msg`Add account`)} variant="secondary" onPress={onAddAccount} />
+      {busyId ? <Caption color="faint">{i18n._(msg`Working…`)}</Caption> : null}
       {error ? <Caption testID="switcher-error">{error}</Caption> : null}
     </View>
   )

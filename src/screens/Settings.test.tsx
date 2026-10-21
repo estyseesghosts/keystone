@@ -368,7 +368,7 @@ describe('Filters section', () => {
 })
 
 describe('Import/export/language sections', () => {
-  it('renders every v1 row as a disabled placeholder with a reason', async () => {
+  it('renders import/export placeholders and the language radio list', async () => {
     const {done} = await setup({backend: misskeyBackend(), section: 'import'})
     try {
       for (const kind of ['following', 'blocking', 'mute', 'notes']) {
@@ -397,9 +397,11 @@ describe('Import/export/language sections', () => {
     }
     const third = await setup({backend: misskeyBackend(), section: 'language'})
     try {
+      // P5: the language section is a real radio list now (no placeholders).
       for (const code of ['en', 'fr', 'de', 'zh-CN', 'zh-TW', 'yue-HK', 'ja', 'hi']) {
-        expect(screen.getByTestId(`placeholder-locale-${code}`)).toBeTruthy()
+        expect(screen.getByTestId(`locale-${code}`)).toBeTruthy()
       }
+      expect(screen.getByTestId('locale-en').props.accessibilityState.selected).toBe(true)
     } finally {
       third.done()
     }

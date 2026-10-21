@@ -1,6 +1,7 @@
 import {useContext, useMemo, useState} from 'react'
 import {Image, Platform, Pressable, StyleSheet, View, type ViewStyle} from 'react-native'
 import {useOptionalSafeAreaInsets} from '#/components/insets'
+import {t} from '@lingui/macro'
 import {
   DarkTheme,
   DefaultTheme,
@@ -333,8 +334,8 @@ function AccountMenu({onClose, testPrefix}: {onClose: () => void; testPrefix: st
         backgroundColor: alf.palette.bg,
         overflow: 'hidden',
       }}>
-      {item('profile', 'Profile', () => goMainTab('User'))}
-      {item('settings', 'Accounts & settings', () => {
+      {item('profile', t`Profile`, () => goMainTab('User'))}
+      {item('settings', t`Accounts & settings`, () => {
         if (navigationRef.isReady()) navigationRef.navigate('Settings')
       })}
     </View>
@@ -348,7 +349,7 @@ function AccountButton({testPrefix}: {testPrefix: string}) {
       <Pressable
         onPress={() => setOpen(v => !v)}
         accessibilityRole="button"
-        accessibilityLabel="Account menu"
+        accessibilityLabel={t`Account menu`}
         accessibilityState={{expanded: open}}
         hitSlop={8}
         testID={testPrefix}>
@@ -382,7 +383,7 @@ function MobileStrip({leaf}: {leaf: LeafState}) {
         <Pressable
           onPress={goBackOrFeed}
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t`Back`}
           hitSlop={12}
           testID="strip-back">
           <BackIcon size={20} color={alf.palette.text} />
@@ -400,7 +401,7 @@ function MobileStrip({leaf}: {leaf: LeafState}) {
             accessibilityRole="button"
             hitSlop={8}
             testID="strip-signin">
-            <Body>Sign in</Body>
+            <Body>{t`Sign in`}</Body>
           </Pressable>
         )}
       </View>
@@ -416,12 +417,12 @@ function MobileStrip({leaf}: {leaf: LeafState}) {
 // v1 mobile wording: the Network tab reads "My Network" and Explore reads
 // "Search" on phones (section names, not chrome names).
 const MOBILE_LABELS: Record<keyof TabParamList, string> = {
-  Home: 'Home',
-  Network: 'My Network',
-  Explore: 'Search',
-  Notifications: 'Notifications',
-  User: 'Profile',
-  Login: 'Sign in',
+  Home: t`Home`,
+  Network: t`My Network`,
+  Explore: t`Search`,
+  Notifications: t`Notifications`,
+  User: t`Profile`,
+  Login: t`Sign in`,
 }
 
 const SIGNED_IN_TABS: (keyof TabParamList)[] = ['Home', 'Network', 'Explore', 'Notifications', 'User']
@@ -539,10 +540,10 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
         <Pressable
           onPress={() => navigationRef.navigate('Compose')}
           accessibilityRole="button"
-          accessibilityLabel="Write a post"
+          accessibilityLabel={t`Write a post`}
           style={[styles.navlink, styles.postButton, {borderColor: alf.palette.edge}]}>
           <PencilIcon size={20} color={alf.palette.text} />
-          <Body>Post</Body>
+          <Body>{t`Post`}</Body>
         </Pressable>
       ) : null}
       <View style={{flex: 1}} />
@@ -560,20 +561,20 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
           <Pressable
             onPress={() => goMainTab('Login')}
             accessibilityRole="button"
-            accessibilityLabel="Sign in"
+            accessibilityLabel={t`Sign in`}
             style={[styles.navlink, rail && styles.navlinkRail]}>
             <LoginIcon size={20} color={alf.palette.text} />
-            {rail ? null : <Body>Sign in</Body>}
+            {rail ? null : <Body>{t`Sign in`}</Body>}
           </Pressable>
         )}
         {!rail ? (
           <Pressable
             onPress={() => navigationRef.navigate('Settings')}
             accessibilityRole="button"
-            accessibilityLabel="Settings"
+            accessibilityLabel={t`Settings`}
             style={styles.navlink}>
             <SettingsIcon size={20} color={alf.palette.text} />
-            <Body>Settings</Body>
+            <Body>{t`Settings`}</Body>
           </Pressable>
         ) : null}
       </View>

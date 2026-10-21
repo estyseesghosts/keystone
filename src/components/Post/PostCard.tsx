@@ -7,9 +7,12 @@
 // `unsupported`. Never wired, never inert, never faked.
 
 import {useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore} from 'react'
-import {Image, Linking, Share, StyleSheet, View} from 'react-native'
+import {Image, Linking, Platform, Share, StyleSheet, View} from 'react-native'
 
 import {QueryClientContext} from '@tanstack/react-query'
+
+import {msg, t} from '@lingui/macro'
+import {useLingui} from '@lingui/react'
 
 import {
   appearNoteOf,
@@ -53,6 +56,8 @@ import {Lightbox} from '#/components/Lightbox'
 import {PostMediaGrid} from './PostMediaGrid'
 import {PostPoll} from './PostPoll'
 import {PostQuote} from './PostQuote'
+import {UserHoverCard} from '#/components/Profile/UserHoverCard'
+import {formatCount, useLocale} from '#/locale/i18n'
 import {ReactionChips} from './ReactionChips'
 import {formatRelativeTime} from './time'
 
@@ -102,12 +107,80 @@ function openTagPosts(tag: string) {
  * reads "X boosted", several read "X and N others boosted". Pure. */
 export function boostLabel(post: Post, renoters?: Account[]): string {
   const names = (renoters ?? []).map(displayNameOf)
-  if (names.length <= 1) return `${displayNameOf(post.author)} boosted`
+  if (names.length <= 1) return t`${displayNameOf(post.author)} boosted`
   const rest = names.length - 1
-  return `${names[0]} and ${rest} other${rest === 1 ? '' : 's'} boosted`
+  return t`${names[0]} and ${rest} other${rest === 1 ? '' : 's'} boosted`
 }
 
-function Avatar({post}: {post: Post}) {
+// Desktop hover preview (P7): web-only wrapper around an author press.
+// After ~400ms of hover the profile card floats below the anchor; native
+// renders the child alone (no hover exists there). The card floats in an
+// absolutely-positioned web layer, never in layout.
+function HoverAuthor({
+  account,
+  sessionId,
+  onOpenProfile,
+  children,
+  testID,
+}: {
+  account: Account
+  sessionId: string
+  onOpenProfile: () => void
+  children: React.ReactNode
+  testID?: string
+}) {
+  const [show, setShow] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (timer.current !== null) clearTimeout(timer.current)
+    },
+    [],
+  )
+  if (Platform.OS !== 'web') return <>{children}</>
+  // `onHoverIn`/`onHoverOut` exist on the web host view but are absent
+  // from this RN version's `ViewProps` types — spread them in (spreads
+  // skip excess-prop checks) so native trees never see the props.
+  const hoverHandlers: {onHoverIn?: () => void; onHoverOut?: () => void} =
+    Platform.OS === 'web'
+      ? {
+          onHoverIn: () => {
+            if (timer.current !== null) clearTimeout(timer.current)
+            timer.current = setTimeout(() => setShow(true), 400)
+          },
+          onHoverOut: () => {
+            if (timer.current !== null) clearTimeout(timer.current)
+            setShow(false)
+          },
+        }
+      : {}
+  return (
+    <View {...hoverHandlers}>
+      {children}
+      {show ? (
+        <View style={hoverStyles.card}>
+          <UserHoverCard
+            account={account}
+            sessionId={sessionId}
+            onOpenProfile={onOpenProfile}
+            testID={testID}
+          />
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+const hoverStyles = StyleSheet.create({
+  card: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    zIndex: 50,
+  },
+})
+
+function Avatar({post, sessionId}: {post: Post; sessionId: string}) {
   const theme = useTheme()
   const [failed, setFailed] = useState(false)
   // Server strings are never trusted as image sources: anything but
@@ -133,13 +206,19 @@ function Avatar({post}: {post: Post}) {
       />
     )
   return (
-    <Pressable
-      testID={`avatar-press-${post.author.id}`}
-      onPress={() => openAuthorProfile(post.author.id)}
-      accessibilityRole="link"
-      accessibilityLabel={`Open profile of ${displayNameOf(post.author)}`}>
-      {inner}
-    </Pressable>
+    <HoverAuthor
+      account={post.author}
+      sessionId={sessionId}
+      onOpenProfile={() => openAuthorProfile(post.author.id)}
+      testID={`author-hover-${post.author.id}`}>
+      <Pressable
+        testID={`avatar-press-${post.author.id}`}
+        onPress={() => openAuthorProfile(post.author.id)}
+        accessibilityRole="link"
+        accessibilityLabel={t`Open profile of ${displayNameOf(post.author)}`}>
+        {inner}
+      </Pressable>
+    </HoverAuthor>
   )
 }
 
@@ -185,6 +264,7 @@ export function PostCard(props: PostCardProps) {
 
 function LivePostCard(props: PostCardProps) {
   const {post, sessionId} = props
+  const {i18n} = useLingui()
   const store = useOptionalSessionStore()!
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot)
   const session = snapshot.sessions.find(s => s.id === sessionId) ?? null
@@ -211,7 +291,7 @@ function LivePostCard(props: PostCardProps) {
       copy: async text => {
         try {
           await copyText(text)
-          showToast('Copied')
+          showToast(i18n._(msg`Copied`))
         } catch (e) {
           toastError(e)
         }
@@ -236,7 +316,7 @@ function LivePostCard(props: PostCardProps) {
         if (!backend) return
         try {
           await backend.muteThread(effective.id)
-          showToast('Thread muted')
+          showToast(i18n._(msg`Thread muted`))
         } catch (e) {
           toastError(e)
         }
@@ -246,7 +326,7 @@ function LivePostCard(props: PostCardProps) {
         try {
           if (shown.pinned) await backend.unpinPost(effective.id)
           else await backend.pinPost(effective.id)
-          showToast(shown.pinned ? 'Unpinned' : 'Pinned')
+          showToast(shown.pinned ? i18n._(msg`Unpinned`) : i18n._(msg`Pinned`))
         } catch (e) {
           toastError(e)
         }
@@ -269,7 +349,7 @@ function LivePostCard(props: PostCardProps) {
         translation,
         hideTranslation: () => setTranslation(null),
         votePoll: async (postId, choices) => {
-          if (!backend) throw new Error('Sign in to vote.')
+          if (!backend) throw new Error(i18n._(msg`Sign in to vote.`))
           await backend.votePoll(postId, choices)
         },
       }}
@@ -291,6 +371,8 @@ function PostCardView({
   sessionId,
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
+  const {i18n} = useLingui()
+  const locale = useLocale()
   const [cwOpen, setCwOpen] = useState(false)
   // Per-session configured like key (F18): chips hide it, the like
   // button sets it. Device-local store, server default underneath.
@@ -374,7 +456,7 @@ function PostCardView({
 
   return (
     <View style={styles.card} testID={testID ?? `post-${post.id}`}>
-      <Avatar post={effective} />
+      <Avatar post={effective} sessionId={sessionId} />
       <View style={styles.main}>
         {isBoost && (
           <Caption color="muted" style={styles.context} testID={`boost-header-${post.id}`}>
@@ -392,33 +474,39 @@ function PostCardView({
         )}
         {replyTarget !== null && (
           <Caption color="muted" style={styles.context} testID={`reply-context-${post.id}`}>
-            Replying to @{replyTarget.author.acct}
+            {i18n._(msg`Replying to @${replyTarget.author.acct}`)}
           </Caption>
         )}
         <View style={styles.header}>
-          <Pressable
-            testID={`author-press-${effective.author.id}`}
-            onPress={() => openAuthorProfile(effective.author.id)}
-            accessibilityRole="link"
-            accessibilityLabel={`Open profile of ${displayNameOf(effective.author)}`}
-            style={styles.headerAuthor}>
-            <DisplayName
-              account={effective.author}
-              size={15}
-              textStyle={styles.headerName}
-              testID={`author-name-${effective.author.id}`}
-            />
-            <Caption color="muted" numberOfLines={1}>
-              {handleOf(effective.author)}
-            </Caption>
-          </Pressable>
+          <HoverAuthor
+            account={effective.author}
+            sessionId={sessionId}
+            onOpenProfile={() => openAuthorProfile(effective.author.id)}
+            testID={`author-hover-name-${effective.author.id}`}>
+            <Pressable
+              testID={`author-press-${effective.author.id}`}
+              onPress={() => openAuthorProfile(effective.author.id)}
+              accessibilityRole="link"
+              accessibilityLabel={i18n._(msg`Open profile of ${displayNameOf(effective.author)}`)}
+              style={styles.headerAuthor}>
+              <DisplayName
+                account={effective.author}
+                size={15}
+                textStyle={styles.headerName}
+                testID={`author-name-${effective.author.id}`}
+              />
+              <Caption color="muted" numberOfLines={1}>
+                {handleOf(effective.author)}
+              </Caption>
+            </Pressable>
+          </HoverAuthor>
           <Pressable
             testID={`post-time-${effective.id}`}
             onPress={() => openPostDetail(effective.id)}
             accessibilityRole="link"
-            accessibilityLabel={`Open post by ${displayNameOf(effective.author)}`}>
+            accessibilityLabel={i18n._(msg`Open post by ${displayNameOf(effective.author)}`)}>
             <Caption color="muted" numberOfLines={1}>
-              {`· ${formatRelativeTime(effective.createdAt)}`}
+              {`· ${formatRelativeTime(effective.createdAt, undefined, locale)}`}
             </Caption>
           </Pressable>
         </View>
@@ -429,8 +517,8 @@ function PostCardView({
               testID={`cw-toggle-${post.id}`}
               onPress={() => setCwOpen(v => !v)}
               accessibilityRole="button"
-              accessibilityLabel={cwOpen ? 'Hide content' : 'Show content'}>
-              <Caption>{cwOpen ? 'Hide' : 'Show'}</Caption>
+              accessibilityLabel={cwOpen ? i18n._(msg`Hide content`) : i18n._(msg`Show content`)}>
+              <Caption>{cwOpen ? i18n._(msg`Hide`) : i18n._(msg`Show`)}</Caption>
             </Pressable>
           </View>
         )}
@@ -439,7 +527,7 @@ function PostCardView({
             testID={`post-open-${effective.id}`}
             onPress={openPost}
             accessibilityRole="link"
-            accessibilityLabel={`Open post by ${displayNameOf(effective.author)}`}>
+            accessibilityLabel={i18n._(msg`Open post by ${displayNameOf(effective.author)}`)}>
             <RichText
               nodes={nodes}
               emojis={emojis}
@@ -457,8 +545,8 @@ function PostCardView({
                   setExpanded(true)
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="Show more of this post">
-                <Caption color="muted">Show more</Caption>
+                accessibilityLabel={i18n._(msg`Show more of this post`)}>
+                <Caption color="muted">{i18n._(msg`Show more`)}</Caption>
               </Pressable>
             ) : null}
             {expanded && foldBody ? (
@@ -469,8 +557,8 @@ function PostCardView({
                   setExpanded(false)
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="Show less of this post">
-                <Caption color="muted">Show less</Caption>
+                accessibilityLabel={i18n._(msg`Show less of this post`)}>
+                <Caption color="muted">{i18n._(msg`Show less`)}</Caption>
               </Pressable>
             ) : null}
           </Pressable>
@@ -512,15 +600,17 @@ function PostCardView({
         {live?.translation && (
           <View style={[styles.cwBox, {backgroundColor: theme.palette.bgSoft}]} testID={`translation-${post.id}`}>
             <Caption color="muted">
-              Translated{live.translation.sourceLang ? ` from ${live.translation.sourceLang}` : ''}
+              {live.translation.sourceLang
+                ? i18n._(msg`Translated from ${live.translation.sourceLang}`)
+                : i18n._(msg`Translated`)}
             </Caption>
             <Body>{live.translation.text}</Body>
             <Pressable
               testID={`translation-hide-${post.id}`}
               onPress={live.hideTranslation}
               accessibilityRole="button"
-              accessibilityLabel="Hide translation">
-              <Caption>Hide</Caption>
+              accessibilityLabel={i18n._(msg`Hide translation`)}>
+              <Caption>{i18n._(msg`Hide`)}</Caption>
             </Pressable>
           </View>
         )}

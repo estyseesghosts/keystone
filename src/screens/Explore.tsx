@@ -19,6 +19,8 @@ import {useEffect, useRef, useState} from 'react'
 import {FlatList, View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
+import {msg} from '@lingui/macro'
+
 import {
   displayNameOf,
   handleOf,
@@ -42,6 +44,7 @@ import {SignInButton} from '#/components/SignInButton'
 import {ExploreSearchBar} from '#/components/Explore/ExploreSearchBar'
 import {ExploreSuggestPopup} from '#/components/Explore/ExploreSuggestPopup'
 import {ExploreTabBar} from '#/components/Explore/ExploreTabBar'
+import {i18n} from '#/locale/i18n'
 import {applySuggestion, suggestTrigger} from '#/components/Explore/suggest'
 import {exploreTabFromParam, type ExploreTab, type RootParamList} from '#/routes'
 import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
@@ -150,8 +153,8 @@ function AccountsSearch({backend, query}: {backend: Backend; query: string}) {
   if (error) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-        <Body>Could not search profiles.</Body>
-        <Button label="Retry" variant="secondary" onPress={() => setAttempt(a => a + 1)} testID="explore-accounts-retry" />
+        <Body>{i18n._(msg`Could not search profiles.`)}</Body>
+        <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={() => setAttempt(a => a + 1)} testID="explore-accounts-retry" />
       </View>
     )
   }
@@ -165,7 +168,7 @@ function AccountsSearch({backend, query}: {backend: Backend; query: string}) {
   if (accounts.length === 0) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="explore-accounts-empty">
-        <Body>No profiles found.</Body>
+        <Body>{i18n._(msg`No profiles found.`)}</Body>
       </View>
     )
   }
@@ -216,7 +219,7 @@ function UsersTab({backend, submitted}: {backend: Backend; submitted: string | n
     if (!name) {
       return (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Body>Type a profile name to search.</Body>
+          <Body>{i18n._(msg`Type a profile name to search.`)}</Body>
         </View>
       )
     }
@@ -225,15 +228,15 @@ function UsersTab({backend, submitted}: {backend: Backend; submitted: string | n
   if (!backend.explore) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="explore-users-unavailable">
-        <Body>Trending users are not available on this server.</Body>
-        <Caption color="faint">Type a query above to search profiles.</Caption>
+        <Body>{i18n._(msg`Trending users are not available on this server.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Type a query above to search profiles.`)}</Caption>
       </View>
     )
   }
   if (auth) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>Sign in to see suggested users.</Body>
+        <Body>{i18n._(msg`Sign in to see suggested users.`)}</Body>
         <SignInButton />
       </View>
     )
@@ -242,7 +245,7 @@ function UsersTab({backend, submitted}: {backend: Backend; submitted: string | n
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
         <Body>{error}</Body>
-        <Button label="Retry" variant="secondary" onPress={() => setAttempt(a => a + 1)} testID="explore-users-retry" />
+        <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={() => setAttempt(a => a + 1)} testID="explore-users-retry" />
       </View>
     )
   }
@@ -256,7 +259,7 @@ function UsersTab({backend, submitted}: {backend: Backend; submitted: string | n
   if (users.pinned.length === 0 && users.suggested.length === 0) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>No trending users right now.</Body>
+        <Body>{i18n._(msg`No trending users right now.`)}</Body>
       </View>
     )
   }
@@ -340,7 +343,7 @@ function TagsTab({
     if (!name) {
       return (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Body>Type a tag to search.</Body>
+          <Body>{i18n._(msg`Type a tag to search.`)}</Body>
         </View>
       )
     }
@@ -348,7 +351,7 @@ function TagsTab({
       <View style={atoms.flex1}>
         {(related ?? []).length > 0 ? (
           <View testID="explore-related-tags">
-            <SectionTitle label="Related tags" />
+            <SectionTitle label={i18n._(msg`Related tags`)} />
             {(related ?? []).map(n => (
               <TagChip key={n} tag={{name: n, users: null, uses: null}} onOpen={() => openTag(n)} />
             ))}
@@ -366,8 +369,8 @@ function TagsTab({
   if (!backend.explore) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="explore-tags-unavailable">
-        <Body>Trending tags are not available on this server.</Body>
-        <Caption color="faint">Type a query above to browse a tag.</Caption>
+        <Body>{i18n._(msg`Trending tags are not available on this server.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Type a query above to browse a tag.`)}</Caption>
       </View>
     )
   }
@@ -375,7 +378,7 @@ function TagsTab({
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
         <Body>{error}</Body>
-        <Button label="Retry" variant="secondary" onPress={() => setAttempt(a => a + 1)} testID="explore-tags-retry" />
+        <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={() => setAttempt(a => a + 1)} testID="explore-tags-retry" />
       </View>
     )
   }
@@ -389,7 +392,7 @@ function TagsTab({
   if (tags.length === 0) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>No trending tags right now.</Body>
+        <Body>{i18n._(msg`No trending tags right now.`)}</Body>
       </View>
     )
   }
@@ -430,7 +433,7 @@ function PostsTab({
   if (!q) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>Type a query to search posts.</Body>
+        <Body>{i18n._(msg`Type a query to search posts.`)}</Body>
       </View>
     )
   }
@@ -477,7 +480,7 @@ function NewsTab({backend}: {backend: Backend}) {
   if (!backend.explore?.news) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>News is not available on this server.</Body>
+        <Body>{i18n._(msg`News is not available on this server.`)}</Body>
       </View>
     )
   }
@@ -492,14 +495,14 @@ function NewsTab({backend}: {backend: Backend}) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
         <Body>{error}</Body>
-        <Button label="Retry" variant="secondary" onPress={() => setAttempt(a => a + 1)} testID="explore-news-retry" />
+        <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={() => setAttempt(a => a + 1)} testID="explore-news-retry" />
       </View>
     )
   }
   if (links.length === 0) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>No news right now.</Body>
+        <Body>{i18n._(msg`No news right now.`)}</Body>
       </View>
     )
   }
@@ -530,7 +533,7 @@ function NewsTab({backend}: {backend: Backend}) {
       {!end ? (
         <View style={[atoms.centered, atoms.py_sm]}>
           <Button
-            label={loading ? 'Loading…' : 'Show more'}
+            label={loading ? i18n._(msg`Loading…`) : i18n._(msg`Show more`)}
             variant="secondary"
             disabled={loading}
             onPress={loadMore}
@@ -672,8 +675,8 @@ export function ExploreScreen() {
       <View style={atoms.flex1} testID="explore-screen">
         <Pagehead title="Search" />
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Body>Sign in to explore.</Body>
-          <Caption color="faint">Explore never shows sample data when signed out.</Caption>
+          <Body>{i18n._(msg`Sign in to explore.`)}</Body>
+          <Caption color="faint">{i18n._(msg`Explore never shows sample data when signed out.`)}</Caption>
           <SignInButton />
         </View>
       </View>

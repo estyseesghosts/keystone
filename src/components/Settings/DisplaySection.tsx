@@ -1,5 +1,7 @@
 import {View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {atoms} from '#/alf/atoms'
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
@@ -16,6 +18,7 @@ import {
   type ColorMode,
   type ContentMode,
 } from '#/state/appearance'
+import {i18n} from '#/locale/i18n'
 
 import {EmojiStyleSetting} from './EmojiStyleSetting'
 import {PlaceholderRow, SettingRow} from './rows'
@@ -30,19 +33,29 @@ import {PlaceholderRow, SettingRow} from './rows'
 
 const DOT_SIZE = 8
 
-const COLOR_MODES: Array<{value: ColorMode; title: string; hint: string}> = [
-  {value: 'system', title: 'System', hint: 'Follow the device setting.'},
-  {value: 'light', title: 'Light', hint: 'Always light.'},
-  {value: 'dark', title: 'Dark', hint: 'Always dark.'},
-]
+const COLOR_MODE_VALUES: ColorMode[] = ['system', 'light', 'dark']
+
+/** Colour-mode rows, resolved at render time (module constants would
+ * freeze the boot locale — the locale switches at runtime). */
+function colorModeRow(value: ColorMode): {title: string; hint: string} {
+  switch (value) {
+    case 'system':
+      return {title: i18n._(msg`System`), hint: i18n._(msg`Follow the device setting.`)}
+    case 'light':
+      return {title: i18n._(msg`Light`), hint: i18n._(msg`Always light.`)}
+    case 'dark':
+      return {title: i18n._(msg`Dark`), hint: i18n._(msg`Always dark.`)}
+  }
+}
 
 function ColorModeRow({store = appearanceStore}: {store?: AppearanceStore}) {
   const selected = useColorMode(store)
   const theme = useTheme()
   return (
-    <SettingRow title="Colour mode" hint="Light or dark app chrome." testID="color-mode-row">
-      <View style={[atoms.gap_sm]} accessibilityRole="radiogroup" accessibilityLabel="Colour mode">
-        {COLOR_MODES.map(option => {
+    <SettingRow title={i18n._(msg`Colour mode`)} hint={i18n._(msg`Light or dark app chrome.`)} testID="color-mode-row">
+      <View style={[atoms.gap_sm]} accessibilityRole="radiogroup" accessibilityLabel={i18n._(msg`Colour mode`)}>
+        {COLOR_MODE_VALUES.map(value => {
+          const option = {value, ...colorModeRow(value)}
           const active = selected === option.value
           return (
             <Pressable
@@ -78,32 +91,32 @@ function TextSizeRow({store = appearanceStore}: {store?: AppearanceStore}) {
   const percent = Math.round(scale * 100)
   return (
     <SettingRow
-      title="Text size"
-      hint={`Prose text (posts, bios, composer) at ${percent}%. Chrome stays fixed.`}
+      title={i18n._(msg`Text size`)}
+      hint={i18n._(msg`Prose text (posts, bios, composer) at ${percent}%. Chrome stays fixed.`)}
       testID="text-size-row">
       <View style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
         <Button
-          label="Smaller"
+          label={i18n._(msg`Smaller`)}
           variant="secondary"
           disabled={scale <= TEXT_SCALE_MIN}
-          disabledReason="Already at the smallest size."
+          disabledReason={i18n._(msg`Already at the smallest size.`)}
           onPress={() => store.setTextScale(Math.round((scale - 0.1) * 10) / 10)}
           testID="text-size-decrease"
         />
         <Body testID="text-size-value">{percent}%</Body>
         <Button
-          label="Larger"
+          label={i18n._(msg`Larger`)}
           variant="secondary"
           disabled={scale >= TEXT_SCALE_MAX}
-          disabledReason="Already at the largest size."
+          disabledReason={i18n._(msg`Already at the largest size.`)}
           onPress={() => store.setTextScale(Math.round((scale + 0.1) * 10) / 10)}
           testID="text-size-increase"
         />
         <Button
-          label="Reset"
+          label={i18n._(msg`Reset`)}
           variant="secondary"
           disabled={scale === 1}
-          disabledReason="Already at the default size."
+          disabledReason={i18n._(msg`Already at the default size.`)}
           onPress={() => store.setTextScale(1)}
           testID="text-size-reset"
         />
@@ -112,21 +125,29 @@ function TextSizeRow({store = appearanceStore}: {store?: AppearanceStore}) {
   )
 }
 
-const CONTENT_MODES: Array<{value: ContentMode; title: string; hint: string}> = [
-  {value: 'auto', title: 'Automatic', hint: 'Each post renders through its own source parser.'},
-  {value: 'plain', title: 'Plain text', hint: 'Posts, bios and quotes render as plain text.'},
-]
+const CONTENT_MODE_VALUES: ContentMode[] = ['auto', 'plain']
+
+/** Content-mode rows, resolved at render time (see `colorModeRow`). */
+function contentModeRow(value: ContentMode): {title: string; hint: string} {
+  switch (value) {
+    case 'auto':
+      return {title: i18n._(msg`Automatic`), hint: i18n._(msg`Each post renders through its own source parser.`)}
+    case 'plain':
+      return {title: i18n._(msg`Plain text`), hint: i18n._(msg`Posts, bios and quotes render as plain text.`)}
+  }
+}
 
 function ContentModeRow({store = appearanceStore}: {store?: AppearanceStore}) {
   const selected = useContentMode(store)
   const theme = useTheme()
   return (
     <SettingRow
-      title="Post content"
-      hint="How post bodies, bios and quotes render."
+      title={i18n._(msg`Post content`)}
+      hint={i18n._(msg`How post bodies, bios and quotes render.`)}
       testID="content-mode-row">
-      <View style={[atoms.gap_sm]} accessibilityRole="radiogroup" accessibilityLabel="Post content">
-        {CONTENT_MODES.map(option => {
+      <View style={[atoms.gap_sm]} accessibilityRole="radiogroup" accessibilityLabel={i18n._(msg`Post content`)}>
+        {CONTENT_MODE_VALUES.map(value => {
+          const option = {value, ...contentModeRow(value)}
           const active = selected === option.value
           return (
             <Pressable
@@ -163,28 +184,28 @@ export function DisplaySection() {
       <ColorModeRow />
       <TextSizeRow />
       <SettingRow
-        title="Emoji style"
-        hint="Art set for unicode emoji everywhere."
+        title={i18n._(msg`Emoji style`)}
+        hint={i18n._(msg`Art set for unicode emoji everywhere.`)}
         testID="emoji-style-row">
         <EmojiStyleSetting />
       </SettingRow>
       <ContentModeRow />
       <PlaceholderRow
-        title="Theme"
-        hint="Keystone modern or terminal."
-        reason="Not wired yet — the app ships one light/dark pair."
+        title={i18n._(msg`Theme`)}
+        hint={i18n._(msg`Keystone modern or terminal.`)}
+        reason={i18n._(msg`Not wired yet — the app ships one light/dark pair.`)}
         testID="placeholder-theme"
       />
       <PlaceholderRow
-        title="Palette"
-        hint="A variation within a theme."
-        reason="Not wired yet — the app ships one light/dark pair."
+        title={i18n._(msg`Palette`)}
+        hint={i18n._(msg`A variation within a theme.`)}
+        reason={i18n._(msg`Not wired yet — the app ships one light/dark pair.`)}
         testID="placeholder-palette"
       />
       <PlaceholderRow
-        title="Font"
-        hint="Override the theme typeface."
-        reason="Not wired yet — no custom-font loading on native."
+        title={i18n._(msg`Font`)}
+        hint={i18n._(msg`Override the theme typeface.`)}
+        reason={i18n._(msg`Not wired yet — no custom-font loading on native.`)}
         testID="placeholder-font"
       />
     </View>

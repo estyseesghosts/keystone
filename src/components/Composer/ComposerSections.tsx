@@ -1,6 +1,8 @@
 import {useState} from 'react'
 import {Image, View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {
   buildPostDraft,
   type ScheduledNote,
@@ -24,6 +26,7 @@ import {
 import {Chip} from './Chip'
 import type {ComposerController} from './Composer'
 import {SuggestionList} from './Autocomplete'
+import {i18n} from '#/locale/i18n'
 
 // Shared composer sections: the full (`Composer`) and compact
 // (`CompactComposer`) chromes render the same blocks, so testIDs and
@@ -40,7 +43,7 @@ export function CwSection({c}: {c: ComposerController}) {
   if (!c.state.cwEnabled) return null
   return (
     <TextField
-      label="Content warning"
+      label={i18n._(msg`Content warning`)}
       value={c.state.cw}
       onChangeText={cw => c.patch({cw})}
       testID="composer-cw"
@@ -55,7 +58,7 @@ export function PollSection({c}: {c: ComposerController}) {
       {c.state.poll.choices.map((choice, i) => (
         <TextField
           key={i}
-          label={`Choice ${i + 1}`}
+          label={i18n._(msg`Choice ${i + 1}`)}
           value={choice}
           onChangeText={t =>
             c.patch({
@@ -67,18 +70,18 @@ export function PollSection({c}: {c: ComposerController}) {
       <View style={c.styles.row}>
         {c.state.poll.choices.length < c.limits.maxPollOptions ? (
           <Chip
-            label="Add choice"
+            label={i18n._(msg`Add choice`)}
             onPress={() => c.patch({poll: {...c.state.poll!, choices: [...c.state.poll!.choices, '']}})}
           />
         ) : null}
         {c.state.poll.choices.length > 2 ? (
           <Chip
-            label="Remove last"
+            label={i18n._(msg`Remove last`)}
             onPress={() => c.patch({poll: {...c.state.poll!, choices: c.state.poll!.choices.slice(0, -1)}})}
           />
         ) : null}
         <Chip
-          label="Multiple choice"
+          label={i18n._(msg`Multiple choice`)}
           selected={c.state.poll.multiple}
           disabled={!c.gates.pollMultiple.enabled}
           disabledReason={c.gates.pollMultiple.enabled ? undefined : c.gates.pollMultiple.reason}
@@ -113,21 +116,21 @@ export function UploadsSection({c}: {c: ComposerController}) {
             <Caption color="muted">
               {u.name} -{' '}
               {u.status === 'staged'
-                ? 'ready to upload'
+                ? i18n._(msg`ready to upload`)
                 : u.status === 'uploading'
-                  ? 'uploading...'
+                  ? i18n._(msg`uploading...`)
                   : u.status === 'done'
-                    ? 'uploaded'
-                    : (u.error ?? 'failed')}
+                    ? i18n._(msg`uploaded`)
+                    : (u.error ?? i18n._(msg`failed`))}
             </Caption>
             <TextField
-              label="Description (alt text)"
+              label={i18n._(msg`Description (alt text)`)}
               value={u.alt}
               onChangeText={t => c.uploads.setAlt(u.key, t)}
-              placeholder={u.status === 'done' ? 'Locked after upload' : 'Describe the media'}
+              placeholder={u.status === 'done' ? i18n._(msg`Locked after upload`) : i18n._(msg`Describe the media`)}
             />
           </View>
-          <Chip label="Remove" onPress={() => c.uploads.remove(u.key)} />
+          <Chip label={i18n._(msg`Remove`)} onPress={() => c.uploads.remove(u.key)} />
         </View>
       ))}
     </>
@@ -156,31 +159,31 @@ export function ScheduleSection({c}: {c: ComposerController}) {
   return (
     <View style={{gap: space.sm}}>
       <TextField
-        label="Post at (ISO time)"
+        label={i18n._(msg`Post at (ISO time)`)}
         value={c.state.scheduledAt}
         onChangeText={scheduledAt => c.patch({scheduledAt})}
         testID="composer-schedule-at"
       />
       <View style={c.styles.row}>
         <Chip
-          label="In 1 hour"
+          label={i18n._(msg`In 1 hour`)}
           onPress={() => c.patch({scheduledAt: new Date(Date.now() + 3600_000).toISOString()})}
           testID="composer-schedule-in1h"
         />
         <Chip
-          label="Tomorrow 9:00"
+          label={i18n._(msg`Tomorrow 9:00`)}
           onPress={() => c.patch({scheduledAt: tomorrowNine()})}
           testID="composer-schedule-tomorrow"
         />
         <Chip
-          label="Next week 9:00"
+          label={i18n._(msg`Next week 9:00`)}
           onPress={() => c.patch({scheduledAt: nextWeekNine()})}
           testID="composer-schedule-nextweek"
         />
       </View>
       {invalid ? (
         <Caption testID="composer-schedule-invalid">
-          Scheduled time must be in the future.
+          {i18n._(msg`Scheduled time must be in the future.`)}
         </Caption>
       ) : null}
     </View>
@@ -224,7 +227,7 @@ export function RecipientSection({c}: {c: ComposerController}) {
     }
     const parsed = parseRecipientHandle(raw)
     if (!parsed) {
-      setError(`Could not resolve "${raw}".`)
+      setError(i18n._(msg`Could not resolve "${raw}".`))
       return
     }
     setResolving(true)
@@ -238,7 +241,7 @@ export function RecipientSection({c}: {c: ComposerController}) {
         id = page?.items?.[0]?.id ?? null
       }
       if (!id) {
-        setError(`Could not resolve "${raw}".`)
+        setError(i18n._(msg`Could not resolve "${raw}".`))
         return
       }
       if (!c.state.visibleUserIds.includes(id)) {
@@ -248,7 +251,7 @@ export function RecipientSection({c}: {c: ComposerController}) {
       setError(null)
     } catch (err) {
       // Keep the raw text so the user can retry or edit it.
-      setError(err instanceof Error ? err.message : `Could not resolve "${raw}".`)
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not resolve "${raw}".`))
     } finally {
       setResolving(false)
     }
@@ -271,18 +274,18 @@ export function RecipientSection({c}: {c: ComposerController}) {
         ))}
       </View>
       <TextField
-        label="Add recipient"
+        label={i18n._(msg`Add recipient`)}
         value={input}
         onChangeText={t => {
           setInput(t)
           if (error) setError(null)
         }}
-        placeholder="@user or @user@host"
+        placeholder={i18n._(msg`@user or @user@host`)}
         testID="composer-recipient-input"
       />
       <View style={c.styles.row}>
         <Chip
-          label={resolving ? 'Adding…' : 'Add'}
+          label={resolving ? i18n._(msg`Adding…`) : i18n._(msg`Add`)}
           onPress={() => {
             void add()
           }}
@@ -291,7 +294,7 @@ export function RecipientSection({c}: {c: ComposerController}) {
       </View>
       {error ? <Caption testID="composer-recipient-error">{error}</Caption> : null}
       {!canResolve ? (
-        <Caption color="muted">IDs are sent verbatim on this server.</Caption>
+        <Caption color="muted">{i18n._(msg`IDs are sent verbatim on this server.`)}</Caption>
       ) : null}
     </View>
   )
@@ -299,21 +302,21 @@ export function RecipientSection({c}: {c: ComposerController}) {
 
 export function DraftsSection({c}: {c: ComposerController}) {
   if (c.drafts.length === 0) {
-    return c.showDrafts ? <Caption color="muted">No saved drafts.</Caption> : null
+    return c.showDrafts ? <Caption color="muted">{i18n._(msg`No saved drafts.`)}</Caption> : null
   }
   return (
     <View style={{gap: space.sm}} testID="composer-drafts">
       {c.drafts.map(d => (
-        <Chip key={d.id} label={d.text.slice(0, 40) || '(poll / CW only)'} onPress={() => c.restore(d)} />
+        <Chip key={d.id} label={d.text.slice(0, 40) || i18n._(msg`(poll / CW only)`)} onPress={() => c.restore(d)} />
       ))}
     </View>
   )
 }
 
 function scheduledSnippet(s: ScheduledNote): string {
-  if (s.post) return s.post.content.plain.slice(0, 80) || '(no text)'
+  if (s.post) return s.post.content.plain.slice(0, 80) || i18n._(msg`(no text)`)
   const text = s.draft?.text
-  return typeof text === 'string' && text ? text.slice(0, 80) : '(no text)'
+  return typeof text === 'string' && text ? text.slice(0, 80) : i18n._(msg`(no text)`)
 }
 
 // Scheduled posts list + cancel (C8b). Rendered only where the backend
@@ -326,13 +329,13 @@ export function ScheduledListSection({c}: {c: ComposerController}) {
   if (!c.gates.schedule.enabled || !c.backend.scheduled) return null
   return (
     <View style={{gap: space.sm}} testID="composer-scheduled-list">
-      <Caption color="muted">Scheduled posts</Caption>
+      <Caption color="muted">{i18n._(msg`Scheduled posts`)}</Caption>
       {list.isPending ? (
         <Loader testID="composer-scheduled-loading" />
       ) : list.isError ? (
-        <Caption color="faint">Could not load scheduled posts.</Caption>
+        <Caption color="faint">{i18n._(msg`Could not load scheduled posts.`)}</Caption>
       ) : list.data.length === 0 ? (
-        <Caption color="muted">No scheduled posts.</Caption>
+        <Caption color="muted">{i18n._(msg`No scheduled posts.`)}</Caption>
       ) : (
         list.data.map(s => (
           <View key={s.id} style={c.styles.row}>
@@ -340,11 +343,11 @@ export function ScheduledListSection({c}: {c: ComposerController}) {
               {new Date(s.scheduledAt).toLocaleString()} — {scheduledSnippet(s)}
             </Caption>
             <Chip
-              label="Cancel"
+              label={i18n._(msg`Cancel`)}
               disabled={cancel.isPending}
               onPress={() =>
                 cancel.mutate(s.id, {
-                  onError: err => c.setError(err instanceof Error ? err.message : 'Could not cancel.'),
+                  onError: err => c.setError(err instanceof Error ? err.message : i18n._(msg`Could not cancel.`)),
                 })
               }
               testID={`composer-scheduled-cancel-${s.id}`}
@@ -357,7 +360,7 @@ export function ScheduledListSection({c}: {c: ComposerController}) {
 }
 
 function serverDraftSnippet(d: ServerDraft): string {
-  return d.text?.slice(0, 80) || '(no text)'
+  return d.text?.slice(0, 80) || i18n._(msg`(no text)`)
 }
 
 // Server-side drafts (C9/MK5): list, restore into the composer, delete,
@@ -412,7 +415,7 @@ export function ServerDraftsSection({c}: {c: ComposerController}) {
       }
       await save.mutateAsync({draft: {...built.draft, scheduledAt: built.scheduledAt}})
     } catch (err) {
-      c.setError(err instanceof Error ? err.message : 'Could not save the draft.')
+      c.setError(err instanceof Error ? err.message : i18n._(msg`Could not save the draft.`))
     } finally {
       setBusy(false)
     }
@@ -420,13 +423,13 @@ export function ServerDraftsSection({c}: {c: ComposerController}) {
 
   return (
     <View style={{gap: space.sm}} testID="composer-server-drafts">
-      <Caption color="muted">Server drafts</Caption>
+      <Caption color="muted">{i18n._(msg`Server drafts`)}</Caption>
       {list.isPending ? (
         <Loader testID="composer-server-drafts-loading" />
       ) : list.isError ? (
-        <Caption color="faint">Could not load server drafts.</Caption>
+        <Caption color="faint">{i18n._(msg`Could not load server drafts.`)}</Caption>
       ) : list.data.length === 0 ? (
-        <Caption color="muted">No server drafts.</Caption>
+        <Caption color="muted">{i18n._(msg`No server drafts.`)}</Caption>
       ) : (
         list.data.map(d => (
           <View key={d.id} style={c.styles.row}>
@@ -434,16 +437,16 @@ export function ServerDraftsSection({c}: {c: ComposerController}) {
               {serverDraftSnippet(d)}
             </Caption>
             <Chip
-              label="Restore"
+              label={i18n._(msg`Restore`)}
               onPress={() => restore(d)}
               testID={`composer-serverdraft-restore-${d.id}`}
             />
             <Chip
-              label="Delete"
+              label={i18n._(msg`Delete`)}
               disabled={del.isPending}
               onPress={() =>
                 del.mutate(d.id, {
-                  onError: err => c.setError(err instanceof Error ? err.message : 'Could not delete.'),
+                  onError: err => c.setError(err instanceof Error ? err.message : i18n._(msg`Could not delete.`)),
                 })
               }
               testID={`composer-serverdraft-del-${d.id}`}
@@ -453,13 +456,13 @@ export function ServerDraftsSection({c}: {c: ComposerController}) {
       )}
       <View style={c.styles.row}>
         <Chip
-          label={busy || save.isPending ? 'Saving…' : 'Save current as server draft'}
+          label={busy || save.isPending ? i18n._(msg`Saving…`) : i18n._(msg`Save current as server draft`)}
           disabled={busy || save.isPending}
           onPress={() => void saveCurrent()}
           testID="composer-serverdraft-save"
         />
       </View>
-      {save.isError ? <Body testID="composer-serverdraft-error">Could not save the draft.</Body> : null}
+      {save.isError ? <Body testID="composer-serverdraft-error">{i18n._(msg`Could not save the draft.`)}</Body> : null}
     </View>
   )
 }
@@ -469,7 +472,7 @@ export function SuggestEmojiSection({c}: {c: ComposerController}) {
     <>
       <SuggestionList suggestions={c.suggestions} onPick={c.onPickSuggestion} />
       {c.pickingEmoji ? (
-        <Dialog open onClose={() => c.setPickingEmoji(false)} title="Insert emoji" testID="composer-emoji-dialog">
+        <Dialog open onClose={() => c.setPickingEmoji(false)} title={i18n._(msg`Insert emoji`)} testID="composer-emoji-dialog">
           <EmojiPicker
             sessionId={c.session.id}
             onPick={e => {

@@ -6,6 +6,8 @@
 import {useMemo, useSyncExternalStore, useState, useCallback, useRef, useEffect} from 'react'
 import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {
   backendForSession,
   collapseReposts,
@@ -27,6 +29,7 @@ import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {SignInButton} from '#/components/SignInButton'
 import {ThreadRow} from '#/components/PostFeed/ThreadRow'
+import {i18n} from '#/locale/i18n'
 import {countNewItems, feedItems, filterModerated, filterSoftMuted, useModerationRules, useSoftMutedIds, usePostFeedQuery} from '#/state/queries'
 import {feedScrollKey, readFeedScroll, saveFeedScroll} from '#/state/feedMemory'
 import {useSessionStore} from '#/state/session/SessionProvider'
@@ -82,7 +85,7 @@ function countsLine(post: Post): string {
 
 export function PostRow({post, testID}: {post: Post; testID?: string}) {
   const renoteHeader = isPureRenote(post) ? (
-    <Caption color="faint">{`@${post.author.username} reposted`}</Caption>
+    <Caption color="faint">{i18n._(msg`@${post.author.username} reposted`)}</Caption>
   ) : null
   const shown = isPureRenote(post) && post.renote ? post.renote : post
   return (
@@ -91,7 +94,7 @@ export function PostRow({post, testID}: {post: Post; testID?: string}) {
       <Body>{displayNameOf(shown.author)}</Body>
       <Caption color="faint">{handleOf(shown.author)}</Caption>
       <Caption color="faint">{shown.createdAt}</Caption>
-      {shown.cw ? <Body>{`CW: ${shown.cw}`}</Body> : null}
+      {shown.cw ? <Body>{i18n._(msg`CW: ${shown.cw}`)}</Body> : null}
       <Body>{shown.content.plain}</Body>
       <Caption color="faint">{countsLine(shown)}</Caption>
     </View>
@@ -112,7 +115,7 @@ function FeedSkeleton({testID}: {testID?: string}) {
     bar: {height: 12, borderRadius: 6, backgroundColor: theme.palette.raise},
   })
   return (
-    <View testID={testID} style={atoms.flex1} accessibilityLabel="Loading feed">
+    <View testID={testID} style={atoms.flex1} accessibilityLabel={i18n._(msg`Loading feed`)}>
       {[0, 1, 2, 3].map(i => (
         <View key={i} style={styles.row}>
           <View style={styles.avatar} />
@@ -193,8 +196,8 @@ export function FeedView({
   if (!sessionId || !resolved) {
     return (
       <View testID={testID} style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>Sign in to see this feed.</Body>
-        <Caption color="faint">Feeds never show sample data when signed out.</Caption>
+        <Body>{i18n._(msg`Sign in to see this feed.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Feeds never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -217,13 +220,13 @@ export function FeedView({
     const unavailable = isUnsupportedError(feed.error)
     return (
       <View testID={testID} style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-        <Body>{unavailable ? 'Not on this server.' : 'Could not load this feed.'}</Body>
+        <Body>{unavailable ? i18n._(msg`Not on this server.`) : i18n._(msg`Could not load this feed.`)}</Body>
         <Caption color="faint">
           {unavailable
-            ? 'This server has no equivalent for this timeline.'
-            : 'Check your connection and try again.'}
+            ? i18n._(msg`This server has no equivalent for this timeline.`)
+            : i18n._(msg`Check your connection and try again.`)}
         </Caption>
-        <Button label="Retry" variant="secondary" onPress={() => void feed.refetch()} testID="feed-retry" />
+        <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={() => void feed.refetch()} testID="feed-retry" />
       </View>
     )
   }
@@ -233,7 +236,7 @@ export function FeedView({
       {newCount > 0 ? (
         <View style={[atoms.itemsCenter, atoms.py_sm]}>
           <Button
-            label={`${newCount} new posts`}
+            label={i18n._(msg`${newCount} new posts`)}
             variant="secondary"
             onPress={seeNewPosts}
             testID="new-posts-pill"
@@ -270,8 +273,8 @@ export function FeedView({
         onEndReachedThreshold={0.5}
         ListEmptyComponent={
           <View style={[atoms.centered, atoms.p_md]}>
-            <Body>Nothing here yet.</Body>
-            <Caption color="faint">Pull to refresh.</Caption>
+            <Body>{i18n._(msg`Nothing here yet.`)}</Body>
+            <Caption color="faint">{i18n._(msg`Pull to refresh.`)}</Caption>
           </View>
         }
         ListFooterComponent={
@@ -281,9 +284,9 @@ export function FeedView({
             </View>
           ) : feed.isFetchNextPageError ? (
             <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
-              <Caption color="faint">Could not load more posts.</Caption>
+              <Caption color="faint">{i18n._(msg`Could not load more posts.`)}</Caption>
               <Button
-                label="Retry"
+                label={i18n._(msg`Retry`)}
                 variant="secondary"
                 onPress={() => void feed.fetchNextPage()}
                 testID="feed-more-retry"

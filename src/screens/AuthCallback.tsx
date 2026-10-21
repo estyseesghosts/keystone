@@ -7,11 +7,14 @@ import {
 } from '@react-navigation/native'
 import * as Linking from 'expo-linking'
 
+import {msg} from '@lingui/macro'
+
 import {detectServer, type DetectionEvidence, type ServerFlavor} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 import {useSessionStore} from '#/state/session/SessionProvider'
 import {appStorage} from '#/storage'
@@ -190,11 +193,11 @@ export function AuthCallbackScreen() {
 
   return (
     <View style={[atoms.flex1, atoms.centered, atoms.gap_md, atoms.p_md]}>
-      <Heading>Finishing sign-in</Heading>
-      {status === 'working' ? <Body>Verifying with your server…</Body> : null}
+      <Heading>{i18n._(msg`Finishing sign-in`)}</Heading>
+      {status === 'working' ? <Body>{i18n._(msg`Verifying with your server…`)}</Body> : null}
       {error ? <Caption testID="callback-error">{error}</Caption> : null}
       {status === 'error' ? (
-        <Button label="Back to sign in" variant="secondary" onPress={() => nav.navigate('Login')} />
+        <Button label={i18n._(msg`Back to sign in`)} variant="secondary" onPress={() => nav.navigate('Login')} />
       ) : null}
     </View>
   )

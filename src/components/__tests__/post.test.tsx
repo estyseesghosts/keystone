@@ -43,7 +43,9 @@ describe('PostCard', () => {
     expect(screen.getByText('Alice')).toBeTruthy()
     // v1 parity: the handle links to the profile, the time to the post —
     // separate stops, not one caption.
-    const expected = `· ${new Intl.RelativeTimeFormat(undefined, {style: 'narrow'}).format(-22, 'hour')}`
+    // The card renders in the APP locale (useLocale, 'en' here), not the
+    // device default — mirror that in the expectation.
+    const expected = `· ${new Intl.RelativeTimeFormat('en', {style: 'narrow'}).format(-22, 'hour')}`
     expect(screen.getByText('@alice@example.social')).toBeTruthy()
     expect(screen.getByText(expected)).toBeTruthy()
     expect(screen.getByTestId('avatar-fallback-a1')).toBeTruthy()

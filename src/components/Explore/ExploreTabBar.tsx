@@ -1,17 +1,29 @@
 import {View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {atoms} from '#/alf/atoms'
 import {Button} from '#/components/Button'
+import {i18n} from '#/locale/i18n'
 import type {ExploreTab} from '#/routes'
 
 // URL-backed tab bar for Explore: pressing a tab is the caller's
 // navigation (the `:tab` route param), never local state — so browser
 // back and deep links like `/explore/tags` restore the tab.
-export const EXPLORE_TAB_LABELS: Record<ExploreTab, string> = {
-  users: 'Users',
-  tags: 'Tags',
-  posts: 'Posts',
-  news: 'News',
+//
+// Labels resolve at render time (module constants would freeze the boot
+// locale — the locale switches at runtime).
+export function exploreTabLabel(t: ExploreTab): string {
+  switch (t) {
+    case 'users':
+      return i18n._(msg`Users`)
+    case 'tags':
+      return i18n._(msg`Tags`)
+    case 'posts':
+      return i18n._(msg`Posts`)
+    case 'news':
+      return i18n._(msg`News`)
+  }
 }
 
 export function ExploreTabBar({
@@ -28,7 +40,7 @@ export function ExploreTabBar({
       {tabs.map(t => (
         <Button
           key={t}
-          label={EXPLORE_TAB_LABELS[t]}
+          label={exploreTabLabel(t)}
           variant={t === active ? 'primary' : 'secondary'}
           onPress={() => onChange(t)}
           testID={`explore-tab-${t}`}

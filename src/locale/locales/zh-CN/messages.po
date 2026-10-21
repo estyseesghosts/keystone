@@ -21,14 +21,119 @@ msgstr " · 机器人"
 msgid " · locked"
 msgstr " · 已锁定"
 
+#: src/components/Settings/EmojiStyleSetting.tsx:86
+msgid " (default)"
+msgstr ""
+
+#: src/components/Settings/EmojiStyleSetting.tsx:79
+msgid ", selected"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:429
+#: src/components/Composer/ComposerSections.tsx:317
+#: src/components/Composer/ComposerSections.tsx:319
+#: src/components/Composer/ComposerSections.tsx:363
+msgid "(no text)"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:310
+msgid "(poll / CW only)"
+msgstr ""
+
+#. placeholder {0}: names[0]
+#. placeholder {1}: rest === 1 ? '' : 's'
+#: src/components/Post/PostCard.tsx:112
+msgid "{0} and {rest} other{1} boosted"
+msgstr ""
+
+#. placeholder {0}: displayNameOf(post.author)
+#: src/components/Post/PostCard.tsx:110
+msgid "{0} boosted"
+msgstr ""
+
+#: src/screens/HomeFeed.tsx:239
+msgid "{newCount} new posts"
+msgstr ""
+
 #: src/components/Profile/UserHoverCard.tsx:149
 msgid "{notes} notes · {following} following · {followers} followers"
 msgstr "{notes} 条帖子 · 正在关注 {following} · 关注者 {followers}"
+
+#: src/screens/Notifications.tsx:292
+msgid "{unread} new"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:86
+msgid "{what} is not available in this build yet."
+msgstr ""
+
+#. placeholder {0}: post.author.username
+#: src/screens/HomeFeed.tsx:88
+msgid "@{0} reposted"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:283
+msgid "@user or @user@host"
+msgstr ""
+
+#: src/components/Post/PostMediaGrid.tsx:240
+msgid "⏸ Pause"
+msgstr ""
+
+#: src/components/Post/PostMediaGrid.tsx:240
+msgid "▶ Play"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:66
+msgid "a poll ended"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:265
+#: src/components/Composer/CompactComposer.tsx:275
+#: src/components/Composer/Composer.tsx:562
+#: src/components/Composer/Composer.tsx:575
+msgid "A post cannot have both media and a poll."
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:201
+msgid "A variation within a theme."
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:70
+msgid "accepted your follow request"
+msgstr ""
+
+#: src/routes.ts:258
+msgid "Accessibility and display"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:56
 msgid "errors.shape.account"
 msgstr "账号 {id} 返回了意外的结构。"
+
+#: src/Navigation.tsx:352
+msgid "Account menu"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:123
+msgid "Account relations are not connected to this view yet."
+msgstr ""
+
+#: src/components/Settings/AccountSection.tsx:130
+#: src/components/Settings/AccountSection.tsx:140
+#: src/components/Settings/AccountSection.tsx:165
+msgid "Account-wide: other servers cannot quote your posts."
+msgstr ""
+
+#: src/Navigation.tsx:338
+#: src/screens/User.tsx:176
+msgid "Accounts & settings"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:536
+msgid "Accounts whose reposts are hidden."
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:71
@@ -36,21 +141,352 @@ msgid "errors.compose.actionFailed"
 msgstr "操作失败。"
 
 #: src/components/Profile/UserHoverCard.tsx:90
+#: src/components/Settings/MutesSection.tsx:252
+#: src/components/Settings/MutesSection.tsx:402
 msgid "Action failed."
 msgstr "操作失败。"
+
+#: src/components/Composer/ComposerSections.tsx:288
+msgid "Add"
+msgstr ""
+
+#: src/components/Settings/FiltersSection.tsx:74
+msgid "Add a filter"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:272
+msgid "Add a poll"
+msgstr ""
+
+#: src/components/AccountSwitcher.tsx:29
+#: src/components/AccountSwitcher.tsx:90
+msgid "Add account"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:73
+msgid "Add choice"
+msgstr ""
+
+#: src/components/Settings/FiltersSection.tsx:84
+msgid "Add filter"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:277
+msgid "Add recipient"
+msgstr ""
+
+#. placeholder {0}: bmLabel.toLowerCase()
+#: src/components/Post/menuModel.ts:202
+#: src/components/Post/menuModel.ts:205
+msgid "Add to {0}"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:142
+msgid "Add to antenna"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:77
+#: src/components/Post/menuModel.ts:80
+#: src/components/Post/menuModel.ts:82
+msgid "Add to clip"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:141
+msgid "Add to list"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:288
+#: src/components/Settings/FiltersSection.tsx:84
+msgid "Adding…"
+msgstr ""
+
+#: src/components/Composer/Composer.tsx:603
+msgid "All"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:347
+msgid "All reactions"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:119
+msgid "Already at the default size."
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:111
+msgid "Already at the largest size."
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:102
+msgid "Already at the smallest size."
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:47
+msgid "Always dark."
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:45
+msgid "Always light."
+msgstr ""
+
+#. placeholder {0}: extraCount === 1 ? '' : 's'
+#: src/components/Notification/NotificationRow.tsx:184
+msgid "and {extraCount} other{0}"
+msgstr ""
+
+#: src/screens/Login.tsx:444
+msgid "Another server"
+msgstr ""
+
+#: src/routes.ts:237
+msgid "Antenna"
+msgstr ""
+
+#: src/routes.ts:239
+msgid "Antennas"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:28
 msgid "errors.network.apiError"
 msgstr "API 错误：HTTP {status}"
 
+#: src/components/Settings/EmojiStyleSetting.tsx:95
+msgid "Applies to posts, reactions, and the emoji picker. System uses your device font."
+msgstr ""
+
+#. placeholder {0}: detection.origin
+#: src/screens/Login.tsx:507
+msgid "Approve on {0}, then continue here."
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:188
+msgid "Art set for unicode emoji everywhere."
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:262
+msgid "Attach media"
+msgstr ""
+
+#. placeholder {0}: c.uploads.items.length
+#: src/components/Composer/CompactComposer.tsx:262
+msgid "Attach media ({0} attached)"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:265
+#: src/components/Composer/Composer.tsx:575
+msgid "Attachment limit reached."
+msgstr ""
+
+#: src/components/Composer/Composer.tsx:526
+msgid "Audience"
+msgstr ""
+
+#: src/components/Post/PostMediaGrid.tsx:215
+msgid "Audio unavailable"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:134
+msgid "Automatic"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:40
 msgid "errors.unsupported.avatar"
 msgstr "Mastodon 系暂不支持更换头像和横幅。"
 
+#: src/Navigation.tsx:386
+msgid "Back"
+msgstr ""
+
+#: src/screens/AuthCallback.tsx:200
+msgid "Back to sign in"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:122
+#: src/components/Post/menuModel.ts:149
+#: src/components/Settings/MutesSection.tsx:340
+msgid "Block"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:122
+msgid "Block {handle}?"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:515
+msgid "Blocked accounts"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:197
+msgid "Bookmark"
+msgstr ""
+
+#: src/components/Post/badges.ts:21
+msgid "Bookmarked"
+msgstr ""
+
+#: src/components/Post/ActionBar.tsx:183
+msgid "Boost"
+msgstr ""
+
+#. placeholder {0}: detection.origin
+#: src/screens/Login.tsx:495
+msgid "Browser sign-in — approve on {0}."
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:175
+#: src/components/Composer/Composer.tsx:466
+#: src/components/Composer/ComposerSections.tsx:346
+#: src/screens/Login.tsx:514
+#: src/screens/Login.tsx:552
+#: src/screens/Login.tsx:619
+msgid "Cancel"
+msgstr ""
+
+#: src/screens/HomeFeed.tsx:227
+msgid "Check your connection and try again."
+msgstr ""
+
+#: src/screens/Login.tsx:484
+#: src/screens/Login.tsx:510
+msgid "Checking…"
+msgstr ""
+
+#. placeholder {0}: i + 1
+#: src/components/Composer/ComposerSections.tsx:61
+msgid "Choice {0}"
+msgstr ""
+
+#: src/screens/Notifications.tsx:166
+msgid "Choose who notifies you, per type. Empty means the server default."
+msgstr ""
+
+#: src/components/Settings/EmojiStyleSetting.tsx:49
+msgid "Classic flat set."
+msgstr ""
+
+#: src/components/Explore/ExploreSearchBar.tsx:60
+msgid "Clear"
+msgstr ""
+
+#: src/routes.ts:233
+msgid "Clip"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:85
+msgid "Clipboard is not available on this platform."
+msgstr ""
+
+#: src/routes.ts:235
+msgid "Clips"
+msgstr ""
+
 #: src/components/Dialog.tsx:26
 msgid "Close dialog"
+msgstr ""
+
+#: src/screens/Login.tsx:545
+#: src/screens/Login.tsx:613
+msgid "Code"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:55
+#: src/components/Settings/DisplaySection.tsx:56
+msgid "Colour mode"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:295
+#: src/components/Composer/ComposerSections.tsx:46
+msgid "Content warning"
+msgstr ""
+
+#: src/screens/Login.tsx:484
+#: src/screens/Login.tsx:599
+msgid "Continue"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:294
+msgid "Copied"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:162
+msgid "Copy contents"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:164
+#: src/components/Post/menuModel.ts:165
+msgid "Copy link"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:132
+msgid "Copy profile URL"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:173
+msgid "Copy remote link"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:136
+msgid "Copy RSS"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:131
+msgid "Copy username"
+msgstr ""
+
+#: src/components/Settings/FiltersSection.tsx:56
+msgid "Could not add the filter."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:350
+msgid "Could not cancel."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:449
+msgid "Could not delete."
+msgstr ""
+
+#: src/components/Settings/FiltersSection.tsx:39
+msgid "Could not load filters."
+msgstr ""
+
+#: src/screens/HomeFeed.tsx:287
+msgid "Could not load more posts."
+msgstr ""
+
+#: src/screens/Notifications.tsx:350
+msgid "Could not load more."
+msgstr ""
+
+#: src/screens/Notifications.tsx:124
+msgid "Could not load notification settings."
+msgstr ""
+
+#: src/screens/Notifications.tsx:315
+msgid "Could not load notifications."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:336
+msgid "Could not load scheduled posts."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:430
+msgid "Could not load server drafts."
+msgstr ""
+
+#: src/screens/HomeFeed.tsx:223
+msgid "Could not load this feed."
+msgstr ""
+
+#: src/screens/User.tsx:145
+msgid "Could not load this profile."
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:387
+msgid "Could not load."
+msgstr ""
+
+#: src/screens/Notifications.tsx:240
+msgid "Could not mark notifications read."
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -73,47 +509,337 @@ msgstr "无法连接实例（{reason}）。域名正确吗？"
 msgid "errors.network.unreachableServer"
 msgstr "无法连接服务器（{reason}）。它运行中吗？"
 
+#: src/components/Settings/FiltersSection.tsx:68
+msgid "Could not remove the filter."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:230
+#: src/components/Composer/ComposerSections.tsx:244
+#: src/components/Composer/ComposerSections.tsx:254
+msgid "Could not resolve \"{raw}\"."
+msgstr ""
+
+#: src/screens/Notifications.tsx:142
+msgid "Could not save notification settings."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:418
+#: src/components/Composer/ComposerSections.tsx:465
+msgid "Could not save the draft."
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:35
 msgid "errors.auth.savePending"
+msgstr ""
+
+#: src/components/Settings/AccountSection.tsx:157
+#: src/components/Settings/MutesSection.tsx:96
+#: src/components/Settings/MutesSection.tsx:107
+msgid "Could not save."
+msgstr ""
+
+#: src/screens/Explore.tsx:156
+msgid "Could not search profiles."
+msgstr ""
+
+#: src/components/Post/PostPoll.tsx:147
+msgid "Couldn't submit your vote. Try again."
+msgstr ""
+
+#: src/components/AccountSwitcher.tsx:61
+msgid "Current account"
 msgstr ""
 
 #: src/components/Settings/LanguageSection.tsx:30
 msgid "Current language."
 msgstr ""
 
+#: src/components/Composer/Composer.tsx:550
+msgid "CW"
+msgstr ""
+
+#. placeholder {0}: shown.cw
+#: src/screens/HomeFeed.tsx:97
+msgid "CW: {0}"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:47
+msgid "Dark"
+msgstr ""
+
+#: src/routes.ts:281
+msgid "Debug"
+msgstr ""
+
+#: src/screens/Notifications.tsx:67
+msgid "Default"
+msgstr ""
+
+#: src/components/Settings/EmojiStyleSetting.tsx:47
+msgid "Default. Colourful open-source set."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:445
+#: src/components/Post/menuModel.ts:230
+#: src/components/Post/menuModel.ts:232
+#: src/components/Post/menuModel.ts:235
+msgid "Delete"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:435
+msgid "Delete this draft"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:232
+msgid "Delete this post?"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:130
+msgid "Describe the media"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:127
+msgid "Description (alt text)"
+msgstr ""
+
 #: src/components/Popup.tsx:170
 msgid "Dismiss"
 msgstr "关闭"
+
+#: src/components/Composer/CompactComposer.tsx:409
+#: src/components/Composer/Composer.tsx:592
+msgid "Drafts"
+msgstr ""
+
+#. placeholder {0}: c.drafts.length
+#: src/components/Composer/CompactComposer.tsx:409
+msgid "Drafts ({0})"
+msgstr ""
+
+#: src/routes.ts:241
+msgid "Drive"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:134
+msgid "Each post renders through its own source parser."
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:72
+msgid "earned an achievement"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:213
+#: src/components/Post/menuModel.ts:215
+#: src/components/Post/menuModel.ts:216
+msgid "Edit"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:140
+msgid "Edit memo"
+msgstr ""
+
+#: src/routes.ts:251
+#: src/screens/User.tsx:170
+msgid "Edit profile"
+msgstr ""
+
+#: src/components/Post/badges.ts:22
+msgid "Edited"
+msgstr ""
+
+#: src/components/Composer/Composer.tsx:489
+msgid "Editing your post"
+msgstr ""
+
+#: src/screens/Notifications.tsx:63
+msgid "Either"
+msgstr ""
+
+#: src/components/Composer/Composer.tsx:548
+msgid "Emoji"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:187
+#: src/components/Settings/EmojiStyleSetting.tsx:70
+msgid "Emoji style"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:16
 msgid "errors.validation.hostRequired"
 msgstr "请输入实例域名，例如 example.com。"
 
+#: src/screens/Login.tsx:480
+msgid "example.social"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:62
 msgid "errors.shape.expectedList"
 msgstr "应为 {kind} 列表（HTTP {status}）。"
 
-#: src/Navigation.tsx:487
-#: src/Navigation.tsx:616
+#: src/Navigation.tsx:488
+#: src/Navigation.tsx:617
 msgid "Explore"
 msgstr "发现"
+
+#: src/screens/Explore.tsx:679
+msgid "Explore never shows sample data when signed out."
+msgstr ""
+
+#: src/routes.ts:268
+msgid "Export"
+msgstr ""
+
+#. placeholder {0}: session.origin
+#: src/components/Settings/AccountSection.tsx:94
+msgid "External account: sign-in and requests go to {0}, not this app's home server."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:124
+msgid "failed"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:197
+#: src/routes.ts:243
+msgid "Favorites"
+msgstr ""
+
+#: src/components/Profile/ProfileTabs.tsx:23
+msgid "Featured"
+msgstr ""
+
+#: src/screens/Network.tsx:36
+msgid "Federated"
+msgstr ""
+
+#: src/routes.ts:262
+msgid "Feeds"
+msgstr ""
+
+#: src/screens/HomeFeed.tsx:200
+msgid "Feeds never show sample data when signed out."
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:64
 msgid "errors.compose.fileTooLarge"
 msgstr "文件太大（{kb} KB——上限为 10 MB）。"
 
+#: src/components/Settings/FiltersSection.tsx:91
+msgid "Filters"
+msgstr ""
+
+#: src/screens/AuthCallback.tsx:196
+msgid "Finishing sign-in"
+msgstr ""
+
+#: src/screens/Notifications.tsx:276
+msgid "Flat"
+msgstr ""
+
 #: src/components/Profile/UserHoverCard.tsx:142
 msgid "Follow"
 msgstr "关注"
 
-#: src/Navigation.tsx:485
-#: src/Navigation.tsx:606
+#: src/components/Settings/AccountSection.tsx:194
+msgid "Follow requests"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:43
+msgid "Follow the device setting."
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:50
+msgid "followed you"
+msgstr ""
+
+#: src/screens/Notifications.tsx:59
+msgid "Follower"
+msgstr ""
+
+#: src/routes.ts:245
+msgid "Followers"
+msgstr ""
+
+#: src/routes.ts:247
+#: src/screens/Notifications.tsx:57
+msgid "Following"
+msgstr ""
+
+#: src/routes.ts:249
+msgid "Follows"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:206
+msgid "Font"
+msgstr ""
+
+#: src/components/Settings/EmojiStyleSetting.tsx:51
+msgid "Google’s set."
+msgstr ""
+
+#: src/screens/Notifications.tsx:267
+msgid "Grouped"
+msgstr ""
+
+#: src/screens/Notifications.tsx:285
+msgid "Grouped rows are not on this server — showing a flat list."
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:482
+msgid "Hard word mutes"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:71
+msgid "Hidden from global timelines"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:521
+#: src/components/Post/PostCard.tsx:613
+msgid "Hide"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:520
+msgid "Hide content"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:612
+msgid "Hide translation"
+msgstr ""
+
+#: src/Navigation.tsx:420
+#: src/Navigation.tsx:486
+#: src/Navigation.tsx:607
+#: src/routes.ts:215
 msgid "Home"
 msgstr "主页"
+
+#: src/components/Settings/DisplaySection.tsx:146
+msgid "How post bodies, bios and quotes render."
+msgstr ""
+
+#: src/screens/Login.tsx:510
+msgid "I've approved — continue"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:297
+msgid "IDs are sent verbatim on this server."
+msgstr ""
+
+#: src/routes.ts:266
+msgid "Import"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:169
+msgid "In 1 hour"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:288
+#: src/components/Composer/ComposerSections.tsx:475
+msgid "Insert emoji"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:66
@@ -125,21 +851,222 @@ msgstr ""
 msgid "errors.filter.invalidRegex"
 msgstr "第 {line} 行的正则表达式无效。"
 
+#: src/screens/User.tsx:146
+msgid "It may be deleted, suspended, or unreachable."
+msgstr ""
+
+#: src/routes.ts:285
+msgid "Keystone"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:195
+msgid "Keystone modern or terminal."
+msgstr ""
+
 #: src/components/Settings/LanguageSection.tsx:31
+#: src/routes.ts:272
 msgid "Language"
 msgstr "语言"
+
+#: src/components/Settings/DisplaySection.tsx:108
+msgid "Larger"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:45
+msgid "Light"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:55
+msgid "Light or dark app chrome."
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:483
+msgid "Like word mutes, but matching posts never load."
+msgstr ""
+
+#: src/components/Post/ActionBar.tsx:210
+msgid "Like, {count} likes"
+msgstr ""
+
+#: src/components/Post/ActionBar.tsx:229
+msgid "Like, {total} reactions"
+msgstr ""
+
+#: src/components/Post/ActionBar.tsx:228
+msgid "Liked with {mine} — remove reaction"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:62
+msgid "liked your post"
+msgstr ""
+
+#: src/routes.ts:229
+#: src/screens/Notifications.tsx:65
+msgid "List"
+msgstr ""
+
+#: src/routes.ts:231
+msgid "Lists"
+msgstr ""
+
+#: src/components/Settings/AccountSection.tsx:171
+msgid "Loading account…"
+msgstr ""
+
+#: src/screens/HomeFeed.tsx:118
+msgid "Loading feed"
+msgstr ""
+
+#: src/screens/Notifications.tsx:159
+msgid "Loading notification settings."
+msgstr ""
+
+#: src/screens/User.tsx:141
+msgid "Loading profile…"
+msgstr ""
+
+#: src/screens/Notifications.tsx:152
+msgid "Loading settings…"
+msgstr ""
+
+#: src/components/Settings/FiltersSection.tsx:93
+#: src/components/Settings/MutesSection.tsx:411
+#: src/screens/Explore.tsx:536
+#: src/screens/Login.tsx:426
+#: src/screens/Notifications.tsx:311
+msgid "Loading…"
+msgstr ""
+
+#: src/screens/Network.tsx:34
+msgid "Local"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:373
+#: src/components/Composer/Composer.tsx:539
+msgid "Local only"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:130
+msgid "Locked after upload"
+msgstr ""
+
+#: src/screens/Notifications.tsx:298
+msgid "Mark all read"
+msgstr ""
+
+#: src/screens/Notifications.tsx:237
+msgid "Mark-all-read is not on this server."
+msgstr ""
+
+#: src/screens/Notifications.tsx:302
+msgid "Marking notifications read."
+msgstr ""
+
+#: src/screens/Notifications.tsx:298
+msgid "Marking read…"
+msgstr ""
+
+#: src/components/Composer/Composer.tsx:572
+#: src/components/Profile/ProfileTabs.tsx:29
+msgid "Media"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:54
 msgid "errors.shape.mediaLookup"
 msgstr "媒体查询返回了意外的结构。"
 
-#: src/Navigation.tsx:486
+#: src/components/Notification/NotificationRow.tsx:52
+msgid "mentioned you"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:305
+msgid "More options"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:84
+msgid "Multiple choice"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:147
+#: src/components/Settings/MutesSection.tsx:306
+msgid "Mute"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:148
+msgid "Mute boosts"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:260
+msgid "Mute or block an account"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:323
+msgid "Mute reposts"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:194
+#: src/components/Post/menuModel.ts:195
+msgid "Mute thread"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:506
+msgid "Muted accounts"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:491
+msgid "Muted servers"
+msgstr ""
+
+#: src/routes.ts:264
+msgid "Mutes and blocks"
+msgstr ""
+
+#: src/screens/Notifications.tsx:61
+msgid "Mutual"
+msgstr ""
+
+#: src/Navigation.tsx:421
+#: src/Navigation.tsx:487
+#: src/routes.ts:217
 msgid "My Network"
 msgstr "我的网络"
 
-#: src/Navigation.tsx:611
+#: src/components/Settings/AccountSection.tsx:131
+#: src/components/Settings/MutesSection.tsx:500
+msgid "Needs a Misskey-family server."
+msgstr ""
+
+#: src/components/Settings/FiltersSection.tsx:132
+msgid "Needs a server with word filters (this one has none)."
+msgstr ""
+
+#: src/Navigation.tsx:612
 msgid "Network"
+msgstr ""
+
+#: src/screens/Notifications.tsx:55
+msgid "Never"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:204
+msgid "New"
+msgstr ""
+
+#: src/routes.ts:283
+msgid "New post"
+msgstr ""
+
+#: src/components/Explore/ExploreTabBar.tsx:25
+msgid "News"
+msgstr ""
+
+#: src/screens/Explore.tsx:483
+msgid "News is not available on this server."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:179
+msgid "Next week 9:00"
 msgstr ""
 
 #. js-lingui-explicit-id
@@ -152,22 +1079,353 @@ msgstr "找不到 {acct} 对应的账号。"
 msgid "errors.unsupported.noAccountRef"
 msgstr "没有给出账号引用。"
 
-#: src/Navigation.tsx:491
-#: src/Navigation.tsx:623
+#: src/components/Settings/MutesSection.tsx:279
+msgid "No accounts found."
+msgstr ""
+
+#: src/components/AccountSwitcher.tsx:28
+msgid "No accounts yet."
+msgstr ""
+
+#: src/components/Post/menuModel.ts:80
+msgid "No clip picker is connected to this view."
+msgstr ""
+
+#: src/components/Post/ActionBar.tsx:197
+#: src/components/Post/ActionBar.tsx:255
+msgid "No composer is connected to this view."
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:416
+msgid "No drafts yet."
+msgstr ""
+
+#: src/components/Post/menuModel.ts:216
+msgid "No editor is connected to this view."
+msgstr ""
+
+#: src/components/Settings/FiltersSection.tsx:95
+msgid "No filters. Matching posts stay hidden once you add one."
+msgstr ""
+
+#: src/screens/Explore.tsx:505
+msgid "No news right now."
+msgstr ""
+
+#: src/screens/Notifications.tsx:340
+msgid "No notifications."
+msgstr ""
+
+#: src/components/Post/menuModel.ts:132
+msgid "No profile URL known."
+msgstr ""
+
+#: src/screens/Explore.tsx:171
+msgid "No profiles found."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:305
+msgid "No saved drafts."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:338
+msgid "No scheduled posts."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:432
+msgid "No server drafts."
+msgstr ""
+
+#: src/screens/Explore.tsx:395
+msgid "No trending tags right now."
+msgstr ""
+
+#: src/screens/Explore.tsx:262
+msgid "No trending users right now."
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:413
+msgid "None."
+msgstr ""
+
+#: src/components/Settings/EmojiStyleSetting.tsx:53
+msgid "Not offered yet."
+msgstr ""
+
+#: src/components/Settings/AccountSection.tsx:141
+#: src/screens/HomeFeed.tsx:223
+msgid "Not on this server."
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:208
+msgid "Not wired yet — no custom-font loading on native."
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:196
+#: src/components/Settings/DisplaySection.tsx:202
+msgid "Not wired yet — the app ships one light/dark pair."
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:537
+msgid "Not wired yet — the backend has no list endpoint."
+msgstr ""
+
+#: src/routes.ts:225
+msgid "Note"
+msgstr ""
+
+#: src/screens/HomeFeed.tsx:276
+msgid "Nothing here yet."
+msgstr ""
+
+#: src/components/Post/menuModel.ts:107
+msgid "Nothing to copy."
+msgstr ""
+
+#: src/screens/Notifications.tsx:102
+#: src/screens/Notifications.tsx:152
+msgid "Notification settings"
+msgstr ""
+
+#: src/screens/Notifications.tsx:123
+#: src/screens/Notifications.tsx:141
+msgid "Notification settings are not on this server."
+msgstr ""
+
+#: src/Navigation.tsx:423
+#: src/Navigation.tsx:492
+#: src/Navigation.tsx:624
+#: src/routes.ts:221
 msgid "Notifications"
 msgstr "通知"
+
+#: src/screens/Notifications.tsx:249
+msgid "Notifications never show sample data when signed out."
+msgstr ""
+
+#: src/components/Post/menuModel.ts:143
+msgid "Notify about new posts"
+msgstr ""
+
+#: src/components/Settings/AccountSection.tsx:168
+#: src/components/Settings/FeedsSection.tsx:41
+msgid "Off"
+msgstr ""
+
+#: src/components/Settings/AccountSection.tsx:168
+#: src/components/Settings/FeedsSection.tsx:41
+msgid "On"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:474
+msgid "One group per line; words on a line must all match. /regex/ lines stay verbatim."
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:484
+msgid "one group per line…"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:492
+msgid "One host per line. Matching is case-sensitive."
+msgstr ""
+
+#: src/components/Settings/FiltersSection.tsx:74
+msgid "One phrase; matches everywhere."
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:75
+msgid "Only people you name"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:73
+msgid "Only your followers"
+msgstr ""
+
+#: src/components/Post/PostMediaGrid.tsx:275
+msgid "Open"
+msgstr ""
+
+#. placeholder {0}: item.name || item.kind
+#: src/components/Post/PostMediaGrid.tsx:274
+msgid "Open attachment {0}"
+msgstr ""
+
+#: src/components/Post/PostMediaGrid.tsx:246
+msgid "Open in viewer"
+msgstr ""
+
+#. placeholder {0}: mediaLabel(item)
+#: src/components/Post/PostMediaGrid.tsx:245
+msgid "Open media: {0}"
+msgstr ""
+
+#: src/components/Post/PostMediaGrid.tsx:104
+msgid "Open media: {label}"
+msgstr ""
+
+#. placeholder {0}: displayNameOf(effective.author)
+#: src/components/Post/PostCard.tsx:507
+#: src/components/Post/PostCard.tsx:530
+msgid "Open post by {0}"
+msgstr ""
 
 #: src/components/Profile/UserHoverCard.tsx:143
 msgid "Open profile"
 msgstr "打开个人资料"
+
+#. placeholder {0}: displayNameOf(effective.author)
+#. placeholder {0}: displayNameOf(post.author)
+#. placeholder {0}: displayNameOf(shownAccount)
+#: src/components/Notification/NotificationRow.tsx:146
+#: src/components/Notification/NotificationRow.tsx:161
+#: src/components/Post/PostCard.tsx:218
+#: src/components/Post/PostCard.tsx:490
+msgid "Open profile of {0}"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:147
+#: src/components/Notification/NotificationRow.tsx:162
+msgid "Open profile of the notifier"
+msgstr ""
+
+#. placeholder {0}: quote.author.displayName
+#: src/components/Post/PostQuote.tsx:74
+msgid "Open quoted post by {0}"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:194
+msgid "Open the post"
+msgstr ""
+
+#: src/screens/Login.tsx:500
+#: src/screens/Login.tsx:602
+msgid "Opening the approval page."
+msgstr ""
+
+#: src/screens/Login.tsx:497
+#: src/screens/Login.tsx:533
+#: src/screens/Login.tsx:599
+msgid "Opening…"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:319
+#: src/components/Composer/Composer.tsx:472
+msgid "Over the character limit."
+msgstr ""
+
+#: src/components/Composer/Composer.tsx:512
+msgid "Over the limit"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:207
+msgid "Override the theme typeface."
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:200
+msgid "Palette"
+msgstr ""
+
+#: src/screens/Login.tsx:522
+#: src/screens/Login.tsx:628
+msgid "Password"
+msgstr ""
+
+#. placeholder {0}: mediaLabel(item)
+#: src/components/Post/PostMediaGrid.tsx:238
+msgid "Pause {0}"
+msgstr ""
+
+#: src/screens/Notifications.tsx:106
+msgid "Per-type notification settings are only available on Misskey-family servers."
+msgstr ""
+
+#: src/components/Settings/FiltersSection.tsx:76
+msgid "Phrase"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:217
+msgid "Pin to profile"
+msgstr ""
+
+#: src/components/Post/badges.ts:20
+#: src/components/Post/PostCard.tsx:329
+msgid "Pinned"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:36
 msgid "errors.unsupported.pinned"
 msgstr "此服务器不支持置顶帖子列表。"
 
-#: src/Navigation.tsx:492
-#: src/Navigation.tsx:628
+#: src/components/Settings/DisplaySection.tsx:136
+msgid "Plain text"
+msgstr ""
+
+#. placeholder {0}: mediaLabel(item)
+#: src/components/Post/PostMediaGrid.tsx:238
+msgid "Play {0}"
+msgstr ""
+
+#: src/components/Composer/Composer.tsx:556
+msgid "Poll"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:159
+#: src/components/Composer/Composer.tsx:469
+#: src/Navigation.tsx:546
+msgid "Post"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:162
+msgid "Post at (ISO time)"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:392
+msgid "Post at a later time"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:145
+#: src/components/Settings/DisplaySection.tsx:148
+msgid "Post content"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:382
+msgid "Post now instead"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:199
+#: src/components/Composer/Composer.tsx:503
+msgid "Post text"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:319
+#: src/components/Composer/Composer.tsx:472
+msgid "Posting..."
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:316
+msgid "Posting…"
+msgstr ""
+
+#: src/components/Explore/ExploreTabBar.tsx:23
+#: src/components/Profile/ProfileTabs.tsx:25
+msgid "Posts"
+msgstr ""
+
+#. placeholder {0}: new Date(c.state.scheduledAt).toLocaleString()
+#: src/components/Composer/CompactComposer.tsx:391
+msgid "Posts {0}"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:136
+msgid "Posts, bios and quotes render as plain text."
+msgstr ""
+
+#: src/Navigation.tsx:337
+#: src/Navigation.tsx:424
+#: src/Navigation.tsx:493
+#: src/Navigation.tsx:629
+#: src/routes.ts:223
 msgid "Profile"
 msgstr "个人主页"
 
@@ -175,20 +1433,157 @@ msgstr "个人主页"
 msgid "Profile preview for {name}"
 msgstr "{name} 的资料预览"
 
+#: src/components/Settings/DisplaySection.tsx:95
+msgid "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
+msgstr ""
+
+#: src/screens/HomeFeed.tsx:277
+msgid "Pull to refresh."
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:158
+#: src/components/Post/ActionBar.tsx:192
+#: src/components/Post/ActionBar.tsx:195
+msgid "Quote"
+msgstr ""
+
+#: src/components/Post/PostQuote.tsx:61
+msgid "Quoted post unavailable"
+msgstr ""
+
+#: src/components/Post/PostQuote.tsx:59
+msgid "Quoted post unavailable. The target could not be shown."
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:58
+msgid "quoted your post"
+msgstr ""
+
+#. placeholder {0}: c.state.quote.author.acct
+#. placeholder {0}: quote.author.acct
+#: src/components/Composer/CompactComposer.tsx:185
+#: src/components/Composer/Composer.tsx:484
+msgid "Quoting @{0}"
+msgstr ""
+
+#: src/components/Post/ActionBar.tsx:278
+msgid "React with emoji"
+msgstr ""
+
+#. placeholder {0}: notification.reaction
+#: src/components/Notification/NotificationRow.tsx:60
+msgid "reacted {0}"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:60
+msgid "reacted to your post"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:38
 msgid "errors.unsupported.reactions"
 msgstr "此服务器不支持回应列表。"
+
+#: src/components/Composer/Composer.tsx:601
+msgid "Reactions"
+msgstr ""
+
+#: src/routes.ts:260
+msgid "Reactions and emoji"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:203
+msgid "Read"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:119
+msgid "ready to upload"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:150
+msgid "Refresh remote data"
+msgstr ""
+
+#: src/components/Settings/AccountSection.tsx:129
+#: src/components/Settings/AccountSection.tsx:139
+#: src/components/Settings/AccountSection.tsx:164
+msgid "Refuse incoming quotes"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:19
 msgid "errors.network.crossOrigin"
 msgstr "已拒绝发送此请求：该网址与当前会话的来源不一致。"
 
+#: src/screens/Explore.tsx:354
+msgid "Related tags"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:52
 msgid "errors.shape.relationships"
 msgstr "关系数据返回了意外的结构。"
+
+#: src/components/Composer/ComposerSections.tsx:133
+#: src/components/Settings/FiltersSection.tsx:102
+msgid "Remove"
+msgstr ""
+
+#. placeholder {0}: bmLabel.toLowerCase()
+#: src/components/Post/menuModel.ts:202
+msgid "Remove from {0}"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:79
+msgid "Remove last"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:54
+msgid "replied to you"
+msgstr ""
+
+#: src/components/Profile/ProfileTabs.tsx:27
+msgid "Replies"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:156
+msgid "Reply"
+msgstr ""
+
+#. placeholder {0}: formatCount(locale, post.counts.replies)
+#: src/components/Post/ActionBar.tsx:251
+msgid "Reply, {0} replies"
+msgstr ""
+
+#. placeholder {0}: c.state.replyTo.author.acct
+#. placeholder {0}: replyTarget.author.acct
+#. placeholder {0}: replyTo.author.acct
+#: src/components/Composer/CompactComposer.tsx:180
+#: src/components/Composer/Composer.tsx:479
+#: src/components/Post/PostCard.tsx:477
+msgid "Replying to @{0}"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:223
+msgid "Report"
+msgstr ""
+
+#: src/components/Post/ActionBar.tsx:260
+msgid "Repost options"
+msgstr ""
+
+#: src/components/Post/ActionBar.tsx:260
+msgid "Repost options, already reposted"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:525
+#: src/components/Settings/MutesSection.tsx:535
+msgid "Repost-muted accounts"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:56
+msgid "reposted your post"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:20
@@ -209,19 +1604,320 @@ msgstr "请求超时（{target}）：服务器在 {n} 秒内没有响应。请�
 msgid "Requested"
 msgstr "已请求"
 
+#: src/components/Notification/NotificationRow.tsx:68
+msgid "requested to follow you"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:116
+msgid "Reset"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:440
+msgid "Restore"
+msgstr ""
+
+#. placeholder {0}: d.text.slice(0, 60) || '(no text)'
+#: src/components/Composer/CompactComposer.tsx:427
+msgid "Restore draft: {0}"
+msgstr ""
+
+#: src/screens/Explore.tsx:157
+#: src/screens/Explore.tsx:248
+#: src/screens/Explore.tsx:381
+#: src/screens/Explore.tsx:498
+#: src/screens/HomeFeed.tsx:229
+#: src/screens/HomeFeed.tsx:289
+#: src/screens/Notifications.tsx:317
+#: src/screens/Notifications.tsx:352
+#: src/screens/User.tsx:148
+msgid "Retry"
+msgstr ""
+
+#: src/components/Settings/AccountSection.tsx:195
+msgid "Review accounts waiting for your approval."
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:152
+#: src/components/Composer/Composer.tsx:469
+#: src/components/Settings/MutesSection.tsx:129
+#: src/screens/Notifications.tsx:190
+msgid "Save"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:459
+msgid "Save current as server draft"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:103
+msgid "Saved."
+msgstr ""
+
+#: src/screens/Notifications.tsx:194
+msgid "Saving notification settings."
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:459
+#: src/components/Settings/MutesSection.tsx:129
+#: src/screens/Notifications.tsx:190
+msgid "Saving…"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:154
+#: src/components/Composer/Composer.tsx:469
+#: src/components/Composer/Composer.tsx:582
+msgid "Schedule"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:382
+msgid "Schedule…"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:332
+msgid "Scheduled posts"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:186
+msgid "Scheduled time must be in the future."
+msgstr ""
+
+#: src/components/Explore/ExploreSearchBar.tsx:63
+#: src/components/Settings/MutesSection.tsx:272
+#: src/Navigation.tsx:422
+#: src/routes.ts:219
+msgid "Search"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:264
+msgid "Search accounts"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:231
+msgid "Search failed."
+msgstr ""
+
+#: src/components/Post/menuModel.ts:137
+msgid "Search this user's notes"
+msgstr ""
+
+#: src/components/Explore/ExploreSearchBar.tsx:50
+msgid "Search users, tags, and posts"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:261
+msgid "Search, then mute or block. Changes apply immediately."
+msgstr ""
+
+#: src/components/Explore/ExploreSearchBar.tsx:63
+#: src/components/Settings/MutesSection.tsx:272
+msgid "Searching…"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:144
+msgid "Send a message"
+msgstr ""
+
+#: src/components/Post/PostMediaGrid.tsx:298
+msgid "Sensitive media hidden — tap to show"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:77
+msgid "sent a notification"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:74
+msgid "sent an update"
+msgstr ""
+
+#: src/screens/Login.tsx:474
+msgid "Server"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:426
+msgid "Server drafts"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:27
 msgid "errors.network.badJson"
 msgstr "服务器返回了非 JSON 响应（HTTP {status}），目标：{target}。"
 
-#: src/Navigation.tsx:635
+#: src/components/Settings/FiltersSection.tsx:131
+msgid "Server-side phrases that hide matching posts everywhere."
+msgstr ""
+
+#: src/Navigation.tsx:574
+#: src/Navigation.tsx:577
+#: src/routes.ts:274
+msgid "Settings"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:179
+#: src/components/Post/menuModel.ts:180
+msgid "Share"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:521
+msgid "Show"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:520
+msgid "Show content"
+msgstr ""
+
+#: src/components/Settings/FeedsSection.tsx:59
+msgid "Show Federated tab"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:561
+msgid "Show less"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:560
+msgid "Show less of this post"
+msgstr ""
+
+#: src/components/Settings/FeedsSection.tsx:53
+msgid "Show Local even while Social is available. Local always shows when Social is unavailable."
+msgstr ""
+
+#: src/components/Settings/FeedsSection.tsx:52
+msgid "Show Local tab"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:549
+#: src/screens/Explore.tsx:536
+msgid "Show more"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:548
+msgid "Show more of this post"
+msgstr ""
+
+#: src/components/Post/PostMediaGrid.tsx:297
+msgid "Show sensitive media. The author marked this media sensitive."
+msgstr ""
+
+#: src/components/Settings/FeedsSection.tsx:60
+msgid "Show the Federated timeline alongside the default tab."
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:69
+msgid "Shown everywhere"
+msgstr ""
+
+#: src/components/SignInButton.tsx:21
+#: src/Navigation.tsx:404
+#: src/Navigation.tsx:425
+#: src/Navigation.tsx:564
+#: src/Navigation.tsx:567
+#: src/Navigation.tsx:636
+#: src/routes.ts:279
+#: src/screens/Login.tsx:433
+#: src/screens/Login.tsx:524
+#: src/screens/Login.tsx:630
 msgid "Sign in"
 msgstr "登录"
+
+#: src/components/Post/menuModel.ts:195
+msgid "Sign in to do this."
+msgstr ""
+
+#: src/screens/Explore.tsx:678
+msgid "Sign in to explore."
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:458
+msgid "Sign in to manage mutes and blocks."
+msgstr ""
+
+#: src/components/Settings/FiltersSection.tsx:122
+msgid "Sign in to manage word filters."
+msgstr ""
+
+#: src/screens/Notifications.tsx:239
+msgid "Sign in to mark notifications read."
+msgstr ""
+
+#: src/screens/Notifications.tsx:248
+msgid "Sign in to see notifications."
+msgstr ""
+
+#: src/screens/Explore.tsx:239
+msgid "Sign in to see suggested users."
+msgstr ""
+
+#: src/screens/HomeFeed.tsx:199
+msgid "Sign in to see this feed."
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:352
+msgid "Sign in to vote."
+msgstr ""
+
+#. placeholder {0}: props.serverName
+#: src/screens/Login.tsx:597
+msgid "Sign in with {0} in the browser."
+msgstr ""
+
+#: src/screens/Login.tsx:497
+#: src/screens/Login.tsx:533
+msgid "Sign in with browser"
+msgstr ""
+
+#. placeholder {0}: props.serverName
+#: src/screens/Login.tsx:626
+msgid "Sign in with your {0} account."
+msgstr ""
+
+#: src/components/AccountSwitcher.tsx:73
+msgid "Sign out"
+msgstr ""
+
+#: src/components/AccountSwitcher.tsx:84
+msgid "Sign out everywhere"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:31
 msgid "errors.auth.signinFailed"
 msgstr "登录失败。"
+
+#. placeholder {0}: session.accountId
+#. placeholder {1}: session.origin
+#: src/components/Settings/AccountSection.tsx:77
+msgid "Signed in as {0} on {1}."
+msgstr ""
+
+#: src/components/Settings/AccountSection.tsx:57
+#: src/components/Settings/AccountSection.tsx:78
+msgid "Signed out. Add an account to sign in."
+msgstr ""
+
+#: src/screens/Login.tsx:633
+msgid "Signing in."
+msgstr ""
+
+#: src/screens/Login.tsx:524
+#: src/screens/Login.tsx:630
+msgid "Signing in…"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:99
+msgid "Smaller"
+msgstr ""
+
+#: src/screens/Network.tsx:32
+msgid "Social"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:499
+msgid "Soft words, hard words, muted servers."
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:99
+#: src/components/Notification/NotificationRow.tsx:177
+msgid "Someone"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:57
@@ -233,10 +1929,38 @@ msgstr "帖子 {id} 返回了意外的结构。"
 msgid "errors.shape.statusContext"
 msgstr "帖子上下文返回了意外的结构。"
 
+#: src/components/Post/PostPoll.tsx:154
+msgid "Submitting vote…"
+msgstr ""
+
+#: src/components/Post/PostPoll.tsx:156
+msgid "Submitting…"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:61
 msgid "errors.shape.suggestions"
 msgstr "推荐返回了意外的结构。"
+
+#: src/components/AccountSwitcher.tsx:64
+msgid "Switch"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:43
+msgid "System"
+msgstr ""
+
+#: src/routes.ts:227
+msgid "Tag"
+msgstr ""
+
+#: src/components/Explore/ExploreTabBar.tsx:21
+msgid "Tags"
+msgstr ""
+
+#: src/components/Settings/DisplaySection.tsx:94
+msgid "Text size"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:18
@@ -293,30 +2017,103 @@ msgstr "服务器注册了应用，但没有返回可用的凭证。"
 msgid "errors.shape.noTranslation"
 msgstr "服务器没有返回此帖子的翻译。"
 
+#: src/components/Post/PostMediaGrid.tsx:215
+msgid "The server sent no audio URL."
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:37
 msgid "errors.unsupported.social"
 msgstr "此服务器不支持社交时间线。"
+
+#: src/components/Settings/DisplaySection.tsx:194
+msgid "Theme"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:32
 msgid "errors.auth.mfaRequired"
 msgstr "此账号需要两步验证。请输入验证码以完成登录。"
 
+#: src/components/Settings/AccountSection.tsx:56
+#: src/components/Settings/AccountSection.tsx:74
+msgid "This device"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:165
+#: src/components/Post/menuModel.ts:180
+msgid "This post has no known link."
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:51
 msgid "errors.shape.noPoll"
 msgstr "此帖子没有可以投票的投票。"
+
+#: src/components/Post/menuModel.ts:162
+#: src/components/Post/menuModel.ts:191
+msgid "This post has no text."
+msgstr ""
+
+#: src/screens/Login.tsx:438
+msgid "This server"
+msgstr ""
+
+#: src/screens/Login.tsx:590
+msgid "This server could not be identified. Try another server."
+msgstr ""
+
+#: src/components/Post/menuModel.ts:213
+msgid "This server does not support editing posts."
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:63
 msgid "errors.reactions.likeUnsupported"
 msgstr ""
 
+#: src/components/Post/ActionBar.tsx:197
+msgid "This server does not support quote posts."
+msgstr ""
+
+#: src/components/Post/menuModel.ts:77
+msgid "This server has no clips."
+msgstr ""
+
+#: src/screens/HomeFeed.tsx:226
+msgid "This server has no equivalent for this timeline."
+msgstr ""
+
+#: src/components/Post/menuModel.ts:191
+msgid "This server has no translation service."
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:319
+msgid "Thread muted"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:55
 msgid "errors.shape.timeline"
 msgstr "时间线 {kind} 返回了意外的结构（HTTP {status}）。"
+
+#: src/components/Composer/ComposerSections.tsx:174
+msgid "Tomorrow 9:00"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:186
+#: src/components/Post/menuModel.ts:189
+msgid "Translate"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:605
+msgid "Translated"
+msgstr ""
+
+#. placeholder {0}: live.translation.sourceLang
+#: src/components/Post/PostCard.tsx:604
+msgid "Translated from {0}"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:60
@@ -328,35 +2125,248 @@ msgstr "热门链接返回了意外的结构。"
 msgid "errors.shape.trendingStatuses"
 msgstr "热门帖子返回了意外的结构。"
 
+#: src/screens/Explore.tsx:372
+msgid "Trending tags are not available on this server."
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:58
 msgid "errors.shape.trendingTags"
 msgstr "热门标签返回了意外的结构。"
+
+#: src/screens/Explore.tsx:231
+msgid "Trending users are not available on this server."
+msgstr ""
+
+#. placeholder {0}: mfa.challengeTypes[0] ?? 'totp'
+#. placeholder {0}: props.mfa.challengeTypes[0] ?? 'totp'
+#: src/screens/Login.tsx:544
+#: src/screens/Login.tsx:612
+msgid "Two-factor code ({0})"
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:33
 msgid "errors.auth.mfaFailed"
 msgstr "两步验证登录失败。"
 
+#: src/screens/Explore.tsx:222
+msgid "Type a profile name to search."
+msgstr ""
+
+#: src/screens/Explore.tsx:373
+msgid "Type a query above to browse a tag."
+msgstr ""
+
+#: src/screens/Explore.tsx:232
+msgid "Type a query above to search profiles."
+msgstr ""
+
+#: src/screens/Explore.tsx:436
+msgid "Type a query to search posts."
+msgstr ""
+
+#: src/screens/Explore.tsx:346
+msgid "Type a tag to search."
+msgstr ""
+
+#: src/components/Post/PostMediaGrid.tsx:278
+msgid "Unavailable"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:149
+#: src/components/Settings/MutesSection.tsx:332
+#: src/components/Settings/MutesSection.tsx:519
+msgid "Unblock"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:516
+msgid "Unblock to interact again."
+msgstr ""
+
+#: src/components/Post/ActionBar.tsx:183
+msgid "Undo boost"
+msgstr ""
+
 #: src/components/Profile/UserHoverCard.tsx:139
 msgid "Unfollow"
 msgstr "取消关注"
+
+#: src/components/Post/ActionBar.tsx:210
+msgid "Unlike, {count} likes"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:147
+#: src/components/Settings/MutesSection.tsx:298
+#: src/components/Settings/MutesSection.tsx:315
+#: src/components/Settings/MutesSection.tsx:510
+msgid "Unmute"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:148
+msgid "Unmute boosts"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:529
+msgid "Unmute reposts"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:526
+msgid "Unmute reposts to see them again."
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:507
+msgid "Unmute to see their posts again."
+msgstr ""
+
+#: src/components/Post/menuModel.ts:217
+msgid "Unpin from profile"
+msgstr ""
+
+#: src/components/Post/PostCard.tsx:329
+msgid "Unpinned"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:411
+msgid "Unsent posts on this device"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:123
+msgid "uploaded"
+msgstr ""
+
+#: src/components/Composer/ComposerSections.tsx:121
+msgid "uploading..."
+msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:17
 msgid "errors.validation.hostScheme"
 msgstr "请使用 http(s) 实例地址，例如 example.com。"
 
+#: src/components/Post/menuModel.ts:220
+msgid "User"
+msgstr ""
+
+#: src/screens/Login.tsx:521
+#: src/screens/Login.tsx:627
+msgid "Username"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:267
+msgid "username or handle"
+msgstr ""
+
+#: src/components/Explore/ExploreTabBar.tsx:19
+msgid "Users"
+msgstr ""
+
+#: src/screens/Login.tsx:547
+#: src/screens/Login.tsx:615
+msgid "Verify"
+msgstr ""
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:34
 msgid "errors.auth.noVerifyAccount"
 msgstr "verify_credentials 没有返回账号。"
 
-#: src/Navigation.tsx:588
+#: src/screens/AuthCallback.tsx:197
+msgid "Verifying with your server…"
+msgstr ""
+
+#: src/screens/Login.tsx:547
+#: src/screens/Login.tsx:615
+msgid "Verifying…"
+msgstr ""
+
+#: src/components/Post/menuModel.ts:127
+#: src/components/Post/menuModel.ts:174
+msgid "View on remote instance"
+msgstr ""
+
+#: src/components/Settings/AccountSection.tsx:198
+msgid "View requests"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:376
+msgid "Visible only on this server"
+msgstr ""
+
+#: src/components/Post/PostPoll.tsx:154
+#: src/components/Post/PostPoll.tsx:156
+msgid "Vote"
+msgstr ""
+
+#: src/components/Notification/NotificationRow.tsx:64
+msgid "voted in your poll"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:197
+#: src/components/Composer/Composer.tsx:501
+msgid "What's happening?"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:346
+msgid "Who can react"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:235
+msgid "Who can see this post"
+msgstr ""
+
+#. placeholder {0}: current.label
+#: src/components/Composer/CompactComposer.tsx:223
+msgid "Who can see this post: {0}. Change audience."
+msgstr ""
+
+#: src/Navigation.tsx:589
 msgid "Widgets land in Phase 5."
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:498
+msgid "Word and server mutes"
+msgstr ""
+
+#: src/components/Settings/FiltersSection.tsx:130
+#: src/routes.ts:270
+msgid "Word filters"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:473
+msgid "Word mutes"
+msgstr ""
+
+#: src/components/AccountSwitcher.tsx:91
+msgid "Working…"
+msgstr ""
+
+#: src/Navigation.tsx:543
+msgid "Write a post"
+msgstr ""
+
+#: src/components/Composer/CompactComposer.tsx:197
+#: src/components/Composer/Composer.tsx:501
+msgid "Write your reply"
 msgstr ""
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:43
 msgid "errors.unsupported.boostVisibility"
 msgstr "你只能修改你关注的账号的转发可见性。"
+
+#: src/routes.ts:256
+msgid "Your account"
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:106
+msgid "Your account cannot change this setting."
+msgstr ""
+
+#: src/components/Settings/MutesSection.tsx:251
+msgid "Your account cannot do that here."
+msgstr ""
+
+#: src/components/Settings/EmojiStyleSetting.tsx:55
+msgid "Your device font. No downloads."
+msgstr ""

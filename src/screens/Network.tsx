@@ -1,12 +1,15 @@
 import {View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
+import {msg} from '@lingui/macro'
+
 import {atoms} from '#/alf/atoms'
 import {ComposeFab} from '#/components/ComposeFab'
 import {Button} from '#/components/Button'
 import {networkTabFromParam, type RootParamList, type NetworkTab} from '#/routes'
 import {useActiveBackend, FeedView} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
+import {i18n} from '#/locale/i18n'
 import {defaultNetworkTab, descriptorForNetworkTab, visibleNetworkTabs} from '#/state/queries'
 import {useFeedPrefs} from '#/state/feedPrefs'
 
@@ -21,10 +24,17 @@ import {useFeedPrefs} from '#/state/feedPrefs'
 // writes the param (the URL becomes `/network/<tab>`); the canonical
 // Federated URL is `/network/federated`, with pre-W1 `/network/global`
 // accepted as an alias.
-const TAB_LABELS: Record<NetworkTab, string> = {
-  social: 'Social',
-  local: 'Local',
-  federated: 'Federated',
+/** Tab labels, resolved at render time (module constants would freeze the
+ * boot locale — the locale switches at runtime). */
+function tabLabel(tab: NetworkTab): string {
+  switch (tab) {
+    case 'social':
+      return i18n._(msg`Social`)
+    case 'local':
+      return i18n._(msg`Local`)
+    case 'federated':
+      return i18n._(msg`Federated`)
+  }
 }
 
 export function NetworkScreen() {
@@ -47,7 +57,7 @@ export function NetworkScreen() {
         {visible.map(t => (
           <Button
             key={t}
-            label={TAB_LABELS[t]}
+            label={tabLabel(t)}
             variant={t === active ? 'primary' : 'secondary'}
             onPress={() => navigation.setParams({tab: t} as never)}
             testID={`network-tab-${t}`}

@@ -1,12 +1,15 @@
 import {useEffect, useState} from 'react'
 import {View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {isUnsupportedError, type Account, type Session} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {AccountSwitcher} from '#/components/AccountSwitcher'
 import {Button} from '#/components/Button'
+import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useHosting} from '#/state/hosting'
 import {useActiveSession} from '#/state/session/SessionProvider'
@@ -50,8 +53,8 @@ function IdentityBlock() {
   if (!session) {
     return (
       <SettingRow
-        title="This device"
-        hint="Signed out. Add an account to sign in."
+        title={i18n._(msg`This device`)}
+        hint={i18n._(msg`Signed out. Add an account to sign in.`)}
         testID="account-identity-row">
         {null}
       </SettingRow>
@@ -68,19 +71,28 @@ function IdentityBlock() {
     homeOrigin != null ? session.origin !== homeOrigin : session.hosting === 'third-party'
   return (
     <SettingRow
-      title="This device"
-      hint={`Signed in as ${session.accountId} on ${session.origin}.`}
+      title={i18n._(msg`This device`)}
+      hint={
+        session
+          ? i18n._(msg`Signed in as ${session.accountId} on ${session.origin}.`)
+          : i18n._(msg`Signed out. Add an account to sign in.`)
+      }
       testID="account-identity-row">
-      <Body>
-        {session.user?.displayName ?? session.accountId} · {session.origin}
-      </Body>
-      <Body testID="account-backend-label">
-        {backendLabelFor(session)} · {handleFor(session)}
-      </Body>
-      {isExternal ? (
+      {session ? (
+        <Body>
+          {session.user?.displayName ?? session.accountId} · {session.origin}
+        </Body>
+      ) : null}
+      {session ? (
+        <Body testID="account-backend-label">
+          {backendLabelFor(session)} · {handleFor(session)}
+        </Body>
+      ) : null}
+      {session && isExternal ? (
         <Caption testID="account-external-note">
-          External account: sign-in and requests go to {session.origin}, not this app&apos;s home
-          server.
+          {i18n._(
+            msg`External account: sign-in and requests go to ${session.origin}, not this app's home server.`,
+          )}
         </Caption>
       ) : null}
     </SettingRow>
@@ -114,9 +126,9 @@ function RejectQuotesRow() {
   if (backend.family !== 'misskey') {
     return (
       <PlaceholderRow
-        title="Refuse incoming quotes"
-        hint="Account-wide: other servers cannot quote your posts."
-        reason="Needs a Misskey-family server."
+        title={i18n._(msg`Refuse incoming quotes`)}
+        hint={i18n._(msg`Account-wide: other servers cannot quote your posts.`)}
+        reason={i18n._(msg`Needs a Misskey-family server.`)}
         testID="reject-quotes-placeholder"
       />
     )
@@ -124,9 +136,9 @@ function RejectQuotesRow() {
   if (!supported) {
     return (
       <PlaceholderRow
-        title="Refuse incoming quotes"
-        hint="Account-wide: other servers cannot quote your posts."
-        reason="Not on this server."
+        title={i18n._(msg`Refuse incoming quotes`)}
+        hint={i18n._(msg`Account-wide: other servers cannot quote your posts.`)}
+        reason={i18n._(msg`Not on this server.`)}
         testID="reject-quotes-placeholder"
       />
     )
@@ -142,21 +154,21 @@ function RejectQuotesRow() {
       setMe(updated)
     } catch (err) {
       if (isUnsupportedError(err)) setSupported(false)
-      else setError(err instanceof Error ? err.message : 'Could not save.')
+      else setError(err instanceof Error ? err.message : i18n._(msg`Could not save.`))
     } finally {
       setBusy(false)
     }
   }
   return (
     <SettingRow
-      title="Refuse incoming quotes"
-      hint="Account-wide: other servers cannot quote your posts."
+      title={i18n._(msg`Refuse incoming quotes`)}
+      hint={i18n._(msg`Account-wide: other servers cannot quote your posts.`)}
       testID="reject-quotes-row">
       <Button
-        label={value ? 'On' : 'Off'}
+        label={value ? i18n._(msg`On`) : i18n._(msg`Off`)}
         variant={value ? 'primary' : 'secondary'}
         disabled={busy || !me}
-        disabledReason={!me ? 'Loading account…' : undefined}
+        disabledReason={!me ? i18n._(msg`Loading account…`) : undefined}
         onPress={() => void save(!value)}
         testID="reject-quotes-toggle"
       />
@@ -179,11 +191,11 @@ export function AccountSection({
       <AccountSwitcher onAddAccount={onAddAccount} />
       {session ? (
         <SettingRow
-          title="Follow requests"
-          hint="Review accounts waiting for your approval."
+          title={i18n._(msg`Follow requests`)}
+          hint={i18n._(msg`Review accounts waiting for your approval.`)}
           testID="follow-requests-row">
           <Button
-            label="View requests"
+            label={i18n._(msg`View requests`)}
             variant="secondary"
             onPress={onOpenFollowRequests}
             testID="follow-requests-open"

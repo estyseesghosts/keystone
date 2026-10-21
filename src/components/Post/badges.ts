@@ -2,6 +2,12 @@
 // edited, server-filtered, and reaction-acceptance markers. Pure: the
 // card renders what this returns, nothing else. Absent data means no
 // badge — never a guessed label.
+import {t} from '@lingui/macro'
+
+// Locale boot (P5): see `menuModel.ts` — bare importers need the
+// activated singleton before any `t` evaluates.
+import '#/locale/i18n'
+
 import {reactionAcceptanceLabel, type Post} from '@keystone/fedi'
 
 export interface PostBadge {
@@ -11,9 +17,9 @@ export interface PostBadge {
 
 export function badgesFor(post: Post): PostBadge[] {
   const badges: PostBadge[] = []
-  if (post.pinned) badges.push({key: 'pinned', label: 'Pinned'})
-  if (post.ext.bookmarked === true) badges.push({key: 'bookmarked', label: 'Bookmarked'})
-  if (post.editedAt !== null) badges.push({key: 'edited', label: 'Edited'})
+  if (post.pinned) badges.push({key: 'pinned', label: t`Pinned`})
+  if (post.ext.bookmarked === true) badges.push({key: 'bookmarked', label: t`Bookmarked`})
+  if (post.editedAt !== null) badges.push({key: 'edited', label: t`Edited`})
   const [firstFilter] = post.filtered
   if (firstFilter) {
     badges.push({

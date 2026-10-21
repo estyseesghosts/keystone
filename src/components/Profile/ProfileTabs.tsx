@@ -6,17 +6,28 @@
 import {useMemo} from 'react'
 import {StyleSheet, View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {useTheme} from '#/alf/index'
 import {Body} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
 import {borderWidth, space} from '#/alf/tokens'
+import {i18n} from '#/locale/i18n'
 import type {ProfileFeedTab} from '#/state/queries'
 
-export const PROFILE_TAB_LABELS: Record<ProfileFeedTab, string> = {
-  featured: 'Featured',
-  posts: 'Posts',
-  replies: 'Replies',
-  media: 'Media',
+// Profile tab labels, resolved at render time (a module constant would
+// freeze the boot locale — the locale switches at runtime).
+export function profileTabLabel(t: ProfileFeedTab): string {
+  switch (t) {
+    case 'featured':
+      return i18n._(msg`Featured`)
+    case 'posts':
+      return i18n._(msg`Posts`)
+    case 'replies':
+      return i18n._(msg`Replies`)
+    case 'media':
+      return i18n._(msg`Media`)
+  }
 }
 
 const ORDER: ProfileFeedTab[] = ['featured', 'posts', 'replies', 'media']
@@ -56,7 +67,7 @@ export function ProfileTabs({
               active && {borderBottomColor: theme.palette.borderStrong},
             ]}>
             <Body color={active ? 'text' : 'muted'} style={active && styles.activeLabel}>
-              {PROFILE_TAB_LABELS[t]}
+              {profileTabLabel(t)}
             </Body>
           </Pressable>
         )

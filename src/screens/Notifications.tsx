@@ -10,6 +10,8 @@
 import {useEffect, useMemo, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {
   NOTIFICATION_FILTER_PRESETS,
   isUnsupportedError,
@@ -22,6 +24,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
 import {
@@ -46,14 +49,33 @@ import {NotificationRow} from '#/components/Notification/NotificationRow'
 // ignores `ext` (no such surface), so there the toggle renders honestly
 // disabled with a reason.
 
-const RECEIVE_OPTIONS: Array<{value: string; label: string}> = [
-  {value: '', label: 'Default'},
-  {value: 'never', label: 'Never'},
-  {value: 'following', label: 'Following'},
-  {value: 'follower', label: 'Follower'},
-  {value: 'mutualFollow', label: 'Mutual'},
-  {value: 'followingOrFollower', label: 'Either'},
-  {value: 'list', label: 'List'},
+function receiveOptionLabel(value: string): string {
+  switch (value) {
+    case 'never':
+      return i18n._(msg`Never`);
+    case 'following':
+      return i18n._(msg`Following`);
+    case 'follower':
+      return i18n._(msg`Follower`);
+    case 'mutualFollow':
+      return i18n._(msg`Mutual`);
+    case 'followingOrFollower':
+      return i18n._(msg`Either`);
+    case 'list':
+      return i18n._(msg`List`);
+    default:
+      return i18n._(msg`Default`);
+  }
+}
+
+const RECEIVE_OPTIONS: Array<{value: string}> = [
+  {value: ''},
+  {value: 'never'},
+  {value: 'following'},
+  {value: 'follower'},
+  {value: 'mutualFollow'},
+  {value: 'followingOrFollower'},
+  {value: 'list'},
 ]
 
 function readReceiveConfig(me: {ext: {me?: Record<string, unknown>}} | null): Record<string, string> {
@@ -77,11 +99,11 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
     return (
       <View style={[atoms.px_md, atoms.py_sm]}>
         <Button
-          label="Notification settings"
+          label={i18n._(msg`Notification settings`)}
           variant="secondary"
           onPress={() => {}}
           disabled
-          disabledReason="Per-type notification settings are only available on Misskey-family servers."
+          disabledReason={i18n._(msg`Per-type notification settings are only available on Misskey-family servers.`)}
           testID="notifications-settings"
         />
       </View>
@@ -98,8 +120,8 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
     } catch (err) {
       setError(
         isUnsupportedError(err)
-          ? 'Notification settings are not on this server.'
-          : 'Could not load notification settings.',
+          ? i18n._(msg`Notification settings are not on this server.`)
+          : i18n._(msg`Could not load notification settings.`),
       )
     } finally {
       setLoading(false)
@@ -116,8 +138,8 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
     } catch (err) {
       setError(
         isUnsupportedError(err)
-          ? 'Notification settings are not on this server.'
-          : 'Could not save notification settings.',
+          ? i18n._(msg`Notification settings are not on this server.`)
+          : i18n._(msg`Could not save notification settings.`),
       )
     } finally {
       setSaving(false)
@@ -127,21 +149,21 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
   return (
     <View style={[atoms.px_md, atoms.py_sm]}>
       <Button
-        label={loading ? 'Loading settings…' : 'Notification settings'}
+        label={loading ? i18n._(msg`Loading settings…`) : i18n._(msg`Notification settings`)}
         variant="secondary"
         onPress={() => {
           if (open) setOpen(false)
           else void load()
         }}
         disabled={loading}
-        disabledReason="Loading notification settings."
+        disabledReason={i18n._(msg`Loading notification settings.`)}
         testID="notifications-settings"
       />
       {error ? <Caption color="faint">{error}</Caption> : null}
       {open ? (
         <View testID="notifications-settings-panel">
           <Caption color="faint">
-            Choose who notifies you, per type. Empty means the server default.
+            {i18n._(msg`Choose who notifies you, per type. Empty means the server default.`)}
           </Caption>
           {NOTIFICATION_FILTER_PRESETS.filter(p => p.id !== 'all').map(preset => (
             <View key={preset.id} testID={`notifications-settings-row-${preset.id}`}>
@@ -152,7 +174,7 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
                   return (
                     <Button
                       key={opt.value || 'default'}
-                      label={opt.label}
+                      label={receiveOptionLabel(opt.value)}
                       variant={selected ? 'primary' : 'secondary'}
                       onPress={() =>
                         setConfig(c => ({...c, [preset.id]: opt.value}))
@@ -165,11 +187,11 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
             </View>
           ))}
           <Button
-            label={saving ? 'Saving…' : 'Save'}
+            label={saving ? i18n._(msg`Saving…`) : i18n._(msg`Save`)}
             variant="primary"
             onPress={() => void save()}
             disabled={saving}
-            disabledReason="Saving notification settings."
+            disabledReason={i18n._(msg`Saving notification settings.`)}
             testID="notifications-settings-save"
           />
         </View>
@@ -212,10 +234,10 @@ export function NotificationsScreen() {
 
   const markError = markRead.error
     ? isUnsupportedError(markRead.error)
-      ? 'Mark-all-read is not on this server.'
+      ? i18n._(msg`Mark-all-read is not on this server.`)
       : markRead.error.message === 'Sign in to mark notifications read.'
-        ? 'Sign in to mark notifications read.'
-        : 'Could not mark notifications read.'
+        ? i18n._(msg`Sign in to mark notifications read.`)
+        : i18n._(msg`Could not mark notifications read.`)
     : null
 
   return (
@@ -223,8 +245,8 @@ export function NotificationsScreen() {
       <Pagehead title="Notifications" />
       {!session || !backend ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Body>Sign in to see notifications.</Body>
-          <Caption color="faint">Notifications never show sample data when signed out.</Caption>
+          <Body>{i18n._(msg`Sign in to see notifications.`)}</Body>
+          <Caption color="faint">{i18n._(msg`Notifications never show sample data when signed out.`)}</Caption>
           <SignInButton />
         </View>
       ) : (
@@ -242,7 +264,7 @@ export function NotificationsScreen() {
           </View>
           <View style={[atoms.row, atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="notification-grouping">
             <Button
-              label="Grouped"
+              label={i18n._(msg`Grouped`)}
               variant={groupedPref ? 'primary' : 'secondary'}
               onPress={() => {
                 setGroupedPref(true)
@@ -251,7 +273,7 @@ export function NotificationsScreen() {
               testID="notification-grouping-grouped"
             />
             <Button
-              label="Flat"
+              label={i18n._(msg`Flat`)}
               variant={groupedPref ? 'secondary' : 'primary'}
               onPress={() => setGroupedPref(false)}
               testID="notification-grouping-flat"
@@ -260,24 +282,24 @@ export function NotificationsScreen() {
           {groupedUnsupported ? (
             <View style={[atoms.px_md]}>
               <Caption color="faint" testID="notification-grouping-fallback">
-                Grouped rows are not on this server — showing a flat list.
+                {i18n._(msg`Grouped rows are not on this server — showing a flat list.`)}
               </Caption>
             </View>
           ) : null}
           {unread != null && unread > 0 ? (
             <View style={[atoms.px_md]}>
               <Caption color="faint" testID="notifications-unread">
-                {`${unread} new`}
+                {i18n._(msg`${unread} new`)}
               </Caption>
             </View>
           ) : null}
           <View style={[atoms.px_md, atoms.py_sm]}>
             <Button
-              label={markRead.isPending ? 'Marking read…' : 'Mark all read'}
+              label={markRead.isPending ? i18n._(msg`Marking read…`) : i18n._(msg`Mark all read`)}
               variant="secondary"
               onPress={() => markRead.mutate()}
               disabled={markRead.isPending}
-              disabledReason="Marking notifications read."
+              disabledReason={i18n._(msg`Marking notifications read.`)}
               testID="notifications-mark-read"
             />
             {markError ? <Caption color="faint">{markError}</Caption> : null}
@@ -286,13 +308,13 @@ export function NotificationsScreen() {
           {query.isPending ? (
             <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
               <Loader testID="notifications-loading" />
-              <Caption color="faint">Loading…</Caption>
+              <Caption color="faint">{i18n._(msg`Loading…`)}</Caption>
             </View>
           ) : query.isError && items.length === 0 ? (
             <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-              <Body>Could not load notifications.</Body>
+              <Body>{i18n._(msg`Could not load notifications.`)}</Body>
               <Button
-                label="Retry"
+                label={i18n._(msg`Retry`)}
                 variant="secondary"
                 onPress={() => void query.refetch()}
                 testID="notifications-retry"
@@ -315,7 +337,7 @@ export function NotificationsScreen() {
               onEndReachedThreshold={0.5}
               ListEmptyComponent={
                 <View style={[atoms.centered, atoms.p_md]}>
-                  <Body>No notifications.</Body>
+                  <Body>{i18n._(msg`No notifications.`)}</Body>
                 </View>
               }
               ListFooterComponent={
@@ -325,9 +347,9 @@ export function NotificationsScreen() {
                   </View>
                 ) : query.isFetchNextPageError ? (
                   <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
-                    <Caption color="faint">Could not load more.</Caption>
+                    <Caption color="faint">{i18n._(msg`Could not load more.`)}</Caption>
                     <Button
-                      label="Retry"
+                      label={i18n._(msg`Retry`)}
                       variant="secondary"
                       onPress={() => void query.fetchNextPage()}
                       testID="notifications-more-retry"

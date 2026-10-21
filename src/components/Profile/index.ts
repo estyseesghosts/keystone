@@ -4,4 +4,4 @@
 export {ProfileAvatar, PROFILE_AVATAR_SIZE} from '#/components/Profile/ProfileAvatar'
 export {ProfileBanner, PROFILE_BANNER_HEIGHT} from '#/components/Profile/ProfileBanner'
 export {FollowStateCaption, ProfileHeader} from '#/components/Profile/ProfileHeader'
-export {PROFILE_TAB_LABELS, ProfileTabs} from '#/components/Profile/ProfileTabs'
+export {profileTabLabel, ProfileTabs} from '#/components/Profile/ProfileTabs'

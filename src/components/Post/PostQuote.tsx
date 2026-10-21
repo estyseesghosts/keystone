@@ -7,6 +7,9 @@
 // and tags route through the same handlers as the body.
 import {StyleSheet, View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+import {useLingui} from '@lingui/react'
+
 import type {ContentNode, EmojiStyle, Media, Post} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
@@ -48,13 +51,14 @@ export function PostQuote({
   testID?: string
 }) {
   const theme = useTheme()
+  const {i18n} = useLingui()
   if (unavailable || quote === null) {
     return (
       <View
         testID={testID}
-        accessibilityLabel="Quoted post unavailable. The target could not be shown."
+        accessibilityLabel={i18n._(msg`Quoted post unavailable. The target could not be shown.`)}
         style={[styles.card, {borderColor: theme.palette.edge}]}>
-        <Caption color="muted">Quoted post unavailable</Caption>
+        <Caption color="muted">{i18n._(msg`Quoted post unavailable`)}</Caption>
       </View>
     )
   }
@@ -67,7 +71,7 @@ export function PostQuote({
       testID={testID}
       onPress={() => onPress?.(quote)}
       accessibilityRole="link"
-      accessibilityLabel={`Open quoted post by ${quote.author.displayName}`}>
+      accessibilityLabel={i18n._(msg`Open quoted post by ${quote.author.displayName}`)}>
       <View style={[styles.card, {borderColor: theme.palette.edge}]}>
         <Caption color="muted" numberOfLines={1}>
           <DisplayName account={quote.author} size={14} />

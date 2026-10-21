@@ -5,6 +5,14 @@
 // Rule: data-inapplicable rows are omitted (no remote link for a local
 // post); unsupported or not-yet-wired rows render disabled WITH a reason.
 
+import {t} from '@lingui/macro'
+
+// Locale boot (P5): this pure module evaluates `t` at call time against
+// the shared singleton, which needs an activated locale. Importing the
+// app locale module guarantees the boot (en fallback) runs first —
+// without it, bare importers (unit tests) hit Lingui's no-locale error.
+import '#/locale/i18n'
+
 import type {Capabilities, ServerFamily, Post} from '@keystone/fedi'
 import {cachedRemotePostUrl, safeHttpUrl} from '@keystone/fedi'
 
@@ -66,16 +74,16 @@ export interface PostMenuInput {
 function clipRow(input: PostMenuInput): PostMenuItem {
   const {post, capabilities, handlers} = input
   if (capabilities?.clips !== 'supported') {
-    return {key: 'clip', label: 'Add to clip', disabled: true, reason: 'This server has no clips.'}
+    return {key: 'clip', label: t`Add to clip`, disabled: true, reason: t`This server has no clips.`}
   }
   if (!handlers.onClip) {
-    return {key: 'clip', label: 'Add to clip', disabled: true, reason: 'No clip picker is connected to this view.'}
+    return {key: 'clip', label: t`Add to clip`, disabled: true, reason: t`No clip picker is connected to this view.`}
   }
-  return {key: 'clip', label: 'Add to clip', run: () => handlers.onClip!(post)}
+  return {key: 'clip', label: t`Add to clip`, run: () => handlers.onClip!(post)}
 }
 
-const NO_CLIPBOARD = 'Clipboard is not available on this platform.'
-const LATER = (what: string) => `${what} is not available in this build yet.`
+const NO_CLIPBOARD = t`Clipboard is not available on this platform.`
+const LATER = (what: string) => t`${what} is not available in this build yet.`
 
 /** The local permalink: the server's own `url`, else a family-shaped guess
  * only where the route is known (Misskey `/notes/:id`). Every candidate
@@ -96,7 +104,7 @@ function copyRow(
   emptyReason?: string,
 ): PostMenuItem {
   if (!input.copyAvailable) return {key, label, disabled: true, reason: NO_CLIPBOARD}
-  if (text === '') return {key, label, disabled: true, reason: emptyReason ?? 'Nothing to copy.'}
+  if (text === '') return {key, label, disabled: true, reason: emptyReason ?? t`Nothing to copy.`}
   return {key, label, run: () => input.handlers.copy(text)}
 }
 
@@ -111,35 +119,35 @@ export function buildUserSubmenu(input: PostMenuInput): PostMenuSection[] {
   // Unknown (undefined) keeps the enable-direction default.
   const rel = (key: string, label: string, activeLabel: string, active: boolean | undefined, fn?: () => void | Promise<void>): PostMenuItem =>
     fn
-      ? {key, label: active ? activeLabel : label, run: fn, ...(key === 'block' && !active ? {confirm: {title: `Block ${handle}?`, action: 'Block'}} : {})}
-      : {key, label, disabled: true, reason: 'Account relations are not connected to this view yet.'}
+      ? {key, label: active ? activeLabel : label, run: fn, ...(key === 'block' && !active ? {confirm: {title: t`Block ${handle}?`, action: t`Block`}} : {})}
+      : {key, label, disabled: true, reason: t`Account relations are not connected to this view yet.`}
   const remoteUrl = safeHttpUrl(author.url)
   const remoteUser: PostMenuItem[] =
     author.host !== null && remoteUrl
-      ? [{key: 'view-remote-user', label: 'View on remote instance', run: () => handlers.open(remoteUrl)}]
+      ? [{key: 'view-remote-user', label: t`View on remote instance`, run: () => handlers.open(remoteUrl)}]
       : []
   return [
     [
-      copyRow(input, 'copy-username', 'Copy username', handle),
-      copyRow(input, 'copy-profile-url', 'Copy profile URL', profileUrl, 'No profile URL known.'),
+      copyRow(input, 'copy-username', t`Copy username`, handle),
+      copyRow(input, 'copy-profile-url', t`Copy profile URL`, profileUrl, t`No profile URL known.`),
       ...remoteUser,
     ],
     [
-      {key: 'rss', label: 'Copy RSS', disabled: true, reason: LATER('RSS')},
-      {key: 'search-notes', label: "Search this user's notes", disabled: true, reason: LATER('User search')},
+      {key: 'rss', label: t`Copy RSS`, disabled: true, reason: LATER('RSS')},
+      {key: 'search-notes', label: t`Search this user's notes`, disabled: true, reason: LATER('User search')},
     ],
     [
-      {key: 'memo', label: 'Edit memo', disabled: true, reason: LATER('Memos')},
-      {key: 'add-list', label: 'Add to list', disabled: true, reason: LATER('User lists')},
-      {key: 'add-antenna', label: 'Add to antenna', disabled: true, reason: LATER('Antennas')},
-      {key: 'notify', label: 'Notify about new posts', disabled: true, reason: LATER('Notifications')},
-      {key: 'dm', label: 'Send a message', disabled: true, reason: LATER('Messaging')},
+      {key: 'memo', label: t`Edit memo`, disabled: true, reason: LATER('Memos')},
+      {key: 'add-list', label: t`Add to list`, disabled: true, reason: LATER('User lists')},
+      {key: 'add-antenna', label: t`Add to antenna`, disabled: true, reason: LATER('Antennas')},
+      {key: 'notify', label: t`Notify about new posts`, disabled: true, reason: LATER('Notifications')},
+      {key: 'dm', label: t`Send a message`, disabled: true, reason: LATER('Messaging')},
     ],
     [
-      rel('mute', 'Mute', 'Unmute', u?.muted, u?.onMute),
-      rel('mute-boosts', 'Mute boosts', 'Unmute boosts', u?.renoteMuted, u?.onMuteBoosts),
-      rel('block', 'Block', 'Unblock', u?.blocking, u?.onBlock),
-      {key: 'refresh-remote', label: 'Refresh remote data', disabled: true, reason: LATER('Refreshing remote data')},
+      rel('mute', t`Mute`, t`Unmute`, u?.muted, u?.onMute),
+      rel('mute-boosts', t`Mute boosts`, t`Unmute boosts`, u?.renoteMuted, u?.onMuteBoosts),
+      rel('block', t`Block`, t`Unblock`, u?.blocking, u?.onBlock),
+      {key: 'refresh-remote', label: t`Refresh remote data`, disabled: true, reason: LATER('Refreshing remote data')},
     ],
   ]
 }
@@ -151,10 +159,10 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
   const caps = capabilities
 
   const group1: PostMenuItem[] = [
-    copyRow(input, 'copy-contents', 'Copy contents', post.content.plain, 'This post has no text.'),
+    copyRow(input, 'copy-contents', t`Copy contents`, post.content.plain, t`This post has no text.`),
     link
-      ? copyRow(input, 'copy-link', 'Copy link', link)
-      : {key: 'copy-link', label: 'Copy link', disabled: true, reason: 'This post has no known link.'},
+      ? copyRow(input, 'copy-link', t`Copy link`, link)
+      : {key: 'copy-link', label: t`Copy link`, disabled: true, reason: t`This post has no known link.`},
   ]
   // Remote posts open best at their human page (`url`), not the raw AP
   // id (`uri`): the resolver cache holds the warmed page URL, falling
@@ -162,39 +170,39 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
   const remote = uri && uri !== link ? (cachedRemotePostUrl(uri) ?? uri) : null
   if (remote) {
     group1.push(
-      copyRow(input, 'copy-remote-link', 'Copy remote link', remote),
-      {key: 'view-remote', label: 'View on remote instance', run: () => handlers.open(remote)},
+      copyRow(input, 'copy-remote-link', t`Copy remote link`, remote),
+      {key: 'view-remote', label: t`View on remote instance`, run: () => handlers.open(remote)},
     )
   }
   group1.push(
     link
-      ? {key: 'share', label: 'Share', run: () => handlers.share(link, post.content.plain)}
-      : {key: 'share', label: 'Share', disabled: true, reason: 'This post has no known link.'},
+      ? {key: 'share', label: t`Share`, run: () => handlers.share(link, post.content.plain)}
+      : {key: 'share', label: t`Share`, disabled: true, reason: t`This post has no known link.`},
   )
 
   const translatable = caps?.translation === 'supported'
   const group2: PostMenuItem[] = [
     translatable && post.content.plain !== ''
-      ? {key: 'translate', label: 'Translate', run: handlers.translate}
+      ? {key: 'translate', label: t`Translate`, run: handlers.translate}
       : {
           key: 'translate',
-          label: 'Translate',
+          label: t`Translate`,
           disabled: true,
-          reason: translatable ? 'This post has no text.' : 'This server has no translation service.',
+          reason: translatable ? t`This post has no text.` : t`This server has no translation service.`,
         },
     caps
-      ? {key: 'mute-thread', label: 'Mute thread', run: handlers.muteThread}
-      : {key: 'mute-thread', label: 'Mute thread', disabled: true, reason: 'Sign in to do this.'},
+      ? {key: 'mute-thread', label: t`Mute thread`, run: handlers.muteThread}
+      : {key: 'mute-thread', label: t`Mute thread`, disabled: true, reason: t`Sign in to do this.`},
   ]
-  const bmLabel = family === 'misskey' ? 'Favorites' : 'Bookmark'
+  const bmLabel = family === 'misskey' ? t`Favorites` : t`Bookmark`
   group2.push(
     bookmark.gate.enabled
       ? {
           key: 'bookmark',
-          label: bookmark.value ? `Remove from ${bmLabel.toLowerCase()}` : `Add to ${bmLabel.toLowerCase()}`,
+          label: bookmark.value ? t`Remove from ${bmLabel.toLowerCase()}` : t`Add to ${bmLabel.toLowerCase()}`,
           run: () => bookmark.set(!bookmark.value),
         }
-      : {key: 'bookmark', label: `Add to ${bmLabel.toLowerCase()}`, disabled: true, reason: bookmark.gate.reason},
+      : {key: 'bookmark', label: t`Add to ${bmLabel.toLowerCase()}`, disabled: true, reason: bookmark.gate.reason},
     clipRow(input),
   )
 
@@ -202,29 +210,29 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
     const edit = caps?.status_editing
     group2.push(
       edit !== 'supported'
-        ? {key: 'edit', label: 'Edit', disabled: true, reason: 'This server does not support editing posts.'}
+        ? {key: 'edit', label: t`Edit`, disabled: true, reason: t`This server does not support editing posts.`}
         : handlers.onEdit
-          ? {key: 'edit', label: 'Edit', run: () => handlers.onEdit!(post)}
-          : {key: 'edit', label: 'Edit', disabled: true, reason: 'No editor is connected to this view.'},
-      {key: 'pin', label: post.pinned ? 'Unpin from profile' : 'Pin to profile', run: handlers.togglePin},
+          ? {key: 'edit', label: t`Edit`, run: () => handlers.onEdit!(post)}
+          : {key: 'edit', label: t`Edit`, disabled: true, reason: t`No editor is connected to this view.`},
+      {key: 'pin', label: post.pinned ? t`Unpin from profile` : t`Pin to profile`, run: handlers.togglePin},
     )
   }
-  group2.push({key: 'user', label: 'User', submenu: buildUserSubmenu(input)})
+  group2.push({key: 'user', label: t`User`, submenu: buildUserSubmenu(input)})
 
   const group3: PostMenuItem[] = [
-    {key: 'report', label: 'Report', disabled: true, reason: LATER('Reporting')},
+    {key: 'report', label: t`Report`, disabled: true, reason: LATER('Reporting')},
   ]
   if (input.isOwn) {
     group3.push(
       del.gate.enabled
         ? {
             key: 'delete',
-            label: 'Delete',
+            label: t`Delete`,
             destructive: true,
-            confirm: {title: 'Delete this post?', action: 'Delete'},
+            confirm: {title: t`Delete this post?`, action: t`Delete`},
             run: del.run,
           }
-        : {key: 'delete', label: 'Delete', destructive: true, disabled: true, reason: del.gate.reason},
+        : {key: 'delete', label: t`Delete`, destructive: true, disabled: true, reason: del.gate.reason},
     )
   }
   return [group1, group2, group3]

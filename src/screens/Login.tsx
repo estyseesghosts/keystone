@@ -8,6 +8,8 @@ import {
 import * as Linking from 'expo-linking'
 import * as WebBrowser from 'expo-web-browser'
 
+import {msg} from '@lingui/macro'
+
 import {
   detectServer,
   MfaRequiredError,
@@ -25,6 +27,7 @@ import {Body, Caption, Heading} from '#/alf/typography'
 import {AccountSwitcher} from '#/components/AccountSwitcher'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
+import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 import {useHosting} from '#/state/hosting'
 import {useSessionStore} from '#/state/session/SessionProvider'
@@ -420,25 +423,25 @@ export function LoginScreen() {
   if (!hosting) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>Loading…</Body>
+        <Body>{i18n._(msg`Loading…`)}</Body>
       </View>
     )
   }
 
   return (
     <View style={[atoms.flex1, atoms.p_md, atoms.gap_md]}>
-      <Heading>Sign in</Heading>
+      <Heading>{i18n._(msg`Sign in`)}</Heading>
       <AccountSwitcher onAddAccount={() => { setDetection(null); setMiauth(null) }} />
       {firstParty && allowExternal ? (
         <View style={[atoms.row, atoms.gap_sm]}>
           <Button
-            label="This server"
+            label={i18n._(msg`This server`)}
             variant={internalMode ? 'primary' : 'secondary'}
             onPress={() => setMode('internal')}
             testID="login-mode-internal"
           />
           <Button
-            label="Another server"
+            label={i18n._(msg`Another server`)}
             variant={internalMode ? 'secondary' : 'primary'}
             onPress={() => setMode('external')}
             testID="login-mode-external"
@@ -468,17 +471,17 @@ export function LoginScreen() {
       ) : (
         <View style={[atoms.gap_sm]}>
           <TextField
-            label="Server"
+            label={i18n._(msg`Server`)}
             value={server}
             onChangeText={text => {
               setServer(text)
               setDetection(null)
             }}
-            placeholder="example.social"
+            placeholder={i18n._(msg`example.social`)}
             testID="login-server"
           />
           <Button
-            label={detecting ? 'Checking…' : 'Continue'}
+            label={detecting ? i18n._(msg`Checking…`) : i18n._(msg`Continue`)}
             testID="login-continue"
             onPress={() => void detect()}
           />
@@ -489,36 +492,36 @@ export function LoginScreen() {
           ) : null}
           {detection?.family === 'misskey' && !miauth ? (
             <View style={[atoms.gap_sm]}>
-              <Body>Browser sign-in — approve on {detection.origin}.</Body>
+              <Body>{i18n._(msg`Browser sign-in — approve on ${detection.origin}.`)}</Body>
               <Button
-                label={busy ? 'Opening…' : 'Sign in with browser'}
+                label={busy ? i18n._(msg`Opening…`) : i18n._(msg`Sign in with browser`)}
                 testID="login-miauth"
                 disabled={busy}
-                disabledReason="Opening the approval page."
+                disabledReason={i18n._(msg`Opening the approval page.`)}
                 onPress={() => void submitMiAuth(null)}
               />
             </View>
           ) : null}
           {detection?.family === 'misskey' && miauth ? (
             <View style={[atoms.gap_sm]}>
-              <Body>Approve on {detection.origin}, then continue here.</Body>
+              <Body>{i18n._(msg`Approve on ${detection.origin}, then continue here.`)}</Body>
               {miauthStatus ? <Caption color="faint">{miauthStatus}</Caption> : null}
               <Button
-                label={busy ? 'Checking…' : "I've approved — continue"}
+                label={busy ? i18n._(msg`Checking…`) : i18n._(msg`I\'ve approved — continue`)}
                 testID="login-miauth-confirm"
                 onPress={() => void submitMiAuth(miauth, 5)}
               />
-              <Button label="Cancel" variant="secondary" onPress={cancelMiAuth} />
+              <Button label={i18n._(msg`Cancel`)} variant="secondary" onPress={cancelMiAuth} />
             </View>
           ) : null}
           {detection?.family === 'mastodon' && !mfa ? (
             <View style={[atoms.gap_sm]}>
               {detection.features.password_grant !== 'unsupported' ? (
                 <View style={[atoms.gap_sm]}>
-                  <TextField label="Username" value={username} onChangeText={setUsername} testID="login-username" />
-                  <TextField label="Password" value={password} onChangeText={setPassword} secure testID="login-password" />
+                  <TextField label={i18n._(msg`Username`)} value={username} onChangeText={setUsername} testID="login-username" />
+                  <TextField label={i18n._(msg`Password`)} value={password} onChangeText={setPassword} secure testID="login-password" />
                   <Button
-                    label={busy ? 'Signing in…' : 'Sign in'}
+                    label={busy ? i18n._(msg`Signing in…`) : i18n._(msg`Sign in`)}
                     testID="login-submit"
                     disabled={busy || passwordGate !== null}
                     disabledReason={passwordGate ?? undefined}
@@ -527,7 +530,7 @@ export function LoginScreen() {
                 </View>
               ) : null}
               <Button
-                label={busy ? 'Opening…' : 'Sign in with browser'}
+                label={busy ? i18n._(msg`Opening…`) : i18n._(msg`Sign in with browser`)}
                 variant="secondary"
                 testID="login-oauth"
                 disabled={busy || pkceGate !== null}
@@ -538,15 +541,15 @@ export function LoginScreen() {
           ) : null}
           {detection?.family === 'mastodon' && mfa ? (
             <View style={[atoms.gap_sm]}>
-              <Body>Two-factor code ({mfa.challengeTypes[0] ?? 'totp'})</Body>
-              <TextField label="Code" value={mfaCode} onChangeText={setMfaCode} testID="login-mfa-code" />
+              <Body>{i18n._(msg`Two-factor code (${mfa.challengeTypes[0] ?? 'totp'})`)}</Body>
+              <TextField label={i18n._(msg`Code`)} value={mfaCode} onChangeText={setMfaCode} testID="login-mfa-code" />
               <Button
-                label={busy ? 'Verifying…' : 'Verify'}
+                label={busy ? i18n._(msg`Verifying…`) : i18n._(msg`Verify`)}
                 testID="login-mfa-submit"
                 onPress={() => void submitExternalMfa()}
               />
               <Button
-                label="Cancel"
+                label={i18n._(msg`Cancel`)}
                 variant="secondary"
                 onPress={() => {
                   setMfa(null)
@@ -584,19 +587,19 @@ function InternalForm(props: {
   if (!props.kind) {
     return (
       <Caption testID="login-error">
-        This server could not be identified. Try another server.
+        {i18n._(msg`This server could not be identified. Try another server.`)}
       </Caption>
     )
   }
   if (props.kind === 'mastodon-pkce' && !props.mfa) {
     return (
       <View style={[atoms.gap_sm]}>
-        <Body>Sign in with {props.serverName} in the browser.</Body>
+        <Body>{i18n._(msg`Sign in with ${props.serverName} in the browser.`)}</Body>
         <Button
-          label={props.busy ? 'Opening…' : 'Continue'}
+          label={props.busy ? i18n._(msg`Opening…`) : i18n._(msg`Continue`)}
           testID="login-submit"
           disabled={props.busy}
-          disabledReason="Opening the approval page."
+          disabledReason={i18n._(msg`Opening the approval page.`)}
           onPress={props.onOAuth}
         />
         {props.error ? <Caption testID="login-error">{props.error}</Caption> : null}
@@ -606,28 +609,28 @@ function InternalForm(props: {
   if (props.mfa) {
     return (
       <View style={[atoms.gap_sm]}>
-        <Body>Two-factor code ({props.mfa.challengeTypes[0] ?? 'totp'})</Body>
-        <TextField label="Code" value={props.mfaCode} onChangeText={props.onMfaCode} testID="login-mfa-code" />
+        <Body>{i18n._(msg`Two-factor code (${props.mfa.challengeTypes[0] ?? 'totp'})`)}</Body>
+        <TextField label={i18n._(msg`Code`)} value={props.mfaCode} onChangeText={props.onMfaCode} testID="login-mfa-code" />
         <Button
-          label={props.busy ? 'Verifying…' : 'Verify'}
+          label={props.busy ? i18n._(msg`Verifying…`) : i18n._(msg`Verify`)}
           testID="login-mfa-submit"
           onPress={props.onMfaSubmit}
         />
-        <Button label="Cancel" variant="secondary" onPress={props.onMfaCancel} />
+        <Button label={i18n._(msg`Cancel`)} variant="secondary" onPress={props.onMfaCancel} />
         {props.error ? <Caption testID="login-error">{props.error}</Caption> : null}
       </View>
     )
   }
   return (
     <View style={[atoms.gap_sm]}>
-      <Body>Sign in with your {props.serverName} account.</Body>
-      <TextField label="Username" value={props.username} onChangeText={props.onUsername} testID="login-username" />
-      <TextField label="Password" value={props.password} onChangeText={props.onPassword} secure testID="login-password" />
+      <Body>{i18n._(msg`Sign in with your ${props.serverName} account.`)}</Body>
+      <TextField label={i18n._(msg`Username`)} value={props.username} onChangeText={props.onUsername} testID="login-username" />
+      <TextField label={i18n._(msg`Password`)} value={props.password} onChangeText={props.onPassword} secure testID="login-password" />
       <Button
-        label={props.busy ? 'Signing in…' : 'Sign in'}
+        label={props.busy ? i18n._(msg`Signing in…`) : i18n._(msg`Sign in`)}
         testID="login-submit"
         disabled={props.busy}
-        disabledReason="Signing in."
+        disabledReason={i18n._(msg`Signing in.`)}
         onPress={props.onPasswordSubmit}
       />
       {props.error ? <Caption testID="login-error">{props.error}</Caption> : null}

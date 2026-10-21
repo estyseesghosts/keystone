@@ -14,6 +14,9 @@ import type {ComponentProps} from 'react'
 import {Image, Linking, ScrollView, StyleSheet, View} from 'react-native'
 import {useVideoPlayer, VideoView} from 'expo-video'
 
+import {msg} from '@lingui/macro'
+import {useLingui} from '@lingui/react'
+
 import {safeHttpUrl, type Media} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
@@ -92,12 +95,13 @@ function TileFrame({
   label: string
 }) {
   const theme = useTheme()
+  const {i18n} = useLingui()
   return (
     <Pressable
       testID={testID ?? `media-${item.id}`}
       onPress={onOpen ? () => onOpen(index) : undefined}
       accessibilityRole={onOpen ? 'button' : 'image'}
-      accessibilityLabel={onOpen ? `Open media: ${label}` : label}
+      accessibilityLabel={onOpen ? i18n._(msg`Open media: ${label}`) : label}
       disabled={!onOpen}>
       <View
         style={[
@@ -205,15 +209,17 @@ function PlayerTile({item, single, index, onOpen, url}: {item: Media; single: bo
 }
 
 function AudioTile({item, index, onOpen}: {item: Media; index: number; onOpen?: (index: number) => void}) {
+  const {i18n} = useLingui()
   const url = safeHttpUrl(item.url)
   if (url === null) {
-    return <Placeholder label="Audio unavailable" reason="The server sent no audio URL." testID={`media-missing-${item.id}`} />
+    return <Placeholder label={i18n._(msg`Audio unavailable`)} reason={i18n._(msg`The server sent no audio URL.`)} testID={`media-missing-${item.id}`} />
   }
   return <AudioPlayer item={item} index={index} onOpen={onOpen} url={url} />
 }
 
 function AudioPlayer({item, index, onOpen, url}: {item: Media; index: number; onOpen?: (index: number) => void; url: string}) {
   const theme = useTheme()
+  const {i18n} = useLingui()
   const player = useVideoPlayer(url)
   const [playing, setPlaying] = useState(false)
   useEffect(() => {
@@ -229,15 +235,15 @@ function AudioPlayer({item, index, onOpen, url}: {item: Media; index: number; on
           testID={`media-audio-toggle-${item.id}`}
           onPress={() => (playing ? player.pause() : player.play())}
           accessibilityRole="button"
-          accessibilityLabel={playing ? `Pause ${mediaLabel(item)}` : `Play ${mediaLabel(item)}`}
+          accessibilityLabel={playing ? i18n._(msg`Pause ${mediaLabel(item)}`) : i18n._(msg`Play ${mediaLabel(item)}`)}
           accessibilityState={{selected: playing}}>
-          <Caption color="muted">{playing ? '⏸ Pause' : '▶ Play'}</Caption>
+          <Caption color="muted">{playing ? i18n._(msg`⏸ Pause`) : i18n._(msg`▶ Play`)}</Caption>
         </Pressable>
         <View style={styles.fileMeta}>
           <Caption numberOfLines={1}>{mediaLabel(item)}</Caption>
           {onOpen && (
-            <Pressable testID={`media-audio-open-${item.id}`} onPress={() => onOpen(index)} accessibilityRole="link" accessibilityLabel={`Open media: ${mediaLabel(item)}`}>
-              <Caption color="faint">Open in viewer</Caption>
+            <Pressable testID={`media-audio-open-${item.id}`} onPress={() => onOpen(index)} accessibilityRole="link" accessibilityLabel={i18n._(msg`Open media: ${mediaLabel(item)}`)}>
+              <Caption color="faint">{i18n._(msg`Open in viewer`)}</Caption>
             </Pressable>
           )}
         </View>
@@ -248,6 +254,7 @@ function AudioPlayer({item, index, onOpen, url}: {item: Media; index: number; on
 
 function FileTile({item}: {item: Media}) {
   const theme = useTheme()
+  const {i18n} = useLingui()
   const url = safeHttpUrl(item.url)
   const size = formatBytes(item.size)
   return (
@@ -264,11 +271,11 @@ function FileTile({item}: {item: Media}) {
             testID={`media-file-open-${item.id}`}
             onPress={() => void Linking.openURL(url).catch(e => showToast(`Could not open: ${String(e)}`))}
             accessibilityRole="link"
-            accessibilityLabel={`Open attachment ${item.name || item.kind}`}>
-            <Caption color="muted">Open</Caption>
+            accessibilityLabel={i18n._(msg`Open attachment ${item.name || item.kind}`)}>
+            <Caption color="muted">{i18n._(msg`Open`)}</Caption>
           </Pressable>
         ) : (
-          <Caption color="faint">Unavailable</Caption>
+          <Caption color="faint">{i18n._(msg`Unavailable`)}</Caption>
         )}
       </View>
     </View>
@@ -277,6 +284,7 @@ function FileTile({item}: {item: Media}) {
 
 export function PostMediaGrid({media, onOpen, testID}: {media: Media[]; onOpen?: (index: number) => void; testID?: string}) {
   const [revealed, setRevealed] = useState(false)
+  const {i18n} = useLingui()
   if (media.length === 0) return null
   const sensitive = media.some(m => m.isSensitive)
   if (sensitive && !revealed) {
@@ -286,8 +294,8 @@ export function PostMediaGrid({media, onOpen, testID}: {media: Media[]; onOpen?:
           testID="media-sensitive-show"
           onPress={() => setRevealed(true)}
           accessibilityRole="button"
-          accessibilityLabel="Show sensitive media. The author marked this media sensitive.">
-          <Caption color="muted">Sensitive media hidden — tap to show</Caption>
+          accessibilityLabel={i18n._(msg`Show sensitive media. The author marked this media sensitive.`)}>
+          <Caption color="muted">{i18n._(msg`Sensitive media hidden — tap to show`)}</Caption>
         </Pressable>
       </View>
     )

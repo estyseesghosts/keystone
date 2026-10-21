@@ -1,5 +1,4 @@
 import {msg} from '@lingui/macro'
-import {useLingui} from '@lingui/react'
 import {View} from 'react-native'
 
 import {atoms} from '#/alf/atoms'
@@ -8,6 +7,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
 import {
   SUPPORTED_LOCALES,
+  i18n,
   localeStore,
   setLocale,
   useLocale,
@@ -26,7 +26,7 @@ const DOT_SIZE = 8
 export function LanguageSection({store = localeStore}: {store?: LocaleStore}) {
   const selected = useLocale(store)
   const theme = useTheme()
-  const {i18n} = useLingui()
+  // Singleton (not the hook): provider-less trees keep rendering.
   const currentHint = i18n._(msg`Current language.`)
   const groupLabel = i18n._(msg`Language`)
   return (

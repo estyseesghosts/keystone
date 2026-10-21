@@ -1,5 +1,7 @@
 import {View} from 'react-native'
 
+import {t} from '@lingui/macro'
+
 import {atoms} from '#/alf/atoms'
 import {Body} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
@@ -36,7 +38,7 @@ function FeedToggle({
         onPress={() => onToggle(!value)}
         testID={testID ? `${testID}-toggle` : undefined}
         style={[atoms.row, atoms.itemsCenter, {paddingVertical: 8}]}>
-        <Body>{value ? 'On' : 'Off'}</Body>
+        <Body>{value ? t`On` : t`Off`}</Body>
       </Pressable>
     </SettingRow>
   )
@@ -47,15 +49,15 @@ export function FeedsSection({store = feedPrefsStore}: {store?: FeedPrefsStore})
   return (
     <View style={[atoms.gap_sm]} testID="settings-section-feeds">
       <FeedToggle
-        title="Show Local tab"
-        hint="Show Local even while Social is available. Local always shows when Social is unavailable."
+        title={t`Show Local tab`}
+        hint={t`Show Local even while Social is available. Local always shows when Social is unavailable.`}
         value={prefs.showLocal}
         onToggle={next => store.set({showLocal: next})}
         testID="feed-show-local"
       />
       <FeedToggle
-        title="Show Federated tab"
-        hint="Show the Federated timeline alongside the default tab."
+        title={t`Show Federated tab`}
+        hint={t`Show the Federated timeline alongside the default tab.`}
         value={prefs.showFederated}
         onToggle={next => store.set({showFederated: next})}
         testID="feed-show-federated"

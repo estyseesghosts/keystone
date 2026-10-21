@@ -1,12 +1,15 @@
 import {useEffect, useState} from 'react'
 import {View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import type {Backend, Filter} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
+import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useActiveSession} from '#/state/session/SessionProvider'
 
@@ -33,7 +36,7 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
         if (!cancelled) setItems(list)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load filters.')
+        if (!cancelled) setError(err instanceof Error ? err.message : i18n._(msg`Could not load filters.`))
       })
     return () => {
       cancelled = true
@@ -50,7 +53,7 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
       setItems(list => [...(list ?? []), created])
       setPhrase('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not add the filter.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not add the filter.`))
     } finally {
       setBusy(false)
     }
@@ -62,15 +65,15 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
       await filters.delete(id)
       setItems(list => (list ?? []).filter(x => x.id !== id))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not remove the filter.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not remove the filter.`))
     }
   }
 
   return (
     <View style={[atoms.gap_sm]}>
-      <SettingRow title="Add a filter" hint="One phrase; matches everywhere." testID="filter-add-row">
+      <SettingRow title={i18n._(msg`Add a filter`)} hint={i18n._(msg`One phrase; matches everywhere.`)} testID="filter-add-row">
         <TextField
-          label="Phrase"
+          label={i18n._(msg`Phrase`)}
           value={phrase}
           onChangeText={setPhrase}
           placeholder="spoiler"
@@ -78,25 +81,25 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
           testID="filter-phrase-input"
         />
         <Button
-          label={busy ? 'Adding…' : 'Add filter'}
+          label={busy ? i18n._(msg`Adding…`) : i18n._(msg`Add filter`)}
           variant="primary"
           disabled={busy || phrase.trim().length === 0}
           onPress={() => void add()}
           testID="filter-add"
         />
       </SettingRow>
-      <SettingRow title="Filters" testID="filter-list-row">
+      <SettingRow title={i18n._(msg`Filters`)} testID="filter-list-row">
         {items === null ? (
-          <Caption color="faint">Loading…</Caption>
+          <Caption color="faint">{i18n._(msg`Loading…`)}</Caption>
         ) : items.length === 0 ? (
-          <Caption color="faint">No filters. Matching posts stay hidden once you add one.</Caption>
+          <Caption color="faint">{i18n._(msg`No filters. Matching posts stay hidden once you add one.`)}</Caption>
         ) : (
           <View style={[atoms.gap_sm]} testID="filter-list">
             {items.map(f => (
               <View key={f.id} style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
                 <Body>{f.phrase}</Body>
                 <Button
-                  label="Remove"
+                  label={i18n._(msg`Remove`)}
                   variant="secondary"
                   onPress={() => void remove(f.id)}
                   testID={`filter-remove-${f.id}`}
@@ -116,7 +119,7 @@ export function FiltersSection() {
   if (!session || !backend) {
     return (
       <View style={[atoms.gap_sm]} testID="settings-section-filters">
-        <SectionHint>Sign in to manage word filters.</SectionHint>
+        <SectionHint>{i18n._(msg`Sign in to manage word filters.`)}</SectionHint>
       </View>
     )
   }
@@ -124,9 +127,9 @@ export function FiltersSection() {
     return (
       <View style={[atoms.gap_sm]} testID="settings-section-filters">
         <PlaceholderRow
-          title="Word filters"
-          hint="Server-side phrases that hide matching posts everywhere."
-          reason="Needs a server with word filters (this one has none)."
+          title={i18n._(msg`Word filters`)}
+          hint={i18n._(msg`Server-side phrases that hide matching posts everywhere.`)}
+          reason={i18n._(msg`Needs a server with word filters (this one has none).`)}
           testID="placeholder-filters"
         />
       </View>

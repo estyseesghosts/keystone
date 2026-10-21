@@ -10,6 +10,9 @@ import {useRef, useState} from 'react'
 import type {Capabilities, Post, ReactionSummary, ServerFamily} from '@keystone/fedi'
 import {HEART_REACTION} from '@keystone/fedi'
 
+import {msg} from '@lingui/macro'
+import {useLingui} from '@lingui/react'
+
 import {useTheme} from '#/alf/index'
 import {Caption} from '#/alf/typography'
 import {Menu, type MenuItem} from '#/components/Menu'
@@ -18,6 +21,8 @@ import {EmojiPicker} from '#/components/EmojiPicker'
 import {HeartIcon, MoreIcon, ReplyIcon, RepostIcon, SmileIcon} from '#/components/icons'
 import {Pressable} from '#/components/Pressable'
 import {UnicodeEmoji} from '#/components/EmojiImage'
+import {formatCount, i18n as lingui, useLocale} from '#/locale/i18n'
+import {formatFediError, isKnownErrorCode} from '#/lib/localeErrors'
 import {Image, Pressable as RNPressable, type View as ViewType} from 'react-native'
 import {likeKind, type PostActions} from '#/state/cache'
 import {showToast} from '#/lib/toast'
@@ -42,9 +47,19 @@ const styles = StyleSheet.create({
   spacer: {marginLeft: 'auto'},
 })
 
-const msg = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Something went wrong.')
+const plainMessage = (e: unknown) =>
+  e instanceof Error && e.message ? e.message : 'Something went wrong.'
 export const toastError = (e: unknown): void => {
-  showToast(msg(e))
+  // Known backend codes render localized (P5); everything else keeps the
+  // server/client English message. Singleton call — safe outside providers.
+  if (typeof e === 'object' && e !== null) {
+    const code = (e as {code?: unknown}).code
+    if (typeof code === 'string' && isKnownErrorCode(code)) {
+      showToast(formatFediError(lingui, e as {code: string; params?: Record<string, unknown>}))
+      return
+    }
+  }
+  showToast(plainMessage(e))
 }
 
 function ActionContent({
@@ -148,6 +163,8 @@ export function ActionBar({
   likeEmoji?: string
 }) {
   const theme = useTheme()
+  const {i18n} = useLingui()
+  const locale = useLocale()
   const id = post.id
   const kind = likeKind(family, capabilities)
   const muted = theme.palette.muted
@@ -163,7 +180,7 @@ export function ActionBar({
   const boostItems: MenuItem[] = [
     {
       key: 'boost',
-      label: boosted ? 'Undo boost' : 'Boost',
+      label: boosted ? i18n._(msg`Undo boost`) : i18n._(msg`Boost`),
       disabled: !actions.renote.gate.enabled,
       reason: actions.renote.gate.enabled ? undefined : actions.renote.gate.reason,
       onSelect: () => void actions.renote.set(!boosted).catch(toastError),
@@ -172,12 +189,12 @@ export function ActionBar({
   const canQuote = capabilities?.quote_posting === 'supported'
   boostItems.push(
     canQuote && handlers.onQuote
-      ? {key: 'quote', label: 'Quote', onSelect: () => handlers.onQuote!(post)}
+      ? {key: 'quote', label: i18n._(msg`Quote`), onSelect: () => handlers.onQuote!(post)}
       : {
           key: 'quote',
-          label: 'Quote',
+          label: i18n._(msg`Quote`),
           disabled: true,
-          reason: canQuote ? 'No composer is connected to this view.' : 'This server does not support quote posts.',
+          reason: canQuote ? i18n._(msg`No composer is connected to this view.`) : i18n._(msg`This server does not support quote posts.`),
           onSelect: () => {},
         },
   )
@@ -186,11 +203,11 @@ export function ActionBar({
   if (kind === 'favourite') {
     const on = actions.favourite.value
     const gate = actions.favourite.gate
-    const count = post.favourite?.count ?? 0
+    const count = formatCount(locale, post.favourite?.count ?? 0)
     like = (
       <ActionButton
         testID={`action-like-${id}`}
-        label={on ? `Unlike, ${count} likes` : `Like, ${count} likes`}
+        label={on ? i18n._(msg`Unlike, ${count} likes`) : i18n._(msg`Like, ${count} likes`)}
         icon={<HeartIcon size={ICON} color={on ? theme.palette.bg : muted} filled={on} />}
         text={String(count)}
         active={on}
@@ -202,14 +219,14 @@ export function ActionBar({
   } else if (kind === 'reaction') {
     const mine = actions.reaction.value
     const gate = actions.reaction.gate
-    const total = post.reactions?.total ?? 0
+    const total = formatCount(locale, post.reactions?.total ?? 0)
     like = (
       <ActionButton
         testID={`action-react-${id}`}
         label={
           mine
-            ? `Liked with ${mine} — remove reaction`
-            : `Like, ${total} reactions`
+            ? i18n._(msg`Liked with ${mine} — remove reaction`)
+            : i18n._(msg`Like, ${total} reactions`)
         }
         icon={<LikeGlyph glyphKey={mine} url={mine ? artFor(mine, post.reactions) : null} mine={!!mine} likeEmoji={likeEmoji} />}
         text={String(total)}
@@ -231,21 +248,21 @@ export function ActionBar({
     <View style={styles.row} testID={`post-actions-${id}`}>
       <ActionButton
         testID={`action-reply-${id}`}
-        label={`Reply, ${post.counts.replies} replies`}
+        label={i18n._(msg`Reply, ${formatCount(locale, post.counts.replies)} replies`)}
         icon={<ReplyIcon size={ICON} color={muted} />}
-        text={String(post.counts.replies)}
+        text={formatCount(locale, post.counts.replies)}
         disabled={!handlers.onReply}
-        reason={handlers.onReply ? undefined : 'No composer is connected to this view.'}
+        reason={handlers.onReply ? undefined : i18n._(msg`No composer is connected to this view.`)}
         onPress={() => handlers.onReply?.(post)}
       />
       <Menu
         testID={`action-boost-${id}`}
-        label={boosted ? `Repost options, already reposted` : 'Repost options'}
+        label={boosted ? i18n._(msg`Repost options, already reposted`) : i18n._(msg`Repost options`)}
         items={boostItems}
         trigger={
           <ActionContent
             icon={<RepostIcon size={ICON} color={boosted ? theme.palette.bg : muted} />}
-            text={String(post.counts.boosts)}
+            text={formatCount(locale, post.counts.boosts)}
             active={boosted}
           />
         }
@@ -258,7 +275,7 @@ export function ActionBar({
             testID={`action-smile-${id}`}
             onPress={() => setPickOpen(v => !v)}
             accessibilityRole="button"
-            accessibilityLabel="React with emoji"
+            accessibilityLabel={i18n._(msg`React with emoji`)}
             hitSlop={12}>
             <ActionContent icon={<SmileIcon size={ICON} color={muted} />} text="" />
           </RNPressable>
@@ -292,21 +309,22 @@ export function ActionBar({
  * follows the post shape — favourite when present, else reactions.)
  */
 export function StaticActionBar({post}: {post: Post}) {
+  const locale = useLocale()
   const likeCount = post.favourite !== null ? (post.favourite?.count ?? 0) : (post.reactions?.total ?? 0)
   const muted = useTheme().palette.muted
   return (
     <View style={styles.row} testID={`post-actions-${post.id}`}>
       <ActionContent
         icon={<ReplyIcon size={ICON} color={muted} />}
-        text={String(post.counts.replies)}
+        text={formatCount(locale, post.counts.replies)}
       />
       <ActionContent
         icon={<RepostIcon size={ICON} color={muted} />}
-        text={String(post.counts.boosts)}
+        text={formatCount(locale, post.counts.boosts)}
       />
       <ActionContent
         icon={<HeartIcon size={ICON} color={muted} />}
-        text={String(likeCount)}
+        text={formatCount(locale, likeCount)}
       />
     </View>
   )

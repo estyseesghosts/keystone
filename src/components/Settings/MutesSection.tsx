@@ -1,6 +1,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {
   formatWordFilters,
   isPermissionError,
@@ -17,6 +19,7 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
+import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useActiveSession} from '#/state/session/SessionProvider'
 
@@ -90,18 +93,18 @@ function WordField({
           ? err.message
           : err instanceof Error
             ? err.message
-            : 'Could not save.',
+            : i18n._(msg`Could not save.`),
       )
       return
     }
     setBusy(true)
     try {
       await backend.updateProfile({ext: {[field]: parsed}})
-      setNotice('Saved.')
+      setNotice(i18n._(msg`Saved.`))
       onSaved()
     } catch (err) {
-      if (isPermissionError(err)) setError('Your account cannot change this setting.')
-      else setError(err instanceof Error ? err.message : 'Could not save.')
+      if (isPermissionError(err)) setError(i18n._(msg`Your account cannot change this setting.`))
+      else setError(err instanceof Error ? err.message : i18n._(msg`Could not save.`))
     } finally {
       setBusy(false)
     }
@@ -123,7 +126,7 @@ function WordField({
       />
       <View style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
         <Button
-          label={busy ? 'Saving…' : 'Save'}
+          label={busy ? i18n._(msg`Saving…`) : i18n._(msg`Save`)}
           variant="primary"
           disabled={busy}
           onPress={() => void save()}
@@ -225,7 +228,7 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
         readRenoteMutes(),
       ])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Search failed.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Search failed.`))
     } finally {
       setBusy(false)
     }
@@ -245,8 +248,8 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
       ])
       onChanged()
     } catch (err) {
-      if (isPermissionError(err)) setError('Your account cannot do that here.')
-      else setError(err instanceof Error ? err.message : 'Action failed.')
+      if (isPermissionError(err)) setError(i18n._(msg`Your account cannot do that here.`))
+      else setError(err instanceof Error ? err.message : i18n._(msg`Action failed.`))
     } finally {
       setActBusy(false)
     }
@@ -254,26 +257,26 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
 
   return (
     <SettingRow
-      title="Mute or block an account"
-      hint="Search, then mute or block. Changes apply immediately."
+      title={i18n._(msg`Mute or block an account`)}
+      hint={i18n._(msg`Search, then mute or block. Changes apply immediately.`)}
       testID="mute-search">
       <TextField
-        label="Search accounts"
+        label={i18n._(msg`Search accounts`)}
         value={query}
         onChangeText={setQuery}
-        placeholder="username or handle"
+        placeholder={i18n._(msg`username or handle`)}
         error={error ?? undefined}
         testID="mute-search-input"
       />
       <Button
-        label={busy ? 'Searching…' : 'Search'}
+        label={busy ? i18n._(msg`Searching…`) : i18n._(msg`Search`)}
         variant="secondary"
         disabled={busy || query.trim().length === 0}
         onPress={() => void run()}
         testID="mute-search-run"
       />
       {searched && results.length === 0 && !busy ? (
-        <Caption color="faint">No accounts found.</Caption>
+        <Caption color="faint">{i18n._(msg`No accounts found.`)}</Caption>
       ) : null}
       {results.map(user => {
         // State-aware labels (v1 parity): a KNOWN true/false relation
@@ -292,7 +295,7 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
             <View style={[atoms.row, atoms.gap_sm]}>
               {muted === true ? (
                 <Button
-                  label="Unmute"
+                  label={i18n._(msg`Unmute`)}
                   variant="secondary"
                   disabled={actBusy}
                   onPress={() => void act(() => backend.unmute(user.id))}
@@ -300,7 +303,7 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
                 />
               ) : (
                 <Button
-                  label="Mute"
+                  label={i18n._(msg`Mute`)}
                   variant="secondary"
                   disabled={actBusy}
                   onPress={() => void act(() => backend.mute(user.id))}
@@ -309,7 +312,7 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
               )}
               {renoteMuted === true ? (
                 <Button
-                  label="Unmute"
+                  label={i18n._(msg`Unmute`)}
                   variant="secondary"
                   disabled={actBusy}
                   onPress={() => void act(() => backend.unmuteRenotes(user.id))}
@@ -317,7 +320,7 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
                 />
               ) : (
                 <Button
-                  label="Mute reposts"
+                  label={i18n._(msg`Mute reposts`)}
                   variant="secondary"
                   disabled={actBusy}
                   onPress={() => void act(() => backend.muteRenotes(user.id))}
@@ -326,7 +329,7 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
               )}
               {blocked === true ? (
                 <Button
-                  label="Unblock"
+                  label={i18n._(msg`Unblock`)}
                   variant="secondary"
                   disabled={actBusy}
                   onPress={() => void act(() => backend.unblock(user.id))}
@@ -334,7 +337,7 @@ function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChanged: () 
                 />
               ) : (
                 <Button
-                  label="Block"
+                  label={i18n._(msg`Block`)}
                   variant="secondary"
                   disabled={actBusy}
                   onPress={() => void act(() => backend.block(user.id))}
@@ -381,7 +384,7 @@ function AccountList({
         if (!cancelled) setItems(list)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load.')
+        if (!cancelled) setError(err instanceof Error ? err.message : i18n._(msg`Could not load.`))
       })
     return () => {
       cancelled = true
@@ -396,7 +399,7 @@ function AccountList({
       await run(backend, id)
       setItems(await load(backend))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Action failed.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Action failed.`))
     } finally {
       setBusy(false)
     }
@@ -405,9 +408,9 @@ function AccountList({
   return (
     <SettingRow title={title} hint={hint} testID={testID}>
       {items === null ? (
-        <Caption color="faint">Loading…</Caption>
+        <Caption color="faint">{i18n._(msg`Loading…`)}</Caption>
       ) : items.length === 0 ? (
-        <Caption color="faint">None.</Caption>
+        <Caption color="faint">{i18n._(msg`None.`)}</Caption>
       ) : (
         <View style={[atoms.gap_sm]}>
           {items.map(user => (
@@ -452,7 +455,7 @@ export function MutesSection() {
   if (!session || !backend) {
     return (
       <View style={[atoms.gap_sm]} testID="settings-section-mutes">
-        <SectionHint>Sign in to manage mutes and blocks.</SectionHint>
+        <SectionHint>{i18n._(msg`Sign in to manage mutes and blocks.`)}</SectionHint>
       </View>
     )
   }
@@ -467,8 +470,8 @@ export function MutesSection() {
             me={me}
             onSaved={refresh}
             field="mutedWords"
-            title="Word mutes"
-            hint="One group per line; words on a line must all match. /regex/ lines stay verbatim."
+            title={i18n._(msg`Word mutes`)}
+            hint={i18n._(msg`One group per line; words on a line must all match. /regex/ lines stay verbatim.`)}
             placeholder={'spoiler\n/^advertisement/i'}
           />
           <WordField
@@ -476,62 +479,62 @@ export function MutesSection() {
             me={me}
             onSaved={refresh}
             field="hardMutedWords"
-            title="Hard word mutes"
-            hint="Like word mutes, but matching posts never load."
-            placeholder="one group per line…"
+            title={i18n._(msg`Hard word mutes`)}
+            hint={i18n._(msg`Like word mutes, but matching posts never load.`)}
+            placeholder={i18n._(msg`one group per line…`)}
           />
           <WordField
             backend={backend}
             me={me}
             onSaved={refresh}
             field="mutedInstances"
-            title="Muted servers"
-            hint="One host per line. Matching is case-sensitive."
+            title={i18n._(msg`Muted servers`)}
+            hint={i18n._(msg`One host per line. Matching is case-sensitive.`)}
             placeholder="example.com"
           />
         </>
       ) : (
         <PlaceholderRow
-          title="Word and server mutes"
-          hint="Soft words, hard words, muted servers."
-          reason="Needs a Misskey-family server."
+          title={i18n._(msg`Word and server mutes`)}
+          hint={i18n._(msg`Soft words, hard words, muted servers.`)}
+          reason={i18n._(msg`Needs a Misskey-family server.`)}
           testID="placeholder-word-mutes"
         />
       )}
       <MuteBlockSearch backend={backend} onChanged={refresh} />
       <AccountList
-        title="Muted accounts"
-        hint="Unmute to see their posts again."
+        title={i18n._(msg`Muted accounts`)}
+        hint={i18n._(msg`Unmute to see their posts again.`)}
         testID="muted-list"
         load={b => b.mutes().then(p => p.items)}
-        action="Unmute"
+        action={i18n._(msg`Unmute`)}
         run={(b, id) => b.unmute(id)}
         refreshKey={refreshKey}
       />
       <AccountList
-        title="Blocked accounts"
-        hint="Unblock to interact again."
+        title={i18n._(msg`Blocked accounts`)}
+        hint={i18n._(msg`Unblock to interact again.`)}
         testID="blocked-list"
         load={b => b.blocks().then(p => p.items)}
-        action="Unblock"
+        action={i18n._(msg`Unblock`)}
         run={(b, id) => b.unblock(id)}
         refreshKey={refreshKey}
       />
       {backend.renoteMutes ? (
         <AccountList
-          title="Repost-muted accounts"
-          hint="Unmute reposts to see them again."
+          title={i18n._(msg`Repost-muted accounts`)}
+          hint={i18n._(msg`Unmute reposts to see them again.`)}
           testID="renote-mutes-list"
           load={b => (b.renoteMutes ? b.renoteMutes().then(p => p.items) : Promise.resolve([]))}
-          action="Unmute reposts"
+          action={i18n._(msg`Unmute reposts`)}
           run={(b, id) => b.unmuteRenotes(id)}
           refreshKey={refreshKey}
         />
       ) : (
         <PlaceholderRow
-          title="Repost-muted accounts"
-          hint="Accounts whose reposts are hidden."
-          reason="Not wired yet — the backend has no list endpoint."
+          title={i18n._(msg`Repost-muted accounts`)}
+          hint={i18n._(msg`Accounts whose reposts are hidden.`)}
+          reason={i18n._(msg`Not wired yet — the backend has no list endpoint.`)}
           testID="placeholder-renote-mutes"
         />
       )}

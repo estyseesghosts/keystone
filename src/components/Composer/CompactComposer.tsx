@@ -10,6 +10,8 @@ import {
   type View as ViewType,
 } from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import type {ReactionAcceptance} from '@keystone/fedi'
 import {REACTION_ACCEPTANCE_LABELS} from '@keystone/fedi'
 
@@ -50,6 +52,7 @@ import {
 import {SuggestionList} from './Autocomplete'
 import {EmojiPicker} from '#/components/EmojiPicker'
 import {deleteDraft} from '#/storage/drafts'
+import {i18n} from '#/locale/i18n'
 
 // Compact composer (Keystone v1 inline/postbox chrome): avatar + borderless
 // input, audience pill (anchored visibility popup), icon toolbar (media,
@@ -58,12 +61,20 @@ import {deleteDraft} from '#/storage/drafts'
 // `Composer` through the section components.
 
 const KIND_ICON = {public: GlobeIcon, quiet: HomeIcon, followers: LockIcon, direct: AtIcon} as const
-const KIND_DESC = {
-  public: 'Shown everywhere',
-  quiet: 'Hidden from global timelines',
-  followers: 'Only your followers',
-  direct: 'Only people you name',
-} as const
+/** Audience-kind descriptions, resolved at render time (never frozen at
+ * import — the module evaluates once, the locale switches at runtime). */
+function kindDesc(kind: keyof typeof KIND_ICON): string {
+  switch (kind) {
+    case 'public':
+      return i18n._(msg`Shown everywhere`)
+    case 'quiet':
+      return i18n._(msg`Hidden from global timelines`)
+    case 'followers':
+      return i18n._(msg`Only your followers`)
+    case 'direct':
+      return i18n._(msg`Only people you name`)
+  }
+}
 
 function ComposerAvatar({uri, name}: {uri: string | null; name: string}) {
   const theme = useTheme()
@@ -138,14 +149,14 @@ export function CompactComposer(props: ComposerProps) {
   const advancedActive =
     c.state.reactionAcceptance != null || c.state.localOnly || c.state.scheduledAt != null
   const submitLabel = c.editing
-    ? 'Save'
+    ? i18n._(msg`Save`)
     : c.state.scheduledAt && c.gates.schedule.enabled
-      ? 'Schedule'
+      ? i18n._(msg`Schedule`)
       : c.state.replyTo
-        ? 'Reply'
+        ? i18n._(msg`Reply`)
         : c.state.quote
-          ? 'Quote'
-          : 'Post'
+          ? i18n._(msg`Quote`)
+          : i18n._(msg`Post`)
   const remaining = c.limits.maxChars - c.count
   const avatarUri = c.session.user?.avatarUrl ?? null
   const avatarName = c.session.user?.displayName ?? c.session.accountId
@@ -161,17 +172,17 @@ export function CompactComposer(props: ComposerProps) {
           this header button is only a dismiss escape hatch until then. */}
       {c.onClose ? (
         <View style={styles.closeRow}>
-          <Button label="Cancel" variant="secondary" onPress={c.onClose} testID="composer-cancel" />
+          <Button label={i18n._(msg`Cancel`)} variant="secondary" onPress={c.onClose} testID="composer-cancel" />
         </View>
       ) : null}
       {c.state.replyTo ? (
         <View style={styles.context} testID="composer-reply-context">
-          <Caption color="muted">Replying to @{c.state.replyTo.author.acct}</Caption>
+          <Caption color="muted">{i18n._(msg`Replying to @${c.state.replyTo.author.acct}`)}</Caption>
         </View>
       ) : null}
       {c.state.quote ? (
         <View style={styles.context} testID="composer-quote-context">
-          <Caption color="muted">Quoting @{c.state.quote.author.acct}</Caption>
+          <Caption color="muted">{i18n._(msg`Quoting @${c.state.quote.author.acct}`)}</Caption>
         </View>
       ) : null}
       <View style={styles.topRow}>
@@ -183,9 +194,9 @@ export function CompactComposer(props: ComposerProps) {
             value={c.state.text}
             onChangeText={text => c.patch({text})}
             onSelectionChange={e => c.setCaret(e.nativeEvent.selection.end)}
-            placeholder={c.state.replyTo ? 'Write your reply' : "What's happening?"}
+            placeholder={c.state.replyTo ? i18n._(msg`Write your reply`) : i18n._(msg`What's happening?`)}
             placeholderTextColor={theme.palette.faint}
-            accessibilityLabel="Post text"
+            accessibilityLabel={i18n._(msg`Post text`)}
             // P1: the compose box is prose — it scales with the text setting.
             style={[
               styles.input,
@@ -209,7 +220,7 @@ export function CompactComposer(props: ComposerProps) {
           testID="composer-audience"
           onPress={() => setAudienceOpen(v => !v)}
           accessibilityRole="button"
-          accessibilityLabel={`Who can see this post: ${current.label}. Change audience.`}
+          accessibilityLabel={i18n._(msg`Who can see this post: ${current.label}. Change audience.`)}
           style={[styles.pill, {borderColor: theme.palette.edge}]}>
           <CurrentIcon size={16} color={muted} />
           <Caption color="muted">{current.label}</Caption>
@@ -221,7 +232,7 @@ export function CompactComposer(props: ComposerProps) {
           onClose={() => setAudienceOpen(false)}
           testID="composer-audience-menu"
           minWidth={280}>
-          <PopupHead>Who can see this post</PopupHead>
+          <PopupHead>{i18n._(msg`Who can see this post`)}</PopupHead>
           {c.options.map(o => {
             const Icon = KIND_ICON[o.kind] ?? GlobeIcon
             const selected = c.state.visibilityRaw === o.raw
@@ -237,7 +248,7 @@ export function CompactComposer(props: ComposerProps) {
                 right={<PopupRadioDot on={selected} />}>
                 <View style={styles.rowIcon}>
                   <Icon size={18} color={muted} />
-                  <PopupDesc>{KIND_DESC[o.kind]}</PopupDesc>
+                  <PopupDesc>{kindDesc(o.kind)}</PopupDesc>
                 </View>
               </PopupRow>
             )
@@ -248,20 +259,20 @@ export function CompactComposer(props: ComposerProps) {
       <View style={styles.toolbar}>
         <ToolButton
           testID="composer-media-add"
-          label={c.uploads.items.length > 0 ? `Attach media (${c.uploads.items.length} attached)` : 'Attach media'}
+          label={c.uploads.items.length > 0 ? i18n._(msg`Attach media (${c.uploads.items.length} attached)`) : i18n._(msg`Attach media`)}
           disabled={c.mediaFull || c.mediaBlockedByPoll}
           reason={
-            c.mediaBlockedByPoll ? 'A post cannot have both media and a poll.' : 'Attachment limit reached.'
+            c.mediaBlockedByPoll ? i18n._(msg`A post cannot have both media and a poll.`) : i18n._(msg`Attachment limit reached.`)
           }
           onPress={() => void c.addMedia()}>
           <MediaIcon size={20} color={muted} />
         </ToolButton>
         <ToolButton
           testID="composer-poll-toggle"
-          label="Add a poll"
+          label={i18n._(msg`Add a poll`)}
           active={!!c.state.poll}
           disabled={!c.gates.poll.enabled || (!c.state.poll && c.pollBlockedByMedia)}
-          reason={!c.gates.poll.enabled ? c.gates.poll.reason : 'A post cannot have both media and a poll.'}
+          reason={!c.gates.poll.enabled ? c.gates.poll.reason : i18n._(msg`A post cannot have both media and a poll.`)}
           onPress={() =>
             c.patch({
               poll: c.state.poll ? null : {choices: ['', ''], multiple: false, durationSeconds: 86400},
@@ -274,14 +285,14 @@ export function CompactComposer(props: ComposerProps) {
           testID="composer-emoji-button"
           onPress={() => setEmojiOpen(v => !v)}
           accessibilityRole="button"
-          accessibilityLabel="Insert emoji"
+          accessibilityLabel={i18n._(msg`Insert emoji`)}
           hitSlop={8}
           style={styles.tool}>
           <SmileIcon size={20} color={muted} />
         </RNPressable>
         <ToolButton
           testID="composer-cw-toggle"
-          label="Content warning"
+          label={i18n._(msg`Content warning`)}
           active={c.state.cwEnabled}
           onPress={() => c.patch({cwEnabled: !c.state.cwEnabled})}>
           <Body style={{color: c.state.cwEnabled ? theme.palette.bg : muted}}>CW</Body>
@@ -291,7 +302,7 @@ export function CompactComposer(props: ComposerProps) {
           testID="composer-more"
           onPress={() => setMoreOpen(v => !v)}
           accessibilityRole="button"
-          accessibilityLabel="More options"
+          accessibilityLabel={i18n._(msg`More options`)}
           hitSlop={8}
           style={[styles.tool, advancedActive && {backgroundColor: theme.palette.text}]}>
           <MoreIcon size={20} color={advancedActive ? theme.palette.bg : muted} />
@@ -302,10 +313,10 @@ export function CompactComposer(props: ComposerProps) {
           {remaining}
         </Caption>
         <Button
-          label={c.busy ? 'Posting…' : submitLabel}
+          label={c.busy ? i18n._(msg`Posting…`) : submitLabel}
           onPress={() => void c.submit()}
           disabled={c.busy || c.over}
-          disabledReason={c.over ? 'Over the character limit.' : c.busy ? 'Posting...' : undefined}
+          disabledReason={c.over ? i18n._(msg`Over the character limit.`) : c.busy ? i18n._(msg`Posting...`) : undefined}
           testID="composer-submit"
         />
       </View>
@@ -332,8 +343,8 @@ export function CompactComposer(props: ComposerProps) {
           onClose={() => setMoreOpen(false)}
           testID="composer-more-menu"
           minWidth={280}>
-          <PopupHead>Who can react</PopupHead>
-          {([{raw: null as string | null, label: 'All reactions'}].concat(
+          <PopupHead>{i18n._(msg`Who can react`)}</PopupHead>
+          {([{raw: null as string | null, label: i18n._(msg`All reactions`)}].concat(
             (Object.keys(REACTION_ACCEPTANCE_LABELS) as ReactionAcceptance[]).map(k => ({
               raw: k as string | null,
               label: REACTION_ACCEPTANCE_LABELS[k],
@@ -359,16 +370,16 @@ export function CompactComposer(props: ComposerProps) {
           {c.gates.localOnly.enabled ? (
             <PopupRow
               testID="composer-local-only"
-              label="Local only"
+              label={i18n._(msg`Local only`)}
               onPress={() => c.patch({localOnly: !c.state.localOnly})}
               right={<PopupRadioDot on={c.state.localOnly} />}>
-              <PopupDesc>Visible only on this server</PopupDesc>
+              <PopupDesc>{i18n._(msg`Visible only on this server`)}</PopupDesc>
             </PopupRow>
           ) : null}
           {c.gates.schedule.enabled && !c.editing ? (
             <PopupRow
               testID="composer-schedule-toggle"
-              label={c.state.scheduledAt ? 'Post now instead' : 'Schedule…'}
+              label={c.state.scheduledAt ? i18n._(msg`Post now instead`) : i18n._(msg`Schedule…`)}
               onPress={() =>
                 c.patch({
                   scheduledAt: c.state.scheduledAt ? null : new Date(Date.now() + 3600_000).toISOString(),
@@ -377,8 +388,8 @@ export function CompactComposer(props: ComposerProps) {
               right={<ScheduleIcon size={18} color={muted} />}>
               <PopupDesc>
                 {c.state.scheduledAt
-                  ? `Posts ${new Date(c.state.scheduledAt).toLocaleString()}`
-                  : 'Post at a later time'}
+                  ? i18n._(msg`Posts ${new Date(c.state.scheduledAt).toLocaleString()}`)
+                  : i18n._(msg`Post at a later time`)}
               </PopupDesc>
             </PopupRow>
           ) : null}
@@ -395,14 +406,14 @@ export function CompactComposer(props: ComposerProps) {
           </View>
           <PopupRow
             testID="composer-drafts-toggle"
-            label={c.drafts.length > 0 ? `Drafts (${c.drafts.length})` : 'Drafts'}
+            label={c.drafts.length > 0 ? i18n._(msg`Drafts (${c.drafts.length})`) : i18n._(msg`Drafts`)}
             onPress={() => setShowDraftList(v => !v)}>
-            <PopupDesc>Unsent posts on this device</PopupDesc>
+            <PopupDesc>{i18n._(msg`Unsent posts on this device`)}</PopupDesc>
           </PopupRow>
           {showDraftList ? (
             <View style={styles.draftList}>
               {c.drafts.length === 0 ? (
-                <Caption color="muted">No drafts yet.</Caption>
+                <Caption color="muted">{i18n._(msg`No drafts yet.`)}</Caption>
               ) : (
                 c.drafts.map(d => (
                   <View key={d.id} style={styles.draftRow}>
@@ -413,15 +424,15 @@ export function CompactComposer(props: ComposerProps) {
                         setMoreOpen(false)
                       }}
                       accessibilityRole="button"
-                      accessibilityLabel={`Restore draft: ${d.text.slice(0, 60) || '(no text)'}`}
+                      accessibilityLabel={i18n._(msg`Restore draft: ${d.text.slice(0, 60) || '(no text)'}`)}
                       style={styles.draftText}>
-                      <Body numberOfLines={2}>{d.text.slice(0, 120) || '(no text)'}</Body>
+                      <Body numberOfLines={2}>{d.text.slice(0, 120) || i18n._(msg`(no text)`)}</Body>
                     </Pressable>
                     <Pressable
                       testID={`composer-draft-del-${d.id}`}
                       onPress={() => deleteDraft(c.store, c.session.id, d.id)}
                       accessibilityRole="button"
-                      accessibilityLabel="Delete this draft"
+                      accessibilityLabel={i18n._(msg`Delete this draft`)}
                       hitSlop={8}>
                       <Body>×</Body>
                     </Pressable>

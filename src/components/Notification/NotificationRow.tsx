@@ -15,6 +15,8 @@
 
 import {Image, StyleSheet, View} from 'react-native'
 
+import {msg, t} from '@lingui/macro'
+
 import {
   displayNameOf,
   handleOf,
@@ -28,6 +30,7 @@ import {Body, Caption} from '#/alf/typography'
 import {DisplayName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
 import {formatRelativeTime} from '#/components/Post/time'
+import {i18n, useLocale} from '#/locale/i18n'
 import {navigationRef} from '#/navigationRef'
 
 const AVATAR = 40
@@ -44,34 +47,34 @@ const styles = StyleSheet.create({
 export function notificationKindLabel(notification: Notification): string {
   switch (notification.kind) {
     case 'follow':
-      return 'followed you'
+      return t`followed you`
     case 'mention':
-      return 'mentioned you'
+      return t`mentioned you`
     case 'reply':
-      return 'replied to you'
+      return t`replied to you`
     case 'renote':
-      return 'reposted your post'
+      return t`reposted your post`
     case 'quote':
-      return 'quoted your post'
+      return t`quoted your post`
     case 'reaction':
-      return notification.reaction ? `reacted ${notification.reaction}` : 'reacted to your post'
+      return notification.reaction ? t`reacted ${notification.reaction}` : t`reacted to your post`
     case 'favourite':
-      return 'liked your post'
+      return t`liked your post`
     case 'pollVote':
-      return 'voted in your poll'
+      return t`voted in your poll`
     case 'pollEnded':
-      return 'a poll ended'
+      return t`a poll ended`
     case 'receiveFollowRequest':
-      return 'requested to follow you'
+      return t`requested to follow you`
     case 'followRequestAccepted':
-      return 'accepted your follow request'
+      return t`accepted your follow request`
     case 'achievement':
-      return 'earned an achievement'
+      return t`earned an achievement`
     case 'app':
-      return 'sent an update'
+      return t`sent an update`
     case 'unknown':
     default:
-      return notification.rawType || 'sent a notification'
+      return notification.rawType || t`sent a notification`
   }
 }
 
@@ -93,7 +96,7 @@ export function idOnlyActorLabel(actorId: string): string {
 
 function NotificationAvatar({account, actorId}: {account: Account | null; actorId: string | null}) {
   const uri = account ? safeHttpUrl(account.avatarUrl) : null
-  const name = account ? displayNameOf(account) : actorId ? idOnlyActorLabel(actorId) : 'Someone'
+  const name = account ? displayNameOf(account) : actorId ? idOnlyActorLabel(actorId) : t`Someone`
   const initial = name.trim().slice(0, 1).toUpperCase() || '?'
   if (uri === null) {
     return (
@@ -118,6 +121,9 @@ function NotificationAvatar({account, actorId}: {account: Account | null; actorI
 }
 
 export function NotificationRow({notification}: {notification: Notification}) {
+  // Singleton `i18n` (not the hook) keeps provider-less trees — jest,
+  // previews — rendering; `useLocale` below still re-renders on switch.
+  const locale = useLocale()
   const actors = notification.actors
   const first = actors[0] ?? null
   // Display prefers the first PACKED account (an id-only first actor must
@@ -137,8 +143,8 @@ export function NotificationRow({notification}: {notification: Notification}) {
         accessibilityRole="link"
         accessibilityLabel={
           shownAccount
-            ? `Open profile of ${displayNameOf(shownAccount)}`
-            : 'Open profile of the notifier'
+            ? i18n._(msg`Open profile of ${displayNameOf(shownAccount)}`)
+            : i18n._(msg`Open profile of the notifier`)
         }>
         <NotificationAvatar account={shownAccount} actorId={first?.id ?? null} />
       </Pressable>
@@ -152,8 +158,8 @@ export function NotificationRow({notification}: {notification: Notification}) {
             accessibilityRole="link"
             accessibilityLabel={
               shownAccount
-                ? `Open profile of ${displayNameOf(shownAccount)}`
-                : 'Open profile of the notifier'
+                ? i18n._(msg`Open profile of ${displayNameOf(shownAccount)}`)
+                : i18n._(msg`Open profile of the notifier`)
             }>
             {shownAccount ? (
               <>
@@ -168,14 +174,14 @@ export function NotificationRow({notification}: {notification: Notification}) {
                 </Caption>
               </>
             ) : (
-              <Body>{first ? idOnlyActorLabel(first.id) : 'Someone'}</Body>
+              <Body>{first ? idOnlyActorLabel(first.id) : i18n._(msg`Someone`)}</Body>
             )}
           </Pressable>
           <Body>{label}</Body>
         </View>
         {extraCount > 0 ? (
           <Caption color="faint" testID={`notification-others-${notification.id}`}>
-            {`and ${extraCount} other${extraCount === 1 ? '' : 's'}`}
+            {i18n._(msg`and ${extraCount} other${extraCount === 1 ? '' : 's'}`)}
           </Caption>
         ) : null}
         {excerpt ? (
@@ -185,17 +191,17 @@ export function NotificationRow({notification}: {notification: Notification}) {
               if (notification.post) openPostDetail(notification.post.id)
             }}
             accessibilityRole="link"
-            accessibilityLabel="Open the post">
+            accessibilityLabel={i18n._(msg`Open the post`)}>
             <Caption color="faint" numberOfLines={2}>
               {excerpt.slice(0, 140)}
             </Caption>
           </Pressable>
         ) : null}
         <Caption color="faint" testID={`notification-time-${notification.id}`}>
-          {formatRelativeTime(notification.createdAt)}
+          {formatRelativeTime(notification.createdAt, undefined, locale)}
         </Caption>
-        {notification.read === true ? <Caption color="faint">Read</Caption> : null}
-        {notification.read === false ? <Caption color="faint">New</Caption> : null}
+        {notification.read === true ? <Caption color="faint">{i18n._(msg`Read`)}</Caption> : null}
+        {notification.read === false ? <Caption color="faint">{i18n._(msg`New`)}</Caption> : null}
       </View>
     </View>
   )

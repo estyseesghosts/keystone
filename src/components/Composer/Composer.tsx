@@ -1,6 +1,8 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {ScrollView, StyleSheet, TextInput, View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {
   ApiError,
   applyCompletion,
@@ -24,6 +26,7 @@ import {useTheme} from '#/alf/index'
 import {radius, space, typeSize} from '#/alf/tokens'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {i18n} from '#/locale/i18n'
 import {
   useComposeLimits,
   useCreatePost,
@@ -444,8 +447,7 @@ export type ComposerController = ReturnType<typeof useComposerController>
 
 export function Composer(props: ComposerProps) {
   const controller = useComposerController(props)
-  const {
-    theme, family, gates, limits, emojis, uploads, create,
+  const {theme, family, gates, limitsQuery, limits, emojis, uploads, create,
     id, state, caret, setCaret, error, busy, showDrafts, setShowDrafts,
     notice, pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
@@ -461,30 +463,30 @@ export function Composer(props: ComposerProps) {
     <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
       <View style={styles.spread}>
         {onClose ? (
-          <Button label="Cancel" variant="secondary" onPress={onClose} testID="composer-cancel" />
+          <Button label={i18n._(msg`Cancel`)} variant="secondary" onPress={onClose} testID="composer-cancel" />
         ) : null}
         <Button
-          label={editing ? 'Save' : state.scheduledAt && gates.schedule.enabled ? 'Schedule' : 'Post'}
+          label={editing ? i18n._(msg`Save`) : state.scheduledAt && gates.schedule.enabled ? i18n._(msg`Schedule`) : i18n._(msg`Post`)}
           onPress={submit}
           disabled={busy || over}
-          disabledReason={over ? 'Over the character limit.' : busy ? 'Posting...' : undefined}
+          disabledReason={over ? i18n._(msg`Over the character limit.`) : busy ? i18n._(msg`Posting...`) : undefined}
           testID="composer-submit"
         />
       </View>
 
       {replyTo ? (
         <View style={styles.context} testID="composer-reply-context">
-          <Caption color="muted">Replying to @{replyTo.author.acct}</Caption>
+          <Caption color="muted">{i18n._(msg`Replying to @${replyTo.author.acct}`)}</Caption>
         </View>
       ) : null}
       {quote ? (
         <View style={styles.context} testID="composer-quote-context">
-          <Caption color="muted">Quoting @{quote.author.acct}</Caption>
+          <Caption color="muted">{i18n._(msg`Quoting @${quote.author.acct}`)}</Caption>
         </View>
       ) : null}
       {editing ? (
         <View style={styles.context} testID="composer-edit-context">
-          <Caption color="muted">Editing your post</Caption>
+          <Caption color="muted">{i18n._(msg`Editing your post`)}</Caption>
         </View>
       ) : null}
 
@@ -496,9 +498,9 @@ export function Composer(props: ComposerProps) {
         value={state.text}
         onChangeText={text => patch({text})}
         onSelectionChange={e => setCaret(e.nativeEvent.selection.end)}
-        placeholder={replyTo ? 'Write your reply' : "What's happening?"}
+        placeholder={replyTo ? i18n._(msg`Write your reply`) : i18n._(msg`What's happening?`)}
         placeholderTextColor={theme.palette.faint}
-        accessibilityLabel="Post text"
+        accessibilityLabel={i18n._(msg`Post text`)}
         style={styles.input}
       />
       <SuggestEmojiSection c={controller} />
@@ -507,7 +509,7 @@ export function Composer(props: ComposerProps) {
         <Caption color={over ? 'text' : 'muted'} testID="composer-counter">
           {count} / {limits.maxChars}
         </Caption>
-        {over ? <Caption>Over the limit</Caption> : null}
+        {over ? <Caption>{i18n._(msg`Over the limit`)}</Caption> : null}
       </View>
 
       {error ? (
@@ -521,7 +523,7 @@ export function Composer(props: ComposerProps) {
         </Body>
       ) : null}
 
-      <Caption color="muted">Audience</Caption>
+      <Caption color="muted">{i18n._(msg`Audience`)}</Caption>
       <View style={styles.row}>
         {options.map(o => (
           <Chip
@@ -534,7 +536,7 @@ export function Composer(props: ComposerProps) {
         ))}
         {gates.localOnly.enabled ? (
           <Chip
-            label="Local only"
+            label={i18n._(msg`Local only`)}
             selected={state.localOnly}
             onPress={() => patch({localOnly: !state.localOnly})}
             testID="composer-local-only"
@@ -543,21 +545,21 @@ export function Composer(props: ComposerProps) {
       </View>
 
       <View style={styles.row}>
-        <Chip label="Emoji" onPress={() => setPickingEmoji(true)} testID="composer-emoji-button" />
+        <Chip label={i18n._(msg`Emoji`)} onPress={() => setPickingEmoji(true)} testID="composer-emoji-button" />
         <Chip
-          label="CW"
+          label={i18n._(msg`CW`)}
           selected={state.cwEnabled}
           onPress={() => patch({cwEnabled: !state.cwEnabled})}
           testID="composer-cw-toggle"
         />
         <Chip
-          label="Poll"
+          label={i18n._(msg`Poll`)}
           selected={!!state.poll}
           disabled={!gates.poll.enabled || (!state.poll && pollBlockedByMedia)}
           disabledReason={
             !gates.poll.enabled
               ? gates.poll.reason
-              : 'A post cannot have both media and a poll.'
+              : i18n._(msg`A post cannot have both media and a poll.`)
           }
           onPress={() =>
             patch({
@@ -567,17 +569,17 @@ export function Composer(props: ComposerProps) {
           testID="composer-poll-toggle"
         />
         <Chip
-          label="Media"
+          label={i18n._(msg`Media`)}
           disabled={mediaFull || mediaBlockedByPoll}
           disabledReason={
-            mediaBlockedByPoll ? 'A post cannot have both media and a poll.' : 'Attachment limit reached.'
+            mediaBlockedByPoll ? i18n._(msg`A post cannot have both media and a poll.`) : i18n._(msg`Attachment limit reached.`)
           }
           onPress={addMedia}
           testID="composer-media-add"
         />
         {gates.schedule.enabled && !editing ? (
           <Chip
-            label="Schedule"
+            label={i18n._(msg`Schedule`)}
             selected={state.scheduledAt != null}
             onPress={() =>
               patch({
@@ -587,7 +589,7 @@ export function Composer(props: ComposerProps) {
             testID="composer-schedule-toggle"
           />
         ) : null}
-        <Chip label="Drafts" onPress={() => setShowDrafts(v => !v)} testID="composer-drafts-toggle" />
+        <Chip label={i18n._(msg`Drafts`)} onPress={() => setShowDrafts(v => !v)} testID="composer-drafts-toggle" />
       </View>
 
       <ScheduleSection c={controller} />
@@ -596,9 +598,9 @@ export function Composer(props: ComposerProps) {
 
       {gates.reactionAcceptance.enabled ? (
         <View style={styles.row}>
-          <Caption color="muted">Reactions</Caption>
+          <Caption color="muted">{i18n._(msg`Reactions`)}</Caption>
           <Chip
-            label="All"
+            label={i18n._(msg`All`)}
             selected={state.reactionAcceptance == null}
             onPress={() => patch({reactionAcceptance: null})}
           />

@@ -9,6 +9,12 @@
 // backend descriptor stays `timeline|global` (internal endpoint names
 // are unchanged — see `descriptorForNetworkTab`).
 
+import {t} from '@lingui/macro'
+
+// Locale boot (P5): see `menuModel.ts` — `titleForRoute` evaluates `t`
+// at call time against the shared singleton.
+import '#/locale/i18n'
+
 export type NetworkTab = 'social' | 'local' | 'federated'
 
 /** Segments the Network screen accepts in `:tab?`. `global` is the
@@ -198,82 +204,84 @@ export function linkingScreens(): LinkingScreens {
 
 // Butterfly chrome titles per leaf route (Keystone v1 `stripTitle`
 // mapping: the SECTION, never the tab — `/network/*` reads "My Network").
+// Lingui `t` against the shared singleton: pure like the function itself,
+// English-identical under the `en` catalog (nav tests pin the strings).
 export function titleForRoute(
   name: string | undefined,
   params?: {tag?: unknown; section?: unknown} | null,
 ): string {
   switch (name) {
     case 'Home':
-      return 'Home'
+      return t`Home`
     case 'Network':
-      return 'My Network'
+      return t`My Network`
     case 'Explore':
-      return 'Search'
+      return t`Search`
     case 'Notifications':
-      return 'Notifications'
+      return t`Notifications`
     case 'User':
-      return 'Profile'
+      return t`Profile`
     case 'Note':
-      return 'Note'
+      return t`Note`
     case 'Tag':
-      return typeof params?.tag === 'string' && params.tag ? `#${params.tag}` : 'Tag'
+      return typeof params?.tag === 'string' && params.tag ? `#${params.tag}` : t`Tag`
     case 'List':
-      return 'List'
+      return t`List`
     case 'Lists':
-      return 'Lists'
+      return t`Lists`
     case 'Clip':
-      return 'Clip'
+      return t`Clip`
     case 'Clips':
-      return 'Clips'
+      return t`Clips`
     case 'Antenna':
-      return 'Antenna'
+      return t`Antenna`
     case 'Antennas':
-      return 'Antennas'
+      return t`Antennas`
     case 'Drive':
-      return 'Drive'
+      return t`Drive`
     case 'Favorites':
-      return 'Favorites'
+      return t`Favorites`
     case 'Followers':
-      return 'Followers'
+      return t`Followers`
     case 'Following':
-      return 'Following'
+      return t`Following`
     case 'FollowRequests':
-      return 'Follows'
+      return t`Follows`
     case 'ProfileEdit':
-      return 'Edit profile'
+      return t`Edit profile`
     case 'Settings': {
       const section = typeof params?.section === 'string' ? params.section : ''
       switch (section) {
         case 'account':
-          return 'Your account'
+          return t`Your account`
         case 'display':
-          return 'Accessibility and display'
+          return t`Accessibility and display`
         case 'reactions':
-          return 'Reactions and emoji'
+          return t`Reactions and emoji`
         case 'feeds':
-          return 'Feeds'
+          return t`Feeds`
         case 'mutes':
-          return 'Mutes and blocks'
+          return t`Mutes and blocks`
         case 'import':
-          return 'Import'
+          return t`Import`
         case 'export':
-          return 'Export'
+          return t`Export`
         case 'filters':
-          return 'Word filters'
+          return t`Word filters`
         case 'language':
-          return 'Language'
+          return t`Language`
         default:
-          return 'Settings'
+          return t`Settings`
       }
     }
     case 'Login':
     case 'AuthCallback':
-      return 'Sign in'
+      return t`Sign in`
     case 'SysDebug':
-      return 'Debug'
+      return t`Debug`
     case 'Compose':
-      return 'New post'
+      return t`New post`
     default:
-      return 'Keystone'
+      return t`Keystone`
   }
 }

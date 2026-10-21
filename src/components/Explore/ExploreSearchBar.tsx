@@ -1,9 +1,12 @@
 import {StyleSheet, TextInput, View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {atoms} from '#/alf/atoms'
 import {useTheme} from '#/alf/index'
 import {radius, space, typeSize} from '#/alf/tokens'
 import {Button} from '#/components/Button'
+import {i18n} from '#/locale/i18n'
 
 // The Explore search field: text input plus submit, with a clear button
 // while a query is active. Submitting is the caller's job (`onSubmit`);
@@ -44,7 +47,7 @@ export function ExploreSearchBar({
         testID="explore-search-input"
         value={value}
         onChangeText={onChangeText}
-        placeholder="Search users, tags, and posts"
+        placeholder={i18n._(msg`Search users, tags, and posts`)}
         placeholderTextColor={theme.palette.faint}
         accessibilityLabel="Search"
         autoCapitalize="none"
@@ -54,10 +57,10 @@ export function ExploreSearchBar({
         style={styles.input}
       />
       {active ? (
-        <Button label="Clear" variant="secondary" onPress={onClear} testID="explore-search-clear" />
+        <Button label={i18n._(msg`Clear`)} variant="secondary" onPress={onClear} testID="explore-search-clear" />
       ) : null}
       <Button
-        label={busy ? 'Searching…' : 'Search'}
+        label={busy ? i18n._(msg`Searching…`) : i18n._(msg`Search`)}
         variant="primary"
         disabled={busy || !active}
         onPress={onSubmit}

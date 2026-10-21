@@ -8,6 +8,9 @@
 import {useState} from 'react'
 import {StyleSheet, View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+import {useLingui} from '@lingui/react'
+
 import type {Poll} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
@@ -59,6 +62,7 @@ export function PostPoll({
   testID?: string
 }) {
   const theme = useTheme()
+  const {i18n} = useLingui()
   const alreadyVoted = poll.options.some(o => o.voted)
   const [selected, setSelected] = useState<number[]>(() =>
     poll.options.flatMap((o, i) => (o.voted ? [i] : [])),
@@ -140,16 +144,16 @@ export function PostPoll({
           {foot.join(' · ')}
         </Caption>
       )}
-      {failed && <Body testID="poll-error">Couldn&apos;t submit your vote. Try again.</Body>}
+      {failed && <Body testID="poll-error">{i18n._(msg`Couldn't submit your vote. Try again.`)}</Body>}
       {!locked && (
         <Pressable
           testID="poll-vote"
           onPress={() => void submit()}
           disabled={busy || selected.length === 0}
           accessibilityRole="button"
-          accessibilityLabel={busy ? 'Submitting vote…' : 'Vote'}
+          accessibilityLabel={busy ? i18n._(msg`Submitting vote…`) : i18n._(msg`Vote`)}
           accessibilityState={{disabled: busy || selected.length === 0}}>
-          <Body>{busy ? 'Submitting…' : 'Vote'}</Body>
+          <Body>{busy ? i18n._(msg`Submitting…`) : i18n._(msg`Vote`)}</Body>
         </Pressable>
       )}
     </View>

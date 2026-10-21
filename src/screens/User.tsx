@@ -2,6 +2,9 @@ import {useCallback, useEffect, useRef, useState} from 'react'
 import {View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
+import {msg} from '@lingui/macro'
+import {useLingui} from '@lingui/react'
+
 import {type Account, type Relationship, parseAcct} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
@@ -27,6 +30,7 @@ export function UserScreen() {
   const nav = useNavigation<NavigationProp<RootParamList>>()
   const routeId = route.params?.id
   const routeAcct = route.params?.acct
+  const {i18n} = useLingui()
   const {session, backend} = useActiveBackend()
   // Mention taps land here with an acct, not an id (F9): look the
   // account up once, then run the normal id path. A failed lookup is
@@ -134,14 +138,14 @@ export function UserScreen() {
       ) : resolving || loading ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
           <Loader testID="profile-loading" />
-          <Caption color="faint">Loading profile…</Caption>
+          <Caption color="faint">{i18n._(msg`Loading profile…`)}</Caption>
         </View>
       ) : resolveError || error || !account ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load this profile.</Body>
-          <Caption color="faint">It may be deleted, suspended, or unreachable.</Caption>
+          <Body>{i18n._(msg`Could not load this profile.`)}</Body>
+          <Caption color="faint">{i18n._(msg`It may be deleted, suspended, or unreachable.`)}</Caption>
           <Button
-            label="Retry"
+            label={i18n._(msg`Retry`)}
             variant="secondary"
             onPress={() => {
               setResolveError(false)
@@ -163,13 +167,13 @@ export function UserScreen() {
               isSelf ? (
                 <View style={[atoms.row, atoms.gap_sm]}>
                   <Button
-                    label="Edit profile"
+                    label={i18n._(msg`Edit profile`)}
                     variant="secondary"
                     testID="profile-edit"
                     onPress={() => nav.navigate('ProfileEdit')}
                   />
                   <Button
-                    label="Accounts & settings"
+                    label={i18n._(msg`Accounts & settings`)}
                     variant="secondary"
                     testID="profile-settings"
                     onPress={() => nav.navigate('Settings')}
