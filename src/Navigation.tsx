@@ -1,4 +1,4 @@
-import {useContext, useMemo, useRef, useState} from 'react'
+import {useContext, useMemo, useRef, useState, type ReactNode} from 'react'
 import {Image, Platform, Pressable, StyleSheet, View, type View as ViewType, type ViewStyle} from 'react-native'
 import {useOptionalSafeAreaInsets} from '#/components/insets'
 import {t} from '@lingui/macro'
@@ -15,6 +15,7 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack'
 import {QueryClientContext} from '@tanstack/react-query'
 import * as Linking from 'expo-linking'
 import {useLingui} from '@lingui/react'
+import type {I18n} from '@lingui/core'
 import {msg} from '@lingui/macro'
 
 import {useTheme as useAlfTheme} from '#/alf'
@@ -25,18 +26,24 @@ import {AnchoredPopup, PopupDesc, PopupHead, PopupRadioDot, PopupRow, PopupSep} 
 import {
   BackIcon,
   BellIcon,
+  DriveIcon,
+  ClipIcon,
+  AntennaIcon,
   HomeIcon,
+  ListIcon,
   LoginIcon,
   NetworkIcon,
   PencilIcon,
   ProfileIcon,
   SearchIcon,
   SettingsIcon,
+  StarIcon,
 } from '#/components/icons'
 import {navigationRef} from '#/navigationRef'
 import type {RootParamList} from '#/routes'
 import {linkingScreens, rewriteLegacyPath, titleForRoute} from '#/routes'
 import {useOptionalActiveSession, useSessionStore, useSessions} from '#/state/session/SessionProvider'
+import {backendForSession, type Backend} from '@keystone/fedi'
 import {useHosting} from '#/state/hosting'
 import {AuthCallbackScreen} from '#/screens/AuthCallback'
 import {AntennaScreen} from '#/screens/Antenna'
@@ -215,6 +222,65 @@ function TabIcon({name, color}: {name: keyof TabParamList; color: string}) {
   }
 }
 
+// --- Stack destinations (v1 `.sitenav` parity) ------------------------------
+// Tabs cover the feeds; these stack screens had routes but no way to reach
+// them. Gated exactly like v1's sitenav: Lists/Clips need a supported
+// capability, Drive/Antennas need a misskey-family session, Favorites needs
+// a session. Never rendered when the gate fails, so no inert entries — and
+// the screens themselves carry the honest fallback for unknown states, so
+// navigating is never a dead end. Shared by the Sidebar (desktop) and the
+// AccountMenu (which is also the mobile entry point via the strip avatar).
+type StackEntryKey = 'Lists' | 'Clips' | 'Drive' | 'Antennas' | 'Favorites'
+
+const STACK_ICONS: Record<StackEntryKey, (p: {size?: number; color?: string}) => ReactNode> = {
+  Lists: ListIcon,
+  Clips: ClipIcon,
+  Drive: DriveIcon,
+  Antennas: AntennaIcon,
+  Favorites: StarIcon,
+}
+
+function stackEntries(
+  session: {family: string} | null,
+  backend: Backend | null,
+): StackEntryKey[] {
+  if (!session) return []
+  const out: StackEntryKey[] = []
+  if (backend?.capabilities.lists === 'supported' && backend.lists) {
+    out.push('Lists')
+  }
+  if (backend?.capabilities.clips === 'supported' && backend.clips) {
+    out.push('Clips')
+  }
+  if (session.family === 'misskey') {
+    out.push('Drive')
+    out.push('Antennas')
+  }
+  out.push('Favorites')
+  return out
+}
+
+function stackEntryLabel(i18n: I18n, key: StackEntryKey): string {
+  switch (key) {
+    case 'Lists':
+      return i18n._(msg`Lists`)
+    case 'Clips':
+      return i18n._(msg`Clips`)
+    case 'Drive':
+      return i18n._(msg`Drive`)
+    case 'Antennas':
+      return i18n._(msg`Antennas`)
+    case 'Favorites':
+      return i18n._(msg`Favorites`)
+  }
+}
+
+/** Open a stack screen from shell chrome (lives outside every navigator). */
+function goStackScreen(key: StackEntryKey) {
+  if (!navigationRef.isReady()) return
+  navigationRef.navigate(key as never)
+}
+
 function AccountAvatar({size = 32}: {size?: number}) {
   const session = useOptionalActiveSession()
   const alf = useAlfTheme()
@@ -310,6 +376,8 @@ function AccountMenu({onClose, testPrefix}: {onClose: () => void; testPrefix: st
   const store = useSessionStore()
   const sessions = useSessions()
   const activeId = store.activeId()
+  const active = sessions.find(s => s.id === activeId) ?? null
+  const backend = useMemo(() => (active ? backendForSession(active) : null), [active])
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -379,6 +447,14 @@ function AccountMenu({onClose, testPrefix}: {onClose: () => void; testPrefix: st
         label={i18n._(msg`Profile`)}
         onPress={() => closeAnd(() => goMainTab('User'))}
       />
+      {stackEntries(active, backend).map(key => (
+        <PopupRow
+          key={key}
+          testID={`${testPrefix}-${key.toLowerCase()}`}
+          label={stackEntryLabel(i18n, key)}
+          onPress={() => closeAnd(() => goStackScreen(key))}
+        />
+      ))}
       <PopupRow
         testID={`${testPrefix}-settings`}
         label={i18n._(msg`Accounts & settings`)}
@@ -543,6 +619,7 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
   const session = useOptionalActiveSession()
   const {i18n} = useLingui()
   const alf = useAlfTheme()
+  const backend = useMemo(() => (session ? backendForSession(session) : null), [session])
   const rail = layout === 'rail'
   const entries: {key: keyof TabParamList; label: string}[] = [
     {key: 'Home', label: i18n._(msg`Home`)},
@@ -555,6 +632,7 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
       {key: 'User', label: i18n._(msg`Profile`)},
     )
   }
+  const stacks = stackEntries(session, backend)
   // Signed out, the sidebar footer carries Sign in (v1) — no Login entry up
   // top. (The Login *tab* still exists for the mobile layout.)
   return (
@@ -595,6 +673,29 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
             {!rail && e.key === 'Notifications' ? (
               <NotificationsUnreadBadge sessionId={session?.id ?? null} />
             ) : null}
+          </Pressable>
+        )
+      })}
+      {stacks.map(key => {
+        const Icon = STACK_ICONS[key]
+        const label = stackEntryLabel(i18n, key)
+        const active = leaf.name === key
+        const fg = active ? alf.palette.bg : alf.palette.text
+        return (
+          <Pressable
+            key={key}
+            onPress={() => goStackScreen(key)}
+            accessibilityRole="button"
+            accessibilityState={{selected: active}}
+            accessibilityLabel={label}
+            testID={`sidebar-${key.toLowerCase()}`}
+            style={[
+              styles.navlink,
+              rail && styles.navlinkRail,
+              active && {backgroundColor: alf.palette.text},
+            ]}>
+            <Icon size={20} color={fg} />
+            {rail ? null : <Body style={{color: fg}}>{label}</Body>}
           </Pressable>
         )
       })}

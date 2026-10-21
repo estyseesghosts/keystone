@@ -21,16 +21,15 @@ Earlier: contrast sweep + UI batch 2 + W1–W8 done on `main`
 
 ## Next 3 steps
 
-1. Owner reviews stay open (G1–G4 visual/parity; P5 tail:
-   management-screen English, W7-log inventory) — mechanical.
-2. Still blocked/never-faked: Oppo `3B15A500TQD00000` pass, iOS
-   anything, Misskey-family live (`:3101`/`:3102` down), live GTS +
-   grouped-envelope v2 server, TalkBack, native splash rebuild.
-3. Owner functional audit open → next implementer runs
-   `docs/V2_FUNCTIONAL.md` (E1–E10, repro-first, all must be
-   FUNCTIONAL on device/rig before commit). Known follow-ups folded
-   in: quote sessionId threading → E1; Akkoma v2 filter CORS → E6/E7
-   context; F20 ancestors/connectors → E8.
+1. V2_FUNCTIONAL partial 2026-10-21: E1/E2/E3/E5/E9 MERGED (trio green,
+   Helium `:8088`-`:8098` + Akkoma `:4000` proofs in logs); E7 folders-backend
+   merged + Drive page made reachable (sidebar + account menu, v1-gated) but
+   the live Misskey-family round-trip is still OPEN (`:3101`/`:3102` down).
+2. In flight in `/private/var/folders/…/v2f/` worktrees: `pf-bio` (E4/E6),
+   `pf-detail` (E8/E10) — merge serially on completion; do NOT edit their
+   owned files from `main` meanwhile.
+3. Owner reviews stay open (G1–G4 visual/parity; P5 tail); Oppo `3B15A500TQD00000`
+   device pass still never attempted.
 
 ## Blockers
 

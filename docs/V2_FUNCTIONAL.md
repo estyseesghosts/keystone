@@ -50,6 +50,11 @@ the device are regressions in the register, not the world.
 
 ## E1 — Custom + remote emoji EVERYWHERE (supersedes F11/MK8 "done")
 
+Status: DONE 2026-10-21 (`pf-emoji` ce3efe5, trio green, Helium :8096 + Akkoma rig).
+Remote `:code@host:` renders as image in bodies + display names (Helium shot),
+local custom in bodies/chips/picker; picker popup opens/searches/inserts.
+Device (Oppo) pass still `not verified`; Misskey-family rig down.
+
 Owner report: remote emoji still don't work; custom emoji still don't
 work. Requirement: custom/remote emoji render as IMAGES anywhere an
 emoji can be seen — post bodies, **reaction chips**, profile bios,
@@ -80,6 +85,10 @@ picker remote section — all rendering images on Android.
 
 ## E2 — Mentions clickable (F9, still `bug`)
 
+Status: DONE 2026-10-21 (`pf-links` ce7b676, trio green, Helium :8098 + Akkoma rig).
+In-app defaults in `RichText.tsx`; card/detail/bio taps land on profile.
+Live notification taps `not verified` (rig has zero notifications); device pending.
+
 Owner report: mentions are not clickable. The card-side handlers LOOK
 complete (`PostCard.tsx:672-679`: `parseAcct(label)` fallback →
 `openMentionProfile`, else external). So the break is in the data or
@@ -101,6 +110,9 @@ notification — all three land on the profile in-app (Helium or device
 capture). No external-browser escape for resolvable mentions.
 
 ## E3 — Hashtags reliably clickable
+
+Status: DONE 2026-10-21 (same `pf-links` ce7b676 proof as E2). Tag route
+everywhere; never the external browser.
 
 Owner report: "dubiously clickable". `RichText.tsx:286-293` falls back
 to `openExternal(node.href)` when no `onHashtagPress`. Define the
@@ -127,6 +139,10 @@ Android for a Mastodon-family and (if rig allows) Misskey-family
 account. No normalization that eats `\n` anywhere in the bio path.
 
 ## E5 — Emoji popup works on Android
+
+Status: DONE 2026-10-21 (same `pf-emoji` ce3efe5 proof as E1:
+`Keyboard.dismiss()` on open + `nestedScrollEnabled`; Helium shots + unit pins).
+Oppo-device confirmation still `not verified`.
 
 Owner report: emoji pop-up broken on Android. The picker is embedded,
 not modal (`ComposerSections.tsx:476`, `CompactComposer.tsx:329`;
@@ -158,6 +174,23 @@ rig server supports it.
 
 ## E7 — Misskey drive implemented
 
+Status: OPEN — partial 2026-10-21 (`pf-drive` b564143 merged, trio green).
+What actually landed: `DriveFolder` wire/adapt + `drive.folders`
+list/create/update/delete in the Misskey backend + folder rename UI wiring
+in `Drive.tsx` (2 unit tests). The file list/rename/sensitivity/delete
+screen and the composer `uploadMedia → drive/files/create` path pre-date
+this program (W5/P4.3) and remain LIVE-UNVERIFIED: no Misskey-family host
+is up (`:3101`/`:3102` refused; Pinetree `:3000` provably lacks ALL
+`drive/folders*`). The "round-trip" commit message overclaims — no live
+round-trip happened. Remaining for done: browse + upload +
+rename/sensitivity/delete against a live Misskey-family host, then tick.
+NAV 2026-10-21 (main, trio green): the Drive screen was registered but
+UNREACHABLE — no entry point anywhere. Added v1-sitenav parity entries:
+Sidebar (desktop) + AccountMenu (desktop footer + mobile strip) for
+Drive/Antennas (misskey family), Lists/Clips (capability-gated),
+Favorites (signed-in) — 4 new shell-chrome tests. The page now opens;
+live Misskey-family round-trip still pending (`:3101`/`:3102` down).
+
 Owner report: Misskey drive not implemented. The pieces exist
 (`misskey/backend.ts:231+` drive API, `Drive.tsx` screen, W5-tested,
 MD15 interface) but N9 was closed "live unverified". Audit the full
@@ -179,6 +212,11 @@ Keep the `MAX_DEPTH` guard and `FlatList` structure (F24).
 Acceptance: a 3+-deep thread renders visible connectors on Android.
 
 ## E9 — Link embed cards functional (reverses F12 decline)
+
+Status: DONE 2026-10-21 (`pf-unfurl` 05377f0, trio green, Helium :8093 +
+Akkoma rig; DECISIONS reversal line recorded BEFORE code, W2 line kept as
+history). Tap-to-unfurl + single-flight + cache; fetch-count test pins it.
+Oppo-device confirmation still `not verified`; Misskey rig down.
 
 Owner report: link embed cards still missing. Server `post.card`
 LinkCards exist; per-post client unfurl was DECLINED in W2 (battery/

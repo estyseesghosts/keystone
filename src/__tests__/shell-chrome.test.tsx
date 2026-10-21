@@ -54,26 +54,39 @@ jest.mock('#/screens/User', () => {
   }
 })
 
+jest.mock('#/screens/Drive', () => {
+  const React = jest.requireActual('react')
+  const {View} = jest.requireActual('react-native')
+  return {
+    DriveScreen: () => React.createElement(View, {testID: 'drive-screen'}),
+  }
+})
+
 const memVault = (): TokenVault => ({
   getToken: () => Promise.resolve(null),
   setToken: () => Promise.resolve(),
   removeToken: () => Promise.resolve(),
 })
 
-function renderShell(options?: {signedIn?: boolean; initialState?: {routes: {name: string}[]}}) {
+function renderShell(options?: {
+  signedIn?: boolean
+  family?: 'mastodon' | 'misskey'
+  initialState?: {routes: {name: string}[]}
+}) {
   const store = createSessionStore({
     storage: createMemoryStore(),
     vault: memVault(),
     homeOrigin: 'https://app.example',
   })
+  const family = options?.family ?? 'mastodon'
   const ready = options?.signedIn
     ? store.add({
-        origin: 'https://mastodon.example',
-        family: 'mastodon',
-        flavor: 'mastodon',
+        origin: `https://${family}.example`,
+        family,
+        flavor: family,
         accountId: 'alice',
         token: 'token-a',
-        grant: 'oauth-pkce',
+        grant: family === 'mastodon' ? 'oauth-pkce' : 'miauth',
         hosting: 'third-party',
       })
     : Promise.resolve()
@@ -216,5 +229,43 @@ describe('account menu (N16)', () => {
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     expect(screen.getByTestId('strip-signin')).toBeTruthy()
     expect(screen.queryByTestId('strip-account')).toBeNull()
+  })
+})
+
+describe('stack destinations (E7 nav)', () => {
+  it('mastodon sidebar hides Drive + Antennas (family gate)', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-drive')).toBeNull()
+    expect(screen.queryByTestId('sidebar-antennas')).toBeNull()
+  })
+
+  it('misskey sidebar shows Drive + Antennas and Drive lands on the page', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-drive')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-antennas')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-drive'))
+    expect(await screen.findByTestId('drive-screen')).toBeTruthy()
+  })
+
+  it('misskey account menu carries Drive (mobile entry point)', async () => {
+    widthHolder.width = 390
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('strip-account'))
+    expect(screen.getByTestId('strip-account-menu-drive')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('strip-account-menu-drive'))
+    expect(await screen.findByTestId('drive-screen')).toBeTruthy()
+  })
+
+  it('mastodon account menu hides Drive', async () => {
+    widthHolder.width = 390
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('strip-account'))
+    expect(screen.queryByTestId('strip-account-menu-drive')).toBeNull()
   })
 })

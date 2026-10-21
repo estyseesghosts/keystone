@@ -262,3 +262,44 @@ export function MediaIcon(p: IconProps) {
     </Base>
   )
 }
+
+export function ListIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Line x1={9} y1={6} x2={20} y2={6} />
+      <Line x1={9} y1={12} x2={20} y2={12} />
+      <Line x1={9} y1={18} x2={20} y2={18} />
+      <Line x1={4} y1={6} x2={4} y2={6.01} />
+      <Line x1={4} y1={12} x2={4} y2={12.01} />
+      <Line x1={4} y1={18} x2={4} y2={18.01} />
+    </Base>
+  )
+}
+
+export function ClipIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </Base>
+  )
+}
+
+export function DriveIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </Base>
+  )
+}
+
+export function AntennaIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Circle cx={12} cy={12} r={1.6} />
+      <Path d="M8.5 15.5a5 5 0 0 1 0-7" />
+      <Path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      <Path d="M5.8 18.2a9 9 0 0 1 0-12.4" />
+      <Path d="M18.2 5.8a9 9 0 0 1 0 12.4" />
+    </Base>
+  )
+}
