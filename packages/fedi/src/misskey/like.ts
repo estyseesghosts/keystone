@@ -37,6 +37,19 @@ export function resetLikeSupportCache(): void {
 }
 
 /**
+ * Seed the per-origin support cache from a static fact (flavor table).
+ * A `false` seed means the capability table already proves the endpoint
+ * absent (stock Misskey): callers reading `likeSupportFor` skip the
+ * probe-by-fire entirely and fall back to a plain ❤ reaction, so a stock
+ * server never pays one doomed 404 per launch. A `true` seed is never
+ * written here — presence is only ever confirmed by a successful call
+ * (see `likeViaNotesLike`), never assumed from a flavor label.
+ */
+export function seedLikeSupport(origin: string, supported: false): void {
+  if (origin) supportCache.set(origin, supported);
+}
+
+/**
  * Fire `notes/like` for one note. `override: null` takes the server's
  * `defaultLike`. Throws `LikeUnsupportedError` (and caches the absence)
  * where the endpoint does not exist; anything else rethrows untouched.
@@ -47,6 +60,10 @@ export async function likeViaNotesLike(
   noteId: string,
   override: string | null,
 ): Promise<void> {
+  // Known-absent (probed 404, or seeded from the flavor table for stock
+  // Misskey): refuse without touching the wire — the caller falls back
+  // to a plain ❤ reaction. Same error as a failed probe, minus the 404.
+  if (origin && likeSupportFor(origin) === false) throw new LikeUnsupportedError();
   try {
     await call<unknown>("notes/like", { noteId, override });
   } catch (err) {

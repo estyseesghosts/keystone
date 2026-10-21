@@ -21,7 +21,6 @@ export * from "./misskey/backend";
 export * from "./misskey/client";
 export * from "./misskey/clips";
 export * from "./misskey/customEmoji";
-export * from "./misskey/drafts";
 export {
   bareEmojiName,
   customEmojiNameFromReaction,
@@ -39,10 +38,8 @@ export * from "./misskey/followRequests";
 export * from "./misskey/importExport";
 export * from "./misskey/likeEmoji";
 export * from "./misskey/mutes";
-export * from "./misskey/myReactions";
 export * from "./misskey/noteEdit";
 export * from "./misskey/quote";
-export * from "./misskey/reactionActions";
 export * from "./misskey/remotepost";
 export * from "./misskey/schedule";
 export * from "./misskey/serverDrafts";
