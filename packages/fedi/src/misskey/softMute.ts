@@ -36,11 +36,16 @@ export interface MuteCheckNote {
 }
 
 /** Core `Post` -> the matcher's structural input (the matcher itself is
- * Misskey-exact parity code over plain strings and stays untouched). */
+ * Misskey-exact parity code over plain strings and stays untouched).
+ * The haystack text is the MFM source where the family packs one
+ * (Misskey always; Akkoma via `pleroma.content`), else the plain-text
+ * projection (vanilla Mastodon has no MFM source — without the fallback
+ * no server-side phrase could ever match those posts). Misskey notes
+ * without text carry `plain: ""`, so Misskey matching is unchanged. */
 export function muteCheckOf(post: import("../core/models").Post): MuteCheckNote {
   return {
     userId: post.accountId,
-    text: post.content.mfm ?? null,
+    text: post.content.mfm ?? post.content.plain ?? null,
     cw: post.cw,
     user: { host: post.author.host },
     reply: post.reply ? muteCheckOf(post.reply) : null,

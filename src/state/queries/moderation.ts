@@ -10,13 +10,14 @@ import {
   type Account,
   type Backend,
   type Cursor,
+  type Filter,
   type Page,
   type Post,
 } from '@keystone/fedi'
 
 import {useSessionStore} from '#/state/session/SessionProvider'
 
-import {serverBlocksQueryKey, serverMutesQueryKey, serverRenoteMutesQueryKey} from './keys'
+import {serverBlocksQueryKey, serverFiltersQueryKey, serverMutesQueryKey, serverRenoteMutesQueryKey} from './keys'
 import {useMe, wordMuteListsOf} from './me'
 import {STALE} from './stale'
 
@@ -68,6 +69,36 @@ async function fetchIdSet(
   }
 }
 
+/** Mastodon-family server word mutes → hard-word entries for the shared
+ * matcher (WS-F). Only hide-action (`irreversible`) phrases drop rows:
+ * warn-action phrases are the soft words v1 badged, and there is no badge
+ * UI in this build (F16) — dropping on them would contradict the W4
+ * soft-word discipline. Each phrase becomes one single-keyword AND group:
+ * server phrases are literal text, while a bare string would compile as a
+ * Misskey `/regex/` — the group form keeps matching literal and
+ * case-sensitive. Null in, null out (no `filters` member means "no server
+ * rules", never an error). Pure. */
+export function serverFilterWordsOf(filters: Filter[] | null | undefined): Array<[string]> | null {
+  if (!filters) return null
+  const out: Array<[string]> = []
+  for (const f of filters) {
+    if (!f.irreversible) continue
+    const phrase = f.phrase.trim()
+    if (phrase.length === 0) continue
+    out.push([phrase])
+  }
+  return out
+}
+
+function unionWords(
+  a: Array<string | string[]> | null,
+  b: Array<[string]> | null,
+): Array<string | string[]> | null {
+  if (!a) return b
+  if (!b) return a
+  return [...a, ...b]
+}
+
 function useIdSet(
   sessionId: string | null,
   backend: Backend | null,
@@ -99,12 +130,35 @@ function useModerationBackend(sessionId: string | null): {backend: Backend | nul
   return {backend, selfId: session?.accountId ?? null}
 }
 
+/** Live Mastodon-family word-mute phrases for a session (null when the
+ * backend has no `filters` member — the plan §2.2 capability gate — or
+ * the list is unreadable; both mean "no server rules", never an error). */
+function useServerFilterPhrases(
+  sessionId: string | null,
+  backend: Backend | null,
+): Array<[string]> | null {
+  const query = useQuery({
+    queryKey: sessionId ? serverFiltersQueryKey(sessionId) : ['moderation', 'signed-out'],
+    enabled: !!sessionId && !!backend?.filters,
+    staleTime: STALE.ACCOUNT,
+    queryFn: async (): Promise<Array<[string]>> => {
+      try {
+        return serverFilterWordsOf(await backend!.filters!.list()) ?? []
+      } catch {
+        return []
+      }
+    },
+  })
+  return useMemo(() => query.data ?? null, [query.data])
+}
+
 /** Live server-side moderation rules for a session (empty rules when
  * signed out — feeds show everything). */
 export function useModerationRules(sessionId: string | null): ModerationRules {
   const {backend, selfId} = useModerationBackend(sessionId)
   const {me} = useMe(sessionId)
   const lists = useMemo(() => wordMuteListsOf(me), [me])
+  const serverPhrases = useServerFilterPhrases(sessionId, backend)
   const mutedIds = useIdSet(sessionId, backend, serverMutesQueryKey, (b, cursor) =>
     b.mutes({cursor, limit: 100}),
   )
@@ -119,13 +173,16 @@ export function useModerationRules(sessionId: string | null): ModerationRules {
   return useMemo(
     () => ({
       selfId,
-      hardMutedWords: lists.hardMutedWords,
+      hardMutedWords: unionWords(lists.hardMutedWords, serverPhrases),
       mutedInstances: lists.mutedInstances,
       mutedIds,
       blockedIds,
       renoteMutedIds,
     }),
-    [selfId, lists, mutedIds, blockedIds, renoteMutedIds],
+    // serverPhrases MUST stay in the deps (React Compiler freezes stale
+    // memos — the WS-C selector discipline): the phrases arrive async
+    // after the id sets, and a frozen union would drop server word mutes.
+    [selfId, lists, serverPhrases, mutedIds, blockedIds, renoteMutedIds],
   )
 }
 

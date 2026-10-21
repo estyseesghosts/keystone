@@ -566,11 +566,25 @@ const NOTIFICATION_KINDS: Record<string, NotificationKind> = {
  * up into a known kind. `read` is only ever true/false where the wire
  * packed Akkoma's `pleroma.is_seen` — absent stays null. The favourite
  * kind stays DISTINCT from `reaction` (keystodon.md §1.5).
+ * Grouped rows (`notification_groups`) take the group branch inside: the
+ * group key is the row id, `sample_account_ids` resolve against the
+ * envelope's `accounts` (ids the envelope did not pack stay id-only
+ * actors — the wire DOES name those ids, unlike flat rows), `status_id`
+ * resolves against the envelope's `statuses`, and the server's
+ * `notifications_count` is preserved in `ext.groupedCount`.
  */
 export function adaptV2Notification(
   item: Record<string, unknown>,
   accounts: Map<string, Record<string, unknown>>,
+  statuses: Map<string, Record<string, unknown>> = new Map(),
 ): Notification {
+  // A real `notification_groups` envelope sends GROUPS (a `group_key`,
+  // server count, sampled actor ids, a status id) instead of flat rows.
+  // Anything without a `group_key` is the expanded flat row shape
+  // (`account_id` + packed `status`).
+  if (typeof item.group_key === "string") {
+    return adaptV2Group(item, accounts, statuses);
+  }
   const type = typeof item.type === "string" ? item.type : "unknown";
   const kind: NotificationKind = NOTIFICATION_KINDS[type] ?? "unknown";
   const accountId = typeof item.account_id === "string" ? item.account_id : null;
@@ -592,6 +606,64 @@ export function adaptV2Notification(
     post: status,
     reaction,
     ext: {},
+  };
+}
+
+/**
+ * One `notification_groups` entry → core Notification. The envelope packs
+ * each actor and status once; the group only names them, so an unknown
+ * sample id degrades to an id-only actor and an unknown `status_id` to a
+ * null post instead of dropping the row. The server's
+ * `notifications_count` is preserved in `ext.groupedCount` (never rounded
+ * into the actor list). The grouped endpoint reports no read state
+ * (Misskey grouped precedent). Reaction fan-out mirrors the flat rule:
+ * a group-level emoji counts only for reaction-kind groups — absent stays
+ * null, never fabricated.
+ */
+function adaptV2Group(
+  group: Record<string, unknown>,
+  accounts: Map<string, Record<string, unknown>>,
+  statuses: Map<string, Record<string, unknown>>,
+): Notification {
+  const groupKey = group.group_key as string;
+  const type = typeof group.type === "string" ? group.type : "unknown";
+  const kind: NotificationKind = NOTIFICATION_KINDS[type] ?? "unknown";
+  const reaction =
+    kind === "reaction" && typeof group.emoji === "string" && group.emoji.length > 0
+      ? group.emoji
+      : null;
+  const sampleIds = Array.isArray(group.sample_account_ids)
+    ? group.sample_account_ids.map((id) => String(id))
+    : [];
+  const seen = new Set<string>();
+  const actors: NotificationActor[] = [];
+  for (const id of sampleIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const rawAccount = accounts.get(id);
+    const account = rawAccount ? adaptAccount(rawAccount as any) : null;
+    actors.push({ id, account, reaction });
+  }
+  const statusId = typeof group.status_id === "string" ? group.status_id : null;
+  const rawStatus = statusId ? statuses.get(statusId) : null;
+  const status = rawStatus ? adaptStatus(rawStatus as any) : null;
+  const count =
+    typeof group.notifications_count === "number" && Number.isFinite(group.notifications_count)
+      ? group.notifications_count
+      : null;
+  return {
+    id: groupKey,
+    kind,
+    rawType: type,
+    createdAt:
+      typeof group.latest_page_notification_at === "string"
+        ? group.latest_page_notification_at
+        : new Date().toISOString(),
+    read: null,
+    actors,
+    post: status,
+    reaction,
+    ext: count === null ? {} : { groupedCount: count },
   };
 }
 

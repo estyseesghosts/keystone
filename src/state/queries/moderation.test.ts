@@ -3,7 +3,9 @@
 // have no badge UI here — they must NOT drop rows (see DECISIONS).
 import {makeAccount, makePost} from '#/components/__tests__/fixtures'
 
-import {EMPTY_RULES, filterModerated, type ModerationRules} from './moderation'
+import type {Filter} from '@keystone/fedi'
+
+import {EMPTY_RULES, filterModerated, serverFilterWordsOf, type ModerationRules} from './moderation'
 import {wordMuteListsOf} from './me'
 
 function rules(over: Partial<ModerationRules> = {}): ModerationRules {
@@ -73,6 +75,45 @@ describe('filterModerated (F22/MK1)', () => {
     const soft = makePost({id: 'soft', content: {mfm: 'spoiler talk', plain: 'spoiler talk'}})
     // `mutedWords` is not even a rule field the filter reads.
     expect(filterModerated([soft], rules({hardMutedWords: null}))).toEqual([soft])
+  })
+})
+
+describe('serverFilterWordsOf (WS-F Mastodon-family word mutes)', () => {
+  const row = (overrides: Partial<Filter> = {}): Filter => ({
+    id: 'f1',
+    phrase: 'buy',
+    context: ['home'],
+    expiresAt: null,
+    irreversible: true,
+    wholeWord: true,
+    ...overrides,
+  })
+
+  it('maps hide-action phrases to single-keyword literal groups', () => {
+    expect(serverFilterWordsOf([row()])).toEqual([['buy']])
+    expect(serverFilterWordsOf(null)).toBeNull()
+    expect(serverFilterWordsOf([])).toEqual([])
+  })
+
+  it('skips warn-action phrases (soft words badge; no badge UI here)', () => {
+    expect(serverFilterWordsOf([row({irreversible: false})])).toEqual([])
+  })
+
+  it('trims phrases and drops blanks', () => {
+    expect(serverFilterWordsOf([row({phrase: '  buy  '}), row({phrase: '   '})])).toEqual([['buy']])
+  })
+
+  it('hide-action phrases drop matching posts through filterModerated', () => {
+    const spam = makePost({id: 'spam', content: {mfm: 'buy now', plain: 'buy now'}})
+    const good = makePost({id: 'good'})
+    const hard = rules({hardMutedWords: serverFilterWordsOf([row()])})
+    expect(filterModerated([spam, good], hard).map(p => p.id)).toEqual(['good'])
+  })
+
+  it('matches vanilla-Mastodon posts with no MFM source (plain fallback)', () => {
+    const vanilla = makePost({id: 'vanilla', content: {plain: 'buy now'}})
+    const hard = rules({hardMutedWords: serverFilterWordsOf([row()])})
+    expect(filterModerated([vanilla], hard)).toEqual([])
   })
 })
 

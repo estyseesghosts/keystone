@@ -145,7 +145,14 @@ export function NotificationRow({
   // not hide a real name behind it); navigation always targets the FIRST
   // actor (documented choice — no actor-list route exists in this scope).
   const shownAccount = actors.find(a => a.account)?.account ?? first?.account ?? null
-  const extraCount = Math.max(0, actors.length - 1)
+  // Grouped rows (`notification_groups`) carry the server total in
+  // `ext.groupedCount` beside the sampled actors: "N others" counts past
+  // the shown name off the total (12 total → "and 11 others"), never off
+  // the sample length. Flat rows and groups that report no count fall
+  // back to the actor list. The max() keeps an inconsistent envelope
+  // (total below the packed samples) from understating known actors.
+  const serverTotal = notification.ext.groupedCount ?? 0
+  const extraCount = Math.max(actors.length - 1, serverTotal > 0 ? serverTotal - 1 : 0)
   const excerpt = notification.post?.content.plain
   const label = notificationKindLabel(notification)
   return (

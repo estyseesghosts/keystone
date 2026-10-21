@@ -161,34 +161,32 @@ describe("MD1 — v2 notifications filter + paging", () => {
     expect(calls.map((c) => c.path)).toEqual(["/api/v2/notifications"]);
   });
 
-  it("a real notification_groups envelope falls back to flat v1 rows", async () => {
-    // Real grouped servers send `notification_groups` + separate
-    // accounts/statuses — a shape the adapter cannot read yet (reported
-    // gap). The backend serves honest flat v1 rows instead of broken
-    // group rows.
-    const fav = fixture<import("../src/mastodon/wire").Notification>(
-      "mastodon",
-      "notification.json",
-    );
-    const { client, calls } = stubClient((_m, path) =>
-      path === "/api/v2/notifications"
-        ? {
-            data: {
-              accounts: [],
-              statuses: [],
-              notification_groups: [
-                { group_key: "fav-1", notifications_count: 3, type: "favourite" },
-              ],
-            },
-          }
-        : { data: [fav] },
-    );
+  it("a real notification_groups envelope adapts to grouped rows (no v1 call)", async () => {
+    // WS-F (V2_GAPS MD1): grouped servers send `notification_groups` +
+    // separate accounts/statuses — the adapter keeps the sampled actors,
+    // the server count, and the resolved post. The v1 fallback now fires
+    // only for envelopes the adapter cannot read (neither `notifications`
+    // nor `notification_groups`) or a missing endpoint (404/405).
+    const env = fixture<{
+      accounts: Array<Record<string, unknown>>;
+      statuses: Array<Record<string, unknown>>;
+      notification_groups: Array<Record<string, unknown>>;
+    }>("mastodon", "notification-grouped-v2.json");
+    const { client, calls } = stubClient(() => ({ data: env }));
     const page = await createMastodonBackend(client).notifications();
-    expect(calls.map((c) => c.path)).toEqual([
-      "/api/v2/notifications",
-      "/api/v1/notifications",
-    ]);
-    expect(page.items[0].kind).toBe("favourite");
+    expect(calls.map((c) => c.path)).toEqual(["/api/v2/notifications"]);
+    expect(page.items).toHaveLength(3);
+    const fav = page.items[0];
+    expect(fav.kind).toBe("favourite");
+    expect(fav.actors.map((a) => a.id)).toEqual(["2", "3", "4"]);
+    expect(fav.actors[0].account?.username).toBe("alice");
+    expect(fav.ext.groupedCount).toBe(12);
+    expect(fav.post?.id).toBe("100");
+    const follow = page.items[1];
+    expect(follow.kind).toBe("follow");
+    expect(follow.actors).toHaveLength(2);
+    expect(follow.actors[1].account).toBeNull();
+    expect(follow.post).toBeNull();
   });
 
   it("a cursor pinned to a v1 next-URL stays on v1", async () => {

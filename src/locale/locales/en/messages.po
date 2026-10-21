@@ -79,7 +79,7 @@ msgstr "⏸ Pause"
 msgid "▶ Play"
 msgstr "▶ Play"
 
-#: src/components/Notification/NotificationRow.tsx:67
+#: src/components/Notification/NotificationRow.tsx:68
 msgid "a poll ended"
 msgstr "a poll ended"
 
@@ -94,7 +94,7 @@ msgstr "A post cannot have both media and a poll."
 msgid "A variation within a theme."
 msgstr "A variation within a theme."
 
-#: src/components/Notification/NotificationRow.tsx:71
+#: src/components/Notification/NotificationRow.tsx:72
 msgid "accepted your follow request"
 msgstr "accepted your follow request"
 
@@ -153,7 +153,7 @@ msgstr "Action failed."
 msgid "Add"
 msgstr "Add"
 
-#: src/components/Settings/FiltersSection.tsx:74
+#: src/components/Settings/FiltersSection.tsx:94
 msgid "Add a filter"
 msgstr "Add a filter"
 
@@ -171,7 +171,7 @@ msgstr "Add account"
 msgid "Add choice"
 msgstr "Add choice"
 
-#: src/components/Settings/FiltersSection.tsx:84
+#: src/components/Settings/FiltersSection.tsx:104
 msgid "Add filter"
 msgstr "Add filter"
 
@@ -200,7 +200,7 @@ msgid "Add to list"
 msgstr "Add to list"
 
 #: src/components/Composer/ComposerSections.tsx:288
-#: src/components/Settings/FiltersSection.tsx:84
+#: src/components/Settings/FiltersSection.tsx:104
 msgid "Adding…"
 msgstr "Adding…"
 
@@ -233,7 +233,7 @@ msgid "Always light."
 msgstr "Always light."
 
 #. placeholder {0}: extraCount === 1 ? '' : 's'
-#: src/components/Notification/NotificationRow.tsx:197
+#: src/components/Notification/NotificationRow.tsx:210
 msgid "and {extraCount} other{0}"
 msgstr "and {extraCount} other{0}"
 
@@ -340,6 +340,7 @@ msgstr "Browser sign-in — approve on {0}."
 #: src/components/Composer/CompactComposer.tsx:175
 #: src/components/Composer/Composer.tsx:466
 #: src/components/Composer/ComposerSections.tsx:346
+#: src/components/Settings/FiltersSection.tsx:135
 #: src/screens/Login.tsx:514
 #: src/screens/Login.tsx:552
 #: src/screens/Login.tsx:619
@@ -437,7 +438,7 @@ msgstr "Copy RSS"
 msgid "Copy username"
 msgstr "Copy username"
 
-#: src/components/Settings/FiltersSection.tsx:56
+#: src/components/Settings/FiltersSection.tsx:58
 msgid "Could not add the filter."
 msgstr "Could not add the filter."
 
@@ -449,7 +450,7 @@ msgstr "Could not cancel."
 msgid "Could not delete."
 msgstr "Could not delete."
 
-#: src/components/Settings/FiltersSection.tsx:39
+#: src/components/Settings/FiltersSection.tsx:41
 msgid "Could not load filters."
 msgstr "Could not load filters."
 
@@ -513,7 +514,7 @@ msgstr "Could not reach the instance ({reason}). Is the host correct?"
 msgid "errors.network.unreachableServer"
 msgstr "Could not reach the server ({reason}). Is it running?"
 
-#: src/components/Settings/FiltersSection.tsx:68
+#: src/components/Settings/FiltersSection.tsx:71
 msgid "Could not remove the filter."
 msgstr "Could not remove the filter."
 
@@ -531,6 +532,10 @@ msgstr "Could not save notification settings."
 #: src/components/Composer/ComposerSections.tsx:465
 msgid "Could not save the draft."
 msgstr "Could not save the draft."
+
+#: src/components/Settings/FiltersSection.tsx:88
+msgid "Could not save the filter."
+msgstr "Could not save the filter."
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:35
@@ -625,13 +630,14 @@ msgstr "Drive"
 msgid "Each post renders through its own source parser."
 msgstr "Each post renders through its own source parser."
 
-#: src/components/Notification/NotificationRow.tsx:73
+#: src/components/Notification/NotificationRow.tsx:74
 msgid "earned an achievement"
 msgstr "earned an achievement"
 
 #: src/components/Post/menuModel.ts:259
 #: src/components/Post/menuModel.ts:261
 #: src/components/Post/menuModel.ts:262
+#: src/components/Settings/FiltersSection.tsx:145
 msgid "Edit"
 msgstr "Edit"
 
@@ -727,7 +733,7 @@ msgstr "Feeds never show sample data when signed out."
 msgid "errors.compose.fileTooLarge"
 msgstr "File is too large ({kb} KB — limit is 10 MB)."
 
-#: src/components/Settings/FiltersSection.tsx:91
+#: src/components/Settings/FiltersSection.tsx:111
 msgid "Filters"
 msgstr "Filters"
 
@@ -751,7 +757,7 @@ msgstr "Follow requests"
 msgid "Follow the device setting."
 msgstr "Follow the device setting."
 
-#: src/components/Notification/NotificationRow.tsx:51
+#: src/components/Notification/NotificationRow.tsx:52
 msgid "followed you"
 msgstr "followed you"
 
@@ -796,11 +802,11 @@ msgstr "Hard word mutes"
 msgid "Hidden from global timelines"
 msgstr "Hidden from global timelines"
 
-#: src/components/Post/PostCard.tsx:773
+#: src/components/Post/PostCard.tsx:774
 msgid "Hide"
 msgstr "Hide"
 
-#: src/components/Post/PostCard.tsx:772
+#: src/components/Post/PostCard.tsx:773
 msgid "Hide content"
 msgstr "Hide content"
 
@@ -895,7 +901,7 @@ msgstr "Like, {total} reactions"
 msgid "Liked with {mine} — remove reaction"
 msgstr "Liked with {mine} — remove reaction"
 
-#: src/components/Notification/NotificationRow.tsx:63
+#: src/components/Notification/NotificationRow.tsx:64
 msgid "liked your post"
 msgstr "liked your post"
 
@@ -928,7 +934,7 @@ msgstr "Loading profile…"
 msgid "Loading settings…"
 msgstr "Loading settings…"
 
-#: src/components/Settings/FiltersSection.tsx:93
+#: src/components/Settings/FiltersSection.tsx:113
 #: src/components/Settings/MutesSection.tsx:411
 #: src/screens/Explore.tsx:536
 #: src/screens/Login.tsx:426
@@ -975,7 +981,7 @@ msgstr "Media"
 msgid "errors.shape.mediaLookup"
 msgstr "Media lookup returned an unexpected response shape."
 
-#: src/components/Notification/NotificationRow.tsx:53
+#: src/components/Notification/NotificationRow.tsx:54
 msgid "mentioned you"
 msgstr "mentioned you"
 
@@ -1036,7 +1042,7 @@ msgstr "My Network"
 msgid "Needs a Misskey-family server."
 msgstr "Needs a Misskey-family server."
 
-#: src/components/Settings/FiltersSection.tsx:132
+#: src/components/Settings/FiltersSection.tsx:185
 msgid "Needs a server with word filters (this one has none)."
 msgstr "Needs a server with word filters (this one has none)."
 
@@ -1048,7 +1054,7 @@ msgstr "Network"
 msgid "Never"
 msgstr "Never"
 
-#: src/components/Notification/NotificationRow.tsx:217
+#: src/components/Notification/NotificationRow.tsx:230
 msgid "New"
 msgstr "New"
 
@@ -1103,7 +1109,7 @@ msgstr "No drafts yet."
 msgid "No editor is connected to this view."
 msgstr "No editor is connected to this view."
 
-#: src/components/Settings/FiltersSection.tsx:95
+#: src/components/Settings/FiltersSection.tsx:115
 msgid "No filters. Matching posts stay hidden once you add one."
 msgstr "No filters. Matching posts stay hidden once you add one."
 
@@ -1234,7 +1240,7 @@ msgstr "one group per line…"
 msgid "One host per line. Matching is case-sensitive."
 msgstr "One host per line. Matching is case-sensitive."
 
-#: src/components/Settings/FiltersSection.tsx:74
+#: src/components/Settings/FiltersSection.tsx:94
 msgid "One phrase; matches everywhere."
 msgstr "One phrase; matches everywhere."
 
@@ -1274,8 +1280,8 @@ msgid "Open media: {label}"
 msgstr "Open media: {label}"
 
 #. placeholder {0}: displayNameOf(effective.author)
-#: src/components/Post/PostCard.tsx:751
-#: src/components/Post/PostCard.tsx:802
+#: src/components/Post/PostCard.tsx:752
+#: src/components/Post/PostCard.tsx:803
 msgid "Open post by {0}"
 msgstr "Open post by {0}"
 
@@ -1286,15 +1292,15 @@ msgstr "Open profile"
 #. placeholder {0}: displayNameOf(effective.author)
 #. placeholder {0}: displayNameOf(post.author)
 #. placeholder {0}: displayNameOf(shownAccount)
-#: src/components/Notification/NotificationRow.tsx:150
-#: src/components/Notification/NotificationRow.tsx:165
+#: src/components/Notification/NotificationRow.tsx:161
+#: src/components/Notification/NotificationRow.tsx:176
 #: src/components/Post/PostCard.tsx:224
 #: src/components/Post/PostCard.tsx:728
 msgid "Open profile of {0}"
 msgstr "Open profile of {0}"
 
-#: src/components/Notification/NotificationRow.tsx:151
-#: src/components/Notification/NotificationRow.tsx:166
+#: src/components/Notification/NotificationRow.tsx:162
+#: src/components/Notification/NotificationRow.tsx:177
 msgid "Open profile of the notifier"
 msgstr "Open profile of the notifier"
 
@@ -1303,7 +1309,7 @@ msgstr "Open profile of the notifier"
 msgid "Open quoted post by {0}"
 msgstr "Open quoted post by {0}"
 
-#: src/components/Notification/NotificationRow.tsx:207
+#: src/components/Notification/NotificationRow.tsx:220
 msgid "Open the post"
 msgstr "Open the post"
 
@@ -1349,7 +1355,8 @@ msgstr "Pause {0}"
 msgid "Per-type notification settings are only available on Misskey-family servers."
 msgstr "Per-type notification settings are only available on Misskey-family servers."
 
-#: src/components/Settings/FiltersSection.tsx:76
+#: src/components/Settings/FiltersSection.tsx:96
+#: src/components/Settings/FiltersSection.tsx:122
 msgid "Phrase"
 msgstr "Phrase"
 
@@ -1469,7 +1476,7 @@ msgstr "Quoted post unavailable"
 msgid "Quoted post unavailable. The target could not be shown."
 msgstr "Quoted post unavailable. The target could not be shown."
 
-#: src/components/Notification/NotificationRow.tsx:59
+#: src/components/Notification/NotificationRow.tsx:60
 msgid "quoted your post"
 msgstr "quoted your post"
 
@@ -1485,11 +1492,11 @@ msgid "React with emoji"
 msgstr "React with emoji"
 
 #. placeholder {0}: notification.reaction
-#: src/components/Notification/NotificationRow.tsx:61
+#: src/components/Notification/NotificationRow.tsx:62
 msgid "reacted {0}"
 msgstr "reacted {0}"
 
-#: src/components/Notification/NotificationRow.tsx:61
+#: src/components/Notification/NotificationRow.tsx:62
 msgid "reacted to your post"
 msgstr "reacted to your post"
 
@@ -1506,7 +1513,7 @@ msgstr "Reactions"
 msgid "Reactions and emoji"
 msgstr "Reactions and emoji"
 
-#: src/components/Notification/NotificationRow.tsx:216
+#: src/components/Notification/NotificationRow.tsx:229
 msgid "Read"
 msgstr "Read"
 
@@ -1543,7 +1550,7 @@ msgid "errors.shape.relationships"
 msgstr "Relationships returned an unexpected response shape."
 
 #: src/components/Composer/ComposerSections.tsx:133
-#: src/components/Settings/FiltersSection.tsx:102
+#: src/components/Settings/FiltersSection.tsx:154
 msgid "Remove"
 msgstr "Remove"
 
@@ -1556,7 +1563,7 @@ msgstr "Remove from {0}"
 msgid "Remove last"
 msgstr "Remove last"
 
-#: src/components/Notification/NotificationRow.tsx:55
+#: src/components/Notification/NotificationRow.tsx:56
 msgid "replied to you"
 msgstr "replied to you"
 
@@ -1606,7 +1613,7 @@ msgstr "Repost options, already reposted"
 msgid "Repost-muted accounts"
 msgstr "Repost-muted accounts"
 
-#: src/components/Notification/NotificationRow.tsx:57
+#: src/components/Notification/NotificationRow.tsx:58
 msgid "reposted your post"
 msgstr "reposted your post"
 
@@ -1629,7 +1636,7 @@ msgstr "Request timed out ({target}): the server did not answer within {n}s. Ret
 msgid "Requested"
 msgstr "Requested"
 
-#: src/components/Notification/NotificationRow.tsx:69
+#: src/components/Notification/NotificationRow.tsx:70
 msgid "requested to follow you"
 msgstr "requested to follow you"
 
@@ -1637,7 +1644,7 @@ msgstr "requested to follow you"
 msgid "Reset"
 msgstr "Reset"
 
-#: src/components/Post/PostCard.tsx:842
+#: src/components/Post/PostCard.tsx:845
 msgid "Resolving quote…"
 msgstr "Resolving quote…"
 
@@ -1668,6 +1675,7 @@ msgstr "Review accounts waiting for your approval."
 
 #: src/components/Composer/CompactComposer.tsx:152
 #: src/components/Composer/Composer.tsx:469
+#: src/components/Settings/FiltersSection.tsx:128
 #: src/components/Settings/MutesSection.tsx:129
 #: src/screens/Notifications.tsx:189
 msgid "Save"
@@ -1749,11 +1757,11 @@ msgstr "Send a message"
 msgid "Sensitive media hidden — tap to show"
 msgstr "Sensitive media hidden — tap to show"
 
-#: src/components/Notification/NotificationRow.tsx:78
+#: src/components/Notification/NotificationRow.tsx:79
 msgid "sent a notification"
 msgstr "sent a notification"
 
-#: src/components/Notification/NotificationRow.tsx:75
+#: src/components/Notification/NotificationRow.tsx:76
 msgid "sent an update"
 msgstr "sent an update"
 
@@ -1770,7 +1778,7 @@ msgstr "Server drafts"
 msgid "errors.network.badJson"
 msgstr "Server returned a non-JSON body (HTTP {status}) for {target}."
 
-#: src/components/Settings/FiltersSection.tsx:131
+#: src/components/Settings/FiltersSection.tsx:184
 msgid "Server-side phrases that hide matching posts everywhere."
 msgstr "Server-side phrases that hide matching posts everywhere."
 
@@ -1785,11 +1793,11 @@ msgstr "Settings"
 msgid "Share"
 msgstr "Share"
 
-#: src/components/Post/PostCard.tsx:773
+#: src/components/Post/PostCard.tsx:774
 msgid "Show"
 msgstr "Show"
 
-#: src/components/Post/PostCard.tsx:772
+#: src/components/Post/PostCard.tsx:773
 msgid "Show content"
 msgstr "Show content"
 
@@ -1801,11 +1809,11 @@ msgstr "Show Federated tab"
 msgid "Show hidden quote"
 msgstr "Show hidden quote"
 
-#: src/components/Post/PostCard.tsx:833
+#: src/components/Post/PostCard.tsx:836
 msgid "Show less"
 msgstr "Show less"
 
-#: src/components/Post/PostCard.tsx:832
+#: src/components/Post/PostCard.tsx:835
 msgid "Show less of this post"
 msgstr "Show less of this post"
 
@@ -1817,16 +1825,16 @@ msgstr "Show Local even while Social is available. Local always shows when Socia
 msgid "Show Local tab"
 msgstr "Show Local tab"
 
-#: src/components/Post/PostCard.tsx:821
+#: src/components/Post/PostCard.tsx:824
 #: src/screens/Explore.tsx:536
 msgid "Show more"
 msgstr "Show more"
 
-#: src/components/Post/PostCard.tsx:820
+#: src/components/Post/PostCard.tsx:823
 msgid "Show more of this post"
 msgstr "Show more of this post"
 
-#: src/components/Post/PostCard.tsx:783
+#: src/components/Post/PostCard.tsx:784
 msgid "Show original"
 msgstr "Show original"
 
@@ -1842,11 +1850,11 @@ msgstr "Show tags"
 msgid "Show the Federated timeline alongside the default tab."
 msgstr "Show the Federated timeline alongside the default tab."
 
-#: src/components/Post/PostCard.tsx:783
+#: src/components/Post/PostCard.tsx:784
 msgid "Show translation"
 msgstr "Show translation"
 
-#: src/components/Post/PostCard.tsx:787
+#: src/components/Post/PostCard.tsx:788
 msgid "Showing original · Show translation?"
 msgstr "Showing original · Show translation?"
 
@@ -1880,7 +1888,7 @@ msgstr "Sign in to explore."
 msgid "Sign in to manage mutes and blocks."
 msgstr "Sign in to manage mutes and blocks."
 
-#: src/components/Settings/FiltersSection.tsx:122
+#: src/components/Settings/FiltersSection.tsx:175
 msgid "Sign in to manage word filters."
 msgstr "Sign in to manage word filters."
 
@@ -1968,8 +1976,8 @@ msgstr "Social"
 msgid "Soft words, hard words, muted servers."
 msgstr "Soft words, hard words, muted servers."
 
-#: src/components/Notification/NotificationRow.tsx:101
-#: src/components/Notification/NotificationRow.tsx:190
+#: src/components/Notification/NotificationRow.tsx:102
+#: src/components/Notification/NotificationRow.tsx:203
 msgid "Someone"
 msgstr "Someone"
 
@@ -2174,12 +2182,12 @@ msgstr "Tomorrow 9:00"
 msgid "Translate"
 msgstr "Translate"
 
-#: src/components/Post/PostCard.tsx:790
+#: src/components/Post/PostCard.tsx:791
 msgid "Translated · Show original?"
 msgstr "Translated · Show original?"
 
 #. placeholder {0}: translation.sourceLang
-#: src/components/Post/PostCard.tsx:789
+#: src/components/Post/PostCard.tsx:790
 msgid "Translated from {0} · Show original?"
 msgstr "Translated from {0} · Show original?"
 
@@ -2366,7 +2374,7 @@ msgstr "Visible only on this server"
 msgid "Vote"
 msgstr "Vote"
 
-#: src/components/Notification/NotificationRow.tsx:65
+#: src/components/Notification/NotificationRow.tsx:66
 msgid "voted in your poll"
 msgstr "voted in your poll"
 
@@ -2396,7 +2404,7 @@ msgstr "Widgets land in Phase 5."
 msgid "Word and server mutes"
 msgstr "Word and server mutes"
 
-#: src/components/Settings/FiltersSection.tsx:130
+#: src/components/Settings/FiltersSection.tsx:183
 #: src/routes.ts:270
 msgid "Word filters"
 msgstr "Word filters"

@@ -922,7 +922,7 @@ export async function fetchNotificationsPage(
 }
 
 /** One raw page of the grouped v2 notifications endpoint, plus the
- * accounts the adapter resolves actors against.
+ * accounts and statuses the adapter resolves grouped rows against.
  *
  * `GET /api/v2/notifications` accepts the same `types[]`/
  * `exclude_types[]` filters as v1 (verified in Mastodon 4.8's
@@ -930,15 +930,19 @@ export async function fetchNotificationsPage(
  * same `max_id`/`since_id`/`min_id` Link scheme — hence the shared
  * continuation plumbing and the contract §5 end rule.
  *
- * Resolves `null` when the server's answer is not the `notifications`
- * envelope the adapter reads (a real grouped server sends
- * `notification_groups` plus separate `accounts`/`statuses` arrays —
- * see `backend.ts`), so the caller falls back to flat v1 rows. A
- * missing ENDPOINT (404/405) throws and is handled by the caller.
+ * Two envelopes are read: the expanded flat shape (`notifications` plus
+ * a separate `accounts` array — rows name their actor via `account_id`)
+ * and the real grouped shape (`notification_groups` plus separate
+ * `accounts`/`statuses` arrays — groups name sampled actors via
+ * `sample_account_ids` and their post via `status_id`). Anything else
+ * (array bodies, empty objects) resolves `null` so the caller falls back
+ * to flat v1 rows. A missing ENDPOINT (404/405) throws and is handled by
+ * the caller.
  */
 export interface V2NotificationRows {
   rows: Array<Record<string, unknown>>;
   accounts: Map<string, Record<string, unknown>>;
+  statuses: Map<string, Record<string, unknown>>;
   continuation: Continuation | null;
   /** Contract §5: no next link OR an empty page — never `length < limit`. */
   end: boolean;
@@ -962,16 +966,19 @@ export async function fetchV2NotificationRows(
     accounts?: Array<Record<string, unknown>>;
     notifications?: Array<Record<string, unknown>>;
     notification_groups?: Array<Record<string, unknown>>;
+    statuses?: Array<Record<string, unknown>>;
   }>(path, query);
   const data = (res.data ?? {}) as {
     accounts?: unknown;
     notifications?: unknown;
+    notification_groups?: unknown;
+    statuses?: unknown;
   };
   const rows = Array.isArray(data.notifications) ? data.notifications : null;
-  // No `notifications` array: not the envelope the adapter reads (real
-  // grouped servers send `notification_groups`, array-bodied stubs send
-  // a bare list). The caller falls back to v1 — never an error here.
-  if (rows === null) return null;
+  const groups = Array.isArray(data.notification_groups) ? data.notification_groups : null;
+  // Neither envelope: not a shape the adapter reads (array-bodied stubs
+  // send a bare list). The caller falls back to v1 — never an error here.
+  if (rows === null && groups === null) return null;
   const accounts = new Map<string, Record<string, unknown>>();
   if (Array.isArray(data.accounts)) {
     for (const a of data.accounts) {
@@ -980,12 +987,22 @@ export async function fetchV2NotificationRows(
       }
     }
   }
+  const statuses = new Map<string, Record<string, unknown>>();
+  if (Array.isArray(data.statuses)) {
+    for (const s of data.statuses) {
+      if (s && typeof s === "object" && typeof (s as { id?: unknown }).id !== "undefined") {
+        statuses.set(String((s as { id: unknown }).id), s as Record<string, unknown>);
+      }
+    }
+  }
+  const items = rows ?? groups ?? [];
   const continuation = nextContinuation(res.headers, client.origin);
   return {
-    rows,
+    rows: items,
     accounts,
+    statuses,
     continuation,
-    end: continuation === null || rows.length === 0,
+    end: continuation === null || items.length === 0,
   };
 }
 

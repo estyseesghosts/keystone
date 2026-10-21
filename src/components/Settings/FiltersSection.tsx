@@ -15,8 +15,8 @@ import {useActiveSession} from '#/state/session/SessionProvider'
 
 import {PlaceholderRow, SectionHint, SettingRow} from './rows'
 
-// Filters section (v1 `/settings/filters` parity): server-side word
-// filters (phrase + contexts). The Mastodon family implements
+// Filters section (v1 `/settings/filters` parity + phrase edit): server-side
+// word filters (phrase + contexts). The Mastodon family implements
 // `backend.filters`; the Misskey family has no filter endpoints, so it
 // renders an honest placeholder — never an error, never a fake list.
 
@@ -24,6 +24,8 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
   const filters = backend.filters
   const [items, setItems] = useState<Filter[] | null>(null)
   const [phrase, setPhrase] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,8 +66,26 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
     try {
       await filters.delete(id)
       setItems(list => (list ?? []).filter(x => x.id !== id))
+      if (editingId === id) setEditingId(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : i18n._(msg`Could not remove the filter.`))
+    }
+  }
+
+  const saveEdit = async (row: Filter) => {
+    const clean = draft.trim()
+    if (clean.length === 0) return
+    setError(null)
+    try {
+      const updated = await filters.update(row.id, clean, row.context, {
+        expiresAt: row.expiresAt,
+        irreversible: row.irreversible,
+        wholeWord: row.wholeWord,
+      })
+      setItems(list => (list ?? []).map(x => (x.id === row.id ? updated : x)))
+      setEditingId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not save the filter.`))
     }
   }
 
@@ -95,17 +115,50 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
           <Caption color="faint">{i18n._(msg`No filters. Matching posts stay hidden once you add one.`)}</Caption>
         ) : (
           <View style={[atoms.gap_sm]} testID="filter-list">
-            {items.map(f => (
-              <View key={f.id} style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
-                <Body>{f.phrase}</Body>
-                <Button
-                  label={i18n._(msg`Remove`)}
-                  variant="secondary"
-                  onPress={() => void remove(f.id)}
-                  testID={`filter-remove-${f.id}`}
-                />
-              </View>
-            ))}
+            {items.map(f =>
+              editingId === f.id ? (
+                <View key={f.id} style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
+                  <TextField
+                    label={i18n._(msg`Phrase`)}
+                    value={draft}
+                    onChangeText={setDraft}
+                    testID={`filter-edit-input-${f.id}`}
+                  />
+                  <Button
+                    label={i18n._(msg`Save`)}
+                    variant="primary"
+                    disabled={draft.trim().length === 0}
+                    onPress={() => void saveEdit(f)}
+                    testID={`filter-save-${f.id}`}
+                  />
+                  <Button
+                    label={i18n._(msg`Cancel`)}
+                    variant="secondary"
+                    onPress={() => setEditingId(null)}
+                    testID={`filter-cancel-${f.id}`}
+                  />
+                </View>
+              ) : (
+                <View key={f.id} style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
+                  <Body>{f.phrase}</Body>
+                  <Button
+                    label={i18n._(msg`Edit`)}
+                    variant="secondary"
+                    onPress={() => {
+                      setEditingId(f.id)
+                      setDraft(f.phrase)
+                    }}
+                    testID={`filter-edit-${f.id}`}
+                  />
+                  <Button
+                    label={i18n._(msg`Remove`)}
+                    variant="secondary"
+                    onPress={() => void remove(f.id)}
+                    testID={`filter-remove-${f.id}`}
+                  />
+                </View>
+              ),
+            )}
           </View>
         )}
       </SettingRow>
