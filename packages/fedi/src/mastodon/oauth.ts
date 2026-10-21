@@ -33,10 +33,16 @@ import type {
   TokenResponse,
 } from "./wire";
 
-/** Granular v1 scope set (contract §2.1). Both backends accept it; older
- * servers that only understand umbrella scopes get FALLBACK_SCOPES only
- * when registration fails AND no discovery doc exists. */
+/** Granular v1 scope set (contract §2.1) PLUS the umbrella scopes. Both
+ * backends accept it; older servers that only understand umbrella scopes
+ * get FALLBACK_SCOPES only when registration fails AND no discovery doc
+ * exists. The umbrellas stay because some Akkoma endpoints (e.g.
+ * `/api/v1/suggestions`, W5 live-probed) check the umbrella `read` and
+ * 403 a token carrying only the granular set. */
 export const MASTO_SCOPES: string[] = [
+  "read",
+  "write",
+  "follow",
   "read:accounts",
   "read:blocks",
   "read:bookmarks",
