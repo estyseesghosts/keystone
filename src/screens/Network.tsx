@@ -5,7 +5,7 @@ import {msg} from '@lingui/macro'
 
 import {atoms} from '#/alf/atoms'
 import {ComposeFab} from '#/components/ComposeFab'
-import {Button} from '#/components/Button'
+import {Tabs} from '#/components/Tabs'
 import {networkTabFromParam, type RootParamList, type NetworkTab} from '#/routes'
 import {useActiveBackend, FeedView} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
@@ -53,17 +53,14 @@ export function NetworkScreen() {
   return (
     <View style={atoms.flex1} testID="network-screen">
       <Pagehead title="Network" />
-      <View style={[atoms.row, atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="network-tabs">
-        {visible.map(t => (
-          <Button
-            key={t}
-            label={tabLabel(t)}
-            variant={t === active ? 'primary' : 'secondary'}
-            onPress={() => navigation.setParams({tab: t} as never)}
-            testID={`network-tab-${t}`}
-          />
-        ))}
-      </View>
+      <Tabs
+        tabs={visible.map(t => ({key: t, label: tabLabel(t)}))}
+        active={active}
+        onChange={t => navigation.setParams({tab: t} as never)}
+        testID="network-tabs"
+        testIDPrefix="network-tab"
+        accessibilityLabel="Network timelines"
+      />
       <FeedView
         sessionId={session?.id ?? null}
         descriptor={descriptorForNetworkTab(active)}

@@ -169,22 +169,19 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
           {NOTIFICATION_FILTER_PRESETS.filter(p => p.id !== 'all').map(preset => (
             <View key={preset.id} testID={`notifications-settings-row-${preset.id}`}>
               <Caption>{preset.label}</Caption>
-              <View style={[atoms.row, atoms.gap_sm]}>
-                {RECEIVE_OPTIONS.map(opt => {
-                  const selected = (config[preset.id] ?? '') === opt.value
-                  return (
-                    <Button
-                      key={opt.value || 'default'}
-                      label={receiveOptionLabel(opt.value)}
-                      variant={selected ? 'primary' : 'secondary'}
-                      onPress={() =>
-                        setConfig(c => ({...c, [preset.id]: opt.value}))
-                      }
-                      testID={`notifications-settings-option-${preset.id}-${opt.value || 'default'}`}
-                    />
-                  )
-                })}
-              </View>
+              <Tabs
+                tabs={RECEIVE_OPTIONS.map(opt => ({
+                  key: opt.value || 'default',
+                  label: receiveOptionLabel(opt.value),
+                }))}
+                active={config[preset.id] ?? 'default'}
+                onChange={key =>
+                  setConfig(c => ({...c, [preset.id]: key === 'default' ? '' : key}))
+                }
+                testID={`notifications-settings-options-${preset.id}`}
+                testIDPrefix={`notifications-settings-option-${preset.id}`}
+                accessibilityLabel={preset.label}
+              />
             </View>
           ))}
           <Button

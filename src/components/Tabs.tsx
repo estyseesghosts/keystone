@@ -3,7 +3,7 @@
 // border, each tab a 2px bottom underline when active, active label
 // strong text, inactive muted text. Instant — no animation. No pills,
 // no borderRadius.full, no Button.
-import {StyleSheet, View} from 'react-native'
+import {ScrollView, StyleSheet} from 'react-native'
 
 import {useTheme} from '#/alf/index'
 import {Body} from '#/alf/typography'
@@ -30,12 +30,17 @@ export function Tabs<T extends string>({
   accessibilityLabel?: string
 }) {
   const theme = useTheme()
+  // Horizontal scroll: long option rows (notification receive config)
+  // collapse to a scrollable tab strip on narrow phones instead of
+  // overflowing — still plain underline tabs, never pills.
   return (
-    <View
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
       testID={testID ?? testIDPrefix}
       accessibilityRole="tablist"
       aria-label={accessibilityLabel}
-      style={[styles.bar, {borderBottomColor: theme.palette.edge}]}>
+      contentContainerStyle={[styles.bar, {borderBottomColor: theme.palette.edge}]}>
       {tabs.map(t => {
         const selected = t.key === active
         return (
@@ -56,7 +61,7 @@ export function Tabs<T extends string>({
           </Pressable>
         )
       })}
-    </View>
+    </ScrollView>
   )
 }
 

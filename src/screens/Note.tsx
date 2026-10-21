@@ -38,6 +38,7 @@ import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {PostCard} from '#/components/Post/index'
 import {Pressable} from '#/components/Pressable'
+import {Tabs} from '#/components/Tabs'
 import {SignInButton} from '#/components/SignInButton'
 import {usePostShadowState} from '#/state/cache'
 import {navigationRef} from '#/navigationRef'
@@ -479,27 +480,20 @@ export function NoteScreen() {
               </View>
               <InClipsRow backend={backend} postId={focused.id} />
               <ReplyEntry focused={focused} />
-              <View style={[atoms.px_md, {flexDirection: 'row', gap: 16}]} testID="note-tabs">
-                {(
+              <Tabs
+                tabs={
                   [
                     {key: 'replies', label: 'Replies'},
                     {key: 'reposts', label: 'Reposts'},
                     {key: 'reactions', label: 'Reactions'},
-                  ] as const
-                ).map(({key, label}) => (
-                  <Pressable
-                    key={key}
-                    testID={`note-tab-${key}`}
-                    onPress={() => setTab(key)}
-                    accessibilityRole="tab"
-                    accessibilityState={{selected: tab === key}}
-                    accessibilityLabel={label}
-                    // Small text tabs, 44dp effective target (P10).
-                    hitSlop={{top: 12, bottom: 12, left: 12, right: 12}}>
-                    <Body color={tab === key ? 'text' : 'faint'}>{label}</Body>
-                  </Pressable>
-                ))}
-              </View>
+                  ] as {key: typeof tab; label: string}[]
+                }
+                active={tab}
+                onChange={setTab}
+                testID="note-tabs"
+                testIDPrefix="note-tab"
+                accessibilityLabel="Post details"
+              />
               {tab === 'replies' ? (
                 <View testID={`replies-${focused.id}`}>
                   <View style={[atoms.px_md, atoms.py_sm]}>
