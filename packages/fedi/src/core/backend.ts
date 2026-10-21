@@ -622,7 +622,7 @@ export interface Backend {
   /** Pin/unpin a post on the viewer's profile (addition — `i/pin`). */
   pinPost(id: string): Promise<void>;
   unpinPost(id: string): Promise<void>;
-  followRequests(): Promise<FollowRequest[]>;
+  followRequests(opts?: PageOpts): Promise<FollowRequest[]>;
   acceptFollowRequest(id: string): Promise<void>;
   rejectFollowRequest(id: string): Promise<void>;
   /** Cancel an outgoing pending request (addition). */

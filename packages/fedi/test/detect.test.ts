@@ -325,7 +325,9 @@ describe("heuristics (the old detectFamily shape, generalised)", () => {
   it("NodeInfo names map to flavors only when exact", () => {
     expect(flavorFromNodeInfoName("misskey")).toBe("misskey");
     expect(flavorFromNodeInfoName("Sharkey")).toBe("sharkey");
-    expect(flavorFromNodeInfoName("gotosocial")).toBe("unknown");
+    // MD11: the Mastodon-API forks collapse to mastodon (mirrors
+    // mastodon/instance.ts detectFamily; live GTS unverified).
+    expect(flavorFromNodeInfoName("gotosocial")).toBe("mastodon");
     expect(flavorFromNodeInfoName(null)).toBe("unknown");
   });
 

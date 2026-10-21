@@ -148,7 +148,7 @@ export function flavorFromNodeInfoName(name: string | null | undefined): ServerF
   if (soft === "sharkey") return "sharkey";
   if (soft === "catodon") return "catodon";
   if (soft === "pinetree") return "pinetree";
-  if (soft === "mastodon") return "mastodon";
+  if (soft === "mastodon" || soft === "glitch-soc" || soft === "hometown" || soft === "gotosocial") return "mastodon";
   if (soft === "akkoma") return "akkoma";
   if (soft === "pleroma") return "pleroma";
   return "unknown";
@@ -160,7 +160,8 @@ export function flavorFromVersion(version: string | null | undefined): ServerFla
   const v = (version ?? "").toLowerCase();
   if (v.includes("akkoma")) return "akkoma";
   if (v.includes("pleroma")) return "pleroma";
-  if (v.includes("mastodon")) return "mastodon";
+  if (v.includes("mastodon") || v.includes("glitch") || v.includes("hometown") || v.includes("gotosocial"))
+    return "mastodon";
   if (v.includes("sharkey")) return "sharkey";
   if (v.includes("catodon")) return "catodon";
   if (v.includes("pinetree")) return "pinetree";
