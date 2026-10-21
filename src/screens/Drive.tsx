@@ -1,8 +1,9 @@
 // Drive browser (`/drive`, v1 `Drive` parity without uploads): the
 // viewer's folders (only when `backend.drive.folders` exists — the
-// section hides entirely otherwise) and files newest-first. File rows
-// show name/type/sensitivity with rename, sensitivity toggle, and
-// two-tap delete. Uploads are out of scope: the composer owns them.
+// section hides entirely otherwise) with create/rename/two-tap delete,
+// and files newest-first. File rows show name/type/sensitivity with
+// rename, sensitivity toggle, and two-tap delete. Uploads are out of
+// scope: the composer owns them.
 // Gated on `backend.drive`; every `DriveApi` member is required, so the
 // controls are never disabled by capability.
 
@@ -25,22 +26,75 @@ const FILES_PAGE = 20
 
 function FolderRow({
   folder,
+  onRename,
   onDelete,
   pendingDelete,
   onArmDelete,
   onCancelDelete,
 }: {
   folder: DriveFolder
+  onRename: (name: string) => Promise<void>
   onDelete: () => Promise<void>
   pendingDelete: boolean
   onArmDelete: () => void
   onCancelDelete: () => void
 }) {
   const [busy, setBusy] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(folder.name)
+  const [error, setError] = useState<string | null>(null)
+
+  const save = async () => {
+    const trimmed = draft.trim()
+    if (trimmed.length === 0 || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await onRename(trimmed)
+      setEditing(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not rename the folder.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]} testID={`drive-folder-${folder.id}`}>
       <Body>{folder.name}</Body>
-      {pendingDelete ? (
+      {editing ? (
+        <View style={[atoms.gap_sm]}>
+          <TextField
+            label="Folder name"
+            value={draft}
+            onChangeText={setDraft}
+            placeholder="Folder name"
+            error={error ?? undefined}
+            testID={`drive-folder-rename-input-${folder.id}`}
+          />
+          <View style={[atoms.row, atoms.gap_sm]}>
+            <Button
+              label={busy ? 'Saving…' : 'Save'}
+              variant="primary"
+              disabled={busy || draft.trim().length === 0}
+              onPress={() => void save()}
+              testID={`drive-folder-rename-save-${folder.id}`}
+            />
+            <Button
+              label="Cancel"
+              variant="secondary"
+              disabled={busy}
+              onPress={() => {
+                setEditing(false)
+                setDraft(folder.name)
+              }}
+              testID={`drive-folder-rename-cancel-${folder.id}`}
+            />
+          </View>
+        </View>
+      ) : null}
+      {error && !editing ? <Caption color="faint">{error}</Caption> : null}
+      {editing ? null : pendingDelete ? (
         <View style={[atoms.gap_sm]}>
           <Caption color="faint">Delete “{folder.name}”? This cannot be undone.</Caption>
           <View style={[atoms.row, atoms.gap_sm]}>
@@ -65,6 +119,13 @@ function FolderRow({
         </View>
       ) : (
         <View style={[atoms.row, atoms.gap_sm]}>
+          <Button
+            label="Rename"
+            variant="secondary"
+            disabled={busy}
+            onPress={() => setEditing(true)}
+            testID={`drive-folder-rename-${folder.id}`}
+          />
           <Button
             label="Delete"
             variant="secondary"
@@ -390,6 +451,12 @@ export function DriveScreen() {
                   <FolderRow
                     key={folder.id}
                     folder={folder}
+                    onRename={async name => {
+                      if (!backend.drive?.folders) return
+                      setActionError(null)
+                      const updated = await backend.drive.folders.update(folder.id, {name})
+                      setFolders(prev => (prev ?? []).map(f => (f.id === folder.id ? updated : f)))
+                    }}
                     onDelete={async () => {
                       if (!backend.drive?.folders) return
                       setActionError(null)

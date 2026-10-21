@@ -59,6 +59,7 @@ import { buildCapabilities } from "../core/detect";
 import {
   adaptAccount,
   adaptDriveFile,
+  adaptDriveFolder,
   adaptFollowRequest,
   adaptGroupedNotification,
   adaptMe,
@@ -71,6 +72,7 @@ import {
 import { likeSupportFor, likeViaNotesLike, seedLikeSupport } from "./like";
 import type {
   DriveFile,
+  DriveFolder as WireDriveFolder,
   ServerDraft as WireServerDraft,
   GroupedNotificationItem,
   MeDetailed,
@@ -248,6 +250,34 @@ export function createMisskeyBackend(
     },
     async deleteFile(id) {
       await call<undefined>("drive/files/delete", { fileId: id });
+    },
+    // Drive folders (`drive/folders/*`, Misskey/Sharkey-family only —
+    // verified absent on Pinetree, which keeps `drive: unsupported`). The
+    // list call sends no `folderId`: upstream defaults to null, which is
+    // the drive root, and omitted params can never trip Sharkey's
+    // unknown-field 400s.
+    folders: {
+      async list() {
+        const items = await call<WireDriveFolder[]>("drive/folders", {});
+        return (items ?? []).map(adaptDriveFolder);
+      },
+      async create(name, opts = {}) {
+        return adaptDriveFolder(
+          await call<WireDriveFolder>("drive/folders/create", {
+            name,
+            ...(opts.parentId != null ? { parentId: opts.parentId } : {}),
+          }),
+        );
+      },
+      async update(id, patch) {
+        const params: Record<string, unknown> = { folderId: id };
+        if (patch.name !== undefined) params.name = patch.name;
+        if (patch.parentId !== undefined) params.parentId = patch.parentId;
+        return adaptDriveFolder(await call<WireDriveFolder>("drive/folders/update", params));
+      },
+      async delete(id) {
+        await call<undefined>("drive/folders/delete", { folderId: id });
+      },
     },
   };
 

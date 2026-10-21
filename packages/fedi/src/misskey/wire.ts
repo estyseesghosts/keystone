@@ -76,6 +76,15 @@ export interface DriveFile {
   userId: string | null;
 }
 
+/** Packed Misskey drive folder (`drive/folders/*` responses). `parentId`
+ * is null at the drive root; only id/name/parentId surface in core. */
+export interface DriveFolder {
+  id: string;
+  createdAt: string;
+  name: string;
+  parentId: string | null;
+}
+
 export type NoteVisibility = "public" | "home" | "followers" | "specified";
 
 export interface PollChoice {
