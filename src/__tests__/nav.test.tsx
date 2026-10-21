@@ -31,7 +31,7 @@ describe('Navigation', () => {
   it('switches tabs', async () => {
     render(<Root />)
     fireEvent.press(await screen.findByTestId('tab-Explore'))
-    expect(await screen.findByText('Explore — not built')).toBeTruthy()
+    expect(await screen.findByText('Sign in to explore.')).toBeTruthy()
   })
 
   it('maps Keystone URLs to routes', () => {
@@ -87,7 +87,7 @@ describe('Navigation', () => {
     for (const name of ['Home', 'Network', 'Explore', 'Notifications', 'User'] as const) {
       expect(main[name]).toBe(strip(paths[name]))
     }
-    for (const name of ['Note', 'Tag', 'List', 'Lists', 'FollowRequests', 'ProfileEdit', 'Settings', 'Login', 'AuthCallback', 'SysDebug', 'Compose'] as const) {
+    for (const name of ['Note', 'Tag', 'List', 'Lists', 'Clip', 'Clips', 'Antenna', 'Antennas', 'Drive', 'Favorites', 'Followers', 'Following', 'FollowRequests', 'ProfileEdit', 'Settings', 'Login', 'AuthCallback', 'SysDebug', 'Compose'] as const) {
       expect(screens[name]).toBe(strip(paths[name]))
     }
     // Legacy rewrites land on canonical paths table entries.
@@ -97,6 +97,25 @@ describe('Navigation', () => {
     expect(rewriteLegacyPath('/search')).toBe('/explore')
     expect(rewriteLegacyPath('/search?tag=cats')).toBe('/explore?tag=cats')
     expect(rewriteLegacyPath('/network/federated')).toBe('/network/federated')
+  })
+
+  it('maps the W5 screens to routes', () => {
+    const clips = getStateFromPath('/clips', linking.config)
+    expect(JSON.stringify(clips)).toMatch(/Clips/)
+    const clip = getStateFromPath('/clips/c1', linking.config)
+    expect(JSON.stringify(clip)).toMatch(/"id":"c1"/)
+    const drive = getStateFromPath('/drive', linking.config)
+    expect(JSON.stringify(drive)).toMatch(/Drive/)
+    const fav = getStateFromPath('/favorites', linking.config)
+    expect(JSON.stringify(fav)).toMatch(/Favorites/)
+    const followers = getStateFromPath('/users/u1/followers', linking.config)
+    expect(JSON.stringify(followers)).toMatch(/Followers/)
+    const section = getStateFromPath('/settings/mutes', linking.config)
+    expect(JSON.stringify(section)).toMatch(/Settings/)
+    expect(JSON.stringify(section)).toMatch(/mutes/)
+    const exploreTab = getStateFromPath('/explore/tags', linking.config)
+    expect(JSON.stringify(exploreTab)).toMatch(/Explore/)
+    expect(JSON.stringify(exploreTab)).toMatch(/tags/)
   })
 
   it('accepts an initial state (deep-link landing)', () => {

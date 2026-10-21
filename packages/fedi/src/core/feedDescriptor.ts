@@ -23,6 +23,7 @@ export type FeedDescriptor =
   | `clip|${string}`
   | `tag|${string}`
   | `search|${string}`
+  | "explore|posts"
   | "bookmarks"
   | "mentions"
   | `user|${string}|${"posts" | "replies" | "media" | "featured"}`;
@@ -39,6 +40,7 @@ export type ParsedFeedDescriptor =
   | { kind: "clip"; id: string }
   | { kind: "tag"; tag: string }
   | { kind: "search"; query: string }
+  | { kind: "explore" }
   | { kind: "bookmarks" }
   | { kind: "mentions" }
   | { kind: "user"; id: string; tab: UserFeedTab };
@@ -94,6 +96,7 @@ export function parseFeedDescriptor(descriptor: string): ParsedFeedDescriptor {
     if (ns === "clip") return { kind: "clip", id: arg(ns, rest, descriptor) };
     if (ns === "tag") return { kind: "tag", tag: arg(ns, rest, descriptor) };
     if (ns === "search") return { kind: "search", query: arg(ns, rest, descriptor) };
+    if (ns === "explore" && rest === "posts") return { kind: "explore" };
     invalid(descriptor);
   }
   if (parts.length === 3) {
@@ -137,6 +140,8 @@ export function formatFeedDescriptor(parsed: ParsedFeedDescriptor): FeedDescript
       return `tag|${arg("tag", parsed.tag, parsed)}` as FeedDescriptor;
     case "search":
       return `search|${arg("search", parsed.query, parsed)}` as FeedDescriptor;
+    case "explore":
+      return "explore|posts";
     case "bookmarks":
       return "bookmarks";
     case "mentions":

@@ -55,8 +55,23 @@ export interface PostMenuInput {
     muteThread: () => void | Promise<void>
     togglePin: () => void | Promise<void>
     onEdit?: (post: Post) => void
+    onClip?: (post: Post) => void
     user?: UserActionHandlers
   }
+}
+
+/** Clip row (v1 `NoteMenu` parity): expands to the add-to-clip flow when
+ * the server supports clips and a picker is connected; otherwise an
+ * honest disabled row with the reason. */
+function clipRow(input: PostMenuInput): PostMenuItem {
+  const {post, capabilities, handlers} = input
+  if (capabilities?.clips !== 'supported') {
+    return {key: 'clip', label: 'Add to clip', disabled: true, reason: 'This server has no clips.'}
+  }
+  if (!handlers.onClip) {
+    return {key: 'clip', label: 'Add to clip', disabled: true, reason: 'No clip picker is connected to this view.'}
+  }
+  return {key: 'clip', label: 'Add to clip', run: () => handlers.onClip!(post)}
 }
 
 const NO_CLIPBOARD = 'Clipboard is not available on this platform.'
@@ -180,7 +195,7 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
           run: () => bookmark.set(!bookmark.value),
         }
       : {key: 'bookmark', label: `Add to ${bmLabel.toLowerCase()}`, disabled: true, reason: bookmark.gate.reason},
-    {key: 'clip', label: 'Clip', disabled: true, reason: LATER('Clips')},
+    clipRow(input),
   )
 
   if (input.isOwn) {

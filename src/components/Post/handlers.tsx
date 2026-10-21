@@ -23,6 +23,8 @@ export interface PostCardHandlers {
     post: Post,
     pick: (key: string, emojiUrl: string | null) => Promise<void>,
   ) => void
+  /** Open the clip picker for `post` (add-to-clip flow). */
+  onClip?: (post: Post) => void
   /** Viewer language for translation (BCP47 primary subtag). */
   targetLang?: string
   user?: UserActionHandlers

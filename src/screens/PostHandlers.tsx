@@ -80,6 +80,7 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
       onReply: post => nav.navigate('Compose', {replyToId: post.id}),
       onQuote: post => nav.navigate('Compose', {quoteId: post.id}),
       onEdit: post => nav.navigate('Compose', {editId: post.id}),
+      onClip: post => nav.navigate('Clips', {addNoteId: post.id}),
       userFor,
     }),
     [nav, userFor],

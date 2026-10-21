@@ -35,9 +35,17 @@ import type {RootParamList} from '#/routes'
 import {linkingScreens, rewriteLegacyPath, titleForRoute} from '#/routes'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 import {AuthCallbackScreen} from '#/screens/AuthCallback'
+import {AntennaScreen} from '#/screens/Antenna'
+import {AntennasScreen} from '#/screens/Antennas'
+import {ClipScreen} from '#/screens/Clip'
+import {ClipsScreen} from '#/screens/Clips'
 import {ComposeScreen} from '#/screens/Compose'
 import {PostHandlersProvider} from '#/screens/PostHandlers'
+import {DriveScreen} from '#/screens/Drive'
 import {ExploreScreen} from '#/screens/Explore'
+import {FavoritesScreen} from '#/screens/Favorites'
+import {FollowersScreen} from '#/screens/Followers'
+import {FollowingScreen} from '#/screens/Following'
 import {FollowRequestsScreen} from '#/screens/FollowRequests'
 import {HomeScreen} from '#/screens/Home'
 import {ListScreen} from '#/screens/List'
@@ -79,7 +87,7 @@ export const linking: LinkingOptions<StackParamList> = {
  * chrome (strip, sidebar, tab bar) renders under the container — outside
  * any screen, where `useNavigationState` cannot run — so the root state is
  * tracked through the container callbacks and handed down as a prop. */
-type LeafState = {name: string | undefined; params?: {id?: unknown; tag?: unknown; acct?: unknown}}
+type LeafState = {name: string | undefined; params?: {id?: unknown; tag?: unknown; acct?: unknown; section?: unknown}}
 
 function leafOf(state: object | undefined): LeafState {
   let node = state as
@@ -554,6 +562,14 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <Stack.Screen name="Tag" component={TagScreen} />
               <Stack.Screen name="List" component={ListScreen} />
               <Stack.Screen name="Lists" component={ListsScreen} />
+              <Stack.Screen name="Clip" component={ClipScreen} />
+              <Stack.Screen name="Clips" component={ClipsScreen} />
+              <Stack.Screen name="Antenna" component={AntennaScreen} />
+              <Stack.Screen name="Antennas" component={AntennasScreen} />
+              <Stack.Screen name="Drive" component={DriveScreen} />
+              <Stack.Screen name="Favorites" component={FavoritesScreen} />
+              <Stack.Screen name="Followers" component={FollowersScreen} />
+              <Stack.Screen name="Following" component={FollowingScreen} />
               <Stack.Screen name="FollowRequests" component={FollowRequestsScreen} />
               <Stack.Screen name="ProfileEdit" component={ProfileEditorScreen} />
               <Stack.Screen name="Settings" component={SettingsScreen} />

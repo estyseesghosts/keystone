@@ -80,6 +80,52 @@ describe('user submenu relation labels (C16)', () => {
   })
 })
 
+describe('clip row (W5)', () => {
+  function clipRow(caps: unknown, onClip?: () => void) {
+    const post = makePost()
+    const input = {
+      family: 'misskey',
+      capabilities: caps,
+      post,
+      origin: 'https://misskey.example',
+      isOwn: false,
+      copyAvailable: true,
+      bookmark: {gate: {enabled: false, reason: 'x'}, value: false, set: jest.fn()},
+      del: {gate: {enabled: false, reason: 'x'}, run: jest.fn()},
+      handlers: {
+        copy: jest.fn(),
+        share: jest.fn(),
+        open: jest.fn(),
+        translate: jest.fn(),
+        muteThread: jest.fn(),
+        togglePin: jest.fn(),
+        ...(onClip ? {onClip} : {}),
+      },
+    } as never
+    return flatten(buildPostMenu(input)).find(i => i.key === 'clip')!
+  }
+
+  it('opens the add-to-clip flow when supported and connected', () => {
+    const onClip = jest.fn()
+    const row = clipRow({clips: 'supported'}, onClip)
+    expect(row.disabled).toBeUndefined()
+    row.run!()
+    expect(onClip).toHaveBeenCalled()
+  })
+
+  it('stays honestly disabled without clips support', () => {
+    const row = clipRow({clips: 'unsupported'}, jest.fn())
+    expect(row.disabled).toBe(true)
+    expect(row.reason).toMatch(/no clips/i)
+  })
+
+  it('stays honestly disabled with no picker connected', () => {
+    const row = clipRow({clips: 'supported'})
+    expect(row.disabled).toBe(true)
+    expect(row.reason).toMatch(/connected to this view/)
+  })
+})
+
 describe('remote-link resolution (MK17)', () => {
   const realFetch = globalThis.fetch
   afterEach(() => {

@@ -94,6 +94,16 @@ export async function fetchFeedPage(
       return backend.search.tags(parsed.tag, opts)
     case 'search':
       return backend.search.posts(parsed.query, opts)
+    case 'explore': {
+      if (!backend.explore) {
+        throw new ApiError(
+          'Trending posts are not available on this server.',
+          404,
+          'errors.unsupported.explore',
+        )
+      }
+      return backend.explore.posts(opts)
+    }
     case 'bookmarks': {
       if (!backend.bookmarks) {
         throw new ApiError(

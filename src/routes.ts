@@ -81,7 +81,7 @@ export type RootParamList = {
   List: {id: string}
   Lists: undefined
   Clip: {id: string}
-  Clips: undefined
+  Clips: {addNoteId?: string} | undefined
   Antenna: {id: string}
   Antennas: undefined
   Drive: undefined

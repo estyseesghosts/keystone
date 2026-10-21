@@ -252,6 +252,7 @@ function LivePostCard(props: PostCardProps) {
         }
       },
       onEdit: handlers.onEdit,
+      onClip: handlers.onClip,
       user: handlers.user ?? handlers.userFor?.(effective, sessionId),
     },
   })

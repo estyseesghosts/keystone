@@ -39,6 +39,7 @@ function mockBackend(): Backend & {
   accountFeaturedPosts: jest.Mock
   searchPosts: jest.Mock
   searchTags: jest.Mock
+  explorePosts: jest.Mock
   notifications: jest.Mock
 } {
   const timeline = jest.fn(async () => page([post('t1')]))
@@ -46,6 +47,7 @@ function mockBackend(): Backend & {
   const accountFeaturedPosts = jest.fn(async () => page([post('f1')]))
   const searchPosts = jest.fn(async () => page([post('s1')]))
   const searchTags = jest.fn(async () => page([post('g1')]))
+  const explorePosts = jest.fn(async () => page([post('e1')]))
   const notifications = jest.fn(async () => page([notif('n1', post('m1')), notif('n2', null)]))
   const backend = {
     timeline,
@@ -60,6 +62,7 @@ function mockBackend(): Backend & {
     lists: {timeline: jest.fn(async () => page([post('l1')]))},
     antennas: {notes: jest.fn(async () => page([post('a1')]))},
     clips: {notes: jest.fn(async () => page([post('c1')]))},
+    explore: {posts: explorePosts},
     bookmarks: {list: jest.fn(async () => ({items: [{id: 'b1', post: post('p1')}], cursor: null, end: true}))},
   } as unknown as Backend
   return Object.assign(backend, {
@@ -68,6 +71,7 @@ function mockBackend(): Backend & {
     accountFeaturedPosts,
     searchPosts,
     searchTags,
+    explorePosts,
     notifications,
   })
 }
@@ -98,6 +102,8 @@ describe('fetchFeedPage dispatch', () => {
     expect(b.searchTags).toHaveBeenCalledWith('x', {cursor: null, limit: 20})
     await fetchFeedPage(b, {kind: 'search', query: 'q'}, null)
     expect(b.searchPosts).toHaveBeenCalledWith('q', {cursor: null, limit: 20})
+    await fetchFeedPage(b, {kind: 'explore'}, null)
+    expect(b.explorePosts).toHaveBeenCalledWith({cursor: null, limit: 20})
   })
 
   it('maps bookmarks rows to posts', async () => {
@@ -138,7 +144,7 @@ describe('fetchFeedPage dispatch', () => {
 
   it('answers honest 404s for unsupported modules and channels', async () => {
     const b = mockBackend()
-    const bare = {...b, lists: undefined, antennas: undefined, clips: undefined, bookmarks: undefined} as unknown as Backend
+    const bare = {...b, lists: undefined, antennas: undefined, clips: undefined, bookmarks: undefined, explore: undefined} as unknown as Backend
     await expect(fetchFeedPage(bare, {kind: 'list', id: 'l'}, null)).rejects.toMatchObject({
       code: 'errors.unsupported.lists',
     })
@@ -150,6 +156,9 @@ describe('fetchFeedPage dispatch', () => {
     })
     await expect(fetchFeedPage(bare, {kind: 'bookmarks'}, null)).rejects.toMatchObject({
       code: 'errors.unsupported.bookmarks',
+    })
+    await expect(fetchFeedPage(bare, {kind: 'explore'}, null)).rejects.toMatchObject({
+      code: 'errors.unsupported.explore',
     })
     await expect(fetchFeedPage(b, {kind: 'channel', id: 'ch'}, null)).rejects.toMatchObject({
       code: 'errors.unsupported.channel',

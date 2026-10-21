@@ -157,6 +157,8 @@ export function UserScreen() {
             account={account}
             isSelf={isSelf}
             relationship={relationship}
+            onPressFollowers={() => nav.navigate('Followers', {id: account.id})}
+            onPressFollowing={() => nav.navigate('Following', {id: account.id})}
             actions={
               isSelf ? (
                 <View style={[atoms.row, atoms.gap_sm]}>
