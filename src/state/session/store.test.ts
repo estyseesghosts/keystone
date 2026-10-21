@@ -493,3 +493,18 @@ describe('scopeHealth (MD5 scope generations)', () => {
     expect(health.missingScopes).toContain('read:accounts')
   })
 })
+
+describe('MK7 legacy migration at boot (W8)', () => {
+  it('initialize() surfaces sessions migrated from legacy keys', () => {
+    const storage = createMemoryStore({
+      keystone_token_misskey: 'legacy-token',
+    })
+    const {vault} = stubVault()
+    const store = createSessionStore({storage, vault, homeOrigin: HOME_ORIGIN})
+    store.initialize()
+    const sessions = store.list()
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0].token).toBe('legacy-token')
+    expect(sessions[0].family).toBe('misskey')
+  })
+})

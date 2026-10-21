@@ -61,6 +61,11 @@ export function Root() {
       }
       try {
         await store.hydrate()
+        // MD5: re-verify the restored token before the first render — a
+        // dead (401) token drops here so the shell opens signed-out (the
+        // honest re-auth prompt) instead of looking signed in until a
+        // 401. 403/network never clear (see store.verifyActive).
+        await store.verifyActive()
       } finally {
         if (!cancelled) setReady(true)
       }
