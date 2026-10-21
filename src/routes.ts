@@ -26,19 +26,71 @@ export function networkTabFromParam(tab: unknown): NetworkTab | undefined {
   return typeof tab === 'string' ? NETWORK_TAB_ALIASES[tab] : undefined
 }
 
+/** Segments the Explore screen accepts in `:tab?`. Mirrors v1
+ * `routes/Explore.tsx` (`/explore/users|tags|posts|news`); the bare
+ * `/explore` default tab is `posts`. Unknown values fall back to undefined
+ * so the caller renders the default tab. */
+export type ExploreTab = 'users' | 'tags' | 'posts' | 'news'
+
+export const EXPLORE_TAB_ALIASES: Record<string, ExploreTab> = {
+  users: 'users',
+  tags: 'tags',
+  posts: 'posts',
+  news: 'news',
+}
+
+/** Normalize a raw `:tab` param to an `ExploreTab` (unknown → undefined,
+ * so the caller falls back to the default tab). */
+export function exploreTabFromParam(tab: unknown): ExploreTab | undefined {
+  return typeof tab === 'string' ? EXPLORE_TAB_ALIASES[tab] : undefined
+}
+
+/** Settings sections with real routes (v1 `routes/Settings.tsx` parity,
+ * N3). `Settings.tsx` imports this instead of declaring its own union. */
+export type SettingsSection =
+  | 'account'
+  | 'display'
+  | 'reactions'
+  | 'feeds'
+  | 'mutes'
+  | 'import'
+  | 'export'
+  | 'filters'
+  | 'language'
+
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
+  'account',
+  'display',
+  'reactions',
+  'feeds',
+  'mutes',
+  'import',
+  'export',
+  'filters',
+  'language',
+]
+
 export type RootParamList = {
   Home: undefined
   Network: {tab?: NetworkTab} | undefined
-  Explore: undefined
+  Explore: {tab?: ExploreTab} | undefined
   Notifications: undefined
   User: {id?: string; acct?: string} | undefined
   Note: {id: string}
   Tag: {tag: string}
   List: {id: string}
   Lists: undefined
+  Clip: {id: string}
+  Clips: undefined
+  Antenna: {id: string}
+  Antennas: undefined
+  Drive: undefined
+  Favorites: undefined
+  Followers: {id: string}
+  Following: {id: string}
   FollowRequests: undefined
   ProfileEdit: undefined
-  Settings: undefined
+  Settings: {section?: SettingsSection} | undefined
   Login: undefined
   AuthCallback: undefined
   SysDebug: undefined
@@ -48,16 +100,24 @@ export type RootParamList = {
 export const paths: Record<keyof RootParamList, string> = {
   Home: '/',
   Network: '/network/:tab?',
-  Explore: '/explore',
+  Explore: '/explore/:tab?',
   Notifications: '/notifications',
   User: '/users/:id?',
   Note: '/notes/:id',
   Tag: '/tags/:tag',
   List: '/lists/:id',
   Lists: '/lists',
+  Clip: '/clips/:id',
+  Clips: '/clips',
+  Antenna: '/antennas/:id',
+  Antennas: '/antennas',
+  Drive: '/drive',
+  Favorites: '/favorites',
+  Followers: '/users/:id/followers',
+  Following: '/users/:id/following',
   FollowRequests: '/follow-requests',
   ProfileEdit: '/profile/edit',
-  Settings: '/settings',
+  Settings: '/settings/:section?',
   Login: '/login',
   AuthCallback: '/auth/callback',
   SysDebug: '/sys/debug',
@@ -118,6 +178,14 @@ export function linkingScreens(): LinkingScreens {
     Tag: leaf('Tag'),
     List: leaf('List'),
     Lists: leaf('Lists'),
+    Clip: leaf('Clip'),
+    Clips: leaf('Clips'),
+    Antenna: leaf('Antenna'),
+    Antennas: leaf('Antennas'),
+    Drive: leaf('Drive'),
+    Favorites: leaf('Favorites'),
+    Followers: leaf('Followers'),
+    Following: leaf('Following'),
     FollowRequests: leaf('FollowRequests'),
     ProfileEdit: leaf('ProfileEdit'),
     Settings: leaf('Settings'),
@@ -132,7 +200,7 @@ export function linkingScreens(): LinkingScreens {
 // mapping: the SECTION, never the tab — `/network/*` reads "My Network").
 export function titleForRoute(
   name: string | undefined,
-  params?: {tag?: unknown} | null,
+  params?: {tag?: unknown; section?: unknown} | null,
 ): string {
   switch (name) {
     case 'Home':
@@ -153,12 +221,51 @@ export function titleForRoute(
       return 'List'
     case 'Lists':
       return 'Lists'
+    case 'Clip':
+      return 'Clip'
+    case 'Clips':
+      return 'Clips'
+    case 'Antenna':
+      return 'Antenna'
+    case 'Antennas':
+      return 'Antennas'
+    case 'Drive':
+      return 'Drive'
+    case 'Favorites':
+      return 'Favorites'
+    case 'Followers':
+      return 'Followers'
+    case 'Following':
+      return 'Following'
     case 'FollowRequests':
       return 'Follow requests'
     case 'ProfileEdit':
       return 'Edit profile'
-    case 'Settings':
-      return 'Settings'
+    case 'Settings': {
+      const section = typeof params?.section === 'string' ? params.section : ''
+      switch (section) {
+        case 'account':
+          return 'Your account'
+        case 'display':
+          return 'Accessibility and display'
+        case 'reactions':
+          return 'Reactions and emoji'
+        case 'feeds':
+          return 'Feeds'
+        case 'mutes':
+          return 'Mutes and blocks'
+        case 'import':
+          return 'Import'
+        case 'export':
+          return 'Export'
+        case 'filters':
+          return 'Word filters'
+        case 'language':
+          return 'Language'
+        default:
+          return 'Settings'
+      }
+    }
     case 'Login':
     case 'AuthCallback':
       return 'Sign in'
