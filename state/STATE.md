@@ -26,9 +26,11 @@ Earlier: contrast sweep + UI batch 2 + W1–W8 done on `main`
 2. Still blocked/never-faked: Oppo `3B15A500TQD00000` pass, iOS
    anything, Misskey-family live (`:3101`/`:3102` down), live GTS +
    grouped-envelope v2 server, TalkBack, native splash rebuild.
-3. Known follow-ups (logged, not started): per-column sessionId
-   threading for quotes (WS-C proposal); Akkoma v2 filter writes/CORS;
-   detail ancestors/connectors (F20 remainder).
+3. Owner functional audit open → next implementer runs
+   `docs/V2_FUNCTIONAL.md` (E1–E10, repro-first, all must be
+   FUNCTIONAL on device/rig before commit). Known follow-ups folded
+   in: quote sessionId threading → E1; Akkoma v2 filter CORS → E6/E7
+   context; F20 ancestors/connectors → E8.
 
 ## Blockers
 
@@ -43,6 +45,7 @@ Earlier: contrast sweep + UI batch 2 + W1–W8 done on `main`
 
 - Gap register: `docs/parity-gaps.md` (V2 rows closed; §9 deferred untouched)
 - Build list: `docs/V2_GAPS.md` (COMPLETE — all WS-A…WS-G ticked)
+- Active handoff: `docs/V2_FUNCTIONAL.md` (E1–E10, owner audit — NOT started)
 - Gap program: `docs/tasks/gap-closure.md` (W1–W8 COMPLETE)
 - Tasks: `docs/tasks/` (index current)
 - ADRs: `docs/adr/0001-patterns-not-code.md`,
