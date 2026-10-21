@@ -20,6 +20,7 @@ import {
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {DisplayName} from '#/components/DisplayName'
+import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
 import {space} from '#/alf/tokens'
 import {ProfileAvatar} from '#/components/Profile/ProfileAvatar'
@@ -35,7 +36,17 @@ export function FollowStateCaption({relationship}: {relationship: Relationship |
   return <Caption color="faint">{parts.join(' ')}</Caption>
 }
 
-function StatsLine({account, isSelf}: {account: Account; isSelf: boolean}) {
+function StatsLine({
+  account,
+  isSelf,
+  onPressFollowers,
+  onPressFollowing,
+}: {
+  account: Account
+  isSelf: boolean
+  onPressFollowers?: () => void
+  onPressFollowing?: () => void
+}) {
   const posts = `${account.statusesCount} posts`
   if (account.ffVisibility === 'private' && !isSelf) {
     return (
@@ -51,10 +62,40 @@ function StatsLine({account, isSelf}: {account: Account; isSelf: boolean}) {
       </Caption>
     )
   }
+  if (!onPressFollowers && !onPressFollowing) {
+    return (
+      <Caption color="faint" testID="profile-stats">
+        {posts} · {account.followingCount} following · {account.followersCount} followers
+      </Caption>
+    )
+  }
   return (
-    <Caption color="faint" testID="profile-stats">
-      {posts} · {account.followingCount} following · {account.followersCount} followers
-    </Caption>
+    <View testID="profile-stats" style={styles.statsRow}>
+      <Caption color="faint">{posts} · </Caption>
+      {onPressFollowing ? (
+        <Pressable
+          testID="profile-following-link"
+          accessibilityRole="link"
+          accessibilityLabel={`${account.followingCount} following. Open following list.`}
+          onPress={onPressFollowing}>
+          <Caption color="faint">{`${account.followingCount} following`}</Caption>
+        </Pressable>
+      ) : (
+        <Caption color="faint">{`${account.followingCount} following`}</Caption>
+      )}
+      <Caption color="faint"> · </Caption>
+      {onPressFollowers ? (
+        <Pressable
+          testID="profile-followers-link"
+          accessibilityRole="link"
+          accessibilityLabel={`${account.followersCount} followers. Open followers list.`}
+          onPress={onPressFollowers}>
+          <Caption color="faint">{`${account.followersCount} followers`}</Caption>
+        </Pressable>
+      ) : (
+        <Caption color="faint">{`${account.followersCount} followers`}</Caption>
+      )}
+    </View>
   )
 }
 
@@ -63,12 +104,18 @@ export function ProfileHeader({
   isSelf,
   relationship,
   actions,
+  onPressFollowers,
+  onPressFollowing,
 }: {
   account: Account
   isSelf: boolean
   relationship: Relationship | null
   /** Follow controls (others) or settings entry (self), supplied by the caller. */
   actions?: ReactNode
+  /** When provided, the matching stats count renders as a link. */
+  onPressFollowers?: () => void
+  /** When provided, the matching stats count renders as a link. */
+  onPressFollowing?: () => void
 }) {
   const theme = useTheme()
   const bioNodes = useMemo(
@@ -140,7 +187,12 @@ export function ProfileHeader({
             ))}
           </View>
         ) : null}
-        <StatsLine account={account} isSelf={isSelf} />
+        <StatsLine
+          account={account}
+          isSelf={isSelf}
+          onPressFollowers={onPressFollowers}
+          onPressFollowing={onPressFollowing}
+        />
         <FollowStateCaption relationship={relationship} />
       </View>
     </View>
@@ -161,4 +213,5 @@ const styles = StyleSheet.create({
   avatarOverlap: {marginTop: -36},
   actionSlot: {flex: 1, alignItems: 'flex-end', justifyContent: 'center'},
   fields: {gap: space.sm},
+  statsRow: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center'},
 })
