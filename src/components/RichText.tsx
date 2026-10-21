@@ -37,6 +37,13 @@ export type RichTextProps = {
   nodes: readonly ContentNode[]
   /** Packed custom-emoji map for `:code:` resolution (MFM path). */
   emojis?: Record<string, string> | null
+  // WS-C (remote emoji fallback, additive only — no core change): the
+  // owning session id and the content author's host, threaded to
+  // custom-emoji glyphs for session-scoped remote-host resolution.
+  // Omit both for packed-only resolution (tests, session-less trees).
+  // (WS-B owns this file's core; this prop pair is the agreed seam.)
+  sessionId?: string | null
+  authorHost?: string | null
   /** Unicode emoji style. Defaults to OpenMoji (device setting). */
   emojiStyle?: EmojiStyle
   /** Inline text size. Block code stays fixed. */
@@ -52,6 +59,9 @@ export type RichTextProps = {
 
 type Ctx = {
   emojis: Record<string, string> | null
+  // WS-C seam (see props): session-scoped remote emoji resolution.
+  sessionId: string | null
+  authorHost: string | null
   emojiStyle: EmojiStyle
   size: number
   onMentionPress?: (href: string | null, label: string) => void
@@ -239,6 +249,8 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
                 host={node.host}
                 src={node.src}
                 packed={ctx.emojis}
+                sessionId={ctx.sessionId}
+                authorHost={ctx.authorHost}
                 size={ctx.size + 2}
               />
             )
@@ -408,6 +420,8 @@ function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ctx: Ctx}) {
 export function RichText({
   nodes,
   emojis = null,
+  sessionId = null,
+  authorHost = null,
   emojiStyle = DEFAULT_EMOJI_STYLE,
   size = 15,
   numberOfLines,
@@ -429,6 +443,8 @@ export function RichText({
   const ctx: Ctx = useMemo(
     () => ({
       emojis,
+      sessionId,
+      authorHost,
       emojiStyle,
       size: scaledSize,
       onMentionPress,
@@ -439,7 +455,7 @@ export function RichText({
       codeBg: theme.palette.bgSoft,
       quoteEdge: theme.palette.edge,
     }),
-    [emojis, emojiStyle, scaledSize, onMentionPress, onHashtagPress, onLinkPress, theme],
+    [emojis, sessionId, authorHost, emojiStyle, scaledSize, onMentionPress, onHashtagPress, onLinkPress, theme],
   )
   if (contentMode === 'plain') {
     return (

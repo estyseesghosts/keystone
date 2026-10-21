@@ -733,6 +733,7 @@ function PostCardView({
                     ? {...effective.author, displayName: handleOf(effective.author)}
                     : effective.author
                 }
+                sessionId={sessionId}
                 size={15}
                 textStyle={styles.headerName}
                 testID={`author-name-${effective.author.id}`}
@@ -803,6 +804,8 @@ function PostCardView({
             <RichText
               nodes={nodes}
               emojis={emojis}
+              sessionId={sessionId}
+              authorHost={effective.author.host}
               emojiStyle={emojiStyle}
               onMentionPress={handleMentionPress}
               onHashtagPress={handleHashtagPress}

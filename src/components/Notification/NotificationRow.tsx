@@ -33,6 +33,7 @@ import {Pressable} from '#/components/Pressable'
 import {formatRelativeTime} from '#/components/Post/time'
 import {i18n, useLocale} from '#/locale/i18n'
 import {navigationRef} from '#/navigationRef'
+import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 
 const AVATAR = 40
 
@@ -124,10 +125,20 @@ function NotificationAvatar({account, actorId}: {account: Account | null; actorI
   )
 }
 
-export function NotificationRow({notification}: {notification: Notification}) {
+export function NotificationRow({
+  notification,
+  sessionId = null,
+}: {
+  notification: Notification
+  /** Owning session (WS-C remote emoji fallback): explicit wins;
+   * otherwise the active session; null = packed-only resolution. */
+  sessionId?: string | null
+}) {
   // Singleton `i18n` (not the hook) keeps provider-less trees — jest,
   // previews — rendering; `useLocale` below still re-renders on switch.
   const locale = useLocale()
+  const activeId = useOptionalActiveSession()?.id ?? null
+  const sid = sessionId ?? activeId
   const actors = notification.actors
   const first = actors[0] ?? null
   // Display prefers the first PACKED account (an id-only first actor must
@@ -169,6 +180,7 @@ export function NotificationRow({notification}: {notification: Notification}) {
               shouldCollapseName(shownAccount) ? (
                 <DisplayName
                   account={{...shownAccount, displayName: handleOf(shownAccount)}}
+                  sessionId={sid}
                   size={15}
                   textStyle={styles.name}
                   testID={`notification-actor-displayname-${notification.id}`}
@@ -177,6 +189,7 @@ export function NotificationRow({notification}: {notification: Notification}) {
                 <>
                   <DisplayName
                     account={shownAccount}
+                    sessionId={sid}
                     size={15}
                     textStyle={styles.name}
                     testID={`notification-actor-displayname-${notification.id}`}
