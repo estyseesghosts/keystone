@@ -2,7 +2,7 @@ import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
-import {FlatList} from 'react-native'
+import {FlatList, StyleSheet} from 'react-native'
 
 import type {Capabilities, Session} from '@keystone/fedi'
 import {FEATURE_KEYS} from '@keystone/fedi'
@@ -20,11 +20,28 @@ import {NoteScreen} from './Note'
 
 const mockNavigate = jest.fn()
 const mockGoBack = jest.fn()
+// Captured focus callbacks: the mock records instead of subscribing, so
+// tests drive "mount focus" vs "return focus" deterministically. Like the
+// real hook, subscribing while focused executes immediately — mount and
+// resubscribe alike — so a variant that resubscribes every render would
+// refetch here without any focus event.
+const mockFocusCbs: Array<() => void> = []
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({navigate: mockNavigate, goBack: mockGoBack}),
   useRoute: () => ({params: {id: 'p1'}}),
+  useFocusEffect: (cb: () => void) => {
+    const prev = mockFocusCbs[mockFocusCbs.length - 1]
+    mockFocusCbs.push(cb)
+    if (prev !== cb) cb()
+  },
 }))
+
+// File-level: every describe below mounts its own NoteScreen instances,
+// so the captured-callback log resets for every test.
+beforeEach(() => {
+  mockFocusCbs.length = 0
+})
 
 const mockBackends = new Map<string, unknown>()
 jest.mock('@keystone/fedi', () => ({
@@ -112,6 +129,7 @@ describe('NoteScreen', () => {
     mockNavigate.mockClear()
     mockGoBack.mockClear()
     mockBackends.clear()
+    mockFocusCbs.length = 0
   })
 
   it('loads the focused post with ancestors above and replies below', async () => {
@@ -235,5 +253,71 @@ describe('NoteScreen delete navigation (F20)', () => {
       postShadowStore.patch(SESSION.id, 'p1', {isDeleted: true})
     })
     expect(mockGoBack).toHaveBeenCalled()
+  })
+})
+
+describe('NoteScreen thread connectors (E8)', () => {
+  function twoLevelBackend() {
+    const ancestor = makePost({
+      id: 'a0',
+      content: {mfm: 'ancestor post', plain: 'ancestor post'},
+    })
+    const focused = makePost({
+      id: 'p1',
+      replyToId: 'a0',
+      reply: ancestor,
+      content: {mfm: 'focused post', plain: 'focused post'},
+    })
+    const r1 = makePost({
+      id: 'r1',
+      replyToId: 'p1',
+      content: {mfm: 'child reply', plain: 'child reply'},
+    })
+    const r2 = makePost({
+      id: 'r2',
+      replyToId: 'r1',
+      content: {mfm: 'grandchild reply', plain: 'grandchild reply'},
+    })
+    const children: Record<string, typeof r1[]> = {p1: [r1], r1: [r2], r2: []}
+    return fakeBackend({
+      threadReplies: jest.fn(async (id: string) => ({
+        items: children[id] ?? [],
+        cursor: null,
+        end: true,
+      })),
+    })
+  }
+
+  function edgeOf(testID: string): Record<string, unknown> {
+    return StyleSheet.flatten(screen.getByTestId(testID).props.style) as Record<string, unknown>
+  }
+
+  it('ties the ancestor chain with a visible edge', async () => {
+    setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    expect(screen.getByTestId('ancestor-chain')).toBeTruthy()
+    expect(edgeOf('ancestor-chain').borderLeftWidth).toBe(1)
+    expect(screen.getByTestId('ancestor-a0')).toBeTruthy()
+  })
+
+  it('hides the ancestor edge when there is no chain', async () => {
+    setup(fakeBackend({thread: jest.fn(async () => ({ancestors: [], incomplete: false}))}))
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    expect(screen.queryByTestId('ancestor-chain')).toBeNull()
+  })
+
+  it('wraps each root reply row in a connector edge', async () => {
+    setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
+    expect(screen.getByTestId('thread-edge-r1')).toBeTruthy()
+    expect(edgeOf('thread-edge-r1').borderLeftWidth).toBe(1)
+  })
+
+  it('draws the nested branch edge one level down', async () => {
+    setup(twoLevelBackend())
+    await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
+    fireEvent.press(screen.getByTestId('show-replies-r1'))
+    await waitFor(() => expect(screen.getByTestId('reply-r2')).toBeTruthy())
+    expect(edgeOf('replies-r1').borderLeftWidth).toBe(1)
   })
 })

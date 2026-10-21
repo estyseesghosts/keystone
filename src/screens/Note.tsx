@@ -69,6 +69,17 @@ const styles = StyleSheet.create({
   },
 })
 
+// Thread connectors (E8, v1 `Note` parity, own code): a 1px left edge
+// ties same-thread cards together — the ancestor chain above the
+// focused post, each root reply row below it, and every nested branch
+// level. v1 draws the same idea through the avatar column with
+// `::before` rules (web-only); the edge is the native equivalent —
+// adjacent rows share the indent so the segments read as one spine.
+// PostCard internals are untouched: the edge wraps each card.
+function threadEdge(borderColor: string) {
+  return {borderLeftWidth: 1, borderLeftColor: borderColor, marginLeft: 16, paddingLeft: 12}
+}
+
 function AccountRow({account}: {account: Account}) {
   return (
     <Pressable
@@ -266,6 +277,8 @@ function ReplyBranch({
 }) {
   const [expanded, setExpanded] = useState(expandedByDefault)
   const replies = useThreadRepliesQuery(sessionId, parentId, {backend})
+  const theme = useTheme()
+  const edge = depth > 0 ? {borderLeftWidth: 1, borderLeftColor: theme.palette.border} : null
 
   if (!expanded) {
     return (
@@ -283,7 +296,9 @@ function ReplyBranch({
   const items = replies.data?.pages.flatMap(page => page.items) ?? []
 
   return (
-    <View style={{paddingLeft: depth > 0 ? 12 : 0}} testID={`replies-${parentId}`}>
+    <View
+      style={[{paddingLeft: depth > 0 ? 12 : 0}, edge]}
+      testID={`replies-${parentId}`}>
       {expandedByDefault ? null : (
         <View style={[atoms.px_md, atoms.py_sm]}>
           <Button
@@ -371,9 +386,10 @@ function RootReplyRow({
   backend: Backend
   child: Post
 }) {
+  const theme = useTheme()
   const shown = appearNoteOf(child)
   return (
-    <View>
+    <View style={threadEdge(theme.palette.border)} testID={`thread-edge-${child.id}`}>
       <PostCard post={child} sessionId={sessionId} testID={`reply-${child.id}`} />
       {0 + 1 >= MAX_DEPTH ? (
         <View style={[atoms.px_md, atoms.py_sm]}>
@@ -458,9 +474,13 @@ export function NoteScreen() {
           renderItem={({item}) => <RootReplyRow sessionId={sessionId} backend={backend} child={item} />}
           ListHeaderComponent={
             <>
-              {thread.data.ancestors.map(a => (
-                <PostCard key={a.id} post={a} sessionId={sessionId} testID={`ancestor-${a.id}`} />
-              ))}
+              {thread.data.ancestors.length > 0 ? (
+                <View style={threadEdge(theme.palette.border)} testID="ancestor-chain">
+                  {thread.data.ancestors.map(a => (
+                    <PostCard key={a.id} post={a} sessionId={sessionId} testID={`ancestor-${a.id}`} />
+                  ))}
+                </View>
+              ) : null}
               {thread.data.incomplete ? (
                 <View style={[atoms.px_md, atoms.py_sm]}>
                   <Caption color="faint">Earlier reply context unavailable.</Caption>
