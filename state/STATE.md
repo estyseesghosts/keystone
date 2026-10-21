@@ -1,15 +1,17 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: V2_GAPS WS-E (Misskey correctness) MERGED 2026-10-21 on
-`main` (fedi drafts/reactionActions deleted, `"like"` key + seed, polls
+Phase/slice: V2_GAPS WS-D (post menu) + WS-E (Misskey) MERGED
+2026-10-21 on `main` (report live via onReport + confirm, boost
+re-read, translate retry/error, mastodon copy fix; fedi
+drafts/reactionActions deleted, `"like"` key + seed, polls
 probed-no-change, MK17 verified-already-wired).
-FULL suite green: 126 suites / 1518 tests; tsc ios+android+web clean;
-eslint + oxlint clean. WS-A/B/C/D running in parallel (own worktrees);
+FULL suite green: 127 suites / 1534 tests; tsc ios+android+web clean;
+eslint + oxlint clean. WS-A/B/C running in parallel (own worktrees);
 WS-F waits for WS-B (sanitizer); WS-G runs last.
-Latest log: `state/logs/2026-10-21-wsE-misskey.md` (agent) + merge trio
-re-verified by coordinator (tsc×3, oxlint, eslint exit 0, 126/1518).
-Prior: Contrast sweep DONE (127/1521 pre-WS-E; delta −4 deleted suites
-−4 deleted drafts tests +5 new = 1518, verified).
+Latest logs: `state/logs/2026-10-21-wsD-postmenu.md` (agent, Helium
+menu + translate-refusal shots in `assets-wsD/`),
+`state/logs/2026-10-21-wsE-misskey.md` (agent). Coordinator
+re-verified the trio on `main` after each merge.
 Prior: UI batch 2 + slim tabs + W8 (see logs).
 (MD5 boot re-verify + scope-health, MD6–MD9 live Akkoma round-trips,
 MD10 pooled streaming + app capture, MD11 fork collapse, MD12/MD13

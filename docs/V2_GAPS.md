@@ -50,9 +50,9 @@ Acceptance: `:name@host:` post + remote display-name render images; picker shows
 
 v1 `NoteMenu.tsx:421-668`. v2 `menuModel.ts:59-227`, `PostHandlers.tsx:49-65`.
 
-- [ ] Wire with honest gating (hidden/disabled-with-reason where no endpoint/screen): mute-boosts toggle via relation snapshot, Mute/Unmute + Block/Unblock + boost flips (relation-aware labels, undo via `relationships` re-read), clip add-to-clip flow (Misskey-family; mastodon keeps honest row), report (`users/report-abuse` exists in backend `:830` — add confirm dialog + toast), antenna/memo/DM/notify/RSS/search-notes/refresh-remote stay disabled with reasons until their screens land (do not invent endpoints).
-- [ ] **Mute boosts** two-way + renote-mute list unmute where `Backend.renoteMutes?` exists (`MutesSection.tsx:523-532`); fix stale `Not wired yet` copy on the mastodon placeholder.
-- [ ] **Translations (MK3 consumer).** `PostCard` translate + gated menu row already exist — verify, add per-post retry/error, keep capability-gated on `translatorAvailable` evidence (`detect.ts:388-391`).
+- [x] Wire with honest gating — DONE 2026-10-21 (WS-D): report live via `UserActionHandlers.onReport` (hidden own-post, disabled-with-reason signed-out/unconnected, comment-required confirm otherwise + toast); boost flips re-read `relationships` into cache; clip add-to-clip flow kept (Misskey-family; mastodon honest row); antenna/memo/DM/notify/RSS/search-notes/refresh-remote stay disabled with reasons. No `PostCard.tsx` edit. Live caveat: mute/block/report writes + translate-success unproven on Akkoma (single-user rig, reports non-retractable); translate refusal + menu shots proven live via Helium.
+- [x] **Mute boosts** — DONE 2026-10-21 (WS-D): two-way already W4; this WS fixes stale `Not wired yet` copy → `This server has no repost-mute list.`
+- [x] **Translations (MK3 consumer).** VERIFIED + extended 2026-10-21 (WS-D): gated menu row + `PostCard` translate kept, per-post retry/error added, still gated on `translatorAvailable`; live Akkoma refusal (`Translation is not enabled`) proven end-to-end via toast.
 
 Acceptance: menu rows never inert; mute/block/report round-trip or honest reason; translate works or is gated with reason.
 
