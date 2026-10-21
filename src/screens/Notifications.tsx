@@ -1,12 +1,19 @@
-import {useCallback, useEffect, useRef, useState} from 'react'
+// Notifications screen (W4): filter chips over one list, a visible
+// grouped/flat toggle (grouped where the backend supports it, flat fallback
+// as before), per-type receive config on the Misskey family (via the
+// existing `me()`/`updateProfile` ext-bag surface — no invented wire
+// calls), a live unread counter from the query cache (N18), and list state
+// in react-query (`useNotificationsQuery`, keyed by
+// `notificationsQueryKey` — sessionId FIRST, so switching accounts never
+// shows the previous account's rows).
+
+import {useEffect, useMemo, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 
 import {
   NOTIFICATION_FILTER_PRESETS,
-  appendOlder,
-  displayNameOf,
   isUnsupportedError,
-  type Cursor,
+  type Backend,
   type Notification,
 } from '@keystone/fedi'
 
@@ -17,176 +24,199 @@ import {Loader} from '#/components/Loader'
 import {SignInButton} from '#/components/SignInButton'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
+import {
+  notificationsItems,
+  useMarkNotificationsRead,
+  useNotificationsQuery,
+  useUnreadNotificationsCount,
+} from '#/state/queries/notifications'
 
-// Notifications: Mastodon grouped rows (v2, v1 fallback inside the
-// backend) and Misskey flat/grouped rows. Filter chips map to
-// include/exclude type presets — one list, never a second list UI.
-// Mark-all-read is read-path only: it calls the backend's mutation when
-// signed in, and renders disabled-with-reason otherwise.
+// Kept for existing co-located tests importing the row from this module.
+export {NotificationRow} from '#/components/Notification/NotificationRow'
+import {NotificationRow} from '#/components/Notification/NotificationRow'
 
-function actorNames(notification: Notification): string {
-  const names = notification.actors.map(a =>
-    a.account ? displayNameOf(a.account) : `…${a.id.slice(-6)}`,
-  )
-  return names.length > 0 ? names.join(', ') : 'Someone'
-}
+// --- Per-type receive config (Misskey family) -------------------------------
+//
+// v1 behavior (`routes/Notifications.tsx`): the viewer carries
+// `notificationRecieveConfig` (wire spelling) in the `i` bag; the panel
+// edits it per filter preset and saves through `updateProfile({ext})`.
+// Both surfaces already exist on `Backend` (`me()` packs the full `i` bag
+// into `ext.me`; `updateProfile` passes `ext` through verbatim), so this is
+// backend-only transport — no invented wire calls. The Mastodon backend
+// ignores `ext` (no such surface), so there the toggle renders honestly
+// disabled with a reason.
 
-function kindLabel(notification: Notification): string {
-  switch (notification.kind) {
-    case 'follow':
-      return 'followed you'
-    case 'mention':
-      return 'mentioned you'
-    case 'reply':
-      return 'replied to you'
-    case 'renote':
-      return 'reposted your post'
-    case 'quote':
-      return 'quoted your post'
-    case 'reaction':
-      return notification.reaction ? `reacted ${notification.reaction}` : 'reacted to your post'
-    case 'favourite':
-      return 'liked your post'
-    case 'pollVote':
-      return 'voted in your poll'
-    case 'pollEnded':
-      return 'a poll ended'
-    case 'receiveFollowRequest':
-      return 'requested to follow you'
-    case 'followRequestAccepted':
-      return 'accepted your follow request'
-    case 'achievement':
-      return 'earned an achievement'
-    case 'app':
-      return 'sent an update'
-    case 'unknown':
-    default:
-      return notification.rawType || 'sent a notification'
+const RECEIVE_OPTIONS: Array<{value: string; label: string}> = [
+  {value: '', label: 'Default'},
+  {value: 'never', label: 'Never'},
+  {value: 'following', label: 'Following'},
+  {value: 'follower', label: 'Follower'},
+  {value: 'mutualFollow', label: 'Mutual'},
+  {value: 'followingOrFollower', label: 'Either'},
+  {value: 'list', label: 'List'},
+]
+
+function readReceiveConfig(me: {ext: {me?: Record<string, unknown>}} | null): Record<string, string> {
+  const raw = me?.ext.me?.['notificationRecieveConfig']
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'string') out[k] = v
   }
+  return out
 }
 
-export function NotificationRow({notification}: {notification: Notification}) {
-  const excerpt = notification.post?.content.plain
+function ReceiveConfigSection({backend}: {backend: Backend}) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [config, setConfig] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (backend.family !== 'misskey') {
+    return (
+      <View style={[atoms.px_md, atoms.py_sm]}>
+        <Button
+          label="Notification settings"
+          variant="secondary"
+          onPress={() => {}}
+          disabled
+          disabledReason="Per-type notification settings are only available on Misskey-family servers."
+          testID="notifications-settings"
+        />
+      </View>
+    )
+  }
+
+  const load = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const me = await backend.me()
+      setConfig(readReceiveConfig(me))
+      setOpen(true)
+    } catch (err) {
+      setError(
+        isUnsupportedError(err)
+          ? 'Notification settings are not on this server.'
+          : 'Could not load notification settings.',
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const save = async () => {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await backend.updateProfile({ext: {notificationRecieveConfig: config}})
+      setOpen(false)
+    } catch (err) {
+      setError(
+        isUnsupportedError(err)
+          ? 'Notification settings are not on this server.'
+          : 'Could not save notification settings.',
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
-    <View testID={`notification-${notification.id}`} style={[atoms.py_sm, atoms.px_md]}>
-      <Body>{`${actorNames(notification)} ${kindLabel(notification)}`}</Body>
-      {excerpt ? (
-        <Caption color="faint" numberOfLines={2}>
-          {excerpt.slice(0, 140)}
-        </Caption>
+    <View style={[atoms.px_md, atoms.py_sm]}>
+      <Button
+        label={loading ? 'Loading settings…' : 'Notification settings'}
+        variant="secondary"
+        onPress={() => {
+          if (open) setOpen(false)
+          else void load()
+        }}
+        disabled={loading}
+        disabledReason="Loading notification settings."
+        testID="notifications-settings"
+      />
+      {error ? <Caption color="faint">{error}</Caption> : null}
+      {open ? (
+        <View testID="notifications-settings-panel">
+          <Caption color="faint">
+            Choose who notifies you, per type. Empty means the server default.
+          </Caption>
+          {NOTIFICATION_FILTER_PRESETS.filter(p => p.id !== 'all').map(preset => (
+            <View key={preset.id} testID={`notifications-settings-row-${preset.id}`}>
+              <Caption>{preset.label}</Caption>
+              <View style={[atoms.row, atoms.gap_sm]}>
+                {RECEIVE_OPTIONS.map(opt => {
+                  const selected = (config[preset.id] ?? '') === opt.value
+                  return (
+                    <Button
+                      key={opt.value || 'default'}
+                      label={opt.label}
+                      variant={selected ? 'primary' : 'secondary'}
+                      onPress={() =>
+                        setConfig(c => ({...c, [preset.id]: opt.value}))
+                      }
+                      testID={`notifications-settings-option-${preset.id}-${opt.value || 'default'}`}
+                    />
+                  )
+                })}
+              </View>
+            </View>
+          ))}
+          <Button
+            label={saving ? 'Saving…' : 'Save'}
+            variant="primary"
+            onPress={() => void save()}
+            disabled={saving}
+            disabledReason="Saving notification settings."
+            testID="notifications-settings-save"
+          />
+        </View>
       ) : null}
-      <Caption color="faint">{notification.createdAt}</Caption>
-      {notification.read === true ? <Caption color="faint">Read</Caption> : null}
-      {notification.read === false ? <Caption color="faint">New</Caption> : null}
     </View>
   )
 }
 
+// --- Screen ------------------------------------------------------------------
+
 export function NotificationsScreen() {
   const {session, backend} = useActiveBackend()
   const [filterId, setFilterId] = useState('all')
-  const [items, setItems] = useState<Notification[]>([])
-  const [cursor, setCursor] = useState<Cursor | null>(null)
-  const [hasMore, setHasMore] = useState(true)
-  const [loading, setLoading] = useState(true)
-  const [fetching, setFetching] = useState(false)
-  const [fetchingMore, setFetchingMore] = useState(false)
-  const [error, setError] = useState<unknown>(null)
-  const [groupedMode, setGroupedMode] = useState<'grouped' | 'flat'>('grouped')
-  const [markingRead, setMarkingRead] = useState(false)
-  const [markError, setMarkError] = useState<string | null>(null)
-  const generationRef = useRef(0)
+  const [groupedPref, setGroupedPref] = useState(true)
+  const [groupedUnsupported, setGroupedUnsupported] = useState(false)
 
   const preset = NOTIFICATION_FILTER_PRESETS.find(p => p.id === filterId) ?? NOTIFICATION_FILTER_PRESETS[0]
 
-  const loadFirst = useCallback(async () => {
-    if (!session || !backend) {
-      setLoading(false)
-      return
-    }
-    const generation = ++generationRef.current
-    setFetching(true)
-    setError(null)
-    try {
-      const base = {includeTypes: preset.includeTypes, excludeTypes: preset.excludeTypes}
-      let page
-      try {
-        page = await backend.notifications({...base, grouped: true})
-        if (generationRef.current !== generation) return
-        setGroupedMode('grouped')
-      } catch (err) {
-        // Grouped rows are not universal: Misskey servers without
-        // `i/notifications-grouped` and Mastodon servers without the v2
-        // envelope fall back to the flat listing (the Mastodon backend
-        // already prefers v2 with a v1 fallback internally).
-        if (!isUnsupportedError(err)) throw err
-        if (generationRef.current !== generation) return
-        page = await backend.notifications({...base, grouped: false})
-        if (generationRef.current !== generation) return
-        setGroupedMode('flat')
-      }
-      setItems(page.items)
-      setCursor(page.cursor)
-      setHasMore(!page.end)
-    } catch (err) {
-      if (generationRef.current !== generation) return
-      setError(err)
-    } finally {
-      if (generationRef.current === generation) {
-        setLoading(false)
-        setFetching(false)
-      }
-    }
-  }, [session, backend, filterId])
+  const query = useNotificationsQuery(
+    session?.id ?? null,
+    filterId,
+    {includeTypes: preset.includeTypes, excludeTypes: preset.excludeTypes},
+    groupedPref,
+    {backend: backend ?? null},
+  )
+  const items = useMemo(() => notificationsItems(query.data), [query.data])
+  const unread = useUnreadNotificationsCount(session?.id ?? null)
+  const markRead = useMarkNotificationsRead(session?.id ?? null, {backend: backend ?? null})
 
+  // Grouped rows are not universal: Misskey servers without
+  // `i/notifications-grouped` answer unsupported (the Mastodon backend
+  // already prefers v2 with a v1 fallback internally). Fall back to the
+  // flat listing and say so — never an error wall.
   useEffect(() => {
-    setItems([])
-    setCursor(null)
-    setHasMore(true)
-    setLoading(true)
-    setError(null)
-    void loadFirst()
-  }, [loadFirst])
-
-  const fetchMore = useCallback(async () => {
-    if (!session || !backend || fetchingMore || loading || !hasMore) return
-    const generation = generationRef.current
-    setFetchingMore(true)
-    try {
-      const page = await backend.notifications({
-        includeTypes: preset.includeTypes,
-        excludeTypes: preset.excludeTypes,
-        grouped: groupedMode === 'grouped',
-        cursor,
-      })
-      if (generationRef.current !== generation) return
-      setItems(prev => appendOlder(prev, page.items).items)
-      setCursor(page.cursor)
-      setHasMore(!page.end)
-    } catch {
-      // Paging failures keep the loaded rows; refresh retries the head.
-    } finally {
-      if (generationRef.current === generation) setFetchingMore(false)
+    if (groupedPref && query.isError && isUnsupportedError(query.error)) {
+      setGroupedPref(false)
+      setGroupedUnsupported(true)
     }
-  }, [session, backend, cursor, fetchingMore, loading, hasMore, groupedMode, filterId])
+  }, [groupedPref, query.isError, query.error])
 
-  const markAllRead = useCallback(async () => {
-    if (!session || !backend || markingRead) return
-    setMarkingRead(true)
-    setMarkError(null)
-    try {
-      await backend.markNotificationsRead()
-      await loadFirst()
-    } catch (err) {
-      setMarkError(
-        isUnsupportedError(err)
-          ? 'Mark-all-read is not on this server.'
-          : 'Could not mark notifications read.',
-      )
-    } finally {
-      setMarkingRead(false)
-    }
-  }, [session, backend, markingRead, loadFirst])
+  const markError = markRead.error
+    ? isUnsupportedError(markRead.error)
+      ? 'Mark-all-read is not on this server.'
+      : markRead.error.message === 'Sign in to mark notifications read.'
+        ? 'Sign in to mark notifications read.'
+        : 'Could not mark notifications read.'
+    : null
 
   return (
     <View style={atoms.flex1} testID="notifications-screen">
@@ -210,36 +240,78 @@ export function NotificationsScreen() {
               />
             ))}
           </View>
+          <View style={[atoms.row, atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="notification-grouping">
+            <Button
+              label="Grouped"
+              variant={groupedPref ? 'primary' : 'secondary'}
+              onPress={() => {
+                setGroupedPref(true)
+                setGroupedUnsupported(false)
+              }}
+              testID="notification-grouping-grouped"
+            />
+            <Button
+              label="Flat"
+              variant={groupedPref ? 'secondary' : 'primary'}
+              onPress={() => setGroupedPref(false)}
+              testID="notification-grouping-flat"
+            />
+          </View>
+          {groupedUnsupported ? (
+            <View style={[atoms.px_md]}>
+              <Caption color="faint" testID="notification-grouping-fallback">
+                Grouped rows are not on this server — showing a flat list.
+              </Caption>
+            </View>
+          ) : null}
+          {unread != null && unread > 0 ? (
+            <View style={[atoms.px_md]}>
+              <Caption color="faint" testID="notifications-unread">
+                {`${unread} new`}
+              </Caption>
+            </View>
+          ) : null}
           <View style={[atoms.px_md, atoms.py_sm]}>
             <Button
-              label={markingRead ? 'Marking read…' : 'Mark all read'}
+              label={markRead.isPending ? 'Marking read…' : 'Mark all read'}
               variant="secondary"
-              onPress={() => void markAllRead()}
-              disabled={markingRead}
+              onPress={() => markRead.mutate()}
+              disabled={markRead.isPending}
               disabledReason="Marking notifications read."
               testID="notifications-mark-read"
             />
             {markError ? <Caption color="faint">{markError}</Caption> : null}
           </View>
-          {loading ? (
+          <ReceiveConfigSection backend={backend} />
+          {query.isPending ? (
             <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
               <Loader testID="notifications-loading" />
               <Caption color="faint">Loading…</Caption>
             </View>
-          ) : error ? (
+          ) : query.isError && items.length === 0 ? (
             <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
               <Body>Could not load notifications.</Body>
-              <Button label="Retry" variant="secondary" onPress={() => void loadFirst()} testID="notifications-retry" />
+              <Button
+                label="Retry"
+                variant="secondary"
+                onPress={() => void query.refetch()}
+                testID="notifications-retry"
+              />
             </View>
           ) : (
             <FlatList
               data={items}
-              keyExtractor={item => item.id}
+              keyExtractor={(item: Notification) => item.id}
               renderItem={({item}) => <NotificationRow notification={item} />}
               refreshControl={
-                <RefreshControl refreshing={fetching} onRefresh={() => void loadFirst()} />
+                <RefreshControl
+                  refreshing={query.isRefetching}
+                  onRefresh={() => void query.refetch()}
+                />
               }
-              onEndReached={() => void fetchMore()}
+              onEndReached={() => {
+                if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage()
+              }}
               onEndReachedThreshold={0.5}
               ListEmptyComponent={
                 <View style={[atoms.centered, atoms.p_md]}>
@@ -247,9 +319,19 @@ export function NotificationsScreen() {
                 </View>
               }
               ListFooterComponent={
-                fetchingMore ? (
+                query.isFetchingNextPage ? (
                   <View style={[atoms.centered, atoms.py_sm]}>
                     <Loader testID="notifications-more-loading" />
+                  </View>
+                ) : query.isFetchNextPageError ? (
+                  <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
+                    <Caption color="faint">Could not load more.</Caption>
+                    <Button
+                      label="Retry"
+                      variant="secondary"
+                      onPress={() => void query.fetchNextPage()}
+                      testID="notifications-more-retry"
+                    />
                   </View>
                 ) : null
               }

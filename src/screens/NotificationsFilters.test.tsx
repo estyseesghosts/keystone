@@ -85,7 +85,11 @@ describe('notification filter presets (single list, type presets only)', () => {
 describe('NotificationRow', () => {
   it('renders the actor, kind label, and unread state (never faked)', () => {
     renderWithTheme(<NotificationRow notification={baseNotification} />)
-    expect(screen.getByText('Bob reacted ❤')).toBeTruthy()
+    // The actor name renders through DisplayName (custom-emoji aware), so
+    // the name and the kind label are sibling text nodes — never one
+    // concatenated string.
+    expect(screen.getByText('Bob')).toBeTruthy()
+    expect(screen.getByText('reacted ❤')).toBeTruthy()
     expect(screen.getByText('New')).toBeTruthy()
     expect(screen.queryByText('Read')).toBeNull()
   })
