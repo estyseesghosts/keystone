@@ -20,6 +20,8 @@ import {
   isPureRenote,
   parseAcct,
   safeHttpUrl,
+  getQuoteTarget,
+  statusLabelFor,
   type Capabilities,
   type EmojiStyle,
   type Media,
@@ -38,6 +40,7 @@ import {useOptionalSessionStore} from '#/state/session/SessionProvider'
 import {useLikeEmoji} from '#/state/emojiPrefs'
 
 import {ActionBar, StaticActionBar, toastError} from './ActionBar'
+import {badgesFor} from './badges'
 import {postBodyNodes, postEmojis} from './body'
 import {usePostCardHandlers, type PostCardHandlers} from './handlers'
 import {buildPostMenu, type PostMenuSection} from './menuModel'
@@ -59,6 +62,7 @@ const styles = StyleSheet.create({
   headerAuthor: {flexDirection: 'row', alignItems: 'baseline', gap: 6, flexShrink: 1, minWidth: 0},
   headerName: {flexShrink: 1, maxWidth: 220, fontWeight: '700'},
   context: {marginBottom: 2},
+  badges: {flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 2},
   actions: {flexDirection: 'row', gap: 16, marginTop: 6},
   cwBox: {borderRadius: 6, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8, marginVertical: 8},
 })
@@ -286,6 +290,13 @@ function PostCardView({
   const isBoost = base !== post
   const nodes = useMemo(() => postBodyNodes(effective), [effective])
   const emojis = useMemo(() => postEmojis(effective), [effective])
+  const badges = useMemo(() => badgesFor(effective), [effective])
+  // Quote-authorization display label for the wrapper's relationship
+  // (pending/rejected/…); approved or missing never labels.
+  const quoteStatus = useMemo(() => {
+    const target = getQuoteTarget(effective)
+    return target?.authorizationStatus ? statusLabelFor(target.authorizationStatus) : null
+  }, [effective])
   const cw = effective.cw
   const bodyHidden = cw !== null && !cwOpen
 
@@ -331,6 +342,15 @@ function PostCardView({
           <Caption color="muted" style={styles.context} testID={`boost-header-${post.id}`}>
             {displayNameOf(post.author)} boosted
           </Caption>
+        )}
+        {badges.length > 0 && (
+          <View style={styles.badges} testID={`post-badges-${post.id}`}>
+            {badges.map(b => (
+              <Caption key={b.key} color="muted" testID={`post-badge-${b.key}-${post.id}`}>
+                {b.label}
+              </Caption>
+            ))}
+          </View>
         )}
         {replyTarget !== null && (
           <Caption color="muted" style={styles.context} testID={`reply-context-${post.id}`}>
@@ -395,6 +415,7 @@ function PostCardView({
           <PostQuote
             quote={effective.quote}
             unavailable={effective.quoteUnavailable}
+            status={quoteStatus}
             emojiStyle={emojiStyle}
             onPress={openQuoted}
             onOpenMedia={(items, index) => setLightbox({items, index})}

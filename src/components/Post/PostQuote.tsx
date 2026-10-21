@@ -24,6 +24,7 @@ const styles = StyleSheet.create({
 export function PostQuote({
   quote,
   unavailable,
+  status,
   emojiStyle = 'twemoji',
   onPress,
   onOpenMedia,
@@ -34,6 +35,9 @@ export function PostQuote({
 }: {
   quote: Post | null
   unavailable: boolean
+  /** Quote-authorization display label for the wrapper's relationship
+   * (pending/rejected/…); null hides it. Approved/missing never label. */
+  status?: string | null
   emojiStyle?: EmojiStyle
   onPress?: (post: Post) => void
   onOpenMedia?: (media: Media[], index: number) => void
@@ -67,6 +71,11 @@ export function PostQuote({
         <Caption color="muted" numberOfLines={1}>
           {quote.author.displayName} @{quote.author.acct}
         </Caption>
+        {status ? (
+          <Caption color="muted" testID={testID ? `${testID}-status` : undefined}>
+            {status}
+          </Caption>
+        ) : null}
         <RichText
           nodes={nodes}
           emojis={postEmojis(quote)}

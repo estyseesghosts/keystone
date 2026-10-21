@@ -235,3 +235,25 @@ describe('safeHttpUrl gating (F4)', () => {
     expect(screen.getByTestId('media-missing-bad')).toBeTruthy()
   })
 })
+
+describe('post badges (F15/F16)', () => {
+  it('renders pinned/edited badges on the card', () => {
+    renderCard(
+      <PostCard post={makePost({id: 'pb', pinned: true, editedAt: '2026-10-20T00:00:00.000Z'})} sessionId={SESSION} />,
+    )
+    expect(screen.getByTestId('post-badge-pinned-pb')).toBeTruthy()
+    expect(screen.getByTestId('post-badge-edited-pb')).toBeTruthy()
+  })
+
+  it('renders the quote authorization status on the quote card', () => {
+    const quoted = makePost({id: 'qs'})
+    const post = makePost({
+      id: 'qw',
+      content: {mfm: 'take', plain: 'take'},
+      quote: quoted,
+      ext: {quoteAuthorizationStatus: 'pending'},
+    })
+    renderCard(<PostCard post={post} sessionId={SESSION} />)
+    expect(screen.getByTestId('post-quote-qw-status')).toBeTruthy()
+  })
+})
