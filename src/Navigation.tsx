@@ -1,4 +1,4 @@
-import {useContext, useState} from 'react'
+import {useContext, useMemo, useState} from 'react'
 import {Image, Platform, Pressable, StyleSheet, View, type ViewStyle} from 'react-native'
 import {
   DarkTheme,
@@ -34,6 +34,7 @@ import {navigationRef} from '#/navigationRef'
 import type {RootParamList} from '#/routes'
 import {linkingScreens, rewriteLegacyPath, titleForRoute} from '#/routes'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
+import {useHosting} from '#/state/hosting'
 import {AuthCallbackScreen} from '#/screens/AuthCallback'
 import {AntennaScreen} from '#/screens/Antenna'
 import {AntennasScreen} from '#/screens/Antennas'
@@ -81,6 +82,78 @@ export const linking: LinkingOptions<StackParamList> = {
   },
   getStateFromPath: (path, options) =>
     defaultGetStateFromPath(rewriteLegacyPath(path), options),
+}
+
+// --- Base-path hosting (N13) -------------------------------------------------
+// `HostingResolution.basePath` is the router namespace (`/.../` form, `/`
+// for root deploys). Dev stays root `/`; when the runtime config pins a
+// sub-path the deep-link parser must strip it before the default parser
+// runs, or no non-root URL resolves. Honest fallback: unknown base → `/`.
+
+/** Normalize a base to the no-trailing-slash form (`/` stays `/`). */
+export function normalizeShellBase(base: string | null | undefined): string {
+  if (base == null) return '/'
+  const v = base.trim()
+  if (v === '' || v === '/') return '/'
+  const leading = v.startsWith('/') ? v : `/${v}`
+  const stripped = leading.replace(/\/+$/, '')
+  return stripped === '' ? '/' : stripped
+}
+
+/** Strip the deploy base off a path (`/keystone/notes/x` → `/notes/x`). */
+export function stripShellBase(path: string, base: string | null | undefined): string {
+  const b = normalizeShellBase(base)
+  if (b === '/') return path
+  if (path === b) return '/'
+  if (path.startsWith(`${b}/`)) return path.slice(b.length)
+  return path
+}
+
+/** Base-aware `getStateFromPath`: strip base, rewrite legacy URLs, parse. */
+export function getStateFromPathWithBase(
+  path: string,
+  base: string | null | undefined,
+  options?: Parameters<typeof defaultGetStateFromPath>[1],
+) {
+  return defaultGetStateFromPath(rewriteLegacyPath(stripShellBase(path, base)), options)
+}
+
+/** Prefix list for a base (`/` → root only, else root + the base). */
+export function linkingPrefixesForBase(base: string | null | undefined): string[] {
+  const b = normalizeShellBase(base)
+  const root = Linking.createURL('/')
+  if (b === '/') return [root]
+  return [root, b]
+}
+
+// --- Last feed + scroll memory (N14) ------------------------------------------
+// The shell back control's fallback when there is no back history
+// (deep-linked stack screens): the last visited feed tab, else Home.
+// The memory itself lives in `#/state/feedMemory` (pure module state —
+// the chrome lives outside every navigator, and feed views import it
+// without dragging the whole shell in). Re-exported here so existing
+// importers keep working.
+export {
+  clearFeedScrolls,
+  feedScrollKey,
+  lastFeedTabName,
+  readFeedScroll,
+  recordFeedVisit,
+  resetLastFeed,
+  saveFeedScroll,
+  type FeedTabKey,
+} from '#/state/feedMemory'
+import {lastFeedTabName as lastFeedTab, recordFeedVisit} from '#/state/feedMemory'
+
+/** Shared shell back: go back when history exists, else the last feed
+ * (Home by default) — never a silent no-op on deep-linked stacks. */
+export function goBackOrFeed(): void {
+  if (!navigationRef.isReady()) return
+  if (navigationRef.canGoBack()) {
+    navigationRef.goBack()
+    return
+  }
+  goMainTab(lastFeedTab())
 }
 
 /** Deepest focused route (name + params) anywhere in the tree. The shell
@@ -221,6 +294,70 @@ function NotificationsUnreadBadgeInner({
   )
 }
 
+// --- Account menu (N16) ------------------------------------------------------
+// v1 `AccountCard` parity, shell-chrome edition: the sidebar footer avatar
+// and the mobile strip avatar open a small menu — Profile shortcut (own
+// User tab) + Accounts & settings (Settings). No new screens; sign-out
+// stays where it is (Settings). Plain anchored list reusing Button text
+// styles; closes on selection.
+function AccountMenu({onClose, testPrefix}: {onClose: () => void; testPrefix: string}) {
+  const alf = useAlfTheme()
+  const item = (key: string, label: string, onPress: () => void) => (
+    <Pressable
+      key={key}
+      onPress={() => {
+        onClose()
+        onPress()
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      testID={`${testPrefix}-${key}`}
+      style={{
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+      }}>
+      <Body>{label}</Body>
+    </Pressable>
+  )
+  return (
+    <View
+      testID={testPrefix}
+      accessibilityRole="menu"
+      style={{
+        position: 'absolute',
+        minWidth: 200,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: alf.palette.border,
+        backgroundColor: alf.palette.bg,
+        overflow: 'hidden',
+      }}>
+      {item('profile', 'Profile', () => goMainTab('User'))}
+      {item('settings', 'Accounts & settings', () => {
+        if (navigationRef.isReady()) navigationRef.navigate('Settings')
+      })}
+    </View>
+  )
+}
+
+function AccountButton({testPrefix}: {testPrefix: string}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <View>
+      <Pressable
+        onPress={() => setOpen(v => !v)}
+        accessibilityRole="button"
+        accessibilityLabel="Account menu"
+        accessibilityState={{expanded: open}}
+        hitSlop={8}
+        testID={testPrefix}>
+        <AccountAvatar />
+      </Pressable>
+      {open ? <AccountMenu onClose={() => setOpen(false)} testPrefix={`${testPrefix}-menu`} /> : null}
+    </View>
+  )
+}
+
 // --- Mobile top strip (Keystone v1 `.mobile-account`): back | section
 // title | account. Only in the mobile layout; wider shells use the
 // sidebar + pageheads instead.
@@ -235,11 +372,7 @@ function MobileStrip({leaf}: {leaf: LeafState}) {
       ]}>
       <View style={styles.stripSide}>
         <Pressable
-          onPress={() => {
-            // Live off the root ref: a value captured at render time would
-            // go stale and strand the back button on pushed screens.
-            if (navigationRef.isReady() && navigationRef.canGoBack()) navigationRef.goBack()
-          }}
+          onPress={goBackOrFeed}
           accessibilityRole="button"
           accessibilityLabel="Back"
           hitSlop={12}
@@ -252,14 +385,7 @@ function MobileStrip({leaf}: {leaf: LeafState}) {
       </Body>
       <View style={[styles.stripSide, styles.stripRight]}>
         {session ? (
-          <Pressable
-            onPress={() => navigationRef.navigate('Settings')}
-            accessibilityRole="button"
-            accessibilityLabel="Accounts and settings"
-            hitSlop={8}
-            testID="strip-account">
-            <AccountAvatar />
-          </Pressable>
+          <AccountButton testPrefix="strip-account" />
         ) : (
           <Pressable
             onPress={() => navigationRef.navigate('Login')}
@@ -407,18 +533,14 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
       <View style={{flex: 1}} />
       <View style={[styles.navuser, {borderTopColor: alf.palette.border}]}>
         {session ? (
-          <Pressable
-            onPress={() => navigationRef.navigate('Settings')}
-            accessibilityRole="button"
-            accessibilityLabel="Accounts and settings"
-            style={[styles.navlink, rail && styles.navlinkRail]}>
-            <AccountAvatar />
+          <View style={[styles.navlink, rail && styles.navlinkRail]}>
+            <AccountButton testPrefix="sidebar-account" />
             {rail ? null : (
               <Body numberOfLines={1} style={{flex: 1, minWidth: 0}}>
                 {session.user?.displayName ?? session.accountId}
               </Body>
             )}
-          </Pressable>
+          </View>
         ) : (
           <Pressable
             onPress={() => goMainTab('Login')}
@@ -507,6 +629,20 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
   const {rightNavVisible} = useLayoutBreakpoints()
   const [leaf, setLeaf] = useState<LeafState>({name: undefined})
   const alf = useAlfTheme()
+  // Runtime deploy base (hosting boot in Root.tsx): subscribe, never a
+  // build-time constant. Unresolved (bare tests, no provider) → root `/`.
+  const hosting = useHosting()
+  const shellBase = normalizeShellBase(hosting?.basePath)
+  const shellLinking = useMemo<LinkingOptions<StackParamList>>(
+    () => ({
+      prefixes: linkingPrefixesForBase(shellBase),
+      config: {
+        screens: linkingScreens(),
+      },
+      getStateFromPath: (path, options) => getStateFromPathWithBase(path, shellBase, options),
+    }),
+    [shellBase],
+  )
   const mobile = layout === 'mobile'
   const wide = Platform.OS === 'web' && rightNavVisible
   // The compose overlay takes over the whole viewport (v1): the mobile
@@ -527,18 +663,26 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
     <NavigationContainer
       ref={navigationRef}
       theme={navTheme}
-      linking={linking}
+      linking={shellLinking}
       initialState={initialState}
       onReady={() => {
         try {
           const state = navigationRef.getState()
-          if (state) setLeaf(leafOf(state))
+          if (state) {
+            const next = leafOf(state)
+            recordFeedVisit(next)
+            setLeaf(next)
+          }
         } catch {
           // Not ready yet; the state callback lands on first navigation.
         }
       }}
       onStateChange={state => {
-        if (state) setLeaf(leafOf(state))
+        if (state) {
+          const next = leafOf(state)
+          recordFeedVisit(next)
+          setLeaf(next)
+        }
       }}>
       <PostHandlersProvider>
         <View

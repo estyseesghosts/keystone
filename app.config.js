@@ -30,9 +30,20 @@ module.exports = function (_config) {
       },
       android: {
         package: 'app.keystone.dev',
+        adaptiveIcon: {
+          foregroundImage: './assets/adaptive-icon.png',
+          backgroundColor: '#1f3a5f',
+        },
       },
+      icon: './assets/icon.png',
       web: {
         bundler: 'metro',
+        favicon: './assets/favicon.png',
+        splash: {
+          image: './assets/splash.png',
+          resizeMode: 'cover',
+          backgroundColor: '#1f3a5f',
+        },
       },
       plugins: [],
     },
