@@ -18,7 +18,8 @@ import {
 } from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
-import {Body, Caption, Heading} from '#/alf/typography'
+import {Body, Caption} from '#/alf/typography'
+import {DisplayName} from '#/components/DisplayName'
 import {RichText} from '#/components/RichText'
 import {space} from '#/alf/tokens'
 import {ProfileAvatar} from '#/components/Profile/ProfileAvatar'
@@ -79,6 +80,16 @@ export function ProfileHeader({
           : null,
     [account.bio.html, account.bio.mfm],
   )
+  // Profile fields (C14): Mastodon-family values arrive as HTML, Misskey
+  // values as plain text — both go through the allow-listed AST so no
+  // raw markup ever renders. Unparseable-but-nonempty values fall back
+  // to plain text (shown, never dropped).
+  const fieldNodes = useMemo(
+    () => account.fields.map(f => contentFromHtml(f.value)),
+    // `fields` is replaced wholesale by the adapter; the array identity
+    // is the correct dep.
+    [account.fields],
+  )
   return (
     <View testID="profile-header">
       <ProfileBanner uri={account.headerUrl} />
@@ -89,7 +100,8 @@ export function ProfileHeader({
           </View>
           <View style={styles.actionSlot}>{actions}</View>
         </View>
-        <Heading testID="profile-name">{displayNameOf(account)}</Heading>
+        {/* F11-half: custom-emoji names render through DisplayName. */}
+        <DisplayName account={account} size={20} testID="profile-name" />
         {hasRealDisplayName(account) ? (
           <Caption color="faint" testID="profile-handle">
             {handleOf(account)}
@@ -106,6 +118,27 @@ export function ProfileHeader({
           />
         ) : account.bio.plain ? (
           <Body testID="profile-bio">{account.bio.plain}</Body>
+        ) : null}
+        {account.fields.length > 0 ? (
+          <View testID="profile-fields" style={styles.fields}>
+            {account.fields.map((f, i) => (
+              <View key={`${f.name}-${i}`} testID={`profile-field-${i}`}>
+                <Caption color="faint">
+                  {f.name}
+                  {f.verifiedAt ? ' · Verified.' : ''}
+                </Caption>
+                {fieldNodes[i]?.length ? (
+                  <RichText
+                    nodes={fieldNodes[i]}
+                    emojis={account.emojis}
+                    textStyle={{color: theme.palette.text}}
+                  />
+                ) : (
+                  <Body>{f.value}</Body>
+                )}
+              </View>
+            ))}
+          </View>
         ) : null}
         <StatsLine account={account} isSelf={isSelf} />
         <FollowStateCaption relationship={relationship} />
@@ -127,4 +160,5 @@ const styles = StyleSheet.create({
   },
   avatarOverlap: {marginTop: -36},
   actionSlot: {flex: 1, alignItems: 'flex-end', justifyContent: 'center'},
+  fields: {gap: space.sm},
 })
