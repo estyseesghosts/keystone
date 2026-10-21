@@ -2,6 +2,14 @@
 // or know query rules — they call these. Everything runs on the Phase 1
 // transport (`client.ts`) and pagination (`pagination.ts`).
 //
+// Error contract: these functions throw the RAW `MastoHttpError` — the
+// backend's guarded client adapts it to the shared `ApiError` at the
+// boundary (so `isUnsupportedError`/`isPermissionError` work identically
+// on both families). DIRECT callers (tests, scripts, future services)
+// must run failures through `client.toApiError` themselves before
+// probing support — an unadapted `MastoHttpError` is invisible to the
+// shared predicates (MD12).
+//
 // Phase 2 surface: home/local/public timelines + account + relationship
 // reads (keystodon.md §12). Phase 3 additions (handoff §2.3/§2.4): tag
 // timeline, v2 search, status detail + context, account statuses,
@@ -16,7 +24,7 @@
 // back to cursor carryover — `nextContinuation`).
 
 import { createClient, MastoHttpError } from "./client";
-import { FediError } from "../core/errors";
+import { ApiError, FediError } from "../core/errors";
 import type { MastoClient, QueryValue } from "./client";
 import { adaptAccount, adaptRelationship, adaptStatus } from "./adapt";
 import type { StatusBody } from "./compose";
@@ -31,6 +39,7 @@ import type {
   MediaAttachment,
   Notification as WireNotification,
   Relationship as WireRelationship,
+  ScheduledStatus as WireScheduledStatus,
   Status,
 } from "./wire";
 
@@ -154,6 +163,84 @@ export async function getAccount(
     throw new FediError(`Account ${id} returned an unexpected response shape.`, "errors.shape.account", { id });
   }
   return adaptAccount(res.data);
+}
+
+function isAbsentEndpoint(err: unknown): boolean {
+  // The backend's guarded client adapts MastoHttpError → ApiError BEFORE
+  // endpoint code runs, so absence arrives as EITHER class (raw for
+  // direct endpoint callers, adapted behind the backend). Both read the
+  // same 404/405 rule — anything else rethrows, never falls back.
+  const status =
+    err instanceof MastoHttpError || err instanceof ApiError ? err.status : null;
+  return status === 404 || status === 405;
+}
+
+/**
+ * Handle → account with older-server fallbacks (contract §4 `lookup`).
+ *
+ * 1. `GET /api/v1/accounts/lookup?acct=` (exact, the modern path);
+ * 2. on 404/405 ONLY (older servers without `lookup`): `GET
+ *    /api/v1/accounts/search?q=&limit=5`, first EXACT `acct` match
+ *    (case-insensitive — a near miss is never returned as the account);
+ * 3. on 404/405 there too: `GET /api/v2/search` with `resolve=true`,
+ *    same exact-match rule.
+ *
+ * Anything else (401/403 auth, timeout, 5xx) rethrows — a refused lookup
+ * is never masked as "not found". No match anywhere reads 404 (the
+ * profile renders unavailable, never a wrong account). `read:search` is
+ * the scope the fallbacks need (already in `oauth.MASTO_SCOPES`); a
+ * strict server 403s there and the caller surfaces it honestly.
+ */
+export async function resolveAccountByHandle(
+  client: MastoClient,
+  acct: string,
+): Promise<Account> {
+  try {
+    const res = await client.get<WireAccount>("/api/v1/accounts/lookup", { acct });
+    if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
+      throw new FediError(
+        `No account found for ${acct}.`,
+        "errors.shape.noAccountFound",
+        { acct },
+      );
+    }
+    return adaptAccount(res.data);
+  } catch (err) {
+    if (!isAbsentEndpoint(err)) throw err;
+  }
+  const exact = (a: WireAccount): boolean =>
+    typeof a.acct === "string" && a.acct.toLowerCase() === acct.toLowerCase();
+  try {
+    const res = await client.get<WireAccount[]>("/api/v1/accounts/search", {
+      q: acct,
+      limit: 5,
+    });
+    const hit = Array.isArray(res.data) ? res.data.find(exact) : undefined;
+    if (hit) return adaptAccount(hit);
+  } catch (err) {
+    if (!isAbsentEndpoint(err)) throw err;
+  }
+  try {
+    const res = await client.get<{ accounts?: WireAccount[] }>("/api/v2/search", {
+      q: acct,
+      resolve: true,
+      type: "accounts",
+      limit: 5,
+    });
+    const hit = Array.isArray(res.data?.accounts) ? res.data.accounts.find(exact) : undefined;
+    if (hit) return adaptAccount(hit);
+  } catch (err) {
+    if (!isAbsentEndpoint(err)) throw err;
+  }
+  // No match anywhere: 404 (the profile renders unavailable, never a
+  // wrong account) — same status the direct /lookup path always read.
+  throw new ApiError(
+    `No account found for ${acct}.`,
+    404,
+    "errors.shape.noAccountFound",
+    undefined,
+    { acct },
+  );
 }
 
 /** How a profile lookup failure reads on screen (phase3-handoff §2.6):
@@ -755,6 +842,36 @@ export async function reportAccount(
     account_id: accountId,
     comment,
   });
+}
+
+/**
+ * `GET /api/v1/scheduled_statuses` — one Link-paged page of the viewer's
+ * scheduled posts (contract §4). Same continuation/end rules as every
+ * other listing (contract §5). Rows carry `params` + `media_attachments`
+ * where the server packs them (the backend adapts those into the
+ * `ScheduledNote` draft preview); rows with neither still list honestly
+ * with `post: null, draft: null`.
+ */
+export async function fetchScheduledStatusesPage(
+  client: MastoClient,
+  opts: TimelinePageOptions = {},
+): Promise<ContinuationPage<WireScheduledStatus>> {
+  const path =
+    opts.continuation?.kind === "url" ? opts.continuation.url : "/api/v1/scheduled_statuses";
+  const res = await client.get<WireScheduledStatus[]>(path, pageQuery(opts));
+  if (!Array.isArray(res.data)) {
+    throw new FediError(
+      `Expected a scheduled-status list (HTTP ${res.status}).`,
+      "errors.shape.expectedList",
+      { kind: "scheduled", status: res.status },
+    );
+  }
+  const continuation = nextContinuation(res.headers, client.origin);
+  return {
+    items: res.data,
+    continuation,
+    end: continuation === null || res.data.length === 0,
+  };
 }
 
 // --- Follow requests (contract §4) ----------------------------------------

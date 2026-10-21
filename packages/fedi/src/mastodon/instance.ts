@@ -12,7 +12,7 @@
 // - Feature flags distinguish "supported" / "unsupported" / "unknown";
 //   extension gating elsewhere keys off this (contract §9).
 
-import { isUnsupportedError, request } from "./client";
+import { isUnsupportedError, request, toApiError } from "./client";
 import { resolveSameOriginUrl } from "../core/http";
 import type { InstanceV1, InstanceV2, NodeInfo } from "./wire";
 
@@ -83,7 +83,10 @@ export function normalizeStreamingOrigin(raw: unknown): string | null {
 /** Family detection: substring markers on the version FIRST (Akkoma's
  * format changed across releases — "compatible; Pleroma" → "compatible;
  * Akkoma" — never parse strictly), then response shape, then NodeInfo.
- * Stays "unknown" when the evidence is ambiguous. */
+ * Mastodon forks collapse to `mastodon` (MD11): glitch-soc and Hometown
+ * report Mastodon-compatible versions, GoToSocial speaks the Mastodon
+ * API — recorded live-unverified (no GTS on the rig). Stays "unknown"
+ * when the evidence is ambiguous. */
 export function detectFamily(
   version: string | null,
   pleromaBody: boolean,
@@ -93,7 +96,13 @@ export function detectFamily(
   const v = (version ?? "").toLowerCase();
   if (v.includes("akkoma")) return "akkoma";
   if (v.includes("pleroma")) return "pleroma";
-  if (v.includes("mastodon")) return "mastodon";
+  if (
+    v.includes("mastodon") ||
+    v.includes("glitch") ||
+    v.includes("hometown") ||
+    v.includes("gotosocial")
+  )
+    return "mastodon";
   // Shape evidence: Akkoma/Pleroma always serialize `pleroma.metadata`;
   // Akkoma advertises its own feature flag.
   if (pleromaBody || pleromaFeatures.includes("akkoma_api")) {
@@ -102,7 +111,11 @@ export function detectFamily(
   const soft = (nodeinfoName ?? "").toLowerCase();
   if (soft === "akkoma") return "akkoma";
   if (soft === "pleroma") return "pleroma";
-  if (soft === "mastodon") return "mastodon";
+  // NodeInfo `software.name` for the collapsed forks (MD11 — same
+  // Mastodon-API treatment as the version markers above).
+  if (soft === "mastodon" || soft === "glitch-soc" || soft === "hometown" || soft === "gotosocial") {
+    return "mastodon";
+  }
   return "unknown";
 }
 
@@ -189,9 +202,24 @@ export async function fetchNodeinfo(
 /**
  * Fetch and normalize instance metadata for `origin`.
  * v2 → v1 fallback on 404/405 only; every other failure propagates as a
- * typed error (a timeout is never treated as "v2 missing").
+ * typed error (a timeout is never treated as "v2 missing"). Transport
+ * failures leave here as the shared `ApiError` (MD12 — so
+ * `isUnsupportedError`/`isPermissionError` read direct instance calls
+ * the same as backend calls); the v2→v1 probe still branches on the raw
+ * transport error internally.
  */
 export async function fetchInstanceCapabilities(
+  origin: string,
+  opts: { timeoutMs?: number; token?: string | null } = {},
+): Promise<InstanceCapabilities> {
+  try {
+    return await fetchInstanceCapabilitiesInner(origin, opts);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+async function fetchInstanceCapabilitiesInner(
   origin: string,
   opts: { timeoutMs?: number; token?: string | null } = {},
 ): Promise<InstanceCapabilities> {

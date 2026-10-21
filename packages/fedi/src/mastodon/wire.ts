@@ -420,6 +420,29 @@ export interface NodeInfo {
   [key: string]: unknown;
 }
 
+// --- Scheduled statuses -----------------------------------------------------
+
+/**
+ * `GET /api/v1/scheduled_statuses` row (contract §4). `params` carries the
+ * compose payload (text, spoiler_text, visibility, media_ids, poll, …);
+ * `media_attachments` carries the already-uploaded attachments so a
+ * preview can render without re-uploading. Both are absent on servers
+ * that pack only `{id, scheduled_at}`.
+ */
+export interface ScheduledStatus {
+  id: ID;
+  scheduled_at: string;
+  params?: {
+    text?: string | null;
+    spoiler_text?: string | null;
+    visibility?: string | null;
+    media_ids?: ID[] | null;
+    poll?: { options?: string[]; expires_in?: number; multiple?: boolean } | null;
+    [key: string]: unknown;
+  } | null;
+  media_attachments?: MediaAttachment[] | null;
+}
+
 // --- OAuth ----------------------------------------------------------------
 
 /** `POST /api/v1/apps` response (contract §2.1). */

@@ -1,0 +1,8 @@
+{
+  "id": "f1",
+  "title": "spoilers",
+  "context": ["home", "public"],
+  "expires_at": null,
+  "filter_action": "hide",
+  "keywords": [{ "id": "k1", "keyword": "spoiler", "whole_word": true }]
+}

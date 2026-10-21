@@ -19,6 +19,7 @@
 //   resolved and REJECTED cross-origin before any request is sent.
 
 import type { OAuthErrorBody } from "./wire";
+import { ApiError } from "../core/errors";
 import { HttpError, type HttpErrorKind } from "../core/http";
 import type { HttpMethod } from "../core/http";
 import { resolveSameOriginUrl } from "../core/http";
@@ -93,6 +94,26 @@ export function isRateLimitError(err: unknown): boolean {
 
 export function isTimeoutError(err: unknown): boolean {
   return err instanceof MastoHttpError && err.kind === "timeout";
+}
+
+/**
+ * Transport errors become the UI's shared `ApiError` AT the boundary, so
+ * every honest-state rule the Misskey family relies on (`isUnsupportedError`
+ * = 404/405, `isPermissionError` = 401/403) reads the same here. A
+ * timeout keeps `kind: "timeout"` — it is never "endpoint unsupported".
+ * Non-transport values pass through untouched. Direct endpoint / oauth /
+ * instance callers (which bypass the backend's guarded client) should run
+ * failures through this before probing support — MD12.
+ */
+export function toApiError(err: unknown): unknown {
+  if (err instanceof MastoHttpError) {
+    const code =
+      err.body !== null && typeof err.body === "object"
+        ? ((err.body as { error?: unknown }).error as string | undefined)
+        : undefined;
+    return new ApiError(err.message, err.status, code, err.kind);
+  }
+  return err;
 }
 
 // --- Query strings --------------------------------------------------------

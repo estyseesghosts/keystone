@@ -52,6 +52,7 @@ import type {
   PageOpts,
   PostDraft,
   ProfileUpdate,
+  ScheduledNote,
   SearchPostsOpts,
   StreamHandle,
   TimelineKind,
@@ -63,7 +64,6 @@ import type { Capabilities, DetectionEvidence, ServerFlavor } from "../core/dete
 import { buildCapabilities } from "../core/detect";
 import { ApiError, FediError } from "../core/errors";
 import {
-  adaptAccount,
   adaptCredentialAccount,
   adaptMedia,
   adaptNotification,
@@ -85,6 +85,7 @@ import {
   fetchCustomEmojis,
   fetchFollowRequestsPage,
   fetchNotificationsPage,
+  fetchScheduledStatusesPage,
   fetchStatusAccountPage,
   fetchV2NotificationRows,  fetchSuggestions,
   fetchTimelinePage,
@@ -100,6 +101,7 @@ import {
   markNotificationsRead,
   muteStatusThread,
   reportAccount,
+  resolveAccountByHandle,
   searchV2,
   setBlocked,
   setFollowing,
@@ -113,35 +115,28 @@ import { createStatus, setEmojiReaction, setStatusToggle } from "./statusActions
 import { newIdempotencyKey, statusBodyOf } from "./compose";
 import { rebuildThread } from "./thread";
 import { createStreamHandle } from "./stream";
-import { MastoHttpError, createClient } from "./client";
+import { createClient, toApiError as clientToApiError } from "./client";
 import type { MastoClient, QueryValue } from "./client";
 import { listsContaining as listsContainingMasto, addToList as addToListMasto, removeFromList as removeFromListMasto } from "./listMembership";
 import type { Continuation } from "./pagination";
 import { nextContinuation, withCursors } from "./pagination";
 import type {
-  Account as WireAccount,
   CredentialAccount,
   MediaAttachment,
+  ScheduledStatus as WireScheduledStatus,
   Status as WireStatus,
 } from "./wire";
 
 // --- Error adaptation (the one boundary) -----------------------------------
 
 /**
- * Transport errors become the UI's shared `ApiError` AT the boundary, so
- * every honest-state rule the Misskey family relies on (`isUnsupportedError`
- * = 404/405, `isPermissionError` = 401/403) reads the same here. A
- * timeout keeps `kind: "timeout"` — it is never "endpoint unsupported".
+ * Transport errors become the UI's shared `ApiError` AT the boundary (see
+ * `client.toApiError` — the canonical implementation lives there so
+ * direct endpoint/oauth/instance callers can adapt too). A timeout keeps
+ * `kind: "timeout"` — it is never "endpoint unsupported".
  */
 export function toApiError(err: unknown): unknown {
-  if (err instanceof MastoHttpError) {
-    const code =
-      err.body !== null && typeof err.body === "object"
-        ? ((err.body as { error?: unknown }).error as string | undefined)
-        : undefined;
-    return new ApiError(err.message, err.status, code, err.kind);
-  }
-  return err;
+  return clientToApiError(err);
 }
 
 /** The server has no such endpoint (contract §3: 404/405 mean absent —
@@ -297,10 +292,13 @@ export interface MastodonBackendOptions {
   flavor?: ServerFlavor;
   /** Detection evidence (feature flags from instance metadata). */
   evidence?: DetectionEvidence;
+  /** Advertised streaming origin (`instance.ts` `streamingOrigin` — the
+   * `configuration.urls.streaming` host, which may differ from the REST
+   * origin). Falls back to the session origin when absent (MD10). */
+  streamingOrigin?: string | null;
 }
 
 const DEFAULT_LIMIT = 20;
-const FOLLOW_REQUESTS_LIMIT = 40;
 
 export function createMastodonBackend(
   rawClient: MastoClient = createClient("https://example.invalid", null),
@@ -308,6 +306,7 @@ export function createMastodonBackend(
 ): Backend {
   const client = guarded(rawClient);
   const flavor: ServerFlavor = opts.flavor ?? "unknown";
+  const streamOrigin = opts.streamingOrigin ?? null;
   const capabilities: Capabilities = buildCapabilities(flavor, opts.evidence ?? {});
 
   // --- paging seams -------------------------------------------------------
@@ -370,6 +369,17 @@ export function createMastodonBackend(
 
   async function me(): Promise<Account> {
     return adaptCredentialAccount(await verifySelf(client));
+  }
+
+  // The followee on incoming-request rows is the viewer: fetched once per
+  // backend instance and reused (MD7 — one `verify_credentials` per
+  // handle, not one per `followRequests()` call). The guarded client is
+  // bound to one (origin, token) pair, so the cache cannot serve another
+  // session's account.
+  let selfCache: Account | null = null;
+  async function cachedSelf(): Promise<Account> {
+    if (!selfCache) selfCache = await me();
+    return selfCache;
   }
 
   return {
@@ -505,18 +515,10 @@ export function createMastodonBackend(
       const acct = ref.host ? `${ref.username}@${ref.host}` : ref.username;
       if (!acct)
         throw new ApiError("No account reference given.", 400, "errors.unsupported.noAccountRef");
-      // Handle lookup (contract §4 `accounts/lookup`).
-      const res = await client.get<WireAccount>("/api/v1/accounts/lookup", { acct });
-      if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
-        throw new ApiError(
-          `No account found for ${acct}.`,
-          404,
-          "errors.unsupported.noAccountFound",
-          undefined,
-          { acct },
-        );
-      }
-      return adaptAccount(res.data);
+      // Handle lookup with older-server fallbacks (MD8 — `lookup` 404s
+      // on servers without it; search paths need `read:search`, already
+      // in the OAuth scope set; a strict-server 403 stays a 403).
+      return resolveAccountByHandle(client, acct);
     },
 
     async accountPosts(id, opts: AccountPostsOpts = {}) {
@@ -575,13 +577,17 @@ export function createMastodonBackend(
       await setStatusPinned(client, id, false);
     },
 
-    async followRequests(): Promise<FollowRequest[]> {
+    async followRequests(opts: PageOpts = {}): Promise<FollowRequest[]> {
       // The wire list is accounts; the core row pairs follower+followee
-      // (the followee is the viewer on incoming requests).
-      const self = await me();
-      const page = await fetchFollowRequestsPage(client, {
-        limit: FOLLOW_REQUESTS_LIMIT,
-      });
+      // (the followee is the viewer on incoming requests). One Link page
+      // per call: the historical default is one 40-row page (MD7) unless
+      // the caller passes its own limit/cursor — the array return stays
+      // BACKWARD-COMPAT (no cursor is threaded back; full paging rides
+      // the exported endpoint + continuation directly).
+      const self = await cachedSelf();
+      const paging = pageOpts(opts);
+      if (paging.continuation == null && opts.limit === undefined) paging.limit = 40;
+      const page = await fetchFollowRequestsPage(client, paging);
       return page.items.map((follower) => ({ id: follower.id, follower, followee: self }));
     },
 
@@ -607,17 +613,50 @@ export function createMastodonBackend(
       if (patch.avatarId || patch.bannerId) {
         unsupported("errors.unsupported.avatar");
       }
+      // Misskey-family-only generics have NO update_credentials field:
+      // refused honestly (never silently dropped — MD6). The app's
+      // profile editor disables these rows on this family, so this
+      // throws only for direct callers.
+      const unsupportedFields: string[] = [];
+      if (patch.location !== undefined) unsupportedFields.push("location");
+      if (patch.birthday !== undefined) unsupportedFields.push("birthday");
+      if (patch.followedMessage !== undefined) unsupportedFields.push("followedMessage");
+      if (unsupportedFields.length > 0) {
+        throw new FediError(
+          `This server has no profile field for ${unsupportedFields.join(", ")}.`,
+          "errors.unsupported.profileField",
+          { fields: unsupportedFields },
+        );
+      }
       const body: Record<string, unknown> = {};
       if (patch.name !== undefined) body.display_name = patch.name ?? "";
       if (patch.bio !== undefined) body.note = patch.bio ?? "";
       if (patch.locked !== undefined) body.locked = patch.locked;
       if (patch.bot !== undefined) body.bot = patch.bot;
       if (patch.fields !== undefined) {
+        // Wire cap is 4 entries (the server 422s beyond); edited rows
+        // re-verify server-side, never kept.
         body.fields_attributes = (patch.fields ?? []).map((f) => ({
           name: f.name,
           value: f.value,
         }));
       }
+      // `lang` ↔ the credential `source.language` (snake_case wire —
+      // never `locale`). Null clears where the server allows it.
+      const source: Record<string, unknown> = {};
+      if (patch.lang !== undefined) source.language = patch.lang;
+      // Family extras ride ONLY where the wire supports them
+      // (snake_case allow-list — strict servers 400 unknown fields, so
+      // verbatim passthrough of arbitrary keys is never sent). Unknown
+      // `ext` keys are ignored, never fabricated into the body.
+      const ext = patch.ext ?? {};
+      for (const key of ["discoverable", "hide_collections", "indexable"] as const) {
+        if (ext[key] !== undefined) body[key] = ext[key];
+      }
+      if (ext.source !== undefined && typeof ext.source === "object" && ext.source !== null) {
+        Object.assign(source, ext.source as Record<string, unknown>);
+      }
+      if (Object.keys(source).length > 0) body.source = source;
       const res = await client.patch<CredentialAccount>(
         "/api/v1/accounts/update_credentials",
         body,
@@ -1067,17 +1106,10 @@ export function createMastodonBackend(
 
     scheduled: {
       async list(opts = {}) {
-        const res = await client.get<Array<{ id: string; scheduled_at: string }>>(
-          "/api/v1/scheduled_statuses",
-          { limit: opts.limit ?? 20 },
-        );
-        const items = Array.isArray(res.data) ? res.data : [];
-        return items.map((s) => ({
-          id: s.id,
-          scheduledAt: s.scheduled_at,
-          post: null,
-          draft: null,
-        }));
+        // Link-paged like every other listing; rows adapt their wire
+        // `params`/`media_attachments` into the draft preview below.
+        const page = await fetchScheduledStatusesPage(client, pageOpts(opts));
+        return page.items.map(adaptScheduledRow);
       },
       async create(draft) {
         const body = statusBodyOf(draft);
@@ -1104,12 +1136,57 @@ export function createMastodonBackend(
     },
 
     stream(): StreamHandle | null {
-      return createStreamHandle(client.origin, { token: client.token });
+      // Single pooled handle per backend (MD10): one socket per
+      // (stream, params) key, shared across timeline + notification +
+      // post subscriptions — subscribing never closes another feed's
+      // socket. The socket dials the ADVERTISED streaming origin, never
+      // an assumed REST-host mapping.
+      return createStreamHandle(client.origin, {
+        token: client.token,
+        streamingOrigin: streamOrigin,
+      });
     },
   };
 }
 
 // --- helpers bound to the transport ----------------------------------------
+
+/**
+ * Wire scheduled row → core `ScheduledNote` (MD9 — still the
+ * `{post, draft}` shape, no interface change). `params` fills the draft
+ * preview (text/cw/visibility/media ids/poll, verbatim wire keys);
+ * `media_attachments` appends adapted media descriptors so a preview can
+ * render without re-uploading. `post` stays null: the row carries no
+ * author, and a Post with a fabricated author would be fake data.
+ */
+function adaptScheduledRow(row: WireScheduledStatus): ScheduledNote {
+  const params = row.params ?? null;
+  let draft: Record<string, unknown> | null = null;
+  if (params !== null && typeof params === "object") {
+    draft = { ...params };
+    if (params.text !== undefined) draft.text = params.text;
+    if (params.spoiler_text !== undefined) draft.cw = params.spoiler_text;
+    if (params.visibility !== undefined) draft.visibility = params.visibility;
+    if (params.media_ids !== undefined) draft.mediaIds = params.media_ids;
+    if (params.poll !== undefined) draft.poll = params.poll;
+    const media = Array.isArray(row.media_attachments) ? row.media_attachments : [];
+    if (media.length > 0) {
+      draft.media = media.map((m) => ({
+        id: m.id,
+        kind: m.type,
+        url: m.url ?? m.preview_url ?? null,
+        previewUrl: m.preview_url ?? m.url ?? null,
+        description: m.description ?? null,
+      }));
+    }
+  }
+  return {
+    id: row.id,
+    scheduledAt: row.scheduled_at,
+    post: null,
+    draft,
+  };
+}
 
 async function verifySelf(client: MastoClient): Promise<CredentialAccount> {
   const res = await client.get<CredentialAccount>(

@@ -1,0 +1,28 @@
+[
+  {
+    "id": "s1",
+    "scheduled_at": "2026-11-01T10:00:00.000Z",
+    "params": {
+      "text": "hello future",
+      "spoiler_text": "cw here",
+      "visibility": "unlisted",
+      "media_ids": ["m1"],
+      "poll": null
+    },
+    "media_attachments": [
+      {
+        "id": "m1",
+        "type": "image",
+        "url": "https://files.mastodon.example.com/media/m1.png",
+        "preview_url": "https://files.mastodon.example.com/media/m1-small.png",
+        "remote_url": null,
+        "description": "a cat",
+        "blurhash": null
+      }
+    ]
+  },
+  {
+    "id": "s2",
+    "scheduled_at": "2026-11-02T10:00:00.000Z"
+  }
+]
