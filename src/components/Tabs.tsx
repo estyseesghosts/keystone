@@ -68,6 +68,9 @@ export function Tabs<T extends string>({
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
+    // Grow to the full width so the hairline spans the screen even with
+    // two tabs; extra tabs scroll instead of overflowing.
+    flexGrow: 1,
     borderBottomWidth: borderWidth.hairline,
     paddingHorizontal: space.md,
   },

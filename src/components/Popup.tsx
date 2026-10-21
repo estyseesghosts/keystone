@@ -60,6 +60,102 @@ const CARET_MIN = 16
 
 export type PopupSide = 'below' | 'above'
 
+export type PopupLayout = {
+  left: number
+  top?: number
+  bottom?: number
+  maxH: number
+  cardWidth: number
+  effMinWidth: number
+  caret: {dx: number; side: 'top' | 'bottom'} | null
+}
+
+/** Pure viewport-clamped layout for an anchored popup card. The card never
+ * renders off-screen on either axis:
+ * - width is capped to the window minus margins, left is clamped into
+ *   `[EDGE, winW - EDGE - cardWidth]` (right-edge triggers pull fully on-screen)
+ * - the preferred side wins when it fits something useful (`MIN_SIDE`),
+ *   otherwise the other side is tried; `maxH` is the chosen side's
+ *   space minus `GAP`, so `top + maxH` / `bottom + maxH` stay in-viewport
+ * - when neither side fits (tiny viewport), the card falls back to a
+ *   centered full-height sheet with no caret instead of hanging off-screen
+ * - the caret aims at the trigger centre, clamped inside the card (or null
+ *   when the card is too narrow to hold it / not edge-anchored)
+ * Pure (unit-tested) so the math holds without rendering. */
+export function computePopupLayout({
+  x,
+  y,
+  w,
+  h,
+  winW,
+  winH,
+  side,
+  minWidth,
+}: {
+  x: number
+  y: number
+  w: number
+  h: number
+  winW: number
+  winH: number
+  side: PopupSide
+  minWidth: number
+}): PopupLayout {
+  const roomW = Math.max(0, winW - EDGE * 2)
+  const cardWidth = Math.min(CARD_MAX, roomW)
+  const effMinWidth = Math.min(minWidth, roomW)
+  const left = Math.min(Math.max(EDGE, x), Math.max(EDGE, winW - EDGE - cardWidth))
+  const availBelow = winH - (y + h) - EDGE
+  const availAbove = y - EDGE
+  // A side is usable only when it fits something useful AND the card edge
+  // nearest the trigger lands in-viewport (a scrolled-off trigger must not
+  // drag the card off-screen with it).
+  const fits = (useBelow: boolean): boolean => {
+    const avail = useBelow ? availBelow : availAbove
+    if (avail - GAP < MIN_SIDE) return false
+    const edge = useBelow ? y + h + GAP : y - GAP
+    return edge >= EDGE && edge <= winH - EDGE
+  }
+  const anchored = (useBelow: boolean): PopupLayout => {
+    const maxH = (useBelow ? availBelow : availAbove) - GAP
+    const caretSide: 'top' | 'bottom' = useBelow ? 'top' : 'bottom'
+    const caret =
+      cardWidth < CARET * 2
+        ? null
+        : {
+            dx: Math.min(Math.max(x + w / 2 - left, CARET_MIN), cardWidth - CARET_MIN),
+            side: caretSide,
+          }
+    return useBelow
+      ? {left, top: y + h + GAP, maxH, cardWidth, effMinWidth, caret}
+      : {left, bottom: winH - y + GAP, maxH, cardWidth, effMinWidth, caret}
+  }
+  if (side === 'below') {
+    if (fits(true)) return anchored(true)
+    if (fits(false)) return anchored(false)
+  } else {
+    if (fits(false)) return anchored(false)
+    if (fits(true)) return anchored(true)
+  }
+  return {left, top: EDGE, maxH: Math.max(0, winH - EDGE * 2), cardWidth, effMinWidth, caret: null}
+}
+
+/** Pre-measure / no-measurement fallback: viewport-centered card, sized
+ * within the window so first paint is never off-screen. */
+function fallbackPopupLayout(winW: number, winH: number, minWidth: number): PopupLayout {
+  const roomW = Math.max(0, winW - EDGE * 2)
+  const cardWidth = Math.min(CARD_MAX, roomW)
+  const effMinWidth = Math.min(minWidth, roomW)
+  return {
+    left: Math.max(EDGE, (winW - cardWidth) / 2),
+    top: winH * 0.25,
+    maxH: winH / 2,
+    cardWidth,
+    effMinWidth,
+    caret: null,
+  }
+}
+
 // Web `measureInWindow` reports document-relative coordinates while the
 // Modal portal positions viewport-relative; native reports window-relative
 // already. These normalize both to viewport coordinates (0 on native).
@@ -107,62 +203,48 @@ export function AnchoredPopup({
   // guaranteed to flush before assertions (or first paint), so the card
   // must never wait on them. `caret` is null until measured — no arrow is
   // better than an arrow pointing at the wrong place.
-  const [pos, setPos] = useState<{
-    left: number
-    top?: number
-    bottom?: number
-    maxH: number
-    caret: {dx: number; side: 'top' | 'bottom'} | null
-  }>(() => {
+  const [pos, setPos] = useState<PopupLayout>(() => {
     const win = Dimensions.get('window')
-    return {
-      left: Math.max(EDGE, (win.width - Math.min(minWidth, win.width - EDGE * 2)) / 2),
-      top: win.height * 0.25,
-      maxH: win.height / 2,
-      caret: null,
-    }
+    return fallbackPopupLayout(win.width, win.height, minWidth)
   })
 
   useEffect(() => {
-    const node = anchor.current as unknown as {
-      measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void
-    } | null
-    const win = Dimensions.get('window')
-    if (!node?.measureInWindow) {
-      // No measurement (jest, edge runtimes): center the card instead of
-      // rendering nothing — never a silent empty popup.
-      setPos({left: Math.max(EDGE, (win.width - minWidth) / 2), top: win.height * 0.25, maxH: win.height / 2, caret: null})
-      return
-    }
-    node.measureInWindow((mx, my, w, h) => {
-      const scroll = viewportScroll()
-      const x = mx - scroll.x
-      const y = my - scroll.y
-      // Size adapts to the viewport first: the card never exceeds the
-      // window minus margins, so it can never hang half off-screen.
-      const availBelow = win.height - (y + h) - EDGE
-      const availAbove = y - EDGE
-      // Preferred side wins when it fits something useful, else take
-      // whichever side has more room.
-      const belowFits = availBelow >= MIN_SIDE
-      const aboveFits = availAbove >= MIN_SIDE
-      const useBelow = side === 'below' ? belowFits || !aboveFits : belowFits && !aboveFits
-      const maxH = Math.max(MIN_SIDE, (useBelow ? availBelow : availAbove) - GAP)
-      // Anchor to the trigger's left edge; shift left while overflowing,
-      // so right-edge triggers (⋯) pull the card fully on-screen.
-      const cardWidth = Math.min(CARD_MAX, win.width - EDGE * 2)
-      const left = Math.min(Math.max(EDGE, x), Math.max(EDGE, win.width - EDGE - cardWidth))
-      // Caret: a diamond on the card edge aimed at the trigger's centre,
-      // clamped inside the card so the origin is always legible.
-      const caretSide = useBelow ? 'top' : 'bottom'
-      const caretDx = Math.min(Math.max(x + w / 2 - left, CARET_MIN), cardWidth - CARET_MIN)
-      const caret = {dx: caretDx, side: caretSide} as const
-      if (useBelow) {
-        setPos({left, top: y + h + GAP, maxH, caret})
-      } else {
-        setPos({left, bottom: win.height - y + GAP, maxH, caret})
+    const measure = () => {
+      const win = Dimensions.get('window')
+      const node = anchor.current as unknown as {
+        measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void
+      } | null
+      if (!node?.measureInWindow) {
+        // No measurement (jest, edge runtimes): center the card instead of
+        // rendering nothing — never a silent empty popup.
+        setPos(fallbackPopupLayout(win.width, win.height, minWidth))
+        return
       }
-    })
+      node.measureInWindow((mx, my, w, h) => {
+        // Re-read the window inside the callback: rotation/resize between
+        // the measure call and its result must not strand the card.
+        const now = Dimensions.get('window')
+        const scroll = viewportScroll()
+        setPos(
+          computePopupLayout({
+            x: mx - scroll.x,
+            y: my - scroll.y,
+            w,
+            h,
+            winW: now.width,
+            winH: now.height,
+            side,
+            minWidth,
+          }),
+        )
+      })
+    }
+    measure()
+    // Viewport changes (rotation, window resize incl. web): re-measure so
+    // the card re-clamps instead of stranding off-screen. RN-web forwards
+    // window resizes to Dimensions, so one subscription covers all platforms.
+    const sub = Dimensions.addEventListener('change', measure)
+    return () => sub.remove()
   }, [anchor, minWidth, side])
 
   // The backdrop label is UI chrome (Lingui macro); the singleton call
@@ -183,8 +265,8 @@ export function AnchoredPopup({
           {
             left: pos.left,
             ...(pos.top !== undefined ? {top: pos.top} : {bottom: pos.bottom}),
-            width: Math.min(CARD_MAX, Dimensions.get('window').width - EDGE * 2),
-            minWidth: Math.min(minWidth, Dimensions.get('window').width - EDGE * 2),
+            width: pos.cardWidth,
+            minWidth: pos.effMinWidth,
             maxHeight: pos.maxH,
             backgroundColor: theme.palette.bg,
             borderColor: theme.palette.edge,
