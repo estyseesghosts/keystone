@@ -2,7 +2,7 @@ import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
-import {FlatList, StyleSheet} from 'react-native'
+import {FlatList, RefreshControl, StyleSheet} from 'react-native'
 
 import type {Capabilities, Session} from '@keystone/fedi'
 import {FEATURE_KEYS} from '@keystone/fedi'
@@ -36,6 +36,12 @@ jest.mock('@react-navigation/native', () => ({
     if (prev !== cb) cb()
   },
 }))
+
+function lastFocusEffect(): () => void {
+  const cb = mockFocusCbs[mockFocusCbs.length - 1]
+  if (!cb) throw new Error('no focus effect captured')
+  return cb
+}
 
 // File-level: every describe below mounts its own NoteScreen instances,
 // so the captured-callback log resets for every test.
@@ -319,5 +325,53 @@ describe('NoteScreen thread connectors (E8)', () => {
     fireEvent.press(screen.getByTestId('show-replies-r1'))
     await waitFor(() => expect(screen.getByTestId('reply-r2')).toBeTruthy())
     expect(edgeOf('replies-r1').borderLeftWidth).toBe(1)
+  })
+})
+
+describe('NoteScreen reply refresh (E10)', () => {
+  // Collapsed child branches prefetch their parents on mount, so count
+  // the focused post's own reply query, not every threadReplies call.
+  const callsFor = (backend: {threadReplies: jest.Mock}, id: string) =>
+    backend.threadReplies.mock.calls.filter((c: unknown[]) => c[0] === id).length
+
+  it('refetches post + replies on return focus (Compose goBack), not on mount', async () => {
+    const backend = setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
+    // Mount focus only arms the guard — the mock executes it like the
+    // real hook, so a resubscribe-per-render variant would already have
+    // refetched here.
+    expect(backend.post).toHaveBeenCalledTimes(1)
+    expect(callsFor(backend, 'p1')).toBe(1)
+    // Returning from Compose refetches.
+    lastFocusEffect()()
+    await waitFor(() => expect(callsFor(backend, 'p1')).toBe(2))
+    await waitFor(() => expect(backend.post).toHaveBeenCalledTimes(2))
+  })
+
+  it('manual refresh refetches the replies, not just the focused post', async () => {
+    const backend = setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
+    expect(callsFor(backend, 'p1')).toBe(1)
+    screen.UNSAFE_getByType(RefreshControl).props.onRefresh()
+    await waitFor(() => expect(callsFor(backend, 'p1')).toBe(2))
+    await waitFor(() => expect(backend.post).toHaveBeenCalledTimes(2))
+  })
+
+  it('subscribes the focus effect once: re-renders never refetch on their own (no polling loop)', async () => {
+    const backend = setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
+    // Data arriving re-renders the screen; the focus subscription must
+    // stay one stable callback — a fresh callback per render would
+    // resubscribe-while-focused and refetch every render.
+    expect(mockFocusCbs.length).toBeGreaterThan(1)
+    // The subscription must be stable: with the real hook, every
+    // resubscribe-while-focused executes, so a fresh callback per
+    // render would refetch on its own (a polling loop by accident).
+    // (React Compiler memoization can mask identity churn in tests, so
+    // this pins the invariant while the idle-live check proves it.)
+    const groups = new Map<unknown, number>()
+    for (const cb of mockFocusCbs) groups.set(cb, (groups.get(cb) ?? 0) + 1)
+    expect(groups.size).toBe(1)
+    expect(callsFor(backend, 'p1')).toBe(1)
   })
 })

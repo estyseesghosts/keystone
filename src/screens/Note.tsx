@@ -10,9 +10,10 @@
 // token. Card taps navigating TO this route are owned elsewhere — this
 // screen only reads the `Note: {id: string}` route param.
 
-import {useEffect, useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
 import {
+  useFocusEffect,
   useNavigation,
   useRoute,
   type NavigationProp,
@@ -440,6 +441,35 @@ export function NoteScreen() {
   })
   const rootItems = rootReplies.data?.pages.flatMap(page => page.items) ?? []
 
+  // E10: the thread query is never invalidated on create-success (the
+  // create-post mutation only writes feed keys), and the old
+  // pull-to-refresh refetched the focused post but NOT its replies — so
+  // a reply posted from detail never appeared without exiting +
+  // reopening. Both paths refetch here, event-driven, never polling:
+  // manual refresh reloads post + replies, and returning from the
+  // Compose overlay (which blurs this screen) refetches on focus.
+  const refreshThread = useCallback(() => {
+    void thread.refetch()
+    if (rootParentId.length > 0) void rootReplies.refetch()
+  }, [thread, rootParentId, rootReplies])
+  // The focus callback subscribes ONCE (empty deps): its body must see
+  // fresh queries without resubscribing, or every re-render would
+  // resubscribe-while-focused and refetch — a polling loop by accident.
+  const refreshThreadRef = useRef(refreshThread)
+  useEffect(() => {
+    refreshThreadRef.current = refreshThread
+  })
+  const seenFocus = useRef(false)
+  useFocusEffect(
+    useCallback(() => {
+      if (!seenFocus.current) {
+        seenFocus.current = true
+        return
+      }
+      refreshThreadRef.current()
+    }, []),
+  )
+
   return (
     <View style={atoms.flex1} testID="note-screen">
       <Pagehead title="Note" />
@@ -518,7 +548,10 @@ export function NoteScreen() {
                 <View testID={`replies-${focused.id}`}>
                   <View style={[atoms.px_md, atoms.py_sm]}>
                     <Caption color="faint" testID={`replies-count-${focused.id}`}>
-                      {`Replies (${focused.counts.replies})`}
+                      {/* Loaded rows are a true subset of the server total,
+                          so the header never reads below what is on screen
+                          while the focused post's counts catch up. */}
+                      {`Replies (${Math.max(focused.counts.replies, rootItems.length)})`}
                     </Caption>
                   </View>
                   {rootReplies.isPending ? (
@@ -568,8 +601,8 @@ export function NoteScreen() {
           }
           refreshControl={
             <RefreshControl
-              refreshing={thread.isRefetching}
-              onRefresh={() => void thread.refetch()}
+              refreshing={thread.isRefetching || rootReplies.isRefetching}
+              onRefresh={() => refreshThread()}
               tintColor={theme.palette.muted}
               colors={[theme.palette.muted]}
               progressBackgroundColor={theme.palette.bg}
