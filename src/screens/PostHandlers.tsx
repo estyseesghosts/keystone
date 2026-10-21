@@ -45,15 +45,31 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
       }
       const controller = graphControllerFor(qc)
       const backend = backendForSession(s)
+      // Relation snapshot for menu label flips (C16): whatever the cache
+      // holds (possibly nothing — labels then keep defaults). Toggles go
+      // through the controller where it owns the queue (mute/block) and
+      // straight to the backend for boost visibility (no queue owns it).
+      const known = controller.relationship(sessionId, post.author.id)
+      const renoteMuted = known?.isRenoteMuted
       return {
         onMute: run(
-          () => controller.setMuted(sessionId, backend, post.author.id, true),
-          'Muted',
+          () => controller.setMuted(sessionId, backend, post.author.id, !(known?.isMuted ?? false)),
+          known?.isMuted ? 'Unmuted' : 'Muted',
+        ),
+        onMuteBoosts: run(
+          async () => {
+            if (renoteMuted === true) await backend.unmuteRenotes(post.author.id)
+            else await backend.muteRenotes(post.author.id)
+          },
+          renoteMuted === true ? 'Reposts unmuted' : 'Reposts muted',
         ),
         onBlock: run(
-          () => controller.setBlocked(sessionId, backend, post.author.id, true),
-          'Blocked',
+          () => controller.setBlocked(sessionId, backend, post.author.id, !(known?.isBlocking ?? false)),
+          known?.isBlocking ? 'Unblocked' : 'Blocked',
         ),
+        muted: known?.isMuted,
+        renoteMuted,
+        blocking: known?.isBlocking,
       }
     },
     [store, qc],

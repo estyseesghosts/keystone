@@ -30,6 +30,11 @@ export interface UserActionHandlers {
   onMute?: () => void | Promise<void>
   onMuteBoosts?: () => void | Promise<void>
   onBlock?: () => void | Promise<void>
+  /** Current relation snapshot for label flips (C16): `undefined` means
+   * unknown and keeps the default (enable-direction) labels. */
+  muted?: boolean
+  renoteMuted?: boolean
+  blocking?: boolean
 }
 
 export interface PostMenuInput {
@@ -86,9 +91,12 @@ export function buildUserSubmenu(input: PostMenuInput): PostMenuSection[] {
   const handle = `@${author.acct}`
   const profileUrl = safeHttpUrl(author.url) ?? safeHttpUrl(author.uri) ?? ''
   const u = handlers.user
-  const rel = (key: string, label: string, fn?: () => void | Promise<void>): PostMenuItem =>
+  // Relation labels follow the snapshot the provider attached (C16):
+  // muted → Unmute, renote-muted → Unmute boosts, blocking → Unblock.
+  // Unknown (undefined) keeps the enable-direction default.
+  const rel = (key: string, label: string, activeLabel: string, active: boolean | undefined, fn?: () => void | Promise<void>): PostMenuItem =>
     fn
-      ? {key, label, run: fn, ...(key === 'block' ? {confirm: {title: `Block ${handle}?`, action: 'Block'}} : {})}
+      ? {key, label: active ? activeLabel : label, run: fn, ...(key === 'block' && !active ? {confirm: {title: `Block ${handle}?`, action: 'Block'}} : {})}
       : {key, label, disabled: true, reason: 'Account relations are not connected to this view yet.'}
   const remoteUrl = safeHttpUrl(author.url)
   const remoteUser: PostMenuItem[] =
@@ -113,9 +121,9 @@ export function buildUserSubmenu(input: PostMenuInput): PostMenuSection[] {
       {key: 'dm', label: 'Send a message', disabled: true, reason: LATER('Messaging')},
     ],
     [
-      rel('mute', 'Mute', u?.onMute),
-      rel('mute-boosts', 'Mute boosts', u?.onMuteBoosts),
-      rel('block', 'Block', u?.onBlock),
+      rel('mute', 'Mute', 'Unmute', u?.muted, u?.onMute),
+      rel('mute-boosts', 'Mute boosts', 'Unmute boosts', u?.renoteMuted, u?.onMuteBoosts),
+      rel('block', 'Block', 'Unblock', u?.blocking, u?.onBlock),
       {key: 'refresh-remote', label: 'Refresh remote data', disabled: true, reason: LATER('Refreshing remote data')},
     ],
   ]

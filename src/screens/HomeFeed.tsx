@@ -27,7 +27,7 @@ import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {SignInButton} from '#/components/SignInButton'
 import {ThreadRow} from '#/components/PostFeed/ThreadRow'
-import {countNewItems, feedItems, filterSoftMuted, useSoftMutedIds, usePostFeedQuery} from '#/state/queries'
+import {countNewItems, feedItems, filterModerated, filterSoftMuted, useModerationRules, useSoftMutedIds, usePostFeedQuery} from '#/state/queries'
 import {useSessionStore} from '#/state/session/SessionProvider'
 
 // --- Session / backend access -----------------------------------------------
@@ -151,7 +151,14 @@ export function FeedView({
     ...(retry !== undefined ? {retry} : {}),
   })
   const softMuted = useSoftMutedIds(sessionId)
-  const items = useMemo(() => filterSoftMuted(feedItems(feed.data), softMuted), [feed.data, softMuted])
+  const moderation = useModerationRules(sessionId)
+  // Server-side rules (F22/MK1) drop rows first; the client soft-mute set
+  // hides by account on top. Both run in EVERY feed (this is the shared
+  // FeedView), never Home-only.
+  const items = useMemo(
+    () => filterSoftMuted(filterModerated(feedItems(feed.data), moderation), softMuted),
+    [feed.data, moderation, softMuted],
+  )
   // Boost collapsing (F17): an original plus its reposts shows only the
   // first repost, with the aggregated renoters on the banner. Quotes
   // never collapse — they carry their own commentary.

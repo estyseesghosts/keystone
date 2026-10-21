@@ -39,3 +39,23 @@ export function notificationsQueryKey(
 ): AppQueryKey {
   return createQueryKey(sessionId, "notifications", filter);
 }
+
+/** Key for the viewer's own account (`Backend.me()`). */
+export function meQueryKey(sessionId: string): AppQueryKey {
+  return createQueryKey(sessionId, "me");
+}
+
+/** Key for the server-side muted-account id set (feed filter source). */
+export function serverMutesQueryKey(sessionId: string): AppQueryKey {
+  return createQueryKey(sessionId, "server-mutes");
+}
+
+/** Key for the server-side blocked-account id set (feed filter source). */
+export function serverBlocksQueryKey(sessionId: string): AppQueryKey {
+  return createQueryKey(sessionId, "server-blocks");
+}
+
+/** Key for the server-side renote-muted-account id set (feed filter source). */
+export function serverRenoteMutesQueryKey(sessionId: string): AppQueryKey {
+  return createQueryKey(sessionId, "server-renote-mutes");
+}

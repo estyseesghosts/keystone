@@ -1,5 +1,5 @@
 // F4: model URLs are gated — unsafe schemes never reach copy/share/open.
-import {buildPostMenu, postLink} from '#/components/Post/menuModel'
+import {buildPostMenu, buildUserSubmenu, flatten, postLink} from '#/components/Post/menuModel'
 
 import {makePost} from '../__tests__/fixtures'
 
@@ -26,6 +26,57 @@ describe('postLink (F4)', () => {
     expect(postLink(plain, 'misskey', 'https://misskey.example/')).toBe(
       'https://misskey.example/notes/p1',
     )
+  })
+})
+
+describe('user submenu relation labels (C16)', () => {
+  function userRows(user: Record<string, unknown>) {
+    const post = makePost()
+    const input = {
+      family: 'mastodon',
+      capabilities: null,
+      post,
+      origin: 'https://example.social',
+      isOwn: false,
+      copyAvailable: true,
+      bookmark: {gate: {enabled: false, reason: 'x'}, value: false, set: jest.fn()},
+      del: {gate: {enabled: false, reason: 'x'}, run: jest.fn()},
+      handlers: {
+        copy: jest.fn(),
+        share: jest.fn(),
+        open: jest.fn(),
+        translate: jest.fn(),
+        muteThread: jest.fn(),
+        togglePin: jest.fn(),
+        user,
+      },
+    } as never
+    return flatten(buildUserSubmenu(input))
+  }
+
+  const all = () => ({onMute: jest.fn(), onMuteBoosts: jest.fn(), onBlock: jest.fn()})
+
+  it('uses enable-direction labels when the relation is unknown', () => {
+    const rows = userRows(all())
+    expect(rows.find(i => i.key === 'mute')?.label).toBe('Mute')
+    expect(rows.find(i => i.key === 'mute-boosts')?.label).toBe('Mute boosts')
+    expect(rows.find(i => i.key === 'block')?.label).toBe('Block')
+  })
+
+  it('flips to disable-direction labels from the relation snapshot', () => {
+    const rows = userRows({...all(), muted: true, renoteMuted: true, blocking: true})
+    expect(rows.find(i => i.key === 'mute')?.label).toBe('Unmute')
+    expect(rows.find(i => i.key === 'mute-boosts')?.label).toBe('Unmute boosts')
+    expect(rows.find(i => i.key === 'block')?.label).toBe('Unblock')
+    // Unblock drops the block confirm (confirm only guards blocking).
+    expect(rows.find(i => i.key === 'block')?.confirm).toBeUndefined()
+  })
+
+  it('disables rows with no handler and an honest reason', () => {
+    const rows = userRows({})
+    const boosts = rows.find(i => i.key === 'mute-boosts')
+    expect(boosts?.disabled).toBe(true)
+    expect(boosts?.reason).toMatch(/not connected/)
   })
 })
 
