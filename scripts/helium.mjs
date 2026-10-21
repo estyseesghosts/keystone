@@ -113,6 +113,40 @@ if (cmd === 'new-tab') {
 } else if (cmd === 'close') {
   await fetch(`${CDP}/json/close/${args[0]}`);
   console.log('closed');
+} else if (cmd === 'typeText') {
+  // typeText <targetId> <text...> — types into the focused element
+  const [targetId, ...rest] = args;
+  const text = rest.join(' ');
+  for (const ch of text) {
+    await call(targetId, 'Input.insertText', {text: ch});
+  }
+  console.log('typed');
+} else if (cmd === 'clickText') {
+  // clickText <targetId> <text> — clicks the first [role=button] whose text matches
+  const [targetId, ...rest] = args;
+  const want = rest.join(' ');
+  const res = await call(targetId, 'Runtime.evaluate', {
+    expression: `(() => { const b = Array.from(document.querySelectorAll('[role="button"]')).find(e => (e.textContent||'').trim() === ${JSON.stringify(want)}); if (!b) return 'no-btn'; const r = b.getBoundingClientRect(); return JSON.stringify({x: r.x + r.width/2, y: r.y + r.height/2}); })()`,
+    returnByValue: true,
+  });
+  const v = res.result?.value;
+  if (v === 'no-btn' || !v) { console.error('no such button'); process.exit(1); }
+  const {x, y} = JSON.parse(v);
+  await call(targetId, 'Input.dispatchMouseEvent', {type: 'mousePressed', x, y, button: 'left', clickCount: 1});
+  await call(targetId, 'Input.dispatchMouseEvent', {type: 'mouseReleased', x, y, button: 'left', clickCount: 1});
+  console.log('clicked');
+} else if (cmd === 'fillInput') {
+  // fillInput <targetId> <aria-label> <text> — focuses the input, selects all, types
+  const [targetId, label, ...rest] = args;
+  const text = rest.join(' ');
+  await call(targetId, 'Runtime.evaluate', {
+    expression: `(() => { const inp = document.querySelector(${JSON.stringify(`input[aria-label="${label}"]`)}); if (!inp) return 'no-input'; inp.focus(); inp.select(); return 'focused'; })()`,
+    returnByValue: true,
+  }).then(r => { if (r.result?.value !== 'focused') { console.error('no such input'); process.exit(1); } });
+  for (const ch of text) {
+    await call(targetId, 'Input.insertText', {text: ch});
+  }
+  console.log('typed');
 } else {
   console.error('unknown command');
   process.exit(1);

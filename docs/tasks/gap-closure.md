@@ -2,7 +2,7 @@
 
 Plan ref: cross-cutting; supersedes nothing (`rn-rebuild-plan.md` still
 governs phases 5–7). Gap register: `docs/parity-gaps.md`.
-Status: W1 done 2026-10-20 (on `main` per owner direction; one workstream per session still applies)
+Status: W1 done 2026-10-20 (on `main` per owner direction; one workstream per session still applies), W2 done 2026-10-21 (F21 + honest deferrals; log `state/logs/2026-10-21-w2-remainder.md`), W3 done 2026-10-21 (log `state/logs/2026-10-21-w3-composer.md`)
 Branch: `main` (W1 landed directly; `p6.0-w1-foundations` left at the pre-W1 consolidation point)
 
 ## Goal
@@ -61,6 +61,8 @@ server; `nav.test` covers redirects + `/network/federated`; trio green.
 
 ### W2 — Content & media
 
+Status: done 2026-10-21 on `main` (log `state/logs/2026-10-21-w2-remainder.md`; F21 code + F22/MK8/F12/F20-clips/F11-half honest deferrals in DECISIONS; earlier W2 commits cover F1–F20-tabs/MD4/MK17).
+
 - [ ] F1/F2 Mount `Lightbox` from `PostCard`; add video/gifv/audio/file
       branches to `PostMediaGrid` (no new deps beyond `expo-video`).
 - [ ] F4 Gate model URLs with `safeHttpUrl` (avatar/media/menu).
@@ -84,18 +86,22 @@ trio green; screenshots in log.
 
 ### W3 — Composer & post actions
 
-- [ ] C1 Clear inline composer after post; restore autosave.
-- [ ] C2 Mobile close control (strip or in-card) and reachable backdrop.
-- [ ] C3 Keyboard avoidance/listeners.
-- [ ] C4 Direct-post recipient picker.
-- [ ] C5 Quote-refusal recovery.
-- [ ] C6 Draft target restore, empty-draft cleanup, attachment policy.
-- [ ] C7 Edit-post UI + mutation/cache patch.
-- [ ] C8 Schedule UI (date picker) + scheduled list/cancel.
-- [ ] C9 Server drafts UI.
-- [ ] C10 Un-gate bookmarks/favourites once MK2 is fixed.
-- [ ] MK3–MK6 translation/schedule/server-drafts/drafts consumers.
-- [ ] MK13/MK14 like probe + Pinetree poll gate.
+Status: done 2026-10-21 on `main` (log `state/logs/2026-10-21-w3-composer.md`; trio 83+ suites green; web-visual at phone/rail/full + compose modal via Helium).
+
+- [x] C1 Clear inline composer after post; restore autosave.
+- [x] C2 Mobile close control (Cancel header when `onClose`; full sheet rides W6).
+- [x] C3 Keyboard avoidance/listeners (both chromes + card; device run not verified, full pass rides W6).
+- [x] C4 Direct-post recipient picker (lookup resolve + verbatim fallback, persisted).
+- [x] C5 Quote-refusal recovery (drop quote, repost once, server reason as notice).
+- [x] C6 Draft target restore, empty-draft cleanup, attachment policy (recipients persisted; attachments excluded by design; noQuote has no UI).
+- [x] C7 Edit-post UI + mutation/cache patch (`Compose?editId`, attachments carried, schedule hidden).
+- [x] C8 Schedule UI (quick chips + validation) + scheduled list/cancel.
+- [x] C9 Server drafts UI (list/restore/delete/save-current; hidden where unsupported).
+- [x] C10 Bookmark toggle end-to-end (optimistic badge; saved-posts screen stays W4).
+- [x] MK3–MK5 translation/schedule/server-drafts consumers (MK3/MK4 were wired — verified; MK5 via C9).
+- [x] MK6 drafts-duplicate call (app drafts authoritative; unification rides W8 Q6).
+- [ ] MK13 like probe — LEFT (needs live vanilla rig; `:3101`/`:3102` down).
+- [ ] MK14 Pinetree poll gate — KEPT unconditional per v1 parity (live re-probe blocked: `signin` rejects `ks1`, no `signin-flow`; see DECISIONS).
 
 Acceptance: compose → post leaves a clean composer; drafts survive
 reply/quote restore; edit/schedule paths work or are honestly gated;
