@@ -11,6 +11,7 @@ import type {ContentNode, EmojiStyle, Media, Post} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {Caption} from '#/alf/typography'
+import {DisplayName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
 
@@ -69,7 +70,8 @@ export function PostQuote({
       accessibilityLabel={`Open quoted post by ${quote.author.displayName}`}>
       <View style={[styles.card, {borderColor: theme.palette.edge}]}>
         <Caption color="muted" numberOfLines={1}>
-          {quote.author.displayName} @{quote.author.acct}
+          <DisplayName account={quote.author} size={14} />
+          {` @${quote.author.acct}`}
         </Caption>
         {status ? (
           <Caption color="muted" testID={testID ? `${testID}-status` : undefined}>

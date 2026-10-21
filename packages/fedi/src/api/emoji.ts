@@ -109,37 +109,9 @@ export const UNICODE_EMOJI_GROUPS: UnicodeEmojiGroup[] = [
 export const UNICODE_EMOJIS = UNICODE_EMOJI_GROUPS.flatMap((g) => g.items).filter((e) => e.trim().length > 0 && !e.includes(" "));
 
 
-/** Text segment split on remote `:name@host:` codes (mfm-js never emits
- * these as `emojiCode` nodes — they arrive inside `text`). Local codes
- * are left alone (the MFM parser owns those). Pure. */
-export type TextSegment =
-  | { kind: "text"; text: string }
-  | { kind: "remote"; code: string; name: string; host: string };
-
-const REMOTE_CODE_PATTERN = /:([A-Za-z0-9_+-]+)@([A-Za-z0-9.-]+):/g;
-
-/** Split remote emoji codes out of plain text. Adjacent codes each
- * become their own part; everything else stays verbatim. Pure. */
-export function splitRemoteEmojiCodes(text: string): TextSegment[] {
-  const parts: TextSegment[] = [];
-  let last = 0;
-  REMOTE_CODE_PATTERN.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = REMOTE_CODE_PATTERN.exec(text)) !== null) {
-    if (match.index > last) {
-      parts.push({ kind: "text", text: text.slice(last, match.index) });
-    }
-    parts.push({
-      kind: "remote",
-      code: match[0],
-      name: match[1],
-      host: match[2],
-    });
-    last = match.index + match[0].length;
-  }
-  if (last < text.length) parts.push({ kind: "text", text: text.slice(last) });
-  return parts;
-}
+/** Moved to `core/content/ast` (used by the MFM parser); re-exported here. */
+export type { TextSegment } from "../core/content/ast";
+export { splitRemoteEmojiCodes } from "../core/content/ast";
 
 // --- Custom-emoji key shapes (verified live on Sharkey dvd.chat) ---
 //

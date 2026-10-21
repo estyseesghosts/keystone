@@ -32,6 +32,7 @@ import {
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
+import {DisplayName} from '#/components/DisplayName'
 import {RichText} from '#/components/RichText'
 import {canCopy, copyText} from '#/lib/clipboard'
 import {showToast} from '#/lib/toast'
@@ -379,9 +380,12 @@ function PostCardView({
             accessibilityRole="link"
             accessibilityLabel={`Open profile of ${displayNameOf(effective.author)}`}
             style={styles.headerAuthor}>
-            <Body numberOfLines={1} style={styles.headerName}>
-              {displayNameOf(effective.author)}
-            </Body>
+            <DisplayName
+              account={effective.author}
+              size={15}
+              textStyle={styles.headerName}
+              testID={`author-name-${effective.author.id}`}
+            />
             <Caption color="muted" numberOfLines={1}>
               {handleOf(effective.author)}
             </Caption>

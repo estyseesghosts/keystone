@@ -282,3 +282,26 @@ describe('boost collapsing banner (F17)', () => {
     expect(screen.getByTestId('boost-header-wrap2')).toHaveTextContent('Bob and 1 other boosted')
   })
 })
+
+describe('display-name emoji (F11)', () => {
+  it('renders name emoji codes as glyphs in the card header', async () => {
+    const {DisplayName} = await import('#/components/DisplayName')
+    const {makeAccount} = await import('./fixtures')
+    const account = makeAccount({
+      id: 'e1',
+      displayName: 'Ann :wave:',
+      emojis: {wave: 'https://example.social/emoji/wave.png'},
+    })
+    renderCard(<DisplayName account={account} testID="dn" />)
+    expect(screen.getByTestId('dn')).toBeTruthy()
+    expect(screen.queryByText('Ann :wave:')).toBeNull()
+  })
+
+  it('leaves unknown codes literal', async () => {
+    const {DisplayName} = await import('#/components/DisplayName')
+    const {makeAccount} = await import('./fixtures')
+    const account = makeAccount({id: 'e2', displayName: 'Bob :nope:'})
+    renderCard(<DisplayName account={account} testID="dn2" />)
+    expect(screen.getByTestId('dn2')).toHaveTextContent('Bob :nope:')
+  })
+})

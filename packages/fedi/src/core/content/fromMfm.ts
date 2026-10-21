@@ -27,6 +27,7 @@ import {
   mention,
   quoteNode,
   safeUrl,
+  splitRemoteEmojiCodes,
   strike,
   t,
   unicodeEmoji,
@@ -157,5 +158,31 @@ export function contentFromMfm(source: string | null | undefined): ContentNode[]
   } catch {
     return [t(text)];
   }
-  return nodes.flatMap(convertNode);
+  return splitRemoteCodes(nodes.flatMap(convertNode));
+}
+
+/** Split remote `:name@host:` codes out of text runs (F11). mfm-js
+ * leaves them inside `text` nodes — without this they render
+ * literally. Local `:name:` codes already arrive as `emojiCode` nodes.
+ * Code spans/blocks are never split (verbatim). Pure. */
+function splitRemoteCodes(nodes: readonly ContentNode[]): ContentNode[] {
+  const out: ContentNode[] = [];
+  for (const node of nodes) {
+    if (node.kind === "text") {
+      for (const part of splitRemoteEmojiCodes(node.text)) {
+        if (part.kind === "text") {
+          if (part.text.length > 0) out.push(t(part.text));
+        } else {
+          out.push(customEmoji(part.name, part.host, null));
+        }
+      }
+      continue;
+    }
+    if ("children" in node) {
+      out.push({ ...node, children: splitRemoteCodes(node.children) } as ContentNode);
+      continue;
+    }
+    out.push(node);
+  }
+  return out;
 }

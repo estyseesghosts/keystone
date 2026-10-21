@@ -258,3 +258,42 @@ export function hashtagTagOf(attrs: Readonly<Record<string, string>>): string | 
   // A plausible tag: no whitespace, no separators, bounded length.
   return /^[^\s/#?]{1,128}$/.test(tail) ? tail : null;
 }
+
+// --- Remote custom-emoji codes (`:name@host:`) --------------------------
+//
+// Moved here from `api/emoji` so the MFM parser (core) can split them
+// without depending on the adapter-flavored emoji module. Re-exported
+// from `api/emoji` for compatibility.
+
+/** Text segment split on remote `:name@host:` codes (mfm-js never emits
+ * these as `emojiCode` nodes — they arrive inside `text`). Local codes
+ * are left alone (the MFM parser owns those). Pure. */
+export type TextSegment =
+  | { kind: "text"; text: string }
+  | { kind: "remote"; code: string; name: string; host: string };
+
+const REMOTE_CODE_PATTERN = /:([A-Za-z0-9_+-]+)@([A-Za-z0-9.-]+):/g;
+
+/** Split remote emoji codes out of plain text. Adjacent codes each
+ * become their own part; everything else stays verbatim. Pure. */
+export function splitRemoteEmojiCodes(text: string): TextSegment[] {
+  const parts: TextSegment[] = [];
+  let last = 0;
+  REMOTE_CODE_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = REMOTE_CODE_PATTERN.exec(text)) !== null) {
+    if (match.index > last) {
+      parts.push({ kind: "text", text: text.slice(last, match.index) });
+    }
+    parts.push({
+      kind: "remote",
+      code: match[0],
+      name: match[1],
+      host: match[2],
+    });
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push({ kind: "text", text: text.slice(last) });
+  return parts;
+}
+

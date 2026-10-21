@@ -132,3 +132,33 @@ describe("edges", () => {
     }
   });
 });
+
+describe("F11: remote custom emoji in MFM text", () => {
+  it("splits :name@host: codes out of text runs", () => {
+    expect(contentFromMfm("hi :wave@remote.example: bye")).toEqual([
+      { kind: "text", text: "hi " },
+      { kind: "customEmoji", name: "wave", host: "remote.example", src: null },
+      { kind: "text", text: " bye" },
+    ]);
+  });
+
+  it("leaves local codes to the parser and code spans verbatim", () => {
+    expect(contentFromMfm(":blobcat: `:wave@remote.example:`")).toEqual([
+      { kind: "customEmoji", name: "blobcat", host: null, src: null },
+      { kind: "text", text: " " },
+      { kind: "code", code: ":wave@remote.example:" },
+    ]);
+  });
+
+  it("splits codes nested in formatting", () => {
+    expect(contentFromMfm("**go :go@remote.example:**")).toEqual([
+      {
+        kind: "bold",
+        children: [
+          { kind: "text", text: "go " },
+          { kind: "customEmoji", name: "go", host: "remote.example", src: null },
+        ],
+      },
+    ]);
+  });
+});
