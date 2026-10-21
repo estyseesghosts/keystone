@@ -2,7 +2,7 @@
 
 Plan ref: cross-cutting; supersedes nothing (`rn-rebuild-plan.md` still
 governs phases 5–7). Gap register: `docs/parity-gaps.md`.
-Status: W1 done 2026-10-20 (on `main` per owner direction; one workstream per session still applies), W2 done 2026-10-21 (F21 + honest deferrals; log `state/logs/2026-10-21-w2-remainder.md`), W3 done 2026-10-21 (log `state/logs/2026-10-21-w3-composer.md`)
+Status: W1 done 2026-10-20 (on `main` per owner direction; one workstream per session still applies), W2 done 2026-10-21 (F21 + honest deferrals; log `state/logs/2026-10-21-w2-remainder.md`), W3 done 2026-10-21 (log `state/logs/2026-10-21-w3-composer.md`), W4 done 2026-10-21 (log `state/logs/2026-10-21-w4-social.md`; trio 94 suites / 1142 tests green)
 Branch: `main` (W1 landed directly; `p6.0-w1-foundations` left at the pre-W1 consolidation point)
 
 ## Goal
@@ -109,21 +109,25 @@ trio + device evidence.
 
 ### W4 — Social, profile, notifications
 
-- [ ] N20/C12 Notification rows pressable (actor + post), avatars, relative time.
-- [ ] C11 Grouped counts/reaction sets, grouping toggle, per-type config,
-      live counter, notifications in query cache.
-- [ ] N18 Unread badge / stream status.
-- [ ] N11 Follow-requests queue.
-- [ ] C13 Profile editor (per-family fields).
-- [ ] C14 Profile fields + account reactions block.
-- [ ] C15/MD15 Lists CRUD + index/feed.
-- [ ] C16 Post-menu rows (mute-boosts wiring, relation labels, report/clip).
-- [ ] C18/MK2 Renote-mute two-way + `Backend.renoteMutes`.
-- [ ] MD1–MD3 Notification filters/paging, bookmarks paging, filters fallback.
-- [ ] MK1 Apply word/server mutes to every feed.
+Status: done 2026-10-21 on `main` (log `state/logs/2026-10-21-w4-social.md`; trio 94 suites / 1142 tests green; Helium signed-in as akk1 @ :4000 in `state/logs/assets-w4/`; authed rig probe `scripts/fedi-w4-probe.ts` green for MD1-fallback/MD2/MD3 + lists CRUD + profile write).
 
-Acceptance: notification → post/actor navigation works; bookmark/favourite
-visible and listable; follow requests handled; trio + device.
+- [x] N20/C12 Notification rows pressable (actor + post), avatars, relative time.
+- [x] C11 Grouped counts/reaction sets, grouping toggle, per-type config,
+      live counter, notifications in query cache. (Full grouped-reaction breakouts ride the MD1 adapter remainder — see DECISIONS.)
+- [x] N18 Unread badge / live count. (Stream status rides S4 — see DECISIONS.)
+- [x] N11 Follow-requests queue.
+- [x] C13 Profile editor (per-family fields).
+- [x] C14 Profile fields + account reactions block.
+- [x] C15/MD15 Lists CRUD + index/feed.
+- [x] C16 Post-menu rows (mute-boosts wiring, relation labels, report/clip).
+- [x] C18/MK2 Renote-mute two-way + `Backend.renoteMutes`.
+- [x] MD1–MD3 Notification filters/paging, bookmarks paging, filters fallback.
+- [x] MK1 Apply word/server mutes to every feed.
+- [x] F22 Moderation filters in feeds (server soft words excluded per DECISIONS).
+- [x] F11-half `DisplayName` in `ProfileHeader` + notification rows.
+
+Acceptance: notification → post/actor navigation works (verified live); bookmark/favourite
+visible and listable (MD2 live round-trip; saved-posts screen stays W5/N10); follow requests handled (honest empty live); trio + device.
 
 ### W5 — Screens & routing
 
