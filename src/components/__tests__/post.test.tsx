@@ -7,6 +7,22 @@ import {PostCard} from '#/components/Post/index'
 
 import {makeAccount, makeMedia, makePost} from './fixtures'
 
+// expo-video has no Jest native module: stub the player/hook boundary.
+// The branch mapping (which tile for which kind) is what's under test,
+// not playback itself.
+jest.mock('expo-video', () => {
+  const React = require('react')
+  const {View} = require('react-native')
+  return {
+    useVideoPlayer: () => ({
+      play: jest.fn(),
+      pause: jest.fn(),
+      addListener: () => ({remove: jest.fn()}),
+    }),
+    VideoView: ({testID}: {testID?: string}) => <View testID={testID} />,
+  }
+})
+
 i18n.load('en', {})
 i18n.activate('en')
 
@@ -77,11 +93,42 @@ describe('PostCard', () => {
     expect(screen.getByTestId('post-quote-p4')).toBeTruthy()
   })
 
-  it('renders video kinds as placeholders with a reason, never a player', () => {
+  it('renders video/gifv/audio/file branches with real players, never a fake tile', () => {
     renderCard(
-      <PostCard post={makePost({id: 'p5', media: [makeMedia({id: 'v1', kind: 'video', mimeType: 'video/mp4'})]})} sessionId={SESSION} />,
+      <PostCard
+        post={makePost({
+          id: 'p5',
+          media: [
+            makeMedia({id: 'v1', kind: 'video', mimeType: 'video/mp4'}),
+            makeMedia({id: 'g1', kind: 'gifv', mimeType: 'video/mp4'}),
+            makeMedia({id: 'a1', kind: 'audio', mimeType: 'audio/mpeg'}),
+            makeMedia({id: 'f1', kind: 'file', mimeType: 'application/pdf'}),
+          ],
+        })}
+        sessionId={SESSION}
+      />,
     )
-    expect(screen.getByTestId('media-placeholder-v1')).toBeTruthy()
+    expect(screen.getByTestId('media-video-v1')).toBeTruthy()
+    expect(screen.getByTestId('media-gifv-g1')).toBeTruthy()
+    expect(screen.getByTestId('media-audio-a1')).toBeTruthy()
+    expect(screen.getByTestId('media-audio-toggle-a1')).toBeTruthy()
+    expect(screen.getByTestId('media-file-f1')).toBeTruthy()
+    expect(screen.getByTestId('media-file-open-f1')).toBeTruthy()
+    expect(screen.queryByTestId('media-placeholder-v1')).toBeNull()
+  })
+
+  it('tapping a still opens the Lightbox at its index and closes', () => {
+    renderCard(
+      <PostCard
+        post={makePost({id: 'p8', media: [makeMedia({id: 'm8'}), makeMedia({id: 'm9'})]})}
+        sessionId={SESSION}
+      />,
+    )
+    expect(screen.queryByTestId('post-lightbox-p8')).toBeNull()
+    fireEvent.press(screen.getByTestId('media-m9'))
+    expect(screen.getByTestId('post-lightbox-p8')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('lightbox-close'))
+    expect(screen.queryByTestId('post-lightbox-p8')).toBeNull()
   })
 
   it('hides sensitive media behind a tap-to-show gate', () => {

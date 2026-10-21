@@ -7,7 +7,7 @@
 // and tags route through the same handlers as the body.
 import {StyleSheet, View} from 'react-native'
 
-import type {ContentNode, EmojiStyle, Post} from '@keystone/fedi'
+import type {ContentNode, EmojiStyle, Media, Post} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {Caption} from '#/alf/typography'
@@ -26,6 +26,7 @@ export function PostQuote({
   unavailable,
   emojiStyle = 'twemoji',
   onPress,
+  onOpenMedia,
   onMentionPress,
   onHashtagPress,
   onLinkPress,
@@ -35,6 +36,7 @@ export function PostQuote({
   unavailable: boolean
   emojiStyle?: EmojiStyle
   onPress?: (post: Post) => void
+  onOpenMedia?: (media: Media[], index: number) => void
   onMentionPress?: (href: string | null, label: string) => void
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
@@ -52,6 +54,9 @@ export function PostQuote({
     )
   }
   const nodes: ContentNode[] = postBodyNodes(quote)
+  // One level, first four attachments of any kind: the card stays
+  // compact, and the viewer opens this exact slice at the tapped index.
+  const slice = quote.media.slice(0, 4)
   return (
     <Pressable
       testID={testID}
@@ -72,7 +77,7 @@ export function PostQuote({
           onHashtagPress={onHashtagPress}
           onLinkPress={onLinkPress}
         />
-        <PostMediaGrid media={quote.media.filter(m => m.kind === 'image').slice(0, 4)} />
+        <PostMediaGrid media={slice} onOpen={onOpenMedia ? index => onOpenMedia(slice, index) : undefined} />
       </View>
     </Pressable>
   )

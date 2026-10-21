@@ -22,6 +22,7 @@ import {
   safeHttpUrl,
   type Capabilities,
   type EmojiStyle,
+  type Media,
   type Post,
 } from '@keystone/fedi'
 
@@ -39,6 +40,7 @@ import {ActionBar, StaticActionBar, toastError} from './ActionBar'
 import {postBodyNodes, postEmojis} from './body'
 import {usePostCardHandlers, type PostCardHandlers} from './handlers'
 import {buildPostMenu, type PostMenuSection} from './menuModel'
+import {Lightbox} from '#/components/Lightbox'
 import {PostMediaGrid} from './PostMediaGrid'
 import {PostQuote} from './PostQuote'
 import {ReactionChips} from './ReactionChips'
@@ -255,6 +257,10 @@ function PostCardView({
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
   const [cwOpen, setCwOpen] = useState(false)
+  // Lightbox target: the exact media array shown plus the tapped index.
+  // Main-grid taps open the post's array; quote-card taps open the
+  // quote's slice — never a mixed or reindexed array.
+  const [lightbox, setLightbox] = useState<{items: Media[]; index: number} | null>(null)
   // Tapping a link inside the body fires both the link and the body's own
   // press (native press bubbling): stamp link taps so the body press can
   // stand down when one just landed.
@@ -374,17 +380,27 @@ function PostCardView({
             />
           </Pressable>
         )}
-        {!bodyHidden && <PostMediaGrid media={effective.media} testID={`post-media-${post.id}`} />}
+        {!bodyHidden && <PostMediaGrid media={effective.media} onOpen={index => setLightbox({items: effective.media, index})} testID={`post-media-${post.id}`} />}
         {!bodyHidden && (effective.quote !== null || effective.quoteUnavailable) && (
           <PostQuote
             quote={effective.quote}
             unavailable={effective.quoteUnavailable}
             emojiStyle={emojiStyle}
             onPress={openQuoted}
+            onOpenMedia={(items, index) => setLightbox({items, index})}
             onMentionPress={handleMentionPress}
             onHashtagPress={handleHashtagPress}
             onLinkPress={handleLinkPress}
             testID={`post-quote-${post.id}`}
+          />
+        )}
+        {lightbox !== null && (
+          <Lightbox
+            media={lightbox.items}
+            index={lightbox.index}
+            onIndexChange={index => setLightbox({items: lightbox.items, index})}
+            onClose={() => setLightbox(null)}
+            testID={`post-lightbox-${post.id}`}
           />
         )}
         {live?.translation && (
