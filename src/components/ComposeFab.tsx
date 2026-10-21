@@ -3,10 +3,16 @@ import {StyleSheet, View} from 'react-native'
 
 import {useTheme} from '#/alf/index'
 import {useShellLayout} from '#/alf/breakpoints'
+import {useOptionalSafeAreaInsets} from '#/components/insets'
 import {Pressable} from '#/components/Pressable'
 import {PencilIcon} from '#/components/icons'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
+
+// Base clearance above the shell tab bar (was a fixed 88). The
+// home-indicator bottom inset stacks on top (N21) so the FAB never sits
+// under the gesture bar on notched phones.
+const FAB_BASE_BOTTOM = 88
 
 // Compose entry (Keystone v1 `.compose-fab`): 56px circle, bottom-right
 // above the tab bar, mobile layout only. Wider shells use the sidebar Post
@@ -16,10 +22,11 @@ export function ComposeFab() {
   const nav = useNavigation<NavigationProp<RootParamList>>()
   const layout = useShellLayout()
   const theme = useTheme()
+  const insets = useOptionalSafeAreaInsets()
   const {session} = useActiveBackend()
   if (!session || layout !== 'mobile') return null
   return (
-    <View style={styles.wrap} pointerEvents="box-none">
+    <View style={[styles.wrap, {bottom: FAB_BASE_BOTTOM + insets.bottom}]} pointerEvents="box-none">
       <Pressable
         testID="compose-fab"
         onPress={() => nav.navigate('Compose')}
@@ -36,7 +43,6 @@ const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
     right: 16,
-    bottom: 88,
   },
   fab: {
     width: 56,

@@ -1,6 +1,7 @@
 import {useEffect, useMemo, useState} from 'react'
 
 import {I18nProvider} from '@lingui/react'
+import {SafeAreaProvider} from 'react-native-safe-area-context'
 
 import {ThemeProvider} from '#/alf/index'
 import {i18n} from '#/locale/i18n'
@@ -10,6 +11,7 @@ import {Navigation} from '#/Navigation'
 import type {HostingResolution} from '@keystone/fedi'
 import {HostingProvider, resolveAppHosting} from '#/state/hosting'
 import {QueryProvider} from '#/state/queries'
+import {useSystemUI} from '#/state/systemUI'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {appStorage, appTokenVault} from '#/storage'
@@ -69,15 +71,27 @@ export function Root() {
     }
   }, [store, homeOrigin])
   return (
-    <I18nProvider i18n={i18n}>
-      <ThemedProviders store={store} homeOrigin={homeOrigin} ready={ready} hosting={hosting} />
-    </I18nProvider>
+    // SafeAreaProvider sits outside everything (N21): insets must reach
+    // every shell layer — strip, tab bar, FAB, Lightbox, Toast — and none
+    // of them may own a nested provider.
+    <SafeAreaProvider>
+      <I18nProvider i18n={i18n}>
+        <ThemedProviders store={store} homeOrigin={homeOrigin} ready={ready} hosting={hosting} />
+      </I18nProvider>
+    </SafeAreaProvider>
   )
 }
 
 // Display settings (Settings → Display) plug into the theme here: the
 // stored colour mode picks light/dark/system, the stored text scale
 // multiplies prose type. Both are device-global and reactive.
+// System-UI binder: `useSystemUI` needs the alf theme, so it mounts here,
+// first child of ThemeProvider, called exactly once for the tree (P11).
+function SystemUIBinder() {
+  useSystemUI()
+  return null
+}
+
 function ThemedProviders({
   store,
   homeOrigin,
@@ -93,6 +107,7 @@ function ThemedProviders({
   const textScale = useTextScale()
   return (
     <ThemeProvider theme={colorMode === 'system' ? undefined : colorMode} fontScale={textScale}>
+      <SystemUIBinder />
       <SessionProvider store={store} homeOrigin={homeOrigin}>
         <HostingProvider value={hosting}>
           <QueryProvider>{ready ? <Navigation /> : null}</QueryProvider>

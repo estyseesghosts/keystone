@@ -1,5 +1,6 @@
 import {useContext, useMemo, useState} from 'react'
 import {Image, Platform, Pressable, StyleSheet, View, type ViewStyle} from 'react-native'
+import {useOptionalSafeAreaInsets} from '#/components/insets'
 import {
   DarkTheme,
   DefaultTheme,
@@ -364,11 +365,18 @@ function AccountButton({testPrefix}: {testPrefix: string}) {
 function MobileStrip({leaf}: {leaf: LeafState}) {
   const session = useOptionalActiveSession()
   const alf = useAlfTheme()
+  const insets = useOptionalSafeAreaInsets()
   return (
     <View
       style={[
         styles.strip,
-        {backgroundColor: alf.palette.bg, borderBottomColor: alf.palette.border},
+        {
+          backgroundColor: alf.palette.bg,
+          borderBottomColor: alf.palette.border,
+          paddingTop: insets.top,
+          paddingLeft: Math.max(16, insets.left),
+          paddingRight: Math.max(16, insets.right),
+        },
       ]}>
       <View style={styles.stripSide}>
         <Pressable
@@ -422,13 +430,20 @@ const SIGNED_OUT_TABS: (keyof TabParamList)[] = ['Home', 'Network', 'Explore', '
 function ShellTabBar({leaf}: {leaf: LeafState}) {
   const session = useOptionalActiveSession()
   const alf = useAlfTheme()
+  const insets = useOptionalSafeAreaInsets()
   const tabs = session ? SIGNED_IN_TABS : SIGNED_OUT_TABS
   const ownAccountId = session?.accountId ?? null
   return (
     <View
       style={[
         styles.tabbar,
-        {backgroundColor: alf.palette.bg, borderTopColor: alf.palette.border},
+        {
+          backgroundColor: alf.palette.bg,
+          borderTopColor: alf.palette.border,
+          paddingBottom: 12 + insets.bottom,
+          paddingLeft: Math.max(8, insets.left),
+          paddingRight: Math.max(8, insets.right),
+        },
       ]}>
       {tabs.map(key => {
         const label = MOBILE_LABELS[key]

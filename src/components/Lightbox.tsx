@@ -8,6 +8,7 @@ import {atoms} from '#/alf/atoms'
 import {space} from '#/alf/tokens'
 import {Caption} from '#/components/Typography'
 import {Button} from '#/components/Button'
+import {useOptionalSafeAreaInsets} from '#/components/insets'
 import {mediaAlt} from '#/components/MediaGrid'
 
 // SDK 57 web types: `VideoView` wants the web player class while
@@ -96,6 +97,7 @@ const styles = StyleSheet.create({
  */
 export function Lightbox({media, index, onIndexChange, onClose, testID}: LightboxProps) {
   const {width} = useWindowDimensions()
+  const insets = useOptionalSafeAreaInsets()
   if (media.length === 0) return null
   const safe = Math.min(Math.max(index, 0), media.length - 1)
   const current = media[safe]
@@ -122,13 +124,31 @@ export function Lightbox({media, index, onIndexChange, onClose, testID}: Lightbo
             <LightboxFrame key={item.id} item={item} index={i} width={width} />
           ))}
         </ScrollView>
-        <View style={styles.chrome}>
+        <View
+          style={[
+            styles.chrome,
+            {
+              paddingTop: insets.top + space.md,
+              paddingLeft: insets.left + space.md,
+              paddingRight: insets.right + space.md,
+            },
+          ]}
+          testID="lightbox-chrome">
           <Caption style={{color: '#fff'}}>
             {safe + 1} / {media.length}
           </Caption>
           <Button label="Close" variant="secondary" onPress={onClose} testID="lightbox-close" />
         </View>
-        <View style={styles.caption} testID="lightbox-caption">
+        <View
+          style={[
+            styles.caption,
+            {
+              paddingBottom: insets.bottom + space.md,
+              paddingLeft: insets.left + space.md,
+              paddingRight: insets.right + space.md,
+            },
+          ]}
+          testID="lightbox-caption">
           <Caption style={{color: '#fff'}}>{alt}</Caption>
         </View>
       </View>
