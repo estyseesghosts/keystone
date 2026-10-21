@@ -21,10 +21,10 @@ v1: `NoteBody.tsx:262-399,411-424,497-536`, `misskey/quote.ts`, `mastodon/quoteM
 Policy (owner directive): **show all quotes by default.** Mastodon "authorized quotes" is a filter, not the data model. Add Settings → Display (or Feeds) toggle `Only show authorized quotes` (default OFF, persisted per device). When ON, hide unauthorized quote cards behind a tap-to-reveal row; when OFF (default), render everything below.
 
 Build:
-- [ ] Misskey structured renote path stays; wire `resolveQuoteUri` fallback: `PostCard.tsx` warm (`:495-500` exists) → on success render `PostQuote`, on failure render inline `RE:`-stripped body + "unavailable" label. Add resolving indicator.
-- [ ] Mastodon: keep `adapt` quote display; add `resolveTextualQuote` fallback for `RE: <url>` / bare quote URLs (`mastodon/endpoints.ts:561-589`, `backend.ts:1229-1278` + TTL cache already exist — wire them, don't rebuild).
-- [ ] `body.ts:22-48` strip logic: strip the marker only when its card renders or resolves; otherwise leave text visible (v1 parity). Cover MFM + HTML paths.
-- [ ] Settings toggle + gating in `PostCard`/`PostQuote`. Tests: structured, URI-fallback success/fail, Mastodon unauthorized shown-by-default + hidden-when-opt-in, marker strip/keep matrix.
+- [x] Misskey structured renote path stays; `resolveQuoteUri` fallback WIRED 2026-10-21 (WS-A): warm → success renders `PostQuote`, failure renders inline `RE:`-stripped body + "unavailable" label, resolving indicator included. No fedi changes (impls + TTL caches already existed).
+- [x] Mastodon: `adapt` display kept; `resolveTextualQuote` fallback WIRED 2026-10-21 (WS-A) via the backend method (TTL cache reused, not rebuilt). Proven live on Akkoma (`RE: <url>` → resolving → resolved card, marker stripped).
+- [x] `body.ts` strip logic DONE 2026-10-21 (WS-A): `postBodyNodes(post, {coveredQuoteUris?})` — marker stripped only when its card renders/resolves, else visible. MFM + HTML covered. (Note for WS-B merge: route tag-block coverage through `postBodyNodes`, not around it.)
+- [x] Settings toggle + gating DONE 2026-10-21 (WS-A): Display-section `QuotePolicyRow`, device-local `onlyAuthorizedQuotes` (default OFF); ON hides unauthorized cards behind tap-to-reveal. Tests: structured, URI-fallback success/fail, shown-by-default + hidden-when-opt-in, strip/keep matrix (17 + 5 new). `not verified`: Misskey-family card, live unauthorized-conceal (no rig fixture; unit-proven).
 
 Acceptance: Misskey renote, Mastodon quote, and bare `RE:` URL all yield cards by default; opt-in hides unauthorized with reveal.
 

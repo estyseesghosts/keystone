@@ -1,17 +1,16 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: V2_GAPS WS-D (post menu) + WS-E (Misskey) MERGED
-2026-10-21 on `main` (report live via onReport + confirm, boost
-re-read, translate retry/error, mastodon copy fix; fedi
-drafts/reactionActions deleted, `"like"` key + seed, polls
-probed-no-change, MK17 verified-already-wired).
-FULL suite green: 127 suites / 1534 tests; tsc ios+android+web clean;
-eslint + oxlint clean. WS-A/B/C running in parallel (own worktrees);
-WS-F waits for WS-B (sanitizer); WS-G runs last.
-Latest logs: `state/logs/2026-10-21-wsD-postmenu.md` (agent, Helium
-menu + translate-refusal shots in `assets-wsD/`),
-`state/logs/2026-10-21-wsE-misskey.md` (agent). Coordinator
-re-verified the trio on `main` after each merge.
+Phase/slice: V2_GAPS WS-A (quotes) + WS-D + WS-E MERGED 2026-10-21
+on `main` (show-all default + authorized-only opt-in, resolveQuoteUri
++ textual RE fallbacks, strip-only-on-resolve; report live, boost
+re-read, translate retry/error; fedi deletions, `"like"` key, polls
+probed). FULL suite green: 129 suites / 1556 tests; tsc
+ios+android+web clean; eslint + oxlint clean. WS-B/C running in
+parallel (own worktrees); WS-F waits for WS-B (sanitizer); WS-G last.
+Latest logs: `state/logs/2026-10-21-wsA-quotes.md` (agent, 5 Helium
+shots in `assets-wsA/`, Akkoma card + toggle proven live),
+`wsD-postmenu.md`, `wsE-misskey.md`. Coordinator re-verified the
+trio on `main` after each merge.
 Prior: UI batch 2 + slim tabs + W8 (see logs).
 (MD5 boot re-verify + scope-health, MD6–MD9 live Akkoma round-trips,
 MD10 pooled streaming + app capture, MD11 fork collapse, MD12/MD13

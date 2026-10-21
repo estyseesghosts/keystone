@@ -116,3 +116,5 @@ in `adr/` when load-bearing.
 | 2026-10-21 | WS-D: report rides `UserActionHandlers.onReport` (via existing `userFor` seam) so no `PostCard.tsx` edit is needed | WS-A owns the card; provider owns the actions |
 | 2026-10-21 | WS-D: `MASTO_SCOPES` left without `write:reports` — granular-token report 403s surface as toast instead | Adding the scope marks all stored Mastodon sessions `needsUpgrade` — needs owner call |
 | 2026-10-21 | WS-D: no live mute/block/report round-trip on Akkoma — single-user rig (mute/block need a second user, reports non-retractable) | Unit-proven UI→backend; translate-refusal + menu shots proven live via Helium |
+| 2026-10-21 | WS-A: no new `Capabilities` flag — quote resolution reuses existing `Backend.resolveQuoteUri`; the toggle is a device-local display filter, not a server action | Display filter needs no capability gate |
+| 2026-10-21 | WS-A: Mastodon `resolveTextualQuote` not rebuilt — wired via the backend method that already wraps it with the TTL cache | Wire, don't rebuild |
