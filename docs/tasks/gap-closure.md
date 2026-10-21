@@ -2,7 +2,7 @@
 
 Plan ref: cross-cutting; supersedes nothing (`rn-rebuild-plan.md` still
 governs phases 5–7). Gap register: `docs/parity-gaps.md`.
-Status: W1 done 2026-10-20 (on `main` per owner direction; one workstream per session still applies), W2 done 2026-10-21 (F21 + honest deferrals; log `state/logs/2026-10-21-w2-remainder.md`), W3 done 2026-10-21 (log `state/logs/2026-10-21-w3-composer.md`), W4 done 2026-10-21 (log `state/logs/2026-10-21-w4-social.md`; trio 94 suites / 1142 tests green), W5 done 2026-10-21 (log `state/logs/2026-10-21-w5-screens.md`; trio 106 suites / 1251 tests green)
+Status: W1 done 2026-10-20 (on `main` per owner direction; one workstream per session still applies), W2 done 2026-10-21 (F21 + honest deferrals; log `state/logs/2026-10-21-w2-remainder.md`), W3 done 2026-10-21 (log `state/logs/2026-10-21-w3-composer.md`), W4 done 2026-10-21 (log `state/logs/2026-10-21-w4-social.md`; trio 94 suites / 1142 tests green), W5 done 2026-10-21 (log `state/logs/2026-10-21-w5-screens.md`; trio 106 suites / 1251 tests green), W6 done 2026-10-21 (log `state/logs/2026-10-21-w6-mobile.md`; trio 110 suites / 1270 tests green; Helium signed-in phone/rail/full + Note + composer in `state/logs/assets-w6/`)
 Branch: `main` (W1 landed directly; `p6.0-w1-foundations` left at the pre-W1 consolidation point)
 
 ## Goal
@@ -151,12 +151,14 @@ behave; no placeholder screens in primary navigation; trio + web/device.
 
 ### W6 — Mobile platform
 
-- [ ] N21 Safe-area provider + insets on strip/tab bar/FAB/lightbox/composer.
-- [ ] C2/C3 composer close + keyboard (shared with W3).
-- [ ] P9 Reduced-motion handling.
-- [ ] P10 Touch-target/a11y pass (44–48 dp).
-- [ ] P11 Status-bar/system-UI control.
-- [ ] F24 Fix nested `VirtualizedList` on detail.
+Status: done 2026-10-21 on `main` (log `state/logs/2026-10-21-w6-mobile.md`; trio 110 suites / 1270 tests green; Helium signed-in phone/rail/full + Note + composer sheet in `state/logs/assets-w6/`; Oppo/iOS/device-keyboard not verified; native splash rides a dev-client rebuild).
+
+- [x] N21 Safe-area provider + insets on strip/tab bar/FAB/lightbox/composer (zero `initialMetrics` for bare trees).
+- [x] C2/C3 composer sheet + keyboard (grabber, listeners, maxHeight cap, sheet scroll; shared with W3).
+- [x] P9 Reduced-motion handling (setting hook; popup/dialog/lightbox skip entrance).
+- [x] P10 Touch-target/a11y pass (Button/PopupRow minHeight 44; hitSlop on rows/tabs).
+- [x] P11 Status-bar/system-UI control (single owner `state/systemUI.ts`; splash plugin deferred to rebuild).
+- [x] F24 Fix nested `VirtualizedList` on detail (single FlatList, MAX_DEPTH kept).
 
 Acceptance: no content under notches/gesture bars; composer usable with
 keyboard; TalkBack pass notes in log; 360 dp device screenshots.
