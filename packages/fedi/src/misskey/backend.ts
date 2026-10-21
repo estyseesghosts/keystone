@@ -110,6 +110,7 @@ import {
 import { createScheduledNote, deleteScheduledNote, listScheduledNotes } from "./schedule";
 import { editNote } from "./noteEdit";
 import { listsContaining as listsContainingM, addToList as addToListM, removeFromList as removeFromListM } from "./listMembership";
+import { listRenoteMutes } from "./renoteMutes";
 import {
   countServerDrafts,
   createServerDraft,
@@ -342,6 +343,22 @@ export function createMisskeyBackend(
         limit: opts.limit ?? DEFAULT_LIMIT,
         ...decodeCursor(opts.cursor ?? null),
       });
+    },
+    // List CRUD (C15-data): `users/lists/create|update|delete` — the
+    // packed UserList answers `{id, name, ...}`; only id+name surface.
+    async create(name) {
+      const row = await call<{ id: string; name: string }>("users/lists/create", { name });
+      return { id: row.id, name: row.name ?? name };
+    },
+    async update(id, patch) {
+      const row = await call<{ id: string; name: string }>("users/lists/update", {
+        listId: id,
+        name: patch.name,
+      });
+      return { id: row.id ?? id, name: row.name ?? patch.name };
+    },
+    async delete(id) {
+      await call<undefined>("users/lists/delete", { listId: id });
     },
   };
 
@@ -785,6 +802,17 @@ export function createMisskeyBackend(
 
     async unmuteRenotes(id) {
       await call<undefined>("renote-mute/delete", { userId: id });
+    },
+
+    // The accounts the viewer renote-mutes (C18-data): `renote-mute/list`
+    // answers packed muting rows, unwrapped to accounts in
+    // `misskey/renoteMutes.ts`. No Mastodon-family equivalent exists
+    // (only the per-account `showing_reblogs` flag), so that backend
+    // leaves this member absent.
+    async renoteMutes(opts = {}) {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const cursor = decodeCursor(opts.cursor ?? null);
+      return listRenoteMutes(call, limit, cursor.untilId);
     },
 
     async block(id) {

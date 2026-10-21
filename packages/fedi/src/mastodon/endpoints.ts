@@ -772,18 +772,21 @@ export async function answerFollowRequest(
 
 // --- Notifications (contract §4: v1 flat; v2 grouped is later) -------------
 
-/** `GET /api/v1/notifications` — one flat page. `types` are WIRE type
- * strings (already translated from the core filter tokens by the
- * backend); array params ride the repeated `types[]` encoding. */
+/** `GET /api/v1/notifications` — one flat page. `types`/`excludeTypes`
+ * are WIRE type strings (already translated from the core filter tokens
+ * by the backend); array params ride the repeated `types[]` encoding. */
 export async function fetchNotificationsPage(
   client: MastoClient,
-  opts: TimelinePageOptions & { types?: string[] } = {},
+  opts: TimelinePageOptions & { types?: string[]; excludeTypes?: string[] } = {},
 ): Promise<ContinuationPage<WireNotification>> {
   const path = opts.continuation?.kind === "url" ? opts.continuation.url : "/api/v1/notifications";
   const query: Record<string, QueryValue> =
     opts.continuation?.kind === "url" ? {} : pageQuery(opts);
   if (opts.types && opts.types.length > 0 && opts.continuation?.kind !== "url") {
     query.types = opts.types;
+  }
+  if (opts.excludeTypes && opts.excludeTypes.length > 0 && opts.continuation?.kind !== "url") {
+    query.exclude_types = opts.excludeTypes;
   }
   const res = await client.get<WireNotification[]>(path, query);
   if (!Array.isArray(res.data)) {
@@ -798,6 +801,74 @@ export async function fetchNotificationsPage(
     items: res.data,
     continuation,
     end: continuation === null || res.data.length === 0,
+  };
+}
+
+/** One raw page of the grouped v2 notifications endpoint, plus the
+ * accounts the adapter resolves actors against.
+ *
+ * `GET /api/v2/notifications` accepts the same `types[]`/
+ * `exclude_types[]` filters as v1 (verified in Mastodon 4.8's
+ * `V2::NotificationsController#browserable_params`) and pages on the
+ * same `max_id`/`since_id`/`min_id` Link scheme — hence the shared
+ * continuation plumbing and the contract §5 end rule.
+ *
+ * Resolves `null` when the server's answer is not the `notifications`
+ * envelope the adapter reads (a real grouped server sends
+ * `notification_groups` plus separate `accounts`/`statuses` arrays —
+ * see `backend.ts`), so the caller falls back to flat v1 rows. A
+ * missing ENDPOINT (404/405) throws and is handled by the caller.
+ */
+export interface V2NotificationRows {
+  rows: Array<Record<string, unknown>>;
+  accounts: Map<string, Record<string, unknown>>;
+  continuation: Continuation | null;
+  /** Contract §5: no next link OR an empty page — never `length < limit`. */
+  end: boolean;
+}
+
+export async function fetchV2NotificationRows(
+  client: MastoClient,
+  opts: TimelinePageOptions & { types?: string[]; excludeTypes?: string[] } = {},
+): Promise<V2NotificationRows | null> {
+  const path =
+    opts.continuation?.kind === "url" ? opts.continuation.url : "/api/v2/notifications";
+  const query: Record<string, QueryValue> =
+    opts.continuation?.kind === "url" ? {} : pageQuery(opts);
+  if (opts.continuation?.kind !== "url") {
+    if (opts.types && opts.types.length > 0) query.types = opts.types;
+    if (opts.excludeTypes && opts.excludeTypes.length > 0) {
+      query.exclude_types = opts.excludeTypes;
+    }
+  }
+  const res = await client.get<{
+    accounts?: Array<Record<string, unknown>>;
+    notifications?: Array<Record<string, unknown>>;
+    notification_groups?: Array<Record<string, unknown>>;
+  }>(path, query);
+  const data = (res.data ?? {}) as {
+    accounts?: unknown;
+    notifications?: unknown;
+  };
+  const rows = Array.isArray(data.notifications) ? data.notifications : null;
+  // No `notifications` array: not the envelope the adapter reads (real
+  // grouped servers send `notification_groups`, array-bodied stubs send
+  // a bare list). The caller falls back to v1 — never an error here.
+  if (rows === null) return null;
+  const accounts = new Map<string, Record<string, unknown>>();
+  if (Array.isArray(data.accounts)) {
+    for (const a of data.accounts) {
+      if (a && typeof a === "object" && typeof (a as { id?: unknown }).id !== "undefined") {
+        accounts.set(String((a as { id: unknown }).id), a as Record<string, unknown>);
+      }
+    }
+  }
+  const continuation = nextContinuation(res.headers, client.origin);
+  return {
+    rows,
+    accounts,
+    continuation,
+    end: continuation === null || rows.length === 0,
   };
 }
 

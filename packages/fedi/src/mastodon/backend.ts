@@ -45,6 +45,7 @@ import type {
   Backend,
   CustomEmoji,
   ExploreUsers,
+  Filter,
   FollowRequest,
   NewsLink,
   NotificationsOpts,
@@ -85,7 +86,7 @@ import {
   fetchFollowRequestsPage,
   fetchNotificationsPage,
   fetchStatusAccountPage,
-  fetchSuggestions,
+  fetchV2NotificationRows,  fetchSuggestions,
   fetchTimelinePage,
   fetchTagTimelinePage,
   fetchTrendingLinks,
@@ -113,10 +114,10 @@ import { newIdempotencyKey, statusBodyOf } from "./compose";
 import { rebuildThread } from "./thread";
 import { createStreamHandle } from "./stream";
 import { MastoHttpError, createClient } from "./client";
-import type { MastoClient } from "./client";
+import type { MastoClient, QueryValue } from "./client";
 import { listsContaining as listsContainingMasto, addToList as addToListMasto, removeFromList as removeFromListMasto } from "./listMembership";
 import type { Continuation } from "./pagination";
-import { nextContinuation } from "./pagination";
+import { nextContinuation, withCursors } from "./pagination";
 import type {
   Account as WireAccount,
   CredentialAccount,
@@ -141,6 +142,13 @@ export function toApiError(err: unknown): unknown {
     return new ApiError(err.message, err.status, code, err.kind);
   }
   return err;
+}
+
+/** The server has no such endpoint (contract §3: 404/405 mean absent —
+ * never silent success, never an auth problem). Used for v2-first with
+ * v1-fallback probing: only absence falls back, everything else rethrows. */
+function isAbsentError(err: unknown): boolean {
+  return err instanceof ApiError && (err.status === 404 || err.status === 405);
 }
 
 /** Wrap a client so every call adapts its errors (see `toApiError`). */
@@ -212,6 +220,74 @@ function wireNotificationTypes(tokens: readonly string[] | undefined): string[] 
     for (const wire of NOTIF_WIRE_TYPES[token] ?? []) out.add(wire);
   }
   return [...out];
+}
+
+// --- Server-filter mapping (v2 groups vs v1 keywords) -----------------------
+//
+// Mastodon v2 (`/api/v2/filters`) speaks filter GROUPS — `{id, title,
+// context[], expires_at, filter_action, keywords: [{id, keyword,
+// whole_word}]}` — while v1 (`/api/v1/filters`, still present on
+// Mastodon and the ONLY shape on Akkoma/Pleroma) speaks single keywords
+// — `{id, phrase, context[], expires_at, irreversible, whole_word}`.
+// The core `Filter` is phrase-shaped (the v1 shape): a v2 group reads as
+// one phrase row (its first keyword — filters created here are
+// single-keyword, so this round-trips; `filter_action: "hide"` is the v2
+// irreversible). v1 has no `filter_action` — it stays absent, never
+// fabricated.
+
+function adaptV1FilterRow(f: Record<string, unknown>, phraseFallback: string): Filter {
+  return {
+    id: String(f.id ?? ""),
+    phrase: typeof f.phrase === "string" ? f.phrase : phraseFallback,
+    context: Array.isArray(f.context) ? f.context.map(String) : [],
+    expiresAt: typeof f.expires_at === "string" ? f.expires_at : null,
+    irreversible: f.irreversible === true,
+    wholeWord: f.whole_word === true,
+  };
+}
+
+function adaptV2FilterRow(f: Record<string, unknown>): Filter {
+  const keywords = Array.isArray(f.keywords) ? f.keywords : [];
+  const first = (
+    keywords.length > 0 && keywords[0] && typeof keywords[0] === "object"
+      ? (keywords[0] as Record<string, unknown>)
+      : {}
+  );
+  const keyword = typeof first.keyword === "string" ? first.keyword : null;
+  const title = typeof f.title === "string" ? f.title : null;
+  return {
+    id: String(f.id ?? ""),
+    phrase: keyword && keyword.length > 0 ? keyword : (title ?? ""),
+    context: Array.isArray(f.context) ? f.context.map(String) : [],
+    expiresAt: typeof f.expires_at === "string" ? f.expires_at : null,
+    irreversible: f.filter_action === "hide",
+    wholeWord: first.whole_word === true,
+  };
+}
+
+/** Core `expiresAt` (ISO) → wire `expires_in` (seconds from now): BOTH
+ * filter versions take seconds, never a date. Null/undefined stays
+ * absent — clearing an expiry is not portable, so it is never sent. */
+function filterExpiresIn(expiresAt: string | null | undefined): number | undefined {
+  if (typeof expiresAt !== "string" || expiresAt.length === 0) return undefined;
+  const ms = Date.parse(expiresAt);
+  if (!Number.isFinite(ms)) return undefined;
+  return Math.max(0, Math.round((ms - Date.now()) / 1000));
+}
+
+/** v2-first with v1-fallback: only 404/405 (no such endpoint here —
+ * Akkoma/Pleroma) fall back; anything else rethrows. When BOTH are
+ * absent the v1 error propagates as the honest unsupported state. */
+async function withFilterFallback<T>(
+  runV2: () => Promise<T>,
+  runV1: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await runV2();
+  } catch (err) {
+    if (!isAbsentError(err)) throw err;
+    return runV1();
+  }
 }
 
 // --- The backend ------------------------------------------------------------
@@ -695,31 +771,42 @@ export function createMastodonBackend(
 
     async notifications(opts: NotificationsOpts = {}) {
       const cont = continuationOf(opts.cursor);
-      // Prefer the v2 endpoint when the server offers grouped notifications;
-      // fall back to v1 otherwise. A 404/405 means "no v2" — not an error.
-      if (!cont) {
+      const types = wireNotificationTypes(opts.includeTypes);
+      const excludeTypes = wireNotificationTypes(opts.excludeTypes);
+      // Prefer the grouped v2 endpoint; fall back to flat v1 when the
+      // server has none (404/405 — Akkoma/Pleroma) or answers an envelope
+      // the adapter cannot read (null). ONLY absence falls back: auth,
+      // timeout and 5xx errors rethrow — they are never masked as "no
+      // grouped notifications". A cursor already pinned to a v1 next-URL
+      // stays on v1 (its paging belongs there).
+      const pinnedV1 =
+        cont?.kind === "url" && !cont.url.includes("/api/v2/notifications");
+      if (!pinnedV1) {
         try {
-          const res = await client.get<{ accounts?: Array<Record<string, unknown>>; notifications?: Array<Record<string, unknown>> }>(
-            "/api/v2/notifications",
-            { limit: opts.limit ?? DEFAULT_LIMIT },
-          );
-          const accounts = Array.isArray(res.data?.accounts) ? res.data.accounts : [];
-          const acctMap = new Map(accounts.map((a) => [String(a.id), a]));
-          const rows = Array.isArray(res.data?.notifications) ? res.data.notifications : null;
-          // Only treat as a v2 answer when the server actually sent the
-          // v2 envelope (accounts + notifications arrays). Otherwise fall
-          // through to v1 so a v1-shaped (or empty) stub keeps working.
-          if (rows !== null) {
-            const items = rows.map((n) => adaptV2Notification(n, acctMap));
-            return { items, cursor: null, end: rows.length === 0 };
+          const v2 = await fetchV2NotificationRows(client, {
+            ...(cont ? { continuation: cont } : { limit: opts.limit ?? DEFAULT_LIMIT }),
+            types,
+            excludeTypes,
+          });
+          if (v2 !== null) {
+            // The v2 Link header drives REAL paging (contract §5): the
+            // cursor advances via fetchMore instead of stalling at null.
+            // Grouped actors/count fidelity is the adapter's job — see
+            // the adaptV2Notification gap note in the session log.
+            return {
+              items: v2.rows.map((n) => adaptV2Notification(n, v2.accounts)),
+              cursor: encodeContinuation(v2.continuation),
+              end: v2.end,
+            };
           }
         } catch (err) {
-          // fall through to v1
+          if (!isAbsentError(err)) throw err;
         }
       }
       const page = await fetchNotificationsPage(client, {
         ...(cont ? { continuation: cont } : { limit: opts.limit ?? DEFAULT_LIMIT }),
-        types: wireNotificationTypes(opts.includeTypes),
+        types,
+        excludeTypes,
       });
       return {
         items: page.items.map(adaptNotification),
@@ -776,51 +863,112 @@ export function createMastodonBackend(
 
     filters: {
       async list() {
-        const res = await client.get<Array<Record<string, unknown>>>("/api/v2/filters");
-        const items = Array.isArray(res.data) ? res.data : [];
-        return items.map((f) => ({
-          id: String(f.id ?? ""),
-          phrase: String(f.phrase ?? ""),
-          context: Array.isArray(f.context) ? f.context.map(String) : [],
-          expiresAt: typeof f.expires_at === "string" ? f.expires_at : null,
-          irreversible: f.irreversible === true,
-          wholeWord: f.whole_word === true,
-        }));
+        // v2 groups first (Mastodon), v1 keywords on 404/405
+        // (Akkoma/Pleroma) — same single-phrase rows either way.
+        return withFilterFallback(
+          async () => {
+            const res = await client.get<Array<Record<string, unknown>>>("/api/v2/filters");
+            const items = Array.isArray(res.data) ? res.data : [];
+            return items.map(adaptV2FilterRow);
+          },
+          async () => {
+            const res = await client.get<Array<Record<string, unknown>>>("/api/v1/filters");
+            const items = Array.isArray(res.data) ? res.data : [];
+            return items.map((f) => adaptV1FilterRow(f, ""));
+          },
+        );
       },
       async create(phrase, context, opts = {}) {
-        const body: Record<string, unknown> = { phrase, context };
-        if (opts.expiresAt) body.expires_at = opts.expiresAt;
-        if (opts.irreversible !== undefined) body.irreversible = opts.irreversible;
-        if (opts.wholeWord !== undefined) body.whole_word = opts.wholeWord;
-        const res = await client.post<Record<string, unknown>>("/api/v2/filters", body);
-        const f = res.data ?? {};
-        return {
-          id: String(f.id ?? ""),
-          phrase: String(f.phrase ?? phrase),
-          context: Array.isArray(f.context) ? f.context.map(String) : context,
-          expiresAt: typeof f.expires_at === "string" ? f.expires_at : null,
-          irreversible: f.irreversible === true,
-          wholeWord: f.whole_word === true,
-        };
+        const wholeWord = opts.wholeWord === true;
+        const irreversible = opts.irreversible === true;
+        const expires_in = filterExpiresIn(opts.expiresAt ?? undefined);
+        return withFilterFallback(
+          async () => {
+            // v2 creates a GROUP: `title` names it, `keywords_attributes`
+            // carries the matched text (one keyword — what the core row
+            // edits), `filter_action` carries the hide/warn behaviour.
+            const body: Record<string, unknown> = {
+              title: phrase,
+              context,
+              filter_action: irreversible ? "hide" : "warn",
+              keywords_attributes: [{ keyword: phrase, whole_word: wholeWord }],
+              ...(expires_in !== undefined ? { expires_in } : {}),
+            };
+            const res = await client.post<Record<string, unknown>>("/api/v2/filters", body);
+            return adaptV2FilterRow(res.data ?? {});
+          },
+          async () => {
+            // v1 creates the keyword directly (no `filter_action` there).
+            const body: Record<string, unknown> = { phrase, context };
+            if (expires_in !== undefined) body.expires_in = expires_in;
+            if (opts.irreversible !== undefined) body.irreversible = opts.irreversible;
+            if (opts.wholeWord !== undefined) body.whole_word = opts.wholeWord;
+            const res = await client.post<Record<string, unknown>>("/api/v1/filters", body);
+            return adaptV1FilterRow(res.data ?? {}, phrase);
+          },
+        );
       },
       async update(id, phrase, context, opts = {}) {
-        const body: Record<string, unknown> = { phrase, context };
-        if (opts.expiresAt !== undefined) body.expires_at = opts.expiresAt;
-        if (opts.irreversible !== undefined) body.irreversible = opts.irreversible;
-        if (opts.wholeWord !== undefined) body.whole_word = opts.wholeWord;
-        const res = await client.put<Record<string, unknown>>(`/api/v2/filters/${encodeURIComponent(id)}`, body);
-        const f = res.data ?? {};
-        return {
-          id: String(f.id ?? id),
-          phrase: String(f.phrase ?? phrase),
-          context: Array.isArray(f.context) ? f.context.map(String) : context,
-          expiresAt: typeof f.expires_at === "string" ? f.expires_at : null,
-          irreversible: f.irreversible === true,
-          wholeWord: f.whole_word === true,
-        };
+        const wholeWord = opts.wholeWord === true;
+        const pathV2 = `/api/v2/filters/${encodeURIComponent(id)}`;
+        return withFilterFallback(
+          async () => {
+            // v2 edits a GROUP: read it first so the phrase edit rewrites
+            // the group's keywords in place (first keyword takes the new
+            // phrase, the rest are kept by id) instead of appending a
+            // duplicate keyword on every edit.
+            const seen = await client.get<Record<string, unknown>>(pathV2);
+            const prior = Array.isArray((seen.data ?? {}).keywords)
+              ? ((seen.data as Record<string, unknown>).keywords as Array<Record<string, unknown>>)
+              : [];
+            const keywords_attributes =
+              prior.length > 0
+                ? prior.map((k, i) =>
+                    i === 0
+                      ? { id: k.id, keyword: phrase, whole_word: wholeWord }
+                      : { id: k.id },
+                  )
+                : [{ keyword: phrase, whole_word: wholeWord }];
+            const body: Record<string, unknown> = {
+              title: phrase,
+              context,
+              keywords_attributes,
+            };
+            if (opts.irreversible !== undefined) {
+              body.filter_action = opts.irreversible ? "hide" : "warn";
+            }
+            const expires_in = filterExpiresIn(opts.expiresAt ?? undefined);
+            if (expires_in !== undefined) body.expires_in = expires_in;
+            const res = await client.put<Record<string, unknown>>(pathV2, body);
+            return adaptV2FilterRow(res.data ?? {});
+          },
+          async () => {
+            const body: Record<string, unknown> = { phrase, context };
+            if (opts.expiresAt !== undefined) {
+              const expires_in = filterExpiresIn(opts.expiresAt ?? undefined);
+              if (expires_in !== undefined) body.expires_in = expires_in;
+            }
+            if (opts.irreversible !== undefined) body.irreversible = opts.irreversible;
+            if (opts.wholeWord !== undefined) body.whole_word = opts.wholeWord;
+            const res = await client.put<Record<string, unknown>>(
+              `/api/v1/filters/${encodeURIComponent(id)}`,
+              body,
+            );
+            return adaptV1FilterRow(res.data ?? {}, phrase);
+          },
+        );
       },
       async delete(id) {
-        await client.delete(`/api/v2/filters/${encodeURIComponent(id)}`);
+        const pathV2 = `/api/v2/filters/${encodeURIComponent(id)}`;
+        const pathV1 = `/api/v1/filters/${encodeURIComponent(id)}`;
+        return withFilterFallback(
+          async () => {
+            await client.delete(pathV2);
+          },
+          async () => {
+            await client.delete(pathV1);
+          },
+        );
       },
     },
 
@@ -858,22 +1006,55 @@ export function createMastodonBackend(
           end: continuation === null || posts.length === 0,
         };
       },
+      // Lists exist on every flavor here (Mastodon + Akkoma/Pleroma all
+      // serve `/api/v1/lists` CRUD) — no v1/v2 split, so no fallback:
+      // absence propagates as the honest unsupported state.
+      async create(name) {
+        const res = await client.post<{ id: string; title: string }>("/api/v1/lists", {
+          title: name,
+        });
+        if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
+          throw new FediError("The server did not return the created list.", "errors.shape.createdList");
+        }
+        return { id: res.data.id, name: res.data.title ?? name };
+      },
+      async update(id, patch) {
+        const res = await client.put<{ id: string; title: string }>(
+          `/api/v1/lists/${encodeURIComponent(id)}`,
+          { title: patch.name },
+        );
+        if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
+          throw new FediError("The server did not return the updated list.", "errors.shape.updatedList");
+        }
+        return { id: res.data.id, name: res.data.title ?? patch.name };
+      },
+      async delete(id) {
+        await client.delete(`/api/v1/lists/${encodeURIComponent(id)}`);
+      },
     },
 
     bookmarks: {
       async list(opts = {}) {
         const cont = continuationOf(opts.cursor);
-        const pageOpts = cont ? { continuation: cont } : { limit: opts.limit ?? DEFAULT_LIMIT };
-        const query: Record<string, number> = cont ? {} : { limit: opts.limit ?? DEFAULT_LIMIT };
         const path = cont?.kind === "url" ? cont.url : "/api/v1/bookmarks";
+        // Same Link-continuation plumbing as every other listing: a
+        // same-origin next URL is followed verbatim (its params already
+        // baked in), carried-over cursors rebuild on the session origin —
+        // never a length heuristic.
+        const query: Record<string, QueryValue> =
+          cont?.kind === "url"
+            ? {}
+            : cont?.kind === "cursors"
+              ? withCursors({}, cont.cursors)
+              : { limit: opts.limit ?? DEFAULT_LIMIT };
         const res = await client.get<Array<unknown>>(path, query);
         const items = Array.isArray(res.data) ? res.data : [];
-        // Link header pagination via statusPage-style: read next link.
         const posts = items.map((raw) => adaptStatus(raw as any));
+        const continuation = nextContinuation(res.headers, client.origin);
         return {
           items: posts.map((post) => ({ id: post.id, post })),
-          cursor: null,
-          end: posts.length === 0,
+          cursor: encodeContinuation(continuation),
+          end: continuation === null || posts.length === 0,
         };
       },
       async add(noteId) {
