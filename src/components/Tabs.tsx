@@ -3,7 +3,7 @@
 // border, each tab a 2px bottom underline when active, active label
 // strong text, inactive muted text. Instant — no animation. No pills,
 // no borderRadius.full, no Button.
-import {ScrollView, StyleSheet} from 'react-native'
+import {ScrollView, StyleSheet, View} from 'react-native'
 
 import {useTheme} from '#/alf/index'
 import {Body} from '#/alf/typography'
@@ -30,53 +30,57 @@ export function Tabs<T extends string>({
   accessibilityLabel?: string
 }) {
   const theme = useTheme()
-  // Horizontal scroll: long option rows (notification receive config)
-  // collapse to a scrollable tab strip on narrow phones instead of
-  // overflowing — still plain underline tabs, never pills.
+  // Outer bar is a plain full-width View (it stretches in its column
+  // parent, so the hairline always spans the screen). The scroll view
+  // lives inside: short rows look identical to the old static bar, long
+  // option rows scroll on narrow phones instead of overflowing.
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
+    <View
       testID={testID ?? testIDPrefix}
       accessibilityRole="tablist"
       aria-label={accessibilityLabel}
-      contentContainerStyle={[styles.bar, {borderBottomColor: theme.palette.edge}]}>
-      {tabs.map(t => {
-        const selected = t.key === active
-        return (
-          <Pressable
-            key={t.key}
-            testID={`${testIDPrefix}-${t.key}`}
-            accessibilityRole="tab"
-            accessibilityState={{selected}}
-            onPress={() => onChange(t.key)}
-            style={[
-              styles.tab,
-              // The active underline is layout only — no animation.
-              selected && {borderBottomColor: theme.palette.borderStrong},
-            ]}>
-            <Body color={selected ? 'text' : 'muted'} style={selected && styles.activeLabel}>
-              {t.label}
-            </Body>
-          </Pressable>
-        )
-      })}
-    </ScrollView>
+      style={[styles.bar, {borderBottomColor: theme.palette.edge}]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.row}>
+        {tabs.map(t => {
+          const selected = t.key === active
+          return (
+            <Pressable
+              key={t.key}
+              testID={`${testIDPrefix}-${t.key}`}
+              accessibilityRole="tab"
+              accessibilityState={{selected}}
+              onPress={() => onChange(t.key)}
+              style={[
+                styles.tab,
+                // The active underline is layout only — no animation.
+                selected && {borderBottomColor: theme.palette.borderStrong},
+              ]}>
+              <Body color={selected ? 'text' : 'muted'} style={selected && styles.activeLabel}>
+                {t.label}
+              </Body>
+            </Pressable>
+          )
+        })}
+      </ScrollView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
   bar: {
-    flexDirection: 'row',
-    // Grow to the full width so the hairline spans the screen even with
-    // two tabs; extra tabs scroll instead of overflowing.
-    flexGrow: 1,
     borderBottomWidth: borderWidth.hairline,
     paddingHorizontal: space.md,
   },
+  row: {
+    flexDirection: 'row',
+    flexGrow: 1,
+  },
   tab: {
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    paddingVertical: space.xs,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
     marginBottom: -1,
