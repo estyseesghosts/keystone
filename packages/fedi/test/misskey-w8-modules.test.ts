@@ -205,7 +205,13 @@ describe("misskey/auth", () => {
   });
 
   it("the permission set covers the write paths the smoke probes", () => {
-    for (const scope of ["write:favorites", "read:clips", "write:clips"]) {
+    for (const scope of [
+      "write:favorites",
+      "read:clips",
+      "write:clips",
+      "read:channels",
+      "write:channels",
+    ]) {
       expect(KEYSTONE_PERMISSIONS).toContain(scope);
     }
   });

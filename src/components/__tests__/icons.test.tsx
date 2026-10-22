@@ -6,6 +6,7 @@ import {themes} from '#/alf/themes'
 import {
   BackIcon,
   BellIcon,
+  ChannelIcon,
   CheckIcon,
   CloseIcon,
   HeartIcon,
@@ -25,6 +26,7 @@ import {
 const icons = {
   BackIcon,
   BellIcon,
+  ChannelIcon,
   CheckIcon,
   CloseIcon,
   HeartIcon,

@@ -41,6 +41,7 @@ export function feedSourceKey(source: FeedSource): string {
   if ('antennaId' in source) return `antenna|${source.antennaId}`
   if ('listId' in source) return `list|${source.listId}`
   if ('tag' in source) return `tag|${source.tag}`
+  if ('channelId' in source) return `channel|${source.channelId}`
   return `clip|${source.clipId}`
 }
 
@@ -277,14 +278,17 @@ export type LiveRegistry = ReturnType<typeof createLiveRegistry>
 
 /**
  * Live-channel source for a feed descriptor, or null when the feed has no
- * live channel on any family. Timelines/lists/antennas/tags map 1:1 onto
- * `FeedSource`; clips/user tabs/search/explore/bookmarks/mentions/channels
- * have no channel anywhere (v1 parity: `TimelineFeed.hasChannel` plus the
+ * live channel on any family. Timelines/lists/antennas/tags/channels map 1:1
+ * onto `FeedSource`; clips/user tabs/search/explore/bookmarks/mentions have
+ * no channel anywhere (v1 parity: `TimelineFeed.hasChannel` plus the
  * clip exclusion — those feeds page + refresh only, never an error, never
- * a faked socket). Per-family gaps inside a mapped source (Mastodon
- * `social`, unauthenticated auth channels) are answered by the handle as
- * a disabled subscription — the mount reads `channelStatus()` and stands
- * down rather than showing a stuck "connecting" badge.
+ * a faked socket). The Mastodon family has no channel source, so a
+ * `channel|<id>` descriptor maps to a source the Mastodon handle answers
+ * with a disabled subscription — the mount stands down and the feed pages.
+ * Per-family gaps inside a mapped source (Mastodon `social`, unauthenticated
+ * auth channels) are answered by the handle as a disabled subscription —
+ * the mount reads `channelStatus()` and stands down rather than showing a
+ * stuck "connecting" badge.
  *
  * Unparsable descriptors also answer null (the query layer throws on those
  * before any live mount, so this is unreachable in practice, never a
@@ -304,6 +308,8 @@ export function feedSourceForDescriptor(descriptor: string): FeedSource | null {
       return {listId: parsed.id}
     case 'antenna':
       return {antennaId: parsed.id}
+    case 'channel':
+      return {channelId: parsed.id}
     case 'tag':
       return {tag: parsed.tag}
     default:

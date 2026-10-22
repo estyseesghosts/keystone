@@ -276,6 +276,20 @@ describe('stack destinations (E7 nav)', () => {
     expect(await screen.findByTestId('drive-screen')).toBeTruthy()
   })
 
+  it('misskey sidebar shows Channels (capability + module gate)', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-channels')).toBeTruthy()
+  })
+
+  it('mastodon sidebar hides Channels', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-channels')).toBeNull()
+  })
+
   it('misskey account menu carries Drive (mobile entry point)', async () => {
     widthHolder.width = 390
     await renderShell({signedIn: true, family: 'misskey'})

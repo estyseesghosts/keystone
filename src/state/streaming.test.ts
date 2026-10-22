@@ -89,6 +89,7 @@ describe('feedSourceKey / liveKey', () => {
     expect(feedSourceKey({antennaId: 'a1'})).toBe('antenna|a1')
     expect(feedSourceKey({listId: 'l1'})).toBe('list|l1')
     expect(feedSourceKey({tag: 'cats'})).toBe('tag|cats')
+    expect(feedSourceKey({channelId: 'ch1'})).toBe('channel|ch1')
     expect(feedSourceKey({clipId: 'c1'})).toBe('clip|c1')
     expect(liveKey('sA', {kind: 'home'})).not.toBe(liveKey('sB', {kind: 'home'}))
   })
@@ -329,6 +330,9 @@ describe('feedSourceForDescriptor (WS-G)', () => {
     expect(feedSourceForDescriptor('list|l1')).toEqual({listId: 'l1'})
     expect(feedSourceForDescriptor('antenna|a1')).toEqual({antennaId: 'a1'})
     expect(feedSourceForDescriptor('tag|cats')).toEqual({tag: 'cats'})
+    // Channels have a live channel (Misskey `channel`); the Mastodon handle
+    // answers this source as a disabled subscription and the feed pages.
+    expect(feedSourceForDescriptor('channel|ch1')).toEqual({channelId: 'ch1'})
   })
 
   it('returns null for feeds with no live channel (paging-only, never faked)', () => {
