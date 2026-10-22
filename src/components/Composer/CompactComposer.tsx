@@ -251,11 +251,13 @@ export function CompactComposer(props: ComposerProps) {
                   c.patch({visibilityRaw: o.raw})
                   setAudienceOpen(false)
                 }}
-                right={<PopupRadioDot on={selected} />}>
-                <View style={styles.rowIcon}>
-                  <Icon size={18} color={muted} />
-                  <PopupDesc>{kindDesc(o.kind)}</PopupDesc>
-                </View>
+                right={<PopupRadioDot on={selected} />}
+                left={
+                  <View testID={`composer-vis-icon-${o.raw}`}>
+                    <Icon size={34} color={muted} />
+                  </View>
+                }>
+                <PopupDesc>{kindDesc(o.kind)}</PopupDesc>
               </PopupRow>
             )
           })}
@@ -332,6 +334,7 @@ export function CompactComposer(props: ComposerProps) {
           disabled={c.busy || c.over}
           disabledReason={c.over ? i18n._(msg`Over the character limit.`) : c.busy ? i18n._(msg`Posting...`) : undefined}
           testID="composer-submit"
+          compact
         />
       </View>
       {emojiOpen ? (
@@ -522,7 +525,6 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
-  rowIcon: {flexDirection: 'row', alignItems: 'center', gap: 8},
   spacer: {flex: 1},
   draftList: {paddingHorizontal: 10, paddingVertical: 4, gap: 4},
   draftRow: {flexDirection: 'row', alignItems: 'center', gap: 8},

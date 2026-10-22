@@ -9,6 +9,10 @@ export type ButtonProps = {
   label: string
   onPress: () => void
   variant?: 'primary' | 'secondary'
+  /** Compact pill for dense toolbars (composer submit): lower height and
+   * tighter padding. The 44dp touch target is a guideline, not a law —
+   * toolbar pills sit beside hitSlop'd icon buttons. */
+  compact?: boolean
   disabled?: boolean
   /** Shown to AT and as a caption when disabled. Never inert without reason. */
   disabledReason?: string
@@ -21,6 +25,7 @@ export function Button({
   label,
   onPress,
   variant = 'primary',
+  compact,
   disabled,
   disabledReason,
   testID,
@@ -28,10 +33,11 @@ export function Button({
   const theme = useTheme()
   const styles = StyleSheet.create({
     base: {
-      paddingHorizontal: space.lg,
+      paddingHorizontal: compact ? space.md : space.lg,
       paddingVertical: space.sm,
       // 44dp minimum touch target (P10): short labels still tap reliably.
-      minHeight: 44,
+      // Compact pills trade down to 36dp for dense toolbars.
+      minHeight: compact ? 36 : 44,
       borderRadius: radius.full,
       alignItems: 'center',
       justifyContent: 'center',
@@ -60,7 +66,8 @@ export function Button({
       ]}>
       <Body
         color={variant === 'primary' ? undefined : 'text'}
-        style={variant === 'primary' ? {color: theme.palette.bg} : undefined}>
+        style={variant === 'primary' ? {color: theme.palette.bg} : undefined}
+        numberOfLines={1}>
         {label}
       </Body>
     </Pressable>

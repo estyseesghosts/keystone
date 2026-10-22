@@ -346,6 +346,7 @@ export function PopupRow({
   disabled,
   reason,
   right,
+  left,
   children,
 }: {
   testID?: string
@@ -354,6 +355,9 @@ export function PopupRow({
   disabled?: boolean
   reason?: string
   right?: ReactNode
+  /** Leading slot: stretches the row's full height and centers its
+   * content (used for full-height option icons). */
+  left?: ReactNode
   children?: ReactNode
 }) {
   return (
@@ -365,6 +369,7 @@ export function PopupRow({
       accessibilityState={{disabled}}
       accessibilityLabel={disabled && reason ? `${label}. ${reason}` : label}
       style={[popupRowStyles.row, disabled && popupRowStyles.disabled]}>
+      {left ? <View style={popupRowStyles.left}>{left}</View> : null}
       <View style={popupRowStyles.text}>
         <Body>{label}</Body>
         {children}
@@ -387,6 +392,7 @@ const popupRowStyles = StyleSheet.create({
   },
   disabled: {opacity: 0.5},
   text: {flex: 1, gap: 2, minWidth: 0},
+  left: {justifyContent: 'center', alignSelf: 'stretch'},
 })
 
 export function PopupRadioDot({on}: {on: boolean}) {
