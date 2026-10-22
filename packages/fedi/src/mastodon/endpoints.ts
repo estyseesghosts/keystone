@@ -29,7 +29,14 @@ import type { MastoClient, QueryValue } from "./client";
 import { adaptAccount, adaptRelationship, adaptStatus } from "./adapt";
 import type { StatusBody } from "./compose";
 import type { Account, Post, Relationship } from "../core/models";
-import type { TimelineKind } from "../core/backend";
+import type {
+  InstanceRule,
+  ReportCategory,
+  ReportOptions,
+  ReportResult,
+  TimelineKind,
+} from "../core/backend";
+import { normalizeReportOptions } from "../core/backend";
 import { getActiveSessionId, loadSessions, type KeyValueStore } from "../core/sessions";
 import { nextContinuation, prevContinuation, withCursors } from "./pagination";
 import type { Continuation } from "./pagination";
@@ -39,6 +46,7 @@ import type {
   MediaAttachment,
   Notification as WireNotification,
   Relationship as WireRelationship,
+  Rule as WireRule,
   ScheduledStatus as WireScheduledStatus,
   Status,
 } from "./wire";
@@ -877,17 +885,85 @@ export async function muteStatusThread(client: MastoClient, id: string): Promise
   await client.post(`/api/v1/statuses/${encodeURIComponent(id)}/mute`);
 }
 
-/** `POST /api/v1/reports` (contract §4 family; the report flow the note
- * menu opens). `comment` is the reporter's text. */
+/** `POST /api/v1/reports` (contract §4 family; the report flow the post
+ * menu opens).
+ *
+ * Body is composed from the report CHOOSER (clickstone §1.5) and only
+ * carries the fields the reporter actually chose — the handler permits
+ * `account_id, comment, status_ids[], category, forward, rule_ids[]`
+ * (`Api::V1::ReportsController#report_params`) and `ReportService` fills
+ * every absent field with the same default we would otherwise send:
+ * `comment: ""`, `status_ids: []`, `category: "other"`, no forwarding.
+ * So omitting an unset field is never a behavior change, and sending
+ * `[]`/`false` would only add noise.
+ *
+ * Server-side rule (verified in `ReportService#call`): when `rule_ids` is
+ * present the category is FORCED to `violation` regardless of what was
+ * sent. The body therefore carries `category: "violation"` alongside the
+ * rule ids (never a contradictory value the server would silently
+ * override); with no rule ids the reporter's category is sent as chosen.
+ * `write:reports` (or the `write` umbrella) authorizes this call. */
+export function buildReportBody(
+  accountId: string,
+  options: ReportOptions | string = {},
+): Record<string, unknown> {
+  const normalized = normalizeReportOptions(options);
+  const body: Record<string, unknown> = { account_id: accountId };
+  if (normalized.comment) body.comment = normalized.comment;
+  if (normalized.statusIds?.length) body.status_ids = [...normalized.statusIds];
+  if (normalized.ruleIds?.length) {
+    body.rule_ids = [...normalized.ruleIds];
+    body.category = "violation";
+  } else if (normalized.category) {
+    body.category = normalized.category;
+  }
+  if (normalized.forward === true) body.forward = true;
+  return body;
+}
+
 export async function reportAccount(
   client: MastoClient,
   accountId: string,
-  comment: string,
-): Promise<void> {
-  await client.post("/api/v1/reports", {
-    account_id: accountId,
-    comment,
-  });
+  options: ReportOptions | string = {},
+): Promise<ReportResult> {
+  const normalized = normalizeReportOptions(options);
+  const body = buildReportBody(accountId, normalized);
+  await client.post("/api/v1/reports", body);
+  return {
+    comment: normalized.comment ?? "",
+    statusIds: [...(normalized.statusIds ?? [])],
+    category: (body.category as ReportCategory | undefined) ?? null,
+    ruleIds: [...(normalized.ruleIds ?? [])],
+    forward: body.forward === true,
+    unsupported: [],
+  };
+}
+
+/** `GET /api/v1/instance/rules` — the server's published rules, for the
+ * report chooser (`Api::V1::Instances::RulesController`, unauthenticated
+ * unless the server runs limited federation). There is no v2 equivalent
+ * (`/api/v2/instance` embeds rules inside the instance body instead); the
+ * dedicated v1 path is what Mastodon's own web client reads
+ * (`actions/server.js`). Akkoma/Pleroma serve NO such endpoint — the 404
+ * is the honest "no rule list" signal the caller renders as a reason. */
+export async function fetchInstanceRules(client: MastoClient): Promise<InstanceRule[]> {
+  const res = await client.get<unknown>("/api/v1/instance/rules");
+  if (!Array.isArray(res.data)) {
+    throw new FediError(
+      `Expected a rule list (HTTP ${res.status}).`,
+      "errors.shape.expectedList",
+      { kind: "instanceRule", status: res.status },
+    );
+  }
+  const rules: InstanceRule[] = [];
+  for (const row of res.data) {
+    if (!row || typeof row !== "object") continue;
+    const rule = row as WireRule;
+    const id = rule.id != null ? String(rule.id) : "";
+    const text = typeof rule.text === "string" ? rule.text.trim() : "";
+    if (id && text) rules.push({ id, text });
+  }
+  return rules;
 }
 
 /**

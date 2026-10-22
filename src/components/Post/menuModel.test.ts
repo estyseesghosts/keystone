@@ -241,13 +241,21 @@ describe('report row (WS-D)', () => {
     expect(row.reason).toMatch(/connected/)
   })
 
-  it('asks for a comment and passes it to the reporter', () => {
+  it('opens the chooser with its family and passes the chosen values', () => {
     const onReport = jest.fn()
     const row = flatten(buildPostMenu(reportInput({user: {onReport}}))).find(i => i.key === 'report')!
     expect(row.disabled).toBeUndefined()
-    expect(row.confirm?.commentLabel).toBeTruthy()
-    void row.confirm!.run!('spam')
-    expect(onReport).toHaveBeenCalledWith('spam')
+    expect(row.report?.action).toBe('Send report')
+    expect(row.report?.family).toBe('mastodon')
+    // makePost()'s author is remote, so forwarding is offered.
+    expect(row.report?.remoteHost).toBe('example.social')
+    void row.report!.run({comment: 'spam', category: 'spam', ruleIds: [], forward: true})
+    expect(onReport).toHaveBeenCalledWith({
+      comment: 'spam',
+      category: 'spam',
+      ruleIds: [],
+      forward: true,
+    })
   })
 })
 describe('remote-link resolution (MK17)', () => {

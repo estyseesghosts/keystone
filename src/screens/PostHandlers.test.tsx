@@ -1,8 +1,8 @@
 // PostHandlers provider (WS-D): the app-wide user actions behind the post
 // menu — mute/unmute + block/unblock through the graph controller,
 // boost-visibility flips straight to the backend with a `relationships`
-// re-read, and reports with a required comment. Every failure toasts,
-// never throws out of the menu.
+// re-read, and reports through the chooser (clickstone §1.5). Every
+// failure toasts, never throws out of the menu.
 
 import {useEffect, useState} from 'react'
 import {NavigationContainer} from '@react-navigation/native'
@@ -39,9 +39,9 @@ const memVault = (): TokenVault => ({
 
 const ORIGIN = 'https://wsd.example'
 
-function backend() {
+function backend(family: 'misskey' | 'mastodon' = 'misskey') {
   const b = {
-    family: 'misskey',
+    family,
     capabilities: {},
     mute: jest.fn(async () => undefined),
     unmute: jest.fn(async () => undefined),
@@ -72,13 +72,13 @@ function Probe({onHandlers}: {onHandlers: (h: PostCardHandlers) => void}) {
   return null
 }
 
-async function setup() {
-  const b = backend()
+async function setup(family: 'misskey' | 'mastodon' = 'misskey') {
+  const b = backend(family)
   const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: ORIGIN})
   await store.add({
     origin: ORIGIN,
-    family: 'misskey',
-    flavor: 'misskey',
+    family,
+    flavor: family,
     accountId: 'me',
     token: 'token-me',
     grant: 'password',
@@ -132,18 +132,48 @@ describe('PostHandlers user actions (WS-D)', () => {
     expect(toastStore.getSnapshot().map(t => t.message)).toContain('Blocked')
   })
 
-  it('report sends the comment and toasts', async () => {
+  it('Misskey report sends the comment alone (its only report field)', async () => {
     const {b, user} = await setup()
-    await user.onReport!('spam')
-    expect(b.reportAccount).toHaveBeenCalledWith('other', 'spam')
+    await user.onReport!({comment: 'spam', category: 'spam', ruleIds: [], forward: false})
+    expect(b.reportAccount).toHaveBeenCalledWith('other', {comment: 'spam'})
     expect(toastStore.getSnapshot().map(t => t.message)).toContain('Report sent')
   })
 
-  it('report refuses an empty reason without a wire call', async () => {
+  it('Misskey report refuses an empty reason without a wire call', async () => {
     const {b, user} = await setup()
-    await user.onReport!('   ')
+    await user.onReport!({comment: '   ', category: 'other', ruleIds: [], forward: false})
     expect(b.reportAccount).not.toHaveBeenCalled()
     expect(toastStore.getSnapshot().map(t => t.message)).toContain('Add a reason for the report.')
+  })
+
+  it('Mastodon report carries the reported post, category, rules and forward', async () => {
+    const {b, user} = await setup('mastodon')
+    await user.onReport!({
+      comment: ' impersonation ',
+      category: 'violation',
+      ruleIds: ['7'],
+      forward: true,
+    })
+    expect(b.reportAccount).toHaveBeenCalledWith('other', {
+      comment: 'impersonation',
+      statusIds: ['p1'],
+      category: 'violation',
+      ruleIds: ['7'],
+      forward: true,
+    })
+    expect(toastStore.getSnapshot().map(t => t.message)).toContain('Report sent')
+  })
+
+  it('Mastodon report needs no comment (post + category are the report)', async () => {
+    const {b, user} = await setup('mastodon')
+    await user.onReport!({comment: '', category: 'spam', ruleIds: [], forward: false})
+    expect(b.reportAccount).toHaveBeenCalledWith('other', {
+      comment: '',
+      statusIds: ['p1'],
+      category: 'spam',
+      ruleIds: [],
+      forward: false,
+    })
   })
 
   it('backend failures toast instead of throwing', async () => {

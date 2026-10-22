@@ -1,4 +1,11 @@
-import {accountQueryKey, createQueryKey, feedQueryKey, notificationsQueryKey, postQueryKey} from './keys'
+import {
+  accountQueryKey,
+  createQueryKey,
+  feedQueryKey,
+  notificationsQueryKey,
+  postQueryKey,
+  reportRulesQueryKey,
+} from './keys'
 
 describe('createQueryKey', () => {
   it('puts the sessionId first', () => {
@@ -21,6 +28,11 @@ describe('createQueryKey', () => {
     expect(accountQueryKey('sess-a', 'u1')[0]).toBe('sess-a')
     expect(notificationsQueryKey('sess-a')[0]).toBe('sess-a')
     expect(postQueryKey('sess-a', 'p1')).not.toEqual(postQueryKey('sess-b', 'p1'))
+    // The report chooser's rule list is public per server but still cached
+    // per session (two accounts on the same origin are separate sessions,
+    // and the key rule is unconditional).
+    expect(reportRulesQueryKey('sess-a')).toEqual(['sess-a', 'report-rules'])
+    expect(reportRulesQueryKey('sess-a')).toEqual(reportRulesQueryKey('sess-a'))
   })
 
   it('refuses an empty sessionId — an unscoped key must never reach the cache', () => {

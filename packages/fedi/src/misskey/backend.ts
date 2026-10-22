@@ -44,6 +44,7 @@ import type {
   PageOpts,
   PostDraft,
   ProfileUpdate,
+  ReportUnsupportedField,
   ScheduledApi,
   ScheduledNote,
   SearchPostsOpts,
@@ -56,6 +57,8 @@ import type {
 } from "../core/backend";
 import type { DetectionEvidence, ServerFlavor } from "../core/detect";
 import { buildCapabilities } from "../core/detect";
+import { normalizeReportOptions, reportUnsupported } from "../core/backend";
+import { FediError } from "../core/errors";
 import {
   adaptAccount,
   adaptDriveFile,
@@ -908,8 +911,38 @@ export function createMisskeyBackend(
       await call<undefined>("notes/thread-muting/create", { noteId });
     },
 
-    async reportAccount(id, comment) {
+    // `users/report-abuse` is the USER-side report: `{userId, comment}`
+    // with `comment` REQUIRED (minLength 1, verified in the server's
+    // endpoint schema). That is the whole Misskey API — categories, rules,
+    // status ids and forwarding do not exist there, so the chooser never
+    // pretends they were used: the result lists them as unsupported with
+    // the honest reason.
+    async reportAccount(id, options = {}) {
+      const normalized = normalizeReportOptions(options);
+      const reason =
+        "Misskey reports are a single message to the server's moderators — categories, rules, post selection and forwarding are not part of the Misskey API.";
+      const unsupported: ReportUnsupportedField[] = [
+        ...(normalized.statusIds?.length ? [reportUnsupported("statusIds", reason)] : []),
+        ...(normalized.category ? [reportUnsupported("category", reason)] : []),
+        ...(normalized.ruleIds?.length ? [reportUnsupported("ruleIds", reason)] : []),
+        ...(normalized.forward === true ? [reportUnsupported("forward", reason)] : []),
+      ];
+      const comment = normalized.comment ?? "";
+      if (comment.length === 0) {
+        throw new FediError(
+          "A report needs a reason on this server.",
+          "errors.report.commentRequired",
+        );
+      }
       await call<undefined>("users/report-abuse", { userId: id, comment });
+      return {
+        comment,
+        statusIds: [],
+        category: null,
+        ruleIds: [],
+        forward: false,
+        unsupported,
+      };
     },
 
     search: {

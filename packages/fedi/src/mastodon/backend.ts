@@ -49,6 +49,7 @@ import type {
   FilterKeyword,
   FollowRequest,
   NewsLink,
+  InstanceRule,
   NotificationsOpts,
   PageOpts,
   PostDraft,
@@ -86,6 +87,7 @@ import {
   fetchCustomEmojis,
   fetchFollowRequestsPage,
   fetchNotificationsPage,
+  fetchInstanceRules,
   fetchScheduledStatusesPage,
   fetchStatusAccountPage,
   fetchV2NotificationRows,  fetchSuggestions,
@@ -754,8 +756,27 @@ export function createMastodonBackend(
       await muteStatusThread(client, noteId);
     },
 
-    async reportAccount(id, comment) {
-      await reportAccount(client, id, comment);
+    async reportAccount(id, options = {}) {
+      return reportAccount(client, id, options);
+    },
+
+    // Server rules for the report chooser (clickstone §1.5). Mastodon and
+    // forks with the endpoint answer a list; Akkoma/Pleroma 404 — the
+    // honest "no published rule list" state, not an error page.
+    async instanceRules() {
+      try {
+        return await fetchInstanceRules(client);
+      } catch (err) {
+        if (isAbsentError(err)) {
+          throw new ApiError(
+            "This server does not publish its rules.",
+            404,
+            undefined,
+            "report-rules",
+          );
+        }
+        throw err;
+      }
     },
 
     // Personal domain blocks (clickstone §1.4) — `/api/v1/domain_blocks`,

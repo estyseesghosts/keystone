@@ -8,6 +8,7 @@ import {
   PostCardHandlersContext,
   type PostCardHandlers,
 } from '#/components/Post/handlers'
+import type {ReportChooserValues} from '#/components/Post/menuModel'
 import {toastError} from '#/components/Post/ActionBar'
 import {showToast} from '#/lib/toast'
 import type {RootParamList} from '#/routes'
@@ -79,11 +80,27 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
           () => controller.setBlocked(sessionId, backend, post.author.id, !(known?.isBlocking ?? false)),
           known?.isBlocking ? 'Unblocked' : 'Blocked',
         ),
-        onReport: async (comment: string) => {
+        onReport: async (values: ReportChooserValues) => {
           try {
-            const text = comment.trim()
-            if (!text) throw new Error('Add a reason for the report.')
-            await backend.reportAccount(post.author.id, text)
+            const text = values.comment.trim()
+            const mastodon = s.family === 'mastodon'
+            // Misskey's `users/report-abuse` requires a non-empty comment;
+            // Mastodon can file a report with the post + category alone.
+            if (!mastodon && !text) throw new Error('Add a reason for the report.')
+            await backend.reportAccount(
+              post.author.id,
+              mastodon
+                ? {
+                    comment: text,
+                    // The reporter acted on THIS post: send it as backing
+                    // evidence so the moderator sees what is being reported.
+                    statusIds: [post.id],
+                    category: values.category,
+                    ruleIds: values.ruleIds,
+                    forward: values.forward,
+                  }
+                : {comment: text},
+            )
             showToast('Report sent')
           } catch (e) {
             toastError(e)

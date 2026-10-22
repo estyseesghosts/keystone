@@ -15,7 +15,8 @@ import {Pressable} from '#/components/Pressable'
 import {TextField} from '#/components/forms/TextField'
 import {showToast} from '#/lib/toast'
 
-import type {PostMenuItem, PostMenuSection} from './menuModel'
+import type {PostMenuItem, PostMenuSection, ReportChooserValues} from './menuModel'
+import {ReportChooser} from './ReportChooser'
 
 const styles = StyleSheet.create({
   row: {paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.md},
@@ -31,12 +32,15 @@ export function PostMenu({
   postId,
   label = 'More options',
   trigger,
+  sessionId = null,
 }: {
   sections: PostMenuSection[]
   postId: string
   label?: string
   /** Custom trigger (v1 ⋯ action). Defaults to a secondary Button. */
   trigger?: React.ReactNode
+  /** Owning session — the report chooser reads that server's rules. */
+  sessionId?: string | null
 }) {
   const [open, setOpen] = useState(false)
   const [tier2, setTier2] = useState<PostMenuSection[] | null>(null)
@@ -65,14 +69,26 @@ export function PostMenu({
     }
   }
 
-  /** Confirm-path runner: a confirm with its own `run` (report) gets the
-   * dialog comment; every other confirm falls through to the item's
+  /** Confirm-path runner: every confirm falls through to the item's
    * `run` exactly as before (delete, block). */
   const execConfirm = (item: PostMenuItem) => {
     const c = item.confirm!
     close()
     try {
       const r = c.run ? c.run(c.commentLabel ? comment : undefined) : item.run?.()
+      if (r && typeof (r as Promise<void>).catch === 'function') {
+        ;(r as Promise<void>).catch(e => showToast(errorMessage(e)))
+      }
+    } catch (e) {
+      showToast(errorMessage(e))
+    }
+  }
+
+  /** Report chooser submit: same fire-and-toast discipline as `exec`. */
+  const execReport = (item: PostMenuItem, values: ReportChooserValues) => {
+    close()
+    try {
+      const r = item.report!.run(values)
       if (r && typeof (r as Promise<void>).catch === 'function') {
         ;(r as Promise<void>).catch(e => showToast(errorMessage(e)))
       }
@@ -88,6 +104,7 @@ export function PostMenu({
       setComment('')
       return setConfirming(item)
     }
+    if (item.report) return setConfirming(item)
     exec(item)
   }
 
@@ -109,7 +126,17 @@ export function PostMenu({
       </View>
       {open ? (
         <AnchoredPopup anchor={anchor} onClose={close} testID={`${id}-dialog`}>
-          {confirming ? (
+          {confirming?.report ? (
+            <ReportChooser
+              title={confirming.report.title}
+              action={confirming.report.action}
+              family={confirming.report.family}
+              remoteHost={confirming.report.remoteHost}
+              sessionId={sessionId}
+              onSubmit={values => execReport(confirming, values)}
+              onCancel={() => setConfirming(null)}
+            />
+          ) : confirming ? (
             <View style={atoms.gap_sm}>
               <Body>{confirming.confirm!.title}</Body>
               {confirming.confirm!.commentLabel ? (
