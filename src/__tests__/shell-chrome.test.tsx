@@ -12,6 +12,7 @@ import {
   feedScrollKey,
   getStateFromPathWithBase,
   goBackOrFeed,
+  handleLine,
   lastFeedTabName,
   linking,
   Navigation,
@@ -409,8 +410,21 @@ describe('sidebar reshuffle (collections + footer actions)', () => {
   })
 })
 
-describe('sidebar rail (collapsed)', () => {
-  it('keeps Post + Messages + Notifications, hides Settings + Uploads', async () => {
+describe('sidebar identity handle', () => {
+  it('prefers the profile username over the internal accountId', () => {
+    expect(
+      handleLine({accountId: 'are3i8gsgn', origin: 'https://dvd.chat', user: {username: 'jm'}}),
+    ).toBe('@jm@dvd.chat')
+  })
+
+  it('falls back to the accountId when the profile is unknown', () => {
+    expect(handleLine({accountId: 'alice', origin: 'https://mastodon.example'})).toBe(
+      '@alice@mastodon.example',
+    )
+  })
+})
+
+describe('sidebar rail (collapsed)', () => {  it('keeps Post + Messages + Notifications, hides Settings + Uploads', async () => {
     widthHolder.width = 800
     await renderShell({signedIn: true, family: 'misskey'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()

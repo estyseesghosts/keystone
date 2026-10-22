@@ -327,12 +327,19 @@ function collectionTestID(key: CollectionTarget): string {
   return `sidebar-${key.toLowerCase()}`
 }
 
-/** `@handle@host` for the sidebar footer identity row. */
-function handleLine(session: {accountId: string; origin: string}): string {
+/** `@user@host` for the sidebar footer identity row. The username comes
+ * from the session profile — `accountId` is the internal session key (a
+ * server-side ID like `are3i8gsgn…`), never the login name. */
+export function handleLine(session: {
+  accountId: string
+  origin: string
+  user?: {username: string} | null
+}): string {
+  const username = session.user?.username ?? session.accountId
   try {
-    return `@${session.accountId}@${new URL(session.origin).host}`
+    return `@${username}@${new URL(session.origin).host}`
   } catch {
-    return `@${session.accountId}@${session.origin}`
+    return `@${username}@${session.origin}`
   }
 }
 
