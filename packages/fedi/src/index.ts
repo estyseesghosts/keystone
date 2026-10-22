@@ -15,6 +15,7 @@ export * from "./core/hosting";
 export * from "./core/boot";
 export * from "./core/quoteUri";
 export * from "./core/sessions";
+export * from "./misskey/admin";
 export * from "./misskey/adapt";
 export * from "./misskey/auth";
 export * from "./misskey/backend";

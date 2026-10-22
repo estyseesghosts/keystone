@@ -137,4 +137,13 @@ export const KEYSTONE_PERMISSIONS: string[] = [
   // any permission strings, so unknown-to-old-servers grants are safe.
   "read:chat",
   "write:chat",
+  // Server insight (Wave 3 §3.1, read-only): one grant per endpoint, each
+  // naming the endpoint's exact `kind` (upstream `ApiCallService`
+  // exact-matches `token.permission` against `ep.meta.kind` — no umbrella
+  // covers them). `admin/server-info` (moderator) + `admin/queue/stats`
+  // (moderator) + `admin/meta` (admin); `get-online-users-count` is public
+  // and needs no grant. Same honest re-auth path for old tokens.
+  "read:admin:server-info",
+  "read:admin:meta",
+  "read:admin:queue",
 ];

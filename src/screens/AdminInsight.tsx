@@ -2,15 +2,18 @@
 // admin screen. NO mutations anywhere on this screen — no confirm paths to
 // build, no optimistic updates, no authoring controls.
 //
-// Two halves (clickstone §3.1):
-// - Staff metrics (measures/dimensions): visible only when the entry gate
-//   passes (Mastodon family + `adminInsight` module + a verify_credentials
-//   admin/moderator role). A 403 disables the section with a reason — it
-//   never clears the session. A 404 (forks without `/api/v1/admin/*`)
-//   renders the honest absent reason.
-// - Public server info (rules, peers, extended description, activity):
-//   needs no admin scope and renders for every staff viewer — the
-//   non-admin fallback for servers that cannot serve metrics.
+// Two families (clickstone §3.1):
+// - Mastodon family: staff metrics (measures/dimensions, admin:read + a
+//   staff role) + public server info (rules, peers, extended description,
+//   activity) as the non-admin fallback.
+// - Misskey family: `admin/server-info` + `admin/meta` + `admin/queue/
+//   stats` (moderator role + the matching `read:admin:*` grants;
+//   `admin/meta` additionally needs the admin role) + the public online
+//   count. A moderator without the admin role still renders everything
+//   except the instance-settings section.
+// A 403 on any section disables THAT section with a reason — it never
+// clears the session. A 404 (forks without the endpoints) renders the
+// honest absent reason.
 //
 // Every section degrades independently with retry; nothing here shows
 // sample data when signed out, and an unknown fork gets the same honest
@@ -24,6 +27,10 @@ import {
   type AdminDimension,
   type AdminMeasure,
   type InstanceActivityWeek,
+  type MisskeyInstanceMeta,
+  type MisskeyQueueCounts,
+  type MisskeyQueueStats,
+  type MisskeyServerInfo,
 } from '@keystone/fedi'
 
 import {useTheme} from '#/alf'
@@ -63,6 +70,29 @@ const DIMENSION_LABELS: Record<string, string> = {
 export function insightKeyLabel(kind: 'measure' | 'dimension', key: string): string {
   const table = kind === 'measure' ? MEASURE_LABELS : DIMENSION_LABELS
   return table[key] ?? key
+}
+
+/** Byte counts the Misskey hardware snapshot reports, rendered as
+ * GiB/MiB/KiB with one decimal (1024-based, matching the OS tools the
+ * numbers come from). Non-finite or negative input reads '—', never a
+ * fabricated zero. Pure. */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—'
+  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${value.toFixed(1)} ${units[unit]}`
+}
+
+/** One queue counter for the queue-stats rows: the server's number, or
+ * '—' when the server did not report it (null is "not reported", never
+ * zero — zero is a real measurement). Pure. */
+export function queueCountDisplay(value: number | null): string {
+  return value == null ? '—' : String(value)
 }
 
 /** The number the screen shows for a measure: the server's human value
@@ -294,6 +324,146 @@ function ActivitySection({section}: {section: AdminSection<InstanceActivityWeek[
   )
 }
 
+function MisskeyServerInfoSection({
+  section,
+}: {
+  section: AdminSection<MisskeyServerInfo> | null
+}) {
+  if (!section) return null
+  if (section.status !== 'ready' || !section.data) {
+    return (
+      <SectionState
+        status={section.status}
+        error={section.error}
+        retry={section.retry}
+        testID="admin-insight-server-info"
+        deniedReason="Your account may not read server hardware on this server (missing scope or staff role)."
+        absentReason="This server does not provide a hardware snapshot."
+      />
+    )
+  }
+  const info = section.data
+  return (
+    <View style={[atoms.gap_sm]} testID="admin-insight-server-info">
+      <Caption color="faint">Machine {info.machine || '—'}</Caption>
+      <Caption color="faint">OS {info.os || '—'}</Caption>
+      <Caption color="faint">Node {info.node || '—'}</Caption>
+      <Caption color="faint">PostgreSQL {info.psql || '—'}</Caption>
+      <Caption color="faint">
+        CPU {info.cpu.model || '—'} × {info.cpu.cores}
+      </Caption>
+      <Caption color="faint">Memory {formatBytes(info.memTotal)}</Caption>
+      <Caption color="faint">
+        Disk {formatBytes(info.fsUsed)} of {formatBytes(info.fsTotal)}
+      </Caption>
+    </View>
+  )
+}
+
+function MisskeyInstanceMetaSection({
+  section,
+}: {
+  section: AdminSection<MisskeyInstanceMeta> | null
+}) {
+  if (!section) return null
+  if (section.status !== 'ready' || !section.data) {
+    return (
+      <SectionState
+        status={section.status}
+        error={section.error}
+        retry={section.retry}
+        testID="admin-insight-instance-meta"
+        deniedReason="Instance settings need an admin account on this server."
+        absentReason="This server does not provide instance settings."
+      />
+    )
+  }
+  const meta = section.data
+  return (
+    <View style={[atoms.gap_sm]} testID="admin-insight-instance-meta">
+      {meta.name ? <Body>{meta.name}</Body> : null}
+      {meta.description ? <Caption color="faint">{meta.description}</Caption> : null}
+      <Caption color="faint">Version {meta.version || '—'}</Caption>
+      {meta.uri ? <Caption color="faint">{meta.uri}</Caption> : null}
+      {meta.maintainerName ? (
+        <Caption color="faint">Maintainer {meta.maintainerName}</Caption>
+      ) : null}
+      <Caption color="faint">
+        Registration {meta.disableRegistration ? 'closed' : 'open'}
+        {meta.emailRequiredForSignup ? ' (email required)' : ''}
+      </Caption>
+    </View>
+  )
+}
+
+function MisskeyQueueStatsSection({
+  section,
+}: {
+  section: AdminSection<MisskeyQueueStats> | null
+}) {
+  if (!section) return null
+  if (section.status !== 'ready' || !section.data) {
+    return (
+      <SectionState
+        status={section.status}
+        error={section.error}
+        retry={section.retry}
+        testID="admin-insight-queue-stats"
+        deniedReason="Your account may not read queue stats on this server (missing scope or staff role)."
+        absentReason="This server does not provide queue stats."
+      />
+    )
+  }
+  const queues: Array<[string, MisskeyQueueCounts]> = [
+    ['deliver', section.data.deliver],
+    ['inbox', section.data.inbox],
+    ['db', section.data.db],
+    ['object storage', section.data.objectStorage],
+  ]
+  return (
+    <View style={[atoms.gap_sm]} testID="admin-insight-queue-stats">
+      {queues.map(([name, counts]) => (
+        <View key={name} testID={`admin-insight-queue-${name.replace(/ /g, '-')}`}>
+          <Body>{name}</Body>
+          <Caption color="faint">
+            {queueCountDisplay(counts.active)} active ·{' '}
+            {queueCountDisplay(counts.waiting)} waiting ·{' '}
+            {queueCountDisplay(counts.delayed)} delayed ·{' '}
+            {queueCountDisplay(counts.failed)} failed
+          </Caption>
+        </View>
+      ))}
+    </View>
+  )
+}
+
+function MisskeyOnlineCountSection({
+  section,
+}: {
+  section: AdminSection<number> | null
+}) {
+  if (!section) return null
+  if (section.status !== 'ready' || section.data == null) {
+    return (
+      <SectionState
+        status={section.status}
+        error={section.error}
+        retry={section.retry}
+        testID="admin-insight-online-count"
+        deniedReason="Your account may not read the online count on this server."
+        absentReason="This server does not publish an online count."
+      />
+    )
+  }
+  return (
+    <View style={[atoms.gap_sm]} testID="admin-insight-online-count">
+      <Body>
+        {section.data} {section.data === 1 ? 'user' : 'users'} online now
+      </Body>
+    </View>
+  )
+}
+
 export function AdminInsightScreen() {
   const theme = useTheme()
   const {session, backend} = useActiveBackend()
@@ -326,7 +496,7 @@ export function AdminInsightScreen() {
           <>
             <Body>Server insight is not available on this server.</Body>
             <Caption color="faint">
-              Keystone reads Mastodon-family insight endpoints only.
+              Keystone reads Mastodon- and Misskey-family insight endpoints only.
             </Caption>
           </>
         )}
@@ -334,16 +504,23 @@ export function AdminInsightScreen() {
     )
   }
 
+  const isMisskey = backend.family === 'misskey'
   const refreshing =
     insight.measures.status === 'loading' ||
     insight.dimensions.status === 'loading' ||
-    insight.peers.status === 'loading'
+    insight.peers.status === 'loading' ||
+    insight.serverInfo?.status === 'loading' ||
+    insight.queueStats?.status === 'loading'
   const refresh = () => {
     insight.measures.retry()
     insight.dimensions.retry()
     insight.peers.retry()
     insight.extendedDescription.retry()
     insight.activity.retry()
+    insight.serverInfo?.retry()
+    insight.instanceMeta?.retry()
+    insight.queueStats?.retry()
+    insight.onlineUsersCount?.retry()
   }
 
   return (
@@ -362,15 +539,32 @@ export function AdminInsightScreen() {
       }>
       <View style={[atoms.p_md, atoms.gap_md]}>
         <Pagehead title="Server insight" />
-        <SectionShell title="Metrics" testID="admin-insight-section-metrics">
-          <MeasuresSection section={insight.measures} />
-          <DimensionsSection section={insight.dimensions} />
-        </SectionShell>
-        <SectionShell title="Server info" testID="admin-insight-section-server">
-          <PeersSection section={insight.peers} />
-          <DescriptionSection section={insight.extendedDescription} />
-          <ActivitySection section={insight.activity} />
-        </SectionShell>
+        {isMisskey ? (
+          <>
+            <SectionShell title="Server" testID="admin-insight-section-server-hw">
+              <MisskeyServerInfoSection section={insight.serverInfo} />
+              <MisskeyOnlineCountSection section={insight.onlineUsersCount} />
+            </SectionShell>
+            <SectionShell title="Instance" testID="admin-insight-section-instance">
+              <MisskeyInstanceMetaSection section={insight.instanceMeta} />
+            </SectionShell>
+            <SectionShell title="Queues" testID="admin-insight-section-queues">
+              <MisskeyQueueStatsSection section={insight.queueStats} />
+            </SectionShell>
+          </>
+        ) : (
+          <>
+            <SectionShell title="Metrics" testID="admin-insight-section-metrics">
+              <MeasuresSection section={insight.measures} />
+              <DimensionsSection section={insight.dimensions} />
+            </SectionShell>
+            <SectionShell title="Server info" testID="admin-insight-section-server">
+              <PeersSection section={insight.peers} />
+              <DescriptionSection section={insight.extendedDescription} />
+              <ActivitySection section={insight.activity} />
+            </SectionShell>
+          </>
+        )}
         <SectionShell title="Server rules" testID="admin-insight-section-rules">
           {rules.status === 'ready' ? (
             <View style={[atoms.gap_sm]} testID="admin-insight-rules">

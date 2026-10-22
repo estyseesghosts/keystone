@@ -16,6 +16,7 @@ import {ThemeProvider} from '#/alf/index'
 
 import {AdminInsightScreen} from './AdminInsight'
 import {insightKeyLabel, measureDisplayValue, visiblePeers} from './AdminInsight'
+import {formatBytes, queueCountDisplay} from './AdminInsight'
 
 const mockNavigate = jest.fn()
 
@@ -256,6 +257,218 @@ describe('AdminInsightScreen', () => {
         expect(screen.getByTestId('admin-insight-peers')).toBeTruthy()
       })
       expect(calls).toBeGreaterThanOrEqual(2)
+    } finally {
+      cleanup()
+    }
+  })
+})
+
+describe('AdminInsight pure helpers (Misskey)', () => {
+  it('formats byte counts 1024-based, never a fabricated zero', () => {
+    expect(formatBytes(0)).toBe('0.0 B')
+    expect(formatBytes(1536)).toBe('1.5 KiB')
+    expect(formatBytes(17179869184)).toBe('16.0 GiB')
+    expect(formatBytes(Number.NaN)).toBe('—')
+    expect(formatBytes(-1)).toBe('—')
+  })
+
+  it('renders missing queue counters as an honest dash', () => {
+    expect(queueCountDisplay(3)).toBe('3')
+    expect(queueCountDisplay(0)).toBe('0')
+    expect(queueCountDisplay(null)).toBe('—')
+  })
+})
+
+describe('AdminInsightScreen (Misskey family)', () => {
+  function misskeyAccount(flags: {isAdmin?: boolean; isModerator?: boolean}): any {
+    return {
+      id: '1',
+      username: 'admin',
+      acct: 'admin',
+      displayName: 'admin',
+      ext: {me: {isAdmin: !!flags.isAdmin, isModerator: !!flags.isModerator}},
+    }
+  }
+
+  function misskeyBackend(over: Record<string, any> = {}): any {
+    const {adminInsight: adminOver, ...rest} = over
+    return {
+      family: 'misskey',
+      capabilities: {admin_read: 'unknown', admin_write: 'unknown'},
+      adminInsight: {
+        serverInfo: async () => ({
+          machine: 'host1',
+          os: 'linux',
+          node: 'v22.1.0',
+          psql: '15.4',
+          cpu: {model: 'Xeon', cores: 8},
+          memTotal: 17179869184,
+          fsTotal: 536870912000,
+          fsUsed: 107374182400,
+        }),
+        instanceMeta: async () => ({
+          name: 'Example',
+          shortName: 'ex',
+          description: 'An instance',
+          maintainerName: 'Admin',
+          maintainerEmail: 'admin@example.com',
+          version: '2025.1.0',
+          uri: 'example.com',
+          disableRegistration: false,
+          emailRequiredForSignup: true,
+        }),
+        queueStats: async () => ({
+          deliver: {waiting: 3, active: 1, delayed: 0, completed: 100, failed: 2, paused: 0},
+          inbox: {waiting: 0, active: 0, delayed: 0, completed: 50, failed: 0, paused: 0},
+          db: {waiting: 0, active: 0, delayed: 0, completed: 10, failed: 0, paused: 0},
+          objectStorage: {waiting: 0, active: 0, delayed: 0, completed: 0, failed: 0, paused: 0},
+        }),
+        onlineUsersCount: async () => 42,
+        ...(adminOver ?? {}),
+      },
+      me: async () => misskeyAccount({isAdmin: true}),
+      instanceRules: async () => [{id: '1', text: 'No spam'}],
+      ...rest,
+    }
+  }
+
+  async function misskeySetup({
+    backend,
+    flags,
+  }: {
+    backend?: any
+    flags?: {isAdmin?: boolean; isModerator?: boolean}
+  } = {}) {
+    mockNavigate.mockClear()
+    const storage = createMemoryStore()
+    const restore = appStorage()
+    __setStorageForTests({storage})
+    mockBackendHolder.current = backend ?? null
+    const sessionStore = createSessionStore({
+      storage: createMemoryStore(),
+      vault: memVault(),
+      homeOrigin: HOME_ORIGIN,
+      revokeFetch: (() => Promise.resolve(new Response('{}', {status: 200}))) as unknown as typeof fetch,
+    })
+    if (backend) {
+      await sessionStore.add({
+        origin: ORIGIN,
+        family: 'misskey',
+        flavor: 'misskey',
+        accountId: 'alice',
+        token: 'token-alice',
+        grant: 'miauth',
+        hosting: 'third-party',
+        ...(flags ? {user: misskeyAccount(flags)} : {}),
+      })
+    }
+    const client = testClient()
+    render(
+      <QueryClientProvider client={client}>
+        <ThemeProvider theme="light">
+          <SessionProvider store={sessionStore} homeOrigin={HOME_ORIGIN}>
+            <AdminInsightScreen />
+          </SessionProvider>
+        </ThemeProvider>
+      </QueryClientProvider>,
+    )
+    return {
+      client,
+      cleanup: () => {
+        client.clear()
+        __setStorageForTests({storage: restore})
+      },
+    }
+  }
+
+  it('non-staff: explains the role requirement and fetches nothing', async () => {
+    const serverInfo = jest.fn(async () => ({}))
+    const {cleanup} = await misskeySetup({
+      backend: misskeyBackend({
+        me: async () => misskeyAccount({}),
+        adminInsight: {serverInfo},
+      }),
+      flags: {},
+    })
+    try {
+      mockBackendHolder.current.adminInsight.serverInfo = serverInfo
+      await waitFor(() => {
+        expect(screen.getByText('Requires an admin or moderator account.')).toBeTruthy()
+      })
+      expect(serverInfo).not.toHaveBeenCalled()
+    } finally {
+      cleanup()
+    }
+  })
+
+  it('staff: renders hardware, instance, queues, and the online count', async () => {
+    const {cleanup} = await misskeySetup({
+      backend: misskeyBackend(),
+      flags: {isAdmin: true},
+    })
+    try {
+      await waitFor(() => {
+        expect(screen.getByTestId('admin-insight-server-info')).toBeTruthy()
+      })
+      expect(screen.getByText('Machine host1')).toBeTruthy()
+      expect(screen.getByText('Example')).toBeTruthy()
+      expect(screen.getByText('deliver')).toBeTruthy()
+      expect(screen.getByText('42 users online now')).toBeTruthy()
+      expect(screen.getByText('No spam')).toBeTruthy()
+      // The Mastodon sections never render on this family.
+      expect(screen.queryByTestId('admin-insight-measures')).toBeNull()
+    } finally {
+      cleanup()
+    }
+  })
+
+  it('moderator without the admin role: settings deny with a reason, hardware still renders', async () => {
+    const denied = new ApiError('You are not assigned to an administrator role.', 403, 'ROLE_PERMISSION_DENIED')
+    const {cleanup} = await misskeySetup({
+      backend: misskeyBackend({
+        me: async () => misskeyAccount({isModerator: true}),
+        adminInsight: {
+          instanceMeta: async () => {
+            throw denied
+          },
+        },
+      }),
+      flags: {isModerator: true},
+    })
+    try {
+      await waitFor(() => {
+        expect(screen.getByTestId('admin-insight-instance-meta-denied')).toBeTruthy()
+      })
+      expect(
+        screen.getByText('Instance settings need an admin account on this server.'),
+      ).toBeTruthy()
+      await waitFor(() => {
+        expect(screen.getByTestId('admin-insight-server-info')).toBeTruthy()
+      })
+    } finally {
+      cleanup()
+    }
+  })
+
+  it('queue 403: disables the queue section with a reason, keeps the rest', async () => {
+    const denied = new ApiError('Insufficient scope.', 403, 'errors.network.apiError')
+    const {cleanup} = await misskeySetup({
+      backend: misskeyBackend({
+        adminInsight: {
+          queueStats: async () => {
+            throw denied
+          },
+        },
+      }),
+      flags: {isAdmin: true},
+    })
+    try {
+      await waitFor(() => {
+        expect(screen.getByTestId('admin-insight-queue-stats-denied')).toBeTruthy()
+      })
+      await waitFor(() => {
+        expect(screen.getByTestId('admin-insight-server-info')).toBeTruthy()
+      })
     } finally {
       cleanup()
     }

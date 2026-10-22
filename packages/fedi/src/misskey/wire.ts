@@ -539,3 +539,57 @@ export function withReaction(note: Note, reaction: string | null): Note {
     reactionCount: Math.max(0, reactionCount),
   };
 }
+
+// --- Server insight (Wave 3, clickstone §3.1 — read-only) -------------------
+//
+// Wire shapes for the four Misskey-family admin reads, verified against the
+// local Misskey + Sharkey + Catodon checkouts (endpoint files, not prose).
+// Field names are exact wire spellings (camelCase); every field is optional
+// + unknown-typed here so fork drift degrades in the adapter, never at the
+// type boundary.
+
+/** `admin/server-info` row (moderator role, `read:admin:server-info`):
+ * machine/os/node/psql strings, `cpu{model,cores}`, byte-count `mem` /
+ * `fs`, and `net{interface}`. */
+export interface AdminServerInfo {
+  machine?: unknown;
+  os?: unknown;
+  node?: unknown;
+  psql?: unknown;
+  cpu?: unknown;
+  mem?: unknown;
+  fs?: unknown;
+  net?: unknown;
+}
+
+/** `admin/meta` row (admin role, `read:admin:meta`): the full instance
+ * settings object (133 properties upstream, including server secrets).
+ * Only the display/policy subset is named here — the adapter reads exactly
+ * these and drops the rest, so secrets can never cross into the UI. */
+export interface AdminMeta {
+  name?: unknown;
+  shortName?: unknown;
+  description?: unknown;
+  maintainerName?: unknown;
+  maintainerEmail?: unknown;
+  version?: unknown;
+  uri?: unknown;
+  disableRegistration?: unknown;
+  emailRequiredForSignup?: unknown;
+  [key: string]: unknown;
+}
+
+/** `admin/queue/stats` row (moderator role, `read:admin:queue`): one
+ * BullMQ `getJobCounts()` object per queue (`waiting/active/completed/
+ * failed/delayed/paused`, all numbers). */
+export interface AdminQueueStats {
+  deliver?: unknown;
+  inbox?: unknown;
+  db?: unknown;
+  objectStorage?: unknown;
+}
+
+/** `get-online-users-count` row (public, no credential): `{count}`. */
+export interface OnlineUsersCount {
+  count?: unknown;
+}
