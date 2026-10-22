@@ -359,15 +359,24 @@ export type MediaKindFilter = "image" | "video" | "audio" | "file";
 
 export interface DriveApi {
   /** List files (newest-first cursor paging). `type` is the server-side
-   * MIME filter the category views page on. */
-  files(opts?: PageOpts & { type?: string }): Promise<Page<Media>>;
+   * MIME filter the category views page on. `folderId` scopes the listing
+   * to one folder; omitted (or null) means the Drive root — the same
+   * default the server takes when the field is absent, so it is never put
+   * on the wire for root. */
+  files(opts?: PageOpts & { type?: string; folderId?: string | null }): Promise<Page<Media>>;
+  /** One file's current metadata (`drive/files/show`). */
+  showFile(id: string): Promise<Media>;
+  /** Notes that attach this file (`drive/files/attached-notes`),
+   * newest-first cursor paging. */
+  attachedNotes(id: string, opts?: PageOpts): Promise<Page<Post>>;
   updateFile(
     id: string,
     patch: { name?: string; isSensitive?: boolean; comment?: string | null; folderId?: string | null },
   ): Promise<Media>;
   deleteFile(id: string): Promise<void>;
-  /** Drive folders (addition — Misskey `drive/folders/*`; the browser UI
-   * lands in a later slice). */
+  /** Drive folders (addition — Misskey `drive/folders/*`). The browser
+   * lists/creates/renames/deletes them and scopes file listings and
+   * uploads to the selected folder. */
   folders?: DriveFoldersApi;
 }
 

@@ -235,9 +235,24 @@ export function createMisskeyBackend(
         limit: opts.limit ?? DEFAULT_LIMIT,
       };
       if (opts.type) params.type = opts.type;
+      // Omitted means the Drive root upstream; an explicit null is the same
+      // root and is never sent (Sharkey rejects empty/default fields).
+      if (opts.folderId != null) params.folderId = opts.folderId;
       Object.assign(params, decodeCursor(opts.cursor ?? null));
       const items = await call<DriveFile[]>("drive/files", params);
       return pageOf(items ?? [], params.limit as number, adaptDriveFile);
+    },
+    async showFile(id) {
+      return adaptDriveFile(await call<DriveFile>("drive/files/show", { fileId: id }));
+    },
+    async attachedNotes(id, opts = {}) {
+      // Same note paging shape as every other Misskey note listing
+      // (`drive/files/attached-notes` takes fileId + limit/untilId).
+      return callNotes("drive/files/attached-notes", {
+        fileId: id,
+        limit: opts.limit ?? DEFAULT_LIMIT,
+        ...decodeCursor(opts.cursor ?? null),
+      });
     },
     async updateFile(id, patch) {
       const params: Record<string, unknown> = { fileId: id };
