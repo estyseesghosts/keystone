@@ -57,5 +57,6 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p6.1-list-poll-fields](p6.1-list-poll-fields.md) | clickstone §1.6 | done | `p6.1-list-poll-fields` | `state/logs/2026-10-22-p6.1-list-poll-fields.md` |
 | [p6.1-callback-path](p6.1-callback-path.md) | clickstone §1.13 | done | `p6.1-callback-path` | `state/logs/2026-10-22-p6.1-callback-path.md` |
 | [p6.1-notifications](p6.1-notifications.md) | clickstone §1.11 | done | `p6.1-notifications` | `state/logs/2026-10-22-p6.1-notifications.md` |
+| [p6.1-history-redraft-media](p6.1-history-redraft-media.md) | clickstone §1.7 | done | `p6.1-history-redraft-media` | `state/logs/2026-10-22-p6.1-history-redraft-media.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.
