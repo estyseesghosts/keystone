@@ -155,6 +155,63 @@ describe("fetchInstanceCapabilities v2→v1 fallback (Akkoma contract)", () => {
       stub.restore();
     }
   });
+
+  // P6.0 §0.4: this adapter's translation fact is
+  // `configuration.translation.enabled` (v1 or v2). A Misskey-family
+  // `translatorAvailable` is not evidence here — it is ignored.
+  it("translation reads configuration.translation.enabled on v2 and v1", async () => {
+    for (const enabled of [true, false]) {
+      const v2 = fixture<Record<string, unknown>>("mastodon", "instance-v2.json");
+      (v2.configuration as { translation: { enabled: boolean } }).translation.enabled = enabled;
+      const stub = stubFetch([
+        { method: "GET", match: "/api/v2/instance", status: 200, body: v2 },
+      ]);
+      try {
+        const caps = await fetchInstanceCapabilities(ORIGIN);
+        expect(caps.features.translation).toBe(enabled ? "supported" : "unsupported");
+      } finally {
+        stub.restore();
+      }
+    }
+
+    // The v1 body carries the same block (404/405 is the only fallback).
+    const stub = stubFetch([
+      { method: "GET", match: "/api/v2/instance", status: 404, body: null },
+      {
+        method: "GET",
+        match: "/api/v1/instance",
+        status: 200,
+        body: {
+          uri: "mastodon.example",
+          version: "4.4.3 (compatible; Mastodon)",
+          configuration: { translation: { enabled: true } },
+          urls: { streaming_api: "wss://mastodon.example" },
+        },
+      },
+    ]);
+    try {
+      const caps = await fetchInstanceCapabilities(ORIGIN);
+      expect(caps.serverFamily).toBe("mastodon");
+      expect(caps.features.translation).toBe("supported");
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("a Misskey meta flag in an instance body never decides translation here", async () => {
+    const v2 = fixture<Record<string, unknown>>("mastodon", "instance-v2.json");
+    delete (v2.configuration as Record<string, unknown>).translation;
+    v2.translatorAvailable = true; // alien evidence: not a Mastodon field
+    const stub = stubFetch([
+      { method: "GET", match: "/api/v2/instance", status: 200, body: v2 },
+    ]);
+    try {
+      const caps = await fetchInstanceCapabilities(ORIGIN);
+      expect(caps.features.translation).toBe("unknown");
+    } finally {
+      stub.restore();
+    }
+  });
 });
 
 describe("instance helpers", () => {

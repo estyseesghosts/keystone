@@ -659,5 +659,70 @@ describe("E6 translation evidence (probe-backed, rig :4000 2026-10-21)", () => {
     expect(buildCapabilities("misskey", { translatorAvailable: false }).translation).toBe(
       "unsupported",
     );
+    // Direct cases at the flavor-table boundary: Mastodon reads its
+    // instance advertisement, Misskey its meta flag. Unknown without it.
+    expect(buildCapabilities("mastodon").translation).toBe("unknown");
+    expect(buildCapabilities("misskey").translation).toBe("unknown");
+  });
+
+  // P6.0 §0.4 family fence. The bug class: one family's evidence decided
+  // the other family's capability, so a Misskey `translatorAvailable`
+  // could unlock translation on a Mastodon session (and vice versa).
+  it("a Misskey meta flag never decides a Mastodon-family capability", () => {
+    for (const translatorAvailable of [true, false]) {
+      expect(buildCapabilities("mastodon", { translatorAvailable }).translation).toBe("unknown");
+      expect(buildCapabilities("akkoma", { translatorAvailable }).translation).toBe("unknown");
+      expect(buildCapabilities("pleroma", { translatorAvailable }).translation).toBe("unknown");
+    }
+    // A conflicting pair: the matching family's flag wins, the other is
+    // ignored rather than allowed to override.
+    expect(
+      buildCapabilities("mastodon", {
+        translationAdvertised: true,
+        translatorAvailable: false,
+      }).translation,
+    ).toBe("supported");
+    expect(
+      buildCapabilities("mastodon", {
+        translationAdvertised: false,
+        translatorAvailable: true,
+      }).translation,
+    ).toBe("unsupported");
+  });
+
+  it("a Mastodon instance flag never decides a Misskey-family capability", () => {
+    for (const translationAdvertised of [true, false]) {
+      expect(buildCapabilities("misskey", { translationAdvertised }).translation).toBe("unknown");
+      expect(buildCapabilities("sharkey", { translationAdvertised }).translation).toBe("unknown");
+    }
+    // Pinetree's live-probed `unsupported` is the table's fact, never
+    // flipped by an alien Mastodon advertisement.
+    expect(buildCapabilities("pinetree", { translationAdvertised: true }).translation).toBe(
+      "unsupported",
+    );
+    expect(
+      buildCapabilities("sharkey", {
+        translatorAvailable: true,
+        translationAdvertised: false,
+      }).translation,
+    ).toBe("supported");
+    expect(
+      buildCapabilities("misskey", {
+        translatorAvailable: false,
+        translationAdvertised: true,
+      }).translation,
+    ).toBe("unsupported");
+  });
+
+  it("an undetected flavor ignores every translation flag", () => {
+    expect(buildCapabilities("unknown", { translatorAvailable: true }).translation).toBe("unknown");
+    expect(buildCapabilities("unknown", { translationAdvertised: true }).translation).toBe("unknown");
+    expect(
+      buildCapabilities("unknown", {
+        translatorAvailable: true,
+        translationAdvertised: true,
+        pleromaFeatures: ["akkoma:machine_translation"],
+      }).translation,
+    ).toBe("unknown");
   });
 });

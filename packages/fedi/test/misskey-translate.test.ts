@@ -4,6 +4,7 @@
 // The live cases quoted in the comments were observed on dvd.chat
 // (state/logs/2026-10-16-translate-scope.md).
 import {
+  createTranslator,
   decideTranslation,
   distanceRatio,
   hasForeignScript,
@@ -107,4 +108,49 @@ describe("policy", () => {
         text: "Started this last night and I already have working federation with Misskey and Sharkey! The whole fedi interop thing is amazing and wonderful!",
       }),
     ).toEqual({ show: false }));
+});
+
+// P6.0 §0.4: the translator's capability source is family-scoped. Misskey
+// asks `meta.translatorAvailable`; Mastodon uses the capability table
+// (`configuration.translation.enabled` / Akkoma's feature flag). Neither
+// reads the other family's flag.
+describe("translator capability is family-scoped", () => {
+  it("misskey ignores the Mastodon table value and probes meta", async () => {
+    const calls: string[] = [];
+    const translator = createTranslator({
+      family: "misskey",
+      // Alien evidence on purpose: a Mastodon-family value is not proof
+      // of a Misskey translator.
+      translationSupported: true,
+      call: (async (endpoint: string) => {
+        calls.push(endpoint);
+        return { translatorAvailable: false };
+      }) as never,
+    });
+    await expect(translator.translatorAvailable()).resolves.toBe(false);
+    expect(calls).toEqual(["meta"]);
+  });
+
+  it("mastodon never probes meta — the capability table is the authority", async () => {
+    const calls: string[] = [];
+    const translator = createTranslator({
+      family: "mastodon",
+      translationSupported: true,
+      call: (async (endpoint: string) => {
+        calls.push(endpoint);
+        return { translatorAvailable: false };
+      }) as never,
+    });
+    await expect(translator.translatorAvailable()).resolves.toBe(true);
+    expect(calls).toEqual([]);
+  });
+
+  it("mastodon with the table saying unsupported stays off even if meta says on", async () => {
+    const translator = createTranslator({
+      family: "mastodon",
+      translationSupported: false,
+      call: (async () => ({ translatorAvailable: true })) as never,
+    });
+    await expect(translator.translatorAvailable()).resolves.toBe(false);
+  });
 });

@@ -112,3 +112,40 @@ describe("backendForSession forwards session evidence", () => {
     expect(activeBackend(store, HOME).capabilities.translation).toBe("supported");
   });
 });
+
+// P6.0 §0.4: the stored evidence is the real input path — a session's
+// persisted probe evidence reaches `buildCapabilities` through
+// `backendForSession`. Cross-family evidence must not flip the flag.
+describe("translation evidence is family-scoped", () => {
+  it("a Misskey meta flag on a Mastodon session does not unlock translation", () => {
+    const session: Session = {
+      ...misskeySession(),
+      family: "mastodon",
+      flavor: "mastodon",
+      evidence: { translatorAvailable: true },
+    };
+    const backend = backendForSession(session);
+    expect(backend.family).toBe("mastodon");
+    expect(backend.capabilities.translation).toBe("unknown");
+  });
+
+  it("a Mastodon instance flag on a Misskey session does not decide translation", () => {
+    const backend = backendForSession(
+      misskeySession({ evidence: { translationAdvertised: true } }),
+    );
+    expect(backend.family).toBe("misskey");
+    expect(backend.capabilities.translation).toBe("unknown");
+  });
+
+  it("each family's own evidence still decides its capability", () => {
+    const mastodon = backendForSession({
+      ...misskeySession(),
+      family: "mastodon",
+      flavor: "mastodon",
+      evidence: { translationAdvertised: false },
+    });
+    expect(mastodon.capabilities.translation).toBe("unsupported");
+    const misskey = backendForSession(misskeySession({ evidence: { translatorAvailable: false } }));
+    expect(misskey.capabilities.translation).toBe("unsupported");
+  });
+});
