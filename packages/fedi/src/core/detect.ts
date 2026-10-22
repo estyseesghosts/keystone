@@ -62,6 +62,13 @@ export type FeatureKey =
   | "clips"
   | "channels"
   | "chats"
+  // Messaging
+  // `direct_messages` gates DM/conversation/chat surfaces in the app. It is
+  // a CLIENT gate, not a server fact: both families have DMs/chat
+  // serverside, and Keystone ships neither yet (clickstone §0.9, Wave 2
+  // slices 2.1 conversations / 2.2 chat own the implementation). `chats`
+  // above stays the Misskey-family server feature — do not overload it.
+  | "direct_messages"
   // Organization
   | "lists"
   | "bookmarks"
@@ -93,6 +100,7 @@ export const FEATURE_KEYS: readonly FeatureKey[] = [
   "clips",
   "channels",
   "chats",
+  "direct_messages",
   "lists",
   "bookmarks",
   "favourites_distinct_from_reactions",
@@ -218,6 +226,13 @@ const UNKNOWN_ALL = (): Capabilities => {
  * must never unlock a UI affordance. Probe evidence can raise an "unknown"
  * (see `buildCapabilities`) but never silently downgrade a verified fact
  * except where the docs say the feature is absent.
+ *
+ * `direct_messages` is the one deliberately client-shaped flag: it is
+ * `unsupported` on every detected flavor because Keystone has no messaging
+ * surface yet (clickstone §0.9), NOT because these servers lack DMs/chat.
+ * Wave 2 (slices 2.1 conversations / 2.2 chat) flips it per flavor in the
+ * same slice that ships the surface, and UI reasons must name the client
+ * gap until then — see `src/lib/messaging.ts`.
  */
 const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
   misskey: {
@@ -247,6 +262,7 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     antennas: "supported",
     lists: "supported",
     clips: "supported",
+    direct_messages: "unsupported",
     // v1 shipped `i/favorites` + `notes/favorites/create|delete`
     // (`frontend/src/misskey/favorites.ts`, `NoteMenu.tsx:490`).
     bookmarks: "supported",
@@ -278,6 +294,7 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     antennas: "supported",
     lists: "supported",
     clips: "supported",
+    direct_messages: "unsupported",
     // Same `i/favorites` + `notes/favorites/*` endpoints v1 shipped.
     bookmarks: "supported",
     favourites_distinct_from_reactions: "unsupported",
@@ -293,6 +310,7 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     quote_posting: "supported",
     local_only: "supported",
     drive: "supported",
+    direct_messages: "unsupported",
     favourites_distinct_from_reactions: "unsupported",
     streaming: "supported",
     password_grant: "supported",
@@ -313,6 +331,7 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     local_only: "supported",
     drive: "unsupported",
     antennas: "unsupported",
+    direct_messages: "unsupported",
     favourites_distinct_from_reactions: "unsupported",
     streaming: "unsupported",
     translation: "unsupported",
@@ -337,6 +356,7 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     lists: "supported",
     bookmarks: "supported",
     clips: "unsupported",
+    direct_messages: "unsupported",
     favourites_distinct_from_reactions: "supported",
     streaming: "supported",
     password_grant: "unsupported",
@@ -352,6 +372,7 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     local_only: "supported",
     lists: "supported",
     clips: "unsupported",
+    direct_messages: "unsupported",
     favourites_distinct_from_reactions: "supported",
     // No static translation claim: Akkoma only translates when the admin
     // enables a machine-translation backend, advertised as the
@@ -371,6 +392,7 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     like: "unsupported",
     favourites_distinct_from_reactions: "supported",
     clips: "unsupported",
+    direct_messages: "unsupported",
     local_only: "supported",
     streaming: "supported",
     password_grant: "supported",

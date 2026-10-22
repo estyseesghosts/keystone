@@ -10,6 +10,7 @@ import {
   detectFlavor,
   detectServer,
   familyOf,
+  FEATURE_KEYS,
   flavorFromNodeInfoName,
   flavorFromVersion,
   looksMastodon,
@@ -17,6 +18,7 @@ import {
   translationEnabledOf,
   type Prober,
   type ProbeResponse,
+  type ServerFlavor,
 } from "../src/core/detect";
 
 /** Inline copies of the old repo's synthesised fixtures (see note above). */
@@ -463,6 +465,39 @@ describe("three-state capabilities", () => {
     expect(buildCapabilities("catodon").like).toBe("unknown");
     expect(buildCapabilities("pinetree").like).toBe("unknown");
     expect(buildCapabilities("unknown").like).toBe("unknown");
+  });
+
+  // 0.9 — messaging is gated, not invisible. The flag is a CLIENT gate:
+  // every detected flavor answers "unsupported" because Keystone has no
+  // messaging surface yet, not because the server lacks DMs/chat.
+  it("0.9 direct_messages: unsupported on both families, never a server claim", () => {
+    const flavors: ServerFlavor[] = [
+      "misskey",
+      "sharkey",
+      "catodon",
+      "pinetree",
+      "mastodon",
+      "akkoma",
+      "pleroma",
+    ];
+    for (const flavor of flavors) {
+      expect([flavor, buildCapabilities(flavor).direct_messages]).toEqual([
+        flavor,
+        "unsupported",
+      ]);
+    }
+    // An undetected server was never asked, so the honest state stays
+    // "unknown" (which unlocks nothing either).
+    expect(buildCapabilities("unknown").direct_messages).toBe("unknown");
+  });
+
+  it("0.9 keeps `chats` (Misskey chat) independent from `direct_messages`", () => {
+    // `chats` is the Misskey-family server feature and is not reused as the
+    // messaging gate; the Mastodon-family verdict there is unchanged.
+    expect(buildCapabilities("mastodon").chats).toBe("unsupported");
+    expect(buildCapabilities("misskey").chats).toBe("unknown");
+    expect(FEATURE_KEYS).toContain("direct_messages");
+    expect(FEATURE_KEYS).toContain("chats");
   });
 });
 

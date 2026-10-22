@@ -17,6 +17,7 @@ import type {Capabilities, ServerFamily, Post} from '@keystone/fedi'
 import {cachedRemotePostUrl, safeHttpUrl} from '@keystone/fedi'
 
 import type {ActionGate} from '#/state/cache'
+import {messagingUnavailableReason} from '#/lib/messaging'
 
 export type PostMenuItem = {
   key: string
@@ -54,6 +55,9 @@ export interface UserActionHandlers {
   muted?: boolean
   renoteMuted?: boolean
   blocking?: boolean
+  /** Open a message composer addressed to the author. No view wire one yet;
+   * the DM row is gated on `direct_messages` first (0.9). */
+  onMessage?: (post: Post) => void | Promise<void>
 }
 
 export interface PostMenuInput {
@@ -95,6 +99,27 @@ function clipRow(input: PostMenuInput): PostMenuItem {
 
 const NO_CLIPBOARD = t`Clipboard is not available on this platform.`
 const LATER = (what: string) => t`${what} is not available in this build yet.`
+
+/** DM row (0.9): gated on `direct_messages`, which is `unsupported` on every
+ * flavor until Wave 2 ships a messaging surface. The row never disappears —
+ * it stays disabled with the client-gap reason, so the absence is
+ * detectable and the server is not blamed for it. */
+function dmRow(input: PostMenuInput): PostMenuItem {
+  const {post, capabilities, handlers} = input
+  const onMessage = handlers.user?.onMessage
+  if (capabilities?.direct_messages !== 'supported') {
+    return {key: 'dm', label: t`Send a message`, disabled: true, reason: messagingUnavailableReason()}
+  }
+  if (!onMessage) {
+    return {
+      key: 'dm',
+      label: t`Send a message`,
+      disabled: true,
+      reason: t`No message composer is connected to this view yet.`,
+    }
+  }
+  return {key: 'dm', label: t`Send a message`, run: () => onMessage(post)}
+}
 
 /** The local permalink: the server's own `url`, else a family-shaped guess
  * only where the route is known (Misskey `/notes/:id`). Every candidate
@@ -152,7 +177,7 @@ export function buildUserSubmenu(input: PostMenuInput): PostMenuSection[] {
       {key: 'add-list', label: t`Add to list`, disabled: true, reason: LATER('User lists')},
       {key: 'add-antenna', label: t`Add to antenna`, disabled: true, reason: LATER('Antennas')},
       {key: 'notify', label: t`Notify about new posts`, disabled: true, reason: LATER('Notifications')},
-      {key: 'dm', label: t`Send a message`, disabled: true, reason: LATER('Messaging')},
+      dmRow(input),
     ],
     [
       rel('mute', t`Mute`, t`Unmute`, u?.muted, u?.onMute),
