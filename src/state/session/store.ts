@@ -5,7 +5,7 @@ import {
   FediError,
   getActiveSessionId,
   loadSessions,
-  MASTO_SCOPES,
+  SCOPES_NOW,
   OAUTH_APPS_KEY,
   removeSession,
   revokeSessionToken,
@@ -92,10 +92,13 @@ export interface SessionRefreshResult {
 }
 
 /** Which scope generation a Mastodon-family session's cached app belongs
- * to: `pre-scopes` (umbrella `read write follow` only), `granular` (the W4
- * set, no umbrellas), `current` (W5 umbrella + granular). Misskey-family
- * sessions carry no OAuth scopes (`not-applicable`); no app cache means
- * `unknown` (never a verdict — `verifyActive` is the arbiter). */
+ * to: `pre-scopes` (umbrella `read write follow` only), `granular` (a
+ * granular set, e.g. W4's, that is missing at least one `SCOPES_NOW`
+ * entry), `current` (every `SCOPES_NOW` scope present — ADR 0003).
+ * Scopes in `SCOPES_LATER` are never required, so an app missing only
+ * those still reads `current`. Misskey-family sessions carry no OAuth
+ * scopes (`not-applicable`); no app cache means `unknown` (never a
+ * verdict — `verifyActive` is the arbiter). */
 export type SessionScopeGeneration =
   | 'current'
   | 'granular'
@@ -104,11 +107,13 @@ export type SessionScopeGeneration =
   | 'not-applicable'
   | 'signed-out'
 
-/** Scope auto-upgrade detection (MD5): old sessions stay old-scoped until
- * re-auth (OAuth needs the user in a browser — no silent upgrade), so this
- * surfaces `needsUpgrade` + the missing tokens for the sign-in prompt.
- * `needsReauth` stays false here; it flips only when `verifyActive`
- * proves the token dead (401 → cleared). */
+/** Scope auto-upgrade detection (MD5 + ADR 0003): old sessions stay
+ * old-scoped until re-auth (OAuth needs the user in a browser — no silent
+ * upgrade), so this surfaces `needsUpgrade` + the missing `SCOPES_NOW`
+ * tokens for the sign-in prompt. A missing `SCOPES_LATER` scope is never
+ * an upgrade reason — those features do not ship yet. `needsReauth` stays
+ * false here; it flips only when `verifyActive` proves the token dead
+ * (401 → cleared). */
 export interface SessionScopeHealth {
   needsReauth: boolean
   needsUpgrade: boolean
@@ -117,7 +122,8 @@ export interface SessionScopeHealth {
    * / `no-app-cache` / `misskey-no-scopes` / `signed-out` /
    * `unknown-session`. */
   reason: string
-  /** Current `MASTO_SCOPES` tokens absent from the cached app. */
+  /** `SCOPES_NOW` entries absent from the cached app (never any
+   * `SCOPES_LATER` entry). */
   missingScopes: string[]
 }
 
@@ -209,8 +215,8 @@ export interface SessionStore {
    * re-auth. No timers, no network — inert by design. */
   refreshActive(): Promise<SessionRefreshResult>
   /** Scope-generation check for one session (default: active). Sync and
-   * read-only: compares the per-origin cached OAuth app scopes against the
-   * current `MASTO_SCOPES`. */
+   * read-only: compares the per-origin cached OAuth app scopes against
+   * `SCOPES_NOW` (ADR 0003 — never the unshipped `SCOPES_LATER` set). */
   scopeHealth(id?: string | null): SessionScopeHealth
 }
 
@@ -461,7 +467,10 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         }
       }
       const have = new Set(cached)
-      const missing = MASTO_SCOPES.filter(s => !have.has(s))
+      // Diff against SCOPES_NOW only: a token lacking a SCOPES_LATER scope
+      // (DMs, push, admin, reports) is current — that feature does not
+      // ship yet (ADR 0003).
+      const missing = SCOPES_NOW.filter(s => !have.has(s))
       if (missing.length === 0) {
         return {needsReauth: false, needsUpgrade: false, generation: 'current', reason: 'current', missingScopes: []}
       }

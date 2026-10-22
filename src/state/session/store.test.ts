@@ -3,7 +3,8 @@ import {
   createMemoryStore,
   createMisskeyClient,
   getActiveSessionId,
-  MASTO_SCOPES,
+  SCOPES_LATER,
+  SCOPES_NOW,
   OAUTH_APPS_KEY,
   setActiveSessionId,
   type KeyValueStore,
@@ -457,7 +458,7 @@ describe('scopeHealth (MD5 scope generations)', () => {
   it('current scopes verify clean', async () => {
     const {storage, store} = setup()
     const b = await store.add(mastoInput())
-    cacheScopes(storage, ORIGIN_B, MASTO_SCOPES.join(' '))
+    cacheScopes(storage, ORIGIN_B, SCOPES_NOW.join(' '))
     expect(store.scopeHealth()).toEqual({
       needsReauth: false,
       needsUpgrade: false,
@@ -468,10 +469,51 @@ describe('scopeHealth (MD5 scope generations)', () => {
     expect(store.scopeHealth(b.id).generation).toBe('current')
   })
 
+  it('NOW scopes plus LATER scopes still reads current, missing LATER never upgrades', async () => {
+    const {storage, store} = setup()
+    await store.add(mastoInput())
+    // A token that already carries the whole NOW set (plus, say, a LATER
+    // DMs scope) is current: LATER features are not shipped (ADR 0003).
+    cacheScopes(storage, ORIGIN_B, [...SCOPES_NOW, 'read:conversations'].join(' '))
+    expect(store.scopeHealth()).toEqual({
+      needsReauth: false,
+      needsUpgrade: false,
+      generation: 'current',
+      reason: 'current',
+      missingScopes: [],
+    })
+  })
+
+  it('missing LATER scopes alone never trigger needsUpgrade', async () => {
+    const {storage, store} = setup()
+    await store.add(mastoInput())
+    cacheScopes(storage, ORIGIN_B, SCOPES_NOW.join(' '))
+    const health = store.scopeHealth()
+    expect(health.needsUpgrade).toBe(false)
+    // No LATER-only scope (write:reports, push, admin:read, conversations…)
+    // is ever demanded from an adequate token.
+    for (const later of SCOPES_LATER) expect(health.missingScopes).not.toContain(later)
+    expect(SCOPES_LATER.length).toBeGreaterThan(0)
+  })
+
+  it('a token missing exactly one NOW scope reports exactly that scope', async () => {
+    const {storage, store} = setup()
+    await store.add(mastoInput())
+    const withoutFilters = SCOPES_NOW.filter(s => s !== 'write:filters')
+    cacheScopes(storage, ORIGIN_B, withoutFilters.join(' '))
+    expect(store.scopeHealth()).toEqual({
+      needsReauth: false,
+      needsUpgrade: true,
+      generation: 'granular',
+      reason: 'stale-scopes',
+      missingScopes: ['write:filters'],
+    })
+  })
+
   it('granular-only cache reads as the W4 generation with missing umbrellas', async () => {
     const {storage, store} = setup()
     await store.add(mastoInput())
-    const granular = MASTO_SCOPES.filter(s => s !== 'read' && s !== 'write' && s !== 'follow')
+    const granular = SCOPES_NOW.filter(s => s !== 'read' && s !== 'write' && s !== 'follow')
     cacheScopes(storage, ORIGIN_B, granular.join(' '))
     expect(store.scopeHealth()).toEqual({
       needsReauth: false,
@@ -491,6 +533,10 @@ describe('scopeHealth (MD5 scope generations)', () => {
     expect(health.needsUpgrade).toBe(true)
     expect(health.needsReauth).toBe(false)
     expect(health.missingScopes).toContain('read:accounts')
+    // Every missing entry is a NOW scope; LATER scopes are never demanded.
+    expect(health.missingScopes).toEqual(
+      SCOPES_NOW.filter(s => s !== 'read' && s !== 'write' && s !== 'follow'),
+    )
   })
 })
 
