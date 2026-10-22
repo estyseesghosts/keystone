@@ -95,7 +95,11 @@ describe('menu model (docs/note-options.md)', () => {
     expect(find(baseInput(), 'translate')?.disabled).toBeUndefined()
     const off = find(baseInput({capabilities: caps({translation: 'unknown'})}), 'translate')
     expect(off).toMatchObject({disabled: true})
-    expect(off?.reason).toMatch(/translation/)
+    // Unknown means the session predates the probe: refresh, not the server.
+    expect(off?.reason).toMatch(/sign in again/i)
+    const noService = find(baseInput({capabilities: caps({translation: 'unsupported'})}), 'translate')
+    expect(noService).toMatchObject({disabled: true})
+    expect(noService?.reason).toMatch(/no translation service/i)
   })
 
   it('bookmark family label and gate reason', () => {

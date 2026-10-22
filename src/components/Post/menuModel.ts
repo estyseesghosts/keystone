@@ -234,7 +234,14 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
           key: 'translate',
           label: t`Translate`,
           disabled: true,
-          reason: translatable ? t`This post has no text.` : t`This server has no translation service.`,
+          // `unknown` means this session predates the translation probe
+          // (detection stores the flag at login) — the server was never
+          // asked, so say that instead of blaming the server.
+          reason: translatable
+            ? t`This post has no text.`
+            : caps?.translation === 'unknown'
+              ? t`Sign in again to refresh server features.`
+              : t`This server has no translation service.`,
         },
     caps
       ? {key: 'mute-thread', label: t`Mute thread`, run: handlers.muteThread}

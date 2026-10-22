@@ -245,3 +245,45 @@ describe('remote-link resolution (MK17)', () => {
     await expect(resolveRemotePostUrl(uri)).resolves.toBeNull()
   })
 })
+
+describe('translate row (E6)', () => {
+  function translateRow(translation: unknown) {
+    const post = makePost()
+    const input = {
+      family: 'misskey',
+      capabilities: {translation},
+      post,
+      origin: 'https://misskey.example',
+      isOwn: false,
+      copyAvailable: true,
+      bookmark: {gate: {enabled: false, reason: 'x'}, value: false, set: jest.fn()},
+      del: {gate: {enabled: false, reason: 'x'}, run: jest.fn()},
+      handlers: {
+        copy: jest.fn(),
+        share: jest.fn(),
+        open: jest.fn(),
+        translate: jest.fn(),
+        muteThread: jest.fn(),
+        togglePin: jest.fn(),
+      },
+    } as never
+    return flatten(buildPostMenu(input)).find(i => i.key === 'translate')!
+  }
+
+  it('enables the row when the server advertises translation', () => {
+    const row = translateRow('supported')
+    expect(row.disabled).toBeUndefined()
+  })
+
+  it('blames the server only when the server was actually asked', () => {
+    const row = translateRow('unsupported')
+    expect(row.disabled).toBe(true)
+    expect(row.reason).toMatch(/no translation service/i)
+  })
+
+  it('tells stale sessions to sign in again instead of blaming the server', () => {
+    const row = translateRow('unknown')
+    expect(row.disabled).toBe(true)
+    expect(row.reason).toMatch(/sign in again/i)
+  })
+})
