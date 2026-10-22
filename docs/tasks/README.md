@@ -51,5 +51,8 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p6.1-soft-mute-badge](p6.1-soft-mute-badge.md) | clickstone §1.3 | done | `p6.1-soft-mute-badge` | `state/logs/2026-10-22-p6.1-soft-mute-badge.md` |
 | [p6.1-mastodon-tags](p6.1-mastodon-tags.md) | clickstone §1.4 | done | `p6.1-mastodon-tags` | `state/logs/2026-10-22-p6.1-mastodon-tags.md` |
 | [p6.1-drive-library](p6.1-drive-library.md) | clickstone §1.10 | done | `p6.1-drive-library` | `state/logs/2026-10-22-p6.1-drive-library.md` |
+| [p6.1-composer-controls](p6.1-composer-controls.md) | clickstone §1.2 | done | `p6.1-composer-controls` | `state/logs/2026-10-22-p6.1-composer-controls.md` |
+| [p6.1-reports](p6.1-reports.md) | clickstone §1.5 | done | `p6.1-reports` | `state/logs/2026-10-22-p6.1-reports.md` |
+| [p6.1-channels](p6.1-channels.md) | clickstone §1.9 | done | `p6.1-channels` | `state/logs/2026-10-22-p6.1-channels.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.
