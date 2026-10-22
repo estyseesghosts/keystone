@@ -384,6 +384,9 @@ export interface MastoClient {
   postForm<T>(path: string, form: Record<string, QueryValue>, opts?: RequestOptions): Promise<RequestResult<T>>;
   /** Multipart POST (media upload) — no manual Content-Type. */
   postFormData<T>(path: string, formData: FormData, opts?: RequestOptions): Promise<RequestResult<T>>;
+  /** Multipart PATCH (account credential images, clickstone §1.8) — the
+   * only multipart write besides media upload; no manual Content-Type. */
+  patchFormData<T>(path: string, formData: FormData, opts?: RequestOptions): Promise<RequestResult<T>>;
 }
 
 /** Thin typed wrapper bound to one (origin, token) session pair. The token
@@ -415,5 +418,7 @@ export function createClient(origin: string, token: string | null = null): Masto
       request(origin, path, { ...opts, method: "POST", form, token: opts?.token !== undefined ? opts.token : token }),
     postFormData: (path, formData, opts) =>
       request(origin, path, { ...opts, method: "POST", formData, token: opts?.token !== undefined ? opts.token : token }),
+    patchFormData: (path, formData, opts) =>
+      request(origin, path, { ...opts, method: "PATCH", formData, token: opts?.token !== undefined ? opts.token : token }),
   };
 }

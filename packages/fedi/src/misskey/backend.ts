@@ -44,6 +44,7 @@ import type {
   NotificationsOpts,
   PageOpts,
   PostDraft,
+  ProfileImageKind,
   ProfileUpdate,
   ReportUnsupportedField,
   ScheduledApi,
@@ -919,6 +920,29 @@ export function createMisskeyBackend(
       if (patch.bannerId !== undefined) params.bannerId = patch.bannerId;
       if (patch.fields !== undefined) params.fields = patch.fields;
       Object.assign(params, patch.ext ?? {});
+      return adaptMe(await call<MeDetailed>("i/update", params));
+    },
+
+    /**
+     * One profile image (clickstone §1.8): Misskey takes no file on
+     * `i/update` — the avatar/banner must already be a Drive file the
+     * caller owns with an `image/*` type (`i/update` errors
+     * NO_SUCH_AVATAR / AVATAR_NOT_AN_IMAGE otherwise). So: upload through
+     * `drive/files/create` (root — no `folderId`), then write the returned
+     * id as `avatarId` / `bannerId`. Both of those params were already
+     * accepted by `updateProfile`; this is the UI-reachable path to them.
+     */
+    async uploadProfileImage(kind: ProfileImageKind, file: File) {
+      const uploaded = await transport.upload<DriveFile>(file);
+      const id = uploaded?.id;
+      if (typeof id !== "string" || id.length === 0) {
+        throw new FediError(
+          "The server did not return the uploaded file.",
+          "errors.shape.uploadedMedia",
+        );
+      }
+      const params: Record<string, unknown> =
+        kind === "avatar" ? { avatarId: id } : { bannerId: id };
       return adaptMe(await call<MeDetailed>("i/update", params));
     },
 

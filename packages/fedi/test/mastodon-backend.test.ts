@@ -68,6 +68,7 @@ function stubClient(opts: StubOptions = {}): { client: MastoClient; calls: Recor
     delete: (path, body, _o) => Promise.resolve(respond("DELETE", path, body)),
     postForm: (path, body, _o) => Promise.resolve(respond("POST", path, body)),
     postFormData: (path, body, _o) => Promise.resolve(respond("POST", path, body)),
+    patchFormData: (path, body, _o) => Promise.resolve(respond("PATCH", path, body)),
   };
   return { client, calls };
 }

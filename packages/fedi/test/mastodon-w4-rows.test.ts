@@ -68,6 +68,7 @@ function stubClient(respond: Responder): { client: MastoClient; calls: RecordedC
     delete: (path, body, _o) => run("DELETE", path, body),
     postForm: (path, body, _o) => run("POST", path, body),
     postFormData: (path, body, _o) => run("POST", path, body),
+    patchFormData: (path, body, _o) => run("PATCH", path, body),
   };
   return { client, calls };
 }
