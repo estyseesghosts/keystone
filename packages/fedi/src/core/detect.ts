@@ -146,11 +146,13 @@ export interface DetectionEvidence {
   /** True when a probed body is Mastodon-shaped (v1/v2 instance). */
   mastodonBody?: boolean;
   /** Misskey-family `meta.translatorAvailable`, when the probe saw it
-   * (lets `buildCapabilities` set `translation` honestly). */
+   * (lets `buildCapabilities` set `translation` honestly). Ignored on a
+   * Mastodon-family flavor — the two families' evidence never crosses. */
   translatorAvailable?: boolean | null;
   /** Mastodon-family `configuration.translation.enabled`, when a probed
    * instance body carried it (lets `buildCapabilities` set `translation`
-   * honestly on servers the probe reached). Null/absent = not advertised. */
+   * honestly on servers the probe reached). Null/absent = not advertised.
+   * Ignored on a Misskey-family flavor. */
   translationAdvertised?: boolean | null;
 }
 
@@ -425,18 +427,32 @@ export function buildCapabilities(
     }
   }
   if (has("editing")) out.status_editing = "supported";
-  if (has("akkoma:machine_translation")) out.translation = "supported";
+  // Akkoma's machine-translation flag is Mastodon-family evidence too: it
+  // arrives in `pleroma.metadata.features`, which only a Mastodon-family
+  // instance body carries. Never let it raise a Misskey-family flavor.
+  const family = familyOf(flavor);
+  if (family === "mastodon" && has("akkoma:machine_translation")) {
+    out.translation = "supported";
+  }
 
-  // Instance-level advertisement (Mastodon-family
-  // `configuration.translation.enabled`, when a probed instance body
-  // carried it). Authoritative where present: an explicit false means the
+  // Family-scoped evidence (clickstone §0.4). Each family's translation
+  // fact lives on a different endpoint and the two must never cross:
+  //   Mastodon family → `configuration.translation.enabled` (v1/v2
+  //                     instance body, `translationAdvertised`);
+  //   Misskey family  → `meta.translatorAvailable`.
+  // A flag handed to the wrong family is ignored — never silently applied
+  // — and an undetected flavor (`familyOf` null) ignores both, so unknown
+  // stays unknown and unlocks nothing.
+  //
+  // Instance-level advertisement (Mastodon-family), when a probed body
+  // carried it. Authoritative where present: an explicit false means the
   // server turned translation off, not that the probe missed it.
-  if (typeof evidence.translationAdvertised === "boolean") {
+  if (family === "mastodon" && typeof evidence.translationAdvertised === "boolean") {
     out.translation = evidence.translationAdvertised ? "supported" : "unsupported";
   }
 
   // Meta-level hint (Misskey-family `translatorAvailable`, when present).
-  if (typeof evidence.translatorAvailable === "boolean") {
+  if (family === "misskey" && typeof evidence.translatorAvailable === "boolean") {
     out.translation = evidence.translatorAvailable ? "supported" : "unsupported";
   }
   return out;
