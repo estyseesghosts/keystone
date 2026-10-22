@@ -275,6 +275,18 @@ describe("MisskeyBackend accounts and social", () => {
     });
   });
 
+  it("accountPosts expresses All as withReplies + withRenotes", async () => {
+    const { transport, calls } = stubTransport(() => [note]);
+    await createMisskeyBackend(transport).accountPosts("u1", {
+      withReplies: true,
+      withRenotes: true,
+    });
+    expect(calls[0]).toEqual({
+      endpoint: "users/notes",
+      params: { userId: "u1", limit: 20, withReplies: true, withRenotes: true },
+    });
+  });
+
   it("follow/unfollow return nothing (the wire returns a UserLite)", async () => {
     const { transport, calls } = stubTransport(() => ({ id: "u" }));
     const backend = createMisskeyBackend(transport);

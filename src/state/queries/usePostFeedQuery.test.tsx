@@ -128,6 +128,11 @@ describe('fetchFeedPage dispatch', () => {
       'u',
       expect.objectContaining({withReplies: false, withRenotes: false}),
     )
+    await fetchFeedPage(b, {kind: 'user', id: 'u', tab: 'all'}, null)
+    expect(b.accountPosts).toHaveBeenCalledWith(
+      'u',
+      expect.objectContaining({withReplies: true, withRenotes: true}),
+    )
     await fetchFeedPage(b, {kind: 'user', id: 'u', tab: 'replies'}, null)
     expect(b.accountPosts).toHaveBeenCalledWith(
       'u',

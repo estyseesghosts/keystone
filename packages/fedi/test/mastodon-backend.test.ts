@@ -341,10 +341,24 @@ describe("MastodonBackend accounts", () => {
     const backend = createMastodonBackend(client);
     await backend.accountPosts("1", { withReplies: false, withRenotes: false });
     await backend.accountPosts("1", { withFiles: true });
+    // "All" (profile tab A1) = replies + boosts: Mastodon's default, so the
+    // request carries neither exclude_* filter and no only_media.
+    await backend.accountPosts("1", { withReplies: true, withRenotes: true });
     expect(calls.map((c) => c.path)).toEqual([
       "/api/v1/accounts/1/statuses",
       "/api/v1/accounts/1/statuses",
+      "/api/v1/accounts/1/statuses",
     ]);
+    expect(calls[0].body).toEqual({
+      exclude_replies: true,
+      exclude_reblogs: true,
+      limit: 20,
+    });
+    expect(calls[1].body).toEqual({
+      only_media: true,
+      limit: 20,
+    });
+    expect(calls[2].body).toEqual({ limit: 20 });
   });
 
   it("follow/unfollow/mute/block hit the account verbs", async () => {

@@ -31,6 +31,10 @@ const VALID: Array<{ descriptor: FeedDescriptor; parsed: ParsedFeedDescriptor }>
     parsed: { kind: "user", id: "9abc", tab: "replies" },
   },
   {
+    descriptor: "user|9abc|all",
+    parsed: { kind: "user", id: "9abc", tab: "all" },
+  },
+  {
     descriptor: "user|9abc|media",
     parsed: { kind: "user", id: "9abc", tab: "media" },
   },

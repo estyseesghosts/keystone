@@ -48,7 +48,9 @@ export type TimelineKind = "home" | "local" | "social" | "global";
 export interface AccountPostsOpts extends PageOpts {
   /** Misskey `users/notes` filters (profile tabs). Sent EXACTLY as given:
    * the `posts` tab sends explicit `false`s because the server defaults
-   * differ (withRenotes defaults to true). */
+   * differ (withRenotes defaults to true); the `all` tab sends both
+   * `true` (replies + renotes, v1 A1). The Mastodon family maps the same
+   * flags to `exclude_replies` / `exclude_reblogs` (false = include). */
   withReplies?: boolean;
   withRenotes?: boolean;
   withFiles?: boolean;

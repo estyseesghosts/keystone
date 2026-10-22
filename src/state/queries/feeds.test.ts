@@ -76,6 +76,11 @@ describe('feed descriptors', () => {
       id: 'abc',
       tab: 'replies',
     })
+    expect(parseFeedDescriptor(profileTabDescriptor('abc', 'all'))).toEqual({
+      kind: 'user',
+      id: 'abc',
+      tab: 'all',
+    })
     expect(parseFeedDescriptor('tag|Solarpunk')).toEqual({kind: 'tag', tag: 'Solarpunk'})
     expect(() => parseFeedDescriptor('bogus')).toThrow()
   })

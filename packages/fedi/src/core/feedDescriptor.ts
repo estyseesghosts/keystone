@@ -26,10 +26,11 @@ export type FeedDescriptor =
   | "explore|posts"
   | "bookmarks"
   | "mentions"
-  | `user|${string}|${"posts" | "replies" | "media" | "featured"}`;
+  | `user|${string}|${"posts" | "all" | "replies" | "media" | "featured"}`;
 
-/** Profile-tab feeds addressable as `user|<id>|<tab>`. */
-export type UserFeedTab = "posts" | "replies" | "media" | "featured";
+/** Profile-tab feeds addressable as `user|<id>|<tab>`. `all` is v1's
+ * replies + renotes tab (v1 `ProfileNotesList.tsx` optsFor). */
+export type UserFeedTab = "posts" | "all" | "replies" | "media" | "featured";
 
 /** The structured form of a `FeedDescriptor` for dispatch. */
 export type ParsedFeedDescriptor =
@@ -47,7 +48,7 @@ export type ParsedFeedDescriptor =
 
 const TIMELINES: ReadonlySet<string> = new Set(["home", "local", "social", "global"]);
 
-const USER_TABS: ReadonlySet<string> = new Set(["posts", "replies", "media", "featured"]);
+const USER_TABS: ReadonlySet<string> = new Set(["posts", "all", "replies", "media", "featured"]);
 
 function invalid(descriptor: unknown): never {
   throw new FediError("Invalid feed descriptor.", "errors.feeds.invalidDescriptor", {
