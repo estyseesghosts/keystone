@@ -8,7 +8,12 @@
 // swap with restore in `afterEach`.
 import { createMisskeyClient, authStyleFor } from "../src/misskey/client";
 import { ApiError } from "../src/core/errors";
-import { isPermissionError, isUnsupportedError } from "../src/misskey/client";
+import {
+  isPermissionError,
+  isUnsupportedError,
+  setPermissionDeniedObserver,
+  type PermissionDeniedEvent,
+} from "../src/misskey/client";
 import type { Session } from "../src/core/sessions";
 
 const ORIGIN = "https://server.example";
@@ -264,5 +269,88 @@ describe("upload (multipart Drive, FormData — never JSON)", () => {
     await createMisskeyClient(session()).upload(file, { folderId: null });
     form = explicitRoot[0].init.body as FormData;
     expect(form.get("folderId")).toBeNull();
+  });
+});
+
+// 0.8 — a Misskey-family permission failure must reach the app's global
+// re-auth/upgrade prompt, not only a per-screen local handler. The client
+// is the one funnel every Misskey call passes through, so the observation
+// hook lives here; the app registers the session store as the observer.
+describe("permission-denied observer (0.8 global scope upgrade)", () => {
+  const events: PermissionDeniedEvent[] = [];
+
+  beforeEach(() => {
+    events.length = 0;
+    setPermissionDeniedObserver((event) => events.push(event));
+  });
+  afterEach(() => {
+    setPermissionDeniedObserver(null);
+  });
+
+  it("reports an authenticated 403 PERMISSION_DENIED with the session identity", async () => {
+    stubFetch(() =>
+      Promise.resolve(
+        json({ error: { message: "Access denied", code: "PERMISSION_DENIED", kind: "Permission" } }, 403),
+      ),
+    );
+    await createMisskeyClient(session())
+      .call("clips/list")
+      .catch(() => undefined);
+    expect(events).toEqual([
+      { sessionId: `${ORIGIN} u1`, origin: ORIGIN, status: 403 },
+    ]);
+  });
+
+  it("reports an upload 403 the same way (Drive goes through its own fetch)", async () => {
+    stubFetch(() =>
+      Promise.resolve(
+        json({ error: { message: "Access denied", code: "PERMISSION_DENIED" } }, 403),
+      ),
+    );
+    const file = new File(["x"], "pic.png", { type: "image/png" });
+    await createMisskeyClient(session())
+      .upload(file)
+      .catch(() => undefined);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ sessionId: `${ORIGIN} u1`, status: 403 });
+  });
+
+  it("stays quiet for non-permission failures", async () => {
+    for (const status of [404, 500]) {
+      stubFetch(() => Promise.resolve(new Response("<html/>", { status })));
+      await createMisskeyClient(session())
+        .call("meta")
+        .catch(() => undefined);
+    }
+    stubFetch(() => Promise.resolve(new Response("boom", { status: 0 })));
+    await createMisskeyClient(session())
+      .call("meta")
+      .catch(() => undefined);
+    expect(events).toEqual([]);
+  });
+
+  it("stays quiet for unauthenticated calls (login/token checks carry no token)", async () => {
+    stubFetch(() =>
+      Promise.resolve(json({ error: { message: "nope", code: "PERMISSION_DENIED" } }, 403)),
+    );
+    const publicSession = session({ token: "", hosting: "first-party" });
+    await createMisskeyClient(publicSession)
+      .callPublic("meta")
+      .catch(() => undefined);
+    expect(events).toEqual([]);
+  });
+
+  it("a misbehaving observer can never change the call's error", async () => {
+    setPermissionDeniedObserver(() => {
+      throw new Error("observer boom");
+    });
+    stubFetch(() =>
+      Promise.resolve(json({ error: { message: "denied", code: "PERMISSION_DENIED" } }, 403)),
+    );
+    const err = await createMisskeyClient(session())
+      .call("clips/list")
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(403);
   });
 });

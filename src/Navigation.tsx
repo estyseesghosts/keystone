@@ -39,6 +39,7 @@ import {
   SettingsIcon,
   StarIcon,
 } from '#/components/icons'
+import {ScopeUpgradeBanner} from '#/components/ScopeUpgradeBanner'
 import {navigationRef} from '#/navigationRef'
 import {messagingUnavailableReason} from '#/lib/messaging'
 import type {RootParamList} from '#/routes'
@@ -891,6 +892,10 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
                 : {borderRightColor: alf.palette.border, borderRightWidth: 1},
             ]}>
             {stripVisible ? <MobileStrip leaf={leaf} /> : null}
+            {/* 0.8 — global, per-session permission/scope prompt. Reads
+                `scopeHealth` for the active session, so it survives a
+                screen unmount and shows for every route in the shell. */}
+            <ScopeUpgradeBanner />
             <Stack.Navigator screenOptions={{headerShown: false, animation: 'none'}}>
               <Stack.Screen name="Main" component={MainTabs} />
               <Stack.Screen name="Note" component={NoteScreen} />

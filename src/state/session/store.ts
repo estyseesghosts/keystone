@@ -91,39 +91,49 @@ export interface SessionRefreshResult {
   reason: 'refreshed' | 'signed-out' | 'unknown-session' | 'unsupported' | 'network' | 'error'
 }
 
-/** Which scope generation a Mastodon-family session's cached app belongs
- * to: `pre-scopes` (umbrella `read write follow` only), `granular` (a
+/** Which scope/permission generation a session belongs to: `pre-scopes`
+ * (Mastodon umbrella `read write follow` only), `granular` (a Mastodon
  * granular set, e.g. W4's, that is missing at least one `SCOPES_NOW`
- * entry), `current` (every `SCOPES_NOW` scope present — ADR 0003).
- * Scopes in `SCOPES_LATER` are never required, so an app missing only
- * those still reads `current`. Misskey-family sessions carry no OAuth
- * scopes (`not-applicable`); no app cache means `unknown` (never a
- * verdict — `verifyActive` is the arbiter). */
+ * entry), `current` (every `SCOPES_NOW` scope present — ADR 0003),
+ * `stale-permissions` (Misskey-family: a live call answered 403
+ * PERMISSION_DENIED, so the stored token predates a permission this build
+ * uses — there is no scope diff to run). Scopes in `SCOPES_LATER` are
+ * never required, so an app missing only those still reads `current`.
+ * Misskey-family sessions before any 403 carry no OAuth scopes
+ * (`not-applicable`); no app cache means `unknown` (never a verdict —
+ * `verifyActive` is the arbiter). */
 export type SessionScopeGeneration =
   | 'current'
   | 'granular'
   | 'pre-scopes'
+  | 'stale-permissions'
   | 'unknown'
   | 'not-applicable'
   | 'signed-out'
 
-/** Scope auto-upgrade detection (MD5 + ADR 0003): old sessions stay
- * old-scoped until re-auth (OAuth needs the user in a browser — no silent
- * upgrade), so this surfaces `needsUpgrade` + the missing `SCOPES_NOW`
- * tokens for the sign-in prompt. A missing `SCOPES_LATER` scope is never
- * an upgrade reason — those features do not ship yet. `needsReauth` stays
- * false here; it flips only when `verifyActive` proves the token dead
- * (401 → cleared). */
+/** Scope/permission auto-upgrade detection (MD5 + ADR 0003): old sessions
+ * stay old-scoped until re-auth (OAuth needs the user in a browser — no
+ * silent upgrade), so this surfaces `needsUpgrade` + the missing
+ * `SCOPES_NOW` tokens for the sign-in prompt. A missing `SCOPES_LATER`
+ * scope is never an upgrade reason — those features do not ship yet.
+ * Misskey-family sessions have no OAuth scope list to diff; they flip to
+ * `needsUpgrade` only after a live 403 PERMISSION_DENIED is recorded via
+ * `notePermissionDenied` (clickstone §0.8), and `missingScopes` stays
+ * empty because the server never returned one — the prompt says the token
+ * predates a permission, it never invents a scope name. `needsReauth`
+ * stays false here; it flips only when `verifyActive` proves the token
+ * dead (401 → cleared). */
 export interface SessionScopeHealth {
   needsReauth: boolean
   needsUpgrade: boolean
   generation: SessionScopeGeneration
   /** Plain code string (Lingui-free layer): `current` / `stale-scopes`
-   * / `no-app-cache` / `misskey-no-scopes` / `signed-out` /
-   * `unknown-session`. */
+   * / `no-app-cache` / `misskey-no-scopes` / `misskey-stale-permissions`
+   * / `signed-out` / `unknown-session`. */
   reason: string
   /** `SCOPES_NOW` entries absent from the cached app (never any
-   * `SCOPES_LATER` entry). */
+   * `SCOPES_LATER` entry, and always empty on the Misskey-family
+   * `misskey-stale-permissions` path — no server-returned list). */
   missingScopes: string[]
 }
 
@@ -218,12 +228,35 @@ export interface SessionStore {
    * read-only: compares the per-origin cached OAuth app scopes against
    * `SCOPES_NOW` (ADR 0003 — never the unshipped `SCOPES_LATER` set). */
   scopeHealth(id?: string | null): SessionScopeHealth
+  /** Subscription-stable `scopeHealth` for `useSyncExternalStore`: the same
+   * object reference is returned until the next store `emit()` (sign-in,
+   * sign-out, switch, permission denial). The object is shared — never
+   * mutate it. Unknown ids read `unknown-session` (same as `scopeHealth`). */
+  scopeHealthSnapshot(id: string): SessionScopeHealth
+  /** Record that a live Misskey-family call for this session answered 403
+   * PERMISSION_DENIED (clickstone §0.8). In-memory, per session: the
+   * evidence is a runtime observation, not durable state, and it must not
+   * outlive a fresh sign-in (see `add`). Unknown ids and Mastodon-family
+   * sessions are no-ops — Mastodon keeps ADR 0003's scope diff. */
+  notePermissionDenied(id: string): void
 }
 
 export function createSessionStore(deps: SessionStoreDeps): SessionStore {
   const {storage, vault, homeOrigin} = deps
   const listeners = new Set<() => void>()
   let cached: SessionSnapshot | null = null
+  // 0.8: Misskey-family sessions whose token a live call refused with 403
+  // PERMISSION_DENIED. Deliberately in-memory: this is evidence from a
+  // request in THIS process, not durable account state. Persisting it
+  // would need a storage-version bump and could outlive the condition;
+  // instead it survives screen unmounts (it lives in the store, the shell
+  // subscribes) and is cleared by a fresh `add()` for the same session id
+  // (sign-in again) or by removal. After a restart the next refused call
+  // re-records it. Set = idempotent, one marker per session.
+  const permissionDenied = new Set<string>()
+  // Referentially stable `scopeHealth` snapshots for `useSyncExternalStore`
+  // subscribers (the shell banner); cleared on every `emit()`.
+  const healthSnapshots = new Map<string, SessionScopeHealth>()
 
   function readSessions(): Session[] {
     return loadSessions(storage, homeOrigin)
@@ -250,6 +283,9 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
 
   function emit(): void {
     cached = null
+    // Subscription snapshots must change with the store, so drop the
+    // cached `scopeHealth` objects too (see `scopeHealthSnapshot`).
+    healthSnapshots.clear()
     for (const listener of [...listeners]) listener()
   }
 
@@ -266,9 +302,85 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     const existing = readSessions().find(s => s.id === id)
     if (!existing) return
     removeSession(storage, id, homeOrigin)
+    permissionDenied.delete(id)
     void vault.removeToken(id, existing.origin)
     if (readMirror() === id) writeMirror(null)
     emit()
+  }
+
+  /** Uncached scope/permission health for one session id (or the active
+   * one). Kept as a closure function so `scopeHealth` stays fresh per call
+   * while `scopeHealthSnapshot` can hold one stable object per emit. */
+  function computeScopeHealth(target: string | null): SessionScopeHealth {
+    if (!target) {
+      return {
+        needsReauth: false,
+        needsUpgrade: false,
+        generation: 'signed-out',
+        reason: 'signed-out',
+        missingScopes: [],
+      }
+    }
+    const session = readSessions().find(s => s.id === target) ?? null
+    if (!session) {
+      return {
+        needsReauth: false,
+        needsUpgrade: false,
+        generation: 'signed-out',
+        reason: 'unknown-session',
+        missingScopes: [],
+      }
+    }
+    if (session.family !== 'mastodon') {
+      // 0.8: Misskey has no OAuth scope list stored anywhere — the token
+      // carries a permission set chosen at sign-in and the server never
+      // returns it. A recorded 403 PERMISSION_DENIED is therefore the
+      // only honest upgrade signal: needsUpgrade with an EMPTY
+      // missingScopes (no invented scope names) and the prompt "this
+      // token predates a permission Keystone now uses". Before any 403
+      // the session stays not-applicable.
+      if (permissionDenied.has(session.id)) {
+        return {
+          needsReauth: false,
+          needsUpgrade: true,
+          generation: 'stale-permissions',
+          reason: 'misskey-stale-permissions',
+          missingScopes: [],
+        }
+      }
+      return {
+        needsReauth: false,
+        needsUpgrade: false,
+        generation: 'not-applicable',
+        reason: 'misskey-no-scopes',
+        missingScopes: [],
+      }
+    }
+    const cached = cachedAppScopes(storage, session.origin)
+    if (!cached) {
+      return {
+        needsReauth: false,
+        needsUpgrade: false,
+        generation: 'unknown',
+        reason: 'no-app-cache',
+        missingScopes: [],
+      }
+    }
+    const have = new Set(cached)
+    // Diff against SCOPES_NOW only: a token lacking a SCOPES_LATER scope
+    // (DMs, push, admin, reports) is current — that feature does not
+    // ship yet (ADR 0003).
+    const missing = SCOPES_NOW.filter(s => !have.has(s))
+    if (missing.length === 0) {
+      return {needsReauth: false, needsUpgrade: false, generation: 'current', reason: 'current', missingScopes: []}
+    }
+    const umbrella = new Set(FALLBACK_SCOPES.split(/\s+/).filter(Boolean))
+    const generation: SessionScopeGeneration = cached.every(s => umbrella.has(s))
+      ? 'pre-scopes'
+      : cached.some(s => s.startsWith('write:') || s.startsWith('read:'))
+        ? 'granular'
+        : 'unknown'
+    return {needsReauth: false, needsUpgrade: true, generation, reason: 'stale-scopes', missingScopes: missing}
   }
 
   const store: SessionStore = {
@@ -308,6 +420,9 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         ...(input.evidence ? {evidence: input.evidence} : {}),
       }
       saveSession(storage, session, homeOrigin)
+      // A fresh sign-in replaces the credential: any earlier refusal no
+      // longer describes this token (same id — id is origin + account).
+      permissionDenied.delete(session.id)
       await vault.setToken(session.id, session.origin, session.token)
       setActiveSessionId(storage, session.id, homeOrigin)
       writeMirror(session.id)
@@ -328,6 +443,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
       if (!existing) return
       await revoke(existing)
       removeSession(storage, id, homeOrigin)
+      permissionDenied.delete(id)
       await vault.removeToken(id, existing.origin)
       if (readMirror() === id) writeMirror(null)
       emit()
@@ -346,6 +462,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
       }
       for (const session of sessions) {
         removeSession(storage, session.id, homeOrigin)
+        permissionDenied.delete(session.id)
         await vault.removeToken(session.id, session.origin)
       }
       setActiveSessionId(storage, null, homeOrigin)
@@ -427,60 +544,31 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     },
 
     scopeHealth(id?: string | null): SessionScopeHealth {
-      const target = id ?? snapshot().activeId
-      if (!target) {
-        return {
-          needsReauth: false,
-          needsUpgrade: false,
-          generation: 'signed-out',
-          reason: 'signed-out',
-          missingScopes: [],
-        }
-      }
-      const session = readSessions().find(s => s.id === target) ?? null
-      if (!session) {
-        return {
-          needsReauth: false,
-          needsUpgrade: false,
-          generation: 'signed-out',
-          reason: 'unknown-session',
-          missingScopes: [],
-        }
-      }
-      if (session.family !== 'mastodon') {
-        return {
-          needsReauth: false,
-          needsUpgrade: false,
-          generation: 'not-applicable',
-          reason: 'misskey-no-scopes',
-          missingScopes: [],
-        }
-      }
-      const cached = cachedAppScopes(storage, session.origin)
-      if (!cached) {
-        return {
-          needsReauth: false,
-          needsUpgrade: false,
-          generation: 'unknown',
-          reason: 'no-app-cache',
-          missingScopes: [],
-        }
-      }
-      const have = new Set(cached)
-      // Diff against SCOPES_NOW only: a token lacking a SCOPES_LATER scope
-      // (DMs, push, admin, reports) is current — that feature does not
-      // ship yet (ADR 0003).
-      const missing = SCOPES_NOW.filter(s => !have.has(s))
-      if (missing.length === 0) {
-        return {needsReauth: false, needsUpgrade: false, generation: 'current', reason: 'current', missingScopes: []}
-      }
-      const umbrella = new Set(FALLBACK_SCOPES.split(/\s+/).filter(Boolean))
-      const generation: SessionScopeGeneration = cached.every(s => umbrella.has(s))
-        ? 'pre-scopes'
-        : cached.some(s => s.startsWith('write:') || s.startsWith('read:'))
-          ? 'granular'
-          : 'unknown'
-      return {needsReauth: false, needsUpgrade: true, generation, reason: 'stale-scopes', missingScopes: missing}
+      return computeScopeHealth(id ?? snapshot().activeId)
+    },
+
+    scopeHealthSnapshot(id: string): SessionScopeHealth {
+      // `useSyncExternalStore` requires a referentially stable snapshot;
+      // `scopeHealth` builds a fresh object per call. Cache one object per
+      // session until the next `emit()` (sign-in/out, switch, permission
+      // denial), then recompute. Do not mutate the returned object.
+      const existing = healthSnapshots.get(id)
+      if (existing) return existing
+      const next = computeScopeHealth(id)
+      healthSnapshots.set(id, next)
+      return next
+    },
+
+    notePermissionDenied(id: string): void {
+      const session = readSessions().find(s => s.id === id)
+      if (!session) return
+      // Mastodon keeps ADR 0003's cached-scope diff. A 403 there can also
+      // be a per-action refusal (e.g. blocked target), so it must not
+      // masquerade as a stale-scope verdict.
+      if (session.family === 'mastodon') return
+      if (permissionDenied.has(id)) return
+      permissionDenied.add(id)
+      emit()
     },
   }
 

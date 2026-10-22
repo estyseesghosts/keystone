@@ -97,7 +97,9 @@ export type RootParamList = {
   FollowRequests: undefined
   ProfileEdit: undefined
   Settings: {section?: SettingsSection} | undefined
-  Login: undefined
+  /** `origin` prefills the server field — the shell's scope-upgrade prompt
+   * re-opens sign-in for the session that needs a fresh token. */
+  Login: {origin?: string} | undefined
   AuthCallback: undefined
   SysDebug: undefined
   Compose: {replyToId?: string; quoteId?: string; draftId?: string; editId?: string} | undefined

@@ -441,6 +441,69 @@ describe('scopeHealth (MD5 scope generations)', () => {
       needsUpgrade: false,
       generation: 'not-applicable',
       reason: 'misskey-no-scopes',
+      missingScopes: [],
+    })
+  })
+
+  // 0.8 — Misskey has no OAuth scope diff to run: its app tokens carry a
+  // permission set. The honest signal is a live 403 PERMISSION_DENIED,
+  // recorded per session by the app layer. Before that signal the old
+  // `misskey-no-scopes` answer stands; after it the session MUST report
+  // `needsUpgrade` with an empty `missingScopes` (the server never returned
+  // a scope list, so none may be invented).
+  it('a Misskey permission denial marks the session for upgrade, with no invented scopes', async () => {
+    const {store} = setup()
+    const a = await store.add(sessionA())
+    store.notePermissionDenied(a.id)
+    expect(store.scopeHealth()).toEqual({
+      needsReauth: false,
+      needsUpgrade: true,
+      generation: 'stale-permissions',
+      reason: 'misskey-stale-permissions',
+      missingScopes: [],
+    })
+    // The old unconditional answer would fail this assertion.
+    expect(store.scopeHealth()).not.toMatchObject({
+      needsUpgrade: false,
+      reason: 'misskey-no-scopes',
+    })
+  })
+
+  it('the upgrade marker is per session, not per store', async () => {
+    const {store} = setup()
+    const a = await store.add(sessionA())
+    const b = await store.add(sessionB())
+    store.notePermissionDenied(a.id)
+    expect(store.scopeHealth(a.id).needsUpgrade).toBe(true)
+    expect(store.scopeHealth(b.id)).toMatchObject({
+      needsUpgrade: false,
+      generation: 'not-applicable',
+      reason: 'misskey-no-scopes',
+    })
+    // Active session is B; the banner reads B and stays quiet.
+    expect(store.scopeHealth()).toMatchObject({needsUpgrade: false})
+    store.switch(a.id)
+    expect(store.scopeHealth().needsUpgrade).toBe(true)
+  })
+
+  it('signing in again clears the marker for that session', async () => {
+    const {store} = setup()
+    const a = await store.add(sessionA())
+    store.notePermissionDenied(a.id)
+    expect(store.scopeHealth(a.id).needsUpgrade).toBe(true)
+    // Same origin + account id → same session id, fresh token (re-auth).
+    const again = await store.add({...sessionA(), token: 'token-a-new'})
+    expect(again.id).toBe(a.id)
+    expect(store.scopeHealth(a.id).needsUpgrade).toBe(false)
+    expect(store.scopeHealth(a.id).reason).toBe('misskey-no-scopes')
+  })
+
+  it('marking an unknown or signed-out session is a no-op', () => {
+    const {store} = setup()
+    store.notePermissionDenied('https://gone.example nobody')
+    expect(store.scopeHealth('https://gone.example nobody')).toMatchObject({
+      reason: 'unknown-session',
+      needsUpgrade: false,
     })
   })
 

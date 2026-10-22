@@ -151,7 +151,7 @@ function translateError(
       );
     }
     const envelope = (err.body ?? undefined) as ApiErrorBody | undefined;
-    throw new ApiError(
+    const apiError = new ApiError(
       typeof envelope?.error?.message === "string"
         ? envelope.error.message
         : `API error: HTTP ${err.status}`,
@@ -160,6 +160,10 @@ function translateError(
       envelope?.error?.kind,
       { status: err.status },
     );
+    if (isPermissionError(apiError)) {
+      reportPermissionDenied(ctx.session, err.status);
+    }
+    throw apiError;
   }
   throw err;
 }
@@ -279,13 +283,17 @@ export function createMisskeyClient(
       if (!response.ok) {
         const apiError = payload as ApiErrorBody | undefined;
         const serverMessage = apiError?.error?.message;
-        throw new ApiError(
+        const uploadError = new ApiError(
           typeof serverMessage === "string" ? serverMessage : `API error: HTTP ${response.status}`,
           response.status,
           apiError?.error?.code,
           apiError?.error?.kind,
           { status: response.status },
         );
+        if (isPermissionError(uploadError)) {
+          reportPermissionDenied(session, response.status);
+        }
+        throw uploadError;
       }
       return payload as T;
     },
@@ -309,4 +317,58 @@ export function isPermissionError(err: unknown): boolean {
     (err.status === 403 ||
       (err.status === 401 && err.code === "PERMISSION_DENIED"))
   );
+}
+
+// --- Permission-denied observation (clickstone §0.8) -----------------------
+//
+// Every Misskey-family request funnels through this module's single error
+// path, so this is the one seam where an app-level session store can learn
+// that a token was refused for missing authority — without every screen
+// remembering to check `isPermissionError`. Misskey has no OAuth scope diff
+// to run (`KEYSTONE_PERMISSIONS` lives at login, and the server never
+// returns the token's permission list), so the honest signal is the live
+// 403 itself. The app registers a store-backed observer; the pure package
+// stays free of app imports.
+
+/** What the observer learns. `sessionId`/`origin` identify the session
+ * whose credential was refused; the original call still throws its
+ * `ApiError` unchanged. */
+export interface PermissionDeniedEvent {
+  sessionId: string;
+  origin: string;
+  status: number;
+}
+
+export type PermissionDeniedObserver = (event: PermissionDeniedEvent) => void;
+
+let permissionDeniedObserver: PermissionDeniedObserver | null = null;
+
+/** Install (or clear with `null`) the app's permission-denied observer.
+ * One observer per process — the app's session store owns it. Returns a
+ * disposer that only clears the slot while this observer is still the
+ * installed one (so a remounted provider never unregisters a newer one). */
+export function setPermissionDeniedObserver(
+  observer: PermissionDeniedObserver | null,
+): () => void {
+  permissionDeniedObserver = observer;
+  return () => {
+    if (permissionDeniedObserver === observer) permissionDeniedObserver = null;
+  };
+}
+
+/** Unauthenticated calls carry no credential, so a 403 there is not
+ * evidence about any stored token. An observer must never alter call
+ * semantics: its failure is swallowed. */
+function reportPermissionDenied(session: Session, status: number): void {
+  if (!permissionDeniedObserver) return;
+  if (!session.token) return;
+  try {
+    permissionDeniedObserver({
+      sessionId: session.id,
+      origin: session.origin,
+      status,
+    });
+  } catch {
+    // Never let observation break the transport.
+  }
 }

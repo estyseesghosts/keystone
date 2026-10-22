@@ -3,7 +3,9 @@ import {Platform, View} from 'react-native'
 import {
   CommonActions,
   useNavigation,
+  useRoute,
   type NavigationProp,
+  type RouteProp,
 } from '@react-navigation/native'
 import * as Linking from 'expo-linking'
 import * as WebBrowser from 'expo-web-browser'
@@ -93,14 +95,26 @@ function internalKindFor(family: ServerFamily | null, flavor: ServerFlavor): Int
 
 export function LoginScreen() {
   const nav = useNavigation<NavigationProp<RootParamList>>()
+  const route = useRoute<RouteProp<RootParamList, 'Login'>>()
   const store = useSessionStore()
   const hosting = useHosting()
   const firstParty = hosting?.hosting === 'first-party' ? hosting : null
   const allowExternal = hosting?.allowExternalAccounts ?? true
-  const [mode, setMode] = useState<LoginMode>('internal')
+  // 0.8: the shell's scope-upgrade prompt re-opens sign-in for the session
+  // that needs a fresh token. Prefill the origin; when it is not this
+  // app's home server, start on the external form so the prefilled origin
+  // is actually the one being signed in to.
+  const prefillOrigin = route.params?.origin?.trim() || null
+  const [mode, setMode] = useState<LoginMode>(
+    prefillOrigin != null &&
+      firstParty != null &&
+      prefillOrigin !== (firstParty.homeOrigin ?? '')
+      ? 'external'
+      : 'internal',
+  )
   const internalMode = firstParty !== null && (mode === 'internal' || !allowExternal)
 
-  const [server, setServer] = useState(hosting?.suggestedHost ?? '')
+  const [server, setServer] = useState(prefillOrigin ?? hosting?.suggestedHost ?? '')
   const [detection, setDetection] = useState<Detection | null>(null)
   const [detecting, setDetecting] = useState(false)
   const [username, setUsername] = useState('')
