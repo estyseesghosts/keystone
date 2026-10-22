@@ -62,6 +62,7 @@ import {ChatRoomsScreen} from '#/screens/ChatRooms'
 import {ChatUserScreen} from '#/screens/ChatUser'
 import {AnnouncementsScreen} from '#/screens/Announcements'
 import {AdminInsightScreen} from '#/screens/AdminInsight'
+import {AdminReportScreen, AdminReportsScreen} from '#/screens/AdminReports'
 import {ClipScreen} from '#/screens/Clip'
 import {ClipsScreen} from '#/screens/Clips'
 import {ComposeScreen} from '#/screens/Compose'
@@ -996,6 +997,11 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <Stack.Screen name="ChatUser" component={ChatUserScreen} />
               <Stack.Screen name="Announcements" component={AnnouncementsScreen} />
               <Stack.Screen name="AdminInsight" component={AdminInsightScreen} />
+              <Stack.Screen
+                name="AdminReports"
+                component={AdminReportsScreen}
+              />
+              <Stack.Screen name="AdminReport" component={AdminReportScreen} />
               <Stack.Screen name="Antenna" component={AntennaScreen} />
               <Stack.Screen name="Antennas" component={AntennasScreen} />
               <Stack.Screen name="Drive" component={DriveScreen} />

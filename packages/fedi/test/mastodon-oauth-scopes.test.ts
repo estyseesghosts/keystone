@@ -2,12 +2,14 @@
 //
 // Every authorization request (app registration, `/oauth/authorize`, the
 // Akkoma password grant) must carry exactly `SCOPES_NOW.join(" ")`. Scopes
-// for unshipped features (push, admin:write, featured tags, favourites
+// for unshipped features (push, featured tags, favourites
 // timeline) live in `SCOPES_LATER` and are requested by nobody; each later
 // slice moves its scope into NOW together with the feature. `write:reports`
 // moved into NOW with the report chooser (clickstone §1.5); `admin:read`
 // moved into NOW with the read-only server insight (Wave 3 slice 3.1 —
-// the umbrella triple alone 403s the admin endpoints, source-verified).
+// the umbrella triple alone 403s the admin endpoints, source-verified);
+// `admin:write` moved into NOW with the reports-queue mutations (Wave 3
+// slice 3.2 — the mutations' `before_action` requires it, source-verified).
 // No network: the transport is stubbed.
 
 import { createMemoryStore } from "../src/core/sessions";
@@ -73,12 +75,12 @@ describe("SCOPES_NOW / SCOPES_LATER split (ADR 0003)", () => {
       // it is a distinct scope — only the LATER token itself must be absent.
       expect(tokens).not.toContain(later);
     }
-    // Named in the slice acceptance: reports and read-only admin insight
-    // ship, these do not.
+    // Named in the slice acceptance: reports, read-only admin insight and
+    // the reports-queue mutations ship; push does not.
     expect(tokens).toContain("write:reports");
     expect(tokens).toContain("admin:read");
+    expect(tokens).toContain("admin:write");
     expect(tokens).not.toContain("push");
-    expect(tokens).not.toContain("admin:write");
 
     // The legacy umbrella fallback is a subset of NOW (never a way to smuggle
     // an unshipped scope in through the fallback path).
@@ -307,7 +309,7 @@ describe("SCOPES_NOW is a subset of Mastodon's configured scopes (login-hotfix g
 });
 
 // ADR 0005 — per-flavor scope strings: Mastodon-family requests the
-// umbrella triple `read write follow` PLUS `admin:read`.
+// umbrella triple `read write follow` PLUS `admin:read` + `admin:write`.
 //
 // Why the triple suffices on Mastodon for the shipped non-admin surfaces:
 // Doorkeeper's scope check is ANY-of (upstream
@@ -317,12 +319,14 @@ describe("SCOPES_NOW is a subset of Mastodon's configured scopes (login-hotfix g
 // (`doorkeeper_authorize! :read, :'read:statuses'` across
 // `app/controllers/api/v1/*.rb`) — so an umbrella-only token passes every
 // shipped non-admin endpoint. It does NOT pass the admin endpoints:
-// every `api/v1/admin/*` controller requires ONLY `admin:read` (or a
-// granular `admin:read:*`), with no umbrella alternative, and
+// every `api/v1/admin/*` read requires ONLY `admin:read` (or a granular
+// `admin:read:*`) and every mutation requires ONLY `admin:write` (or a
+// granular `admin:write:*`), with no umbrella alternative, and
 // `ScopeParser`/`ScopeTransformer` group `read` and `admin:read`
 // separately (display only, not access) — so slice 3.1 appends
-// `admin:read` to the Mastodon string (still far under the 512-char 502
-// guard). `ScopeParser`/`ScopeTransformer`
+// `admin:read` and slice 3.2 appends `admin:write` to the Mastodon string
+// (still far under the 512-char 502 guard — measured ~355 chars).
+// `ScopeParser`/`ScopeTransformer`
 // (`app/lib/scope_parser.rb`, `app/lib/scope_transformer.rb`) and
 // `grouped_scopes` (`app/helpers/application_helper.rb`) are authorize-page
 // display grouping only, not access checks. Akkoma keeps the full string:
@@ -333,8 +337,14 @@ describe("per-flavor scope strings (ADR 0005)", () => {
     expect(SCOPES_MASTODON).toEqual(["read", "write", "follow"]);
   });
 
-  it("mastodon flavor requests the triple plus admin:read; akkoma/pleroma/unknown keep the full set", () => {
-    expect(scopesForFlavor("mastodon")).toEqual(["read", "write", "follow", "admin:read"]);
+  it("mastodon flavor requests the triple plus admin:read + admin:write; akkoma/pleroma/unknown keep the full set", () => {
+    expect(scopesForFlavor("mastodon")).toEqual([
+      "read",
+      "write",
+      "follow",
+      "admin:read",
+      "admin:write",
+    ]);
     expect(scopesForFlavor("akkoma")).toEqual(SCOPES_NOW);
     expect(scopesForFlavor("pleroma")).toEqual(SCOPES_NOW);
     // Unknown defaults to the full set: a wrongly-narrowed Akkoma token
@@ -356,11 +366,14 @@ describe("per-flavor scope strings (ADR 0005)", () => {
 
     expect(calls).toHaveLength(1);
     const body = JSON.parse(String(calls[0].init?.body)) as { scopes: string };
-    expect(body.scopes).toBe("read write follow admin:read");
-    expect(app.scopes).toBe("read write follow admin:read");
+    expect(body.scopes).toBe("read write follow admin:read admin:write");
+    expect(app.scopes).toBe("read write follow admin:read admin:write");
     // The cache binds on the flavor string: a full-set cached app is NOT
     // reused for a Mastodon login (and vice versa).
-    expect(getCachedApp(store, ORIGIN, REDIRECT, "read write follow admin:read")?.client_id).toBe("cid");
+    expect(
+      getCachedApp(store, ORIGIN, REDIRECT, "read write follow admin:read admin:write")
+        ?.client_id,
+    ).toBe("cid");
     expect(getCachedApp(store, ORIGIN, REDIRECT)).toBeNull();
   });
 
@@ -374,10 +387,11 @@ describe("per-flavor scope strings (ADR 0005)", () => {
   it("the built Mastodon authorize URL stays under 480 chars (tight-buffer 502 guard)", async () => {
     // Fresh PKCE + state, standard dev redirect: this is the exact shape
     // that 502s past ~512 chars on tight-header-buffer servers. The full
-    // 27-scope string builds ~700-char URLs; the triple plus `admin:read`
-    // (slice 3.1 — the umbrella alone 403s the admin endpoints) must stay
-    // small with margin (fixed 43-char lengths = real randomToken/S256
-    // sizes).
+    // 28-scope string builds ~700-char URLs; the triple plus `admin:read`
+    // (slice 3.1 — the umbrella alone 403s the admin reads) plus
+    // `admin:write` (slice 3.2 — the same for the queue mutations) must
+    // stay small with margin (fixed 43-char lengths = real
+    // randomToken/S256 sizes; measured ~355 chars).
     const clientId = "a".repeat(43);
     const state = randomToken();
     const verifier = randomToken();
@@ -392,7 +406,9 @@ describe("per-flavor scope strings (ADR 0005)", () => {
       state,
       codeChallenge: challenge,
     });
-    expect(new URL(url).searchParams.get("scope")).toBe("read write follow admin:read");
+    expect(new URL(url).searchParams.get("scope")).toBe(
+      "read write follow admin:read admin:write",
+    );
     expect(url.length).toBeLessThan(480);
   });
 

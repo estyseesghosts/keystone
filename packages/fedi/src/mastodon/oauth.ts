@@ -96,6 +96,17 @@ import type {
 //                        tokens simply gain a grant Pundit never lets them
 //                        use (`authorize :dashboard, :index?` still gates on
 //                        the user's staff role).
+//   admin:write          reports-queue mutations (Wave 3 slice 3.2,
+//                        clickstone §3.2 — assign/unassign/reopen/resolve/
+//                        recategorize). The mutations' `before_action`
+//                        requires ONLY `admin:write` (or a granular
+//                        `admin:write:*`): a read-only token 403s them, so
+//                        the write surface cannot ship without this scope
+//                        (verified in the local Mastodon checkout's
+//                        `api/v1/admin/reports_controller.rb`). Same
+//                        registration safety as `admin:read` (upstream
+//                        `optional_scopes`); old tokens get the existing
+//                        upgrade prompt, never a revoke.
 //
 // The umbrella scopes `read`/`write`/`follow` stay in NOW because Akkoma
 // checks the umbrella itself: `/api/v1/suggestions` 403s a granular-only
@@ -131,15 +142,13 @@ export const SCOPES_NOW: string[] = [
   "write:favourites",
   "write:conversations",
   "admin:read",
+  "admin:write",
 ];
 
 /** Scopes for features this client does NOT ship yet — never requested
  * (ADR 0003). Each entry names the slice that will move it into
  * `SCOPES_NOW`:
  *   push                   Web Push subscriptions
- *   admin:write            admin/moderation write surface (Wave 3.2+;
- *                          `admin:read` already moved into NOW with the
- *                          read-only insight surface, slice 3.1)
  *   read:featured_tags     featured-tags management (absent on Akkoma)
  *   write:featured_tags    featured-tags management (absent on Akkoma)
  *   read:favourites        a Mastodon favourites TIMELINE (favouriting
@@ -150,7 +159,6 @@ export const SCOPES_NOW: string[] = [
  *                          so no future slice requests it. */
 export const SCOPES_LATER: string[] = [
   "push",
-  "admin:write",
   "read:featured_tags",
   "write:featured_tags",
   "read:favourites",
@@ -182,10 +190,11 @@ export const FALLBACK_SCOPES = "read write follow";
 // `grouped_scopes` (`app/helpers/application_helper.rb`) only group scopes
 // for the authorize-page display — they are not access checks.
 //
-// Why per-flavor at all: the full 27-scope string builds ~700-char
+// Why per-flavor at all: the full 28-scope string builds ~700-char
 // `/oauth/authorize` URLs, and servers with tight response-header buffering
 // 502 the logged-in authorize leg past ~512 chars (sharp, deterministic
-// threshold). The triple + `admin:read` builds ~345-char URLs. Registration,
+// threshold). The triple + `admin:read` + `admin:write` builds ~355-char
+// URLs (measured 2026-10-22, slice 3.2 log). Registration,
 // the authorize URL, and the password grant all use the SAME flavor string
 // (the per-origin app cache binds on it).
 export const SCOPES_MASTODON: string[] = ["read", "write", "follow"];
@@ -193,11 +202,13 @@ export const SCOPES_MASTODON: string[] = ["read", "write", "follow"];
 /**
  * The scope list to request for `flavor`. Vanilla Mastodon and its forks
  * (glitch-soc, hometown, gotosocial all detect as flavor `"mastodon"`)
- * get the umbrella triple PLUS `admin:read`: the Wave 3 read-only insight
- * surface (slice 3.1) cannot work without it — the umbrella alone 403s
- * every `api/v1/admin/*` endpoint (source-verified, see the `admin:read`
- * entry in the NOW list above) — and one extra scope keeps the authorize
- * URL far under the 512-char 502 guard. Akkoma/Pleroma get the full NOW
+ * get the umbrella triple PLUS `admin:read` and `admin:write`: the Wave 3
+ * read-only insight surface (slice 3.1) cannot work without the former —
+ * the umbrella alone 403s every `api/v1/admin/*` read — and the Wave 3.2
+ * reports-queue mutations cannot work without the latter (the mutations'
+ * `before_action` requires `admin:write`, source-verified) — and two extra
+ * scopes keep the authorize URL far under the 512-char 502 guard
+ * (~355 chars, measured). Akkoma/Pleroma get the full NOW
  * set; anything else (including `"unknown"`) gets the full set — a
  * wrongly-narrowed Akkoma token breaks shipped features, while stock
  * Mastodon accepts the full set, so full is the safe default. Login
@@ -205,7 +216,7 @@ export const SCOPES_MASTODON: string[] = ["read", "write", "follow"];
  * and self-heals on the next detected login.
  */
 export function scopesForFlavor(flavor: ServerFlavor): string[] {
-  if (flavor === "mastodon") return [...SCOPES_MASTODON, "admin:read"];
+  if (flavor === "mastodon") return [...SCOPES_MASTODON, "admin:read", "admin:write"];
   return SCOPES_NOW;
 }
 

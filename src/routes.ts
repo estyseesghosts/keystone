@@ -126,6 +126,12 @@ export type RootParamList = {
   /** Read-only server insight (Wave 3 slice 3.1): admin metrics where the
    * token allows, public server info otherwise. No mutations. */
   AdminInsight: undefined
+  /** Moderation reports queue (Wave 3 slice 3.2): the queue list. */
+  AdminReports: undefined
+  /** One queued report (Wave 3 slice 3.2): detail + confirm-gated
+   * mutations. Mastodon fetches the row fresh; Misskey renders the shared
+   * list row (no show endpoint upstream). */
+  AdminReport: {id: string}
   Drive: undefined
   Favorites: undefined
   Followers: {id: string}
@@ -178,6 +184,8 @@ export const paths: Record<keyof RootParamList, string> = {
   ChatUser: '/chat/users/:userId',
   Announcements: '/announcements',
   AdminInsight: '/admin/insight',
+  AdminReports: '/admin/reports',
+  AdminReport: '/admin/reports/:id',
   Drive: '/drive',
   Favorites: '/favorites',
   Followers: '/users/:id/followers',
@@ -295,6 +303,8 @@ export function linkingScreens(): LinkingScreens {
     ChatUser: leaf('ChatUser'),
     Announcements: leaf('Announcements'),
     AdminInsight: leaf('AdminInsight'),
+    AdminReports: leaf('AdminReports'),
+    AdminReport: leaf('AdminReport'),
     Drive: leaf('Drive'),
     Favorites: leaf('Favorites'),
     Followers: leaf('Followers'),
@@ -367,6 +377,10 @@ export function titleForRoute(
       return t`Announcements`
     case 'AdminInsight':
       return t`Server insight`
+    case 'AdminReports':
+      return t`Reports`
+    case 'AdminReport':
+      return t`Report`
     case 'Drive':
       return t`Drive`
     case 'Favorites':

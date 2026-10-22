@@ -690,11 +690,12 @@ describe('per-flavor scopeHealth (ADR 0005)', () => {
     )
   }
 
-  it('a Mastodon triple token needs the upgrade (admin:read ships with slice 3.1)', async () => {
-    // Slice 3.1 moves `admin:read` into the requested set: the umbrella
-    // triple alone 403s every `api/v1/admin/*` endpoint (source-verified),
-    // so a pre-slice triple token reads `needsUpgrade` for exactly the one
-    // new scope — the ADR 0003 upgrade prompt, never a revoke.
+  it('a Mastodon triple token needs the upgrade (admin scopes ship with slices 3.1/3.2)', async () => {
+    // Slices 3.1/3.2 move `admin:read` + `admin:write` into the requested
+    // set: the umbrella triple alone 403s every `api/v1/admin/*` endpoint
+    // (source-verified), so a pre-slice triple token reads `needsUpgrade`
+    // for exactly the two new scopes — the ADR 0003 upgrade prompt, never
+    // a revoke.
     const {storage, store} = setup()
     await store.add(mastoInput())
     cacheScopes(storage, ORIGIN_B, 'read write follow')
@@ -703,14 +704,14 @@ describe('per-flavor scopeHealth (ADR 0005)', () => {
       needsUpgrade: true,
       generation: 'pre-scopes',
       reason: 'stale-scopes',
-      missingScopes: ['admin:read'],
+      missingScopes: ['admin:read', 'admin:write'],
     })
   })
 
   it('a Mastodon triple-plus-admin token reads current', async () => {
     const {storage, store} = setup()
     await store.add(mastoInput())
-    cacheScopes(storage, ORIGIN_B, 'read write follow admin:read')
+    cacheScopes(storage, ORIGIN_B, 'read write follow admin:read admin:write')
     expect(store.scopeHealth()).toEqual({
       needsReauth: false,
       needsUpgrade: false,

@@ -4,10 +4,11 @@
 // - `admin_read`/`admin_write` capability keys exist with "unknown"
 //   defaults everywhere; `buildCapabilities` never infers a role (role
 //   comes from verify_credentials at the backend/session layer).
-// - `admin:read` is a NOW scope (the umbrella triple does NOT satisfy the
-//   admin endpoints — source-verified in the session log, not here), while
-//   `admin:write` stays LATER. `read:conversations` is still never
-//   requested (not a real scope).
+// - `admin:read`/`admin:write` are NOW scopes (the umbrella triple does NOT
+//   satisfy the admin endpoints — source-verified in the session log, not
+//   here: reads need `admin:read` since slice 3.1, the reports-queue
+//   mutations need `admin:write` since slice 3.2). `read:conversations` is
+//   still never requested (not a real scope).
 // - The admin client posts measures/dimensions with `{keys}`, adapts the
 //   rows to domain models, and surfaces 403 as the typed permission error
 //   (section disables with a reason — never a session clear) and 404 as
@@ -165,11 +166,11 @@ describe("admin capability keys (detect.ts)", () => {
 });
 
 describe("admin:read is a NOW scope (the read surface ships)", () => {
-  it("SCOPES_NOW carries admin:read; SCOPES_LATER keeps admin:write only", () => {
+  it("SCOPES_NOW carries admin:read + admin:write (insight reads + queue mutations)", () => {
     expect(SCOPES_NOW).toContain("admin:read");
+    expect(SCOPES_NOW).toContain("admin:write");
     expect(SCOPES_LATER).not.toContain("admin:read");
-    expect(SCOPES_LATER).toContain("admin:write");
-    expect(SCOPES_NOW).not.toContain("admin:write");
+    expect(SCOPES_LATER).not.toContain("admin:write");
     expect(new Set(SCOPES_NOW).size).toBe(SCOPES_NOW.length);
     expect(new Set(SCOPES_LATER).size).toBe(SCOPES_LATER.length);
     for (const later of SCOPES_LATER) expect(SCOPES_NOW).not.toContain(later);
@@ -180,9 +181,15 @@ describe("admin:read is a NOW scope (the read surface ships)", () => {
     expect(SCOPES_LATER).toContain("read:conversations");
   });
 
-  it("the Mastodon flavor string is the triple plus admin:read (umbrella alone 403s admin endpoints)", () => {
+  it("the Mastodon flavor string is the triple plus admin:read + admin:write (umbrella alone 403s admin endpoints)", () => {
     expect(SCOPES_MASTODON).toEqual(["read", "write", "follow"]);
-    expect(scopesForFlavor("mastodon")).toEqual(["read", "write", "follow", "admin:read"]);
+    expect(scopesForFlavor("mastodon")).toEqual([
+      "read",
+      "write",
+      "follow",
+      "admin:read",
+      "admin:write",
+    ]);
     expect(scopesForFlavor("akkoma")).toEqual(SCOPES_NOW);
     expect(scopesForFlavor("pleroma")).toEqual(SCOPES_NOW);
     expect(scopesForFlavor("unknown")).toEqual(SCOPES_NOW);

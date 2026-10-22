@@ -269,12 +269,13 @@ describe('mastodon MFA + OAuth', () => {
       return Promise.resolve()
     }
     // Mastodon flavor: registration posts the triple plus `admin:read`
-    // (slice 3.1 — the umbrella alone 403s the admin endpoints), the
-    // authorize URL asks for it — still the short URL that fits tight
+    // (slice 3.1 — the umbrella alone 403s the admin reads) plus
+    // `admin:write` (slice 3.2 — the same for the queue mutations), the
+    // authorize URL asks for them — still the short URL that fits tight
     // header buffers.
     await start({appStore: createMemoryStore(), origin: ORIGIN_B, redirectUri, openBrowser, flavor: 'mastodon'})
-    expect(JSON.parse(calls[0].body)).toMatchObject({scopes: 'read write follow admin:read'})
-    expect(new URL(opened!).searchParams.get('scope')).toBe('read write follow admin:read')
+    expect(JSON.parse(calls[0].body)).toMatchObject({scopes: 'read write follow admin:read admin:write'})
+    expect(new URL(opened!).searchParams.get('scope')).toBe('read write follow admin:read admin:write')
 
     // Akkoma flavor: the full NOW set (probe-proven requirement, ADR 0003).
     calls.length = 0

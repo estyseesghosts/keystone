@@ -593,3 +593,32 @@ export interface AdminQueueStats {
 export interface OnlineUsersCount {
   count?: unknown;
 }
+
+// --- Reports queue (Wave 3, clickstone §3.2) ---------------------------------
+//
+// Wire shape of one `admin/abuse-user-reports` row (moderator role,
+// `read:admin:abuse-user-reports`; verified in the local Misskey +
+// Sharkey + Catodon checkouts). Field names are exact wire spellings
+// (camelCase); every field is optional + unknown-typed here so fork
+// drift degrades in the adapter, never at the type boundary.
+// `reporter`/`targetUser`/`assignee` pack `UserDetailedNotMe` rows;
+// `assignee` is null when unassigned. `resolvedAs` is `accept`/`reject`
+// when the moderator recorded a verdict (`update`/`resolve` pack it),
+// null otherwise. `moderationNote` is the moderator's private note
+// (empty string when none — never null upstream, but read tolerantly).
+
+export interface AbuseUserReport {
+  id?: unknown;
+  createdAt?: unknown;
+  comment?: unknown;
+  resolved?: unknown;
+  reporterId?: unknown;
+  targetUserId?: unknown;
+  assigneeId?: unknown;
+  reporter?: unknown;
+  targetUser?: unknown;
+  assignee?: unknown;
+  forwarded?: unknown;
+  resolvedAs?: unknown;
+  moderationNote?: unknown;
+}

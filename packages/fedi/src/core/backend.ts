@@ -943,6 +943,148 @@ export interface AdminInsightApi {
   onlineUsersCount?(): Promise<number>;
 }
 
+// --- Reports queue (Wave 3 slice 3.2 — daily moderation surface) --------------
+
+/**
+ * Resolution verdict a moderator recorded on a queued report. Misskey packs
+ * `resolvedAs` (`accept`/`reject`/null); the Mastodon family has no verdict
+ * field at all (its API answers only the action outcome), so `resolution`
+ * stays null there — never invented.
+ */
+export type ReportResolution = "accept" | "reject";
+
+/**
+ * One queued abuse/user report both families pack just enough to moderate
+ * on — the ids the 1.5 user-report surface already sends (`status_ids`,
+ * `rule_ids`, `category`, `forward`) plus the queue state the moderator
+ * needs (reporter/target, assignee, action outcome).
+ *
+ * Per-family sources:
+ * - Mastodon `REST::Admin::ReportSerializer`: id, comment, category
+ *   (other/spam/legal/violation — unknown values read null), forwarded,
+ *   created_at, the reporter/target/assignee/action-taker accounts (each
+ *   an `Admin::AccountSerializer` wrapper nesting the plain account under
+ *   `account`), `statuses[].id` (the `status_ids`), `rules[].id` (the
+ *   `rule_ids`), `action_taken` (the open/resolved state) with
+ *   `action_taken_at`/`action_taken_by_account`. No verdict, no
+ *   moderator note, no notes/history: the `api/v1` namespace exposes
+ *   neither `report.notes` nor `report.history` (web-admin-only), so they
+ *   stay absent here rather than faked.
+ * - Misskey `AbuseUserReport` pack: id, createdAt, comment, reporter/
+ *   targetUser/assignee (+ their ids), forwarded, resolved (the
+ *   open/resolved state), resolvedAs, moderationNote. No statuses, rules
+ *   or categories exist on this family — those stay empty/null with no
+ *   unsupported noise (the queue never files reports, it only lists them).
+ *
+ * `reporter`/`target`/`assignee`/`actionTakenBy` are null when the server
+ * did not pack them — never an invented account.
+ */
+export interface QueuedReport {
+  id: string;
+  createdAt: string | null;
+  /** The reporter's note (may be empty — some reports carry only ids). */
+  comment: string;
+  /** The reporting account; null when the server did not pack one. */
+  reporter: Account | null;
+  /** The reported account; null when the server did not pack one. */
+  target: Account | null;
+  /** Status/post ids backing the report (Mastodon `statuses[].id`;
+   * always empty on Misskey, which files no statuses). */
+  statusIds: string[];
+  /** Server rule ids the report cites (Mastodon `rules[].id`; always
+   * empty on Misskey). */
+  ruleIds: string[];
+  /** Reason category (Mastodon only; null on Misskey and on unknown
+   * values, which are never forwarded blindly). */
+  category: ReportCategory | null;
+  /** Forwarded to the remote server (Mastodon `forwarded`, Misskey
+   * `forwarded`). */
+  forwarded: boolean;
+  /** Open vs actioned (`action_taken` / `resolved`). */
+  state: "open" | "resolved";
+  /** The assigned moderator; null when unassigned or not reported. */
+  assignee: Account | null;
+  /** The recorded verdict (`resolvedAs`); null when none — always null
+   * on the Mastodon family, which has no verdict field. */
+  resolution: ReportResolution | null;
+  /** When the action was taken; null when none was. */
+  actionTakenAt: string | null;
+  /** Who took the action; null when none was or the server did not say. */
+  actionTakenBy: Account | null;
+  /** The moderator's private note (Misskey `moderationNote`); null when
+   * the family has none (Mastodon) or the report carries none. */
+  moderationNote: string | null;
+}
+
+/** Queue listing options. `state` filters server-side where the family
+ * supports it (Mastodon `resolved`/`unresolved`, Misskey
+ * `state: resolved|unresolved`); omitted lists everything. */
+export interface ReportsQueueListOpts extends PageOpts {
+  state?: "open" | "resolved";
+}
+
+/** Resolve options. `decision` maps to Misskey `resolvedAs`
+ * (accept/reject; omitted resolves without a verdict). The Mastodon
+ * family has no verdict field — passing a decision there is refused with
+ * the typed unsupported error, never silently dropped. */
+export interface ReportResolveOpts {
+  decision?: ReportResolution | null;
+}
+
+/** Mastodon report re-categorization (`PATCH /api/v1/admin/reports/:id`,
+ * which permits `category` + `rule_ids` only). Each field is sent only
+ * when set; the caller sends at least one. */
+export interface ReportRecategorizePatch {
+  category?: ReportCategory;
+  ruleIds?: readonly string[];
+}
+
+/**
+ * The moderation reports queue (Wave 3 slice 3.2).
+ *
+ * Both families serve `list` + `resolve`; the rest is per-family and
+ * optional — an absent member means the family has no such endpoint, and
+ * the UI hides (or disables-with-reason) the action instead of faking it:
+ * - Mastodon: `get`, `assignToSelf`, `unassign`, `reopen`,
+ *   `recategorize`. No `forward` (forwarding happens at report time) and
+ *   no `updateNote` (no notes API exists in the `api/v1` namespace).
+ * - Misskey: `updateNote` (`moderationNote`), `forward`. No `get` (no
+ *   show endpoint — detail renders the list row), no `reopen`
+ *   (no unresolve endpoint), no `assignToSelf`/`unassign` (assignment
+ *   happens on resolve), no `recategorize` (no categories).
+ *
+ * Every mutation returns void: the UI confirms first, then refetches the
+ * queue (optimistic updates are forbidden on this surface). A 403 is the
+ * typed permission error — the caller disables the section with a reason,
+ * never clears the session.
+ *
+ * Optional like every capability-gated member: a backend without these
+ * endpoints leaves it undefined and the UI hides the surface.
+ */
+export interface ReportsQueueApi {
+  /** The queue, newest first. Mastodon Link-pages; Misskey
+   * `untilId`/`sinceId`-pages. */
+  list(opts?: ReportsQueueListOpts): Promise<Page<QueuedReport>>;
+  /** One report by id. Mastodon only (`GET /:id`). */
+  get?(id: string): Promise<QueuedReport>;
+  /** Claim the report for the viewer. Mastodon only. */
+  assignToSelf?(id: string): Promise<void>;
+  /** Release the claim. Mastodon only. */
+  unassign?(id: string): Promise<void>;
+  /** Re-open a resolved report. Mastodon only. */
+  reopen?(id: string): Promise<void>;
+  /** Resolve/close the report (Mastodon `POST :id/resolve`; Misskey
+   * `admin/resolve-abuse-user-report`). */
+  resolve(id: string, opts?: ReportResolveOpts): Promise<void>;
+  /** Change category/rules. Mastodon only (`PATCH`, category + rule_ids). */
+  recategorize?(id: string, patch: ReportRecategorizePatch): Promise<void>;
+  /** Set the moderator note. Misskey only (`moderationNote`, verbatim —
+   * an empty string clears the note). */
+  updateNote?(id: string, note: string): Promise<void>;
+  /** Forward the report to the target's home server. Misskey only. */
+  forward?(id: string): Promise<void>;
+}
+
 // --- Direct messages (P6.2, clickstone §2.1) -------------------------------
 
 /**
@@ -1612,6 +1754,10 @@ export interface Backend {
    * family — its admin reads are a later slice) — the UI hides the
    * surface, never an empty screen. */
   adminInsight?: AdminInsightApi;
+  /** Moderation reports queue (Wave 3 slice 3.2 — list + confirm-gated
+   * mutations). Undefined where the family has no queue endpoints — the
+   * UI hides the surface, never an empty list. */
+  reportsQueue?: ReportsQueueApi;
   /** DM inbox (P6.2, Mastodon family only). Undefined where the flavor
    * has no conversations endpoint (or it is unverified) and everywhere
    * on the Misskey family — the UI shows the honest unavailable state,
