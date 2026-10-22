@@ -81,9 +81,17 @@ export async function fetchFeedPage(
       return backend.antennas.notes(parsed.id, opts)
     }
     case 'channel':
-      // No `Backend` surface for channels yet (Phase 6 owns them): honest
-      // unsupported, never a faked feed.
-      throw new ApiError('Channels are not available in this build yet.', 404, 'errors.unsupported.channel')
+      // Misskey-family channel feed (`channels/timeline`). The Mastodon
+      // family leaves `channels` undefined — honest unsupported, never a
+      // faked feed.
+      if (!backend.channels) {
+        throw new ApiError(
+          'Channels are not available on this server.',
+          404,
+          'errors.unsupported.channels',
+        )
+      }
+      return backend.channels.notes(parsed.id, opts)
     case 'clip': {
       if (!backend.clips) {
         throw new ApiError('Clips are not available on this server.', 404, 'errors.unsupported.clips')

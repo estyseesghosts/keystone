@@ -125,4 +125,10 @@ export const KEYSTONE_PERMISSIONS: string[] = [
   "write:report-abuse",
   "read:clips",
   "write:clips",
+  // Channels (clickstone §1.9): `channels/followed` needs read:channels;
+  // `channels/follow|unfollow` need write:channels (Misskey endpoint
+  // `kind` declarations). Sessions minted before this line land on
+  // `scopeHealth`/403 PERMISSION_DENIED, which is the honest re-auth path.
+  "read:channels",
+  "write:channels",
 ];

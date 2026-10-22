@@ -33,6 +33,7 @@ import type {
   AntennasApi,
   Backend,
   BookmarksApi,
+  ChannelsApi,
   ClipSummary,
   ClipsApi,
   CustomEmoji,
@@ -101,6 +102,14 @@ import {
   removeNoteFromClip,
   updateClip,
 } from "./clips";
+import {
+  adaptChannel,
+  followChannel,
+  listFollowedChannels,
+  searchChannels,
+  showChannel,
+  unfollowChannel,
+} from "./channels";
 import { listFavorites, removeFavorite } from "./favorites";
 import { listFeaturedNotes, listUserFeaturedNotes, pinNote, unpinNote } from "./featured";
 import {
@@ -379,6 +388,47 @@ export function createMisskeyBackend(
         ...(c.description !== undefined ? { description: c.description } : {}),
         ...(c.notesCount !== undefined ? { notesCount: c.notesCount } : {}),
       }));
+    },
+  };
+
+  // Channels (clickstone §1.9): the Misskey-family group timelines. The
+  // directory is `channels/search` with an empty query (the official client
+  // renders the same paged search); `channels/featured` is a fixed top-10
+  // with no cursor, so it cannot page. No `allowPartial` is sent — the
+  // reference client's paginator sends only `channelId` + cursor params.
+  const channels: ChannelsApi = {
+    async list(opts = {}) {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const params: Record<string, unknown> = {
+        query: opts.query ?? "",
+        limit,
+        ...decodeCursor(opts.cursor ?? null),
+      };
+      return pageOf(await searchChannels(call, params), limit, adaptChannel);
+    },
+    async show(channelId) {
+      return showChannel(call, channelId);
+    },
+    async notes(channelId, opts = {}) {
+      return callNotes("channels/timeline", {
+        channelId,
+        limit: opts.limit ?? DEFAULT_LIMIT,
+        ...decodeCursor(opts.cursor ?? null),
+      });
+    },
+    async followed(opts = {}) {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const rows = await listFollowedChannels(call, {
+        limit,
+        ...decodeCursor(opts.cursor ?? null),
+      });
+      return pageOf(rows, limit, adaptChannel);
+    },
+    follow(channelId) {
+      return followChannel(call, channelId);
+    },
+    unfollow(channelId) {
+      return unfollowChannel(call, channelId);
     },
   };
 
@@ -1086,6 +1136,7 @@ export function createMisskeyBackend(
     drive,
     antennas,
     clips,
+    channels,
     lists,
     scheduled,
     serverDrafts,

@@ -90,6 +90,8 @@ export type RootParamList = {
   Clips: {addNoteId?: string} | undefined
   Antenna: {id: string}
   Antennas: undefined
+  Channel: {id: string}
+  Channels: undefined
   Drive: undefined
   Favorites: undefined
   Followers: {id: string}
@@ -119,6 +121,8 @@ export const paths: Record<keyof RootParamList, string> = {
   Clips: '/clips',
   Antenna: '/antennas/:id',
   Antennas: '/antennas',
+  Channel: '/channels/:id',
+  Channels: '/channels',
   Drive: '/drive',
   Favorites: '/favorites',
   Followers: '/users/:id/followers',
@@ -190,6 +194,8 @@ export function linkingScreens(): LinkingScreens {
     Clips: leaf('Clips'),
     Antenna: leaf('Antenna'),
     Antennas: leaf('Antennas'),
+    Channel: leaf('Channel'),
+    Channels: leaf('Channels'),
     Drive: leaf('Drive'),
     Favorites: leaf('Favorites'),
     Followers: leaf('Followers'),
@@ -239,6 +245,10 @@ export function titleForRoute(
       return t`Antenna`
     case 'Antennas':
       return t`Antennas`
+    case 'Channel':
+      return t`Channel`
+    case 'Channels':
+      return t`Channels`
     case 'Drive':
       return t`Drive`
     case 'Favorites':

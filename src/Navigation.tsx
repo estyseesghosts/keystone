@@ -29,6 +29,7 @@ import {
   DriveIcon,
   ClipIcon,
   AntennaIcon,
+  ChannelIcon,
   HomeIcon,
   ListIcon,
   LoginIcon,
@@ -50,6 +51,8 @@ import {useHosting} from '#/state/hosting'
 import {AuthCallbackScreen} from '#/screens/AuthCallback'
 import {AntennaScreen} from '#/screens/Antenna'
 import {AntennasScreen} from '#/screens/Antennas'
+import {ChannelScreen} from '#/screens/Channel'
+import {ChannelsScreen} from '#/screens/Channels'
 import {ClipScreen} from '#/screens/Clip'
 import {ClipsScreen} from '#/screens/Clips'
 import {ComposeScreen} from '#/screens/Compose'
@@ -232,11 +235,12 @@ function TabIcon({name, color}: {name: keyof TabParamList; color: string}) {
 // the screens themselves carry the honest fallback for unknown states, so
 // navigating is never a dead end. Shared by the Sidebar (desktop) and the
 // AccountMenu (which is also the mobile entry point via the strip avatar).
-type StackEntryKey = 'Lists' | 'Clips' | 'Drive' | 'Antennas' | 'Favorites'
+type StackEntryKey = 'Lists' | 'Clips' | 'Channels' | 'Drive' | 'Antennas' | 'Favorites'
 
 const STACK_ICONS: Record<StackEntryKey, (p: {size?: number; color?: string}) => ReactNode> = {
   Lists: ListIcon,
   Clips: ClipIcon,
+  Channels: ChannelIcon,
   Drive: DriveIcon,
   Antennas: AntennaIcon,
   Favorites: StarIcon,
@@ -254,6 +258,11 @@ function stackEntries(
   if (backend?.capabilities.clips === 'supported' && backend.clips) {
     out.push('Clips')
   }
+  // Channels are Misskey-family only; the Mastodon family leaves both the
+  // capability and the module off, so the entry never renders there.
+  if (backend?.capabilities.channels === 'supported' && backend.channels) {
+    out.push('Channels')
+  }
   if (session.family === 'misskey') {
     out.push('Drive')
     out.push('Antennas')
@@ -268,6 +277,8 @@ function stackEntryLabel(i18n: I18n, key: StackEntryKey): string {
       return i18n._(msg`Lists`)
     case 'Clips':
       return i18n._(msg`Clips`)
+    case 'Channels':
+      return i18n._(msg`Channels`)
     case 'Drive':
       return i18n._(msg`Drive`)
     case 'Antennas':
@@ -904,6 +915,8 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <Stack.Screen name="Lists" component={ListsScreen} />
               <Stack.Screen name="Clip" component={ClipScreen} />
               <Stack.Screen name="Clips" component={ClipsScreen} />
+              <Stack.Screen name="Channel" component={ChannelScreen} />
+              <Stack.Screen name="Channels" component={ChannelsScreen} />
               <Stack.Screen name="Antenna" component={AntennaScreen} />
               <Stack.Screen name="Antennas" component={AntennasScreen} />
               <Stack.Screen name="Drive" component={DriveScreen} />

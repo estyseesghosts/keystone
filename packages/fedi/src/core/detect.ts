@@ -264,6 +264,10 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     antennas: "supported",
     lists: "supported",
     clips: "supported",
+    // `channels/*` exists in stock Misskey (verified against the local
+    // backend: search/show/timeline/followed/follow/unfollow), and the
+    // channel screen + live channel are implemented (clickstone §1.9).
+    channels: "supported",
     direct_messages: "unsupported",
     // v1 shipped `i/favorites` + `notes/favorites/create|delete`
     // (`frontend/src/misskey/favorites.ts`, `NoteMenu.tsx:490`).
@@ -296,6 +300,8 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     antennas: "supported",
     lists: "supported",
     clips: "supported",
+    // Same Misskey-family `channels/*` endpoints (Sharkey inherits them).
+    channels: "supported",
     direct_messages: "unsupported",
     // Same `i/favorites` + `notes/favorites/*` endpoints v1 shipped.
     bookmarks: "supported",

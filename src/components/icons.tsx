@@ -303,3 +303,14 @@ export function AntennaIcon(p: IconProps) {
     </Base>
   )
 }
+
+/** Misskey channels: a group-broadcast mark (a screen with signal arcs). */
+export function ChannelIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M4 6h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z" />
+      <Path d="M8 21l4-3 4 3" />
+      <Circle cx={12} cy={12} r={1.4} />
+    </Base>
+  )
+}

@@ -633,6 +633,16 @@ function channelSpec(
       needsAuth: true,
     };
   }
+  // A channel's live channel is literally `channel` with the channel id
+  // (backend `stream/channels/channel.ts`: `params.channelId`). Public —
+  // the server filters by the note's own `channelId`.
+  if ("channelId" in source) {
+    return {
+      channel: "channel",
+      params: { channelId: source.channelId },
+      needsAuth: false,
+    };
+  }
   if ("tag" in source) {
     return {
       channel: "hashtag",

@@ -62,6 +62,7 @@ function mockBackend(): Backend & {
     lists: {timeline: jest.fn(async () => page([post('l1')]))},
     antennas: {notes: jest.fn(async () => page([post('a1')]))},
     clips: {notes: jest.fn(async () => page([post('c1')]))},
+    channels: {notes: jest.fn(async () => page([post('h1')]))},
     explore: {posts: explorePosts},
     bookmarks: {list: jest.fn(async () => ({items: [{id: 'b1', post: post('p1')}], cursor: null, end: true}))},
   } as unknown as Backend
@@ -98,6 +99,8 @@ describe('fetchFeedPage dispatch', () => {
     expect(b.antennas?.notes).toHaveBeenCalled()
     await fetchFeedPage(b, {kind: 'clip', id: 'c'}, null)
     expect(b.clips?.notes).toHaveBeenCalled()
+    await fetchFeedPage(b, {kind: 'channel', id: 'h'}, null)
+    expect(b.channels?.notes).toHaveBeenCalledWith('h', {cursor: null, limit: 20})
     await fetchFeedPage(b, {kind: 'tag', tag: 'x'}, null)
     expect(b.searchTags).toHaveBeenCalledWith('x', {cursor: null, limit: 20})
     await fetchFeedPage(b, {kind: 'search', query: 'q'}, null)
@@ -149,7 +152,7 @@ describe('fetchFeedPage dispatch', () => {
 
   it('answers honest 404s for unsupported modules and channels', async () => {
     const b = mockBackend()
-    const bare = {...b, lists: undefined, antennas: undefined, clips: undefined, bookmarks: undefined, explore: undefined} as unknown as Backend
+    const bare = {...b, lists: undefined, antennas: undefined, clips: undefined, channels: undefined, bookmarks: undefined, explore: undefined} as unknown as Backend
     await expect(fetchFeedPage(bare, {kind: 'list', id: 'l'}, null)).rejects.toMatchObject({
       code: 'errors.unsupported.lists',
     })
@@ -165,8 +168,8 @@ describe('fetchFeedPage dispatch', () => {
     await expect(fetchFeedPage(bare, {kind: 'explore'}, null)).rejects.toMatchObject({
       code: 'errors.unsupported.explore',
     })
-    await expect(fetchFeedPage(b, {kind: 'channel', id: 'ch'}, null)).rejects.toMatchObject({
-      code: 'errors.unsupported.channel',
+    await expect(fetchFeedPage(bare, {kind: 'channel', id: 'ch'}, null)).rejects.toMatchObject({
+      code: 'errors.unsupported.channels',
     })
   })
 })

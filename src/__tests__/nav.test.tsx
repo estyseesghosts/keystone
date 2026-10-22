@@ -87,7 +87,7 @@ describe('Navigation', () => {
     for (const name of ['Home', 'Network', 'Explore', 'Notifications', 'User'] as const) {
       expect(main[name]).toBe(strip(paths[name]))
     }
-    for (const name of ['Note', 'Tag', 'List', 'Lists', 'Clip', 'Clips', 'Antenna', 'Antennas', 'Drive', 'Favorites', 'Followers', 'Following', 'FollowRequests', 'ProfileEdit', 'Settings', 'Login', 'AuthCallback', 'SysDebug', 'Compose'] as const) {
+    for (const name of ['Note', 'Tag', 'List', 'Lists', 'Clip', 'Clips', 'Antenna', 'Antennas', 'Channel', 'Channels', 'Drive', 'Favorites', 'Followers', 'Following', 'FollowRequests', 'ProfileEdit', 'Settings', 'Login', 'AuthCallback', 'SysDebug', 'Compose'] as const) {
       expect(screens[name]).toBe(strip(paths[name]))
     }
     // Legacy rewrites land on canonical paths table entries.
@@ -116,6 +116,11 @@ describe('Navigation', () => {
     const exploreTab = getStateFromPath('/explore/tags', linking.config)
     expect(JSON.stringify(exploreTab)).toMatch(/Explore/)
     expect(JSON.stringify(exploreTab)).toMatch(/tags/)
+    const channels = getStateFromPath('/channels', linking.config)
+    expect(JSON.stringify(channels)).toMatch(/Channels/)
+    const channel = getStateFromPath('/channels/ch1', linking.config)
+    expect(JSON.stringify(channel)).toMatch(/Channel/)
+    expect(JSON.stringify(channel)).toMatch(/"id":"ch1"/)
   })
 
   it('accepts an initial state (deep-link landing)', () => {

@@ -302,12 +302,14 @@ export type StreamState =
 
 /** What a feed subscription follows. `kind` covers the basic timelines
  * (social is Misskey-family only — the Mastodon backend answers it as
- * unsupported); `antennaId`/`listId`/`tag`/`clipId` are the named feeds.
- * Tag feeds ride `search.tags` on both families; lists ride
+ * unsupported); `antennaId`/`listId`/`tag`/`channelId`/`clipId` are the
+ * named feeds. Tag feeds ride `search.tags` on both families; lists ride
  * `lists.timeline` on both families (Misskey `notes/user-list-timeline`,
- * Mastodon `/timelines/list/:id`); clips ride `clips/notes`
- * (Misskey-family only, no live channel — paging + refresh). */
-export type FeedSource = { kind: TimelineKind } | { antennaId: string } | { listId: string } | { tag: string } | { clipId: string };
+ * Mastodon `/timelines/list/:id`); channels ride Misskey
+ * `channels/timeline` with a `channel` live channel (Mastodon: no channel
+ * source); clips ride `clips/notes` (Misskey-family only, no live channel —
+ * paging + refresh). */
+export type FeedSource = { kind: TimelineKind } | { antennaId: string } | { listId: string } | { tag: string } | { channelId: string } | { clipId: string };
 
 /** Per-feed live state for status badges. */
 export type FeedChannelState = "disabled" | "pending" | "subscribed" | "unavailable";
@@ -554,19 +556,50 @@ export interface FiltersApi {
   delete(id: string): Promise<void>;
 }
 
-/** One Misskey-family channel (group timeline). */
+/** One Misskey-family channel (group timeline). Only the fields the UI
+ * can actually render from a packed `Channel`; unknown wire fields are
+ * dropped rather than smuggled through. */
 export interface Channel {
   id: string;
   name: string;
   description?: string | null;
+  /** Banner image URL (the packed `bannerUrl`), when the channel has one. */
+  bannerUrl?: string | null;
+  /** Does the viewer follow this channel? null/absent means the server did
+   * not report it (signed out, or a fork without the field) — never
+   * fabricated as `false`. */
+  isFollowing?: boolean | null;
+  /** Archived channels are read-only and stay out of directory search; the
+   * detail screen says so instead of hiding the feed. */
+  isArchived?: boolean;
+  usersCount?: number;
+  notesCount?: number;
 }
 
-/** Channel timelines (addition — Misskey `channels/*`; the browser UI
- * lands in a later slice). */
+export interface ChannelListOpts extends PageOpts {
+  /** Directory search text (`channels/search`). Empty = the whole
+   * directory: the server skips the LIKE filter when the query is empty. */
+  query?: string;
+}
+
+/** Channel timelines (addition — Misskey `channels/*`, clickstone §1.9).
+ * The Mastodon family has no channels, so its backend leaves the member
+ * undefined and `capabilities.channels` is `unsupported` — the UI shows an
+ * honest unavailable state, never an empty feed. */
 export interface ChannelsApi {
-  list(opts?: PageOpts): Promise<Page<Channel>>;
+  /** Public directory (`channels/search`), newest first, paged. */
+  list(opts?: ChannelListOpts): Promise<Page<Channel>>;
+  /** One channel with the viewer's `isFollowing` when signed in
+   * (`channels/show`). */
+  show(channelId: string): Promise<Channel>;
   /** A channel's notes (`channels/timeline`). */
   notes(channelId: string, opts?: PageOpts): Promise<Page<Post>>;
+  /** Channels the viewer follows (`channels/followed`, auth + read scope). */
+  followed(opts?: PageOpts): Promise<Page<Channel>>;
+  /** `channels/follow` (write:channels). */
+  follow(channelId: string): Promise<void>;
+  /** `channels/unfollow` (write:channels). */
+  unfollow(channelId: string): Promise<void>;
 }
 
 /** One server announcement (Misskey-family notices). */
