@@ -76,6 +76,10 @@ export type FeatureKey =
   | "antennas"
   | "clips"
   | "channels"
+  // Server announcements (clickstone §1.12): read + per-row dismiss. The
+  // Misskey family serves `announcements` + `i/read-announcement`; the
+  // Mastodon family serves `/api/v1/announcements[/:id/dismiss]`.
+  | "announcements"
   | "chats"
   // Messaging
   // `direct_messages` gates DM/conversation/chat surfaces in the app. It is
@@ -126,6 +130,7 @@ export const FEATURE_KEYS: readonly FeatureKey[] = [
   "antennas",
   "clips",
   "channels",
+  "announcements",
   "chats",
   "direct_messages",
   "lists",
@@ -308,6 +313,10 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     // backend: search/show/timeline/followed/follow/unfollow), and the
     // channel screen + live channel are implemented (clickstone §1.9).
     channels: "supported",
+    // `announcements` (public, limit/sinceId/untilId) + `i/read-announcement`
+    // are stock Misskey endpoints (verified in the local backend and the
+    // reference client's announcements page) — clickstone §1.12.
+    announcements: "supported",
     direct_messages: "unsupported",
     // v1 shipped `i/favorites` + `notes/favorites/create|delete`
     // (`frontend/src/misskey/favorites.ts`, `NoteMenu.tsx:490`).
@@ -352,6 +361,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     clips: "supported",
     // Same Misskey-family `channels/*` endpoints (Sharkey inherits them).
     channels: "supported",
+    // Same Misskey-family `announcements` + `i/read-announcement` endpoints
+    // (verified in the local Sharkey checkout's endpoint list).
+    announcements: "supported",
     direct_messages: "unsupported",
     // Same `i/favorites` + `notes/favorites/*` endpoints v1 shipped.
     bookmarks: "supported",
@@ -374,6 +386,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     lists_replies_policy: "unsupported",
     lists_exclusive: "unsupported",
     polls_hide_totals: "unsupported",
+    // Catodon's endpoint list exports `announcements` and
+    // `i/read-announcement` (same Misskey-family shapes).
+    announcements: "supported",
     direct_messages: "unsupported",
     favourites_distinct_from_reactions: "unsupported",
     streaming: "supported",
@@ -398,6 +413,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     local_only: "supported",
     drive: "unsupported",
     antennas: "unsupported",
+    // Pinetree's endpoint table has no `announcements` (and its account pack
+    // hard-codes `hasUnreadAnnouncement: false`) — a verified absence.
+    announcements: "unsupported",
     direct_messages: "unsupported",
     favourites_distinct_from_reactions: "unsupported",
     streaming: "unsupported",
@@ -430,6 +448,10 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     drive: "unsupported",
     antennas: "unsupported",
     channels: "unsupported",
+    // Vanilla Mastodon serves `GET /api/v1/announcements` and
+    // `POST /api/v1/announcements/:id/dismiss` (both routes verified in the
+    // local checkout); index requires a user, dismiss `write:accounts`.
+    announcements: "supported",
     chats: "unsupported",
     lists: "supported",
     lists_replies_policy: "supported",
@@ -464,6 +486,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     lists_replies_policy: "unsupported",
     lists_exclusive: "supported",
     polls_hide_totals: "unsupported",
+    // Pleroma/Akkoma both serve the Mastodon API announcement pair
+    // (`MastodonAPI.AnnouncementController#index/#mark_read`).
+    announcements: "supported",
     clips: "unsupported",
     direct_messages: "unsupported",
     favourites_distinct_from_reactions: "supported",
@@ -489,6 +514,8 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     lists_exclusive: "supported",
     lists_replies_policy: "unsupported",
     polls_hide_totals: "unsupported",
+    // Same Pleroma MastodonAPI announcement controller as Akkoma.
+    announcements: "supported",
     no_quote: "unsupported",
     media_sensitivity: "unsupported",
     favourites_distinct_from_reactions: "supported",

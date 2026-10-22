@@ -314,3 +314,13 @@ export function ChannelIcon(p: IconProps) {
     </Base>
   )
 }
+
+/** Server announcements: a megaphone (notice broadcast). */
+export function AnnouncementIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M3 11v2a1 1 0 0 0 1 1h2l3 4h2v-4l8 3V6l-8 3H4a1 1 0 0 0-1 1z" />
+      <Path d="M5.5 10V7a1 1 0 0 1 1-1h3" />
+    </Base>
+  )
+}

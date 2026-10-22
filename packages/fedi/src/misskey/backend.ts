@@ -29,6 +29,7 @@ import type {
 } from "../core/models";
 import type {
   AccountPostsOpts,
+  AnnouncementsApi,
   Antenna,
   AntennasApi,
   Backend,
@@ -115,6 +116,7 @@ import {
   showChannel,
   unfollowChannel,
 } from "./channels";
+import { listAnnouncements, readAnnouncement } from "./announcements";
 import { listFavorites, removeFavorite } from "./favorites";
 import { listFeaturedNotes, listUserFeaturedNotes, pinNote, unpinNote } from "./featured";
 import {
@@ -434,6 +436,21 @@ export function createMisskeyBackend(
     },
     unfollow(channelId) {
       return unfollowChannel(call, channelId);
+    },
+  };
+
+  // Server announcements (clickstone §1.12): `announcements` is public and
+  // paged (`limit`/`sinceId`/`untilId`, active only); the read flag rides
+  // the pack for a signed-in caller. `i/read-announcement` marks one read.
+  const announcements: AnnouncementsApi = {
+    async list(opts = {}) {
+      return listAnnouncements(call, {
+        limit: opts.limit ?? DEFAULT_LIMIT,
+        ...decodeCursor(opts.cursor ?? null),
+      });
+    },
+    async dismiss(id) {
+      await readAnnouncement(call, id);
     },
   };
 
@@ -1219,6 +1236,7 @@ export function createMisskeyBackend(
     antennas,
     clips,
     channels,
+    announcements,
     lists,
     scheduled,
     serverDrafts,

@@ -82,9 +82,11 @@ import type {
   Visibility,
 } from "../core/models";
 import { plainFromMfm, visibilityKindOf } from "../core/models";
+import type { Announcement as CoreAnnouncement } from "../core/backend";
 import type { Continuation } from "./pagination";
 import type {
   Account as WireAccount,
+  Announcement as WireAnnouncement,
   CredentialAccount,
   EmojiReaction,
   MediaAttachment,
@@ -577,6 +579,38 @@ export function adaptRelationship(rel: WireRelationship): Relationship {
     ...(rel.requested_by !== undefined
       ? { hasPendingFollowRequestToYou: rel.requested_by === true }
       : {}),
+  };
+}
+
+// --- Announcements (clickstone §1.12) ---------------------------------------
+
+/**
+ * Mastodon announcement → core `Announcement`.
+ *
+ * Mastodon announcements have NO title, NO severity and NO image: those
+ * model fields stay null rather than being filled with invented text. The
+ * body is server HTML (`linkify(object.text)`) and goes through the one
+ * allow-listed AST parser at render time (`html` source + plain
+ * projection), never as raw markup. `read` exists only for an authenticated
+ * request, so it stays `null` otherwise — never fabricated as `false`.
+ * `published_at` is the publication moment the server exposes; a row that
+ * omitted it reads "" (the list screen sorts it last rather than inventing
+ * a date).
+ */
+export function adaptAnnouncement(raw: WireAnnouncement): CoreAnnouncement {
+  return {
+    id: String(raw.id ?? ""),
+    title: null,
+    content: htmlContentOf(raw.content),
+    createdAt: typeof raw.published_at === "string" ? raw.published_at : "",
+    updatedAt: typeof raw.updated_at === "string" ? raw.updated_at : null,
+    imageUrl: null,
+    icon: null,
+    needConfirmationToRead: false,
+    startsAt: typeof raw.starts_at === "string" ? raw.starts_at : null,
+    endsAt: typeof raw.ends_at === "string" ? raw.ends_at : null,
+    allDay: raw.all_day === true,
+    isRead: typeof raw.read === "boolean" ? raw.read : null,
   };
 }
 

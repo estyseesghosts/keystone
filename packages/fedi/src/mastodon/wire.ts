@@ -508,6 +508,27 @@ export interface FeaturedTag {
   last_status_at?: string | null;
 }
 
+// --- Announcements (clickstone §1.12) --------------------------------------
+
+/** `GET /api/v1/announcements` row (`REST::AnnouncementSerializer`).
+ * Mastodon sends HTML `content` only — no title, no severity. `read` exists
+ * ONLY for an authenticated request (`attribute :read, if: :current_user?`);
+ * `starts_at`/`ends_at` may be null and `all_day` is a boolean. The
+ * `mentions`/`statuses`/`tags`/`emojis`/`reactions` embeds are not rendered
+ * by this surface and stay off the domain model. */
+export interface Announcement {
+  id: ID;
+  content?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  all_day?: boolean | null;
+  published_at?: string | null;
+  updated_at?: string | null;
+  /** `announcement_mutes.exists?` for the viewer — absent signed out. */
+  read?: boolean | null;
+  reactions_allowed?: boolean | null;
+}
+
 // --- OAuth ----------------------------------------------------------------
 
 /** `POST /api/v1/apps` response (contract §2.1). */

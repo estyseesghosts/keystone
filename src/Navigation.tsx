@@ -24,6 +24,7 @@ import {butterflyPx} from '#/alf/tokens'
 import {Body, Caption, Heading} from '#/alf/typography'
 import {AnchoredPopup, PopupDesc, PopupHead, PopupRadioDot, PopupRow, PopupSep} from '#/components/Popup'
 import {
+  AnnouncementIcon,
   BackIcon,
   BellIcon,
   DriveIcon,
@@ -53,6 +54,7 @@ import {AntennaScreen} from '#/screens/Antenna'
 import {AntennasScreen} from '#/screens/Antennas'
 import {ChannelScreen} from '#/screens/Channel'
 import {ChannelsScreen} from '#/screens/Channels'
+import {AnnouncementsScreen} from '#/screens/Announcements'
 import {ClipScreen} from '#/screens/Clip'
 import {ClipsScreen} from '#/screens/Clips'
 import {ComposeScreen} from '#/screens/Compose'
@@ -242,12 +244,20 @@ function TabIcon({name, color}: {name: keyof TabParamList; color: string}) {
 // the screens themselves carry the honest fallback for unknown states, so
 // navigating is never a dead end. Shared by the Sidebar (desktop) and the
 // AccountMenu (which is also the mobile entry point via the strip avatar).
-type StackEntryKey = 'Lists' | 'Clips' | 'Channels' | 'Drive' | 'Antennas' | 'Favorites'
+type StackEntryKey =
+  | 'Lists'
+  | 'Clips'
+  | 'Channels'
+  | 'Announcements'
+  | 'Drive'
+  | 'Antennas'
+  | 'Favorites'
 
 const STACK_ICONS: Record<StackEntryKey, (p: {size?: number; color?: string}) => ReactNode> = {
   Lists: ListIcon,
   Clips: ClipIcon,
   Channels: ChannelIcon,
+  Announcements: AnnouncementIcon,
   Drive: DriveIcon,
   Antennas: AntennaIcon,
   Favorites: StarIcon,
@@ -270,6 +280,13 @@ function stackEntries(
   if (backend?.capabilities.channels === 'supported' && backend.channels) {
     out.push('Channels')
   }
+  // Announcements exist on EVERY family, but only where the capability is
+  // verified AND the module is present: an unknown fork keeps the entry off
+  // rather than opening an inert screen (the screen itself still carries
+  // the honest unavailable state for a deep link).
+  if (backend?.capabilities.announcements === 'supported' && backend.announcements) {
+    out.push('Announcements')
+  }
   if (session.family === 'misskey') {
     out.push('Drive')
     out.push('Antennas')
@@ -286,6 +303,8 @@ function stackEntryLabel(i18n: I18n, key: StackEntryKey): string {
       return i18n._(msg`Clips`)
     case 'Channels':
       return i18n._(msg`Channels`)
+    case 'Announcements':
+      return i18n._(msg`Announcements`)
     case 'Drive':
       return i18n._(msg`Drive`)
     case 'Antennas':
@@ -925,6 +944,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <Stack.Screen name="Clips" component={ClipsScreen} />
               <Stack.Screen name="Channel" component={ChannelScreen} />
               <Stack.Screen name="Channels" component={ChannelsScreen} />
+              <Stack.Screen name="Announcements" component={AnnouncementsScreen} />
               <Stack.Screen name="Antenna" component={AntennaScreen} />
               <Stack.Screen name="Antennas" component={AntennasScreen} />
               <Stack.Screen name="Drive" component={DriveScreen} />
