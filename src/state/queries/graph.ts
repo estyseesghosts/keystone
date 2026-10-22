@@ -331,12 +331,26 @@ export function useSoftMutedIds(sessionId: string | null): string[] {
   )
 }
 
+/** The soft-mute feed predicate, shared by the filter below and the
+ * card badge: a row is soft-muted when its author is, or when it is a
+ * pure repost whose original author is. Takes a lookup so callers with
+ * a set never rebuild one per post. */
+function matchesSoftMute(post: Post, isMuted: (accountId: string) => boolean): boolean {
+  if (isMuted(post.author.id)) return true
+  return isPureRenote(post) && post.renote !== null && isMuted(post.renote.author.id)
+}
+
+/** Whether one row is soft-muted (same predicate the feed uses to drop
+ * it). Pure: the badge says "soft-muted" only when this is true. */
+export function isSoftMutedPost(post: Post, mutedIds: readonly string[]): boolean {
+  if (mutedIds.length === 0) return false
+  const muted = new Set(mutedIds)
+  return matchesSoftMute(post, id => muted.has(id))
+}
+
 /** Drop posts authored by, or pure reposts of, soft-muted accounts. */
 export function filterSoftMuted(posts: Post[], mutedIds: readonly string[]): Post[] {
   if (mutedIds.length === 0) return posts
   const muted = new Set(mutedIds)
-  return posts.filter(p => {
-    if (muted.has(p.author.id)) return false
-    return !(isPureRenote(p) && p.renote && muted.has(p.renote.author.id))
-  })
+  return posts.filter(p => !matchesSoftMute(p, id => muted.has(id)))
 }

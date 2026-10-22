@@ -2,7 +2,9 @@ import {QueryClient} from '@tanstack/react-query'
 
 import {createMemoryStore, type Backend, type Relationship} from '@keystone/fedi'
 
-import {createGraphController, createSoftMuteStore, relationshipQueryKey, GraphUnavailableError} from './graph'
+import {makePost} from '#/components/__tests__/fixtures'
+
+import {createGraphController, createSoftMuteStore, isSoftMutedPost, relationshipQueryKey, GraphUnavailableError} from './graph'
 
 const S1 = 'https://a.example acct1'
 const S2 = 'https://b.example acct1'
@@ -155,5 +157,41 @@ describe('graph controller (slice 4.4)', () => {
     expect(s.has(S2, 'u1')).toBe(false)
     expect(fn).toHaveBeenCalled()
     expect(createSoftMuteStore(() => mem).has(S1, 'u1')).toBe(true)
+  })
+})
+
+// The badge and the feed filter share this predicate, so a note the
+// feed would have dropped is exactly the note the card marks.
+describe('isSoftMutedPost', () => {
+  const muted = makePost({id: 'm', author: {...makePost().author, id: 'muted-user'}})
+  const plain = makePost({id: 'plain'})
+  const renoteOf = (target: typeof plain) =>
+    makePost({id: `rn-${target.id}`, renoteId: target.id, renote: target, content: {plain: ''}})
+
+  it('no mutes means nothing is muted', () => {
+    expect(isSoftMutedPost(muted, [])).toBe(false)
+  })
+
+  it('matches an author, not just an id in the list', () => {
+    expect(isSoftMutedPost(muted, ['muted-user'])).toBe(true)
+    expect(isSoftMutedPost(plain, ['muted-user'])).toBe(false)
+  })
+
+  it('matches a pure renote of a muted author (the rendered original)', () => {
+    const wrapper = renoteOf(muted)
+    expect(isSoftMutedPost(wrapper, ['muted-user'])).toBe(true)
+  })
+
+  it('leaves a renote of an unmuted author alone', () => {
+    expect(isSoftMutedPost(renoteOf(plain), ['muted-user'])).toBe(false)
+  })
+
+  it('never marks a quote by an unmuted author, even of a muted one', () => {
+    const quote = makePost({
+      id: 'q',
+      content: {plain: 'look at this'},
+      quote: muted,
+    })
+    expect(isSoftMutedPost(quote, ['muted-user'])).toBe(false)
   })
 })
