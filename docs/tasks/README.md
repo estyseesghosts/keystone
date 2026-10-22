@@ -54,5 +54,7 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p6.1-composer-controls](p6.1-composer-controls.md) | clickstone §1.2 | done | `p6.1-composer-controls` | `state/logs/2026-10-22-p6.1-composer-controls.md` |
 | [p6.1-reports](p6.1-reports.md) | clickstone §1.5 | done | `p6.1-reports` | `state/logs/2026-10-22-p6.1-reports.md` |
 | [p6.1-channels](p6.1-channels.md) | clickstone §1.9 | done | `p6.1-channels` | `state/logs/2026-10-22-p6.1-channels.md` |
+| [p6.1-list-poll-fields](p6.1-list-poll-fields.md) | clickstone §1.6 | done | `p6.1-list-poll-fields` | `state/logs/2026-10-22-p6.1-list-poll-fields.md` |
+| [p6.1-callback-path](p6.1-callback-path.md) | clickstone §1.13 | done | `p6.1-callback-path` | `state/logs/2026-10-22-p6.1-callback-path.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.
