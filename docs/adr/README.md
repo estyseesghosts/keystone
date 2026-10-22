@@ -7,6 +7,7 @@ Load-bearing decisions. Numbered, append-only, never renumbered.
 | [0000](0000-template.md) | Template (not a decision) | —    | —      |
 | [0001](0001-patterns-not-code.md) | Patterns, not code (Bluesky reference use) | 2026-10-20 | accepted |
 | [0002](0002-butterfly-tarantula.md) | Two UI layouts: butterfly and tarantula | 2026-10-20 | accepted |
+| [0003](0003-oauth-scopes-now-vs-later.md) | OAuth scopes: SCOPES_NOW vs SCOPES_LATER | 2026-10-22 | accepted |
 
 ## When to write one
 
