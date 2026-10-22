@@ -418,6 +418,18 @@ export function ListsScreen() {
   return (
     <View style={atoms.flex1} testID="lists-screen">
       <Pagehead title="Lists" />
+      {/* Misskey antennas live alongside lists: the Antennas screen links
+          here, so this screen links back (sidebar reshuffle). */}
+      {session?.family === 'misskey' ? (
+        <View style={[atoms.px_md, atoms.py_sm]}>
+          <Button
+            label="Antennas"
+            variant="secondary"
+            onPress={() => navigation.navigate('Antennas')}
+            testID="lists-antennas-link"
+          />
+        </View>
+      ) : null}
       <CreateRow
         onCreate={async (name, fields) => {
           if (!backend.lists?.create) return

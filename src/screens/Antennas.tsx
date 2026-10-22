@@ -302,6 +302,18 @@ export function AntennasScreen() {
   return (
     <View style={atoms.flex1} testID="antennas-screen">
       <Pagehead title="Antennas" />
+      {/* Misskey lists live here too: one collections row per concept, so
+          Antennas carries the entry point to Lists (where they are edited). */}
+      {session?.family === 'misskey' ? (
+        <View style={[atoms.px_md, atoms.py_sm]}>
+          <Button
+            label="Lists"
+            variant="secondary"
+            onPress={() => navigation.navigate('Lists')}
+            testID="antennas-lists-link"
+          />
+        </View>
+      ) : null}
       <CreateRow
         onCreate={async body => {
           if (!backend.antennas) return

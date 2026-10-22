@@ -279,6 +279,18 @@ export function ClipsScreen() {
     <View style={atoms.flex1} testID="clips-screen">
       <Pagehead title="Clips" />
       {addNoteId ? <Caption color="faint">Choose a clip for this post.</Caption> : null}
+      {/* Misskey favourites live here too: the sidebar has one collections
+          row per concept, so Clips carries the entry point to Favourites. */}
+      {session?.family === 'misskey' ? (
+        <View style={[atoms.px_md, atoms.py_sm]}>
+          <Button
+            label="Favourites"
+            variant="secondary"
+            onPress={() => navigation.navigate('Favorites')}
+            testID="clips-favourites-link"
+          />
+        </View>
+      ) : null}
       <CreateRow
         onCreate={async (name, isPublic) => {
           if (!backend.clips) return

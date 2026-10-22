@@ -335,3 +335,15 @@ export function MessageIcon(p: IconProps) {
     </Base>
   )
 }
+
+/** Misskey Pages stub: a document (ships in a later slice). */
+export function PageIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M6 3h8l4 4v14H6V3z" />
+      <Path d="M14 3v4h4" />
+      <Path d="M9 12h6" />
+      <Path d="M9 16h6" />
+    </Base>
+  )
+}
