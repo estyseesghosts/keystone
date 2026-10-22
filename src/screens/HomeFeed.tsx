@@ -393,6 +393,10 @@ export function FeedView({  sessionId,
             renoters={collapsed.renotersByRep.get(item.id)}
             connectedAbove={links.connectedAbove[index] ?? false}
             connectedBelow={links.connectedBelow[index] ?? false}
+            // v1 feed rule: a separator bounds every post except inside a
+            // connected reply run (joined by the thread line already) and
+            // above the first row (nothing above it but the header).
+            showSeparator={index > 0 && !(links.connectedAbove[index] ?? false)}
           />
         )}
         refreshControl={

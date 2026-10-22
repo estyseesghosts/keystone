@@ -35,6 +35,10 @@ export type ThreadRowProps = {
   renoters?: Account[]
   connectedAbove?: boolean
   connectedBelow?: boolean
+  /** v1 feed rule: every post is bounded by a horizontal separator except
+   * inside a connected reply run (the thread line already joins those —
+   * an internal rule would double the separation). */
+  showSeparator?: boolean
   testID?: string
 }
 
@@ -46,6 +50,7 @@ export function ThreadRow({
   renoters,
   connectedAbove = false,
   connectedBelow = false,
+  showSeparator = false,
   testID,
 }: ThreadRowProps) {
   const theme = useTheme()
@@ -53,6 +58,12 @@ export function ThreadRow({
   const variant = connectedAbove && connectedBelow ? styles.lineMiddle : connectedBelow ? styles.lineFirst : styles.lineLast
   return (
     <View style={styles.row} testID={testID ?? `thread-row-${post.id}`}>
+      {showSeparator ? (
+        <View
+          testID={`thread-separator-${post.id}`}
+          style={{height: 1, backgroundColor: theme.palette.border}}
+        />
+      ) : null}
       {inThread ? (
         <View
           testID={`thread-connector-${post.id}`}

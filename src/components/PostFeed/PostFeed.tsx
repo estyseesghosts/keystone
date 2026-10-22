@@ -110,6 +110,9 @@ export function PostFeed({
             emojiStyle={emojiStyle}
             connectedAbove={links.connectedAbove[index] ?? false}
             connectedBelow={links.connectedBelow[index] ?? false}
+            // Same rule as production FeedView: bound every post except
+            // inside a connected run and above the first row.
+            showSeparator={index > 0 && !(links.connectedAbove[index] ?? false)}
           />
         )}
         refreshControl={

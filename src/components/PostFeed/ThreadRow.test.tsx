@@ -69,3 +69,26 @@ describe('ThreadRow connectors', () => {
     expect(screen.queryByTestId('thread-connector-p-root')).toBeNull()
   })
 })
+
+describe('ThreadRow separators (v1 feed rule)', () => {
+  it('bounds standalone posts but not the first row', () => {
+    const a = makePost({id: 'sep-a'})
+    const b = makePost({id: 'sep-b'})
+    renderFeed(<PostFeed sessionId={SESSION} descriptor="timeline|home" posts={[a, b]} />)
+    expect(screen.queryByTestId('thread-separator-sep-a')).toBeNull()
+    expect(screen.getByTestId('thread-separator-sep-b')).toBeTruthy()
+  })
+
+  it('draws no internal separators inside a connected reply run', () => {
+    const parent = makePost({id: 'sep-parent'})
+    const reply = makePost({id: 'sep-reply', replyToId: parent.id})
+    const next = makePost({id: 'sep-next'})
+    renderFeed(
+      <PostFeed sessionId={SESSION} descriptor="timeline|home" posts={[reply, parent, next]} />,
+    )
+    // The thread line joins reply→parent; the next block starts clean.
+    expect(screen.queryByTestId('thread-separator-sep-reply')).toBeNull()
+    expect(screen.queryByTestId('thread-separator-sep-parent')).toBeNull()
+    expect(screen.getByTestId('thread-separator-sep-next')).toBeTruthy()
+  })
+})
