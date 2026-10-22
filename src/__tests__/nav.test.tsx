@@ -12,6 +12,7 @@ import {
   linkingScreens,
   paths,
   rewriteLegacyPath,
+  titleForRoute,
 } from '#/routes'
 import {i18n} from '#/locale/i18n'
 import {Root} from '#/Root'
@@ -97,7 +98,7 @@ describe('Navigation', () => {
     for (const name of ['Home', 'Network', 'Explore', 'Notifications', 'User'] as const) {
       expect(main[name]).toBe(strip(paths[name]))
     }
-    for (const name of ['Note', 'Tag', 'List', 'Lists', 'Clip', 'Clips', 'Antenna', 'Antennas', 'Channel', 'Channels', 'Drive', 'Favorites', 'Followers', 'Following', 'FollowRequests', 'ProfileEdit', 'Settings', 'Login', 'AuthCallback', 'KeystoneCallback', 'SysDebug', 'Compose'] as const) {
+    for (const name of ['Note', 'Tag', 'List', 'Lists', 'Clip', 'Clips', 'Antenna', 'Antennas', 'Channel', 'Channels', 'Announcements', 'Drive', 'Favorites', 'Followers', 'Following', 'FollowRequests', 'ProfileEdit', 'Settings', 'Login', 'AuthCallback', 'KeystoneCallback', 'SysDebug', 'Compose'] as const) {
       expect(screens[name]).toBe(strip(paths[name]))
     }
     // Legacy rewrites land on canonical paths table entries.
@@ -131,6 +132,14 @@ describe('Navigation', () => {
     const channel = getStateFromPath('/channels/ch1', linking.config)
     expect(JSON.stringify(channel)).toMatch(/Channel/)
     expect(JSON.stringify(channel)).toMatch(/"id":"ch1"/)
+  })
+
+  it('routes announcements as a leaf at /announcements (clickstone §1.12)', () => {
+    const state = getStateFromPath('/announcements', linking.config)
+    expect(JSON.stringify(state)).toMatch(/Announcements/)
+    expect(paths.Announcements).toBe('/announcements')
+    expect((linkingScreens() as Record<string, string>).Announcements).toBe('announcements')
+    expect(titleForRoute('Announcements')).toBe('Announcements')
   })
 
   it('routes the edit-history screen under the note (clickstone §1.7)', () => {

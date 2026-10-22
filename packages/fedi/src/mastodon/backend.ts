@@ -42,6 +42,7 @@ import type {
 } from "../core/models";
 import type {
   AccountPostsOpts,
+  AnnouncementsApi,
   Backend,
   CustomEmoji,
   ExploreUsers,
@@ -74,6 +75,7 @@ import {
   adaptCredentialAccount,
   adaptMedia,
   adaptNotification,
+  adaptAnnouncement,
   adaptV2Notification,
   adaptRelationship,
   adaptStatus,
@@ -87,10 +89,12 @@ import {
   answerFollowRequest,
   clearNotifications,
   deleteStatus,
+  dismissAnnouncement,
   dismissNotification,
   editStatus,
   fetchAccountListPage,
   fetchAccountStatusesPage,
+  fetchAnnouncements,
   fetchCustomEmojis,
   fetchFollowRequestsPage,
   fetchNotificationsPage,
@@ -1036,6 +1040,20 @@ export function createMastodonBackend(
             },
           }),
     },
+
+    // Server announcements (clickstone §1.12). Vanilla Mastodon's list is
+    // auth-required; Akkoma/Pleroma also answer signed out. The endpoint is
+    // the same on every flavor, so the module is always present and the
+    // capability gate is the only switch. A fork without the routes 404s —
+    // the typed unsupported `ApiError` the UI renders as a reason.
+    announcements: {
+      async list() {
+        return (await fetchAnnouncements(client)).map(adaptAnnouncement);
+      },
+      async dismiss(id: string) {
+        await dismissAnnouncement(client, id);
+      },
+    } satisfies AnnouncementsApi,
 
     async notifications(opts: NotificationsOpts = {}) {
       const cont = continuationOf(opts.cursor);

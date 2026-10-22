@@ -15,6 +15,7 @@
 
 import type {
   Account,
+  Content,
   Cursor,
   Media,
   Notification,
@@ -686,17 +687,73 @@ export interface ChannelsApi {
   unfollow(channelId: string): Promise<void>;
 }
 
-/** One server announcement (Misskey-family notices). */
+/** Misskey-family announcement severity (`icon` in the packed row). */
+export type AnnouncementIcon = "info" | "warning" | "error" | "success";
+
+/**
+ * One server announcement (clickstone §1.12).
+ *
+ * The two families publish notices in different shapes and the model keeps
+ * only what the UI can render honestly:
+ * - the Misskey family sends `title` + MFM `text` + `imageUrl` + `icon` and,
+ *   when signed in, `isRead`;
+ * - Mastodon sends HTML `content` only — no title and no severity — and a
+ *   `read` flag only for an authenticated request.
+ *
+ * `content` is the family's SOURCE (MFM or server HTML), parsed through the
+ * one allow-listed AST at render time; no raw server string ever reaches
+ * the UI as markup. `isRead` is `null` when the server did not report it
+ * (signed out, or a fork without the field) — never fabricated as `false`.
+ */
 export interface Announcement {
   id: string;
-  title: string;
-  text: string;
+  /** Misskey sends one; Mastodon announcements have none (`null`). */
+  title: string | null;
+  /** Body source: `mfm` on the Misskey family, `html` on Mastodon. */
+  content: Content;
+  /** Publication time as the server reports it (Mastodon `published_at`). */
   createdAt: string;
+  updatedAt: string | null;
+  /** Misskey `imageUrl`; `null` when the notice has no image. */
+  imageUrl: string | null;
+  /** Misskey severity; `null` on Mastodon (which has no such field). */
+  icon: AnnouncementIcon | null;
+  /** Misskey `needConfirmationToRead`: stays unread until dismissed. */
+  needConfirmationToRead: boolean;
+  /** Mastodon window (`starts_at`/`ends_at`/`all_day`); null/false where
+   * the family has no such fields. */
+  startsAt: string | null;
+  endsAt: string | null;
+  allDay: boolean;
+  /** Has the viewer read/dismissed this one? null = not reported. */
+  isRead: boolean | null;
 }
 
-/** Server announcements (addition — Misskey `announcements`; read-only). */
+/**
+ * Server announcements (clickstone §1.12 — read + dismiss).
+ *
+ * Both families serve a read path and a per-row dismiss:
+ * - Misskey family: public `POST /api/announcements` (paged
+ *   `limit`/`sinceId`/`untilId`, `isActive` defaults to true) and
+ *   `POST /api/i/read-announcement {announcementId}` — the endpoint the
+ *   reference client calls, replacing the older `announcements/dismiss`
+ *   name this slice was scoped against (verified in the local checkout).
+ * - Mastodon family: `GET /api/v1/announcements` (auth-required on vanilla)
+ *   and `POST /api/v1/announcements/:id/dismiss` (`write:accounts`); both
+ *   Akkoma and Pleroma serve the same routes.
+ *
+ * `dismiss` stays optional: a fork without the endpoint leaves it undefined,
+ * and a 404/405 from a fork that claims it surfaces as the typed
+ * unsupported `ApiError` (the UI disables the action with a reason — never
+ * an error page, never an inert button).
+ */
 export interface AnnouncementsApi {
+  /** Server announcements in server order. `limit` caps the request on the
+   * Misskey family; Mastodon answers its whole published list (it has no
+   * cursor), so callers must not infer "more" from a full page. */
   list(opts?: PageOpts): Promise<Announcement[]>;
+  /** Mark one announcement read (Misskey) / dismissed (Mastodon). */
+  dismiss?(id: string): Promise<void>;
 }
 
 // --- Hashtag follow / feature / mute (clickstone §1.4) ----------------------

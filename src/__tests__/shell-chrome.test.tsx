@@ -290,6 +290,27 @@ describe('stack destinations (E7 nav)', () => {
     expect(screen.queryByTestId('sidebar-channels')).toBeNull()
   })
 
+  it('shows Announcements on both families (capability + module gate)', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-announcements')).toBeTruthy()
+  })
+
+  it('shows Announcements on the Mastodon family too (vanilla has the API)', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-announcements')).toBeTruthy()
+  })
+
+  it('hides Announcements signed out (no inert entry)', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: false})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-announcements')).toBeNull()
+  })
+
   it('misskey account menu carries Drive (mobile entry point)', async () => {
     widthHolder.width = 390
     await renderShell({signedIn: true, family: 'misskey'})

@@ -43,6 +43,7 @@ import type { Continuation } from "./pagination";
 import { pickQuotedStatus } from "./quoteMarker";
 import type {
   Account as WireAccount,
+  Announcement as WireAnnouncement,
   CredentialAccount,
   MediaAttachment,
   Notification as WireNotification,
@@ -1234,6 +1235,40 @@ export async function dismissNotification(client: MastoClient, id: string): Prom
  * Destroys every notification for the account server-side. */
 export async function clearNotifications(client: MastoClient): Promise<void> {
   await client.post("/api/v1/notifications/clear");
+}
+
+// --- Announcements (clickstone §1.12) --------------------------------------
+
+/**
+ * `GET /api/v1/announcements` — the instance's published announcements.
+ *
+ * Vanilla Mastodon renders `Announcement.published.chronological` (oldest
+ * first) and requires a user (`before_action :require_user!`); the `read`
+ * attribute exists only for an authenticated request. Akkoma/Pleroma serve
+ * the same path (their `MastodonAPI.AnnouncementController#index` allows a
+ * signed-out read). There is no pagination: the server answers the whole
+ * published list.
+ */
+export async function fetchAnnouncements(client: MastoClient): Promise<WireAnnouncement[]> {
+  const res = await client.get<WireAnnouncement[]>("/api/v1/announcements");
+  if (!Array.isArray(res.data)) {
+    throw new FediError(
+      `Expected an announcement list (HTTP ${res.status}).`,
+      "errors.shape.expectedList",
+      { kind: "announcement", status: res.status },
+    );
+  }
+  return res.data;
+}
+
+/**
+ * `POST /api/v1/announcements/:id/dismiss` — records that the viewer has
+ * read the announcement (`AnnouncementMute.find_or_create_by!`); the server
+ * answers an empty body. Auth + `write:accounts` on Mastodon, `write:accounts`
+ * on Akkoma/Pleroma. The id is opaque: encoded, never parsed.
+ */
+export async function dismissAnnouncement(client: MastoClient, id: string): Promise<void> {
+  await client.post(`/api/v1/announcements/${encodeURIComponent(id)}/dismiss`);
 }
 
 // --- Server services (contract §4) ----------------------------------------

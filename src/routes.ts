@@ -112,6 +112,8 @@ export type RootParamList = {
   Antennas: undefined
   Channel: {id: string}
   Channels: undefined
+  /** Server notices (clickstone §1.12): read + dismiss; no authoring. */
+  Announcements: undefined
   Drive: undefined
   Favorites: undefined
   Followers: {id: string}
@@ -157,6 +159,7 @@ export const paths: Record<keyof RootParamList, string> = {
   Antennas: '/antennas',
   Channel: '/channels/:id',
   Channels: '/channels',
+  Announcements: '/announcements',
   Drive: '/drive',
   Favorites: '/favorites',
   Followers: '/users/:id/followers',
@@ -267,6 +270,7 @@ export function linkingScreens(): LinkingScreens {
     Antennas: leaf('Antennas'),
     Channel: leaf('Channel'),
     Channels: leaf('Channels'),
+    Announcements: leaf('Announcements'),
     Drive: leaf('Drive'),
     Favorites: leaf('Favorites'),
     Followers: leaf('Followers'),
@@ -325,6 +329,8 @@ export function titleForRoute(
       return t`Channel`
     case 'Channels':
       return t`Channels`
+    case 'Announcements':
+      return t`Announcements`
     case 'Drive':
       return t`Drive`
     case 'Favorites':
