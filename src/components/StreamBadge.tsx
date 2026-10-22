@@ -26,7 +26,7 @@ export function StreamStatusBadge({
   onRetry,
 }: {
   status: StreamState
-  /** Manual re-dial (error state only). */
+  /** Manual re-dial (error / stopped state). */
   onRetry: () => void
 }) {
   const {i18n} = useLingui()
@@ -41,12 +41,14 @@ export function StreamStatusBadge({
         ? i18n._(msg`Connecting…`)
         : status === 'reconnecting'
           ? i18n._(msg`Reconnecting…`)
-          : i18n._(msg`Live updates unavailable`)
+          : status === 'stopped'
+            ? i18n._(msg`Live updates stopped`)
+            : i18n._(msg`Live updates unavailable`)
 
   const dot =
     status === 'connected'
       ? theme.palette.text
-      : status === 'error'
+      : status === 'error' || status === 'stopped'
         ? theme.palette.text
         : theme.palette.faint
 
@@ -70,7 +72,7 @@ export function StreamStatusBadge({
     <View testID="stream-status" accessibilityLiveRegion="polite" style={styles.row}>
       <View style={styles.dot} />
       <Caption color="faint">{label}</Caption>
-      {status === 'error' ? (
+      {status === 'error' || status === 'stopped' ? (
         <Button
           label={i18n._(msg`Retry`)}
           variant="secondary"

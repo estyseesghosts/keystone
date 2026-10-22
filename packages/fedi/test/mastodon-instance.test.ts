@@ -166,6 +166,22 @@ describe("instance helpers", () => {
     expect(normalizeStreamingOrigin("gopher://x")).toBeNull();
   });
 
+  it("normalizeStreamingOrigin refuses a cross-scheme advertisement (p6.0)", () => {
+    // Split hosts are fine while the scheme matches the session origin.
+    expect(normalizeStreamingOrigin("wss://stream.mastodon.example", "https://mastodon.example")).toBe(
+      "wss://stream.mastodon.example",
+    );
+    expect(normalizeStreamingOrigin("ws://stream.local:4000", "http://localhost:4000")).toBe(
+      "ws://stream.local:4000",
+    );
+    // Mismatched scheme → null (the client falls back to the session host).
+    expect(normalizeStreamingOrigin("ws://stream.mastodon.example", "https://mastodon.example")).toBeNull();
+    expect(normalizeStreamingOrigin("https://stream.mastodon.example", "https://mastodon.example")).toBe(
+      "wss://stream.mastodon.example",
+    );
+    expect(normalizeStreamingOrigin("wss://stream.local", "http://localhost:4000")).toBeNull();
+  });
+
   it("detectFamily uses version markers, then shape, then NodeInfo", () => {
     expect(detectFamily("compatible; Akkoma 3.20.0", true, ["akkoma_api"], null)).toBe("akkoma");
     expect(detectFamily("4.4.3", false, [], null)).toBe("unknown");

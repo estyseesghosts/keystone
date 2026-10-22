@@ -354,15 +354,15 @@ describe("MD10 — pooled streaming on the advertised origin", () => {
       "https://mastodon.example",
       "user",
       {},
-      "tok",
       "wss://streaming.mastodon.example",
     );
+    // Auth is a subprotocol pair (p6.0), never a query param.
     expect(url).toBe(
-      "wss://streaming.mastodon.example/api/v1/streaming?stream=user&access_token=tok",
+      "wss://streaming.mastodon.example/api/v1/streaming?stream=user",
     );
     // Without an advertised origin the session origin maps as before.
-    expect(streamUrl("https://mastodon.example", "user", {}, "tok")).toBe(
-      "wss://mastodon.example/api/v1/streaming?stream=user&access_token=tok",
+    expect(streamUrl("https://mastodon.example", "user", {})).toBe(
+      "wss://mastodon.example/api/v1/streaming?stream=user",
     );
   });
 

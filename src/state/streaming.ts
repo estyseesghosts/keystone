@@ -16,7 +16,7 @@ import {
 import type {Post} from '@keystone/fedi'
 
 import {patchPostInCaches} from '#/state/cache'
-import {feedQueryKey} from '#/state/queries/keys'
+import {feedQueryKey, serverFiltersQueryKey} from '#/state/queries/keys'
 
 // Live-update glue (slice 3.10) between the ported stream handles
 // (`packages/fedi` 2.2 Misskey pool / 2.3 Mastodon socket — reused, not
@@ -82,6 +82,9 @@ export interface FeedLive {
    * from "channel pending"). */
   channelStatus(): FeedChannelState
   onStatusChange(handler: (state: StreamState) => void): () => void
+  /** Manual re-dial after a dead state (breaker / `kill`). False when
+   * the handle has no retry — the mount remounts instead. */
+  retry(): boolean
   /** Drop the subscription (unmount / account switch). */
   dispose(): void
 }
@@ -200,6 +203,12 @@ export function createFeedLive(opts: FeedLiveOpts): FeedLive {
         return () => undefined
       }
       return handle.onStatusChange(handler)
+    },
+
+    retry(): boolean {
+      if (!handle || typeof handle.retry !== 'function') return false
+      handle.retry()
+      return true
     },
 
     dispose(): void {
@@ -484,6 +493,15 @@ export function useFeedLive({
       return
     }
     if (handle == null) return
+    // `filters_changed` (Mastodon family): the SERVER owns the filter
+    // list, so the cached key list is invalidated, never patched by
+    // guess. Families without the frame omit the member (no-op).
+    const offFilters =
+      typeof handle.onFiltersChanged === 'function'
+        ? handle.onFiltersChanged(() => {
+            void client.invalidateQueries({queryKey: serverFiltersQueryKey(sessionId)})
+          })
+        : null
     deletedRef.current.clear()
     const seenSeed = watchIdsRef.current.slice(0, LIVE_CAPTURE_LIMIT)
     let created!: FeedLive
@@ -520,6 +538,7 @@ export function useFeedLive({
     // is paging-only: stand down instead of mounting a stuck badge.
     if (created.channelStatus() === 'disabled' || created.channelStatus() === 'unavailable') {
       created.dispose()
+      offFilters?.()
       return
     }
     setLive(created)
@@ -528,6 +547,7 @@ export function useFeedLive({
     const off = created.onStatusChange(setStatus)
     return () => {
       off()
+      offFilters?.()
       created.dispose()
       setLive(null)
       setPendingCount(0)
@@ -555,7 +575,12 @@ export function useFeedLive({
     live?.flush()
     setPendingCount(0)
   }, [live])
-  const resubscribe = useCallback(() => setNonce(n => n + 1), [])
+  const resubscribe = useCallback(() => {
+    // A handle that went dead (breaker / `kill`) can re-dial itself and
+    // clear its own breaker; only a handle without retry remounts.
+    if (live?.retry()) return
+    setNonce(n => n + 1)
+  }, [live])
 
   return {
     active: live != null,
