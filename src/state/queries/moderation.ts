@@ -73,19 +73,24 @@ async function fetchIdSet(
  * matcher (WS-F). Only hide-action (`irreversible`) phrases drop rows:
  * warn-action phrases are the soft words v1 badged, and there is no badge
  * UI in this build (F16) — dropping on them would contradict the W4
- * soft-word discipline. Each phrase becomes one single-keyword AND group:
- * server phrases are literal text, while a bare string would compile as a
- * Misskey `/regex/` — the group form keeps matching literal and
- * case-sensitive. Null in, null out (no `filters` member means "no server
- * rules", never an error). Pure. */
+ * soft-word discipline. EVERY keyword of a group becomes its own
+ * single-keyword AND group (keywords are OR'ed server-side, and the
+ * matcher unions the groups): reading only the primary would leave a v2
+ * group's other keywords unenforced. Server phrases are literal text,
+ * while a bare string would compile as a Misskey `/regex/` — the group
+ * form keeps matching literal and case-sensitive. Null in, null out (no
+ * `filters` member means "no server rules", never an error). Pure. */
 export function serverFilterWordsOf(filters: Filter[] | null | undefined): Array<[string]> | null {
   if (!filters) return null
   const out: Array<[string]> = []
   for (const f of filters) {
     if (!f.irreversible) continue
-    const phrase = f.phrase.trim()
-    if (phrase.length === 0) continue
-    out.push([phrase])
+    const words = f.keywords?.length ? f.keywords.map(k => k.keyword) : [f.phrase]
+    for (const word of words) {
+      const phrase = word.trim()
+      if (phrase.length === 0) continue
+      out.push([phrase])
+    }
   }
   return out
 }

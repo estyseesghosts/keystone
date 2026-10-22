@@ -45,10 +45,13 @@ const filterRow = (overrides: Record<string, unknown> = {}) => ({
   expiresAt: null,
   irreversible: true,
   wholeWord: true,
+  keywords: [{id: 'k1', keyword: 'spoiler', wholeWord: true}],
   ...overrides,
 })
 
-// Stateful fake: the list moves with create/update/delete.
+// Stateful fake: the list moves with create/update/delete, and update
+// follows the backend contract — the primary keyword takes the new
+// phrase, siblings keep their text/flag (never dropped, never reordered).
 const filtersBackend = (seed: any[] = [filterRow()]) => {
   let items = [...seed]
   return {
@@ -57,13 +60,25 @@ const filtersBackend = (seed: any[] = [filterRow()]) => {
     filters: {
       list: jest.fn(async () => [...items]),
       create: jest.fn(async (phrase: string, context: string[]) => {
-        const row = filterRow({id: `f${items.length + 1}`, phrase, context})
+        const row = filterRow({
+          id: `f${items.length + 1}`,
+          phrase,
+          context,
+          keywords: [{id: `k${items.length + 1}`, keyword: phrase, wholeWord: true}],
+        })
         items = [...items, row]
         return row
       }),
       update: jest.fn(
         async (id: string, phrase: string, context: string[], opts: Record<string, unknown>) => {
-          const row = filterRow({id, phrase, context, ...opts})
+          const prior = items.find(x => x.id === id)
+          const priorKeywords: any[] = prior?.keywords?.length
+            ? prior.keywords
+            : [{id, keyword: prior?.phrase ?? '', wholeWord: opts?.wholeWord === true}]
+          const keywords = priorKeywords.map((k, i) =>
+            i === 0 ? {...k, keyword: phrase, wholeWord: opts?.wholeWord === true} : k,
+          )
+          const row = filterRow({id, phrase, context, ...opts, keywords})
           items = items.map(x => (x.id === id ? row : x))
           return row
         },
@@ -158,6 +173,46 @@ describe('Filters section CRUD (WS-F)', () => {
       fireEvent.press(screen.getByTestId('filter-remove-f1'))
       await waitFor(() => expect(backend.filters.delete).toHaveBeenCalledWith('f1'))
       await waitFor(() => expect(screen.queryByText('spoilers!')).toBeNull())
+    } finally {
+      done()
+    }
+  })
+
+  it('shows every keyword of a v2 group and edits only the primary in place', async () => {
+    const backend = filtersBackend([
+      filterRow({
+        id: 'g1',
+        phrase: 'alpha',
+        wholeWord: false,
+        keywords: [
+          {id: 'k1', keyword: 'alpha', wholeWord: false},
+          {id: 'k2', keyword: 'beta', wholeWord: true},
+        ],
+      }),
+    ])
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByTestId('filter-list')).toBeTruthy()
+      // The row is the whole group, not just its first keyword.
+      expect(screen.getByTestId('filter-text-g1')).toHaveTextContent('alpha, beta')
+
+      fireEvent.press(screen.getByTestId('filter-edit-g1'))
+      // The field edits the primary keyword; the sibling is shown, not
+      // silently folded into the text field.
+      expect(screen.getByTestId('filter-edit-input-g1').props.value).toBe('alpha')
+      expect(screen.getByTestId('filter-edit-others-g1')).toHaveTextContent(/beta/)
+
+      fireEvent.changeText(screen.getByTestId('filter-edit-input-g1'), 'alpha edited')
+      fireEvent.press(screen.getByTestId('filter-save-g1'))
+      await waitFor(() =>
+        expect(backend.filters.update).toHaveBeenCalledWith('g1', 'alpha edited', ['home', 'public'], {
+          expiresAt: null,
+          irreversible: true,
+          wholeWord: false,
+        }),
+      )
+      // The update path kept the sibling: the row still shows both.
+      expect(await screen.findByText('alpha edited, beta')).toBeTruthy()
     } finally {
       done()
     }

@@ -270,6 +270,7 @@ describe("MD3 — filters v2-first with v1 fallback", () => {
         expiresAt: null,
         irreversible: true,
         wholeWord: true,
+        keywords: [{ id: "k1", keyword: "spoiler", wholeWord: true }],
       },
     ]);
   });
@@ -289,6 +290,7 @@ describe("MD3 — filters v2-first with v1 fallback", () => {
         expiresAt: null,
         irreversible: false,
         wholeWord: false,
+        keywords: [{ id: "f9", keyword: "leak", wholeWord: false }],
       },
     ]);
   });
@@ -349,6 +351,7 @@ describe("MD3 — filters v2-first with v1 fallback", () => {
       expiresAt: null,
       irreversible: false,
       wholeWord: false,
+      keywords: [{ id: "f9", keyword: "leak", wholeWord: false }],
     });
   });
 
@@ -383,6 +386,145 @@ describe("MD3 — filters v2-first with v1 fallback", () => {
       "DELETE /api/v2/filters/f1",
       "DELETE /api/v1/filters/f1",
     ]);
+  });
+});
+
+// P6.0 filter edit: a v2 filter is a GROUP of keywords. Reading only the
+// first one hid the rest, and editing wrote the siblings back as bare
+// `{id}` — every keyword but the first lost its text. These pin the full
+// list end to end: list exposes all of them, update PUTs all of them.
+describe("MD3-keywords — v2 group edit keeps every keyword", () => {
+  const group = {
+    id: "g1",
+    title: "politics",
+    context: ["home"],
+    expires_at: null,
+    filter_action: "hide",
+    keywords: [
+      { id: "k1", keyword: "alpha", whole_word: false },
+      { id: "k2", keyword: "beta", whole_word: true },
+    ],
+  };
+
+  it("list() exposes every keyword, not just the first", async () => {
+    const { client } = stubClient(() => ({ data: [group] }));
+    const [row] = await createMastodonBackend(client).filters!.list();
+    expect(row.phrase).toBe("alpha");
+    expect(row.keywords).toEqual([
+      { id: "k1", keyword: "alpha", wholeWord: false },
+      { id: "k2", keyword: "beta", wholeWord: true },
+    ]);
+  });
+
+  it("update() PUTs every keyword with its id and whole_word, and returns them all", async () => {
+    const putBodies: Record<string, unknown>[] = [];
+    const { client, calls } = stubClient((method, _path, body) => {
+      if (method === "GET") return { data: group };
+      const sent = body as Record<string, unknown>;
+      putBodies.push(sent);
+      const attrs = sent.keywords_attributes as Array<Record<string, unknown>>;
+      return {
+        data: {
+          ...group,
+          title: "politics",
+          keywords: attrs.map((a) => ({
+            id: a.id,
+            keyword: a.keyword,
+            whole_word: a.whole_word,
+          })),
+        },
+      };
+    });
+    const row = await createMastodonBackend(client).filters!.update(
+      "g1",
+      "alpha edited",
+      ["home"],
+      { wholeWord: false, irreversible: true },
+    );
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([
+      "GET /api/v2/filters/g1",
+      "PUT /api/v2/filters/g1",
+    ]);
+    // Both keywords go back: the edited primary, then the untouched
+    // sibling with its own text and its own whole_word.
+    expect(putBodies[0].keywords_attributes).toEqual([
+      { id: "k1", keyword: "alpha edited", whole_word: false },
+      { id: "k2", keyword: "beta", whole_word: true },
+    ]);
+    // No duplicate was appended for the edit.
+    expect((putBodies[0].keywords_attributes as unknown[]).length).toBe(2);
+    // The returned row still carries both keywords.
+    expect(row.phrase).toBe("alpha edited");
+    expect(row.wholeWord).toBe(false);
+    expect(row.keywords).toEqual([
+      { id: "k1", keyword: "alpha edited", wholeWord: false },
+      { id: "k2", keyword: "beta", wholeWord: true },
+    ]);
+  });
+
+  it("update() keeps each sibling keyword's own flag and order (3 keywords)", async () => {
+    const three = {
+      ...group,
+      keywords: [
+        { id: "k1", keyword: "alpha", whole_word: true },
+        { id: "k2", keyword: "beta", whole_word: false },
+        { id: "k3", keyword: "gamma", whole_word: true },
+      ],
+    };
+    const { client, calls } = stubClient((method, _path, body) => {
+      if (method === "GET") return { data: three };
+      const attrs = (body as Record<string, unknown>).keywords_attributes as Array<
+        Record<string, unknown>
+      >;
+      return { data: { ...three, keywords: attrs.map((a) => ({ ...a })) } };
+    });
+    const row = await createMastodonBackend(client).filters!.update("g1", "alpha 2", ["home"]);
+    expect((calls[1].body as Record<string, unknown>).keywords_attributes).toEqual([
+      { id: "k1", keyword: "alpha 2", whole_word: false },
+      { id: "k2", keyword: "beta", whole_word: false },
+      { id: "k3", keyword: "gamma", whole_word: true },
+    ]);
+    expect(row.keywords!.map((k) => k.id)).toEqual(["k1", "k2", "k3"]);
+  });
+
+  it("keeps a custom group title instead of renaming it to the phrase", async () => {
+    const custom = { ...group, title: "Politics bucket" };
+    const { client, calls } = stubClient((method) => {
+      if (method === "GET") return { data: custom };
+      return { data: custom };
+    });
+    await createMastodonBackend(client).filters!.update("g1", "alpha edited", ["home"]);
+    expect((calls[1].body as Record<string, unknown>).title).toBe("Politics bucket");
+  });
+
+  it("v1 stays one keyword: list exposes [phrase] and update PUTs no keyword list", async () => {
+    const v1row = {
+      id: "f9",
+      phrase: "leak",
+      context: ["home"],
+      expires_at: null,
+      irreversible: false,
+      whole_word: true,
+    };
+    const list = stubClient((_method, path) => {
+      if (path === "/api/v2/filters") throw httpError(404);
+      return { data: [v1row] };
+    });
+    const [row] = await createMastodonBackend(list.client).filters!.list();
+    expect(row.phrase).toBe("leak");
+    expect(row.keywords).toEqual([{ id: "f9", keyword: "leak", wholeWord: true }]);
+
+    const upd = stubClient((method, path) => {
+      if (path === "/api/v2/filters/f9") throw httpError(404);
+      return { data: { ...v1row, phrase: "leaked" } };
+    });
+    const updated = await createMastodonBackend(upd.client).filters!.update("f9", "leaked", ["home"]);
+    expect(upd.calls.map((c) => `${c.method} ${c.path}`)).toEqual([
+      "GET /api/v2/filters/f9",
+      "PUT /api/v1/filters/f9",
+    ]);
+    expect(upd.calls[1].body).toEqual({ phrase: "leaked", context: ["home"] });
+    expect(updated.keywords).toEqual([{ id: "f9", keyword: "leaked", wholeWord: true }]);
   });
 });
 

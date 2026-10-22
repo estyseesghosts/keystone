@@ -499,18 +499,35 @@ export interface BookmarksApi {
   remove(noteId: string): Promise<void>;
 }
 
+/** One matched keyword inside a server filter. Mastodon v2 filters are
+ * GROUPS with several keywords; a v1 filter is a single keyword whose id
+ * is the filter row's own id (the row and the keyword are one object). */
+export interface FilterKeyword {
+  id: string;
+  keyword: string;
+  wholeWord: boolean;
+}
+
 export interface Filter {
   id: string;
+  /** Primary phrase (the first keyword) — the label the UI edits. */
   phrase: string;
   context: string[];
   expiresAt: string | null;
   irreversible: boolean;
   wholeWord: boolean;
+  /** Every keyword in the group, in server order; never empty. A v1 row
+   * is `[phrase]`, a v2 group keeps all of its keywords so an edit can
+   * write them all back instead of dropping the rest. */
+  keywords: FilterKeyword[];
 }
 
 export interface FiltersApi {
   list(): Promise<Filter[]>;
   create(phrase: string, context: string[], opts?: { expiresAt?: string | null; irreversible?: boolean; wholeWord?: boolean }): Promise<Filter>;
+  /** Rewrites the primary phrase in place. Sibling keywords of a v2 group
+   * keep their ids, text and whole-word flags — never dropped, never
+   * reordered, never duplicated. */
   update(id: string, phrase: string, context: string[], opts?: { expiresAt?: string | null; irreversible?: boolean; wholeWord?: boolean }): Promise<Filter>;
   delete(id: string): Promise<void>;
 }

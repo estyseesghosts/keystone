@@ -348,8 +348,8 @@ describe('Filters section', () => {
 
   it('does full CRUD on backends with filters', async () => {
     const filters = {
-      list: jest.fn(async () => [{id: 'f1', phrase: 'spoiler', context: [], expiresAt: null, irreversible: false, wholeWord: false}]),
-      create: jest.fn(async (phrase: string) => ({id: 'f2', phrase, context: [], expiresAt: null, irreversible: false, wholeWord: false})),
+      list: jest.fn(async () => [{id: 'f1', phrase: 'spoiler', context: [], expiresAt: null, irreversible: false, wholeWord: false, keywords: [{id: 'k1', keyword: 'spoiler', wholeWord: false}]}]),
+      create: jest.fn(async (phrase: string) => ({id: 'f2', phrase, context: [], expiresAt: null, irreversible: false, wholeWord: false, keywords: [{id: 'k2', keyword: phrase, wholeWord: false}]})),
       delete: jest.fn(async () => undefined),
     }
     const {done} = await setup({backend: {...misskeyBackend(), family: 'mastodon', filters}, section: 'filters'})

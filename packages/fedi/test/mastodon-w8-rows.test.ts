@@ -611,6 +611,11 @@ describe("MD14 — bookmarks, lists, filters, uploadMedia paths", () => {
         expiresAt: null,
         irreversible: true,
         wholeWord: true,
+        // Both keywords of the group — not just the first (P6.0).
+        keywords: [
+          { id: "k1", keyword: "spoiler", wholeWord: true },
+          { id: "k2", keyword: "spoilers", wholeWord: false },
+        ],
       },
     ]);
   });
