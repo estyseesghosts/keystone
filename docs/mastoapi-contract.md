@@ -148,6 +148,19 @@ only when discovery is absent AND granular registration fails.
 granular (v1 uses `read`/`write` umbrella only if granular rejected),
 push.
 
+**Per-flavor request strings (P6.2, ADR 0005 — supersedes the single
+`scopes` above for new logins):** Mastodon-family logins
+(`flavor === "mastodon"`, incl. glitch/hometown/gotosocial) register and
+authorize with ONLY `read write follow`. Every Mastodon API controller
+lists the umbrella alongside the granular scope
+(`doorkeeper_authorize! :read, :'read:statuses'`, checked ANY-of by
+Doorkeeper `includes_scope?`), so the triple passes all shipped
+endpoints while keeping the `/oauth/authorize` URL (~330 chars) under
+tight response-header buffers that 502 ~700-char URLs. Akkoma/Pleroma
+keep the full granular+umbrella string (their umbrella checks are
+unmapped; granular-only 403s shipped surfaces). `scopeHealth` diffs
+against the flavor-expected set; extra scopes never demote a session.
+
 ### 2.2 Internal mode (first-party, no authcode bounce) — per owner decision
 
 Internal login must NOT walk the user through `/oauth/authorize`. Per-backend:

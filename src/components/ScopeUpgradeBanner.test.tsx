@@ -98,18 +98,19 @@ describe('ScopeUpgradeBanner (0.8 global permission-denied prompt)', () => {
     expect(navigate).toHaveBeenCalledWith('Login', {origin: ORIGIN})
   })
 
-  it('reuses the same prompt for Mastodon stale scopes (ADR 0003 unchanged)', async () => {
+  it('reuses the same prompt for Mastodon-family stale scopes (ADR 0003 + ADR 0005)', async () => {
     const {storage, store} = setup()
     await store.add({
       origin: MASTO_ORIGIN,
       family: 'mastodon',
-      flavor: 'mastodon',
+      flavor: 'akkoma',
       accountId: 'bob',
       token: 'token-bob',
       grant: 'oauth-pkce',
       hosting: 'third-party',
     })
-    // Pre-scopes generation: umbrella-only cache (ADR 0003).
+    // Pre-scopes generation: umbrella-only cache on a flavor that expects
+    // the full set (ADR 0005 — a `mastodon`-flavor triple cache is current).
     storage.setItem(
       OAUTH_APPS_KEY,
       JSON.stringify({[MASTO_ORIGIN]: {client_id: 'id', client_secret: 's', scopes: 'read write follow'}}),

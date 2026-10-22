@@ -26,6 +26,7 @@ import {
 } from "./client";
 import { FediError } from "../core/errors";
 import { OAUTH_APPS_KEY, type KeyValueStore } from "../core/sessions";
+import type { ServerFlavor } from "../core/detect";
 import type {
   CredentialAccount,
   OAuthErrorBody,
@@ -33,15 +34,18 @@ import type {
   TokenResponse,
 } from "./wire";
 
-// --- Scope set: NOW vs LATER (ADR 0003) ------------------------------------
+// --- Scope set: NOW vs LATER (ADR 0003), per-flavor strings (ADR 0005) --------
 //
-// `SCOPES_NOW` is the ONLY scope string this client ever requests: app
-// registration, the `/oauth/authorize` URL, the Akkoma password grant and
-// the token exchange all default to it. `SCOPES_LATER` names the scopes
-// for features that do not ship yet — they are requested by NOBODY. A
-// later slice moves its scope from LATER into NOW in the same change that
-// ships the feature, and the existing `scopeHealth` upgrade prompt
-// re-authorizes sessions minted before it (docs/adr/0003).
+// `SCOPES_NOW` is the scope string this client requests on Akkoma/Pleroma
+// AND the default when no flavor is known: app registration, the
+// `/oauth/authorize` URL, the Akkoma password grant and the token exchange
+// all default to it there. Mastodon-family logins (`flavor === "mastodon"`,
+// incl. glitch/hometown/gotosocial) request `SCOPES_MASTODON` instead —
+// see below. `SCOPES_LATER` names the scopes for features that do not ship
+// yet — they are requested by NOBODY. A later slice moves its scope from
+// LATER into NOW in the same change that ships the feature, and the
+// existing `scopeHealth` upgrade prompt re-authorizes sessions minted
+// before it (docs/adr/0003).
 //
 // One NOW entry per shipped surface (docs/mastoapi-contract.md §4):
 //   read:accounts        profile views, handle lookup
@@ -140,6 +144,46 @@ export const MASTO_SCOPES: string[] = SCOPES_NOW;
 
 /** Legacy umbrella fallback: `read write follow` (contract §2.1). */
 export const FALLBACK_SCOPES = "read write follow";
+
+// --- Per-flavor scope strings (ADR 0005) ------------------------------------
+//
+// Mastodon-family logins request ONLY the umbrella triple below; Akkoma and
+// Pleroma keep the full `SCOPES_NOW` string (probe-proven requirement, ADR
+// 0003). Misskey-family logins never touch this module (no OAuth scopes).
+//
+// Why the triple suffices on Mastodon: Doorkeeper's scope check is ANY-of
+// (upstream `lib/doorkeeper/models/concerns/scopes.rb` `includes_scope?`:
+// `required_scopes.any? { ... }` — exact-string match, no hierarchy), and
+// every Mastodon API controller lists the umbrella alongside the granular
+// scope (e.g. `doorkeeper_authorize! :read, :'read:statuses'` across
+// upstream `app/controllers/api/v1/*.rb`), so an umbrella-only token
+// passes every shipped endpoint. `ScopeParser`/`ScopeTransformer`
+// (`app/lib/scope_parser.rb`, `app/lib/scope_transformer.rb`) and
+// `grouped_scopes` (`app/helpers/application_helper.rb`) only group scopes
+// for the authorize-page display — they are not access checks.
+//
+// Why per-flavor at all: the full 26-scope string builds ~700-char
+// `/oauth/authorize` URLs, and servers with tight response-header buffering
+// 502 the logged-in authorize leg past ~512 chars (sharp, deterministic
+// threshold). The triple builds ~330-char URLs. Registration, the
+// authorize URL, and the password grant all use the SAME flavor string
+// (the per-origin app cache binds on it).
+export const SCOPES_MASTODON: string[] = ["read", "write", "follow"];
+
+/**
+ * The scope list to request for `flavor`. Vanilla Mastodon and its forks
+ * (glitch-soc, hometown, gotosocial all detect as flavor `"mastodon"`)
+ * get the umbrella triple; Akkoma/Pleroma get the full NOW set; anything
+ * else (including `"unknown"`) gets the full set — a wrongly-narrowed
+ * Akkoma token breaks shipped features, while stock Mastodon accepts the
+ * full set, so full is the safe default. Login always detects first
+ * (`detectServer` in `Login.tsx`), so unknown is rare and self-heals on
+ * the next detected login.
+ */
+export function scopesForFlavor(flavor: ServerFlavor): string[] {
+  if (flavor === "mastodon") return SCOPES_MASTODON;
+  return SCOPES_NOW;
+}
 
 export const KEYSTODON_APP_NAME = "Keystone";
 
@@ -271,13 +315,17 @@ export async function registerApp(opts: {
   origin: string;
   redirectUri: string;
   scopes?: string;
+  /** Selects the requested scope string when `scopes` is absent (ADR 0005).
+   * Explicit `scopes` always wins. Defaults to the full set — previous
+   * behavior for callers that predate flavor detection. */
+  flavor?: ServerFlavor;
   appName?: string;
   allowScopeFallback?: boolean;
   /** Public website of the app (sent as `website` on registration). */
   website?: string;
 }): Promise<CachedApp> {
   const { store, origin, redirectUri } = opts;
-  const scopes = opts.scopes ?? SCOPES_NOW.join(" ");
+  const scopes = opts.scopes ?? scopesForFlavor(opts.flavor ?? "unknown").join(" ");
   const cached = getCachedApp(store, origin, redirectUri, scopes);
   if (cached) return cached;
 

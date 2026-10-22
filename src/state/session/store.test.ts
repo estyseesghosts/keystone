@@ -562,8 +562,9 @@ describe('scopeHealth (MD5 scope generations)', () => {
   })
 
   it('write:reports is a NOW scope: a current token has it, an old one upgrades', async () => {
+    // Akkoma flavor: the full NOW set is expected here (ADR 0005).
     const {storage, store} = setup()
-    await store.add(mastoInput())
+    await store.add(mastoInput({flavor: 'akkoma'}))
     // Current token: the cached app carries the whole NOW set, including
     // the report scope shipped in clickstone §1.5.
     expect(SCOPES_NOW).toContain('write:reports')
@@ -590,8 +591,9 @@ describe('scopeHealth (MD5 scope generations)', () => {
   })
 
   it('a token missing exactly one NOW scope reports exactly that scope', async () => {
+    // Akkoma flavor (full NOW set expected).
     const {storage, store} = setup()
-    await store.add(mastoInput())
+    await store.add(mastoInput({flavor: 'akkoma'}))
     const withoutFilters = SCOPES_NOW.filter(s => s !== 'write:filters')
     cacheScopes(storage, ORIGIN_B, withoutFilters.join(' '))
     expect(store.scopeHealth()).toEqual({
@@ -604,8 +606,9 @@ describe('scopeHealth (MD5 scope generations)', () => {
   })
 
   it('write:conversations is NOW: a token minted before DMs needs the upgrade prompt', async () => {
+    // Akkoma flavor (full NOW set expected).
     const {storage, store} = setup()
-    await store.add(mastoInput())
+    await store.add(mastoInput({flavor: 'akkoma'}))
     // Current token: the cached app carries the whole NOW set, including
     // the DM write scope shipped in P6.2 (clickstone §2.1). There is no
     // `read:conversations` scope upstream — the inbox index needs only
@@ -637,8 +640,9 @@ describe('scopeHealth (MD5 scope generations)', () => {
   })
 
   it('granular-only cache reads as the W4 generation with missing umbrellas', async () => {
+    // Akkoma flavor (full NOW set expected).
     const {storage, store} = setup()
-    await store.add(mastoInput())
+    await store.add(mastoInput({flavor: 'akkoma'}))
     const granular = SCOPES_NOW.filter(s => s !== 'read' && s !== 'write' && s !== 'follow')
     cacheScopes(storage, ORIGIN_B, granular.join(' '))
     expect(store.scopeHealth()).toEqual({
@@ -651,8 +655,9 @@ describe('scopeHealth (MD5 scope generations)', () => {
   })
 
   it('umbrella-only cache reads as the pre-scopes generation', async () => {
+    // Akkoma flavor: the triple alone is NOT enough there (ADR 0005).
     const {storage, store} = setup()
-    await store.add(mastoInput())
+    await store.add(mastoInput({flavor: 'akkoma'}))
     cacheScopes(storage, ORIGIN_B, 'read write follow')
     const health = store.scopeHealth()
     expect(health.generation).toBe('pre-scopes')
@@ -663,6 +668,72 @@ describe('scopeHealth (MD5 scope generations)', () => {
     expect(health.missingScopes).toEqual(
       SCOPES_NOW.filter(s => s !== 'read' && s !== 'write' && s !== 'follow'),
     )
+  })
+})
+
+describe('per-flavor scopeHealth (ADR 0005)', () => {
+  const mastoInput = (over: Record<string, unknown> = {}) => ({
+    origin: ORIGIN_B,
+    family: 'mastodon' as const,
+    flavor: 'mastodon' as const,
+    accountId: 'bob',
+    token: 'masto-b',
+    grant: 'oauth-pkce' as const,
+    hosting: 'third-party' as const,
+    ...over,
+  })
+
+  function cacheScopes(storage: KeyValueStore, origin: string, scopes: string): void {
+    storage.setItem(
+      OAUTH_APPS_KEY,
+      JSON.stringify({[origin]: {client_id: 'id', client_secret: 'secret', scopes}}),
+    )
+  }
+
+  it('a Mastodon triple token reads current', async () => {
+    const {storage, store} = setup()
+    await store.add(mastoInput())
+    cacheScopes(storage, ORIGIN_B, 'read write follow')
+    expect(store.scopeHealth()).toEqual({
+      needsReauth: false,
+      needsUpgrade: false,
+      generation: 'current',
+      reason: 'current',
+      missingScopes: [],
+    })
+  })
+
+  it('an old 26-scope Mastodon token reads current (extra scopes are fine, nothing revoked)', async () => {
+    // Pre-split tokens keep working with exactly the authority they carry:
+    // only MISSING flavor-expected scopes upgrade, extras never do.
+    const {storage, store} = setup()
+    await store.add(mastoInput())
+    cacheScopes(storage, ORIGIN_B, SCOPES_NOW.join(' '))
+    const health = store.scopeHealth()
+    expect(health.needsUpgrade).toBe(false)
+    expect(health.generation).toBe('current')
+    expect(health.missingScopes).toEqual([])
+  })
+
+  it('an Akkoma triple token needs the upgrade (granulars genuinely missing there)', async () => {
+    const {storage, store} = setup()
+    await store.add(mastoInput({flavor: 'akkoma'}))
+    cacheScopes(storage, ORIGIN_B, 'read write follow')
+    const health = store.scopeHealth()
+    expect(health.needsUpgrade).toBe(true)
+    expect(health.generation).toBe('pre-scopes')
+    expect(health.missingScopes).toContain('write:conversations')
+    expect(health.missingScopes).toContain('write:reports')
+    for (const later of SCOPES_LATER) expect(health.missingScopes).not.toContain(later)
+  })
+
+  it('an unknown-flavor session diffs against the full set (safe default)', async () => {
+    const {storage, store} = setup()
+    await store.add(mastoInput({flavor: 'unknown'}))
+    cacheScopes(storage, ORIGIN_B, 'read write follow')
+    expect(store.scopeHealth().needsUpgrade).toBe(true)
+    cacheScopes(storage, ORIGIN_B, SCOPES_NOW.join(' '))
+    expect(store.scopeHealth()).toMatchObject({needsUpgrade: false, generation: 'current'})
   })
 })
 

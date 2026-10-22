@@ -15,9 +15,13 @@ import {
   FALLBACK_SCOPES,
   getCachedApp,
   passwordGrant,
+  randomToken,
   registerApp,
+  s256Challenge,
   SCOPES_LATER,
+  SCOPES_MASTODON,
   SCOPES_NOW,
+  scopesForFlavor,
 } from "../src/mastodon/oauth";
 
 const ORIGIN = "https://server.example";
@@ -287,5 +291,119 @@ describe("SCOPES_NOW is a subset of Mastodon's configured scopes (login-hotfix g
     for (const scope of SCOPES_NOW) {
       expect(MASTODON_CONFIGURED_SCOPES).toContain(scope);
     }
+  });
+
+  it("the Mastodon-family request string is a subset too (either string registers cleanly)", () => {
+    // Registration must succeed on BOTH flavors with EITHER string: the
+    // per-flavor choice (ADR 0005) is about URL length, not acceptability.
+    for (const scope of SCOPES_MASTODON) {
+      expect(MASTODON_CONFIGURED_SCOPES).toContain(scope);
+    }
+  });
+});
+
+// ADR 0005 — per-flavor scope strings: Mastodon-family requests ONLY the
+// umbrella triple `read write follow`.
+//
+// Why the triple suffices on Mastodon: Doorkeeper's scope check is ANY-of
+// (upstream `lib/doorkeeper/models/concerns/scopes.rb`
+// `includes_scope?`: `required_scopes.any? { ... }`), and EVERY Mastodon
+// API controller lists the umbrella alongside the granular scope
+// (`doorkeeper_authorize! :read, :'read:statuses'` across
+// `app/controllers/api/v1/*.rb`) — so an umbrella-only token passes every
+// shipped endpoint. `ScopeParser`/`ScopeTransformer`
+// (`app/lib/scope_parser.rb`, `app/lib/scope_transformer.rb`) and
+// `grouped_scopes` (`app/helpers/application_helper.rb`) are authorize-page
+// display grouping only, not access checks. Akkoma keeps the full string:
+// its umbrella-scope checks are unmapped and a granular-only token 403s
+// shipped Explore surfaces (live probe, ADR 0003). No network: stubbed.
+describe("per-flavor scope strings (ADR 0005)", () => {
+  it("SCOPES_MASTODON is exactly the umbrella triple", () => {
+    expect(SCOPES_MASTODON).toEqual(["read", "write", "follow"]);
+  });
+
+  it("mastodon flavor requests the triple; akkoma/pleroma/unknown keep the full set", () => {
+    expect(scopesForFlavor("mastodon")).toEqual(["read", "write", "follow"]);
+    expect(scopesForFlavor("akkoma")).toEqual(SCOPES_NOW);
+    expect(scopesForFlavor("pleroma")).toEqual(SCOPES_NOW);
+    // Unknown defaults to the full set: a wrongly-narrowed Akkoma token
+    // breaks shipped features, while stock Mastodon accepts the full set
+    // (pinned above) — detection resolves the flavor first in practice.
+    expect(scopesForFlavor("unknown")).toEqual(SCOPES_NOW);
+  });
+
+  it("registerApp requests the flavor string and caches it", async () => {
+    const store = createMemoryStore();
+    const calls = stubFetch(() => ({ client_id: "cid", client_secret: "csec" }));
+
+    const app = await registerApp({
+      store,
+      origin: ORIGIN,
+      redirectUri: REDIRECT,
+      flavor: "mastodon",
+    });
+
+    expect(calls).toHaveLength(1);
+    const body = JSON.parse(String(calls[0].init?.body)) as { scopes: string };
+    expect(body.scopes).toBe("read write follow");
+    expect(app.scopes).toBe("read write follow");
+    // The cache binds on the flavor string: a full-set cached app is NOT
+    // reused for a Mastodon login (and vice versa).
+    expect(getCachedApp(store, ORIGIN, REDIRECT, "read write follow")?.client_id).toBe("cid");
+    expect(getCachedApp(store, ORIGIN, REDIRECT)).toBeNull();
+  });
+
+  it("registerApp without a flavor keeps the full set (previous behavior)", async () => {
+    const store = createMemoryStore();
+    stubFetch(() => ({ client_id: "cid", client_secret: "csec" }));
+    const app = await registerApp({ store, origin: ORIGIN, redirectUri: REDIRECT });
+    expect(app.scopes).toBe(NOW);
+  });
+
+  it("the built Mastodon authorize URL stays under 480 chars (tight-buffer 502 guard)", async () => {
+    // Fresh PKCE + state, standard dev redirect: this is the exact shape
+    // that 502s past ~512 chars on tight-header-buffer servers. The full
+    // 26-scope string builds ~700-char URLs; the triple must stay small
+    // with margin (fixed 43-char lengths = real randomToken/S256 sizes).
+    const clientId = "a".repeat(43);
+    const state = randomToken();
+    const verifier = randomToken();
+    expect(state).toHaveLength(43);
+    const challenge = await s256Challenge(verifier);
+    expect(challenge).toHaveLength(43);
+    const url = buildAuthorizeUrl({
+      origin: ORIGIN,
+      clientId,
+      redirectUri: "https://app.example/auth/callback",
+      scopes: scopesForFlavor("mastodon").join(" "),
+      state,
+      codeChallenge: challenge,
+    });
+    expect(new URL(url).searchParams.get("scope")).toBe("read write follow");
+    expect(url.length).toBeLessThan(480);
+  });
+
+  it("the Akkoma password grant still asks for the full set", async () => {
+    const store = createMemoryStore();
+    const calls = stubFetch((url) =>
+      url.endsWith("/api/v1/apps")
+        ? { client_id: "cid", client_secret: "csec" }
+        : { access_token: "tok", token_type: "Bearer" },
+    );
+    const app = await registerApp({ store, origin: ORIGIN, redirectUri: REDIRECT, flavor: "akkoma" });
+    expect(app.scopes).toBe(NOW);
+    await passwordGrant({
+      origin: ORIGIN,
+      clientId: app.client_id,
+      clientSecret: app.client_secret,
+      username: "alice",
+      password: "pw",
+      scopes: app.scopes,
+    });
+
+    const tokenCall = calls.find((c) => c.url === `${ORIGIN}/oauth/token`);
+    expect(tokenCall).toBeDefined();
+    const form = new URLSearchParams(String(tokenCall?.init?.body));
+    expect(form.get("scope")).toBe(NOW);
   });
 });

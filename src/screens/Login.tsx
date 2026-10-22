@@ -207,6 +207,7 @@ export function LoginScreen() {
         redirectUri: redirectUriFor(),
         username,
         password,
+        flavor: firstParty.flavor,
       })
       await finish({
         origin: firstParty.homeOrigin,
@@ -242,6 +243,7 @@ export function LoginScreen() {
         mfaToken: mfa.mfaToken,
         challengeType: mfa.challengeTypes[0] ?? 'totp',
         code: mfaCode,
+        flavor: firstParty.flavor,
       })
       await finish({
         origin: firstParty.homeOrigin,
@@ -270,6 +272,7 @@ export function LoginScreen() {
         origin: firstParty.homeOrigin,
         redirectUri: redirectUriFor(),
         openBrowser,
+        flavor: firstParty.flavor,
       })
       // The callback screen completes the flow (AuthCallback).
     } catch (err) {
@@ -314,6 +317,7 @@ export function LoginScreen() {
         redirectUri: redirectUriFor(),
         username,
         password,
+        flavor: detection.flavor,
       })
       await finish({
         origin: detection.origin,
@@ -349,6 +353,7 @@ export function LoginScreen() {
         mfaToken: mfa.mfaToken,
         challengeType: mfa.challengeTypes[0] ?? 'totp',
         code: mfaCode,
+        flavor: detection.flavor,
       })
       await finish({
         origin: detection.origin,
@@ -377,6 +382,7 @@ export function LoginScreen() {
         origin: detection.origin,
         redirectUri: redirectUriFor(),
         openBrowser,
+        flavor: detection.flavor,
       })
       // The callback screen completes the flow (AuthCallback).
     } catch (err) {

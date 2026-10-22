@@ -250,6 +250,65 @@ describe('mastodon MFA + OAuth', () => {
     // Replaying the same callback finds nothing.
     await expect(complete({appStore: store, code, state})).resolves.toBeNull()
   })
+
+  it('requests the umbrella triple on mastodon flavor, the full set on akkoma (ADR 0005)', async () => {
+    const calls: Array<{url: string; body: string}> = []
+    globalThis.fetch = jest.fn(async (input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      calls.push({url, body: typeof init?.body === 'string' ? init.body : ''})
+      if (url === `${ORIGIN_B}/api/v1/apps`) {
+        return jsonResponse({client_id: 'cid', client_secret: 'csec'})
+      }
+      throw new Error(`unexpected request ${url}`)
+    }) as unknown as typeof fetch
+
+    const redirectUri = `${ORIGIN_B}/auth/callback`
+    let opened: string | null = null
+    const openBrowser = (url: string) => {
+      opened = url
+      return Promise.resolve()
+    }
+    // Mastodon flavor: registration posts the triple, the authorize URL asks
+    // for it — the short URL that fits tight header buffers.
+    await start({appStore: createMemoryStore(), origin: ORIGIN_B, redirectUri, openBrowser, flavor: 'mastodon'})
+    expect(JSON.parse(calls[0].body)).toMatchObject({scopes: 'read write follow'})
+    expect(new URL(opened!).searchParams.get('scope')).toBe('read write follow')
+
+    // Akkoma flavor: the full NOW set (probe-proven requirement, ADR 0003).
+    calls.length = 0
+    await start({appStore: createMemoryStore(), origin: ORIGIN_B, redirectUri, openBrowser, flavor: 'akkoma'})
+    const scopes = (JSON.parse(calls[0].body) as {scopes: string}).scopes
+    expect(scopes.split(' ')).toContain('write:conversations')
+    expect(scopes.split(' ')).toContain('write:reports')
+    expect(new URL(opened!).searchParams.get('scope')).toBe(scopes)
+  })
+
+  it('the mastodon password grant carries the flavor scopes', async () => {
+    const store: KeyValueStore = createMemoryStore()
+    const calls: Array<{url: string; body: string}> = []
+    globalThis.fetch = jest.fn(async (input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      calls.push({url, body: String(init?.body ?? '')})
+      if (url === `${ORIGIN_B}/api/v1/apps`) {
+        return jsonResponse({client_id: 'cid', client_secret: 'csec'})
+      }
+      if (url === `${ORIGIN_B}/oauth/token`) {
+        return jsonResponse({access_token: 'masto-token-b', token_type: 'Bearer', scope: 'read', created_at: 1})
+      }
+      if (url === `${ORIGIN_B}/api/v1/accounts/verify_credentials`) {
+        return jsonResponse({id: 'masto-b', username: 'bob', acct: 'bob'})
+      }
+      throw new Error(`unexpected request ${url}`)
+    }) as unknown as typeof fetch
+
+    const redirectUri = `${ORIGIN_B}/auth/callback`
+    // Akkoma path (the only password-grant flavor): full set on the token call.
+    await uiMastodonPassword({appStore: store, origin: ORIGIN_B, redirectUri, username: 'bob', password: 'pw', flavor: 'akkoma'})
+    const tokenCall = calls.find(c => c.url === `${ORIGIN_B}/oauth/token`)
+    const form = new URLSearchParams(tokenCall!.body)
+    expect(form.get('grant_type')).toBe('password')
+    expect(form.get('scope')).toContain('write:conversations')
+  })
 })
 
 describe('misskey MiAuth browser sign-in', () => {

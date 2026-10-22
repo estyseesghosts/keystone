@@ -5,7 +5,7 @@ import {
   FediError,
   getActiveSessionId,
   loadSessions,
-  SCOPES_NOW,
+  scopesForFlavor,
   OAUTH_APPS_KEY,
   removeSession,
   revokeSessionToken,
@@ -92,9 +92,10 @@ export interface SessionRefreshResult {
 }
 
 /** Which scope/permission generation a session belongs to: `pre-scopes`
- * (Mastodon umbrella `read write follow` only), `granular` (a Mastodon
- * granular set, e.g. W4's, that is missing at least one `SCOPES_NOW`
- * entry), `current` (every `SCOPES_NOW` scope present — ADR 0003),
+ * (Mastodon umbrella `read write follow` only — only reachable on
+ * Akkoma/Pleroma sessions now, where the triple is NOT enough),
+ * `granular` (a granular cache missing at least one expected entry),
+ * `current` (every flavor-expected scope present — ADR 0003 + ADR 0005),
  * `stale-permissions` (Misskey-family: a live call answered 403
  * PERMISSION_DENIED, so the stored token predates a permission this build
  * uses — there is no scope diff to run). Scopes in `SCOPES_LATER` are
@@ -111,10 +112,13 @@ export type SessionScopeGeneration =
   | 'not-applicable'
   | 'signed-out'
 
-/** Scope/permission auto-upgrade detection (MD5 + ADR 0003): old sessions
- * stay old-scoped until re-auth (OAuth needs the user in a browser — no
- * silent upgrade), so this surfaces `needsUpgrade` + the missing
- * `SCOPES_NOW` tokens for the sign-in prompt. A missing `SCOPES_LATER`
+/** Scope/permission auto-upgrade detection (MD5 + ADR 0003 + ADR 0005):
+ * old sessions stay old-scoped until re-auth (OAuth needs the user in a
+ * browser — no silent upgrade), so this surfaces `needsUpgrade` + the
+ * missing flavor-expected tokens for the sign-in prompt. Extra scopes are
+ * fine (only missing matters): a pre-split 26-scope Mastodon token reads
+ * `current` against the triple expectation — nothing is revoked.
+ * A missing `SCOPES_LATER`
  * scope is never an upgrade reason — those features do not ship yet.
  * Misskey-family sessions have no OAuth scope list to diff; they flip to
  * `needsUpgrade` only after a live 403 PERMISSION_DENIED is recorded via
@@ -131,9 +135,12 @@ export interface SessionScopeHealth {
    * / `no-app-cache` / `misskey-no-scopes` / `misskey-stale-permissions`
    * / `signed-out` / `unknown-session`. */
   reason: string
-  /** `SCOPES_NOW` entries absent from the cached app (never any
-   * `SCOPES_LATER` entry, and always empty on the Misskey-family
-   * `misskey-stale-permissions` path — no server-returned list). */
+  /** `missingScopes` entries are flavor-expected scopes absent from the
+   * cached app (never any `SCOPES_LATER` entry, and always empty on the
+   * Misskey-family `misskey-stale-permissions` path — no server-returned
+   * list). The expectation is per-flavor (ADR 0005): `mastodon` sessions
+   * diff against the umbrella triple, every other flavor against
+   * `SCOPES_NOW`. */
   missingScopes: string[]
 }
 
@@ -226,7 +233,8 @@ export interface SessionStore {
   refreshActive(): Promise<SessionRefreshResult>
   /** Scope-generation check for one session (default: active). Sync and
    * read-only: compares the per-origin cached OAuth app scopes against
-   * `SCOPES_NOW` (ADR 0003 — never the unshipped `SCOPES_LATER` set). */
+   * the flavor-expected set (ADR 0005 — the umbrella triple on `mastodon`,
+   * `SCOPES_NOW` elsewhere; never the unshipped `SCOPES_LATER` set). */
   scopeHealth(id?: string | null): SessionScopeHealth
   /** Subscription-stable `scopeHealth` for `useSyncExternalStore`: the same
    * object reference is returned until the next store `emit()` (sign-in,
@@ -367,10 +375,14 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
       }
     }
     const have = new Set(cached)
-    // Diff against SCOPES_NOW only: a token lacking a SCOPES_LATER scope
-    // (DMs, push, admin, reports) is current — that feature does not
-    // ship yet (ADR 0003).
-    const missing = SCOPES_NOW.filter(s => !have.has(s))
+    // Diff against the flavor-expected set only (ADR 0005): `mastodon`
+    // sessions expect the umbrella triple, Akkoma/Pleroma/unknown expect
+    // SCOPES_NOW. Extra scopes are fine — only missing matters — so a
+    // pre-split 26-scope Mastodon token reads `current`, and a token
+    // lacking a SCOPES_LATER scope is current too (that feature does not
+    // ship yet, ADR 0003).
+    const expected = scopesForFlavor(session.flavor)
+    const missing = expected.filter(s => !have.has(s))
     if (missing.length === 0) {
       return {needsReauth: false, needsUpgrade: false, generation: 'current', reason: 'current', missingScopes: []}
     }
