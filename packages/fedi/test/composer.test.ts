@@ -132,6 +132,29 @@ describe("gating", () => {
     expect(composeGates("misskey", caps("misskey"), null).quote.enabled).toBe(true);
     expect(composeGates("misskey", null, null).poll.enabled).toBe(false);
   });
+
+  it("gates per-note noQuote and per-attachment sensitivity per family", () => {
+    // Misskey family: both per-note/per-file fields exist.
+    const mk = composeGates("misskey", caps("misskey"), null);
+    expect(mk.noQuote.enabled).toBe(true);
+    expect(mk.mediaSensitive.enabled).toBe(true);
+    expect(composeGates("misskey", caps("sharkey"), null).noQuote.enabled).toBe(true);
+
+    // Mastodon family: status-level `sensitive` only, no per-note field.
+    const md = composeGates("mastodon", caps("mastodon"), null);
+    expect(md.noQuote).toEqual({
+      enabled: false,
+      reason: "Keystone cannot set quote refusal per post on this server yet.",
+    });
+    expect(md.mediaSensitive).toEqual({
+      enabled: false,
+      reason: "This server marks media sensitivity for the whole post, not per attachment.",
+    });
+    // Signed out: every control is off with one honest reason.
+    expect(composeGates("misskey", null, null).noQuote.enabled).toBe(false);
+    expect(composeGates("misskey", null, null).mediaSensitive.enabled).toBe(false);
+  });
+
   it("replies never widen the parent's audience", () => {
     const parent = { visibility: { kind: "followers", localOnly: false, raw: "followers" } } as Post;
     expect(defaultVisibilityFor("misskey", parent).raw).toBe("followers");
@@ -239,6 +262,63 @@ describe("golden wire bodies", () => {
       quoted_status_id: "q",
       poll: { options: ["a", "b"], multiple: false, expires_in: 600 },
     });
+  });
+
+  it("Misskey create sends noQuote only when the toggle is on", async () => {
+    const off = await misskeyBody("sharkey", { text: "plain" });
+    expect(off.params).not.toHaveProperty("noQuote");
+    const on = await misskeyBody("sharkey", { text: "plain", noQuote: true });
+    expect(on.params).toMatchObject({ noQuote: true });
+  });
+
+  it("Misskey edit forwards noQuote when on and omits it when off", async () => {
+    function editCall(state: Parameters<typeof emptyComposeState>[0]) {
+      const calls: Array<{ endpoint: string; params: Record<string, unknown> }> = [];
+      const transport: MisskeyTransport = {
+        call<T>(endpoint: string, params: Record<string, unknown> = {}) {
+          calls.push({ endpoint, params });
+          return Promise.reject(new Error("stop")) as Promise<T>;
+        },
+        upload: () => Promise.reject(new Error("no")),
+      };
+      const backend = createMisskeyBackend(transport, "sharkey");
+      const built = buildPostDraft(emptyComposeState(state), ctxFor("misskey", "sharkey"));
+      if (!built.ok) throw new Error(built.reason);
+      return backend.editPost("n1", built.draft).catch(() => undefined).then(() => calls[0]);
+    }
+    const on = await editCall({ text: "fixed", noQuote: true });
+    expect(on.endpoint).toBe("notes/edit");
+    expect(on.params).toMatchObject({ noteId: "n1", noQuote: true });
+
+    // Off: the field is omitted, so an edit never lifts an earlier refusal
+    // the composer cannot show (the Post model carries no noQuote).
+    const off = await editCall({ text: "fixed" });
+    expect(off.params).not.toHaveProperty("noQuote");
+  });
+
+  it("Mastodon never sends noQuote or quote_approval_policy", async () => {
+    const calls: Array<{ path: string; body: Record<string, unknown> }> = [];
+    const client = {
+      origin: "https://m.example",
+      token: "t",
+      post: (path: string, body: Record<string, unknown>) => {
+        calls.push({ path, body });
+        return Promise.reject(new Error("stop"));
+      },
+    } as never;
+    const backend = createMastodonBackend(client);
+    // A draft carrying the per-note flag must not leak an unknown field.
+    await backend
+      .createPost({ text: "hi", visibility: { kind: "public", localOnly: false }, noQuote: true })
+      .catch(() => undefined);
+    expect(calls[0]?.body).not.toHaveProperty("noQuote");
+    expect(calls[0]?.body).not.toHaveProperty("quote_approval_policy");
+    // And the gate never puts it in the draft on this family.
+    const built = buildPostDraft(
+      emptyComposeState({ text: "hi", noQuote: true }),
+      ctxFor("mastodon", "mastodon"),
+    );
+    expect(built.ok && built.draft.noQuote).toBeUndefined();
   });
 });
 

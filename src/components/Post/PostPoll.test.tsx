@@ -90,7 +90,10 @@ describe('formatPollExpiry (F8)', () => {
     expect(formatPollExpiry(new Date(Date.now() - 1000).toISOString())).toBe('closing soon')
     expect(formatPollExpiry(new Date(Date.now() + 30 * 1000).toISOString())).toBe('in under a minute')
     expect(formatPollExpiry(new Date(Date.now() + 30 * 60 * 1000).toISOString())).toBe('in 30m')
-    expect(formatPollExpiry(new Date(Date.now() + 26 * 3600 * 1000).toISOString())).toBe('in 26h')
+    // 26h + 1m: `formatPollExpiry` floors to whole hours, so an exact 26h
+    // flips to "in 25h" whenever a millisecond elapses between the two
+    // `Date.now()` reads (flaky under load).
+    expect(formatPollExpiry(new Date(Date.now() + 26 * 3600 * 1000 + 60_000).toISOString())).toBe('in 26h')
     expect(formatPollExpiry(new Date(Date.now() + 5 * 86400 * 1000).toISOString())).toMatch(/^on /)
   })
 })

@@ -126,6 +126,7 @@ function stateFromDraft(d: LocalDraft): Partial<ComposeState> {
       ? {choices: d.pollChoices, multiple: d.pollMultiple, durationSeconds: d.pollDurationSeconds}
       : null,
     reactionAcceptance: d.reactionAcceptance,
+    noQuote: d.noQuote,
     scheduledAt: d.scheduledAt,
   }
 }
@@ -210,6 +211,7 @@ export function useComposerController({
         pollMultiple: state.poll?.multiple ?? false,
         pollDurationSeconds: state.poll?.durationSeconds ?? 86400,
         reactionAcceptance: state.reactionAcceptance,
+        noQuote: state.noQuote,
         scheduledAt: state.scheduledAt,
       })
     }, 400)
@@ -323,7 +325,7 @@ export function useComposerController({
     }
     // Validate text rules first (media ids are filled after upload).
     const pre = buildPostDraft(
-      {...state, media: uploads.items.map(u => ({id: u.mediaId ?? u.key, alt: u.alt}))},
+      {...state, media: uploads.items.map(u => ({id: u.mediaId ?? u.key, alt: u.alt, sensitive: u.sensitive}))},
       {family, gates, limits},
     )
     if (!pre.ok) {
@@ -548,6 +550,31 @@ export function Composer(props: ComposerProps) {
             testID="composer-local-only"
           />
         ) : null}
+      </View>
+
+      {/* Per-note quote refusal (clickstone §1.2). Distinct from the
+          account-wide `rejectQuotes` switch in Settings → Account: this
+          only refuses quotes OF THIS POST. Where the server has no
+          per-note field the control stays visible and disabled with the
+          gate's reason — never inert. */}
+      <View style={styles.row}>
+        <Chip
+          label={i18n._(msg`No quotes for this post`)}
+          selected={state.noQuote}
+          disabled={!gates.noQuote.enabled}
+          disabledReason={gates.noQuote.enabled ? undefined : gates.noQuote.reason}
+          onPress={() => patch({noQuote: !state.noQuote})}
+          testID="composer-no-quote"
+        />
+        {gates.noQuote.enabled ? (
+          <Caption color="muted" testID="composer-no-quote-help">
+            {i18n._(msg`Only this post refuses quotes. The account-wide setting is in Settings → Account.`)}
+          </Caption>
+        ) : (
+          <Caption color="muted" testID="composer-no-quote-reason">
+            {gates.noQuote.reason}
+          </Caption>
+        )}
       </View>
 
       <View style={styles.row}>

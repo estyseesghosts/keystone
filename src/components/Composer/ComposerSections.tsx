@@ -103,6 +103,7 @@ export function PollSection({c}: {c: ComposerController}) {
 }
 
 export function UploadsSection({c}: {c: ComposerController}) {
+  const sensitiveGate = c.gates.mediaSensitive
   return (
     <>
       {c.uploads.items.map(u => (
@@ -129,10 +130,33 @@ export function UploadsSection({c}: {c: ComposerController}) {
               onChangeText={t => c.uploads.setAlt(u.key, t)}
               placeholder={u.status === 'done' ? i18n._(msg`Locked after upload`) : i18n._(msg`Describe the media`)}
             />
+            {/* Attach-time sensitivity (`drive/files/create` `isSensitive`).
+                The flag rides WITH the upload, so it is fixed once the file
+                is on the server; where the family only has status-level
+                sensitivity the toggle is disabled with that reason. */}
+            <View style={c.styles.row}>
+              <Chip
+                label={i18n._(msg`Sensitive`)}
+                selected={u.sensitive}
+                disabled={!sensitiveGate.enabled || u.status === 'done'}
+                disabledReason={
+                  !sensitiveGate.enabled
+                    ? sensitiveGate.reason
+                    : i18n._(msg`Locked after upload`)
+                }
+                onPress={() => c.uploads.setSensitive(u.key, !u.sensitive)}
+                testID={`composer-upload-sensitive-${u.key}`}
+              />
+            </View>
           </View>
           <Chip label={i18n._(msg`Remove`)} onPress={() => c.uploads.remove(u.key)} />
         </View>
       ))}
+      {c.uploads.items.length > 0 && !sensitiveGate.enabled ? (
+        <Caption color="muted" testID="composer-media-sensitive-reason">
+          {sensitiveGate.reason}
+        </Caption>
+      ) : null}
     </>
   )
 }

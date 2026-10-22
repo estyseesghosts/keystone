@@ -140,6 +140,10 @@ export interface ComposeGates {
   reactionAcceptance: ComposeGate;
   localOnly: ComposeGate;
   quote: ComposeGate;
+  /** Per-note quote refusal (`noQuote` on the Misskey-family wire). */
+  noQuote: ComposeGate;
+  /** Per-attachment sensitive flag applied at upload time. */
+  mediaSensitive: ComposeGate;
 }
 
 export function composeGates(
@@ -157,6 +161,8 @@ export function composeGates(
       reactionAcceptance: none,
       localOnly: none,
       quote: none,
+      noQuote: none,
+      mediaSensitive: none,
     };
   }
   return {
@@ -180,6 +186,22 @@ export function composeGates(
       family !== "mastodon" || caps.quote_posting === "supported"
         ? on
         : off("This server does not support quote posts."),
+    // Never an inert control: an unknown flag is disabled with a reason
+    // that says the server has not reported the feature, not that it is
+    // absent. `no_quote` is the per-note refusal only; the account-wide
+    // Misskey `rejectQuotes` switch lives in Settings → Account.
+    noQuote:
+      caps.no_quote === "supported"
+        ? on
+        : caps.no_quote === "unsupported"
+          ? off("Keystone cannot set quote refusal per post on this server yet.")
+          : off("This server has not reported a per-post quote setting."),
+    mediaSensitive:
+      caps.media_sensitivity === "supported"
+        ? on
+        : caps.media_sensitivity === "unsupported"
+          ? off("This server marks media sensitivity for the whole post, not per attachment.")
+          : off("This server has not reported per-attachment sensitivity."),
   };
 }
 
@@ -210,6 +232,9 @@ export interface ComposeState {
   media: ComposeMedia[];
   poll: ComposePollState | null;
   reactionAcceptance: ReactionAcceptance | string | null;
+  /** Per-note quote refusal (Misskey family). Never the account-wide
+   * `rejectQuotes` switch — that lives in Settings. */
+  noQuote: boolean;
   /** ISO timestamp, or null to post now. */
   scheduledAt: string | null;
   visibleUserIds: string[];
@@ -227,6 +252,7 @@ export function emptyComposeState(init: Partial<ComposeState> = {}): ComposeStat
     media: [],
     poll: null,
     reactionAcceptance: null,
+    noQuote: false,
     scheduledAt: null,
     visibleUserIds: [],
     ...init,
@@ -326,6 +352,11 @@ export function buildPostDraft(state: ComposeState, ctx: BuildContext): BuildRes
   if (gates.reactionAcceptance.enabled && state.reactionAcceptance) {
     draft.reactionAcceptance = state.reactionAcceptance as ReactionAcceptance;
   }
+  // Per-note quote refusal: `true` only. On create the wire omits a false
+  // value anyway; on edit, omitting the field leaves whatever the note
+  // already carries (an edit can never silently lift a refusal the
+  // composer did not show — the `Post` model has no `noQuote` to seed it).
+  if (gates.noQuote.enabled && state.noQuote) draft.noQuote = true;
   return { ok: true, draft, scheduledAt };
 }
 

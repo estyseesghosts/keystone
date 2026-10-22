@@ -169,6 +169,11 @@ export interface UploadItem {
   /** Alt text / description, sent WITH the upload (neither family can be
    * edited afterwards through the Backend surface). */
   alt: string
+  /** Per-attachment sensitive flag, sent WITH the upload on families that
+   * take it (`drive/files/create` `isSensitive`). The composer disables
+   * the toggle where the server only has status-level `sensitive`, so
+   * this is never invented for those servers. */
+  sensitive: boolean
   error: string | null
 }
 
@@ -187,15 +192,19 @@ export interface UploadTarget {
   force?: boolean
 }
 
-/** Upload one file through the owning session's backend. */
+/** Upload one file through the owning session's backend. The per-file
+ * `sensitive` flag rides WITH the upload (Misskey-family `isSensitive`);
+ * when false/absent the field is never sent, so a default upload keeps the
+ * server's non-sensitive default. */
 export async function uploadOne(
   backend: Backend,
   file: File,
-  alt: string,
-  target: UploadTarget = {},
+  opts: {alt?: string; sensitive?: boolean; target?: UploadTarget} = {},
 ): Promise<{id: string}> {
+  const {alt = '', sensitive = false, target = {}} = opts
   const media = await backend.uploadMedia(file, {
     ...(alt ? {comment: alt} : {}),
+    ...(sensitive ? {isSensitive: true} : {}),
     ...(target.folderId ? {folderId: target.folderId} : {}),
     ...(target.force !== undefined ? {force: target.force} : {}),
   })
@@ -233,7 +242,11 @@ export async function uploadAll(
     }
     onUpdate(item.key, {status: 'uploading', error: null})
     try {
-      const {id} = await uploadOne(backend, file, item.alt, target)
+      const {id} = await uploadOne(backend, file, {
+        alt: item.alt,
+        sensitive: item.sensitive,
+        target,
+      })
       onUpdate(item.key, {status: 'done', mediaId: id})
       ids.push(id)
     } catch (err) {
@@ -279,6 +292,7 @@ export function useUploads(backend: Backend | null, target: UploadTarget = {}) {
             status: 'staged',
             mediaId: null,
             alt: '',
+            sensitive: false,
             error: null,
           }),
         ),
@@ -298,6 +312,12 @@ export function useUploads(backend: Backend | null, target: UploadTarget = {}) {
   /** Alt text can change until the file is uploaded. */
   const setAlt = useCallback((key: string, alt: string) => patch(key, {alt}), [patch])
 
+  /** Per-file sensitive flag; applied when the upload runs. */
+  const setSensitive = useCallback(
+    (key: string, sensitive: boolean) => patch(key, {sensitive}),
+    [patch],
+  )
+
   const ensureUploaded = useCallback(async (): Promise<string[] | null> => {
     if (!backend) return null
     return uploadAll(backend, itemsRef.current, files, patch, targetRef.current)
@@ -308,7 +328,7 @@ export function useUploads(backend: Backend | null, target: UploadTarget = {}) {
     setItems([])
   }, [files])
 
-  return {items, add, remove, setAlt, ensureUploaded, clear}
+  return {items, add, remove, setAlt, setSensitive, ensureUploaded, clear}
 }
 
 // --- Edit post (C7) ------------------------------------------------------------

@@ -155,6 +155,34 @@ describe('PostCard', () => {
     expect(screen.getByTestId('media-s1')).toBeTruthy()
   })
 
+  it('reveals only the tapped sensitive tile, leaving the others hidden', () => {
+    renderCard(
+      <PostCard
+        post={makePost({
+          id: 'p7',
+          media: [
+            makeMedia({id: 's1', isSensitive: true}),
+            makeMedia({id: 's2', isSensitive: true}),
+            makeMedia({id: 'm3'}),
+          ],
+        })}
+        sessionId={SESSION}
+      />,
+    )
+    // Never one grid-wide gate: the non-sensitive tile renders at once and
+    // each sensitive tile has its own reveal control.
+    expect(screen.getByTestId('media-m3')).toBeTruthy()
+    expect(screen.queryByTestId('media-s1')).toBeNull()
+    expect(screen.queryByTestId('media-s2')).toBeNull()
+    expect(screen.getByTestId('media-sensitive-show-s1')).toBeTruthy()
+    expect(screen.getByTestId('media-sensitive-show-s2')).toBeTruthy()
+
+    fireEvent.press(screen.getByTestId('media-sensitive-show-s1'))
+    expect(screen.getByTestId('media-s1')).toBeTruthy()
+    expect(screen.queryByTestId('media-s2')).toBeNull()
+    expect(screen.getByTestId('media-sensitive-show-s2')).toBeTruthy()
+  })
+
   it('renders read-only reaction chips, disabled with a reason', () => {
     const post = makePost()
     post.reactions = {

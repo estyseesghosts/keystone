@@ -148,7 +148,10 @@ export function CompactComposer(props: ComposerProps) {
   const current = c.options.find(o => o.raw === c.state.visibilityRaw) ?? c.options[0]
   const CurrentIcon = KIND_ICON[current.kind] ?? GlobeIcon
   const advancedActive =
-    c.state.reactionAcceptance != null || c.state.localOnly || c.state.scheduledAt != null
+    c.state.reactionAcceptance != null ||
+    c.state.localOnly ||
+    c.state.noQuote ||
+    c.state.scheduledAt != null
   const submitLabel = c.editing
     ? i18n._(msg`Save`)
     : c.state.scheduledAt && c.gates.schedule.enabled
@@ -376,6 +379,19 @@ export function CompactComposer(props: ComposerProps) {
             )
           })}
           <PopupSep />
+          <PopupRow
+            testID="composer-no-quote"
+            label={i18n._(msg`No quotes for this post`)}
+            disabled={!c.gates.noQuote.enabled}
+            reason={c.gates.noQuote.enabled ? undefined : c.gates.noQuote.reason}
+            onPress={() => c.patch({noQuote: !c.state.noQuote})}
+            right={<PopupRadioDot on={c.state.noQuote} />}>
+            <PopupDesc>
+              {c.gates.noQuote.enabled
+                ? i18n._(msg`Only this post refuses quotes. The account-wide setting is in Settings → Account.`)
+                : c.gates.noQuote.reason}
+            </PopupDesc>
+          </PopupRow>
           {c.gates.localOnly.enabled ? (
             <PopupRow
               testID="composer-local-only"

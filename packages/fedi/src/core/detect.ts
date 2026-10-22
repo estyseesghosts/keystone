@@ -56,6 +56,14 @@ export type FeatureKey =
   | "scheduled_posts"
   | "server_drafts"
   | "local_only"
+  // Per-note publisher controls (clickstone §1.2). `no_quote` is the
+  // per-note quote refusal v1 sent (`noQuote` on the Misskey-family
+  // create/edit body). `media_sensitivity` is per-attachment sensitivity
+  // applied AT UPLOAD (`drive/files/create` `isSensitive` on the Misskey
+  // family); the Mastodon family only has status-level `sensitive`, so it
+  // is unsupported there — never a per-media field.
+  | "no_quote"
+  | "media_sensitivity"
   // Misskey-family extras
   | "drive"
   | "antennas"
@@ -95,6 +103,8 @@ export const FEATURE_KEYS: readonly FeatureKey[] = [
   "scheduled_posts",
   "server_drafts",
   "local_only",
+  "no_quote",
+  "media_sensitivity",
   "drive",
   "antennas",
   "clips",
@@ -260,6 +270,12 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     // implements list/create/update/delete/count; the UI is W3 (C9).
     server_drafts: "supported",
     local_only: "supported",
+    // v1 shipped the per-note control (`Composer.tsx:277,369`) and the wire
+    // forwards it on both create (`notes/create`) and edit (`notes/edit`).
+    no_quote: "supported",
+    // `drive/files/create` takes `isSensitive` per file (Sharkey source:
+    // `packages/backend/src/server/api/endpoints/drive/files/create.ts:83`).
+    media_sensitivity: "supported",
     drive: "supported",
     antennas: "supported",
     lists: "supported",
@@ -292,6 +308,11 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     scheduled_posts: "supported",
     server_drafts: "supported",
     local_only: "supported",
+    // Same Misskey-family per-note refusal + per-file Drive sensitivity
+    // endpoints as Misskey (both `notes/create|edit` and
+    // `drive/files/create` take the fields).
+    no_quote: "supported",
+    media_sensitivity: "supported",
     drive: "supported",
     antennas: "supported",
     lists: "supported",
@@ -351,6 +372,13 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     scheduled_posts: "supported",
     server_drafts: "unsupported",
     local_only: "unsupported",
+    // MastoAPI has no per-note `noQuote` and no per-media sensitive field:
+    // statuses take status-level `sensitive` only, and media upload/update
+    // accept `description`/`focus` only (Mastodon source:
+    // `app/controllers/api/v1/media_controller.rb:52`). Keystone does not
+    // send unknown fields (Sharkey/Mastodon 400s).
+    no_quote: "unsupported",
+    media_sensitivity: "unsupported",
     drive: "unsupported",
     antennas: "unsupported",
     channels: "unsupported",
@@ -372,6 +400,10 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     like: "unsupported",
     status_editing: "supported",
     local_only: "supported",
+    // Same MastoAPI shapes as Mastodon: status-level quoted-status handling
+    // only, and no per-media `sensitive` field.
+    no_quote: "unsupported",
+    media_sensitivity: "unsupported",
     lists: "supported",
     clips: "unsupported",
     direct_messages: "unsupported",
@@ -392,6 +424,8 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     status_editing: "supported",
     reactions: "supported",
     like: "unsupported",
+    no_quote: "unsupported",
+    media_sensitivity: "unsupported",
     favourites_distinct_from_reactions: "supported",
     clips: "unsupported",
     direct_messages: "unsupported",
