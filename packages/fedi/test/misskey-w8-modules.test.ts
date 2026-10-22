@@ -1,13 +1,13 @@
 // W8 MK12 — direct/indirect coverage for the ported Misskey modules that
 // had no tests (auth, external, customEmoji, favorites, featured,
-// importExport, likeEmoji, listMembership, mutes, followRequests,
-// renoteMutes, noteEdit, remotepost, schedule, serverDrafts, softMute,
-// clips, plus the backend's antennas/drive/reactions/pin/mute-thread/report
-// paths), and the MK10 manifest-provenance check. (WS-E removed the
-// `misskey/drafts` + `reactionActions`/`myReactions` blocks with their
-// modules — authority is the app store / post-shadow — and added the MK13
-// `like` capability facts + seeding tests in `detect.test.ts` /
-// `misskey-like.test.ts`.)
+// likeEmoji, listMembership, mutes, followRequests, renoteMutes, noteEdit,
+// remotepost, schedule, serverDrafts, softMute, clips, plus the backend's
+// antennas/drive/reactions/pin/mute-thread/report paths), and the MK10
+// manifest-provenance check. (WS-E removed the `misskey/drafts` +
+// `reactionActions`/`myReactions` blocks with their modules — authority is
+// the app store / post-shadow — and added the MK13 `like` capability facts
+// + seeding tests in `detect.test.ts` / `misskey-like.test.ts`. P6.0 moved
+// importExport to `misskey-import-export.test.ts` for the upstream shapes.)
 //
 // New file on purpose: existing per-file test counts stay untouched
 // (register rule — ported tests match original per-file counts).
@@ -47,12 +47,6 @@ import {
 import { createCustomEmojiStore } from "../src/misskey/customEmoji";
 import { listFavorites, removeFavorite } from "../src/misskey/favorites";
 import { listFeaturedNotes, listUserFeaturedNotes, pinNote, unpinNote } from "../src/misskey/featured";
-import {
-  exportData,
-  importData,
-  readImportFile,
-  serializeExport,
-} from "../src/misskey/importExport";
 import { tryPersistLikeEmoji } from "../src/misskey/likeEmoji";
 import { addToList, listsContaining, removeFromList } from "../src/misskey/listMembership";
 import {
@@ -408,53 +402,8 @@ describe("misskey/favorites + featured", () => {
 });
 
 // --- importExport ------------------------------------------------------------
-
-describe("misskey/importExport", () => {
-  it("importData maps kinds to endpoints and reports the async finish", async () => {
-    const { call, calls } = stubCall(() => undefined);
-    for (const [kind, endpoint] of [
-      ["following", "i/import-following"],
-      ["blocking", "i/import-blocking"],
-      ["mute", "i/import-mute"],
-      ["notes", "i/import-notes"],
-    ] as const) {
-      await expect(importData(call, kind, "csv")).resolves.toMatchObject({ ok: true });
-      expect(calls[calls.length - 1].endpoint).toBe(endpoint);
-    }
-  });
-
-  it("exportData maps all eight kinds; serializeExport wraps bytes + name", async () => {
-    const { call, calls } = stubCall(() => ({ rows: [] }));
-    for (const [kind, endpoint] of [
-      ["following", "i/export-following"],
-      ["blocking", "i/export-blocking"],
-      ["mute", "i/export-mute"],
-      ["notes", "i/export-notes"],
-      ["user-lists", "i/export-user-lists"],
-      ["antennas", "i/export-antennas"],
-      ["clips", "i/export-clips"],
-      ["favorites", "i/export-favorites"],
-    ] as const) {
-      await exportData(call, kind);
-      expect(calls[calls.length - 1].endpoint).toBe(endpoint);
-    }
-    expect(serializeExport("out.json", { a: 1 })).toEqual({
-      filename: "out.json",
-      mimeType: "application/json",
-      text: "{\n  \"a\": 1\n}",
-    });
-  });
-
-  it("readImportFile guards size before reading", async () => {
-    await expect(
-      readImportFile(new File(["x"], "f.json", { type: "application/json" })),
-    ).resolves.toBe("x");
-    const big = new File(["x".repeat(10 * 1024 * 1024 + 1)], "big.json");
-    await expect(readImportFile(big)).rejects.toMatchObject({
-      code: "errors.compose.fileTooLarge",
-    });
-  });
-});
+// Moved to `misskey-import-export.test.ts` when the upstream shapes landed
+// (import needs a Drive upload, export only enqueues a job).
 
 // --- likeEmoji / listMembership / mutes / followRequests / renoteMutes -------
 
