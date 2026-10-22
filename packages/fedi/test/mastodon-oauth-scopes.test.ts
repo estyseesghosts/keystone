@@ -2,7 +2,7 @@
 //
 // Every authorization request (app registration, `/oauth/authorize`, the
 // Akkoma password grant) must carry exactly `SCOPES_NOW.join(" ")`. Scopes
-// for unshipped features (DMs, push, admin, featured tags, favourites
+// for unshipped features (push, admin, featured tags, favourites
 // timeline) live in `SCOPES_LATER` and are requested by nobody; each later
 // slice moves its scope into NOW together with the feature. `write:reports`
 // moved into NOW with the report chooser (clickstone §1.5).
@@ -199,20 +199,93 @@ describe("authorization requests carry SCOPES_NOW", () => {
 });
 
 describe("P6.2 DMs: conversations scopes are NOW (the inbox ships)", () => {
-  it("requests read:conversations + write:conversations and never stops asking for them", () => {
-    expect(SCOPES_NOW).toContain("read:conversations");
+  it("requests write:conversations and never stops asking for it", () => {
     expect(SCOPES_NOW).toContain("write:conversations");
-    expect(SCOPES_LATER).not.toContain("read:conversations");
     expect(SCOPES_LATER).not.toContain("write:conversations");
   });
 
-  it("registerApp posts the conversation scopes (old tokens upgrade via the prompt)", async () => {
+  it("never requests read:conversations (not a real Mastodon scope)", () => {
+    // Upstream has no read:conversations scope: the inbox index requires
+    // `read`/`read:statuses` (both already NOW) and read/delete require
+    // `write:conversations`. Requesting read:conversations busts the
+    // per-origin cached app and stock Mastodon 422s the re-registration.
+    expect(SCOPES_NOW).not.toContain("read:conversations");
+    expect(SCOPES_LATER).toContain("read:conversations");
+  });
+
+  it("registerApp posts the conversation write scope (old tokens upgrade via the prompt)", async () => {
     const store = createMemoryStore();
     const calls = stubFetch(() => ({ client_id: "cid", client_secret: "csec" }));
     await registerApp({ store, origin: ORIGIN, redirectUri: REDIRECT });
     const body = JSON.parse(String(calls[0].init?.body)) as { scopes: string };
     const tokens = body.scopes.split(" ");
-    expect(tokens).toContain("read:conversations");
+    expect(tokens).not.toContain("read:conversations");
     expect(tokens).toContain("write:conversations");
+  });
+});
+
+// Login-hotfix guard: every scope in SCOPES_NOW must exist on stock Mastodon,
+// or `POST /api/v1/apps` answers 422 `Scopes doesn't match those configured
+// on the server` and ALL logins (new + re-auth) break. Allowlist copied from
+// upstream `config/initializers/doorkeeper.rb` (default_scopes + optional_scopes,
+// fetched 2026-10-22; `enforce_configured_scopes` is on). A scope allowlist is
+// facts, not copied code. Notably absent upstream: `read:conversations` — the
+// inbox index needs `read`/`read:statuses`, read/delete need `write:conversations`
+// (upstream `app/controllers/api/v1/conversations_controller.rb`, main).
+describe("SCOPES_NOW is a subset of Mastodon's configured scopes (login-hotfix guard)", () => {
+  const MASTODON_CONFIGURED_SCOPES = [
+    "read",
+    "profile",
+    "write",
+    "write:accounts",
+    "write:blocks",
+    "write:bookmarks",
+    "write:collections",
+    "write:conversations",
+    "write:favourites",
+    "write:filters",
+    "write:follows",
+    "write:lists",
+    "write:media",
+    "write:mutes",
+    "write:notifications",
+    "write:reports",
+    "write:statuses",
+    "read:accounts",
+    "read:blocks",
+    "read:bookmarks",
+    "read:collections",
+    "read:favourites",
+    "read:filters",
+    "read:follows",
+    "read:lists",
+    "read:mutes",
+    "read:notifications",
+    "read:search",
+    "read:statuses",
+    "follow",
+    "push",
+    "admin:read",
+    "admin:read:accounts",
+    "admin:read:reports",
+    "admin:read:domain_allows",
+    "admin:read:domain_blocks",
+    "admin:read:ip_blocks",
+    "admin:read:email_domain_blocks",
+    "admin:read:canonical_email_blocks",
+    "admin:write",
+    "admin:write:accounts",
+    "admin:write:reports",
+    "admin:write:domain_allows",
+    "admin:write:domain_blocks",
+    "admin:write:ip_blocks",
+    "admin:write:email_domain_blocks",
+    "admin:write:canonical_email_blocks",
+  ];
+
+  it("requests no scope stock Mastodon would reject at POST /api/v1/apps", () => {
+    for (const scope of SCOPES_NOW) {
+      expect(MASTODON_CONFIGURED_SCOPES).toContain(scope);
+    }
   });
 });

@@ -66,9 +66,13 @@ import type {
 //   write:lists          list CRUD + membership
 //   write:reports        report chooser (`POST /api/v1/reports`, clickstone
 //                        §1.5; Akkoma also accepts the umbrella `write`)
-//   read:conversations   DM inbox (`GET /api/v1/conversations`, P6.2
-//                        clickstone §2.1)
-//   write:conversations  DM replies + delete + mark-read (same slice)
+//   write:conversations  DM inbox + replies + delete + mark-read (P6.2
+//                        clickstone §2.1). The inbox index needs only
+//                        `read`/`read:statuses` (already NOW, per upstream
+//                        `conversations_controller.rb`); there is NO
+//                        `read:conversations` scope upstream — it must never
+//                        be requested (stock Mastodon 422s the app
+//                        registration, 2026-10-22 login hotfix).
 //
 // The umbrella scopes `read`/`write`/`follow` stay in NOW because Akkoma
 // checks the umbrella itself: `/api/v1/suggestions` 403s a granular-only
@@ -102,7 +106,6 @@ export const SCOPES_NOW: string[] = [
   "write:reports",
   "write:statuses",
   "write:favourites",
-  "read:conversations",
   "write:conversations",
 ];
 
@@ -115,7 +118,11 @@ export const SCOPES_NOW: string[] = [
  *   read:featured_tags     featured-tags management (absent on Akkoma)
  *   write:featured_tags    featured-tags management (absent on Akkoma)
  *   read:favourites        a Mastodon favourites TIMELINE (favouriting
- *                          itself is write:favourites, shipped) */
+ *                          itself is write:favourites, shipped)
+ *   read:conversations     NOT A REAL SCOPE — upstream Mastodon defines no
+ *                          `read:conversations` (doorkeeper.rb); the inbox
+ *                          index needs `read`/`read:statuses`. Listed here
+ *                          so no future slice requests it. */
 export const SCOPES_LATER: string[] = [
   "push",
   "admin:read",
@@ -123,6 +130,7 @@ export const SCOPES_LATER: string[] = [
   "read:featured_tags",
   "write:featured_tags",
   "read:favourites",
+  "read:conversations",
 ];
 
 /** @deprecated Use `SCOPES_NOW` (ADR 0003): the name no longer carries a
