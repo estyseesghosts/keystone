@@ -276,13 +276,16 @@ export interface NoteReactionRow {
 
 /** Live-update status the UI surfaces ("live updates unavailable" + poll
  * fallback when streaming is blocked, e.g. by CORS). Mirrors the pool's
- * states (`misskey/stream.ts`). */
+ * states (`misskey/stream.ts`). `stopped` is the honest dead state: the
+ * server killed the channel or the reconnect breaker tripped, so no
+ * further dial happens until the user retries (feeds keep polling). */
 export type StreamState =
   | "connecting"
   | "connected"
   | "reconnecting"
   | "error"
-  | "unavailable";
+  | "unavailable"
+  | "stopped";
 
 /** What a feed subscription follows. `kind` covers the basic timelines
  * (social is Misskey-family only — the Mastodon backend answers it as
@@ -327,6 +330,14 @@ export interface StreamHandle {
   /** Current live state + subscription (the StreamBadge reads this). */
   status(): StreamState;
   onStatusChange(handler: (state: StreamState) => void): () => void;
+  /** Manual re-dial after a dead state (`kill` or the reconnect
+   * breaker). Optional: handles that never go dead (the Misskey pool
+   * keeps its own backoff) omit it and the UI remounts instead. */
+  retry?(): void;
+  /** Server-side filter rules changed (`filters_changed`): the caller
+   * invalidates its filter query. Optional — families without the frame
+   * omit it. */
+  onFiltersChanged?(handler: () => void): () => void;
 }
 
 // --- Capability-gated sub-modules -----------------------------------------

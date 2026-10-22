@@ -274,6 +274,25 @@ describe('FeedView stream badge (WS-G S4)', () => {
     expect(screen.queryByTestId('notifications-badge')).toBeNull()
   })
 
+  it('shows the honest dead state with a working retry (never a stuck "Reconnecting…")', async () => {
+    const {store, sessionId} = await signedIn()
+    const harness = makeLiveHandle()
+    const backend = liveBackend(harness)
+    renderWithProviders(
+      <FeedView sessionId={sessionId} descriptor="timeline|home" backend={backend} retry={false} testID="feed" />,
+      store,
+    )
+    expect(await screen.findByText('first post')).toBeTruthy()
+
+    await act(async () => { harness.emitState('stopped') })
+    expect(screen.getByText('Live updates stopped')).toBeTruthy()
+    expect(screen.queryByText('Reconnecting…')).toBeNull()
+
+    const subscribes = harness.subscribes()
+    fireEvent.press(screen.getByTestId('stream-retry'))
+    await waitFor(() => expect(harness.subscribes()).toBeGreaterThan(subscribes))
+  })
+
   it('hides the badge on paging-only feeds and keeps the local-diff pill', async () => {
     const {store, sessionId} = await signedIn()
     const timeline = jest.fn(async () => ({items: [livePost('p1', 'old post')], cursor: null, end: true}))

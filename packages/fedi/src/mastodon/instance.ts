@@ -65,16 +65,30 @@ function numOrNull(value: unknown): number | null {
 
 /** Normalize a streaming host advertisement to a `ws(s)://host[:port]`
  * origin. `configuration.urls.streaming` (v2) may be a DIFFERENT host;
- * `urls.streaming_api` (v1) is Akkoma's ws origin. */
-export function normalizeStreamingOrigin(raw: unknown): string | null {
+ * `urls.streaming_api` (v1) is Akkoma's ws origin. When the session
+ * origin is known the advertised scheme must match it (`https` → `wss`,
+ * `http` → `ws`): a mismatch answers null so the stream client falls
+ * back to the session origin's mapping instead of dialing a
+ * differently-schemed host (contract §8). */
+export function normalizeStreamingOrigin(
+  raw: unknown,
+  sessionOrigin?: string | null,
+): string | null {
   const value = strOrNull(raw);
   if (!value) return null;
   try {
     const url = new URL(value);
-    if (url.protocol === "ws:" || url.protocol === "wss:") return url.origin;
-    if (url.protocol === "http:") return `ws://${url.host}`;
-    if (url.protocol === "https:") return `wss://${url.host}`;
-    return null;
+    let origin: string;
+    if (url.protocol === "ws:" || url.protocol === "wss:") origin = url.origin;
+    else if (url.protocol === "http:") origin = `ws://${url.host}`;
+    else if (url.protocol === "https:") origin = `wss://${url.host}`;
+    else return null;
+    if (sessionOrigin) {
+      const session = new URL(sessionOrigin);
+      const expected = session.protocol === "https:" ? "wss:" : session.protocol === "http:" ? "ws:" : null;
+      if (expected !== null && new URL(origin).protocol !== expected) return null;
+    }
+    return origin;
   } catch {
     return null;
   }
@@ -274,8 +288,8 @@ async function fetchInstanceCapabilitiesInner(
   const domain = strOrNull(v2?.domain) ?? strOrNull(v1?.uri) ?? null;
 
   const streaming =
-    normalizeStreamingOrigin(v2?.configuration?.urls?.streaming) ??
-    normalizeStreamingOrigin(v1?.urls?.streaming_api);
+    normalizeStreamingOrigin(v2?.configuration?.urls?.streaming, origin) ??
+    normalizeStreamingOrigin(v1?.urls?.streaming_api, origin);
 
   return {
     origin,

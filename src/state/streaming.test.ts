@@ -157,6 +157,29 @@ describe('createFeedLive', () => {
     live.dispose()
     expect(handle.unsubscribed()).toBe(true)
   })
+
+  it('retries through the handle (breaker) and remounts when it cannot', () => {
+    let retried = 0
+    const handle: StreamHandle = {
+      ...fakeHandle(),
+      retry: () => {
+        retried += 1
+      },
+    }
+    const live = createFeedLive({handle, source: {kind: 'home'}, onInsert: () => {}})
+    expect(live.retry()).toBe(true)
+    expect(retried).toBe(1)
+    live.dispose()
+    // A handle without `retry` (the Misskey pool) answers false so the
+    // mount remounts instead of doing nothing.
+    const plain = createFeedLive({
+      handle: fakeHandle(),
+      source: {kind: 'home'},
+      onInsert: () => {},
+    })
+    expect(plain.retry()).toBe(false)
+    plain.dispose()
+  })
 })
 
 describe('createPostLive', () => {
