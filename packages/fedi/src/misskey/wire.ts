@@ -166,6 +166,18 @@ export interface PinetreeNotification {
   user: UserLite | null;
   note: Note | null;
   reaction?: string | null;
+  /** `roleAssigned` packs the granted role (upstream `Notification`
+   * schema); `user` is absent on these system rows. */
+  role?: {id: string; name?: string | null; iconUrl?: string | null} | null;
+  /** `achievementEarned`: the achievement token verbatim. */
+  achievement?: string;
+  /** `exportCompleted`: which entity was exported and the Drive file. */
+  exportedEntity?: string;
+  fileId?: string;
+  /** `scheduledNotePostFailed`: the draft the server kept. */
+  noteDraft?: {id?: string} | null;
+  /** `chatRoomInvitationReceived` (not mapped until chat ships). */
+  invitation?: {room?: {id?: string; name?: string | null} | null} | null;
 }
 
 /** Preferred alias: the same shape is served by all three backends

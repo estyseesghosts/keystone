@@ -245,8 +245,10 @@ export interface FollowRequest {
 /** Notification filter presets (maps to includeTypes/excludeTypes — no
  * second list UI; blacklist = mutes, whitelist = followingOrFollower
  * scoping, mutuals = mutualFollow, followed = following). The values are
- * the family's notification type strings; the adapter sends them
- * verbatim. */
+ * core notification KINDS, and each backend maps them to its own wire
+ * types (`misskey/backend.ts` `MISSKEY_NOTIFY_TYPES`,
+ * `mastodon/backend.ts` `NOTIF_WIRE_TYPES`) — a preset never sends a
+ * Misskey spelling to Mastodon. */
 export const NOTIFICATION_FILTER_PRESETS: Array<{
   id: string;
   label: string;
@@ -254,6 +256,10 @@ export const NOTIFICATION_FILTER_PRESETS: Array<{
   labelKey: string;
   includeTypes?: string[];
   excludeTypes?: string[];
+  /** Family that has these notification types at all. Absent = both. A
+   * preset gated to `misskey` is hidden on Mastodon rather than shown as
+   * an always-empty list (clickstone §1.11: the Misskey system rows). */
+  family?: "misskey" | "mastodon";
 }> = [
   { id: "all", label: "All", labelKey: "notif.filterAll" },
   { id: "mentions", label: "Mentions", labelKey: "notif.filterMentions", includeTypes: ["mention", "reply"] },
@@ -261,7 +267,40 @@ export const NOTIFICATION_FILTER_PRESETS: Array<{
   { id: "reposts", label: "Reposts", labelKey: "notif.filterReposts", includeTypes: ["renote", "quote"] },
   { id: "follows", label: "Follows", labelKey: "notif.filterFollows", includeTypes: ["follow", "receiveFollowRequest", "followRequestAccepted"] },
   { id: "polls", label: "Polls", labelKey: "notif.filterPolls", includeTypes: ["pollVote", "pollEnded"] },
+  // Misskey `note`: new notes from accounts the viewer follows.
+  { id: "notes", label: "Notes", labelKey: "notif.filterNotes", includeTypes: ["note"], family: "misskey" },
+  // Misskey system rows (clickstone §1.11): the viewer's own scheduling,
+  // export, role, achievement, session and token events. No Mastodon
+  // equivalents ship yet, so the preset is hidden there.
+  {
+    id: "system",
+    label: "System",
+    labelKey: "notif.filterSystem",
+    includeTypes: [
+      "scheduledNotePosted",
+      "scheduledNotePostFailed",
+      "exportCompleted",
+      "roleAssigned",
+      "achievement",
+      "login",
+      "createToken",
+      "test",
+      "app",
+    ],
+    family: "misskey",
+  },
 ];
+
+/** The presets a family can actually serve. Presets without a `family`
+ * apply to both; gated ones appear only where the types exist, so the UI
+ * never shows a chip that can only ever be empty. */
+export function notificationFilterPresets(
+  family: "misskey" | "mastodon",
+): typeof NOTIFICATION_FILTER_PRESETS {
+  return NOTIFICATION_FILTER_PRESETS.filter(
+    (preset) => preset.family === undefined || preset.family === family,
+  );
+}
 
 /** One row of an account's reactions (`users/reactions`). */
 export interface UserReaction {
@@ -951,6 +990,16 @@ export interface Backend {
   // --- Notifications (plan §2.2) ---
   notifications(opts?: NotificationsOpts): Promise<Page<Notification>>;
   markNotificationsRead(): Promise<void>;
+  /** Dismiss ONE notification (`POST /api/v1/notifications/:id/dismiss` on
+   * the Mastodon family; clickstone §1.11). Optional: absent where the
+   * family has no per-row dismiss (Misskey), and a 404/405 from a fork
+   * surfaces as the typed unsupported `ApiError` instead of a throw-wall —
+   * the UI hides the action with a reason, never an error. */
+  dismissNotification?(id: string): Promise<void>;
+  /** Clear EVERY notification (`POST /api/v1/notifications/clear` on the
+   * Mastodon family). Optional for the same reason as `dismissNotification`;
+   * destructive, so the UI always confirms first. */
+  clearNotifications?(): Promise<void>;
 
   // --- Server services (plan §2.2) ---
   customEmojis(): Promise<CustomEmoji[]>;

@@ -71,6 +71,7 @@ import {
   adaptNotification,
   adaptUserRelation,
   decodeCursor,
+  misskeyNotificationTypes,
   pageOf,
 } from "./adapt";
 import { likeSupportFor, likeViaNotesLike } from "./like";
@@ -1090,8 +1091,14 @@ export function createMisskeyBackend(
         limit,
         ...decodeCursor(opts.cursor ?? null),
       };
-      if (opts.includeTypes) params.includeTypes = opts.includeTypes;
-      if (opts.excludeTypes) params.excludeTypes = opts.excludeTypes;
+      // Core preset tokens are KINDS; Misskey filters on its own wire
+      // type strings (`achievementEarned`, not `achievement`). Unknown
+      // tokens pass through verbatim so a fork-specific type can still be
+      // filtered by its wire spelling.
+      const includeTypes = misskeyNotificationTypes(opts.includeTypes);
+      const excludeTypes = misskeyNotificationTypes(opts.excludeTypes);
+      if (includeTypes.length > 0) params.includeTypes = includeTypes;
+      if (excludeTypes.length > 0) params.excludeTypes = excludeTypes;
       if (opts.grouped) {
         const rows = await call<GroupedNotificationItem[]>("i/notifications-grouped", params);
         return pageOf(rows ?? [], limit, adaptGroupedNotification);

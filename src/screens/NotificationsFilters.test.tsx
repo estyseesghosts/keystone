@@ -4,7 +4,13 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {render, screen} from '@testing-library/react-native'
 import {FlatList} from 'react-native'
 
-import {NOTIFICATION_FILTER_PRESETS, createMemoryStore, type Backend, type Notification} from '@keystone/fedi'
+import {
+  NOTIFICATION_FILTER_PRESETS,
+  createMemoryStore,
+  notificationFilterPresets,
+  type Backend,
+  type Notification,
+} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import type {TokenVault} from '#/storage'
@@ -77,9 +83,18 @@ const baseNotification: Notification = {
 }
 
 describe('notification filter presets (single list, type presets only)', () => {
-  it('covers all, mentions, reactions, reposts, follows, polls', () => {
+  it('covers the type presets plus the Misskey-only system rows', () => {
     const ids = NOTIFICATION_FILTER_PRESETS.map(p => p.id)
-    expect(ids).toEqual(['all', 'mentions', 'reactions', 'reposts', 'follows', 'polls'])
+    expect(ids).toEqual([
+      'all',
+      'mentions',
+      'reactions',
+      'reposts',
+      'follows',
+      'polls',
+      'notes',
+      'system',
+    ])
   })
 
   it('maps to include/exclude types (no second list UI)', () => {
@@ -92,6 +107,37 @@ describe('notification filter presets (single list, type presets only)', () => {
     expect(mentions?.includeTypes).toContain('mention')
     const reactions = NOTIFICATION_FILTER_PRESETS.find(p => p.id === 'reactions')
     expect(reactions?.includeTypes).toContain('reaction')
+  })
+
+  // clickstone §1.11: the newly mapped Misskey types need a filter home,
+  // and a preset the family cannot serve is hidden instead of always-empty.
+  it('gives the mapped Misskey types a preset that Misskey serves', () => {
+    const system = NOTIFICATION_FILTER_PRESETS.find(p => p.id === 'system')
+    for (const kind of [
+      'scheduledNotePosted',
+      'scheduledNotePostFailed',
+      'exportCompleted',
+      'roleAssigned',
+      'achievement',
+      'login',
+      'createToken',
+      'test',
+    ]) {
+      expect(system?.includeTypes).toContain(kind)
+    }
+    const notes = NOTIFICATION_FILTER_PRESETS.find(p => p.id === 'notes')
+    expect(notes?.includeTypes).toEqual(['note'])
+  })
+
+  it('hides the Misskey-only presets on the Mastodon family', () => {
+    const misskey = notificationFilterPresets('misskey').map(p => p.id)
+    const mastodon = notificationFilterPresets('mastodon').map(p => p.id)
+    expect(misskey).toContain('notes')
+    expect(misskey).toContain('system')
+    expect(mastodon).not.toContain('notes')
+    expect(mastodon).not.toContain('system')
+    // The six shared presets stay identical on both families.
+    expect(mastodon).toEqual(['all', 'mentions', 'reactions', 'reposts', 'follows', 'polls'])
   })
 })
 
