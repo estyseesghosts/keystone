@@ -4,7 +4,7 @@
 
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
-import {createMemoryStore} from '@keystone/fedi'
+import {ApiError, createMemoryStore} from '@keystone/fedi'
 
 import type {TokenVault} from '#/storage'
 import {__setStorageForTests, appStorage} from '#/storage'
@@ -283,6 +283,110 @@ describe('Mutes section search undo (C17)', () => {
       // One-way actions still work.
       fireEvent.press(screen.getByTestId('mute-search-mute-s1'))
       await waitFor(() => expect(backend.mute).toHaveBeenCalledWith('s1'))
+    } finally {
+      done()
+    }
+  })
+})
+
+// Clickstone §1.4: Settings → Mutes carries the PERSONAL domain blocks
+// (list / add / unblock). The Mastodon fake exposes `domainBlocks`; a
+// backend without it (Misskey family, or a fork that 404s) keeps a
+// disabled row with the reason instead of hiding the section.
+describe('Mutes section domain blocks (clickstone 1.4)', () => {
+  const domainBackend = () => {
+    const blocked = new Set<string>(['spam.example'])
+    return {
+      ...baseBackend(),
+      family: 'mastodon',
+      domainBlocks: {
+        list: jest.fn(async () => ({
+          items: [...blocked],
+          cursor: null,
+          end: true,
+        })),
+        block: jest.fn(async (domain: string) => {
+          blocked.add(domain)
+        }),
+        unblock: jest.fn(async (domain: string) => {
+          blocked.delete(domain)
+        }),
+      },
+    }
+  }
+
+  it('lists personal domain blocks and unblocks one', async () => {
+    const backend = domainBackend()
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByTestId('domain-block-spam.example')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('domain-block-unblock-spam.example'))
+      await waitFor(() => expect(backend.domainBlocks.unblock).toHaveBeenCalledWith('spam.example'))
+      await waitFor(() => expect(screen.queryByTestId('domain-block-spam.example')).toBeNull())
+    } finally {
+      done()
+    }
+  })
+
+  it('normalizes a pasted domain before blocking it', async () => {
+    const backend = domainBackend()
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByTestId('domain-blocks-input')).toBeTruthy()
+      fireEvent.changeText(
+        screen.getByTestId('domain-blocks-input'),
+        'https://Bad.Example/some/path',
+      )
+      fireEvent.press(screen.getByTestId('domain-blocks-add'))
+      await waitFor(() => expect(backend.domainBlocks.block).toHaveBeenCalledWith('bad.example'))
+      expect(await screen.findByTestId('domain-block-bad.example')).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
+
+  it('refuses junk input without calling the server', async () => {
+    const backend = domainBackend()
+    const {done} = await setup({backend})
+    try {
+      fireEvent.changeText(screen.getByTestId('domain-blocks-input'), 'not a domain')
+      fireEvent.press(screen.getByTestId('domain-blocks-add'))
+      expect(await screen.findByText('Enter a domain like example.com.')).toBeTruthy()
+      expect(backend.domainBlocks.block).not.toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+
+  it('keeps a disabled row when the backend has no domain-block module', async () => {
+    const {done} = await setup({backend: baseBackend()})
+    try {
+      const row = await screen.findByTestId('placeholder-domain-blocks')
+      expect(row.props.accessibilityState.disabled).toBe(true)
+      expect(screen.queryByTestId('domain-blocks')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('disables the row with a reason when the endpoint 404s (fork gap)', async () => {
+    const backend = {
+      ...baseBackend(),
+      family: 'mastodon',
+      domainBlocks: {
+        list: jest.fn(async () => {
+          throw new ApiError('Not found', 404)
+        }),
+        block: jest.fn(async () => undefined),
+        unblock: jest.fn(async () => undefined),
+      },
+    }
+    const {done} = await setup({backend})
+    try {
+      const row = await screen.findByTestId('placeholder-domain-blocks')
+      expect(row.props.accessibilityState.disabled).toBe(true)
+      expect(screen.getByText('This server has no personal domain blocks.')).toBeTruthy()
+      expect(screen.queryByTestId('domain-blocks-input')).toBeNull()
     } finally {
       done()
     }

@@ -571,6 +571,107 @@ export interface AnnouncementsApi {
   list(opts?: PageOpts): Promise<Announcement[]>;
 }
 
+// --- Hashtag follow / feature / mute (clickstone §1.4) ----------------------
+
+/** One hashtag's server state (`GET /api/v1/tags/:id`). `following` and
+ * `featuring` are null when the server did not report them (signed out, or
+ * a fork that leaves the fields off) — never fabricated as `false`, so the
+ * UI can tell "known off" from "unknown". */
+export interface TagInfo {
+  /** Display name as the server spells it, without a leading `#`. */
+  name: string;
+  /** Server-side tag URL when the payload carried one. */
+  url: string | null;
+  /** Does the viewer follow this tag? null = not reported. */
+  following: boolean | null;
+  /** Is this one of the viewer's featured (profile-pinned) tags?
+   * null = not reported. */
+  featuring: boolean | null;
+}
+
+/** One profile-pinned tag (`GET /api/v1/featured_tags`). The row id is what
+ * `DELETE /api/v1/featured_tags/:id` takes; the word "pin" here means the
+ * profile's featured tags, not a post pin. */
+export interface FeaturedTag {
+  id: string;
+  name: string;
+  /** Post count as the server counts it, or null when absent. */
+  statusesCount: number | null;
+  /** ISO day of the last post, or null. */
+  lastStatusAt: string | null;
+}
+
+/**
+ * Hashtag curation (clickstone §1.4). `follow`/`unfollow` exist on the
+ * Mastodon family (vanilla + Akkoma, `/api/v1/tags/:id/follow`); the
+ * `featured*` surface is vanilla-Mastodon-only — Akkoma/Pleroma have no
+ * `/api/v1/featured_tags`, so those methods stay undefined there and the
+ * UI renders a disabled row with the reason instead of hiding it.
+ *
+ * There is NO hashtag mute endpoint on either server (verified: vanilla
+ * Mastodon's tag routes expose show/follow/unfollow/feature/unfeature only;
+ * Akkoma's `TagController` adds no mute). A tag mute is therefore never
+ * faked here — the UI documents the gap.
+ */
+export interface TagsApi {
+  /** `GET /api/v1/tags/:id` — the follow/feature state. Optional so a
+   * fork that cannot answer leaves the row in the honest unknown state. */
+  show?(name: string): Promise<TagInfo>;
+  follow(name: string): Promise<void>;
+  unfollow(name: string): Promise<void>;
+  /** Followed tags, newest-first Link paging (`GET /api/v1/followed_tags`). */
+  followed(opts?: PageOpts): Promise<Page<TagInfo>>;
+  /** Profile-pinned tags (`GET /api/v1/featured_tags`). Undefined on
+   * forks without the endpoint. */
+  featured?(): Promise<FeaturedTag[]>;
+  /** Pin/unpin by tag name (`POST /api/v1/tags/:id/feature|unfeature`,
+   * with the older `/api/v1/featured_tags` calls as a 404/405 fallback).
+   * Undefined on forks without featured tags. */
+  feature?(name: string): Promise<void>;
+  unfeature?(name: string): Promise<void>;
+  /** `DELETE /api/v1/featured_tags/:id` — the row-id form. Undefined on
+   * forks without featured tags. */
+  deleteFeatured?(id: string): Promise<void>;
+}
+
+/**
+ * Personal domain blocks (`/api/v1/domain_blocks`, clickstone §1.4):
+ * the domains THIS account blocks, not the instance's admin-level blocks.
+ * Every MastoAPI server here serves the personal trio; a fork answering
+ * 404/405 leaves this module undefined and the UI shows a disabled row.
+ */
+export interface DomainBlocksApi {
+  /** The blocked domains, Link-paged (server caps at 100/page). */
+  list(opts?: PageOpts): Promise<Page<string>>;
+  /** Block a domain for this account (`POST {domain}`). */
+  block(domain: string): Promise<void>;
+  /** Unblock (`DELETE` with the domain in the query, as the web client
+   * sends it; never elsewhere in the path). */
+  unblock(domain: string): Promise<void>;
+}
+
+/**
+ * Canonicalizes what a user typed into a domain block into the bare host
+ * the server stores: trims, drops a pasted `https://` scheme (and anything
+ * after the first `/`), strips a leading `@`/`acct@` form, lowercases, and
+ * drops a trailing dot. Returns "" for input that is not a plausible host,
+ * so callers can refuse instead of sending garbage.
+ */
+export function normalizeDomainBlock(input: string): string {
+  let value = input.trim().toLowerCase();
+  if (value.length === 0) return "";
+  value = value.replace(/^[a-z][a-z0-9+.-]*:\/\//, "");
+  const slash = value.indexOf("/");
+  if (slash !== -1) value = value.slice(0, slash);
+  const at = value.lastIndexOf("@");
+  if (at !== -1) value = value.slice(at + 1);
+  if (value.endsWith(".")) value = value.slice(0, -1);
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(value)) {
+    return "";
+  }
+  return value;
+}
+
 // --- The Backend interface -------------------------------------------------
 
 export interface Backend {
@@ -725,4 +826,10 @@ export interface Backend {
    * without the endpoints leave it undefined and the page degrades to
    * search-only with honest unavailable states). */
   explore?: ExploreApi;
+  /** Hashtag follow/feature curation (Mastodon family; clickstone §1.4).
+   * Undefined on the Misskey family, which has no tag-follow endpoint. */
+  tags?: TagsApi;
+  /** Personal domain blocks (Mastodon family; clickstone §1.4). Undefined
+   * where the server has no `/api/v1/domain_blocks`. */
+  domainBlocks?: DomainBlocksApi;
 }

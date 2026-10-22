@@ -143,9 +143,17 @@ export interface TagHistoryEntry {
 }
 
 export interface Tag {
+  /** Present on the tag endpoints (`GET /api/v1/tags/:id`), absent on the
+   * inline tag summaries packed on statuses. */
+  id?: ID;
   name: string;
   url: string;
   history?: TagHistoryEntry[] | null;
+  /** Sent only to an authenticated caller by `GET /api/v1/tags/:id`
+   * (`REST::TagSerializer` gates both on `current_user`). Absent means the
+   * server did not say — never read as false. */
+  following?: boolean;
+  featuring?: boolean;
 }
 
 /** `GET /api/v2/suggestions` row: `{source, account}` (v1 is the bare
@@ -441,6 +449,18 @@ export interface ScheduledStatus {
     [key: string]: unknown;
   } | null;
   media_attachments?: MediaAttachment[] | null;
+}
+
+// --- Hashtags ---------------------------------------------------------------
+
+/** `GET /api/v1/featured_tags` row (`REST::FeaturedTagSerializer`): the
+ * row id is the id DELETE takes; `statuses_count` is a numeric STRING. */
+export interface FeaturedTag {
+  id: ID;
+  name: string;
+  url?: string;
+  statuses_count?: string | number;
+  last_status_at?: string | null;
 }
 
 // --- OAuth ----------------------------------------------------------------
