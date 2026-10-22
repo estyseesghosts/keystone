@@ -15,6 +15,11 @@ export interface PostCardHandlers {
   onQuote?: (post: Post) => void
   /** Open the composer editing own `post`. */
   onEdit?: (post: Post) => void
+  /** Delete own `post`, then open the composer seeded with its payload
+   * (clickstone §1.7). The live card supplies the default implementation
+   * (delete through the owning session's backend, then the Compose route);
+   * screens/tests override it. */
+  onRedraft?: (post: Post) => void | Promise<void>
   /**
    * Seam for the emoji picker: open it for `post`; when the user picks,
    * call `pick(key, emojiUrl)` (emojiUrl = custom emoji art or null).

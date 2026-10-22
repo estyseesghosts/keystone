@@ -12,6 +12,7 @@ import {
   countComposeChars,
   defaultVisibilityFor,
   emptyComposeState,
+  pendingMediaUpdates,
   visibilityOptionsFor,
   REACTION_ACCEPTANCE_LABELS,
   type Backend,
@@ -51,6 +52,7 @@ import {
   RecipientSection,
   ScheduledListSection,
   ScheduleSection,
+  SeededMediaSection,
   ServerDraftsSection,
   SuggestEmojiSection,
   UploadsSection,
@@ -99,8 +101,14 @@ export interface ComposerProps {
   quote?: Post | null
   /** Edit mode: seed text/CW/visibility from this post and save via
    * `backend.editPost` instead of creating. Reply/quote/schedule/poll
-   * controls are hidden — the server keeps what the edit does not send. */
+   * controls are hidden — the server keeps what the edit does not send.
+   * The post's attachments seed the description editor so alt text is
+   * editable after upload (clickstone §1.7). */
   editing?: Post | null
+  /** Delete-and-redraft seed (clickstone §1.7): a composer seed produced by
+   * `redraftSeedOf` for a post that is ALREADY deleted. Seeds create mode
+   * (text/CW/visibility/localOnly/media/reply/quote), never edit mode. */
+  redraftSeed?: Partial<ComposeState> | null
   /** Restore this local draft on open. */
   draftId?: string | null
   /** Drive folder for uploads made from this composer (Misskey family).
@@ -143,6 +151,7 @@ export function useComposerController({
   replyTo = null,
   quote = null,
   editing = null,
+  redraftSeed = null,
   draftId = null,
   uploadFolderId = null,
   onClose,
@@ -163,10 +172,18 @@ export function useComposerController({
 
   const [id] = useState(() => draftId ?? newDraftId())
   const [state, setState] = useState<ComposeState>(() => {
+    if (redraftSeed) {
+      // Redraft (clickstone §1.7): the post is gone; the seed is the
+      // composer's only source. Media rows keep their server ids AND their
+      // current alt text, so the description editor starts from the truth.
+      return emptyComposeState(redraftSeed)
+    }
     if (editing) {
       // Edit mode seeds from the post, never from a draft: the text is the
       // source MFM where the server packed it (plain otherwise), the CW
       // re-arms when present, and the visibility round-trips verbatim.
+      // Attachments seed the description editor with their CURRENT alt text
+      // (the old `alt: ''` passthrough silently dropped captions on save).
       const cw = editing.cw ?? ''
       return emptyComposeState({
         visibilityRaw: editing.visibility.raw,
@@ -176,6 +193,13 @@ export function useComposerController({
         text: editing.content.mfm ?? editing.content.plain,
         cw,
         cwEnabled: cw !== '',
+        media: (editing.media ?? []).map(m => ({
+          id: m.id,
+          alt: m.description ?? '',
+          originalAlt: m.description ?? '',
+          previewUrl: m.previewUrl ?? m.url ?? null,
+          sensitive: m.isSensitive,
+        })),
       })
     }
     const restored = draftId ? listDrafts(store, session.id).find(d => d.id === draftId) : null
@@ -265,9 +289,44 @@ export function useComposerController({
   const count = countComposeChars(family, state.text)
   const over = count > limits.maxChars
   const options = visibilityOptionsFor(family)
-  const mediaFull = uploads.items.length >= limits.maxMedia
-  const pollBlockedByMedia = uploads.items.length > 0
+  const mediaFull = uploads.items.length + state.media.length >= limits.maxMedia
+  const pollBlockedByMedia = uploads.items.length > 0 || state.media.length > 0
   const mediaBlockedByPoll = !!state.poll
+
+  /** Description edits owed to the server before the post itself is
+   * written: seeded attachments whose alt changed and uploads whose text
+   * changed after the file was sent (clickstone §1.7). Throws when the
+   * server refuses — the caller aborts instead of posting with stale alt
+   * text. */
+  const applyMediaEdits = async () => {
+    if (!backend.updateMedia) return
+    const updates = pendingMediaUpdates(
+      state.media,
+      uploads.items.map(u => ({
+        mediaId: u.mediaId,
+        alt: u.alt,
+        originalAlt: u.altAtUpload,
+        status: u.status,
+      })),
+    )
+    for (const update of updates) {
+      await backend.updateMedia(update.id, {description: update.description})
+    }
+  }
+
+  /** Set one seeded attachment's description (edited locally, saved on
+   * submit through `updateMedia`). */
+  const setSeededAlt = useCallback((id: string, alt: string) => {
+    setState(s => ({
+      ...s,
+      media: s.media.map(m => (m.id === id ? {...m, alt} : m)),
+    }))
+  }, [])
+
+  /** Drop one seeded attachment from the post (the server file stays). */
+  const removeSeeded = useCallback((id: string) => {
+    setState(s => ({...s, media: s.media.filter(m => m.id !== id)}))
+  }, [])
 
   // Clear-after-post (C1): the inline composer stays mounted, so success
   // resets it to a fresh empty draft (text, CW, poll, uploads, schedule).
@@ -313,7 +372,12 @@ export function useComposerController({
           }
           mediaIds = ids
         }
-        const keepMediaIds = mediaIds ?? editing.mediaIds ?? []
+        // Alt text / descriptions changed on existing attachments go to the
+        // media endpoint FIRST (clickstone §1.7): the edit cannot save a
+        // caption the user believes they changed while the server kept the
+        // old one.
+        await applyMediaEdits()
+        const keepMediaIds = mediaIds ?? (state.media.length > 0 ? state.media.map(m => m.id) : editing.mediaIds) ?? []
         await edit.mutateAsync({
           id: editing.id,
           draft: {...pre.draft, ...(keepMediaIds.length > 0 ? {mediaIds: keepMediaIds} : {})},
@@ -331,7 +395,13 @@ export function useComposerController({
     }
     // Validate text rules first (media ids are filled after upload).
     const pre = buildPostDraft(
-      {...state, media: uploads.items.map(u => ({id: u.mediaId ?? u.key, alt: u.alt, sensitive: u.sensitive}))},
+      {
+        ...state,
+        media: [
+          ...state.media,
+          ...uploads.items.map(u => ({id: u.mediaId ?? u.key, alt: u.alt, sensitive: u.sensitive})),
+        ],
+      },
       {family, gates, limits},
     )
     if (!pre.ok) {
@@ -356,15 +426,20 @@ export function useComposerController({
         onPosted?.(result.kind)
         onClose?.()
       }
-      const built = buildPostDraft(
-        {...state, media: mediaIds.map(m => ({id: m, alt: ''}))},
-        {family, gates, limits},
-      )
+      const allMedia = () => [
+        ...state.media,
+        ...mediaIds.map(m => ({id: m, alt: ''})),
+      ]
+      const built = buildPostDraft({...state, media: allMedia()}, {family, gates, limits})
       if (!built.ok) {
         setError(built.reason)
         return
       }
       try {
+        // Descriptions on reattached files (a redraft keeps its attachments
+        // server-side) are saved before the post so the new post carries the
+        // alt text the user last typed (clickstone §1.7).
+        await applyMediaEdits()
         const result = await create.mutateAsync({draft: built.draft, scheduledAt: built.scheduledAt})
         finish(result)
       } catch (err) {
@@ -377,7 +452,7 @@ export function useComposerController({
           (err.code === 'QUOTE_DISABLED_FOR_USER' || err.message.includes('QUOTE_DISABLED'))
         if (!refused) throw err
         const unquoted = buildPostDraft(
-          {...state, quote: null, media: mediaIds.map(m => ({id: m, alt: ''}))},
+          {...state, quote: null, media: allMedia()},
           {family, gates, limits},
         )
         if (!unquoted.ok) {
@@ -452,8 +527,8 @@ export function useComposerController({
     notice, setNotice, attachTargets, resetAfterPost,
     pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
-    submit, addMedia, styles, restore, drafts,
-    session, backend, store, replyTo, quote, draftId, editing, onClose, onPosted,
+    submit, addMedia, styles, restore, drafts, setSeededAlt, removeSeeded,
+    session, backend, store, replyTo, quote, draftId, editing, redraftSeed, onClose, onPosted,
   }
 }
 
@@ -655,6 +730,8 @@ export function Composer(props: ComposerProps) {
       ) : null}
 
       <PollSection c={controller} />
+
+      <SeededMediaSection c={controller} />
 
       <UploadsSection c={controller} />
 

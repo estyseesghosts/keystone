@@ -146,12 +146,17 @@ export interface ComposeGates {
   noQuote: ComposeGate;
   /** Per-attachment sensitive flag applied at upload time. */
   mediaSensitive: ComposeGate;
+  /** Alt text / description edited AFTER upload (clickstone §1.7).
+   * Enabled when the backend exposes `updateMedia` (both families do:
+   * Mastodon `PUT /api/v1/media/:id`, Misskey `drive/files/update`
+   * `comment`); an absent API means the field stays locked with a reason. */
+  mediaDescription: ComposeGate;
 }
 
 export function composeGates(
   family: ServerFamily,
   caps: Capabilities | null | undefined,
-  backend?: Pick<Backend, "scheduled"> | null,
+  backend?: Pick<Backend, "scheduled" | "updateMedia"> | null,
 ): ComposeGates {
   if (!caps) {
     const none = off("Sign in to post.");
@@ -166,6 +171,7 @@ export function composeGates(
       quote: none,
       noQuote: none,
       mediaSensitive: none,
+      mediaDescription: none,
     };
   }
   return {
@@ -214,6 +220,9 @@ export function composeGates(
         : caps.media_sensitivity === "unsupported"
           ? off("This server marks media sensitivity for the whole post, not per attachment.")
           : off("This server has not reported per-attachment sensitivity."),
+    mediaDescription: backend?.updateMedia
+      ? on
+      : off("This server cannot change a description after upload."),
   };
 }
 
@@ -224,6 +233,13 @@ export interface ComposeMedia {
   id: string;
   alt: string;
   sensitive?: boolean;
+  /** Description the server already holds (seeded edit/redraft rows). The
+   * composer compares against it to decide whether a
+   * `Backend.updateMedia` call is needed; uploads use the same field as
+   * the alt sent WITH the file. */
+  originalAlt?: string;
+  /** Thumbnail for an existing attachment (seeded rows only). */
+  previewUrl?: string | null;
 }
 
 export interface ComposePollState {
@@ -376,6 +392,70 @@ export function buildPostDraft(state: ComposeState, ctx: BuildContext): BuildRes
   // composer did not show — the `Post` model has no `noQuote` to seed it).
   if (gates.noQuote.enabled && state.noQuote) draft.noQuote = true;
   return { ok: true, draft, scheduledAt };
+}
+
+// --- Delete-and-redraft (clickstone §1.7) ------------------------------------
+
+/** Reply/quote targets a redraft re-attaches. Pass them when the caller
+ * resolved the ids through its backend; the post's own packed copies are
+ * the fallback, and an absent target is simply dropped (never invented). */
+export interface RedraftTargets {
+  replyTo?: Post | null;
+  quote?: Post | null;
+}
+
+/** Composer seed from an existing post — the "redraft" half of
+ * delete-and-redraft. Pure: no network, no clock.
+ *
+ * What is carried: MFM source when the server packed it (plain otherwise),
+ * CW, the wire visibility VERBATIM (a `home` post redrafts as `home`),
+ * local-only, the attachments with their current alt text (so the composer's
+ * description editor starts from the truth) and reply/quote context.
+ *
+ * What is NOT carried, deliberately: the poll (a deleted post's votes are
+ * gone; silently reopening an empty poll would fake a fresh one), and the
+ * per-note `noQuote` flag (the model carries no such field — the composer
+ * shows the toggle unset rather than guessing). */
+export function redraftSeedOf(post: Post, targets: RedraftTargets = {}): Partial<ComposeState> {
+  const cw = post.cw ?? "";
+  return {
+    text: post.content.mfm ?? post.content.plain,
+    cw,
+    cwEnabled: cw !== "",
+    visibilityRaw: post.visibility.raw,
+    localOnly: post.visibility.localOnly,
+    replyTo: targets.replyTo ?? post.reply ?? null,
+    quote: targets.quote ?? post.quote ?? null,
+    media: post.media.map((m) => ({
+      id: m.id,
+      alt: m.description ?? "",
+      originalAlt: m.description ?? "",
+      previewUrl: m.previewUrl ?? m.url ?? null,
+      sensitive: m.isSensitive,
+    })),
+  };
+}
+
+/** The description writes a composer submit owes the server: seeded
+ * attachments whose alt text changed, and uploads whose text changed after
+ * the file was sent. Pure so the composer's submit path and its tests share
+ * one rule (unchanged rows never cause a request). */
+export function pendingMediaUpdates(
+  seeded: readonly ComposeMedia[],
+  uploaded: readonly {mediaId?: string | null; alt: string; originalAlt?: string; status?: string}[],
+): Array<{ id: string; description: string | null }> {
+  const out: Array<{ id: string; description: string | null }> = [];
+  for (const m of seeded) {
+    const before = m.originalAlt ?? "";
+    if (m.alt === before) continue;
+    out.push({ id: m.id, description: m.alt.trim() === "" ? null : m.alt });
+  }
+  for (const u of uploaded) {
+    if (!u.mediaId || u.status !== "done") continue;
+    if (u.alt === (u.originalAlt ?? "")) continue;
+    out.push({ id: u.mediaId, description: u.alt.trim() === "" ? null : u.alt });
+  }
+  return out;
 }
 
 // --- Autocomplete trigger parsing ---------------------------------------------------

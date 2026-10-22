@@ -69,6 +69,7 @@ import {ListsScreen} from '#/screens/Lists'
 import {LoginScreen} from '#/screens/Login'
 import {NetworkScreen} from '#/screens/Network'
 import {NoteScreen} from '#/screens/Note'
+import {NoteHistoryScreen} from '#/screens/NoteHistory'
 import {NotificationsScreen} from '#/screens/Notifications'
 import {ProfileEditorScreen} from '#/screens/ProfileEditor'
 import {SettingsScreen} from '#/screens/Settings'
@@ -916,6 +917,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
             <Stack.Navigator screenOptions={{headerShown: false, animation: 'none'}}>
               <Stack.Screen name="Main" component={MainTabs} />
               <Stack.Screen name="Note" component={NoteScreen} />
+              <Stack.Screen name="NoteHistory" component={NoteHistoryScreen} />
               <Stack.Screen name="Tag" component={TagScreen} />
               <Stack.Screen name="List" component={ListScreen} />
               <Stack.Screen name="Lists" component={ListsScreen} />

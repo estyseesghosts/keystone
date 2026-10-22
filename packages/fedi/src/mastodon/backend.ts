@@ -53,6 +53,7 @@ import type {
   ListFields,
   ListRepliesPolicy,
   ListSummary,
+  MediaUpdate,
   NotificationsOpts,
   PageOpts,
   PostDraft,
@@ -95,6 +96,7 @@ import {
   fetchInstanceRules,
   fetchScheduledStatusesPage,
   fetchStatusAccountPage,
+  fetchStatusHistory,
   fetchV2NotificationRows,  fetchSuggestions,
   fetchTimelinePage,
   fetchTagTimelinePage,
@@ -117,10 +119,12 @@ import {
   setStatusPinned,
   setShowingReblogs,
   translateStatus,
+  updateMediaAttachment,
   voteInPoll,
 } from "./endpoints";
 import { createStatus, setEmojiReaction, setStatusToggle } from "./statusActions";
 import { newIdempotencyKey, statusBodyOf } from "./compose";
+import { adaptStatusHistory } from "./adapt";
 import { rebuildThread } from "./thread";
 import { createStreamHandle } from "./stream";
 import { createClient, toApiError as clientToApiError } from "./client";
@@ -552,14 +556,23 @@ export function createMastodonBackend(
       return createStatus(client, body, newIdempotencyKey());
     },
 
-    async deletePost(id) {
-      await deleteStatus(client, id);
+    async deletePost(id, opts) {
+      await deleteStatus(client, id, { keepMedia: opts?.keepMedia === true });
     },
 
     async editPost(id, draft: PostDraft) {
       // Edits write back `visibility.raw` (plan §2.1): a `local` post is
       // edited as `local`, never rewritten.
       return editStatus(client, id, statusBodyOf(draft));
+    },
+
+    async editHistory(id) {
+      // `GET /api/v1/statuses/:id/history`: server order is oldest-first
+      // with the creation snapshot first; `adaptStatusHistory` reverses it
+      // to the newest-first order the screen renders. A server without the
+      // endpoint answers 404/405 and the caller's typed unsupported state
+      // applies — this never synthesizes a revision.
+      return adaptStatusHistory(await fetchStatusHistory(client, id));
     },
 
     async react(id, reaction) {
@@ -1115,6 +1128,18 @@ export function createMastodonBackend(
         throw new FediError("The server did not return the uploaded media.", "errors.shape.uploadedMedia");
       }
       return adaptMedia(media, opts.isSensitive === true);
+    },
+
+    async updateMedia(id: string, patch: MediaUpdate) {
+      // `PUT /api/v1/media/:id`: description (alt) and focus (crop) are the
+      // only writable fields upstream; a field the caller did not set is
+      // never sent. The answer is the updated attachment, which is the new
+      // state (no read-back needed).
+      const updated = await updateMediaAttachment(client, id, {
+        ...(patch.description !== undefined ? { description: patch.description } : {}),
+        ...(patch.focus !== undefined ? { focus: patch.focus } : {}),
+      });
+      return adaptMedia(updated, false);
     },
 
     filters: {

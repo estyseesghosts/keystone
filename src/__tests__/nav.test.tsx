@@ -133,6 +133,16 @@ describe('Navigation', () => {
     expect(JSON.stringify(channel)).toMatch(/"id":"ch1"/)
   })
 
+  it('routes the edit-history screen under the note (clickstone §1.7)', () => {
+    const history = getStateFromPath('/notes/p1/history', linking.config)
+    expect(JSON.stringify(history)).toMatch(/NoteHistory/)
+    expect(JSON.stringify(history)).toMatch(/"id":"p1"/)
+    // The plain note route still wins for its own path.
+    const note = getStateFromPath('/notes/p1', linking.config)
+    expect(JSON.stringify(note)).toMatch(/"name":"Note"/)
+    expect((linkingScreens() as Record<string, string>).NoteHistory).toBe('notes/:id/history')
+  })
+
   it('accepts both the canonical and the v1 root OAuth callback paths (clickstone §1.13)', () => {
     const canonical = getStateFromPath('/auth/callback?code=c1&state=s1', linking.config)
     expect(JSON.stringify(canonical)).toMatch(/AuthCallback/)

@@ -100,6 +100,9 @@ export type RootParamList = {
   Notifications: undefined
   User: {id?: string; acct?: string} | undefined
   Note: {id: string}
+  /** One post's edit history (clickstone §1.7). Only reachable on a family
+   * whose backend exposes `editHistory` (Mastodon). */
+  NoteHistory: {id: string}
   Tag: {tag: string}
   List: {id: string}
   Lists: undefined
@@ -123,7 +126,18 @@ export type RootParamList = {
   /** v1 root-base callback URL (`/keystone/callback`) — same screen. */
   KeystoneCallback: undefined
   SysDebug: undefined
-  Compose: {replyToId?: string; quoteId?: string; draftId?: string; editId?: string} | undefined
+  Compose:
+    | {
+        replyToId?: string
+        quoteId?: string
+        draftId?: string
+        editId?: string
+        /** Delete-and-redraft handoff key (clickstone §1.7): the payload is
+         * already in the in-memory seed store — the post itself is gone, so
+         * this route never re-fetches it. */
+        redraftId?: string
+      }
+    | undefined
 }
 
 export const paths: Record<keyof RootParamList, string> = {
@@ -133,6 +147,7 @@ export const paths: Record<keyof RootParamList, string> = {
   Notifications: '/notifications',
   User: '/users/:id?',
   Note: '/notes/:id',
+  NoteHistory: '/notes/:id/history',
   Tag: '/tags/:tag',
   List: '/lists/:id',
   Lists: '/lists',
@@ -242,6 +257,7 @@ export function linkingScreens(): LinkingScreens {
       },
     },
     Note: leaf('Note'),
+    NoteHistory: leaf('NoteHistory'),
     Tag: leaf('Tag'),
     List: leaf('List'),
     Lists: leaf('Lists'),
@@ -289,6 +305,8 @@ export function titleForRoute(
       return t`Profile`
     case 'Note':
       return t`Note`
+    case 'NoteHistory':
+      return t`Edit history`
     case 'Tag':
       return typeof params?.tag === 'string' && params.tag ? `#${params.tag}` : t`Tag`
     case 'List':

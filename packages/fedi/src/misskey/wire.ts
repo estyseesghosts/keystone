@@ -143,6 +143,11 @@ export interface Note {
   tags: string[];
   emojis: Record<string, string>;
   myReaction: string | null;
+  /** Sharkey packs the last edit time here (`Note.updatedAt` is set by
+   * `NoteEditService`); upstream Misskey sends no field at all. Read as
+   * `Post.editedAt` — absent means "not edited, or this server does not
+   * say", never a guess. */
+  updatedAt?: string | null;
 }
 
 export interface CreatedNoteResponse {

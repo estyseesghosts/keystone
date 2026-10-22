@@ -49,6 +49,7 @@ import type {
   Rule as WireRule,
   ScheduledStatus as WireScheduledStatus,
   Status,
+  StatusEdit,
 } from "./wire";
 
 const PAGE_LIMIT = 20; // server default; hard max 40 on both backends
@@ -782,8 +783,59 @@ async function accountListPage(
 // adapts at its boundary. Bodies are built from core `PostDraft` in
 // `compose.ts` / `backend.ts`, never here.
 
-export async function deleteStatus(client: MastoClient, id: string): Promise<void> {
-  await client.delete(`/api/v1/statuses/${encodeURIComponent(id)}`);
+export async function deleteStatus(
+  client: MastoClient,
+  id: string,
+  opts: { keepMedia?: boolean } = {},
+): Promise<void> {
+  // `delete_media=false` is Mastodon's redraft switch: the attachments stay
+  // on the account (`StatusesController#destroy` →
+  // `RemovalWorker(redraft: !truthy_param?(:delete_media))`), so a
+  // delete-and-redraft can reattach them. It rides the QUERY string, not a
+  // JSON body; a plain delete sends nothing and lets the server apply its
+  // own default.
+  await client.delete(
+    `/api/v1/statuses/${encodeURIComponent(id)}`,
+    undefined,
+    opts.keepMedia ? { query: { delete_media: false } } : undefined,
+  );
+}
+
+/** `GET /api/v1/statuses/:id/history` (clickstone §1.7,
+ * `HistoriesController#show`). Raw `StatusEdit` rows, server order. */
+export async function fetchStatusHistory(
+  client: MastoClient,
+  id: string,
+): Promise<StatusEdit[]> {
+  const res = await client.get<StatusEdit[]>(
+    `/api/v1/statuses/${encodeURIComponent(id)}/history`,
+  );
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+/** `PUT /api/v1/media/:id` (clickstone §1.7). Mastodon permits
+ * `description` and `focus` only (`updateable_media_attachment_params`);
+ * `undefined` fields are never sent, so a patch that only sets the
+ * description cannot wipe the focus and vice versa. `null` clears. */
+export async function updateMediaAttachment(
+  client: MastoClient,
+  id: string,
+  patch: { description?: string | null; focus?: string | null },
+): Promise<MediaAttachment> {
+  const body: Record<string, unknown> = {};
+  if (patch.description !== undefined) body.description = patch.description;
+  if (patch.focus !== undefined) body.focus = patch.focus;
+  const res = await client.put<MediaAttachment>(
+    `/api/v1/media/${encodeURIComponent(id)}`,
+    body,
+  );
+  if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
+    throw new FediError(
+      "The media update returned an unexpected response shape.",
+      "errors.shape.mediaUpdate",
+    );
+  }
+  return res.data;
 }
 
 /** `PUT /api/v1/statuses/:id` (contract §4). The answer is the edited

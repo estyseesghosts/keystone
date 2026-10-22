@@ -136,8 +136,19 @@ export function UploadsSection({c}: {c: ComposerController}) {
               label={i18n._(msg`Description (alt text)`)}
               value={u.alt}
               onChangeText={t => c.uploads.setAlt(u.key, t)}
-              placeholder={u.status === 'done' ? i18n._(msg`Locked after upload`) : i18n._(msg`Describe the media`)}
+              editable={c.gates.mediaDescription.enabled || u.status !== 'done'}
+              placeholder={
+                u.status === 'done' && !c.gates.mediaDescription.enabled
+                  ? c.gates.mediaDescription.reason
+                  : i18n._(msg`Describe the media`)
+              }
+              testID={`composer-upload-alt-${u.key}`}
             />
+            {u.status === 'done' && !c.gates.mediaDescription.enabled ? (
+              <Caption color="muted" testID={`composer-upload-alt-reason-${u.key}`}>
+                {c.gates.mediaDescription.reason}
+              </Caption>
+            ) : null}
             {/* Attach-time sensitivity (`drive/files/create` `isSensitive`).
                 The flag rides WITH the upload, so it is fixed once the file
                 is on the server; where the family only has status-level
@@ -165,6 +176,52 @@ export function UploadsSection({c}: {c: ComposerController}) {
           {sensitiveGate.reason}
         </Caption>
       ) : null}
+    </>
+  )
+}
+
+/**
+ * Descriptions of attachments the post ALREADY carries (edit mode and
+ * delete-and-redraft; clickstone §1.7). The file is on the server, so the
+ * text is saved through `Backend.updateMedia` on submit — never re-uploaded.
+ * Where the backend has no such endpoint the field is disabled WITH the
+ * gate's reason (never "locked after upload" with no explanation).
+ */
+export function SeededMediaSection({c}: {c: ComposerController}) {
+  const gate = c.gates.mediaDescription
+  if (c.state.media.length === 0) return null
+  return (
+    <>
+      {c.state.media.map(m => (
+        <View key={m.id} style={c.styles.media} testID={`composer-seeded-${m.id}`}>
+          {m.previewUrl ? (
+            <Image source={{uri: m.previewUrl}} style={c.styles.thumb} accessibilityLabel={m.alt} />
+          ) : (
+            <View style={c.styles.thumb} />
+          )}
+          <View style={{flex: 1, gap: space.xs}}>
+            <Caption color="muted">{i18n._(msg`Attached to this post`)}</Caption>
+            <TextField
+              label={i18n._(msg`Description (alt text)`)}
+              value={m.alt}
+              onChangeText={t => (gate.enabled ? c.setSeededAlt(m.id, t) : undefined)}
+              editable={gate.enabled}
+              placeholder={gate.enabled ? i18n._(msg`Describe the media`) : gate.reason}
+              testID={`composer-seeded-alt-${m.id}`}
+            />
+            {!gate.enabled ? (
+              <Caption color="muted" testID={`composer-seeded-alt-reason-${m.id}`}>
+                {gate.reason}
+              </Caption>
+            ) : null}
+          </View>
+          <Chip
+            label={i18n._(msg`Remove`)}
+            onPress={() => c.removeSeeded(m.id)}
+            testID={`composer-seeded-remove-${m.id}`}
+          />
+        </View>
+      ))}
     </>
   )
 }

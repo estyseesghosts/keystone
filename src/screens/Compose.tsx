@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react'
+import {useEffect, useRef, useState} from 'react'
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -29,6 +29,7 @@ import {CompactComposer} from '#/components/Composer/CompactComposer'
 import {sheetKeyboardInset, sheetVisibleMaxHeight} from '#/components/Composer/Composer'
 import {Loader} from '#/components/Loader'
 import {Pressable} from '#/components/Pressable'
+import {takeRedraftSeed, type RedraftSeed} from '#/lib/redraft'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {appStorage} from '#/storage'
@@ -44,9 +45,19 @@ export function ComposeScreen() {
   const layout = useShellLayout()
   const alf = useAlfTheme()
   const {session, backend} = useActiveBackend()
-  const {replyToId, quoteId, draftId, editId} = route.params ?? {}
+  const {replyToId, quoteId, draftId, editId, redraftId} = route.params ?? {}
   const [targets, setTargets] = useState<{replyTo: Post | null; quote: Post | null; editing: Post | null} | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
+  // Delete-and-redraft seed (clickstone §1.7): read ONCE from the handoff
+  // the delete flow filled. A missing seed means the route was reached
+  // without a redraft (cold start/deep link) — that is its own honest
+  // state, not an empty composer. The ref keeps the read out of a state
+  // initializer that React could invoke twice.
+  const seedRef = useRef<RedraftSeed | null | undefined>(undefined)
+  if (seedRef.current === undefined) {
+    seedRef.current = redraftId ? takeRedraftSeed(redraftId) : null
+  }
+  const redraftSeed = seedRef.current
   // Native keyboard tracking (C3): the KeyboardAvoidingView already offsets
   // on iOS, but the sheet card itself also caps to the visible area and (on
   // Android, where the KAV uses `height`) pads below the content so the
@@ -155,6 +166,14 @@ export function ComposeScreen() {
       </View>,
     )
   }
+  if (redraftId && !redraftSeed) {
+    return shell(
+      <View style={[atoms.centered, atoms.p_md, atoms.gap_md]}>
+        <Body>There is nothing to redraft here.</Body>
+        <Button label="Close" variant="secondary" onPress={close} />
+      </View>,
+    )
+  }
   if (!targets) {
     return shell(
       <View style={[atoms.centered, atoms.p_md]}>
@@ -165,13 +184,14 @@ export function ComposeScreen() {
   return shell(
     <CompactComposer
       // Remount when the account or target changes: state never carries across.
-      key={`${session.id}|${replyToId ?? ''}|${quoteId ?? ''}|${draftId ?? ''}|${editId ?? ''}`}
+      key={`${session.id}|${replyToId ?? ''}|${quoteId ?? ''}|${draftId ?? ''}|${editId ?? ''}|${redraftId ?? ''}`}
       session={session}
       backend={backend}
       store={appStorage()}
       replyTo={targets.replyTo}
       quote={targets.quote}
       editing={targets.editing}
+      redraftSeed={redraftSeed}
       draftId={draftId ?? null}
       onClose={close}
     />,

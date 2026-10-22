@@ -139,6 +139,11 @@ export function PostMenu({
           ) : confirming ? (
             <View style={atoms.gap_sm}>
               <Body>{confirming.confirm!.title}</Body>
+              {confirming.confirm!.message ? (
+                <Caption color="muted" testID={`${id}-confirm-message`}>
+                  {confirming.confirm!.message}
+                </Caption>
+              ) : null}
               {confirming.confirm!.commentLabel ? (
                 <TextField
                   label={confirming.confirm!.commentLabel}
