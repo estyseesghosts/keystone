@@ -155,7 +155,7 @@ Build the sections **inside the component** (not module scope) so they close ove
 | `add-list` | Add to list | `ListIcon` + chevron | **disabled** — `"Unavailable — user lists not yet supported"` |
 | `add-antenna` | Add to antenna | `AntennaIcon` + chevron | **disabled** — `"Unavailable — antenna source not yet supported"` |
 | `notify` | Notify about new notes | `BellIcon` | **disabled** — reason |
-| `dm` | Send a message | `MailIcon` | **disabled** — `"Unavailable — no messaging in Keystone yet"` |
+| `dm` | Send a message | `MailIcon` | **disabled** — gated on the `direct_messages` capability (slice 0.9); reason: `"Messaging is not implemented in Keystone yet — this client has no DM or chat screen. The gap is here, not on your server."` (the flag is `unsupported` on every flavor until Wave 2 ships a surface; never blame the server) |
 | *sep* | | | |
 | `mute` | Mute | `MuteIcon` | **slice 2** — placeholder in v1 (`"Unavailable — wires in slice 2"`) |
 | `mute-boosts` | Mute Boosts | `RepostIcon` | **slice 2** — placeholder |

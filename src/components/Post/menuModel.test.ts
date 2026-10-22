@@ -126,6 +126,80 @@ describe('clip row (W5)', () => {
   })
 })
 
+describe('DM row (0.9 — messaging gated, not invisible)', () => {
+  function dmInput(opts: {caps?: unknown; onMessage?: () => void; family?: 'mastodon' | 'misskey'} = {}) {
+    const post = makePost()
+    return {
+      family: opts.family ?? 'mastodon',
+      capabilities: opts.caps === undefined ? {} : opts.caps,
+      post,
+      origin: 'https://example.social',
+      isOwn: false,
+      copyAvailable: true,
+      bookmark: {gate: {enabled: false, reason: 'x'}, value: false, set: jest.fn()},
+      del: {gate: {enabled: false, reason: 'x'}, run: jest.fn()},
+      handlers: {
+        copy: jest.fn(),
+        share: jest.fn(),
+        open: jest.fn(),
+        translate: jest.fn(),
+        muteThread: jest.fn(),
+        togglePin: jest.fn(),
+        ...(opts.onMessage ? {user: {onMessage: opts.onMessage}} : {}),
+      },
+    } as never
+  }
+
+  function dmRow(opts: {caps?: unknown; onMessage?: () => void; family?: 'mastodon' | 'misskey'} = {}) {
+    return flatten(buildUserSubmenu(dmInput(opts))).find(i => i.key === 'dm')
+  }
+
+  it('is reachable from the post menu User submenu, not omitted', () => {
+    const user = flatten(buildPostMenu(dmInput({caps: {direct_messages: 'unsupported'}}))).find(
+      i => i.key === 'user',
+    )
+    expect(flatten(user!.submenu!).map(i => i.key)).toContain('dm')
+  })
+
+  it('is present and disabled with the client-gap reason, never omitted (mastodon)', () => {
+    const row = dmRow({caps: {direct_messages: 'unsupported'}})
+    expect(row).toBeDefined()
+    expect(row!.disabled).toBe(true)
+    // Specific reason: the missing surface is Keystone's, not the server's.
+    expect(row!.reason).toMatch(/not implemented in Keystone yet/i)
+    expect(row!.reason).not.toMatch(/this server (does not|doesn't|cannot|has no)/i)
+    // Not the old generic placeholder this slice replaces.
+    expect(row!.reason).not.toMatch(/not available in this build yet/i)
+  })
+
+  it('carries the same honest reason on the Misskey family', () => {
+    const row = dmRow({caps: {direct_messages: 'unsupported'}, family: 'misskey'})
+    expect(row!.disabled).toBe(true)
+    expect(row!.reason).toMatch(/not implemented in Keystone yet/i)
+  })
+
+  it('keeps the reason when capabilities were never loaded (signed out/stale)', () => {
+    const row = dmRow()
+    expect(row).toBeDefined()
+    expect(row!.disabled).toBe(true)
+    expect(row!.reason).toMatch(/not implemented in Keystone yet/i)
+  })
+
+  it('opens the composer only when the capability is supported and wired', () => {
+    const onMessage = jest.fn()
+    const row = dmRow({caps: {direct_messages: 'supported'}, onMessage})
+    expect(row!.disabled).toBeUndefined()
+    row!.run!()
+    expect(onMessage).toHaveBeenCalled()
+  })
+
+  it('stays disabled on a supported server with no composer connected', () => {
+    const row = dmRow({caps: {direct_messages: 'supported'}})
+    expect(row!.disabled).toBe(true)
+    expect(row!.reason).toMatch(/no message composer is connected/i)
+  })
+})
+
 describe('report row (WS-D)', () => {
   function reportInput(opts: {isOwn?: boolean; caps?: unknown; user?: unknown} = {}) {
     const post = makePost()

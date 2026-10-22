@@ -40,6 +40,7 @@ import {
   StarIcon,
 } from '#/components/icons'
 import {navigationRef} from '#/navigationRef'
+import {messagingUnavailableReason} from '#/lib/messaging'
 import type {RootParamList} from '#/routes'
 import {linkingScreens, rewriteLegacyPath, titleForRoute} from '#/routes'
 import {useOptionalActiveSession, useSessionStore, useSessions} from '#/state/session/SessionProvider'
@@ -446,6 +447,17 @@ function AccountMenu({onClose, testPrefix}: {onClose: () => void; testPrefix: st
         testID={`${testPrefix}-profile`}
         label={i18n._(msg`Profile`)}
         onPress={() => closeAnd(() => goMainTab('User'))}
+      />
+      {/* 0.9 — messaging is gated, not invisible: the entry stays in the menu
+          (a silent absence is what this slice removes) but is disabled with
+          the client-gap reason. No route exists behind it by design; Wave 2
+          slice 2.1/2.2 replaces this row when the surface ships. */}
+      <PopupRow
+        testID={`${testPrefix}-messages`}
+        label={i18n._(msg`Messages`)}
+        disabled
+        reason={messagingUnavailableReason()}
+        onPress={() => {}}
       />
       {stackEntries(active, backend).map(key => (
         <PopupRow

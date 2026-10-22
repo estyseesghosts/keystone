@@ -25,6 +25,7 @@ import {
 import {navigationRef} from '#/navigationRef'
 import {Pagehead} from '#/components/Pagehead'
 import {i18n} from '#/locale/i18n'
+import {paths} from '#/routes'
 
 jest.mock('expo-linking', () => ({
   createURL: (path: string) => `keystone://${path}`,
@@ -229,6 +230,30 @@ describe('account menu (N16)', () => {
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     expect(screen.getByTestId('strip-signin')).toBeTruthy()
     expect(screen.queryByTestId('strip-account')).toBeNull()
+  })
+
+  // 0.9 — messaging is gated, not invisible: the entry is discoverable in
+  // the account menu on BOTH families, disabled, and says why (client gap).
+  // There is deliberately no route behind it yet.
+  it('carries a disabled Messages entry with the client-gap reason (mastodon)', async () => {
+    widthHolder.width = 390
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('strip-account'))
+    const row = screen.getByTestId('strip-account-menu-messages')
+    expect(row.props.accessibilityState.disabled).toBe(true)
+    expect(row.props.accessibilityLabel).toMatch(/Messaging is not implemented in Keystone yet/i)
+    expect(Object.keys(paths)).not.toContain('Messages')
+  })
+
+  it('carries the same disabled Messages entry on a Misskey session', async () => {
+    widthHolder.width = 390
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('strip-account'))
+    const row = screen.getByTestId('strip-account-menu-messages')
+    expect(row.props.accessibilityState.disabled).toBe(true)
+    expect(row.props.accessibilityLabel).toMatch(/not on your server/i)
   })
 })
 
