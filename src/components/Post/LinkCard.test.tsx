@@ -70,6 +70,12 @@ describe('LinkCard (F12)', () => {
     const {toJSON} = renderCard(<LinkCard card={card({url: 'javascript:alert(1)'})} testID="lc" />)
     expect(toJSON()).toBeNull()
   })
+
+  it('prefers the server provider name over the bare host', () => {
+    renderCard(<LinkCard card={card({providerName: 'Example News'})} testID="lc" />)
+    expect(screen.getByText('Example News')).toBeTruthy()
+    expect(screen.queryByText('example.com')).toBeNull()
+  })
 })
 
 describe('firstBareUrl (E9 trigger)', () => {
@@ -133,6 +139,22 @@ describe('UnfurledLinkCard (E9)', () => {
     expect(screen.getByText('Unfurled description')).toBeTruthy()
     expect(fetchPreview).toHaveBeenCalledTimes(1)
     expect(fetchPreview).toHaveBeenCalledWith(URL)
+  })
+
+  it('unfurled card shows the site name, falling back to the host', async () => {
+    const fetchPreview = jest.fn(async (_url: string) => PREVIEW)
+    renderCard(<UnfurledLinkCard url={URL} fetchPreview={fetchPreview} testID="uf" />)
+    fireEvent.press(screen.getByTestId('uf-preview'))
+    expect(await screen.findByText('Example')).toBeTruthy()
+    expect(screen.queryByText('example.com')).toBeNull()
+  })
+
+  it('unfurled card without a site name falls back to the host', async () => {
+    const fetchPreview = jest.fn(async (_url: string) => ({...PREVIEW, siteName: undefined}))
+    renderCard(<UnfurledLinkCard url={URL} fetchPreview={fetchPreview} testID="uf" />)
+    fireEvent.press(screen.getByTestId('uf-preview'))
+    expect(await screen.findByText('Unfurled title')).toBeTruthy()
+    expect(screen.getByText('example.com')).toBeTruthy()
   })
 
   it('a single tap fetches exactly once', async () => {

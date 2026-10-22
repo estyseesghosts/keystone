@@ -42,6 +42,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   previewButton: {borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6},
+  siteRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  icon: {width: 16, height: 16, borderRadius: 3},
 })
 
 function hostOf(url: string): string {
@@ -84,7 +86,7 @@ export function LinkCard({card, testID}: {card: LinkCardModel; testID?: string})
             </Caption>
           ) : null}
           <Caption color="faint" numberOfLines={1}>
-            {hostOf(url)}
+            {card.providerName || hostOf(url)}
           </Caption>
         </View>
       </View>
@@ -147,6 +149,7 @@ export function UnfurledLinkCard({
   const theme = useTheme()
   const {i18n} = useLingui()
   const [imageFailed, setImageFailed] = useState(false)
+  const [iconFailed, setIconFailed] = useState(false)
   const [phase, setPhase] = useState<'idle' | 'loading' | 'done'>('idle')
   const [preview, setPreview] = useState<LinkPreview | null>(null)
   const mounted = useRef(true)
@@ -160,6 +163,8 @@ export function UnfurledLinkCard({
   useEffect(() => {
     setPhase('idle')
     setPreview(null)
+    setImageFailed(false)
+    setIconFailed(false)
   }, [url])
 
   const safe = safeHttpUrl(url)
@@ -188,6 +193,8 @@ export function UnfurledLinkCard({
 
   const previewImage = preview?.image ? safeHttpUrl(preview.image) : null
   const shownImage = previewImage !== null && !imageFailed ? previewImage : null
+  const previewIcon = preview?.icon ? safeHttpUrl(preview.icon) : null
+  const shownIcon = previewIcon !== null && !iconFailed ? previewIcon : null
 
   return (
     <View
@@ -214,9 +221,19 @@ export function UnfurledLinkCard({
               {preview.description}
             </Caption>
           ) : null}
-          <Caption color="faint" numberOfLines={1}>
-            {hostOf(safe)}
-          </Caption>
+          <View style={styles.siteRow}>
+            {shownIcon !== null ? (
+              <Image
+                source={{uri: shownIcon}}
+                style={styles.icon}
+                accessibilityRole="image"
+                onError={() => setIconFailed(true)}
+              />
+            ) : null}
+            <Caption color="faint" numberOfLines={1}>
+              {preview?.siteName || hostOf(safe)}
+            </Caption>
+          </View>
         </View>
       </Pressable>
       {phase === 'idle' ? (
