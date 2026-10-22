@@ -199,6 +199,12 @@ export async function mastodonMfaSignin(opts: {
  * No detect-first probe here: every caller detects before offering OAuth
  * (Login screen `detect()` / first-party hosting detection), so the
  * flavor is always known; absent means the full set (previous behavior).
+ *
+ * Returns whatever the caller's browser reports as the redirect outcome:
+ * the callback URL when the browser session captures it (iOS
+ * `openAuthSessionAsync` consumes the redirect in-session and never
+ * re-opens the app, so the AuthCallback deep link never fires there),
+ * null on web (same-tab navigation unloads the page) and on cancel.
  */
 export async function startMastodonOAuth(opts: {
   appStore: KeyValueStore
@@ -206,7 +212,7 @@ export async function startMastodonOAuth(opts: {
   redirectUri: string
   openBrowser: (url: string) => Promise<unknown>
   flavor?: ServerFlavor
-}): Promise<void> {
+}): Promise<string | null> {
   const app = await registerApp({
     store: opts.appStore,
     origin: opts.origin,
@@ -231,7 +237,8 @@ export async function startMastodonOAuth(opts: {
     state,
     codeChallenge: await s256Challenge(codeVerifier),
   })
-  await opts.openBrowser(url)
+  const result = await opts.openBrowser(url)
+  return typeof result === 'string' ? result : null
 }
 
 export interface OAuthCompleteResult {

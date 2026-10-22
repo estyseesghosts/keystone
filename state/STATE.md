@@ -1,8 +1,9 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: **P6 Wave 3.2 DONE on `main` (2026-10-22)** — reports queue
-merged (admin:write in NOW, ~355-char flavor URL). Next: 3.3 user
-moderation, then 3.4 federation+emoji (sequential — shared Backend
+Phase/slice: **P6 Wave 3.2 + mobile bring-up MERGED on `main`
+(2026-10-22)** — one repo (`~/keystone2`); reports queue + device
+bundling/signing/iOS-OAuth all on main. Next: 3.3 user moderation,
+then 3.4 federation+emoji (sequential — shared Backend
 interface/admin modules rule out true file-disjoint parallelism).
 Program source of truth: `docs/clickstone.md` +
 `docs/2026-10-22-full-audit-mastodon-misskey-v1-parity/`. The old V2
@@ -27,12 +28,20 @@ Verification on `main`: **187 suites / 2368 tests green**;
 Wave 3.1: admin seam + read-only insight both families.
 Wave 3.2: `ReportsQueueApi` + `AdminReports` screen (confirm-gated
 mutations, 403 disables, no faked history).
+Mobile bring-up (merged from `mobile-bringup`): worklets `bundleMode`
+off + Watchman on (Metro bundling), expo/gesture-handler SDK 57
+alignment, debug keystore + AppleWWDRCAG3 (signing), scene manifest +
+`withSceneLifecycle`/`withAppleTeamId` plugins (iOS 27), native hosting
+fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
+(live-verified iPhone Mastodon sign-in). Log:
+`state/logs/2026-10-22-mobile-bringup.md`.
 
 ## Next 3 steps
 
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
    user-note/modlog/reset-password; Mastodon account_actions
-   warn/suspend/silence + notes; NO delete-account). Single agent.
+   warn/suspend/silence + notes; NO delete-account). Single agent,
+   working in `~/keystone2` (this repo — the only checkout).
 2. Wave 3.4 federation+emoji after 3.3, then 3.5 announce/invite/roles.
    Wave 4 out of scope.
 3. End of program: intl extract/compile + deferred locale sweep
@@ -43,7 +52,10 @@ mutations, 403 disables, no faked history).
 - Rig Misskey `:3101` / Sharkey `:3102` refused; owner live-tests
   externally — do not spend a workstream on a rig. All live runs
   `not verified (owner live-tests externally)`.
-- No device pass (Oppo `3B15A500TQD00000`, iOS) and no TalkBack pass.
+- Device pass DONE 2026-10-22 (Oppo feed live, iPhone sign-in + Mastodon
+  login live; log `state/logs/2026-10-22-mobile-bringup.md`). iPhone is on
+  the second Apple ID's free provisioning (rebuild after 7-day expiry;
+  first team still at Apple's 3-device cap). No TalkBack pass.
 - Owner G1–G4 visual/parity reviews still open.
 - `fr`+7 catalogs still have untranslated management-screen tail; new
   Wave 0/1/2 strings English-only until the planned i18n sweep.
