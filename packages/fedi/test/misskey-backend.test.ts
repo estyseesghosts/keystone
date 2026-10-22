@@ -431,6 +431,62 @@ describe("MisskeyBackend notifications, drive, emojis, translate", () => {
     expect(calls[1]).toEqual({ endpoint: "drive/files/delete", params: { fileId: "f1" } });
   });
 
+  it("drive files sends folderId only for a real folder (root stays omitted)", async () => {
+    const { transport, calls } = stubTransport(() => [fixture<DriveFile>("drive-file.json")]);
+    const backend = createMisskeyBackend(transport);
+    const scoped = await backend.drive!.files({ folderId: "d1", limit: 10 });
+    expect(calls[0]).toEqual({
+      endpoint: "drive/files",
+      params: { limit: 10, folderId: "d1" },
+    });
+    expect(scoped.items[0].folderId).toBe("9examplefolder0001");
+    // An explicit null folder is the root: the field is never invented.
+    await backend.drive!.files({ folderId: null, limit: 10 });
+    expect(calls[1].params).toEqual({ limit: 10 });
+  });
+
+  it("drive file detail: show adapts one file, attached-notes pages notes", async () => {
+    const { transport, calls } = stubTransport((endpoint) =>
+      endpoint === "drive/files/show"
+        ? fixture<DriveFile>("drive-file.json")
+        : [note],
+    );
+    const backend = createMisskeyBackend(transport);
+    const shown = await backend.drive!.showFile("f1");
+    expect(calls[0]).toEqual({
+      endpoint: "drive/files/show",
+      params: { fileId: "f1" },
+    });
+    expect(shown).toMatchObject({
+      id: "9examplefile00001",
+      name: "diagram.png",
+      kind: "image",
+      description: "a diagram",
+      size: 20480,
+      folderId: "9examplefolder0001",
+    });
+
+    const page = await backend.drive!.attachedNotes("f1", {
+      limit: 5,
+      cursor: JSON.stringify({ untilId: "n9" }) as never,
+    });
+    expect(calls[1]).toEqual({
+      endpoint: "drive/files/attached-notes",
+      params: { fileId: "f1", limit: 5, untilId: "n9" },
+    });
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0].id).toBe(note.id);
+    // One item on a five-item page is the end; the cursor still names it.
+    expect(page.end).toBe(true);
+    expect(JSON.parse(page.cursor as string)).toEqual({ untilId: note.id });
+
+    // An empty page is honest: no invented cursor, end true.
+    const empty = await createMisskeyBackend(
+      stubTransport(() => []).transport,
+    ).drive!.attachedNotes("f1");
+    expect(empty).toEqual({ items: [], cursor: null, end: true });
+  });
+
   it("drive folders list/create/update/delete hit drive/folders/*", async () => {
     const folder = { id: "d1", createdAt: "2026-10-15T11:59:00.000Z", name: "Uploads", parentId: null };
     const { transport, calls } = stubTransport((endpoint, params) => {
