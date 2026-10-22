@@ -77,6 +77,7 @@ describe('uploadAll', () => {
     status: 'staged',
     mediaId: null,
     alt: '',
+    sensitive: false,
     error: null,
     ...over,
   })
@@ -142,6 +143,24 @@ describe('uploadAll', () => {
       {folderId: null},
     )
     expect(uploadMedia.mock.calls[0][1]).toEqual({})
+  })
+
+  it('carries the per-file sensitive flag at upload time, omitting it when off', async () => {
+    const uploadMedia = jest.fn().mockImplementation(async () => ({id: 'm-new'}))
+    const files = new Map([
+      ['a', new File(['x'], 'a.png')],
+      ['b', new File(['y'], 'b.png')],
+    ])
+    await uploadAll(
+      {uploadMedia} as unknown as Backend,
+      [item('a', {alt: 'a cat', sensitive: true}), item('b', {alt: 'b cat'})],
+      files,
+      () => {},
+    )
+    // Only the marked attachment sends `isSensitive`; the default upload
+    // never sends a false field (Sharkey rejects unknown/empty shape).
+    expect(uploadMedia.mock.calls[0][1]).toEqual({comment: 'a cat', isSensitive: true})
+    expect(uploadMedia.mock.calls[1][1]).toEqual({comment: 'b cat'})
   })
 })
 

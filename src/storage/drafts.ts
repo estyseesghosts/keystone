@@ -29,6 +29,8 @@ export const localDraftSchema = z.object({
   pollMultiple: z.boolean().default(false),
   pollDurationSeconds: z.number().default(86400),
   reactionAcceptance: z.string().nullable().default(null),
+  /** Per-note quote refusal (clickstone §1.2); account-wide is separate. */
+  noQuote: z.boolean().default(false),
   scheduledAt: z.string().nullable().default(null),
 })
 

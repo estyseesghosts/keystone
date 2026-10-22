@@ -27,6 +27,7 @@ const draft = (over: Partial<LocalDraft> = {}): LocalDraft => ({
   pollMultiple: false,
   pollDurationSeconds: 86400,
   reactionAcceptance: null,
+  noQuote: false,
   scheduledAt: null,
   ...over,
 })

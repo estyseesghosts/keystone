@@ -5,7 +5,13 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {ThemeProvider} from '#/alf/index'
 
 import type {ComposerController} from './Composer'
-import {RecipientSection, ScheduledListSection, ScheduleSection, ServerDraftsSection} from './ComposerSections'
+import {
+  RecipientSection,
+  ScheduledListSection,
+  ScheduleSection,
+  ServerDraftsSection,
+  UploadsSection,
+} from './ComposerSections'
 
 type FakeState = {
   visibilityRaw: string
@@ -195,6 +201,71 @@ describe('ScheduleSection', () => {
   })
 })
 
+describe('UploadsSection', () => {
+  function setupUploads({
+    sensitiveEnabled = true,
+    status = 'staged',
+  }: {
+    sensitiveEnabled?: boolean
+    status?: 'staged' | 'done'
+  } = {}) {
+    const setSensitive = jest.fn()
+    const c = {
+      styles: {media: {}, row: {}, thumb: {}},
+      gates: {
+        mediaSensitive: sensitiveEnabled
+          ? {enabled: true}
+          : {
+              enabled: false,
+              reason: 'This server marks media sensitivity for the whole post, not per attachment.',
+            },
+      },
+      uploads: {
+        items: [
+          {
+            key: 'u1',
+            name: 'cat.png',
+            previewUri: null,
+            status,
+            mediaId: status === 'done' ? 'm1' : null,
+            alt: '',
+            sensitive: false,
+            error: null,
+          },
+        ],
+        setAlt: jest.fn(),
+        setSensitive,
+        remove: jest.fn(),
+      },
+    } as unknown as ComposerController
+    render(
+      <ThemeProvider>
+        <UploadsSection c={c} />
+      </ThemeProvider>,
+    )
+    return {setSensitive}
+  }
+
+  it('toggles per-file sensitivity before upload', () => {
+    const {setSensitive} = setupUploads()
+    fireEvent.press(screen.getByTestId('composer-upload-sensitive-u1'))
+    expect(setSensitive).toHaveBeenCalledWith('u1', true)
+  })
+
+  it('disables the toggle after upload', () => {
+    setupUploads({status: 'done'})
+    expect(screen.getByTestId('composer-upload-sensitive-u1')).toBeDisabled()
+  })
+
+  it('disables the toggle with a visible reason where the family has no per-media field', () => {
+    setupUploads({sensitiveEnabled: false})
+    expect(screen.getByTestId('composer-upload-sensitive-u1')).toBeDisabled()
+    expect(screen.getByTestId('composer-media-sensitive-reason')).toHaveTextContent(
+      'This server marks media sensitivity for the whole post, not per attachment.',
+    )
+  })
+})
+
 describe('ScheduledListSection', () => {
   const session = {id: 'sess-1'}
   function scheduledBackend(list: unknown[]) {
@@ -283,6 +354,8 @@ describe('ServerDraftsSection', () => {
         pollMultiple: {enabled: false, reason: 'no'},
         localOnly: {enabled: false, reason: 'no'},
         reactionAcceptance: {enabled: false, reason: 'no'},
+        noQuote: {enabled: false, reason: 'no'},
+        mediaSensitive: {enabled: false, reason: 'no'},
         schedule: {enabled: true},
         quote: {enabled: true},
       },

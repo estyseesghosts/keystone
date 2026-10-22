@@ -52,6 +52,7 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 6,
   },
+  sensitiveBox: {alignItems: 'center', justifyContent: 'center', padding: 8},
 })
 
 export function formatBytes(size: number | null): string | null {
@@ -282,17 +283,59 @@ function FileTile({item}: {item: Media}) {
   )
 }
 
-export function PostMediaGrid({media, onOpen, testID}: {media: Media[]; onOpen?: (index: number) => void; testID?: string}) {
-  const [revealed, setRevealed] = useState(false)
+/** A hidden sensitive tile in a multi-item strip. v1 `NoteBody` gates each
+ * item independently (`MediaItem` keeps its own `revealed` signal), so a
+ * tap here reveals THIS tile only — never the whole grid. */
+function SensitiveTile({
+  item,
+  index,
+  onReveal,
+}: {
+  item: Media
+  index: number
+  onReveal: (index: number) => void
+}) {
+  const theme = useTheme()
   const {i18n} = useLingui()
+  return (
+    <Pressable
+      testID={`media-sensitive-show-${item.id}`}
+      onPress={() => onReveal(index)}
+      accessibilityRole="button"
+      accessibilityLabel={i18n._(msg`Show sensitive media. The author marked this media sensitive.`)}>
+      <View
+        style={[
+          styles.stripItem,
+          styles.sensitiveBox,
+          {aspectRatio: tileAspect(item, false), borderColor: theme.palette.border},
+        ]}>
+        <Caption color="muted">{i18n._(msg`Sensitive media hidden — tap to show`)}</Caption>
+      </View>
+    </Pressable>
+  )
+}
+
+export function PostMediaGrid({media, onOpen, testID}: {media: Media[]; onOpen?: (index: number) => void; testID?: string}) {
+  // Per-tile reveal, keyed by index: revealing one sensitive attachment
+  // leaves every other hidden tile behind its own gate (v1 `NoteBody`).
+  const [revealed, setRevealed] = useState<ReadonlySet<number>>(() => new Set())
+  const {i18n} = useLingui()
+  const reveal = (index: number) =>
+    setRevealed(prev => {
+      if (prev.has(index)) return prev
+      const next = new Set(prev)
+      next.add(index)
+      return next
+    })
   if (media.length === 0) return null
-  const sensitive = media.some(m => m.isSensitive)
-  if (sensitive && !revealed) {
+  // A one-attachment post keeps its existing presentation: the lone tile is
+  // the grid. Multi-item posts gate each tile instead of the whole strip.
+  if (media.length === 1 && media[0].isSensitive && !revealed.has(0)) {
     return (
       <View style={styles.wrap} testID={testID}>
         <Pressable
           testID="media-sensitive-show"
-          onPress={() => setRevealed(true)}
+          onPress={() => reveal(0)}
           accessibilityRole="button"
           accessibilityLabel={i18n._(msg`Show sensitive media. The author marked this media sensitive.`)}>
           <Caption color="muted">{i18n._(msg`Sensitive media hidden — tap to show`)}</Caption>
@@ -301,6 +344,9 @@ export function PostMediaGrid({media, onOpen, testID}: {media: Media[]; onOpen?:
     )
   }
   const renderItem = (item: Media, i: number) => {
+    if (item.isSensitive && !revealed.has(i)) {
+      return <SensitiveTile key={item.id} item={item} index={i} onReveal={reveal} />
+    }
     const single = media.length === 1
     switch (item.kind) {
       case 'image':

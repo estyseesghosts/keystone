@@ -9,12 +9,19 @@ import {themes, type ThemeName} from '#/alf/themes'
 import {draftsKeyFor, listDrafts} from '#/storage/drafts'
 
 import {Composer, sheetKeyboardInset, sheetVisibleMaxHeight} from './Composer'
+import {pickMedia} from './pickMedia'
 
 jest.mock('./pickMedia', () => ({pickMedia: jest.fn(async () => [])}))
 jest.mock('@keystone/fedi', () => ({
   ...jest.requireActual('@keystone/fedi'),
   fetchComposeLimits: jest.fn(async () => ({maxChars: 20, maxMedia: 4, maxPollOptions: 4})),
 }))
+
+const pickMediaMock = pickMedia as jest.MockedFunction<typeof pickMedia>
+
+function attachment(name = 'cat.png') {
+  return {file: new File(['x'], name), name, previewUri: null}
+}
 
 const session = (family: 'misskey' | 'mastodon', flavor: string): Session =>
   ({
@@ -37,7 +44,7 @@ function backendFor(flavor: 'sharkey' | 'mastodon', extra: Partial<Backend> = {}
     }),
     customEmojis: jest.fn().mockResolvedValue([{name: 'blobcat', url: 'u'}]),
     search: {},
-    uploadMedia: jest.fn(),
+    uploadMedia: jest.fn().mockResolvedValue({id: 'm1'}),
     ...extra,
   } as unknown as Backend
 }
@@ -59,6 +66,13 @@ function setup(flavor: 'sharkey' | 'mastodon', extra: Partial<Backend> = {}, pro
 }
 
 describe('Composer', () => {
+  beforeEach(() => {
+    // Keep the default empty picker; a test that needs an attachment
+    // queues one with `mockResolvedValueOnce`.
+    pickMediaMock.mockReset()
+    pickMediaMock.mockImplementation(async () => [])
+  })
+
   it('hides unsupported controls and counts against the server limit', async () => {
     setup('mastodon')
     expect(screen.queryByTestId('composer-schedule-toggle')).toBeNull()
@@ -227,6 +241,88 @@ describe('Composer', () => {
     await waitFor(() => expect(editPost).toHaveBeenCalledTimes(1))
     expect(editPost).toHaveBeenCalledWith('p9', expect.objectContaining({mediaIds: ['m1']}))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('sends per-note noQuote on the Misskey family (create and edit)', async () => {
+    const on = setup('sharkey')
+    expect(screen.getByTestId('composer-no-quote')).not.toBeDisabled()
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+    fireEvent.press(screen.getByTestId('composer-no-quote'))
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(on.backend.createPost).toHaveBeenCalledTimes(1))
+    expect(on.backend.createPost).toHaveBeenCalledWith(expect.objectContaining({noQuote: true}))
+
+    // Edit mode carries the same per-note flag through submit.
+    const editing = {
+      id: 'p9',
+      content: {mfm: 'orig', plain: 'orig'},
+      cw: null,
+      visibility: {kind: 'public', localOnly: false, raw: 'public'},
+      mediaIds: [],
+      author: {id: 'me'},
+    } as never
+    const editPost = jest.fn().mockResolvedValue(editing)
+    const store = createMemoryStore()
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <QueryClientProvider client={qc}>
+        <ThemeProvider>
+          <Composer
+            session={session('misskey', 'sharkey')}
+            backend={backendFor('sharkey', {editPost})}
+            store={store}
+            editing={editing}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </QueryClientProvider>,
+    )
+    fireEvent.press(screen.getByTestId('composer-no-quote'))
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(editPost).toHaveBeenCalledTimes(1))
+    expect(editPost).toHaveBeenCalledWith('p9', expect.objectContaining({noQuote: true}))
+  })
+
+  it('disables the per-note noQuote control on Mastodon and never sends it', async () => {
+    const {backend} = setup('mastodon')
+    expect(screen.getByTestId('composer-no-quote')).toBeDisabled()
+    expect(screen.getByTestId('composer-no-quote-reason')).toHaveTextContent(
+      'Keystone cannot set quote refusal per post on this server yet.',
+    )
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(backend.createPost).toHaveBeenCalledTimes(1))
+    expect((backend.createPost as jest.Mock).mock.calls[0][0]).not.toHaveProperty('noQuote')
+  })
+
+  it('marks one attachment sensitive at upload on the Misskey family', async () => {
+    pickMediaMock.mockResolvedValueOnce([attachment()])
+    const {backend} = setup('sharkey')
+    fireEvent.press(screen.getByTestId('composer-media-add'))
+    const toggle = await screen.findByTestId(/^composer-upload-sensitive-/)
+    fireEvent.press(toggle)
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(backend.uploadMedia).toHaveBeenCalledTimes(1))
+    // The flag rides WITH the upload (Misskey `isSensitive`), before the
+    // post create call.
+    expect(backend.uploadMedia).toHaveBeenCalledWith(expect.any(File), {isSensitive: true})
+    expect(backend.createPost).toHaveBeenCalledWith(expect.objectContaining({mediaIds: ['m1']}))
+  })
+
+  it('disables attach-time sensitivity on Mastodon with a reason and never sends it', async () => {
+    pickMediaMock.mockResolvedValueOnce([attachment()])
+    const {backend} = setup('mastodon')
+    fireEvent.press(screen.getByTestId('composer-media-add'))
+    const toggle = await screen.findByTestId(/^composer-upload-sensitive-/)
+    expect(toggle).toBeDisabled()
+    expect(screen.getByTestId('composer-media-sensitive-reason')).toHaveTextContent(
+      'This server marks media sensitivity for the whole post, not per attachment.',
+    )
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(backend.uploadMedia).toHaveBeenCalledTimes(1))
+    expect(backend.uploadMedia).toHaveBeenCalledWith(expect.any(File), {})
   })
 
   it.each(['light', 'dark'] as ThemeName[])(
