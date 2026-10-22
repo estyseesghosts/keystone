@@ -35,6 +35,10 @@ const devicePrefsSchema = z.object({
   // every quote card; `true` hides unauthorized quote cards behind a
   // tap-to-reveal row. One shared preference across every account.
   onlyAuthorizedQuotes: z.boolean().default(false),
+  // Device-local data saver (E9 follow-up): `false` (default) auto-loads
+  // link previews; `true` restores the tap-to-preview trigger. One shared
+  // preference across every account.
+  dataSaver: z.boolean().default(false),
 })
 
 export const deviceStateSchema = z.object({
@@ -48,7 +52,7 @@ export type DeviceState = z.infer<typeof deviceStateSchema>
 export const defaultDeviceState: DeviceState = {
   version: STORAGE_VERSION,
   activeSessionId: null,
-  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false},
+  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false},
 }
 
 // v1 device shape (frozen for migration): v1 had no `contentMode` and
@@ -90,6 +94,7 @@ export function migrateDeviceState(raw: string | null): DeviceState {
         textScale: legacy.data.prefs.textScale ?? 1,
         contentMode: 'auto',
         onlyAuthorizedQuotes: false,
+        dataSaver: false,
       },
     }
   }

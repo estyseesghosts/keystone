@@ -190,6 +190,21 @@ describe('UnfurledLinkCard (E9)', () => {
     expect(screen.getByText('example.com')).toBeTruthy()
   })
 
+  it('auto fetches on mount without a tap', async () => {
+    const fetchPreview = jest.fn(async (_url: string) => PREVIEW)
+    renderCard(<UnfurledLinkCard url={URL} fetchPreview={fetchPreview} auto testID="uf" />)
+    expect(await screen.findByText('Unfurled title')).toBeTruthy()
+    expect(fetchPreview).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('uf-preview')).toBeNull()
+  })
+
+  it('a failed auto fetch keeps the honest basic card', async () => {
+    const fetchPreview = jest.fn(async (_url: string): Promise<LinkPreview | null> => null)
+    renderCard(<UnfurledLinkCard url={URL} fetchPreview={fetchPreview} auto testID="uf" />)
+    expect(await screen.findByText('example.com')).toBeTruthy()
+    expect(fetchPreview).toHaveBeenCalledTimes(1)
+  })
+
   it('a second view of the same URL costs no fetch (module cache)', async () => {
     // Both mounts wire through the real module fetcher; only the
     // underlying transport is stubbed. The second mount's transport
@@ -237,6 +252,7 @@ describe('PostCard unfurl trigger (E9)', () => {
           content: {mfm: `see ${URL} ok`, plain: `see ${URL} ok`},
         })}
         sessionId={SESSION}
+        linkPreviewAuto={false}
       />,
     )
     expect(screen.getByTestId('post-unfurl-u1')).toBeTruthy()
@@ -266,6 +282,30 @@ describe('PostCard unfurl trigger (E9)', () => {
     )
     expect(screen.getByTestId('post-card-u2')).toBeTruthy()
     expect(screen.queryByTestId('post-unfurl-u2')).toBeNull()
+  })
+
+  it('auto-loads by default: no tap needed', async () => {
+    const autoURL = 'https://example.com/trigger-auto'
+    const html =
+      '<!doctype html><html><head><meta property="og:title" content="Auto title"></head><body></body></html>'
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async () => new Response(html, {status: 200})) as never
+    try {
+      renderCard(
+        <PostCard
+          post={makePost({
+            id: 'u4',
+            card: null,
+            content: {mfm: `see ${autoURL} ok`, plain: `see ${autoURL} ok`},
+          })}
+          sessionId={SESSION}
+        />,
+      )
+      expect(await screen.findByText('Auto title')).toBeTruthy()
+      expect(screen.queryByTestId('post-unfurl-u4-preview')).toBeNull()
+    } finally {
+      globalThis.fetch = realFetch
+    }
   })
 
   it('a post with no URLs renders no card at all', () => {

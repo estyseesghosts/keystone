@@ -51,7 +51,7 @@ describe('appearance store (device emoji style)', () => {
     writeDeviceState(storage, {
       ...readDeviceState(storage),
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false},
+      prefs: {theme: 'dark', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false},
     })
     store.setEmojiStyle('noto')
     const state = readDeviceState(storage)
@@ -130,5 +130,24 @@ describe('appearance store (content mode)', () => {
     store.setContentMode('bogus' as never)
     expect(store.getContentMode()).toBe('auto')
     expect(readDeviceState(storage).prefs.contentMode).toBe('auto')
+  })
+})
+
+describe('appearance store (data saver)', () => {
+  it('defaults to off (auto-load) on a fresh install', () => {
+    const {store} = setup()
+    expect(store.getDataSaver()).toBe(false)
+  })
+
+  it('persists the toggle and notifies once per change', () => {
+    const {storage, store} = setup()
+    const listener = jest.fn()
+    store.subscribe(listener)
+    store.setDataSaver(true)
+    expect(store.getDataSaver()).toBe(true)
+    expect(readDeviceState(storage).prefs.dataSaver).toBe(true)
+    expect(listener).toHaveBeenCalledTimes(1)
+    store.setDataSaver(true)
+    expect(listener).toHaveBeenCalledTimes(1)
   })
 })

@@ -13,6 +13,7 @@ import {
   appearanceStore,
   useColorMode,
   useContentMode,
+  useDataSaver,
   useOnlyAuthorizedQuotes,
   useTextScale,
   type AppearanceStore,
@@ -203,6 +204,28 @@ export function QuotePolicyRow({store = appearanceStore}: {store?: AppearanceSto
   )
 }
 
+/** Data saver (E9 follow-up): OFF (default) auto-loads link previews;
+ * ON restores the tap-to-preview trigger. Device-local, like text size. */
+export function DataSaverRow({store = appearanceStore}: {store?: AppearanceStore}) {
+  const dataSaver = useDataSaver(store)
+  return (
+    <SettingRow
+      title={i18n._(msg`Data saver`)}
+      hint={i18n._(msg`Skip automatic link previews; tap a card to load it. Off loads previews automatically.`)}
+      testID="data-saver-row">
+      <Pressable
+        accessibilityRole="switch"
+        accessibilityState={{checked: dataSaver}}
+        accessibilityLabel={`${i18n._(msg`Data saver`)}: ${dataSaver ? i18n._(msg`on`) : i18n._(msg`off`)}`}
+        onPress={() => store.setDataSaver(!dataSaver)}
+        testID="data-saver-row-toggle"
+        style={[atoms.row, atoms.itemsCenter, {paddingVertical: 8}]}>
+        <Body>{dataSaver ? i18n._(msg`On`) : i18n._(msg`Off`)}</Body>
+      </Pressable>
+    </SettingRow>
+  )
+}
+
 export function DisplaySection() {
   return (
     <View style={[atoms.gap_sm]} testID="settings-section-display">
@@ -216,6 +239,7 @@ export function DisplaySection() {
       </SettingRow>
       <ContentModeRow />
       <QuotePolicyRow />
+      <DataSaverRow />
       <PlaceholderRow
         title={i18n._(msg`Theme`)}
         hint={i18n._(msg`Keystone modern or terminal.`)}

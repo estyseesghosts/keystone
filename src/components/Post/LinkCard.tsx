@@ -141,10 +141,13 @@ export function UnfurledLinkCard({
   url,
   testID,
   fetchPreview = fetchLinkPreview,
+  auto = false,
 }: {
   url: string
   testID?: string
   fetchPreview?: (pageUrl: string) => Promise<LinkPreview | null>
+  /** Data-saver off: fetch on mount instead of waiting for the trigger. */
+  auto?: boolean
 }) {
   const theme = useTheme()
   const {i18n} = useLingui()
@@ -153,6 +156,8 @@ export function UnfurledLinkCard({
   const [phase, setPhase] = useState<'idle' | 'loading' | 'done'>('idle')
   const [preview, setPreview] = useState<LinkPreview | null>(null)
   const mounted = useRef(true)
+  const autoStarted = useRef(false)
+  const safe = safeHttpUrl(url)
   useEffect(
     () => () => {
       mounted.current = false
@@ -165,9 +170,26 @@ export function UnfurledLinkCard({
     setPreview(null)
     setImageFailed(false)
     setIconFailed(false)
+    autoStarted.current = false
   }, [url])
+  // Auto-load (data saver off): fetch on mount. Single-flight + module
+  // cache keep a feed of identical links to one fetch.
+  useEffect(() => {
+    if (!auto || safe === null || autoStarted.current) return
+    autoStarted.current = true
+    setPhase('loading')
+    void fetchPreview(safe).then(
+      found => {
+        if (!mounted.current) return
+        setPreview(found)
+        setPhase('done')
+      },
+      () => {
+        if (mounted.current) setPhase('done')
+      },
+    )
+  }, [auto, safe, fetchPreview])
 
-  const safe = safeHttpUrl(url)
   if (safe === null) return null
 
   const unfurl = () => {

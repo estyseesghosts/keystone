@@ -48,7 +48,7 @@ import {navigationRef} from '#/navigationRef'
 import {usePostActions, type PostActions} from '#/state/cache'
 import {useOptionalSessionStore} from '#/state/session/SessionProvider'
 import {useLikeEmoji} from '#/state/emojiPrefs'
-import {useOnlyAuthorizedQuotes} from '#/state/appearance'
+import {useDataSaver, useOnlyAuthorizedQuotes} from '#/state/appearance'
 
 import {ActionBar, StaticActionBar, toastError} from './ActionBar'
 import {badgesFor} from './badges'
@@ -254,6 +254,9 @@ export type PostCardProps = {
    * cards hide behind a tap-to-reveal row; when false (default) every
    * quote renders. */
   onlyAuthorizedQuotes?: boolean
+  /** Link-preview auto-load override (default: auto-load). The live
+   * card reads the device Data Saver pref; tests inject explicitly. */
+  linkPreviewAuto?: boolean
 }
 
 /** Auto-translate fetch seam (v1): one `backend.translate(id, lang)`
@@ -296,6 +299,7 @@ function LivePostCard(props: PostCardProps) {
   const handlers = usePostCardHandlers(props.handlers)
   const effective = useMemo(() => appearNoteOf(post), [post])
   const actions = usePostActions(sessionId, effective)
+  const dataSaver = useDataSaver()
   const [translation, setTranslation] = useState<Translation | null>(null)
   const shown = actions.shadowed.post
   const isOwn = session != null && effective.author.id === session.accountId
@@ -393,6 +397,7 @@ function LivePostCard(props: PostCardProps) {
       capabilities={props.capabilities ?? backend?.capabilities ?? null}
       translationSource={translationSource ?? props.translationSource ?? null}
       resolveQuoteUri={props.resolveQuoteUri ?? resolveQuoteUri}
+      linkPreviewAuto={props.linkPreviewAuto ?? !dataSaver}
       live={{
         actions,
         family: session?.family ?? 'misskey',
@@ -423,6 +428,7 @@ function PostCardView({
   translationSource,
   resolveQuoteUri,
   onlyAuthorizedQuotes,
+  linkPreviewAuto = true,
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
   const {i18n} = useLingui()
@@ -918,7 +924,7 @@ function PostCardView({
           <LinkCard card={effective.card} testID={`post-card-${post.id}`} />
         )}
         {!bodyHidden && effective.card === null && unfurlUrl !== null && (
-          <UnfurledLinkCard url={unfurlUrl} testID={`post-unfurl-${post.id}`} />
+          <UnfurledLinkCard url={unfurlUrl} auto={linkPreviewAuto} testID={`post-unfurl-${post.id}`} />
         )}
         <ReactionChips
           reactions={effective.reactions}

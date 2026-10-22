@@ -54,6 +54,10 @@ export interface AppearanceStore {
    * `true` hides unauthorized quote cards behind a tap-to-reveal row. */
   getOnlyAuthorizedQuotes(): boolean
   setOnlyAuthorizedQuotes(value: boolean): void
+  /** Data saver: `false` (default) auto-loads link previews; `true`
+   * restores the tap-to-preview trigger. */
+  getDataSaver(): boolean
+  setDataSaver(value: boolean): void
   subscribe(fn: () => void): () => void
 }
 
@@ -132,6 +136,19 @@ export function createAppearanceStore(
       })
       emit()
     },
+    getDataSaver(): boolean {
+      return readDeviceState(storage()).prefs.dataSaver ?? false
+    },
+    setDataSaver(value: boolean): void {
+      const next = value === true
+      const state = readDeviceState(storage())
+      if ((state.prefs.dataSaver ?? false) === next) return
+      writeDeviceState(storage(), {
+        ...state,
+        prefs: {...state.prefs, dataSaver: next},
+      })
+      emit()
+    },
     subscribe(fn: () => void): () => void {
       listeners.add(fn)
       return () => {
@@ -161,6 +178,10 @@ export function useContentMode(store: AppearanceStore = appearanceStore): Conten
 
 export function useOnlyAuthorizedQuotes(store: AppearanceStore = appearanceStore): boolean {
   return useSyncExternalStore(store.subscribe, store.getOnlyAuthorizedQuotes)
+}
+
+export function useDataSaver(store: AppearanceStore = appearanceStore): boolean {
+  return useSyncExternalStore(store.subscribe, store.getDataSaver)
 }
 
 export {DEFAULT_EMOJI_STYLE}

@@ -238,6 +238,10 @@ Akkoma rig; DECISIONS reversal line recorded BEFORE code, W2 line kept as
 history). Tap-to-unfurl + single-flight + cache; fetch-count test pins it.
 Oppo-device confirmation still `not verified`; Misskey rig down.
 
+Follow-up 2026-10-21 (owner direction, superseding DECISIONS line recorded
+BEFORE code): previews auto-load by default (v1 parity); a device-local
+Data Saver toggle (Display settings, default off) restores the tap trigger.
+
 Owner report: link embed cards still missing. Server `post.card`
 LinkCards exist; per-post client unfurl was DECLINED in W2 (battery/
 data cost). The owner overrides that decline: implement honest client
