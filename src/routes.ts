@@ -123,6 +123,9 @@ export type RootParamList = {
   ChatUser: {userId: string}
   /** Server notices (clickstone §1.12): read + dismiss; no authoring. */
   Announcements: undefined
+  /** Read-only server insight (Wave 3 slice 3.1): admin metrics where the
+   * token allows, public server info otherwise. No mutations. */
+  AdminInsight: undefined
   Drive: undefined
   Favorites: undefined
   Followers: {id: string}
@@ -174,6 +177,7 @@ export const paths: Record<keyof RootParamList, string> = {
   ChatRoom: '/chat/rooms/:roomId',
   ChatUser: '/chat/users/:userId',
   Announcements: '/announcements',
+  AdminInsight: '/admin/insight',
   Drive: '/drive',
   Favorites: '/favorites',
   Followers: '/users/:id/followers',
@@ -290,6 +294,7 @@ export function linkingScreens(): LinkingScreens {
     ChatRoom: leaf('ChatRoom'),
     ChatUser: leaf('ChatUser'),
     Announcements: leaf('Announcements'),
+    AdminInsight: leaf('AdminInsight'),
     Drive: leaf('Drive'),
     Favorites: leaf('Favorites'),
     Followers: leaf('Followers'),
@@ -360,6 +365,8 @@ export function titleForRoute(
       return t`Direct message`
     case 'Announcements':
       return t`Announcements`
+    case 'AdminInsight':
+      return t`Server insight`
     case 'Drive':
       return t`Drive`
     case 'Favorites':

@@ -77,6 +77,25 @@ import type {
 //                        `read:conversations` scope upstream — it must never
 //                        be requested (stock Mastodon 422s the app
 //                        registration, 2026-10-22 login hotfix).
+//   admin:read           read-only server insight (Wave 3 slice 3.1,
+//                        clickstone §3.1 — measures/dimensions). The umbrella
+//                        `read` does NOT satisfy the admin endpoints:
+//                        every `api/v1/admin/*` controller requires ONLY
+//                        `admin:read` (or a granular `admin:read:*`),
+//                        unlike the non-admin controllers that all pair
+//                        `:read` with the granular scope, and Doorkeeper's
+//                        check is exact-string ANY-of with no hierarchy
+//                        (`ScopeTransformer` groups `read` and `admin:read`
+//                        separately — display only, not access). Verified in
+//                        the local Mastodon checkout (session log); a
+//                        triple-only token 403s measures, so the read surface
+//                        cannot ship without this scope. Registration-safe:
+//                        `admin:read` is in upstream's `optional_scopes`
+//                        (`config/initializers/doorkeeper.rb`), and Akkoma
+//                        stores app scopes as-given (no allowlist). Non-staff
+//                        tokens simply gain a grant Pundit never lets them
+//                        use (`authorize :dashboard, :index?` still gates on
+//                        the user's staff role).
 //
 // The umbrella scopes `read`/`write`/`follow` stay in NOW because Akkoma
 // checks the umbrella itself: `/api/v1/suggestions` 403s a granular-only
@@ -111,14 +130,16 @@ export const SCOPES_NOW: string[] = [
   "write:statuses",
   "write:favourites",
   "write:conversations",
+  "admin:read",
 ];
 
 /** Scopes for features this client does NOT ship yet — never requested
  * (ADR 0003). Each entry names the slice that will move it into
  * `SCOPES_NOW`:
  *   push                   Web Push subscriptions
- *   admin:read             admin/moderation read surface (Wave 3)
- *   admin:write            admin/moderation write surface (Wave 3)
+ *   admin:write            admin/moderation write surface (Wave 3.2+;
+ *                          `admin:read` already moved into NOW with the
+ *                          read-only insight surface, slice 3.1)
  *   read:featured_tags     featured-tags management (absent on Akkoma)
  *   write:featured_tags    featured-tags management (absent on Akkoma)
  *   read:favourites        a Mastodon favourites TIMELINE (favouriting
@@ -129,7 +150,6 @@ export const SCOPES_NOW: string[] = [
  *                          so no future slice requests it. */
 export const SCOPES_LATER: string[] = [
   "push",
-  "admin:read",
   "admin:write",
   "read:featured_tags",
   "write:featured_tags",
@@ -162,26 +182,30 @@ export const FALLBACK_SCOPES = "read write follow";
 // `grouped_scopes` (`app/helpers/application_helper.rb`) only group scopes
 // for the authorize-page display — they are not access checks.
 //
-// Why per-flavor at all: the full 26-scope string builds ~700-char
+// Why per-flavor at all: the full 27-scope string builds ~700-char
 // `/oauth/authorize` URLs, and servers with tight response-header buffering
 // 502 the logged-in authorize leg past ~512 chars (sharp, deterministic
-// threshold). The triple builds ~330-char URLs. Registration, the
-// authorize URL, and the password grant all use the SAME flavor string
+// threshold). The triple + `admin:read` builds ~345-char URLs. Registration,
+// the authorize URL, and the password grant all use the SAME flavor string
 // (the per-origin app cache binds on it).
 export const SCOPES_MASTODON: string[] = ["read", "write", "follow"];
 
 /**
  * The scope list to request for `flavor`. Vanilla Mastodon and its forks
  * (glitch-soc, hometown, gotosocial all detect as flavor `"mastodon"`)
- * get the umbrella triple; Akkoma/Pleroma get the full NOW set; anything
- * else (including `"unknown"`) gets the full set — a wrongly-narrowed
- * Akkoma token breaks shipped features, while stock Mastodon accepts the
- * full set, so full is the safe default. Login always detects first
- * (`detectServer` in `Login.tsx`), so unknown is rare and self-heals on
- * the next detected login.
+ * get the umbrella triple PLUS `admin:read`: the Wave 3 read-only insight
+ * surface (slice 3.1) cannot work without it — the umbrella alone 403s
+ * every `api/v1/admin/*` endpoint (source-verified, see the `admin:read`
+ * entry in the NOW list above) — and one extra scope keeps the authorize
+ * URL far under the 512-char 502 guard. Akkoma/Pleroma get the full NOW
+ * set; anything else (including `"unknown"`) gets the full set — a
+ * wrongly-narrowed Akkoma token breaks shipped features, while stock
+ * Mastodon accepts the full set, so full is the safe default. Login
+ * always detects first (`detectServer` in `Login.tsx`), so unknown is rare
+ * and self-heals on the next detected login.
  */
 export function scopesForFlavor(flavor: ServerFlavor): string[] {
-  if (flavor === "mastodon") return SCOPES_MASTODON;
+  if (flavor === "mastodon") return [...SCOPES_MASTODON, "admin:read"];
   return SCOPES_NOW;
 }
 

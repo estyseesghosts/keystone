@@ -110,7 +110,8 @@ describe('ScopeUpgradeBanner (0.8 global permission-denied prompt)', () => {
       hosting: 'third-party',
     })
     // Pre-scopes generation: umbrella-only cache on a flavor that expects
-    // the full set (ADR 0005 — a `mastodon`-flavor triple cache is current).
+    // the full set (ADR 0005). A pre-slice `mastodon`-flavor triple cache
+    // likewise needs the upgrade now (slice 3.1 appends `admin:read`).
     storage.setItem(
       OAUTH_APPS_KEY,
       JSON.stringify({[MASTO_ORIGIN]: {client_id: 'id', client_secret: 's', scopes: 'read write follow'}}),

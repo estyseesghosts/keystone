@@ -43,6 +43,7 @@ import type {
 import type {
   AccountPostsOpts,
   AnnouncementsApi,
+  AdminInsightApi,
   Backend,
   ConversationsApi,
   CustomEmoji,
@@ -154,6 +155,15 @@ import {
   unfollowTag,
 } from "./tags";
 import { blockDomain, fetchDomainBlocksPage, unblockDomain } from "./domainBlocks";
+import {
+  ADMIN_INSIGHT_DIMENSION_KEYS,
+  ADMIN_INSIGHT_MEASURE_KEYS,
+  fetchAdminDimensions,
+  fetchAdminMeasures,
+  fetchInstanceActivity,
+  fetchInstanceExtendedDescription,
+  fetchInstancePeers,
+} from "./admin";
 import type { Continuation } from "./pagination";
 import { nextContinuation, withCursors } from "./pagination";
 import type {
@@ -1061,6 +1071,31 @@ export function createMastodonBackend(
         await dismissAnnouncement(client, id);
       },
     } satisfies AnnouncementsApi,
+
+    // Read-only server insight (Wave 3 slice 3.1 — NO mutations here).
+    // Wired on every Mastodon-family flavor: vanilla Mastodon serves the
+    // admin routes behind `admin:read` + a staff role, while forks without
+    // them (Akkoma/Pleroma) answer 404 — the same honest unsupported
+    // state the UI renders as a reason. The capability + staff-role gates
+    // live in the query/screen layers (detect.ts never infers a role), so
+    // this member is present-but-gated, never present-and-open.
+    adminInsight: {
+      async measures(keys = ADMIN_INSIGHT_MEASURE_KEYS) {
+        return fetchAdminMeasures(client, keys);
+      },
+      async dimensions(keys = ADMIN_INSIGHT_DIMENSION_KEYS) {
+        return fetchAdminDimensions(client, keys);
+      },
+      async peers() {
+        return fetchInstancePeers(client);
+      },
+      async extendedDescription() {
+        return fetchInstanceExtendedDescription(client);
+      },
+      async activity() {
+        return fetchInstanceActivity(client);
+      },
+    } satisfies AdminInsightApi,
 
     // DM inbox (P6.2, clickstone §2.1). Mastodon + Akkoma serve the same
     // routes (`/api/v1/conversations`, read, delete) with the same row
