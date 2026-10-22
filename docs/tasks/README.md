@@ -38,8 +38,14 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p4.7-sharkey-likes](p4.7-sharkey-likes.md) | kissme spec (owner) | in progress, live tap pending | `p3.1-signin-functional` | (this session) |
 | [p5.1-settings-tree](p5.1-settings-tree.md) | §5 P5 settings | in progress | `p3.1-signin-functional` | `state/logs/2026-10-20-p5.1-settings-tree.md` |
 | [gap-closure](gap-closure.md) | cross-cutting (register) | not started | `p6.0-gap-closure` | `state/logs/2026-10-20-gap-audit.md` |
+| [p6.0-masto-stream](p6.0-masto-stream.md) | clickstone §0.1 | done | `p6.0-masto-stream` | `state/logs/2026-10-22-p6.0-masto-stream.md` |
 | [p6.0-search-paging](p6.0-search-paging.md) | clickstone §0.2 | done | `p6.0-search-paging` | `state/logs/2026-10-22-p6.0-search-paging.md` |
+| [p6.0-filter-edit](p6.0-filter-edit.md) | clickstone §0.3 | done | `p6.0-filter-edit` | `state/logs/2026-10-22-p6.0-filter-edit.md` |
+| [p6.0-translate-gate](p6.0-translate-gate.md) | clickstone §0.4 | done | `p6.0-translate-gate` | `state/logs/2026-10-22-p6.0-translate-gate.md` |
+| [p6.0-oauth-scopes](p6.0-oauth-scopes.md) | clickstone §0.5 | done | `p6.0-oauth-scopes` | `state/logs/2026-10-22-p6.0-oauth-scopes.md` |
 | [p6.0-import-export](p6.0-import-export.md) | clickstone §0.6 | done | `p6.0-import-export` | `state/logs/2026-10-22-p6.0-import-export.md` |
 | [p6.0-misskey-mutations](p6.0-misskey-mutations.md) | clickstone §0.7 | done | `p6.0-misskey-mutations` | `state/logs/2026-10-22-p6.0-misskey-mutations.md` |
+| [p6.0-misskey-scope-upgrade](p6.0-misskey-scope-upgrade.md) | clickstone §0.8 | done | `p6.0-misskey-scope-upgrade` | `state/logs/2026-10-22-p6.0-misskey-scope-upgrade.md` |
+| [p6.0-messaging-gate](p6.0-messaging-gate.md) | clickstone §0.9 | done | `p6.0-messaging-gate` | `state/logs/2026-10-22-p6.0-messaging-gate.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.
