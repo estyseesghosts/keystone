@@ -271,6 +271,37 @@ describe('post badges (F15/F16)', () => {
     renderCard(<PostCard post={post} sessionId={SESSION} />)
     expect(screen.getByTestId('post-quote-qw-status')).toBeTruthy()
   })
+
+  // Soft-mute badge: the feeds drop these rows, so the badge exists for
+  // the surfaces that still show them. Presentational trees pass the
+  // flag; the live card derives it from the session's mute set.
+  it('renders the soft-mute badge when the card is told the note is muted', () => {
+    renderCard(<PostCard post={makePost({id: 'sm'})} sessionId={SESSION} softMuted />)
+    expect(screen.getByTestId('post-badge-softMuted-sm')).toBeTruthy()
+    expect(screen.getByText('Soft-muted')).toBeTruthy()
+  })
+
+  it('renders no soft-mute badge without the signal', () => {
+    renderCard(<PostCard post={makePost({id: 'sm0'})} sessionId={SESSION} />)
+    expect(screen.queryByTestId('post-badge-softMuted-sm0')).toBeNull()
+    expect(screen.queryByText('Soft-muted')).toBeNull()
+  })
+
+  it('badges a renote whose rendered original is soft-muted', () => {
+    const original = makePost({id: 'orig-sm', author: makeAccount({id: 'muted-user'})})
+    const wrapper = makePost({
+      id: 'wrap-sm',
+      author: makeAccount({id: 'b1', username: 'bob', acct: 'bob', host: null, name: 'Bob', displayName: 'Bob'}),
+      content: {plain: ''},
+      renoteId: 'orig-sm',
+      renote: original,
+    })
+    renderCard(<PostCard post={wrapper} sessionId={SESSION} softMuted />)
+    // The badge lives on the wrapper row (the one the feed lists) and
+    // the body is the original's.
+    expect(screen.getByTestId('post-badge-softMuted-wrap-sm')).toBeTruthy()
+    expect(screen.getByTestId('boost-header-wrap-sm')).toBeTruthy()
+  })
 })
 
 describe('boost collapsing banner (F17)', () => {

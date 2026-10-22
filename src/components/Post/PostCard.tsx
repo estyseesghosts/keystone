@@ -46,6 +46,7 @@ import {canCopy, copyText} from '#/lib/clipboard'
 import {showToast} from '#/lib/toast'
 import {navigationRef} from '#/navigationRef'
 import {usePostActions, type PostActions} from '#/state/cache'
+import {isSoftMutedPost, useSoftMutedIds} from '#/state/queries/graph'
 import {useOptionalSessionStore} from '#/state/session/SessionProvider'
 import {useLikeEmoji} from '#/state/emojiPrefs'
 import {useDataSaver, useOnlyAuthorizedQuotes} from '#/state/appearance'
@@ -257,6 +258,11 @@ export type PostCardProps = {
   /** Link-preview auto-load override (default: auto-load). The live
    * card reads the device Data Saver pref; tests inject explicitly. */
   linkPreviewAuto?: boolean
+  /** Soft-mute badge override (soft-mute slice): true renders the
+   * "Soft-muted" badge. The live card derives it from the session's
+   * soft-mute set and the rendered author; tests and previews inject it
+   * explicitly. Omit (or false) to leave the badge off — never guessed. */
+  softMuted?: boolean
 }
 
 /** Auto-translate fetch seam (v1): one `backend.translate(id, lang)`
@@ -298,6 +304,15 @@ function LivePostCard(props: PostCardProps) {
   const backend = useMemo(() => (session ? backendForSession(session) : null), [session])
   const handlers = usePostCardHandlers(props.handlers)
   const effective = useMemo(() => appearNoteOf(post), [post])
+  // Soft-mute badge (soft-mute slice): the feeds DROP soft-muted rows
+  // (shared FeedView filter); every other surface still renders them, so
+  // the card marks them honestly. The predicate is the feed's own,
+  // applied to the rendered note (a pure repost's original author).
+  const softMutedIds = useSoftMutedIds(sessionId)
+  const softMuted = useMemo(
+    () => isSoftMutedPost(effective, softMutedIds),
+    [effective, softMutedIds],
+  )
   const actions = usePostActions(sessionId, effective)
   const dataSaver = useDataSaver()
   const [translation, setTranslation] = useState<Translation | null>(null)
@@ -398,6 +413,7 @@ function LivePostCard(props: PostCardProps) {
       translationSource={translationSource ?? props.translationSource ?? null}
       resolveQuoteUri={props.resolveQuoteUri ?? resolveQuoteUri}
       linkPreviewAuto={props.linkPreviewAuto ?? !dataSaver}
+      softMuted={props.softMuted ?? softMuted}
       live={{
         actions,
         family: session?.family ?? 'misskey',
@@ -429,6 +445,7 @@ function PostCardView({
   resolveQuoteUri,
   onlyAuthorizedQuotes,
   linkPreviewAuto = true,
+  softMuted,
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
   const {i18n} = useLingui()
@@ -603,7 +620,7 @@ function PostCardView({
     [fullNodes, foldBody, expanded],
   )
   const emojis = useMemo(() => postEmojis(effective), [effective])
-  const badges = useMemo(() => badgesFor(effective), [effective])
+  const badges = useMemo(() => badgesFor(effective, {softMuted}), [effective, softMuted])
   // WS-B (F10): tag-block bubble — pruned block tags surface here, the
   // body stays pruned (v1 `NoteCard` parity). No bubble without blocks.
   const tagBubble = useMemo(() => postTagBubble(effective), [effective])

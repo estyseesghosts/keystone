@@ -12,6 +12,7 @@ import {buildPostMenu, flatten, type PostMenuInput} from '#/components/Post/menu
 import {PostMenu} from '#/components/Post/PostMenu'
 import {clearToasts, toastStore} from '#/lib/toast'
 import {postShadowStore} from '#/state/cache'
+import {softMuteStore} from '#/state/queries/graph'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
 import {makeAccount, makePost} from './fixtures'
@@ -494,6 +495,61 @@ describe('PostCard write wiring', () => {
     fireEvent.press(screen.getByTestId('post-menu-p1'))
     fireEvent.press(screen.getByTestId('post-menu-p1-item-edit'))
     expect(onEdit).toHaveBeenCalled()
+  })
+})
+
+describe('soft-mute badge on the live card', () => {
+  // Soft-mute badge: feeds drop these rows (shared FeedView filter), so
+  // the badge is for the surfaces that still render them. The live card
+  // reads the session's mute set and marks the rendered (original)
+  // author — no store read inside the pure badge module.
+  afterEach(() => {
+    act(() => {
+      for (const id of ['a1', 'muted-user', 'bob']) {
+        softMuteStore.set(SESSION.id, id, false)
+      }
+    })
+  })
+
+  it('marks a visible note whose author is soft-muted', () => {
+    softMuteStore.set(SESSION.id, 'a1', true)
+    live(makePost())
+    expect(screen.getByTestId('post-badge-softMuted-p1')).toBeTruthy()
+    expect(screen.getByText('Soft-muted')).toBeTruthy()
+  })
+
+  it('shows no badge when the author is not in the mute list', () => {
+    live(makePost())
+    expect(screen.queryByTestId('post-badge-softMuted-p1')).toBeNull()
+    expect(screen.queryByText('Soft-muted')).toBeNull()
+  })
+
+  it('marks a renote whose rendered original author is soft-muted', () => {
+    const original = makePost({id: 'orig', author: makeAccount({id: 'muted-user'})})
+    const wrapper = makePost({
+      id: 'wrap',
+      author: makeAccount({id: 'bob', acct: 'bob@x.social', username: 'bob', host: 'x.social'}),
+      content: {plain: ''},
+      renoteId: 'orig',
+      renote: original,
+    })
+    softMuteStore.set(SESSION.id, 'muted-user', true)
+    live(wrapper)
+    expect(screen.getByTestId('post-badge-softMuted-wrap')).toBeTruthy()
+  })
+
+  it('leaves a renote of an unmuted original unbadged', () => {
+    const original = makePost({id: 'orig', author: makeAccount({id: 'other'})})
+    const wrapper = makePost({
+      id: 'wrap',
+      author: makeAccount({id: 'bob', acct: 'bob@x.social', username: 'bob', host: 'x.social'}),
+      content: {plain: ''},
+      renoteId: 'orig',
+      renote: original,
+    })
+    softMuteStore.set(SESSION.id, 'muted-user', true)
+    live(wrapper)
+    expect(screen.queryByTestId('post-badge-softMuted-wrap')).toBeNull()
   })
 })
 
