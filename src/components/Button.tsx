@@ -2,7 +2,7 @@ import {StyleSheet} from 'react-native'
 
 import {useTheme} from '#/alf/index'
 import {radius, space} from '#/alf/tokens'
-import {Body} from '#/alf/typography'
+import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
 
 export type ButtonProps = {
@@ -50,6 +50,8 @@ export function Button({
       borderColor: theme.palette.edge,
     },
   })
+  // Compact pills read smaller all over: Caption label, never wrapped.
+  const Label = compact ? Caption : Body
   return (
     <Pressable
       testID={testID}
@@ -64,12 +66,12 @@ export function Button({
         styles.base,
         variant === 'primary' ? styles.primary : styles.secondary,
       ]}>
-      <Body
+      <Label
         color={variant === 'primary' ? undefined : 'text'}
         style={variant === 'primary' ? {color: theme.palette.bg} : undefined}
         numberOfLines={1}>
         {label}
-      </Body>
+      </Label>
     </Pressable>
   )
 }

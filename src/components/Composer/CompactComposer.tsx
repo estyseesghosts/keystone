@@ -328,14 +328,16 @@ export function CompactComposer(props: ComposerProps) {
         <Caption color={c.over ? 'text' : 'muted'} testID="composer-counter">
           {remaining}
         </Caption>
-        <Button
-          label={c.busy ? i18n._(msg`Posting…`) : submitLabel}
-          onPress={() => void c.submit()}
-          disabled={c.busy || c.over}
-          disabledReason={c.over ? i18n._(msg`Over the character limit.`) : c.busy ? i18n._(msg`Posting...`) : undefined}
-          testID="composer-submit"
-          compact
-        />
+        <View style={styles.submitWrap}>
+          <Button
+            label={c.busy ? i18n._(msg`Posting…`) : submitLabel}
+            onPress={() => void c.submit()}
+            disabled={c.busy || c.over}
+            disabledReason={c.over ? i18n._(msg`Over the character limit.`) : c.busy ? i18n._(msg`Posting...`) : undefined}
+            testID="composer-submit"
+            compact
+          />
+        </View>
       </View>
       {emojiOpen ? (
         <AnchoredPopup
@@ -509,6 +511,9 @@ const styles = StyleSheet.create({
   },
   divider: {height: 1},
   toolbar: {flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 44},
+  // Breathing room between the character count and the submit pill (the
+  // toolbar row itself only gaps tightly for the icon cluster).
+  submitWrap: {marginLeft: 8},
   tool: {
     width: 44,
     height: 44,

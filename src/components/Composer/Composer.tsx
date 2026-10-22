@@ -560,6 +560,7 @@ export function Composer(props: ComposerProps) {
           disabled={busy || over}
           disabledReason={over ? i18n._(msg`Over the character limit.`) : busy ? i18n._(msg`Posting...`) : undefined}
           testID="composer-submit"
+          compact
         />
       </View>
 
