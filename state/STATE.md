@@ -1,7 +1,9 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: **P6 Wave 3.1 DONE on `main` (2026-10-22)** — both admin-insight
-halves merged (masto + misskey). Next: 3.2 reports queue.
+Phase/slice: **P6 Wave 3.2 DONE on `main` (2026-10-22)** — reports queue
+merged (admin:write in NOW, ~355-char flavor URL). Next: 3.3 user
+moderation, then 3.4 federation+emoji (sequential — shared Backend
+interface/admin modules rule out true file-disjoint parallelism).
 Program source of truth: `docs/clickstone.md` +
 `docs/2026-10-22-full-audit-mastodon-misskey-v1-parity/`. The old V2
 E6/E7 program is closed; do not reopen it from `docs/parity-gaps.md`.
@@ -19,22 +21,20 @@ honest-disabled), 2.2 Misskey chat (`ChatApi`, rooms+stream, Misskey
 Mastodon triple `read write follow` — logged-in authorize 502'd over
 ~512-char URLs, verified live 200 after fix).
 
-Verification on `main`: **185 suites / 2333 tests green**;
+Verification on `main`: **187 suites / 2368 tests green**;
 `typecheck` (ios+android+web) + `lint` clean. Per-slice logs:
 `state/logs/2026-10-22-p6.*.md`; task index `docs/tasks/README.md`.
-Wave 3.1-masto: `admin_read`/`admin_write` seam in `detect.ts`,
-`admin:read` in NOW (Mastodon flavor = triple + `admin:read`),
-read-only `AdminInsight` screen (measures/dimensions + public fallback).
-Wave 3.1-misskey: `misskey/admin.ts` (server-info/meta/queue/online-users),
-+3 `read:admin:*` permissions, same screen extended by family branch.
+Wave 3.1: admin seam + read-only insight both families.
+Wave 3.2: `ReportsQueueApi` + `AdminReports` screen (confirm-gated
+mutations, 403 disables, no faked history).
 
 ## Next 3 steps
 
-1. Wave 3.2: reports queue (Misskey `admin/abuse-user-reports` +
-   resolve/update/forward; Mastodon `GET/POST api/v1/admin/reports` +
-   notes) — display the ids 1.5 already sends. Single agent.
-2. Wave 3.3 + 3.4 in parallel after 3.2 (file-disjoint); 3.5 after 3.2
-   (may run alongside if file-disjoint). Wave 4 out of scope.
+1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
+   user-note/modlog/reset-password; Mastodon account_actions
+   warn/suspend/silence + notes; NO delete-account). Single agent.
+2. Wave 3.4 federation+emoji after 3.3, then 3.5 announce/invite/roles.
+   Wave 4 out of scope.
 3. End of program: intl extract/compile + deferred locale sweep
    (fr+7 catalogs, `errors.unsupported.avatar` cleanup).
 
