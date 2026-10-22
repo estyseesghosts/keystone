@@ -119,6 +119,17 @@ import { createStreamHandle } from "./stream";
 import { createClient, toApiError as clientToApiError } from "./client";
 import type { MastoClient, QueryValue } from "./client";
 import { listsContaining as listsContainingMasto, addToList as addToListMasto, removeFromList as removeFromListMasto } from "./listMembership";
+import {
+  deleteFeaturedTag,
+  featureTag,
+  fetchFeaturedTags,
+  fetchFollowedTagsPage,
+  followTag,
+  getTag,
+  unfeatureTag,
+  unfollowTag,
+} from "./tags";
+import { blockDomain, fetchDomainBlocksPage, unblockDomain } from "./domainBlocks";
 import type { Continuation } from "./pagination";
 import { nextContinuation, withCursors } from "./pagination";
 import type {
@@ -747,6 +758,33 @@ export function createMastodonBackend(
       await reportAccount(client, id, comment);
     },
 
+    // Personal domain blocks (clickstone §1.4) — `/api/v1/domain_blocks`,
+    // never the admin endpoint. Every flavor here serves the personal trio;
+    // a fork that 404s surfaces as the honest unavailable state at the UI
+    // (the row is never hidden).
+    domainBlocks: {
+      async list(opts: PageOpts = {}) {
+        const cont = continuationOf(opts.cursor);
+        const page = await fetchDomainBlocksPage(
+          client,
+          cont ? { continuation: cont } : { limit: opts.limit ?? 100 },
+        );
+        return {
+          items: page.domains,
+          cursor: encodeContinuation(page.continuation),
+          end: page.end,
+        };
+      },
+      async block(domain: string) {
+        // The caller feeds the raw input through core
+        // `normalizeDomainBlock`; the server stores what it is sent.
+        await blockDomain(client, domain);
+      },
+      async unblock(domain: string) {
+        await unblockDomain(client, domain);
+      },
+    },
+
     // --- Search -------------------------------------------------------------
 
     search: {
@@ -853,7 +891,51 @@ export function createMastodonBackend(
         : {}),
     },
 
-    // --- Notifications ------------------------------------------------------
+    // Hashtag curation (clickstone §1.4). Follow/unfollow exist on both
+    // flavors; the feature/featured surface is vanilla Mastodon's (Akkoma
+    // has no `/api/v1/featured_tags` and no tag `feature` action), so those
+    // members stay undefined there and the UI renders a disabled row with
+    // the reason instead of hiding it. A tag MUTE endpoint exists on
+    // neither server — it is deliberately absent here, never faked.
+    tags: {
+      show(name: string) {
+        return getTag(client, name);
+      },
+      async follow(name: string) {
+        await followTag(client, name);
+      },
+      async unfollow(name: string) {
+        await unfollowTag(client, name);
+      },
+      async followed(opts: PageOpts = {}) {
+        const cont = continuationOf(opts.cursor);
+        const page = await fetchFollowedTagsPage(
+          client,
+          cont ? { continuation: cont } : { limit: opts.limit ?? 80 },
+        );
+        return {
+          items: page.items,
+          cursor: encodeContinuation(page.continuation),
+          end: page.end,
+        };
+      },
+      ...(flavor === "akkoma" || flavor === "pleroma"
+        ? {}
+        : {
+            featured() {
+              return fetchFeaturedTags(client);
+            },
+            async feature(name: string) {
+              await featureTag(client, name);
+            },
+            async unfeature(name: string) {
+              await unfeatureTag(client, name);
+            },
+            async deleteFeatured(id: string) {
+              await deleteFeaturedTag(client, id);
+            },
+          }),
+    },
 
     async notifications(opts: NotificationsOpts = {}) {
       const cont = continuationOf(opts.cursor);
