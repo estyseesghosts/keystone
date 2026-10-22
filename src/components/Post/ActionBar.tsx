@@ -296,6 +296,7 @@ export function ActionBar({
       <View style={styles.spacer}>
         <PostMenu
           postId={id}
+          sessionId={sessionId}
           sections={menu}
           trigger={
             <ActionContent icon={<MoreIcon size={ICON} color={muted} />} text="" />

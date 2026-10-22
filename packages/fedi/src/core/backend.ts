@@ -685,6 +685,99 @@ export function normalizeDomainBlock(input: string): string {
 
 // --- The Backend interface -------------------------------------------------
 
+// --- Reports (clickstone §1.5) ---------------------------------------------
+
+/** The categories the Mastodon report chooser offers (`Report` enum:
+ * `spam`/`legal`/`violation`/`other`). Mastodon's web client also shows a
+ * "dislike" option, but it only thanks the reporter and files nothing —
+ * never sent here. The wire values are strings; the server maps them to
+ * integers. */
+export type ReportCategory = "spam" | "legal" | "violation" | "other";
+
+/** The chooser's payload: every field is optional because only what the
+ * reporter actually chose is sent. An absent field means "server default",
+ * never an empty array or a false flag. */
+export interface ReportOptions {
+  /** Reporter's note (Mastodon optional; Misskey REQUIRES it). */
+  comment?: string;
+  /** Posts backing the report (`status_ids[]`). */
+  statusIds?: readonly string[];
+  /** Reason category (Mastodon family only). */
+  category?: ReportCategory;
+  /** Server rules the report violates (`rule_ids[]`; Mastodon family only;
+   * the server forces category `violation` when these are present). */
+  ruleIds?: readonly string[];
+  /** Forward a copy to the account's home server (Mastodon family only;
+   * meaningful only for a REMOTE account). */
+  forward?: boolean;
+}
+
+/** One chooser field a family cannot express, with the honest reason the
+ * UI shows. Reporters are never told a field was used when it was not. */
+export interface ReportUnsupportedField {
+  field: "statusIds" | "category" | "ruleIds" | "forward";
+  reason: string;
+}
+
+/** What the backend actually sent (normalized, so the caller can render an
+ * honest confirmation instead of assuming the chooser was honoured). */
+export interface ReportResult {
+  comment: string;
+  statusIds: string[];
+  category: ReportCategory | null;
+  ruleIds: string[];
+  forward: boolean;
+  unsupported: ReportUnsupportedField[];
+}
+
+/** One server rule (`GET /api/v1/instance/rules` row). */
+export interface InstanceRule {
+  id: string;
+  text: string;
+}
+
+/** Stable order for the UI's category chooser (labels live in the app). */
+export const REPORT_CATEGORIES: readonly ReportCategory[] = [
+  "spam",
+  "legal",
+  "violation",
+  "other",
+];
+
+/**
+ * Normalize caller input into the shape a backend reports back: trimmed
+ * comment, deduped non-empty ids, known category only. Pure, shared by both
+ * families so "what was sent" means the same thing everywhere.
+ */
+export function normalizeReportOptions(options: ReportOptions | string = {}): ReportOptions {
+  const raw: ReportOptions = typeof options === "string" ? { comment: options } : options;
+  const comment = typeof raw.comment === "string" ? raw.comment.trim() : "";
+  const ids = (values: readonly string[] | undefined): string[] => {
+    const out: string[] = [];
+    for (const value of values ?? []) {
+      const id = typeof value === "string" ? value.trim() : "";
+      if (id && !out.includes(id)) out.push(id);
+    }
+    return out;
+  };
+  const statusIds = ids(raw.statusIds);
+  const ruleIds = ids(raw.ruleIds);
+  const category =
+    raw.category && REPORT_CATEGORIES.includes(raw.category) ? raw.category : null;
+  return {
+    ...(comment ? { comment } : {}),
+    ...(statusIds.length ? { statusIds } : {}),
+    ...(ruleIds.length ? { ruleIds } : {}),
+    ...(category ? { category } : {}),
+    ...(raw.forward === true ? { forward: true } : {}),
+  };
+}
+
+/** Outcome for a backend that cannot carry the fields it was given. */
+export function reportUnsupported(field: ReportUnsupportedField["field"], reason: string): ReportUnsupportedField {
+  return { field, reason };
+}
+
 export interface Backend {
   /** The family this backend speaks (plan §2: one implementation per
    * family). UI gates on it for family-only services (soft-mute lists,
@@ -794,8 +887,20 @@ export interface Backend {
   unblock(id: string): Promise<void>;
   /** Mute one post's thread (addition — `notes/thread-muting/create`). */
   muteThread(noteId: string): Promise<void>;
-  /** Report an account (addition — `users/report-abuse`). */
-  reportAccount(id: string, comment: string): Promise<void>;
+  /** Report an account with the chooser's fields (clickstone §1.5). Each
+   * family sends only the fields it supports: Mastodon `POST
+   * /api/v1/reports` (comment/status_ids/category/rule_ids/forward),
+   * Misskey `users/report-abuse` (comment only, REQUIRED by the server).
+   * The result states what was actually sent, so an option a family cannot
+   * express is never silently dropped. A bare string stays accepted as the
+   * comment-only shorthand (pre-chooser call shape). */
+  reportAccount(id: string, options?: ReportOptions | string): Promise<ReportResult>;
+  /** The server's rule list for the report chooser (`GET
+   * /api/v1/instance/rules`). Optional: absent when the family has no such
+   * endpoint (Misskey), and a 404/405 from a fork surfaces as the honest
+   * unsupported state — the sheet hides the rules step with a reason,
+   * never an error. */
+  instanceRules?(): Promise<InstanceRule[]>;
 
   // --- Search (plan §2.2) ---
   search: {

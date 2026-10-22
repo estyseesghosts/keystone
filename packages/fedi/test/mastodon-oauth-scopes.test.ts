@@ -2,9 +2,10 @@
 //
 // Every authorization request (app registration, `/oauth/authorize`, the
 // Akkoma password grant) must carry exactly `SCOPES_NOW.join(" ")`. Scopes
-// for unshipped features (DMs, push, admin, reports, featured tags,
-// favourites timeline) live in `SCOPES_LATER` and are requested by nobody;
-// each later slice moves its scope into NOW together with the feature.
+// for unshipped features (DMs, push, admin, featured tags, favourites
+// timeline) live in `SCOPES_LATER` and are requested by nobody; each later
+// slice moves its scope into NOW together with the feature. `write:reports`
+// moved into NOW with the report chooser (clickstone §1.5).
 // No network: the transport is stubbed.
 
 import { createMemoryStore } from "../src/core/sessions";
@@ -66,8 +67,8 @@ describe("SCOPES_NOW / SCOPES_LATER split (ADR 0003)", () => {
       // it is a distinct scope — only the LATER token itself must be absent.
       expect(tokens).not.toContain(later);
     }
-    // Named in the slice acceptance.
-    expect(tokens).not.toContain("write:reports");
+    // Named in the slice acceptance: reports ship, these do not.
+    expect(tokens).toContain("write:reports");
     expect(tokens).not.toContain("push");
     expect(tokens).not.toContain("admin:read");
 
@@ -104,6 +105,7 @@ describe("SCOPES_NOW / SCOPES_LATER split (ADR 0003)", () => {
       "read:lists",
       "write:lists",
       "write:media",
+      "write:reports",
     ]) {
       expect(SCOPES_NOW).toContain(scope);
     }
@@ -122,7 +124,7 @@ describe("authorization requests carry SCOPES_NOW", () => {
     const body = JSON.parse(String(calls[0].init?.body)) as { scopes: string };
     expect(body.scopes).toBe(NOW);
     expect(app.scopes).toBe(NOW);
-    expect(calls[0].init?.body).not.toContain("write:reports");
+    expect(calls[0].init?.body).toContain("write:reports");
     expect(calls[0].init?.body).not.toContain("admin:read");
     expect(calls[0].init?.body).not.toContain('"push"');
   });

@@ -553,10 +553,39 @@ describe('scopeHealth (MD5 scope generations)', () => {
     cacheScopes(storage, ORIGIN_B, SCOPES_NOW.join(' '))
     const health = store.scopeHealth()
     expect(health.needsUpgrade).toBe(false)
-    // No LATER-only scope (write:reports, push, admin:read, conversations…)
-    // is ever demanded from an adequate token.
+    // No LATER-only scope (push, admin:read, conversations…) is ever
+    // demanded from an adequate token. write:reports moved into NOW with
+    // the report chooser (clickstone §1.5).
     for (const later of SCOPES_LATER) expect(health.missingScopes).not.toContain(later)
     expect(SCOPES_LATER.length).toBeGreaterThan(0)
+  })
+
+  it('write:reports is a NOW scope: a current token has it, an old one upgrades', async () => {
+    const {storage, store} = setup()
+    await store.add(mastoInput())
+    // Current token: the cached app carries the whole NOW set, including
+    // the report scope shipped in clickstone §1.5.
+    expect(SCOPES_NOW).toContain('write:reports')
+    expect(SCOPES_LATER).not.toContain('write:reports')
+    cacheScopes(storage, ORIGIN_B, SCOPES_NOW.join(' '))
+    expect(store.scopeHealth()).toEqual({
+      needsReauth: false,
+      needsUpgrade: false,
+      generation: 'current',
+      reason: 'current',
+      missingScopes: [],
+    })
+    // A token minted before the slice lacks the scope; ADR 0003 follow-up
+    // (b) says that is the intended upgrade prompt, not a special case.
+    cacheScopes(
+      storage,
+      ORIGIN_B,
+      SCOPES_NOW.filter(s => s !== 'write:reports').join(' '),
+    )
+    const old = store.scopeHealth()
+    expect(old.needsUpgrade).toBe(true)
+    expect(old.reason).toBe('stale-scopes')
+    expect(old.missingScopes).toEqual(['write:reports'])
   })
 
   it('a token missing exactly one NOW scope reports exactly that scope', async () => {

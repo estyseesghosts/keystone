@@ -356,6 +356,16 @@ export interface Relationship {
 
 // --- Instance metadata ----------------------------------------------------
 
+/** `GET /api/v1/instance/rules` row (`REST::RuleSerializer`): the id is a
+ * numeric STRING (that is what `rule_ids[]` takes back), `hint` and
+ * per-locale `translations` are optional. */
+export interface Rule {
+  id: ID;
+  text: string;
+  hint?: string;
+  translations?: Record<string, { text?: string; hint?: string }>;
+}
+
 export interface InstanceV2Configuration {
   statuses?: {
     max_characters?: number;

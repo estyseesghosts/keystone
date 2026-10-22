@@ -4,7 +4,7 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
 import type {Capabilities, Session} from '@keystone/fedi'
-import {FEATURE_KEYS} from '@keystone/fedi'
+import {ApiError, FEATURE_KEYS} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {PostCard} from '#/components/Post/index'
@@ -13,6 +13,7 @@ import {PostMenu} from '#/components/Post/PostMenu'
 import {clearToasts, toastStore} from '#/lib/toast'
 import {postShadowStore} from '#/state/cache'
 import {softMuteStore} from '#/state/queries/graph'
+import {reportPrefsStore} from '#/state/reportPrefs'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
 import {makeAccount, makePost} from './fixtures'
@@ -258,15 +259,27 @@ function fakeBackend(over: Record<string, unknown> = {}, c: Capabilities = caps(
     deletePost: jest.fn(async () => undefined),
     translate: jest.fn(async () => ({sourceLang: 'Japanese', text: 'hello translated'})),
     muteThread: jest.fn(async () => undefined),
-    reportAccount: jest.fn(async (_id: string, _comment: string) => undefined),
+    reportAccount: jest.fn(async (_id: string, _options: unknown) => undefined),
     bookmarks: {add: jest.fn(async () => undefined), remove: jest.fn(async () => undefined)},
     ...over,
   }
 }
 
-function live(post = makePost(), backend = fakeBackend(), handlers = {}) {
-  mockBackends.set(SESSION.id, backend)
-  const snap = {sessions: [SESSION], activeId: SESSION.id}
+const MASTO_SESSION: Session = {
+  ...SESSION,
+  family: 'mastodon',
+  flavor: 'mastodon',
+  grant: 'oauth-pkce',
+} as unknown as Session
+
+function live(
+  post = makePost(),
+  backend = fakeBackend(),
+  handlers = {},
+  session: Session = SESSION,
+) {
+  mockBackends.set(session.id, backend)
+  const snap = {sessions: [session], activeId: session.id}
   const store = {
     subscribe: () => () => {},
     getSnapshot: () => snap,
@@ -274,7 +287,7 @@ function live(post = makePost(), backend = fakeBackend(), handlers = {}) {
     hydrate: async () => {},
   }
   const qc = new QueryClient()
-  wrap(<PostCard post={post} sessionId={SESSION.id} handlers={handlers} />, c => (
+  wrap(<PostCard post={post} sessionId={session.id} handlers={handlers} />, c => (
     <SessionProvider homeOrigin="https://a.example" store={store as never}>
       <QueryClientProvider client={qc}>{c}</QueryClientProvider>
     </SessionProvider>
@@ -286,6 +299,7 @@ describe('PostCard write wiring', () => {
   beforeEach(() => {
     postShadowStore.reset()
     clearToasts()
+    reportPrefsStore.set('other')
   })
 
   it('tapping a reaction chip reacts optimistically and calls the backend', async () => {
@@ -463,17 +477,103 @@ describe('PostCard write wiring', () => {
     expect(b.translate).toHaveBeenCalledWith('p1', 'en')
   })
 
-  it("someone else's post reports through a comment-required confirm", async () => {
+  it("Misskey report keeps the required comment and sends only it", async () => {
     clearToasts()
     const post = makePost({author: makeAccount({id: 'other', acct: 'other@example.social'})})
     const backend = fakeBackend()
-    live(post, backend, {user: {onReport: (comment: string) => backend.reportAccount('other', comment)}})
+    live(post, backend, {
+      user: {onReport: (values: unknown) => backend.reportAccount('other', values)},
+    })
     fireEvent.press(screen.getByTestId('post-menu-p1'))
     fireEvent.press(screen.getByTestId('post-menu-p1-item-report'))
-    expect(screen.getByText('Report @other@example.social?')).toBeTruthy()
-    fireEvent.changeText(screen.getByTestId('post-menu-p1-comment'), 'spam')
-    fireEvent.press(screen.getByTestId('post-menu-p1-confirm'))
-    await waitFor(() => expect(backend.reportAccount).toHaveBeenCalledWith('other', 'spam'))
+    expect(screen.getByTestId('report-chooser')).toBeTruthy()
+    // No Mastodon-only controls on Misskey.
+    expect(screen.queryByTestId('report-category-spam')).toBeNull()
+    expect(screen.queryByTestId('report-forward')).toBeNull()
+    // Send is disabled until the required reason is typed.
+    expect(screen.getByTestId('report-submit').props.accessibilityState.disabled).toBe(true)
+    fireEvent.changeText(screen.getByTestId('report-comment'), 'spam')
+    fireEvent.press(screen.getByTestId('report-submit'))
+    await waitFor(() =>
+      expect(backend.reportAccount).toHaveBeenCalledWith('other', {
+        comment: 'spam',
+        category: 'other',
+        ruleIds: [],
+        forward: false,
+      }),
+    )
+  })
+
+  it('Mastodon report offers category, rules and forwarding', async () => {
+    clearToasts()
+    const post = makePost({
+      author: makeAccount({id: 'other', acct: 'other@remote.social', host: 'remote.social'}),
+    })
+    const backend = fakeBackend({
+      family: 'mastodon',
+      instanceRules: jest.fn(async () => [{id: '7', text: 'No impersonation'}]),
+    })
+    live(
+      post,
+      backend,
+      {user: {onReport: (values: unknown) => backend.reportAccount('other', values)}},
+      MASTO_SESSION,
+    )
+    fireEvent.press(screen.getByTestId('post-menu-p1'))
+    fireEvent.press(screen.getByTestId('post-menu-p1-item-report'))
+    expect(screen.getByTestId('report-category-spam')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('report-category-spam'))
+    // Rules load for this session; picking one files it as a violation.
+    fireEvent.press(await screen.findByTestId('report-rule-7'))
+    fireEvent.press(screen.getByTestId('report-forward'))
+    fireEvent.changeText(screen.getByTestId('report-comment'), 'impersonates me')
+    fireEvent.press(screen.getByTestId('report-submit'))
+    await waitFor(() =>
+      expect(backend.reportAccount).toHaveBeenCalledWith('other', {
+        comment: 'impersonates me',
+        category: 'violation',
+        ruleIds: ['7'],
+        forward: true,
+      }),
+    )
+    expect(reportPrefsStore.get()).toBe('violation')
+  })
+
+  it('Mastodon rules 404 hides the step with a reason, not an error', async () => {
+    clearToasts()
+    const post = makePost({
+      author: makeAccount({id: 'other', acct: 'other@remote.social', host: 'remote.social'}),
+    })
+    const backend = fakeBackend({
+      family: 'mastodon',
+      instanceRules: jest.fn(async () => {
+        throw new ApiError('HTTP 404', 404)
+      }),
+    })
+    live(post, backend, {user: {onReport: jest.fn()}}, MASTO_SESSION)
+    fireEvent.press(screen.getByTestId('post-menu-p1'))
+    fireEvent.press(screen.getByTestId('post-menu-p1-item-report'))
+    // The reason REPLACES the loading caption once the 404 settles.
+    expect(await screen.findByText(/does not publish/)).toBeTruthy()
+    expect(screen.getByTestId('report-rules-reason')).toBeTruthy()
+    expect(screen.queryByTestId('report-rule-7')).toBeNull()
+    // The rest of the chooser still works.
+    expect(screen.getByTestId('report-category-spam')).toBeTruthy()
+  })
+
+  it('a local account hides the forwarding toggle', async () => {
+    clearToasts()
+    const post = makePost({author: makeAccount({id: 'other', acct: 'other', host: null})})
+    const backend = fakeBackend({
+      family: 'mastodon',
+      instanceRules: jest.fn(async () => []),
+    })
+    live(post, backend, {user: {onReport: jest.fn()}}, MASTO_SESSION)
+    fireEvent.press(screen.getByTestId('post-menu-p1'))
+    fireEvent.press(screen.getByTestId('post-menu-p1-item-report'))
+    expect(screen.queryByTestId('report-forward')).toBeNull()
+    expect(await screen.findByText(/lists no rules/)).toBeTruthy()
+    expect(screen.getByTestId('report-rules-reason')).toBeTruthy()
   })
 
   it("someone else's post without a reporter shows the honest reason", () => {

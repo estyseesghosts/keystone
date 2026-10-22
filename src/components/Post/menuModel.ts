@@ -13,7 +13,7 @@ import {t} from '@lingui/macro'
 // without it, bare importers (unit tests) hit Lingui's no-locale error.
 import '#/locale/i18n'
 
-import type {Capabilities, ServerFamily, Post} from '@keystone/fedi'
+import type {Capabilities, ReportCategory, ServerFamily, Post} from '@keystone/fedi'
 import {cachedRemotePostUrl, safeHttpUrl} from '@keystone/fedi'
 
 import type {ActionGate} from '#/state/cache'
@@ -26,8 +26,7 @@ export type PostMenuItem = {
   reason?: string
   destructive?: boolean
   /** Ask for confirmation first. Without a confirm `run`, the item's
-   * `run` only fires after "action". With a confirm `run` (report
-   * flow), that runs instead and receives the dialog comment. */
+   * `run` only fires after "action". */
   confirm?: {
     title: string
     action: string
@@ -36,6 +35,9 @@ export type PostMenuItem = {
     run?: (comment?: string) => void | Promise<void>
   }
   run?: () => void | Promise<void>
+  /** Opens the report chooser (category / optional rules / forward /
+   * optional comment) instead of a bare confirm dialog. */
+  report?: ReportMenuItem
   /** Opens tier 2. */
   submenu?: PostMenuSection[]
 }
@@ -43,13 +45,38 @@ export type PostMenuItem = {
 /** Sections are separated by a hairline in the UI. */
 export type PostMenuSection = PostMenuItem[]
 
+/** What the report chooser (clickstone §1.5) collects. `statusIds` is not
+ * here: the reporter acts on ONE post and the screen that owns the backend
+ * adds that post's id — the chooser never invents a status selection. */
+export interface ReportChooserValues {
+  comment: string
+  category: ReportCategory
+  ruleIds: string[]
+  forward: boolean
+}
+
+/** The chooser branch of a menu item. Kept separate from `confirm` so the
+ * existing confirm dialogs (delete/block) are untouched. */
+export interface ReportMenuItem {
+  title: string
+  action: string
+  /** Family whose report API this is (category/rules/forward only exist on
+   * the Mastodon family). */
+  family: ServerFamily
+  /** The reported account's home server; null for a local account (no
+   * forwarding toggle). */
+  remoteHost: string | null
+  run: (values: ReportChooserValues) => void | Promise<void>
+}
+
 export interface UserActionHandlers {
   onMute?: () => void | Promise<void>
   onMuteBoosts?: () => void | Promise<void>
   onBlock?: () => void | Promise<void>
-  /** Report the author with a required comment (both families implement
-   * `Backend.reportAccount`; the dialog enforces the non-empty reason). */
-  onReport?: (comment: string) => void | Promise<void>
+  /** Report the author through the chooser (both families implement
+   * `Backend.reportAccount`; the screen adds the reported post's id and the
+   * backend states which fields it could not send). */
+  onReport?: (values: ReportChooserValues) => void | Promise<void>
   /** Current relation snapshot for label flips (C16): `undefined` means
    * unknown and keeps the default (enable-direction) labels. */
   muted?: boolean
@@ -188,10 +215,12 @@ export function buildUserSubmenu(input: PostMenuInput): PostMenuSection[] {
   ]
 }
 
-/** Report row (v1 `NoteMenu` parity): hidden for own posts (a viewer
- * never reports themselves), disabled with a reason when signed out or
- * when no reporter is connected, otherwise a confirm dialog that
- * requires a comment — reports without a reason are never sent. */
+/** Report row (v1 `NoteMenu` parity, clickstone §1.5): hidden for own
+ * posts (a viewer never reports themselves), disabled with a reason when
+ * signed out or when no reporter is connected, otherwise the chooser —
+ * category, the server's rules when it publishes them, forwarding for a
+ * remote account, and an optional comment (Misskey still needs the reason
+ * text). */
 function reportRow(input: PostMenuInput): PostMenuItem[] {
   if (input.isOwn) return []
   const onReport = input.handlers.user?.onReport
@@ -213,11 +242,12 @@ function reportRow(input: PostMenuInput): PostMenuItem[] {
     {
       key: 'report',
       label: t`Report`,
-      confirm: {
-        title: t`Report ${handle}?`,
-        action: t`Report`,
-        commentLabel: t`Reason`,
-        run: comment => onReport(comment ?? ''),
+      report: {
+        title: t`Report ${handle}`,
+        action: t`Send report`,
+        family: input.family,
+        remoteHost: input.post.author.host,
+        run: onReport,
       },
     },
   ]
