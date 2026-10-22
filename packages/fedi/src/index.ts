@@ -20,6 +20,7 @@ export * from "./misskey/auth";
 export * from "./misskey/backend";
 export * from "./misskey/client";
 export * from "./misskey/clips";
+export * from "./misskey/chat";
 export * from "./misskey/customEmoji";
 export {
   bareEmojiName,

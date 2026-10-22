@@ -1,5 +1,9 @@
 import {
   accountQueryKey,
+  chatRoomMessagesQueryKey,
+  chatRoomQueryKey,
+  chatRoomsQueryKey,
+  chatUserMessagesQueryKey,
   conversationQueryKey,
   conversationsQueryKey,
   createQueryKey,
@@ -47,5 +51,32 @@ describe('createQueryKey', () => {
     expect(conversationQueryKey('sess-a', 'c1')).toEqual(['sess-a', 'conversation', 'c1'])
     expect(conversationQueryKey('sess-a', 'c1')).not.toEqual(conversationQueryKey('sess-b', 'c1'))
     expect(conversationQueryKey('sess-a', 'c1')).not.toEqual(conversationQueryKey('sess-a', 'c2'))
+  })
+
+  it('scopes chat rooms and message threads by session first (2.2)', () => {
+    expect(chatRoomsQueryKey('sess-a')).toEqual(['sess-a', 'chat-rooms'])
+    expect(chatRoomsQueryKey('sess-a')).not.toEqual(chatRoomsQueryKey('sess-b'))
+    expect(chatRoomQueryKey('sess-a', 'r1')).toEqual(['sess-a', 'chat-room', 'r1'])
+    expect(chatRoomQueryKey('sess-a', 'r1')).not.toEqual(chatRoomQueryKey('sess-b', 'r1'))
+    expect(chatRoomMessagesQueryKey('sess-a', 'r1')).toEqual([
+      'sess-a',
+      'chat-room-messages',
+      'r1',
+    ])
+    expect(chatRoomMessagesQueryKey('sess-a', 'r1')).not.toEqual(
+      chatRoomMessagesQueryKey('sess-a', 'r2'),
+    )
+    expect(chatUserMessagesQueryKey('sess-a', 'u1')).toEqual([
+      'sess-a',
+      'chat-user-messages',
+      'u1',
+    ])
+    expect(chatUserMessagesQueryKey('sess-a', 'u1')).not.toEqual(
+      chatUserMessagesQueryKey('sess-b', 'u1'),
+    )
+    // Room and 1-on-1 threads never share a cache entry.
+    expect(chatRoomMessagesQueryKey('sess-a', 'x')).not.toEqual(
+      chatUserMessagesQueryKey('sess-a', 'x'),
+    )
   })
 })

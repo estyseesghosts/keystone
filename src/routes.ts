@@ -116,6 +116,11 @@ export type RootParamList = {
    * family only, capability-gated. */
   Conversations: undefined
   Conversation: {id: string}
+  /** Misskey chat (P6.2, clickstone §2.2): the room list + one room
+   * thread + one 1-on-1 thread. Misskey family only, capability-gated. */
+  ChatRooms: undefined
+  ChatRoom: {roomId: string}
+  ChatUser: {userId: string}
   /** Server notices (clickstone §1.12): read + dismiss; no authoring. */
   Announcements: undefined
   Drive: undefined
@@ -165,6 +170,9 @@ export const paths: Record<keyof RootParamList, string> = {
   Channels: '/channels',
   Conversations: '/conversations',
   Conversation: '/conversations/:id',
+  ChatRooms: '/chat',
+  ChatRoom: '/chat/rooms/:roomId',
+  ChatUser: '/chat/users/:userId',
   Announcements: '/announcements',
   Drive: '/drive',
   Favorites: '/favorites',
@@ -278,6 +286,9 @@ export function linkingScreens(): LinkingScreens {
     Channels: leaf('Channels'),
     Conversations: leaf('Conversations'),
     Conversation: leaf('Conversation'),
+    ChatRooms: leaf('ChatRooms'),
+    ChatRoom: leaf('ChatRoom'),
+    ChatUser: leaf('ChatUser'),
     Announcements: leaf('Announcements'),
     Drive: leaf('Drive'),
     Favorites: leaf('Favorites'),
@@ -341,6 +352,12 @@ export function titleForRoute(
       return t`Messages`
     case 'Conversation':
       return t`Conversation`
+    case 'ChatRooms':
+      return t`Chat`
+    case 'ChatRoom':
+      return t`Chat room`
+    case 'ChatUser':
+      return t`Direct message`
     case 'Announcements':
       return t`Announcements`
     case 'Drive':

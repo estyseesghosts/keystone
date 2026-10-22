@@ -388,6 +388,15 @@ export interface PostUpdateEvent {
   userId?: string | null;
 }
 
+/** Live chat handlers (Misskey family, P6.2 clickstone §2.2). `message`
+ * carries the adapted chat message (any lite pack); `deleted` carries
+ * the removed message id so the caller drops the row. Reaction deltas
+ * (`react`/`unreact`) are not surfaced — the open thread refetches them. */
+export interface ChatStreamHandlers {
+  onMessage?: (message: ChatMessage) => void;
+  onDeleted?: (id: string) => void;
+}
+
 export interface StreamHandle {
   /** Follow a feed; the subscription carries the per-channel badge state. */
   subscribeTimeline(source: FeedSource, onPost: (post: Post) => void): FeedSubscription;
@@ -401,6 +410,14 @@ export interface StreamHandle {
   ): () => void;
   /** Live notifications; returns an unsubscribe function. */
   onNotification(handler: (notification: Notification) => void): () => void;
+  /** Live chat for one room (Misskey family ONLY — the `chatRoom`
+   * stream channel, `read:chat`). Undefined on the Mastodon family and
+   * everywhere the chat endpoints are absent: the thread screens page +
+   * refresh without it. */
+  subscribeChatRoom?(roomId: string, handlers: ChatStreamHandlers): () => void;
+  /** Live 1-on-1 chat with one user (Misskey `chatUser` channel,
+   * params `{otherId}`). Same absence rule as `subscribeChatRoom`. */
+  subscribeChatUser?(userId: string, handlers: ChatStreamHandlers): () => void;
   /** Current live state + subscription (the StreamBadge reads this). */
   status(): StreamState;
   onStatusChange(handler: (state: StreamState) => void): () => void;
@@ -800,6 +817,124 @@ export interface ConversationsApi {
   /** Mark a conversation read (`POST .../:id/read`); answers the
    * updated row so the caller mirrors the server flag, never a guess. */
   markRead(id: string): Promise<Conversation>;
+}
+
+// --- Misskey chat (P6.2, clickstone §2.2) ----------------------------------
+
+/**
+ * One Misskey chat message — room or 1-on-1 (upstream `ChatMessage` /
+ * `ChatMessageLite*` packs, `ChatEntityService`).
+ *
+ * Only the fields every surface can render honestly:
+ * - `text` is the message body (null when file-only — never an empty
+ *   placeholder);
+ * - `fromAccount` is the sender ONLY when the server packed one (room
+ *   timelines + detailed packs do; the 1-on-1 lite deliberately packs no
+ *   users, so it stays null and the UI resolves the id against the
+ *   session/participants — never an invented account);
+ * - `reactions` keep `{reaction, accountId}` (a null accountId means the
+ *   server omitted the reactor — the count stays honest without naming);
+ * - `file` is the Drive attachment when the message carries one;
+ * - `read` is the `chat/history` overview flag; timelines mark read on
+ *   fetch and omit it (null = "not reported here", never "unread").
+ */
+export interface ChatMessage {
+  id: string;
+  createdAt: string;
+  text: string | null;
+  fromAccountId: string;
+  fromAccount: Account | null;
+  /** 1-on-1 counterpart (null on room messages). */
+  toUserId: string | null;
+  /** Room target (null on 1-on-1 messages). */
+  toRoomId: string | null;
+  fileId: string | null;
+  file: Media | null;
+  reactions: Array<{ reaction: string; accountId: string | null }>;
+  read: boolean | null;
+}
+
+/**
+ * One Misskey chat room (upstream packed `ChatRoom`).
+ *
+ * `owner` is null only when the server did not pack one; `isMuted` is
+ * null for the owner view (the server reports it for members only) —
+ * never fabricated as `false`, so the UI can tell "known off" from
+ * "unknown".
+ */
+export interface ChatRoom {
+  id: string;
+  createdAt: string;
+  name: string;
+  description: string | null;
+  ownerId: string;
+  owner: Account | null;
+  isMuted: boolean | null;
+}
+
+/**
+ * One room membership (upstream `packRoomMembership`).
+ *
+ * `chat/rooms/joining` (the room list) populates `room`, not `user`;
+ * `chat/rooms/members` (a follow-up slice) populates the reverse. The
+ * unpopulated side stays null — never an invented row.
+ */
+export interface ChatRoomMembership {
+  id: string;
+  createdAt: string;
+  userId: string;
+  user: Account | null;
+  roomId: string;
+  room: ChatRoom | null;
+}
+
+/**
+ * Misskey-family chat (P6.2, clickstone §2.2) — rooms + 1-on-1 threads.
+ *
+ * Deliberately NOT folded into `ConversationsApi`: the shapes genuinely
+ * differ. Conversations are inbox rows (`{participants, lastPost,
+ * unread}`) whose threads are reply chains; chat has rooms with an
+ * owner/member/invitation lifecycle, two server-paged timelines (room +
+ * 1-on-1), per-message reactions and Drive files, and server-side read
+ * markers (`chat/history` `isRead`, auto-mark on timeline fetch,
+ * `chat/read-all`). Forcing rooms into `Conversation` would drop the
+ * lifecycle and fake threads the server already pages properly.
+ *
+ * Out of scope (follow-up slices): members/invitations inbox/join/leave,
+ * room update/delete/mute, message search, message reactions UI.
+ */
+export interface ChatApi {
+  /** Rooms the viewer joined (`chat/rooms/joining`), newest membership
+   * first, cursor-paged both ways. */
+  rooms(opts?: PageOpts): Promise<Page<ChatRoomMembership>>;
+  /** The overview (`chat/history`): latest message per counterpart.
+   * `rooms: true` scopes to rooms, `false` (default) to 1-on-1.
+   * Limit-only (the server offers no cursor) — callers refetch. */
+  history(opts?: { limit?: number; rooms?: boolean }): Promise<ChatMessage[]>;
+  /** One room (`chat/rooms/show`). A 404 reads as no-such-room (or no
+   * access) — the typed unsupported error the UI renders as unavailable. */
+  showRoom(roomId: string): Promise<ChatRoom>;
+  /** Create a room (`chat/rooms/create`). Answers the packed room. */
+  createRoom(name: string, opts?: { description?: string | null }): Promise<ChatRoom>;
+  /** One room's messages (`chat/messages/room-timeline`), cursor-paged
+   * both ways. Fetching marks the room read server-side. */
+  roomMessages(roomId: string, opts?: PageOpts): Promise<Page<ChatMessage>>;
+  /** One 1-on-1 thread (`chat/messages/user-timeline`), cursor-paged
+   * both ways. Fetching marks the thread read server-side. */
+  userMessages(userId: string, opts?: PageOpts): Promise<Page<ChatMessage>>;
+  /** One message, detailed (`chat/messages/show`). */
+  showMessage(messageId: string): Promise<ChatMessage>;
+  /** Send to a room (`chat/messages/create-to-room`). Text or file —
+   * both absent throws before any network I/O. */
+  sendToRoom(roomId: string, text?: string | null, opts?: { fileId?: string | null }): Promise<ChatMessage>;
+  /** Send to a user (`chat/messages/create-to-user`). Same text-or-file
+   * rule; the server refuses self-sends. */
+  sendToUser(userId: string, text?: string | null, opts?: { fileId?: string | null }): Promise<ChatMessage>;
+  /** Delete an own message (`chat/messages/delete`). */
+  deleteMessage(messageId: string): Promise<void>;
+  /** Mark every chat read (`chat/read-all`). The per-thread mark is the
+   * timeline fetch itself; this is the sweep. */
+  readAll(): Promise<void>;
 }
 
 // --- Hashtag follow / feature / mute (clickstone §1.4) ----------------------
@@ -1307,6 +1442,11 @@ export interface Backend {
    * on the Misskey family — the UI shows the honest unavailable state,
    * never an empty inbox. */
   conversations?: ConversationsApi;
+  /** Misskey-family chat: rooms + 1-on-1 threads (P6.2, clickstone
+   * §2.2). Undefined where the flavor has no (or unverified) `chat/*`
+   * endpoints and everywhere on the Mastodon family — same honest
+   * unavailable state, never an empty room list. */
+  chat?: ChatApi;
   scheduled?: ScheduledApi;
   serverDrafts?: ServerDraftsApi;
   bookmarks?: BookmarksApi;

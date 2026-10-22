@@ -699,6 +699,11 @@ export type NotificationKind =
   | "createToken"
   /** Misskey `test`: the viewer's own test notification. */
   | "test"
+  /** Misskey `chatRoomInvitationReceived`: the viewer was invited to a
+   * chat room (P6.2 slice 2.2). `ext.invitedRoomId` names the room when
+   * the wire packed one, so the row deep-links; the invitation row
+   * itself lives behind a follow-up slice. */
+  | "chatRoomInvitation"
   | "unknown";
 
 /** One actor in a notification row. Grouped rows carry several (including
@@ -755,6 +760,13 @@ export interface NotificationExt {
   /** `scheduledNotePostFailed` (Misskey): the draft id the server kept so
    * the note can be re-drafted. Absent = the wire named none. */
   failedDraftId?: string;
+  /** `chatRoomInvitationReceived` (Misskey): the invited room's id when
+   * the wire packed one (`invitation.room.id`) — the row deep-links to
+   * it. Absent = the wire named none (the row still labels honestly). */
+  invitedRoomId?: string;
+  /** `chatRoomInvitationReceived` (Misskey): the invited room's display
+   * name when packed (`invitation.room.name`). Display only. */
+  invitedRoomName?: string | null;
 }
 
 // --- Pagination ------------------------------------------------------------

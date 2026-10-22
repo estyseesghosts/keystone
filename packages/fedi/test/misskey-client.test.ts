@@ -329,6 +329,20 @@ describe("permission-denied observer (0.8 global scope upgrade)", () => {
     expect(events).toEqual([]);
   });
 
+  it("reports a chat 403 the same way (2.2: old tokens hit the 0.8 prompt, no new mechanism)", async () => {
+    stubFetch(() =>
+      Promise.resolve(
+        json({ error: { message: "Your app does not have the necessary permissions to use this endpoint.", code: "PERMISSION_DENIED", kind: "permission" } }, 403),
+      ),
+    );
+    await createMisskeyClient(session())
+      .call("chat/rooms/joining", { limit: 20 })
+      .catch(() => undefined);
+    expect(events).toEqual([
+      { sessionId: `${ORIGIN} u1`, origin: ORIGIN, status: 403 },
+    ]);
+  });
+
   it("stays quiet for unauthenticated calls (login/token checks carry no token)", async () => {
     stubFetch(() =>
       Promise.resolve(json({ error: { message: "nope", code: "PERMISSION_DENIED" } }, 403)),

@@ -35,6 +35,7 @@ import type {
   Backend,
   BookmarksApi,
   ChannelsApi,
+  ChatApi,
   ClipSummary,
   ClipsApi,
   CustomEmoji,
@@ -117,6 +118,19 @@ import {
   showChannel,
   unfollowChannel,
 } from "./channels";
+import {
+  chatHistory,
+  createChatRoom,
+  createRoomMessage,
+  createUserMessage,
+  deleteChatMessage,
+  listChatRooms,
+  readAllChat,
+  roomTimeline,
+  showChatMessage,
+  showChatRoom,
+  userTimeline,
+} from "./chat";
 import { listAnnouncements, readAnnouncement } from "./announcements";
 import { listFavorites, removeFavorite } from "./favorites";
 import { listFeaturedNotes, listUserFeaturedNotes, pinNote, unpinNote } from "./featured";
@@ -438,6 +452,82 @@ export function createMisskeyBackend(
     },
     unfollow(channelId) {
       return unfollowChannel(call, channelId);
+    },
+  };
+
+  // Misskey chat (P6.2, clickstone §2.2): rooms + 1-on-1 threads. The
+  // paged surfaces (`joining`, both timelines) ride the shared
+  // `{limit, sinceId, untilId}` cursor convention (decodeCursor); the
+  // overview (`chat/history`) is limit-only server-side, so `history`
+  // refetches rather than pages. Timeline fetches mark read server-side
+  // — there is deliberately no per-thread mark call here.
+  const chat: ChatApi = {
+    async rooms(opts = {}) {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const cursor = decodeCursor(opts.cursor ?? null);
+      const rows = await listChatRooms(call, {
+        limit,
+        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
+        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
+      });
+      return pageOf(rows ?? [], limit, (row) => row);
+    },
+    async history(opts = {}) {
+      const rows = await chatHistory(call, {
+        ...(opts.limit !== undefined ? { limit: opts.limit } : {}),
+        ...(opts.rooms !== undefined ? { rooms: opts.rooms } : {}),
+      });
+      return rows ?? [];
+    },
+    showRoom(roomId) {
+      return showChatRoom(call, roomId);
+    },
+    createRoom(name, opts = {}) {
+      return createChatRoom(call, {
+        name,
+        ...(opts.description !== undefined ? { description: opts.description } : {}),
+      });
+    },
+    async roomMessages(roomId, opts = {}) {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const cursor = decodeCursor(opts.cursor ?? null);
+      const { items } = await roomTimeline(call, roomId, {
+        limit,
+        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
+        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
+      });
+      return pageOf(items ?? [], limit, (item) => item);
+    },
+    async userMessages(userId, opts = {}) {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const cursor = decodeCursor(opts.cursor ?? null);
+      const { items } = await userTimeline(call, userId, {
+        limit,
+        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
+        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
+      });
+      return pageOf(items ?? [], limit, (item) => item);
+    },
+    showMessage(messageId) {
+      return showChatMessage(call, messageId);
+    },
+    sendToRoom(roomId, text, opts = {}) {
+      return createRoomMessage(call, roomId, {
+        ...(text !== undefined ? { text } : {}),
+        ...(opts.fileId !== undefined ? { fileId: opts.fileId } : {}),
+      });
+    },
+    sendToUser(userId, text, opts = {}) {
+      return createUserMessage(call, userId, {
+        ...(text !== undefined ? { text } : {}),
+        ...(opts.fileId !== undefined ? { fileId: opts.fileId } : {}),
+      });
+    },
+    deleteMessage(messageId) {
+      return deleteChatMessage(call, messageId);
+    },
+    readAll() {
+      return readAllChat(call);
     },
   };
 
@@ -1255,6 +1345,12 @@ export function createMisskeyBackend(
     antennas,
     clips,
     channels,
+    // Chat ships on misskey + sharkey (verified `chat/*` presence:
+    // upstream develop tree + live Sharkey probe). Catodon is unverified
+    // and Pinetree has no chat — those flavors leave the member off and
+    // the capability reads unsupported, so the screens render the honest
+    // gate instead of a missing module (mastodon-conversations pattern).
+    ...(flavor === "misskey" || flavor === "sharkey" ? { chat } : {}),
     announcements,
     lists,
     scheduled,

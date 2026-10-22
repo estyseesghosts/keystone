@@ -126,8 +126,8 @@ describe('clip row (W5)', () => {
   })
 })
 
-describe('DM row (2.1 — inbox ships on mastodon + akkoma)', () => {
-  function dmInput(opts: {caps?: unknown; onMessage?: () => void; family?: 'mastodon' | 'misskey'; flavor?: 'mastodon' | 'akkoma' | 'pleroma' | 'unknown'} = {}) {
+describe('DM row (2.1 — inbox ships on mastodon + akkoma; 2.2 — chat ships on misskey + sharkey)', () => {
+  function dmInput(opts: {caps?: unknown; onMessage?: () => void; family?: 'mastodon' | 'misskey'; flavor?: 'mastodon' | 'akkoma' | 'pleroma' | 'misskey' | 'sharkey' | 'catodon' | 'pinetree' | 'unknown'} = {}) {
     const post = makePost()
     return {
       family: opts.family ?? 'mastodon',
@@ -151,7 +151,7 @@ describe('DM row (2.1 — inbox ships on mastodon + akkoma)', () => {
     } as never
   }
 
-  function dmRow(opts: {caps?: unknown; onMessage?: () => void; family?: 'mastodon' | 'misskey'; flavor?: 'mastodon' | 'akkoma' | 'pleroma' | 'unknown'} = {}) {
+  function dmRow(opts: {caps?: unknown; onMessage?: () => void; family?: 'mastodon' | 'misskey'; flavor?: 'mastodon' | 'akkoma' | 'pleroma' | 'misskey' | 'sharkey' | 'catodon' | 'pinetree' | 'unknown'} = {}) {
     return flatten(buildUserSubmenu(dmInput(opts))).find(i => i.key === 'dm')
   }
 
@@ -176,6 +176,36 @@ describe('DM row (2.1 — inbox ships on mastodon + akkoma)', () => {
     const row = dmRow({caps: {direct_messages: 'unsupported'}, family: 'misskey'})
     expect(row!.disabled).toBe(true)
     expect(row!.reason).toMatch(/not implemented in Keystone yet/i)
+  })
+
+  it('names the server gap on pinetree (no chat there)', () => {
+    const row = dmRow({
+      caps: {direct_messages: 'unsupported'},
+      family: 'misskey',
+      flavor: 'pinetree',
+    })
+    expect(row!.disabled).toBe(true)
+    expect(row!.reason).toMatch(/no chat/i)
+  })
+
+  it('names the unverified gap on catodon', () => {
+    const row = dmRow({
+      caps: {direct_messages: 'unsupported'},
+      family: 'misskey',
+      flavor: 'catodon',
+    })
+    expect(row!.disabled).toBe(true)
+    expect(row!.reason).toMatch(/unverified/i)
+  })
+
+  it('enables the row where chat ships (misskey/sharkey past the gate)', () => {
+    for (const flavor of ['misskey', 'sharkey'] as const) {
+      const onMessage = jest.fn()
+      const row = dmRow({caps: {direct_messages: 'supported'}, family: 'misskey', flavor, onMessage})
+      expect(row!.disabled).toBeUndefined()
+      row!.run!()
+      expect(onMessage).toHaveBeenCalled()
+    }
   })
 
   it('is present and disabled with the client-gap reason, never omitted (mastodon)', () => {

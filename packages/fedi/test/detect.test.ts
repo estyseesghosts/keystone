@@ -470,14 +470,17 @@ describe("three-state capabilities", () => {
   // 2.1 — conversations ship on mastodon + akkoma (source-verified
   // `/api/v1/conversations` in both checkouts; Mastodon
   // `ConversationsController`, Akkoma `ConversationController`). Pleroma
-  // is unverified — unsupported with a reason, never unlocked. The
-  // Misskey family stays unsupported (chat is slice 2.2). `direct_messages`
-  // remains a client gate: supported means Keystone has the inbox surface
-  // for that flavor, not a fresh server probe.
+  // is unverified — unsupported with a reason, never unlocked. 2.2 flips
+  // misskey + sharkey to supported (chat ships there — upstream develop
+  // tree + live Sharkey probe); catodon stays unverified and pinetree
+  // has no chat. `direct_messages` remains a client gate: supported means
+  // Keystone has the surface for that flavor, not a fresh server probe.
   it("2.1 direct_messages: supported where the inbox ships, gated elsewhere", () => {
     expect(buildCapabilities("mastodon").direct_messages).toBe("supported");
     expect(buildCapabilities("akkoma").direct_messages).toBe("supported");
-    for (const flavor of ["pleroma", "misskey", "sharkey", "catodon", "pinetree"] as const) {
+    expect(buildCapabilities("misskey").direct_messages).toBe("supported");
+    expect(buildCapabilities("sharkey").direct_messages).toBe("supported");
+    for (const flavor of ["pleroma", "catodon", "pinetree"] as const) {
       expect([flavor, buildCapabilities(flavor).direct_messages]).toEqual([
         flavor,
         "unsupported",
@@ -488,11 +491,16 @@ describe("three-state capabilities", () => {
     expect(buildCapabilities("unknown").direct_messages).toBe("unknown");
   });
 
-  it("0.9 keeps `chats` (Misskey chat) independent from `direct_messages`", () => {
-    // `chats` is the Misskey-family server feature and is not reused as the
-    // messaging gate; the Mastodon-family verdict there is unchanged.
+  it("2.2 chats: supported where the chat endpoints ship", () => {
+    // `chats` is the Misskey-family server feature and is not reused as
+    // the messaging gate; the Mastodon-family verdict there is unchanged.
+    expect(buildCapabilities("misskey").chats).toBe("supported");
+    expect(buildCapabilities("sharkey").chats).toBe("supported");
     expect(buildCapabilities("mastodon").chats).toBe("unsupported");
-    expect(buildCapabilities("misskey").chats).toBe("unknown");
+    // Unverified (catodon) and unprobed (pinetree) stay unknown —
+    // neither unlocks UI.
+    expect(buildCapabilities("catodon").chats).toBe("unknown");
+    expect(buildCapabilities("pinetree").chats).toBe("unknown");
     expect(FEATURE_KEYS).toContain("direct_messages");
     expect(FEATURE_KEYS).toContain("chats");
   });

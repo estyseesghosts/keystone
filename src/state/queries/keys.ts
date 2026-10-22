@@ -76,6 +76,27 @@ export function conversationQueryKey(sessionId: string, conversationId: string):
   return createQueryKey(sessionId, 'conversation', conversationId);
 }
 
+/** Key for the Misskey chat room list (P6.2, clickstone §2.2). Session
+ * first, like every other key, so two accounts never share a cache entry. */
+export function chatRoomsQueryKey(sessionId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'chat-rooms');
+}
+
+/** Key for one Misskey chat room (session + room id). */
+export function chatRoomQueryKey(sessionId: string, roomId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'chat-room', roomId);
+}
+
+/** Key for one room's message pages (session + room id). */
+export function chatRoomMessagesQueryKey(sessionId: string, roomId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'chat-room-messages', roomId);
+}
+
+/** Key for one 1-on-1 thread's message pages (session + user id). */
+export function chatUserMessagesQueryKey(sessionId: string, userId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'chat-user-messages', userId);
+}
+
 /** Key for the server's published rules (report chooser, clickstone §1.5).
  * Public per server, but scoped by session like every other key so two
  * accounts never share a cache entry. */

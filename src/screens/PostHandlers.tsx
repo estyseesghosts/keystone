@@ -112,10 +112,14 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
         // P6.2: the DM row opens the inbox, and only when the session's
         // backend actually has the conversations module (capability-gated
         // in the menu — without the module the row stays disabled with
-        // the "no composer connected" reason, never a dead tap).
+        // the "no composer connected" reason, never a dead tap). P6.2
+        // §2.2: on a chat backend the row opens the 1-on-1 thread with
+        // the author instead (Misskey account ids ARE user ids).
         ...(backend.conversations
           ? {onMessage: () => nav.navigate('Conversations')}
-          : {}),
+          : backend.chat
+            ? {onMessage: () => nav.navigate('ChatUser', {userId: post.author.id})}
+            : {}),
       }
     },
     [store, qc],

@@ -96,12 +96,11 @@ export function notificationKindLabel(notification: Notification): string {
       return t`created an access token`
     case 'test':
       return t`sent a test notification`
+    case 'chatRoomInvitation':
+      return t`invited you to a chat room`
     case 'unknown':
     default:
-      // Unsupported-but-known wires still get an honest label instead of
-      // the raw type: Misskey's chat invitation exists before this app has
-      // a chat surface, so it says what it is and nothing more.
-      if (notification.rawType === 'chatRoomInvitationReceived') return t`chat invitation`
+      // Unknown wires still get the raw type, never a guessed action.
       return notification.rawType || t`sent a notification`
   }
 }
@@ -156,6 +155,14 @@ function openAuthorProfile(accountId: string) {
 function openPostDetail(postId: string) {
   if (!navigationRef.isReady()) return
   navigationRef.navigate('Note', {id: postId})
+}
+
+function openChatRoom(roomId: string) {
+  if (!navigationRef.isReady()) return
+  // The room screen carries the honest unavailable state when the room
+  // is gone (or the server has no `chat/*`) — navigating is never a
+  // dead end, and no access is assumed before the fetch.
+  navigationRef.navigate('ChatRoom', {roomId} as never)
 }
 
 // Id-only actors the server listed without a packed account: a stable
@@ -365,6 +372,20 @@ export function NotificationRow({
         </Caption>
         {notification.read === true ? <Caption color="faint">{i18n._(msg`Read`)}</Caption> : null}
         {notification.read === false ? <Caption color="faint">{i18n._(msg`New`)}</Caption> : null}
+        {notification.kind === 'chatRoomInvitation' && notification.ext.invitedRoomId ? (
+          <Pressable
+            testID={`notification-room-${notification.id}`}
+            onPress={() => {
+              const roomId = notification.ext.invitedRoomId
+              if (roomId) openChatRoom(roomId)
+            }}
+            accessibilityRole="link"
+            accessibilityLabel={i18n._(msg`Open the chat room`)}>
+            <Caption color="muted">
+              {notification.ext.invitedRoomName ?? i18n._(msg`Open room`)}
+            </Caption>
+          </Pressable>
+        ) : null}
       </View>
       {onDismiss ? (
         <Pressable

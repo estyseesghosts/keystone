@@ -40,6 +40,8 @@
 
 import EventEmitter from "eventemitter3";
 import type {
+  ChatMessage,
+  ChatStreamHandlers,
   FeedSource,
   FeedSubscription,
   PostUpdateEvent,
@@ -47,6 +49,7 @@ import type {
   StreamState,
 } from "../core/backend";
 import type { Notification, Post } from "../core/models";
+import { adaptChatMessage } from "./chat";
 import { adaptNote, adaptNotification } from "./adapt";
 import type { Note, NotificationItem } from "./wire";
 
@@ -608,6 +611,16 @@ function isNotificationLike(value: unknown): value is NotificationItem {
   );
 }
 
+/** A packed chat message is any object with a string id (detailed or
+ * either lite pack — `adaptChatMessage` sorts the variants). */
+function isChatMessageLike(value: unknown): value is Parameters<typeof adaptChatMessage>[0] {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { id?: unknown }).id === "string"
+  );
+}
+
 /** Feed source -> channel spec. Home needs auth, local/global do not,
  * antennas carry their id. */
 function channelSpec(
@@ -716,6 +729,36 @@ export function createStreamHandle(opts: StreamHandleOptions): StreamHandle | nu
       return () => handle.dispose();
     },
 
+    // Chat live delivery (P6.2 §2.2): `chatRoom` + `chatUser` are the two
+    // channels the official client holds open (`pages/chat/room.vue` +
+    // `message.vue`), with `message` / `deleted` / `react` / `unreact`
+    // events. Keystone surfaces message + deleted only: reaction deltas
+    // arrive on the next thread refetch, never as guessed state. Both
+    // channels require a credential (upstream `requireCredential`), so an
+    // unauthenticated handle is a no-op — the thread pages without it.
+    // Read markers need no socket write: both timeline endpoints mark
+    // read server-side on every fetch, and `connection.send('read')` is
+    // the official client's extra, not a state Keystone tracks.
+    subscribeChatRoom(roomId, handlers) {
+      if (!opts.token || !roomId) return () => undefined;
+      const handle = pool.subscribeChannel("chatRoom", { roomId }, {
+        onEvent: (type, body) => {
+          subscribeChatEvent(handlers, type, body);
+        },
+      });
+      return () => handle.dispose();
+    },
+
+    subscribeChatUser(userId, handlers) {
+      if (!opts.token || !userId) return () => undefined;
+      const handle = pool.subscribeChannel("chatUser", { otherId: userId }, {
+        onEvent: (type, body) => {
+          subscribeChatEvent(handlers, type, body);
+        },
+      });
+      return () => handle.dispose();
+    },
+
     status() {
       return STATE_MAP[pool.status()];
     },
@@ -724,4 +767,21 @@ export function createStreamHandle(opts: StreamHandleOptions): StreamHandle | nu
       return pool.onStatusChange((status) => handler(STATE_MAP[status]));
     },
   };
+}
+
+/** Dispatch one chat-stream event to the caller's handlers. Unknown event
+ * types (`react`/`unreact` and any fork extension) are ignored — the open
+ * thread refetches them; nothing is guessed into the cache. */
+function subscribeChatEvent(
+  handlers: ChatStreamHandlers,
+  type: string,
+  body: unknown,
+): void {
+  if (type === "message" && isChatMessageLike(body)) {
+    handlers.onMessage?.(adaptChatMessage(body));
+    return;
+  }
+  if (type === "deleted" && typeof body === "string") {
+    handlers.onDeleted?.(body);
+  }
 }
