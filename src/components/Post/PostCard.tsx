@@ -56,6 +56,7 @@ import {postBodyNodes, postEmojis, postTagBubble} from './body'
 import {usePostCardHandlers, type PostCardHandlers} from './handlers'
 import {LinkCard, UnfurledLinkCard, firstBareUrl} from './LinkCard'
 import {buildPostMenu, type PostMenuSection} from './menuModel'
+import {decideTranslation, viewerPrimaryOf} from './translationPolicy'
 import {Lightbox} from '#/components/Lightbox'
 import {PostMediaGrid} from './PostMediaGrid'
 import {PostPoll} from './PostPoll'
@@ -304,13 +305,15 @@ function LivePostCard(props: PostCardProps) {
   // post instead of once per render.
   const translationSource = useMemo<TranslationSource | null>(() => {
     if (!backend) return null
-    const targetLang = handlers.targetLang ?? 'en'
+    // Viewer language, not a hardcoded 'en': the server derives the source
+    // from this (v1 sends the primary subtag; servers accept full tags).
+    const targetLang = handlers.targetLang ?? viewerPrimaryOf(i18n.locale)
     return {
       supported: backend.capabilities?.translation === 'supported',
       targetLang,
       fetch: (id, lang) => backend.translate(id, lang),
     }
-  }, [backend, handlers.targetLang])
+  }, [backend, handlers.targetLang, i18n.locale])
 
   // Quote fallback resolver for the view (WS-A): the session backend's
   // own `resolveQuoteUri` — Misskey `ap/show`, Mastodon `/api/v2/search`.
@@ -352,7 +355,9 @@ function LivePostCard(props: PostCardProps) {
       translate: async () => {
         if (!backend) return
         try {
-          setTranslation(await backend.translate(effective.id, handlers.targetLang ?? 'en'))
+          setTranslation(
+            await backend.translate(effective.id, handlers.targetLang ?? viewerPrimaryOf(i18n.locale)),
+          )
         } catch (e) {
           toastError(e)
         }
@@ -642,11 +647,21 @@ function PostCardView({
       cancelled = true
     }
   }, [effective.id, effective.content.plain, srcSupported, srcLang, srcFetch, bodyHidden])
-  const translation = live?.translation ?? autoTranslation
+  const rawTranslation = live?.translation ?? autoTranslation
+  // v1 display policy: a same-text "translation" (the server echoes the
+  // original for same-language posts) never renders — no header, no swap.
+  // The check runs on the merged value so manual + auto share one rule.
+  const decided = rawTranslation
+    ? decideTranslation(effective.content.plain, rawTranslation, srcLang)
+    : null
+  const shownTranslation =
+    rawTranslation && decided?.show === true
+      ? {sourceLang: decided.label, text: rawTranslation.text}
+      : null
   // The translated body replaces the original; the header above it
   // toggles back and forth. Hidden with the CW gate so a closed warning
   // never leaks the translated text early.
-  const showingTranslation = !bodyHidden && translation !== null && !showOriginal
+  const showingTranslation = !bodyHidden && shownTranslation !== null && !showOriginal
 
   // Warm the remote-page cache for federated posts (MK17): by the
   // time the menu opens, "Copy remote link" carries the human page
@@ -768,7 +783,7 @@ function PostCardView({
             </Pressable>
           </View>
         )}
-        {!bodyHidden && translation !== null && (
+        {!bodyHidden && shownTranslation !== null && (
           <Pressable
             testID={`translation-toggle-${post.id}`}
             onPress={() => setShowOriginal(v => !v)}
@@ -779,14 +794,14 @@ function PostCardView({
             <Caption color="muted">
               {showOriginal
                 ? i18n._(msg`Showing original · Show translation?`)
-                : translation.sourceLang
-                  ? i18n._(msg`Translated from ${translation.sourceLang} · Show original?`)
+                : shownTranslation.sourceLang
+                  ? i18n._(msg`Translated from ${shownTranslation.sourceLang} · Show original?`)
                   : i18n._(msg`Translated · Show original?`)}
             </Caption>
           </Pressable>
         )}
         {showingTranslation ? (
-          <Body testID={`post-translation-${post.id}`}>{translation.text}</Body>
+          <Body testID={`post-translation-${post.id}`}>{shownTranslation.text}</Body>
         ) : (
           !bodyHidden && (
           <Pressable

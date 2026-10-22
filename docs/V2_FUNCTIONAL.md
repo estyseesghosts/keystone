@@ -162,11 +162,15 @@ scroll, search, retry-after-error, insert — captured on device.
 
 ## E6 — Translation actually implemented
 
-Status: OPEN — 2026-10-21: `pf-bio` concluded "no rig server exposes it"
-(probe-backed, honest given the rig) but the owner reports testing against
-a LIVE Misskey server that DOES provide translation (same mechanism as v1).
-The E6 commit (3052f59) is HELD OFF main — not merged. Waiting on owner for
-server origin + auth to redo E6 against the real server instead of the rig.
+Status: IMPLEMENTED per contract 2026-10-21, pending owner live verification
+on their Misskey server. Chain: `detectServer` advertises
+(`meta.translatorAvailable`, Mastodon `configuration.translation.enabled`,
+Akkoma `machine_translation` flag) → `capabilities.translation` →
+`backend.translate` (`notes/translate {noteId, targetLang}` /
+`/statuses/:id/translate {lang}`) → menu row + auto-translate, with v1
+display policy (same-text echo suppressed, viewer-locale targetLang).
+Trio 146/1749 green. The rig cannot prove it live (`:3101`/`:3102` down,
+`:4000`/`:3000` expose no service) — owner tests against live Misskey.
 
 Owner report: translation still isn't implemented. The wiring exists
 (`PostCard.tsx:308-365` auto + manual paths, menu row, `detect.ts`

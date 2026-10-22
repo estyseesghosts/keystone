@@ -465,6 +465,20 @@ describe('auto-translate (v1)', () => {
     expect(screen.getByTestId('post-body-tr5')).toBeTruthy()
     expect(screen.queryByTestId('translation-toggle-tr5')).toBeNull()
   })
+
+  it('same-text server echo never renders — no header, original stays', async () => {
+    const fetch: TranslationSource['fetch'] = jest.fn(async () => ({
+      sourceLang: 'English',
+      text: '  hello   world wave ',
+    }))
+    renderCard(
+      <PostCard post={makePost({id: 'tr6'})} sessionId={SESSION} translationSource={source(fetch)} />,
+    )
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.getByTestId('post-body-tr6')).toBeTruthy())
+    expect(screen.queryByTestId('post-translation-tr6')).toBeNull()
+    expect(screen.queryByTestId('translation-toggle-tr6')).toBeNull()
+  })
 })
 
 describe('display-name emoji (F11)', () => {
