@@ -177,6 +177,9 @@ export interface ProfileUpdate {
   ext?: Record<string, unknown>;
 }
 
+/** Which profile image an upload replaces (clickstone §1.8). */
+export type ProfileImageKind = "avatar" | "banner";
+
 // --- Search ----------------------------------------------------------------
 
 export interface SearchPostsOpts extends PageOpts {
@@ -997,6 +1000,21 @@ export interface Backend {
   /** Cancel an outgoing pending request (addition). */
   cancelFollowRequest(id: string): Promise<void>;
   updateProfile(patch: ProfileUpdate): Promise<Account>;
+  /**
+   * Replace one profile image (clickstone §1.8). Both families support it,
+   * by different wires: the Mastodon family sends the file as a multipart
+   * `PATCH /api/v1/accounts/update_credentials` (`avatar` / `header`), the
+   * Misskey family uploads the file to Drive (`drive/files/create`) and
+   * writes the returned id through `i/update` (`avatarId` / `bannerId`).
+   * The file never becomes a JSON body and a Misskey Drive id never reaches
+   * the Mastodon family. The server's refreshed self account is returned —
+   * callers show its URL, never an optimistic local guess.
+   *
+   * Optional like every capability-gated member: a family (or fork) with no
+   * image endpoint leaves it undefined and the editor disables the row WITH
+   * a reason. Present on both shipped families.
+   */
+  uploadProfileImage?(kind: ProfileImageKind, file: File): Promise<Account>;
 
   // --- Mutes and blocks (plan §2.2) ---
   mutes(opts?: PageOpts): Promise<Page<Account>>;

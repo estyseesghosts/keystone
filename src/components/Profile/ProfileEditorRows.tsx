@@ -1,12 +1,17 @@
 // Shared profile-editor rows (C13): a labelled text row (editable or
-// disabled-with-reason) and a labelled switch row. Every unsupported row
-// renders disabled WITH its reason — never omitted, never inert.
+// disabled-with-reason), a labelled switch row, and the profile-image row
+// (clickstone §1.8) with its preview, progress and per-image error. Every
+// unsupported row renders disabled WITH its reason — never omitted, never
+// inert.
 import {StyleSheet, Switch, TextInput, View} from 'react-native'
+
+import type {ReactNode} from 'react'
 
 import {atoms} from '#/alf/atoms'
 import {useTheme} from '#/alf/index'
 import {radius, space, typeSize} from '#/alf/tokens'
 import {Caption} from '#/alf/typography'
+import {Button} from '#/components/Button'
 
 export function EditorTextRow({
   label,
@@ -99,6 +104,63 @@ export function EditorSwitchRow({
         accessibilityLabel={label}
         accessibilityState={{disabled}}
       />
+    </View>
+  )
+}
+
+/**
+ * One profile image (avatar or banner): the current picture (or the local
+ * preview while the upload runs), a pick/replace button, the in-flight
+ * state and the last failure — never a silent no-op. `disabledReason` is
+ * only set when the backend truly has no image endpoint; the button then
+ * stays visible, disabled, and explains why.
+ */
+export function EditorImageRow({
+  label,
+  preview,
+  chooseLabel,
+  uploading,
+  error,
+  disabledReason,
+  onChoose,
+  testID,
+  errorTestID,
+  progressTestID,
+}: {
+  label: string
+  preview: ReactNode
+  chooseLabel: string
+  uploading: boolean
+  error: string | null
+  disabledReason?: string
+  onChoose: () => void
+  testID?: string
+  errorTestID?: string
+  progressTestID?: string
+}) {
+  return (
+    <View testID={testID} style={atoms.gap_sm}>
+      <Caption>{label}</Caption>
+      {preview}
+      <Button
+        label={chooseLabel}
+        variant="secondary"
+        onPress={onChoose}
+        disabled={uploading || !!disabledReason}
+        disabledReason={disabledReason ?? (uploading ? 'Uploading…' : undefined)}
+        testID={testID ? `${testID}-choose` : undefined}
+      />
+      {uploading ? (
+        <Caption testID={progressTestID} color="faint">
+          Uploading…
+        </Caption>
+      ) : null}
+      {error ? (
+        <Caption testID={errorTestID} color="text">
+          {error}
+        </Caption>
+      ) : null}
+      {disabledReason ? <Caption color="faint">{disabledReason}</Caption> : null}
     </View>
   )
 }

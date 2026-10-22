@@ -1,10 +1,13 @@
 // Profile editor screen (C13, route `ProfileEdit`): name, bio, locked,
 // bot, profile fields, plus the Misskey-family extras (location,
 // birthday, followed message, language) where the backend supports them.
-// Avatar/banner have no upload path in this app yet, so they render
-// disabled with their reason on every family (Mastodon additionally
-// refuses them via `unsupported`). Every unsupported row renders
-// disabled WITH a reason — never omitted, never inert.
+// Avatar and banner are REAL uploads on both families (clickstone §1.8):
+// the picker only appears when the backend implements
+// `uploadProfileImage`, the file goes through that seam (never a family
+// wire type here), progress and failures are shown on the row, and the
+// image is uploaded on pick — no full save round-trip, and the unsaved
+// text fields are never re-seeded. Where a family has no image endpoint
+// the row stays visible, disabled, with its reason.
 //
 // Save calls `backend.updateProfile` with only the keys the active
 // family accepts, surfaces permission/validation errors honestly, and
@@ -13,13 +16,16 @@
 // Consumes the frozen interfaces as-is: session/backend via the existing
 // `useActiveBackend()` (`#/screens/HomeFeed`) and `useActiveSession()`
 // (`#/state/session/SessionProvider`), exit via `navigation.goBack()`.
-import {useEffect, useState, type ReactNode} from 'react'
+import {useContext, useEffect, useState, type ReactNode} from 'react'
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native'
+import {QueryClientContext} from '@tanstack/react-query'
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
 
 import {
+  displayNameOf,
   isPermissionError,
   type Account,
+  type ProfileImageKind,
   type ProfileUpdate,
 } from '@keystone/fedi'
 
@@ -29,10 +35,18 @@ import {overlayChrome} from '#/alf/themes'
 import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
-import {EditorSwitchRow, EditorTextRow} from '#/components/Profile/ProfileEditorRows'
+import {ProfileAvatar} from '#/components/Profile/ProfileAvatar'
+import {ProfileBanner} from '#/components/Profile/ProfileBanner'
+import {
+  EditorImageRow,
+  EditorSwitchRow,
+  EditorTextRow,
+} from '#/components/Profile/ProfileEditorRows'
+import {pickProfileImage} from '#/components/Profile/pickProfileImage'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useActiveSession} from '#/state/session/SessionProvider'
+import {accountQueryKey, meQueryKey} from '#/state/queries/keys'
 
 interface FieldPair {
   name: string
@@ -72,6 +86,24 @@ export function ProfileEditorScreen() {
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Profile images (clickstone §1.8). One upload at a time: `uploading`
+  // names the image in flight, so both rows show why they cannot start a
+  // second one. Previews are local-first (the picked URI) and then switch
+  // to the URL the server returned; an error reverts to the last confirmed
+  // picture rather than leaving a lie on screen.
+  const [uploading, setUploading] = useState<ProfileImageKind | null>(null)
+  const [imageErrors, setImageErrors] = useState<Record<ProfileImageKind, string | null>>({
+    avatar: null,
+    banner: null,
+  })
+  const [imagePreviews, setImagePreviews] = useState<Record<ProfileImageKind, string | null>>({
+    avatar: null,
+    banner: null,
+  })
+  // Optional provider (bare test trees have none): the cache refresh is a
+  // best-effort courtesy, never a reason to fail the upload.
+  const queryClient = useContext(QueryClientContext)
 
   useEffect(() => {
     let cancelled = false
@@ -214,6 +246,77 @@ export function ProfileEditorScreen() {
   }
 
   const misskeyOnlyReason = 'Only available on Misskey-family servers.'
+  const uploadProfileImage = backend.uploadProfileImage
+  const imageDisabledReason = uploadProfileImage
+    ? undefined
+    : 'This server has no endpoint for profile pictures, so they cannot be changed here.'
+
+  /** Pick and upload one image. Uploads on pick — the text fields below
+   * keep their unsaved values because nothing here re-seeds them. */
+  const changeImage = async (kind: ProfileImageKind) => {
+    if (!backend || uploading) return
+    const setImageError = (message: string | null) =>
+      setImageErrors(prev => ({...prev, [kind]: message}))
+    setImageError(null)
+    let picked: Awaited<ReturnType<typeof pickProfileImage>>
+    try {
+      picked = await pickProfileImage()
+    } catch (err) {
+      setImageError(
+        err instanceof Error ? err.message : 'Could not open the photo picker.',
+      )
+      return
+    }
+    if (picked.kind === 'cancelled') return
+    if (picked.kind === 'denied') {
+      setImageError(
+        picked.canAskAgain
+          ? 'Photo access was denied. Try again and allow access when your device asks.'
+          : 'Photo access is off for this app. Allow it in your device settings to change your picture.',
+      )
+      return
+    }
+    if (!uploadProfileImage) {
+      setImageError(imageDisabledReason ?? 'Profile pictures cannot be changed on this server.')
+      return
+    }
+
+    const localUri = picked.file.previewUri
+    if (localUri) setImagePreviews(prev => ({...prev, [kind]: localUri}))
+    setUploading(kind)
+    try {
+      const updated = await uploadProfileImage(kind, picked.file.file)
+      setMe(updated)
+      // The server's URL is the truth (Mastodon processing can still answer
+      // null: keep the local pick visible rather than blanking the row).
+      const serverUri = kind === 'avatar' ? updated.avatarUrl : updated.headerUrl
+      setImagePreviews(prev => ({...prev, [kind]: serverUri ?? prev[kind]}))
+      if (queryClient && session) {
+        queryClient.setQueryData(meQueryKey(session.id), updated)
+        // The profile header/other screens read the account row.
+        void queryClient.invalidateQueries({
+          queryKey: accountQueryKey(session.id, updated.id),
+        })
+      }
+    } catch (err) {
+      if (isPermissionError(err)) {
+        setImageError(
+          'Your sign-in is missing the permission to change profile pictures. Sign in again and retry.',
+        )
+      } else if (err instanceof Error) {
+        setImageError(err.message)
+      } else {
+        setImageError('Could not upload that picture.')
+      }
+      // Nothing changed server-side: fall back to the last confirmed image.
+      setImagePreviews(prev => ({...prev, [kind]: null}))
+    } finally {
+      setUploading(null)
+    }
+  }
+
+  const previewUriFor = (kind: ProfileImageKind) =>
+    imagePreviews[kind] ?? (kind === 'avatar' ? me.avatarUrl : me.headerUrl)
 
   return overlay(
     <ScrollView testID="profile-editor" style={atoms.flex1}>
@@ -327,27 +430,40 @@ export function ProfileEditorScreen() {
           )}
         </View>
 
-        <EditorTextRow
+        <EditorImageRow
           label="Avatar"
-          value=""
-          editable={false}
-          disabledReason={
-            isMastodon
-              ? 'Avatar and banner changes are not supported on the Mastodon family yet.'
-              : 'Avatar uploads are not available in this editor yet.'
+          preview={
+            <ProfileAvatar
+              uri={previewUriFor('avatar')}
+              name={displayNameOf(me)}
+              testID="profile-editor-avatar-preview"
+            />
           }
+          chooseLabel={previewUriFor('avatar') ? 'Replace avatar' : 'Choose avatar'}
+          uploading={uploading === 'avatar'}
+          error={imageErrors.avatar}
+          disabledReason={uploading === 'banner' ? 'Finish the banner upload first.' : imageDisabledReason}
+          onChoose={() => void changeImage('avatar')}
           testID="profile-editor-avatar"
+          errorTestID="profile-editor-avatar-error"
+          progressTestID="profile-editor-avatar-progress"
         />
-        <EditorTextRow
+        <EditorImageRow
           label="Banner"
-          value=""
-          editable={false}
-          disabledReason={
-            isMastodon
-              ? 'Avatar and banner changes are not supported on the Mastodon family yet.'
-              : 'Banner uploads are not available in this editor yet.'
+          preview={
+            <ProfileBanner
+              uri={previewUriFor('banner')}
+              testID="profile-editor-banner-preview"
+            />
           }
+          chooseLabel={previewUriFor('banner') ? 'Replace banner' : 'Choose banner'}
+          uploading={uploading === 'banner'}
+          error={imageErrors.banner}
+          disabledReason={uploading === 'avatar' ? 'Finish the avatar upload first.' : imageDisabledReason}
+          onChoose={() => void changeImage('banner')}
           testID="profile-editor-banner"
+          errorTestID="profile-editor-banner-error"
+          progressTestID="profile-editor-banner-progress"
         />
 
         {error ? <Body testID="profile-editor-error">{error}</Body> : null}

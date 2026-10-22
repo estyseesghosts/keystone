@@ -244,6 +244,8 @@ export function activeSessionMastoClient(store: KeyValueStore, home: HomeSpec): 
     postForm: (path, form, opts) => call((c) => c.postForm(path, form, opts)),
     postFormData: (path, formData, opts) =>
       call((c) => c.postFormData(path, formData, opts)),
+    patchFormData: (path, formData, opts) =>
+      call((c) => c.patchFormData(path, formData, opts)),
   };
 }
 

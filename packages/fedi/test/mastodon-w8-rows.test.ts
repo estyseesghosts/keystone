@@ -4,7 +4,8 @@
 // (docs/mastoapi-contract.md §4/§5) with stubbed transports — no network:
 // - MD6: updateProfile maps name/bio/locked/bot/fields_attributes,
 //   lang→source.language, snake_case ext allow-list; Misskey-only
-//   generics refuse honestly; avatar/banner refusal stays.
+//   generics refuse honestly; a Drive-shaped avatar/banner id refuses
+//   (profile images are multipart uploads — clickstone §1.8 / p6.1).
 // - MD7: followRequests pages via Link cursor (PageOpts, same array
 //   return) and verifies self once per handle.
 // - MD8: account() falls back past a 404ing /lookup (v1 search, then
@@ -78,6 +79,7 @@ function stubClient(
     delete: (path, body, _o) => run("DELETE", path, body),
     postForm: (path, body, _o) => run("POST", path, body),
     postFormData: (path, body, _o) => run("POST", path, body),
+    patchFormData: (path, body, _o) => run("PATCH", path, body),
   };
   return { client, calls };
 }
@@ -143,11 +145,23 @@ describe("MD6 — updateProfile maps the credential wire honestly", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("avatar/banner refusal is unchanged (honestly unsupported)", async () => {
+  it("refuses a Drive-shaped avatar/banner id (images are file uploads here)", async () => {
     const { client, calls } = stubClient(() => ({ data: account }));
+    // `updateProfile` is the text-field patch. Profile images ride the
+    // multipart `uploadProfileImage` path (clickstone §1.8), so a Misskey
+    // Drive id has no field to land in and is refused, never mapped.
     await expect(
       createMastodonBackend(client).updateProfile({ avatarId: "drive-id" }),
-    ).rejects.toMatchObject({ code: "errors.unsupported.avatar" });
+    ).rejects.toMatchObject({
+      code: "errors.unsupported.profileField",
+      params: { fields: ["avatarId"] },
+    });
+    await expect(
+      createMastodonBackend(client).updateProfile({ bannerId: "drive-id" }),
+    ).rejects.toMatchObject({
+      code: "errors.unsupported.profileField",
+      params: { fields: ["bannerId"] },
+    });
     expect(calls).toHaveLength(0);
   });
 });

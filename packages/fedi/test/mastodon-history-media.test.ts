@@ -91,6 +91,10 @@ function mastoStub(respond: (method: string, path: string) => unknown) {
       calls.push({ method: "POSTFORMDATA", path, body });
       return Promise.resolve(result(respond("POST", path)));
     },
+    patchFormData: (path, body) => {
+      calls.push({ method: "PATCHFORMDATA", path, body });
+      return Promise.resolve(result(respond("PATCH", path)));
+    },
   };
   return { client, calls };
 }

@@ -57,6 +57,7 @@ import type {
   NotificationsOpts,
   PageOpts,
   PostDraft,
+  ProfileImageKind,
   ProfileUpdate,
   ScheduledNote,
   SearchPostsOpts,
@@ -119,6 +120,7 @@ import {
   setStatusPinned,
   setShowingReblogs,
   translateStatus,
+  updateCredentialImage,
   updateMediaAttachment,
   voteInPoll,
 } from "./endpoints";
@@ -187,6 +189,8 @@ function guarded(client: MastoClient): MastoClient {
     postForm: (path, form, opts) => wrap(() => client.postForm(path, form, opts)),
     postFormData: (path, formData, opts) =>
       wrap(() => client.postFormData(path, formData, opts)),
+    patchFormData: (path, formData, opts) =>
+      wrap(() => client.patchFormData(path, formData, opts)),
   };
 }
 
@@ -198,15 +202,13 @@ type UnsupportedKey =
   | "errors.unsupported.pinned"
   | "errors.unsupported.social"
   | "errors.unsupported.reactions"
-  | "errors.unsupported.featured"
-  | "errors.unsupported.avatar";
+  | "errors.unsupported.featured";
 
 const UNSUPPORTED_MESSAGES: Record<UnsupportedKey, string> = {
   "errors.unsupported.pinned": "Pinned-post listings are not available on this server.",
   "errors.unsupported.social": "The social timeline is not available on this server.",
   "errors.unsupported.reactions": "Reaction listings are not available on this server.",
   "errors.unsupported.featured": "The featured-notes listing is not available on this server.",
-  "errors.unsupported.avatar": "Avatar and banner changes are not supported on the Mastodon family yet.",
 };
 
 function unsupported(key: UnsupportedKey): never {
@@ -722,18 +724,19 @@ export function createMastodonBackend(
     },
 
     async updateProfile(patch: ProfileUpdate) {
-      // Contract §6 self-verify: display_name / note / locked round-trip;
-      // avatar/banner are multipart uploads with no id mapping (contract
-      // §7 — `avatarId` is the Misskey drive shape) and are honestly
-      // refused rather than silently dropped.
-      if (patch.avatarId || patch.bannerId) {
-        unsupported("errors.unsupported.avatar");
-      }
+      // Contract §6 self-verify: display_name / note / locked round-trip.
+      // Profile IMAGES are multipart file uploads on this family
+      // (`uploadProfileImage`, clickstone §1.8); a Drive-shaped
+      // `avatarId`/`bannerId` has no `update_credentials` field, so it is
+      // refused below with the rest of the unknown fields — never mapped to
+      // a file, never silently dropped.
+      const unsupportedFields: string[] = [];
+      if (patch.avatarId !== undefined) unsupportedFields.push("avatarId");
+      if (patch.bannerId !== undefined) unsupportedFields.push("bannerId");
       // Misskey-family-only generics have NO update_credentials field:
       // refused honestly (never silently dropped — MD6). The app's
       // profile editor disables these rows on this family, so this
       // throws only for direct callers.
-      const unsupportedFields: string[] = [];
       if (patch.location !== undefined) unsupportedFields.push("location");
       if (patch.birthday !== undefined) unsupportedFields.push("birthday");
       if (patch.followedMessage !== undefined) unsupportedFields.push("followedMessage");
@@ -781,6 +784,17 @@ export function createMastodonBackend(
         throw new FediError("The server did not return the updated profile.", "errors.shape.updatedProfile");
       }
       return adaptCredentialAccount(res.data);
+    },
+
+    /**
+     * One profile image, as the multipart upload the server actually takes
+     * (clickstone §1.8): `PATCH /api/v1/accounts/update_credentials` with a
+     * `avatar` or `header` file field. The answer is the fresh credential
+     * account, so the UI shows the server's URL (and the new
+     * `avatar_static`) instead of a local guess.
+     */
+    async uploadProfileImage(kind: ProfileImageKind, file: File) {
+      return adaptCredentialAccount(await updateCredentialImage(client, kind, file));
     },
 
     // --- Mutes and blocks ---------------------------------------------------

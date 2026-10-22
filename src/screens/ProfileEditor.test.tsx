@@ -1,6 +1,9 @@
-// C13 tests: the profile editor loads `me()`, gates Misskey-only rows by
-// family, saves via `backend.updateProfile`, and surfaces errors honestly.
+// C13 + §1.8 tests: the profile editor loads `me()`, gates Misskey-only
+// rows by family, saves via `backend.updateProfile`, uploads avatar/banner
+// through `backend.uploadProfileImage` (picker mocked, no expo module),
+// and surfaces errors honestly.
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 
 import {createMemoryStore} from '@keystone/fedi'
 
@@ -8,6 +11,7 @@ import type {TokenVault} from '#/storage'
 import {__setStorageForTests, appStorage} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
+import {meQueryKey} from '#/state/queries/keys'
 import {ThemeProvider} from '#/alf/index'
 
 import {ProfileEditorScreen} from './ProfileEditor'
@@ -18,6 +22,16 @@ jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({navigate: jest.fn(), goBack: mockGoBack}),
 }))
+
+const mockPickProfileImage = jest.fn()
+
+jest.mock('#/components/Profile/pickProfileImage', () => ({
+  pickProfileImage: () => mockPickProfileImage(),
+}))
+
+beforeEach(() => {
+  mockPickProfileImage.mockReset()
+})
 
 const mockBackendHolder: {current: any} = {current: null}
 
@@ -79,10 +93,30 @@ const misskeyBackend = (overrides: Record<string, unknown> = {}) => ({
   capabilities: {},
   me: jest.fn(async () => fakeMe()),
   updateProfile: jest.fn(async () => fakeMe()),
+  uploadProfileImage: jest.fn(async (_kind: string, _file: File) =>
+    fakeMe({avatarUrl: 'https://m.example/new-avatar.png', headerUrl: 'https://m.example/new-banner.png'}),
+  ),
   ...overrides,
 })
 
-async function setup({backend, family = 'misskey'}: {backend?: any; family?: string} = {}) {
+const pickedImage = () => ({
+  kind: 'picked' as const,
+  file: {
+    file: new File(['png'], 'me.png', {type: 'image/png'}),
+    name: 'me.png',
+    previewUri: 'file:///picked/me.png',
+  },
+})
+
+async function setup({
+  backend,
+  family = 'misskey',
+  queryClient,
+}: {
+  backend?: any
+  family?: string
+  queryClient?: QueryClient
+} = {}) {
   const storage = createMemoryStore()
   const restore = appStorage()
   __setStorageForTests({storage})
@@ -105,14 +139,23 @@ async function setup({backend, family = 'misskey'}: {backend?: any; family?: str
       hosting: 'third-party',
     } as any)
   }
-  render(
+  const sessionId = sessionStore.getSnapshot().activeId
+  const tree = (
     <ThemeProvider theme="light">
       <SessionProvider store={sessionStore} homeOrigin={HOME_ORIGIN}>
         <ProfileEditorScreen />
       </SessionProvider>
-    </ThemeProvider>,
+    </ThemeProvider>
+  )
+  render(
+    queryClient ? (
+      <QueryClientProvider client={queryClient}>{tree}</QueryClientProvider>
+    ) : (
+      tree
+    ),
   )
   return {
+    sessionId,
     done: () => {
       __setStorageForTests({storage: restore})
       mockBackendHolder.current = null
@@ -186,14 +229,143 @@ describe('ProfileEditorScreen (misskey family)', () => {
     }
   })
 
-  it('renders avatar/banner disabled with a reason', async () => {
+  it('enables avatar and banner uploads on pick (no save round-trip)', async () => {
     const backend = misskeyBackend()
+    mockPickProfileImage.mockResolvedValue(pickedImage())
     const {done} = await setup({backend})
     try {
-      await waitFor(() => expect(screen.getByTestId('profile-editor-avatar')).toBeTruthy())
-      expect(screen.getByTestId('profile-editor-avatar').props.editable).toBe(false)
-      expect(screen.getByTestId('profile-editor-banner').props.editable).toBe(false)
-      expect(screen.getAllByText(/not available in this editor yet/).length).toBe(2)
+      await waitFor(() => expect(screen.getByTestId('profile-editor-avatar-choose')).toBeTruthy())
+      // The rows are real controls, not disabled placeholders.
+      expect(screen.getByTestId('profile-editor-avatar-choose')).not.toBeDisabled()
+      expect(screen.getByTestId('profile-editor-banner-choose')).not.toBeDisabled()
+
+      fireEvent.press(screen.getByTestId('profile-editor-avatar-choose'))
+      await waitFor(() => expect(backend.uploadProfileImage).toHaveBeenCalled())
+      const [kind, file] = backend.uploadProfileImage.mock.calls[0]
+      expect(kind).toBe('avatar')
+      expect(file.name).toBe('me.png')
+      // Upload-on-pick: the text save is NOT what carried the image, and the
+      // editor does not close itself.
+      expect(backend.updateProfile).not.toHaveBeenCalled()
+      expect(mockGoBack).not.toHaveBeenCalled()
+      // The server's URL is what the row shows afterwards.
+      await waitFor(() =>
+        expect(screen.getByTestId('profile-editor-avatar-preview').props.source).toEqual({
+          uri: 'https://m.example/new-avatar.png',
+        }),
+      )
+    } finally {
+      done()
+    }
+  })
+
+  it('shows progress on the row while the upload is in flight', async () => {
+    let resolveUpload: (account: unknown) => void = () => {}
+    const backend = misskeyBackend({
+      uploadProfileImage: jest.fn(
+        () => new Promise(resolve => {
+          resolveUpload = resolve
+        }),
+      ),
+    })
+    mockPickProfileImage.mockResolvedValue(pickedImage())
+    const {done} = await setup({backend})
+    try {
+      await waitFor(() => expect(screen.getByTestId('profile-editor-avatar-choose')).toBeTruthy())
+      fireEvent.press(screen.getByTestId('profile-editor-avatar-choose'))
+
+      await waitFor(() => expect(screen.getByTestId('profile-editor-avatar-progress')).toBeTruthy())
+      expect(screen.getByTestId('profile-editor-avatar-progress')).toHaveTextContent(/Uploading/)
+      // A second image cannot start while one is in flight — with a reason.
+      expect(screen.getByTestId('profile-editor-banner-choose')).toBeDisabled()
+
+      resolveUpload(fakeMe({avatarUrl: 'https://m.example/new-avatar.png'}))
+      await waitFor(() => expect(screen.queryByTestId('profile-editor-avatar-progress')).toBeNull())
+    } finally {
+      done()
+    }
+  })
+
+  it('surfaces an upload failure honestly and keeps the previous picture', async () => {
+    const backend = misskeyBackend({
+      uploadProfileImage: jest.fn(async () => {
+        throw new Error('That file is too large.')
+      }),
+    })
+    mockPickProfileImage.mockResolvedValue(pickedImage())
+    const {done} = await setup({backend})
+    try {
+      await waitFor(() => expect(screen.getByTestId('profile-editor-avatar-choose')).toBeTruthy())
+      fireEvent.press(screen.getByTestId('profile-editor-avatar-choose'))
+      await waitFor(() => expect(screen.getByTestId('profile-editor-avatar-error')).toBeTruthy())
+      expect(screen.getByTestId('profile-editor-avatar-error')).toHaveTextContent(/too large/)
+      // The rejected local preview was rolled back (me() has no avatar URL).
+      expect(screen.getByTestId('profile-editor-avatar-preview').props.source).toBeUndefined()
+    } finally {
+      done()
+    }
+  })
+
+  it('reports denied photo access instead of doing nothing', async () => {
+    const backend = misskeyBackend()
+    mockPickProfileImage.mockResolvedValue({kind: 'denied', canAskAgain: false})
+    const {done} = await setup({backend})
+    try {
+      await waitFor(() => expect(screen.getByTestId('profile-editor-avatar-choose')).toBeTruthy())
+      fireEvent.press(screen.getByTestId('profile-editor-avatar-choose'))
+      await waitFor(() => expect(screen.getByTestId('profile-editor-avatar-error')).toBeTruthy())
+      expect(screen.getByTestId('profile-editor-avatar-error')).toHaveTextContent(/settings/i)
+      expect(backend.uploadProfileImage).not.toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+
+  it('treats a cancelled pick as a no-op (no error, no upload)', async () => {
+    const backend = misskeyBackend()
+    mockPickProfileImage.mockResolvedValue({kind: 'cancelled'})
+    const {done} = await setup({backend})
+    try {
+      await waitFor(() => expect(screen.getByTestId('profile-editor-banner-choose')).toBeTruthy())
+      fireEvent.press(screen.getByTestId('profile-editor-banner-choose'))
+      await waitFor(() => expect(mockPickProfileImage).toHaveBeenCalled())
+      expect(screen.queryByTestId('profile-editor-banner-error')).toBeNull()
+      expect(backend.uploadProfileImage).not.toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+
+  it('refreshes the cached account and the viewer query after an upload', async () => {
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    const backend = misskeyBackend()
+    mockPickProfileImage.mockResolvedValue(pickedImage())
+    const {done, sessionId} = await setup({backend, queryClient: qc})
+    try {
+      await waitFor(() => expect(screen.getByTestId('profile-editor-avatar-choose')).toBeTruthy())
+      fireEvent.press(screen.getByTestId('profile-editor-avatar-choose'))
+      await waitFor(() => expect(backend.uploadProfileImage).toHaveBeenCalled())
+      await waitFor(() =>
+        expect(
+          (qc.getQueryData(meQueryKey(sessionId!)) as {avatarUrl?: string} | undefined)?.avatarUrl,
+        ).toBe('https://m.example/new-avatar.png'),
+      )
+    } finally {
+      done()
+      qc.clear()
+    }
+  })
+
+  it('keeps the rows visible with a reason when the backend has no image endpoint', async () => {
+    const backend = misskeyBackend({uploadProfileImage: undefined})
+    const {done} = await setup({backend})
+    try {
+      await waitFor(() => expect(screen.getByTestId('profile-editor-avatar-choose')).toBeTruthy())
+      expect(screen.getByTestId('profile-editor-avatar-choose')).toBeDisabled()
+      expect(screen.getByTestId('profile-editor-banner-choose')).toBeDisabled()
+      expect(
+        screen.getAllByText(/no endpoint for profile pictures/).length,
+      ).toBe(2)
     } finally {
       done()
     }
@@ -201,6 +373,25 @@ describe('ProfileEditorScreen (misskey family)', () => {
 })
 
 describe('ProfileEditorScreen (mastodon family)', () => {
+  it('uploads a banner through the same seam (multipart lives in the backend)', async () => {
+    const backend = misskeyBackend()
+    backend.family = 'mastodon'
+    mockPickProfileImage.mockResolvedValue(pickedImage())
+    const {done} = await setup({backend, family: 'mastodon'})
+    try {
+      await waitFor(() => expect(screen.getByTestId('profile-editor-banner-choose')).toBeTruthy())
+      fireEvent.press(screen.getByTestId('profile-editor-banner-choose'))
+      await waitFor(() => expect(backend.uploadProfileImage).toHaveBeenCalled())
+      expect(backend.uploadProfileImage.mock.calls[0][0]).toBe('banner')
+      await waitFor(() =>
+        expect(screen.getByTestId('profile-editor-banner-preview').props.source).toEqual({
+          uri: 'https://m.example/new-banner.png',
+        }),
+      )
+    } finally {
+      done()
+    }
+  })
   it('disables Misskey-only rows with a reason and omits them from the patch', async () => {
     const backend = misskeyBackend()
     backend.family = 'mastodon'
@@ -216,7 +407,9 @@ describe('ProfileEditorScreen (mastodon family)', () => {
         expect(screen.getByTestId(id).props.editable).toBe(false)
       }
       expect(screen.getAllByText('Only available on Misskey-family servers.').length).toBe(4)
-      expect(screen.getAllByText(/not supported on the Mastodon family yet/).length).toBe(2)
+      // Avatar/banner are NOT among the disabled rows any more (§1.8).
+      expect(screen.queryByText(/not supported on the Mastodon family yet/)).toBeNull()
+      expect(screen.getByTestId('profile-editor-avatar-choose')).not.toBeDisabled()
 
       fireEvent.press(screen.getByTestId('profile-editor-save'))
       await waitFor(() => expect(backend.updateProfile).toHaveBeenCalled())

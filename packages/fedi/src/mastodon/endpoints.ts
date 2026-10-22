@@ -43,6 +43,7 @@ import type { Continuation } from "./pagination";
 import { pickQuotedStatus } from "./quoteMarker";
 import type {
   Account as WireAccount,
+  CredentialAccount,
   MediaAttachment,
   Notification as WireNotification,
   Relationship as WireRelationship,
@@ -811,6 +812,34 @@ export async function fetchStatusHistory(
     `/api/v1/statuses/${encodeURIComponent(id)}/history`,
   );
   return Array.isArray(res.data) ? res.data : [];
+}
+
+/** `PATCH /api/v1/accounts/update_credentials` as multipart, replacing ONE
+ * profile image (clickstone §1.8). Upstream `CredentialsController#update`
+ * permits `:avatar` / `:header` as attached files (`Account`
+ * `has_attached_file`; both 8 MB, image/jpeg|png|gif|webp) and writes only
+ * the params present in the request — so an image patch never clears the
+ * display name, bio or fields. The answer is the credential account. */
+export async function updateCredentialImage(
+  client: MastoClient,
+  kind: "avatar" | "banner",
+  file: File,
+): Promise<CredentialAccount> {
+  const form = new FormData();
+  // Exactly one key: the web client's `updateAccount`/`uploadImage` sends
+  // `avatar` or `header` (never both for a single change).
+  form.append(kind === "avatar" ? "avatar" : "header", file);
+  const res = await client.patchFormData<CredentialAccount>(
+    "/api/v1/accounts/update_credentials",
+    form,
+  );
+  if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
+    throw new FediError(
+      "The server did not return the updated profile.",
+      "errors.shape.updatedProfile",
+    );
+  }
+  return res.data;
 }
 
 /** `PUT /api/v1/media/:id` (clickstone §1.7). Mastodon permits
