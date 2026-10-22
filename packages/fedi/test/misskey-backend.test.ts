@@ -30,8 +30,8 @@ function stubTransport(
         calls.push({ endpoint, params });
         return Promise.resolve(respond(endpoint, params) as T);
       },
-      upload<T>(): Promise<T> {
-        calls.push({ endpoint: "drive/files/create", params: {} });
+      upload<T>(_file: File, opts: Record<string, unknown> = {}): Promise<T> {
+        calls.push({ endpoint: "drive/files/create", params: { ...opts } });
         return Promise.resolve(fixture<DriveFile>("drive-file.json") as T);
       },
     },
@@ -180,6 +180,42 @@ describe("MisskeyBackend compose", () => {
       visibleUserIds: ["u1"],
     });
     expect(calls[1].params).toEqual({ visibility: "specified", visibleUserIds: ["u1"] });
+  });
+
+  it("editPost sends noQuote + the create-shaped poll", async () => {
+    const { transport, calls } = stubTransport(() => note);
+    const backend = createMisskeyBackend(transport);
+    await backend.editPost("n1", {
+      text: "hi",
+      visibility: { kind: "public", localOnly: false, raw: "public" },
+      noQuote: false,
+      poll: { choices: ["a", "b"], multiple: false, expiresAt: 1900000000000 },
+    });
+    expect(calls[0]).toEqual({
+      endpoint: "notes/edit",
+      params: {
+        noteId: "n1",
+        text: "hi",
+        cw: null,
+        visibility: "public",
+        noQuote: false,
+        poll: { choices: ["a", "b"], multiple: false, expiresAt: 1900000000000 },
+      },
+    });
+  });
+
+  it("editPost surfaces a poll-edit rejection instead of dropping the field", async () => {
+    const { transport, calls } = stubTransport(() => {
+      throw new ApiError("cannot edit poll", 400, "INVALID_PARAM");
+    });
+    await expect(
+      createMisskeyBackend(transport).editPost("n1", {
+        text: "hi",
+        visibility: { kind: "public", localOnly: false },
+        poll: { choices: ["a", "b"] },
+      }),
+    ).rejects.toMatchObject({ status: 400, code: "INVALID_PARAM" });
+    expect(calls[0].params.poll).toEqual({ choices: ["a", "b"] });
   });
 
   it("boost is notes/create {renoteId}; unboost is notes/unrenote", async () => {
@@ -455,11 +491,21 @@ describe("MisskeyBackend notifications, drive, emojis, translate", () => {
     expect(empty).toEqual({ sourceLang: null, text: "" });
   });
 
-  it("uploadMedia adapts the DriveFile response", async () => {
-    const backend = createMisskeyBackend(stubTransport(() => null).transport);
+  it("uploadMedia adapts the DriveFile response and carries the folder target", async () => {
+    const { transport, calls } = stubTransport(() => null);
+    const backend = createMisskeyBackend(transport);
     const media = await backend.uploadMedia(new File(["x"], "x.png"));
     expect(media.name).toBe("diagram.png");
     expect(media.kind).toBe("image");
+    // Root default: neither Drive field is invented.
+    expect(calls[0].params).toEqual({});
+
+    await backend.uploadMedia(new File(["x"], "x.png"), { folderId: "folder-1", force: true });
+    expect(calls[1].params).toEqual({ folderId: "folder-1", force: true });
+
+    // A null folder is root: omitted, never an empty wire field.
+    await backend.uploadMedia(new File(["x"], "x.png"), { folderId: null });
+    expect(calls[2].params).toEqual({});
   });
 });
 

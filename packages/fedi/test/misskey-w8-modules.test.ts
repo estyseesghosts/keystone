@@ -514,6 +514,39 @@ describe("misskey/noteEdit + remotepost", () => {
     });
   });
 
+  it("editNote carries noQuote and the create-shaped poll", async () => {
+    const { call, calls } = stubCall(() => note());
+    await editNote(call, "n1", {
+      text: "hi",
+      visibility: "public",
+      noQuote: false,
+      poll: { choices: ["a", "b"], multiple: true, expiredAfter: 3600 },
+    });
+    expect(calls[0]).toEqual({
+      endpoint: "notes/edit",
+      params: {
+        noteId: "n1",
+        text: "hi",
+        visibility: "public",
+        // An explicit false travels (it can lift an earlier refusal).
+        noQuote: false,
+        poll: { choices: ["a", "b"], multiple: true, expiredAfter: 3600 },
+      },
+    });
+  });
+
+  it("a rejected poll edit propagates the typed error, never dropping the field", async () => {
+    const { call, calls } = stubCall(() => {
+      throw new ApiError("cannot edit poll", 400, "INVALID_PARAM");
+    });
+    await expect(
+      editNote(call, "n1", { noQuote: true, poll: { choices: ["a", "b"] } }),
+    ).rejects.toMatchObject({ status: 400, code: "INVALID_PARAM" });
+    // The field was sent before the rejection — it is not silently dropped.
+    expect(calls[0].params.poll).toEqual({ choices: ["a", "b"] });
+    expect(calls[0].params.noQuote).toBe(true);
+  });
+
   it("redraftPayload preserves reply/renote context and media", () => {
     const seed = redraftPayload(postFromWire({ text: "hi", replyId: "r1", fileIds: ["f1"] }));
     expect(seed).toMatchObject({ text: "hi", replyId: "r1", fileIds: ["f1"] });
@@ -563,6 +596,30 @@ describe("misskey/schedule + serverDrafts", () => {
     expect(calls[1]).toEqual({ endpoint: "notes/schedule/list", params: { limit: 20 } });
     await deleteScheduledNote(call, "s1");
     expect(calls[2]).toEqual({ endpoint: "notes/schedule/delete", params: { scheduleId: "s1" } });
+  });
+
+  it("schedule + draft lists carry sinceId as well as untilId", async () => {
+    const scheduleRow = { id: "s1", scheduledAt: "2030-01-01T00:00:00.000Z", note: note() };
+    const draftRow = { id: "d1", visibility: "public", text: "t", cw: null, scheduledAt: null };
+    const { call, calls } = stubCall((endpoint) =>
+      endpoint === "notes/schedule/list" ? [scheduleRow] : [draftRow],
+    );
+    await listScheduledNotes(call, 20, "until-1", "since-1");
+    expect(calls[0]).toEqual({
+      endpoint: "notes/schedule/list",
+      params: { limit: 20, untilId: "until-1", sinceId: "since-1" },
+    });
+    await listServerDrafts(call, 7, undefined, "since-2");
+    expect(calls[1]).toEqual({
+      endpoint: "notes/drafts/list",
+      params: { limit: 7, sinceId: "since-2" },
+    });
+    // untilId-only callers keep the old shape exactly.
+    await listServerDrafts(call, 7, "until-2");
+    expect(calls[2]).toEqual({
+      endpoint: "notes/drafts/list",
+      params: { limit: 7, untilId: "until-2" },
+    });
   });
 
   it("serverDrafts CRUD + count (non-number counts as 0)", async () => {
@@ -811,6 +868,34 @@ describe("MisskeyBackend sub-modules (MK12 indirect)", () => {
     expect(created.id).toBe("s2");
     await backend.serverDrafts!.list();
     await expect(backend.serverDrafts!.count()).resolves.toBe(2);
+  });
+
+  it("scheduled + drafts push a sinceId cursor through (newer rows are not an empty end)", async () => {
+    const draftRow = { id: "d1", visibility: "public", text: "t", cw: null, scheduledAt: null };
+    const { backend, calls } = backendFor((endpoint) => {
+      if (endpoint === "notes/schedule/list")
+        return [{ id: "s5", scheduledAt: "2030-01-01T00:00:00.000Z", note: note() }];
+      if (endpoint === "notes/drafts/list") return [draftRow];
+      return null;
+    });
+    const scheduled = await backend.scheduled!.list({
+      cursor: JSON.stringify({ sinceId: "s4" }) as never,
+    });
+    expect(calls[0]).toEqual({
+      endpoint: "notes/schedule/list",
+      params: { limit: 20, sinceId: "s4" },
+    });
+    expect(scheduled.map((s) => s.id)).toEqual(["s5"]);
+
+    const drafts = await backend.serverDrafts!.list({
+      limit: 10,
+      cursor: JSON.stringify({ untilId: "d9", sinceId: "d0" }) as never,
+    });
+    expect(calls[1]).toEqual({
+      endpoint: "notes/drafts/list",
+      params: { limit: 10, untilId: "d9", sinceId: "d0" },
+    });
+    expect(drafts.map((d) => d.id)).toEqual(["d1"]);
   });
 
   it("clips + list membership via the backend", async () => {

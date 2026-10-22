@@ -40,5 +40,6 @@ end of session (see `AGENTS.md` §2 checklist).
 | [gap-closure](gap-closure.md) | cross-cutting (register) | not started | `p6.0-gap-closure` | `state/logs/2026-10-20-gap-audit.md` |
 | [p6.0-search-paging](p6.0-search-paging.md) | clickstone §0.2 | done | `p6.0-search-paging` | `state/logs/2026-10-22-p6.0-search-paging.md` |
 | [p6.0-import-export](p6.0-import-export.md) | clickstone §0.6 | done | `p6.0-import-export` | `state/logs/2026-10-22-p6.0-import-export.md` |
+| [p6.0-misskey-mutations](p6.0-misskey-mutations.md) | clickstone §0.7 | done | `p6.0-misskey-mutations` | `state/logs/2026-10-22-p6.0-misskey-mutations.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.

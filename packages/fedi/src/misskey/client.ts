@@ -53,6 +53,14 @@ export interface MisskeyClientOptions {
 export interface UploadOptions {
   isSensitive?: boolean;
   comment?: string;
+  /** Target Drive folder (`drive/files/create` `folderId`). Omitted means
+   * the Drive root — the same default the web client takes by not sending
+   * the field. An explicit `null` also means root and is never put on the
+   * wire (Sharkey rejects empty/default fields). */
+  folderId?: string | null;
+  /** Force the upload past duplicate detection (`force`). Only sent when
+   * the caller sets it; the server default is false. */
+  force?: boolean;
 }
 
 export interface MisskeyClient {
@@ -223,6 +231,14 @@ export function createMisskeyClient(
         form.append("isSensitive", String(uploadOpts.isSensitive));
       }
       if (uploadOpts.comment !== undefined) form.append("comment", uploadOpts.comment);
+      // Folder targeting: only a real folder id goes on the wire. A null
+      // `folderId` is the Drive root and is omitted (upstream defaults to
+      // root; Sharkey 400s on unknown/empty fields). `force` is likewise
+      // opt-in — its omission keeps the server's duplicate detection.
+      if (uploadOpts.folderId != null && uploadOpts.folderId !== "") {
+        form.append("folderId", uploadOpts.folderId);
+      }
+      if (uploadOpts.force !== undefined) form.append("force", String(uploadOpts.force));
 
       let response: Response;
       try {

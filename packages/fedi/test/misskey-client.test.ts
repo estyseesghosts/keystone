@@ -242,4 +242,27 @@ describe("upload (multipart Drive, FormData — never JSON)", () => {
     // The browser sets the multipart boundary — no manual Content-Type.
     expect((init.headers as Record<string, string>)["Content-Type"]).toBeUndefined();
   });
+
+  it("sends folderId/force only when the caller sets them (root is the default)", async () => {
+    const file = new File(["x"], "pic.png", { type: "image/png" });
+    const targeted = stubFetch(() => Promise.resolve(json({ id: "f1" })));
+    await createMisskeyClient(session()).upload(file, { folderId: "folder-1", force: true });
+    let form = targeted[0].init.body as FormData;
+    expect(form.get("folderId")).toBe("folder-1");
+    expect(form.get("force")).toBe("true");
+
+    // Default call: the Drive root. Neither field may reach the wire —
+    // Sharkey rejects unknown/empty fields.
+    const root = stubFetch(() => Promise.resolve(json({ id: "f2" })));
+    await createMisskeyClient(session()).upload(file);
+    form = root[0].init.body as FormData;
+    expect(form.get("folderId")).toBeNull();
+    expect(form.get("force")).toBeNull();
+
+    // An explicit null folderId is still root: omitted, never "".
+    const explicitRoot = stubFetch(() => Promise.resolve(json({ id: "f3" })));
+    await createMisskeyClient(session()).upload(file, { folderId: null });
+    form = explicitRoot[0].init.body as FormData;
+    expect(form.get("folderId")).toBeNull();
+  });
 });

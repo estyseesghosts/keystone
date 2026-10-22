@@ -12,8 +12,10 @@
 //
 // The client never fabricates like state: after success the caller
 // re-reads the note and syncs to what the server reports. Support is
-// cached per origin so vanilla servers pay one 404 per launch, never one
-// per press.
+// probed once per origin (the first press), then cached — a stock Misskey
+// pays one 404 per launch, never one per press. There is deliberately NO
+// static seed: a flavor label cannot prove absence (stock Misskey may be
+// backported), so only a real 404/UNKNOWN_API_ENDPOINT ever caches false.
 
 import { ApiError, FediError } from "../core/errors";
 import { isUnsupportedError, type WireCall } from "./client";
@@ -37,22 +39,11 @@ export function resetLikeSupportCache(): void {
 }
 
 /**
- * Seed the per-origin support cache from a static fact (flavor table).
- * A `false` seed means the capability table already proves the endpoint
- * absent (stock Misskey): callers reading `likeSupportFor` skip the
- * probe-by-fire entirely and fall back to a plain ❤ reaction, so a stock
- * server never pays one doomed 404 per launch. A `true` seed is never
- * written here — presence is only ever confirmed by a successful call
- * (see `likeViaNotesLike`), never assumed from a flavor label.
- */
-export function seedLikeSupport(origin: string, supported: false): void {
-  if (origin) supportCache.set(origin, supported);
-}
-
-/**
  * Fire `notes/like` for one note. `override: null` takes the server's
  * `defaultLike`. Throws `LikeUnsupportedError` (and caches the absence)
  * where the endpoint does not exist; anything else rethrows untouched.
+ * A cached `true` still calls the endpoint (the toggle is the operation);
+ * a cached `false` refuses without wire traffic.
  */
 export async function likeViaNotesLike(
   call: WireCall,
@@ -60,9 +51,9 @@ export async function likeViaNotesLike(
   noteId: string,
   override: string | null,
 ): Promise<void> {
-  // Known-absent (probed 404, or seeded from the flavor table for stock
-  // Misskey): refuse without touching the wire — the caller falls back
-  // to a plain ❤ reaction. Same error as a failed probe, minus the 404.
+  // Known-absent (a real probe answered 404/UNKNOWN_API_ENDPOINT): refuse
+  // without touching the wire — the caller falls back to a plain ❤
+  // reaction. Same error as a failed probe, minus the doomed request.
   if (origin && likeSupportFor(origin) === false) throw new LikeUnsupportedError();
   try {
     await call<unknown>("notes/like", { noteId, override });

@@ -20,10 +20,12 @@ export async function listServerDrafts(
   call: WireCall,
   limit = 20,
   untilId?: string,
+  sinceId?: string,
 ): Promise<WireServerDraft[]> {
   return call<WireServerDraft[]>("notes/drafts/list", {
     limit,
     ...(untilId ? { untilId } : {}),
+    ...(sinceId ? { sinceId } : {}),
   });
 }
 

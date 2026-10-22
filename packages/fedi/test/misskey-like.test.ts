@@ -7,7 +7,6 @@ import {
   likeViaNotesLike,
   LikeUnsupportedError,
   resetLikeSupportCache,
-  seedLikeSupport,
 } from "../src/misskey/like";
 import { ApiError } from "../src/core/errors";
 
@@ -87,19 +86,21 @@ describe("likeViaNotesLike", () => {
     expect(likeSupportFor("https://fresh.example")).toBeNull();
   });
 
-  it("a seeded-absent origin refuses without touching the wire", async () => {
-    seedLikeSupport(ORIGIN, false);
-    expect(likeSupportFor(ORIGIN)).toBe(false);
-    const { transport, calls } = stubTransport(() => ({}));
+  it("a cached-absent origin refuses without touching the wire", async () => {
+    // Cache the absence the only honest way: a real 404 probe.
+    const first = stubTransport(() => {
+      throw new ApiError("unknown api endpoint", 404, "UNKNOWN_API_ENDPOINT");
+    });
     await expect(
-      likeViaNotesLike(transport.call.bind(transport), ORIGIN, "n1", null),
+      likeViaNotesLike(first.transport.call.bind(first.transport), ORIGIN, "n1", null),
     ).rejects.toBeInstanceOf(LikeUnsupportedError);
-    expect(calls).toEqual([]);
-  });
+    expect(likeSupportFor(ORIGIN)).toBe(false);
 
-  it("seeding an empty origin is a no-op", () => {
-    seedLikeSupport("", false);
-    expect(likeSupportFor("")).toBeNull();
+    const second = stubTransport(() => ({}));
+    await expect(
+      likeViaNotesLike(second.transport.call.bind(second.transport), ORIGIN, "n1", null),
+    ).rejects.toBeInstanceOf(LikeUnsupportedError);
+    expect(second.calls).toEqual([]);
   });
 });
 
@@ -126,20 +127,30 @@ describe("misskey backend like member", () => {
     expect(likeSupportFor("")).toBeNull();
   });
 
-  it("stock-misskey flavor seeds the origin absent: never probes, falls back by contract", async () => {
-    const { transport, calls } = stubTransport(() => ({}));
+  it("stock-misskey flavor does NOT seed support: the first press probes once, then caches the 404", async () => {
+    const { transport, calls } = stubTransport(() => {
+      throw new ApiError("unknown api endpoint", 404, "UNKNOWN_API_ENDPOINT");
+    });
     const seededOrigin = "https://stock-misskey.example";
     const backend = createMisskeyBackend(transport, "misskey", { origin: seededOrigin });
+    // No flavor seed: the endpoint may be backported, so support is unproven.
+    expect(backend.like?.isSupported()).toBeNull();
+    // First press really attempts the endpoint (backports get their chance)…
+    await expect(backend.like?.like("n9")).rejects.toBeInstanceOf(LikeUnsupportedError);
+    expect(calls).toEqual([{ endpoint: "notes/like", params: { noteId: "n9", override: null } }]);
+    // …a real 404 caches absence, and later presses stay off the wire.
     expect(backend.like?.isSupported()).toBe(false);
     await expect(backend.like?.like("n9")).rejects.toBeInstanceOf(LikeUnsupportedError);
-    // No wire traffic at all: the doomed 404 never fires (the app-layer
-    // toggle queue reads isSupported() and reacts ❤ directly instead).
-    expect(calls).toEqual([]);
+    expect(calls).toHaveLength(1);
   });
 
   it("sharkey flavor leaves the origin unseeded: support probes by fire once", async () => {
     const { transport } = stubTransport(() => ({}));
     const backend = createMisskeyBackend(transport, "sharkey", { origin: ORIGIN });
     expect(backend.like?.isSupported()).toBeNull();
+    // A successful like caches presence; the next press still rides the
+    // endpoint (the toggle IS the operation).
+    await backend.like?.like("n9");
+    expect(backend.like?.isSupported()).toBe(true);
   });
 });
