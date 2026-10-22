@@ -31,6 +31,8 @@ import {
   type SessionGrant,
 } from '@keystone/fedi'
 
+import {AUTH_CALLBACK_PATH} from '#/routes'
+
 // Login flows (slice 3.1): the UI-side half of sign-in. Every exchange here
 // composes the pure `packages/fedi` surface over a session-bound transport
 // built FROM the entered origin — a token is only ever sent to its own
@@ -64,6 +66,18 @@ export function getWebOrigin(): string | null {
     return loc.origin
   }
   return null
+}
+
+/**
+ * The web OAuth/MiAuth redirect URI this app registers: `${origin}/auth/callback`
+ * at EVERY base — the canonical path in `#/routes`. That is the same string
+ * v2 has always registered, so no instance re-registration is needed
+ * (clickstone §1.13). The route table also serves the v1 root path
+ * `/keystone/callback`, so registrations made before the rebuild keep
+ * landing on the callback screen.
+ */
+export function webCallbackUri(origin: string | null): string {
+  return `${origin ?? ''}${AUTH_CALLBACK_PATH}`
 }
 
 /** Credential-less session for public wire calls against `origin`. */

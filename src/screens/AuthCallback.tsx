@@ -16,33 +16,43 @@ import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
+import {callbackCleanHref} from '#/routes'
 import {useSessionStore} from '#/state/session/SessionProvider'
 import {appStorage} from '#/storage'
 
 import {completeMastodonOAuth, pollMisskeyApproval, takeMisskeyPending} from './LoginFlows'
 
 // OAuth + MiAuth callback: the browser returns here —
-// - Mastodon-family OAuth: `?code&state` (web: same-tab `/auth/callback`;
-//   native: the `keystone:` scheme deep link).
+// - Mastodon-family OAuth: `?code&state` (web: same-tab `/auth/callback`, or
+//   the v1 root-base `/keystone/callback` alias — clickstone §1.13; native:
+//   the `keystone:` scheme deep link).
 // - Misskey-family MiAuth: `?session=<session>` (appended by the instance to
 //   the callback URL given at start).
 // Pending flows are read AND deleted exactly once (replay guard); the token
 // is verified BEFORE it is stored. Nothing here trusts the URL beyond the
-// one-time code/state/session triple.
+// one-time code/state/session triple — in particular the PATH is never used
+// to decide anything, so both callback paths behave identically.
 
-function callbackParams(): {code: string | null; state: string | null; error: string | null; session: string | null} {
-  const href =
-    Platform.OS === 'web'
-      ? (globalThis as {location?: {href?: string}}).location?.href ?? null
-      : Linking.createURL('')
-  // Native deep links arrive through `useURL` (see below); this helper only
-  // covers the web same-tab return.
-  if (Platform.OS !== 'web' || !href) return {code: null, state: null, error: null, session: null}
+export interface CallbackParams {
+  code: string | null
+  state: string | null
+  error: string | null
+  session: string | null
+}
+
+const NO_CALLBACK_PARAMS: CallbackParams = {code: null, state: null, error: null, session: null}
+
+/** Parse the one-time callback triple out of a URL/path. Path-agnostic (only
+ * the query is read), so the canonical `/auth/callback` and the legacy
+ * `/keystone/callback` return are parsed identically, on web and native. */
+export function parseCallbackParams(href: string | null | undefined): CallbackParams {
+  if (!href) return {...NO_CALLBACK_PARAMS}
   let params: URLSearchParams
   try {
-    params = new URL(href).searchParams
+    // The base only resolves relative hrefs; absolute URLs ignore it.
+    params = new URL(href, 'https://callback.invalid').searchParams
   } catch {
-    return {code: null, state: null, error: null, session: null}
+    return {...NO_CALLBACK_PARAMS}
   }
   return {
     code: params.get('code'),
@@ -52,12 +62,19 @@ function callbackParams(): {code: string | null; state: string | null; error: st
   }
 }
 
+/** Web same-tab return URL (`location.href`), null outside a browser. */
+function webHref(): string | null {
+  return (globalThis as {location?: {href?: string}}).location?.href ?? null
+}
+
+/** Drop the one-time params from the visible URL once they are consumed —
+ * path preserved (deploy base included, so either callback path keeps
+ * working on reload), query and fragment gone. */
 function stripWebCallback(): void {
   if (Platform.OS !== 'web') return
   try {
     const history = (globalThis as {history?: {replaceState: (...args: unknown[]) => void}}).history
-    const loc = (globalThis as {location?: {pathname?: string}}).location
-    history?.replaceState(null, '', loc?.pathname ?? '/auth/callback')
+    history?.replaceState(null, '', callbackCleanHref(webHref()))
   } catch {
     // Cosmetic only: the code is single-use server-side regardless.
   }
@@ -79,20 +96,8 @@ export function AuthCallbackScreen() {
     if (Platform.OS !== 'web' && !nativeUrl) return
     ran.current = true
     const run = async () => {
-      let params = callbackParams()
-      if (Platform.OS !== 'web' && nativeUrl) {
-        try {
-          const parsed = new URL(nativeUrl)
-          params = {
-            code: parsed.searchParams.get('code'),
-            state: parsed.searchParams.get('state'),
-            error: parsed.searchParams.get('error'),
-            session: parsed.searchParams.get('session'),
-          }
-        } catch {
-          // Fall through to the missing-params error below.
-        }
-      }
+      // Web reads the same-tab URL; native waits for the deep link.
+      const params = parseCallbackParams(Platform.OS === 'web' ? webHref() : nativeUrl)
       if (params.error) {
         setError('The sign-in was cancelled or denied.')
         setStatus('error')

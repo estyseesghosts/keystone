@@ -12,6 +12,7 @@ import {
 import {ThemeProvider} from '#/alf/index'
 import {i18n} from '#/locale/i18n'
 import {Navigation} from '#/Navigation'
+import {parseCallbackParams} from '#/screens/AuthCallback'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {appStorage, __setStorageForTests} from '#/storage'
@@ -39,7 +40,43 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-describe('AuthCallbackScreen', () => {
+/** Both callback routes render this screen: the canonical path and v1's
+ * root-base alias (clickstone §1.13). */
+const CALLBACK_ROUTES = ['AuthCallback', 'KeystoneCallback'] as const
+
+describe('parseCallbackParams', () => {
+  it('parses the one-time triple for the canonical AND the legacy path', () => {
+    for (const path of ['/auth/callback', '/keystone/callback']) {
+      expect(parseCallbackParams(`https://app.example${path}?code=c1&state=s1`)).toEqual({
+        code: 'c1',
+        state: 's1',
+        error: null,
+        session: null,
+      })
+      // MiAuth appends `?session=` to whatever callback it was given.
+      expect(parseCallbackParams(`https://app.example${path}?session=sess-1`)).toMatchObject({
+        session: 'sess-1',
+      })
+      expect(parseCallbackParams(`https://app.example${path}?error=access_denied`)).toMatchObject({
+        error: 'access_denied',
+      })
+      // Native scheme links parse identically (path is never inspected).
+      expect(parseCallbackParams(`keystone://${path.slice(1)}?code=c1&state=s1`)).toMatchObject({
+        code: 'c1',
+        state: 's1',
+      })
+    }
+  })
+
+  it('answers an empty set for a missing or unusable URL', () => {
+    const empty = {code: null, state: null, error: null, session: null}
+    expect(parseCallbackParams(null)).toEqual(empty)
+    expect(parseCallbackParams(undefined)).toEqual(empty)
+    expect(parseCallbackParams('')).toEqual(empty)
+  })
+})
+
+describe.each(CALLBACK_ROUTES)('AuthCallbackScreen via %s', routeName => {
   it('completes a pending OAuth flow and stores the verified session', async () => {
     const storage: KeyValueStore = createMemoryStore()
     // Seed the pending flow + cached app exactly as startMastodonOAuth leaves them.
@@ -84,7 +121,7 @@ describe('AuthCallbackScreen', () => {
           <ThemeProvider>
             <QueryClientProvider client={new QueryClient()}>
               <SessionProvider store={store} homeOrigin="keystone://app">
-                <Navigation initialState={{routes: [{name: 'Main'}, {name: 'AuthCallback'}]}} />
+                <Navigation initialState={{routes: [{name: 'Main'}, {name: routeName}]}} />
               </SessionProvider>
             </QueryClientProvider>
           </ThemeProvider>
