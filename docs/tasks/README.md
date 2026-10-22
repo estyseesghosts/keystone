@@ -47,5 +47,9 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p6.0-misskey-mutations](p6.0-misskey-mutations.md) | clickstone §0.7 | done | `p6.0-misskey-mutations` | `state/logs/2026-10-22-p6.0-misskey-mutations.md` |
 | [p6.0-misskey-scope-upgrade](p6.0-misskey-scope-upgrade.md) | clickstone §0.8 | done | `p6.0-misskey-scope-upgrade` | `state/logs/2026-10-22-p6.0-misskey-scope-upgrade.md` |
 | [p6.0-messaging-gate](p6.0-messaging-gate.md) | clickstone §0.9 | done | `p6.0-messaging-gate` | `state/logs/2026-10-22-p6.0-messaging-gate.md` |
+| [p6.1-profile-all](p6.1-profile-all.md) | clickstone §1.1 | done | `p6.1-profile-all` | `state/logs/2026-10-22-p6.1-profile-all.md` |
+| [p6.1-soft-mute-badge](p6.1-soft-mute-badge.md) | clickstone §1.3 | done | `p6.1-soft-mute-badge` | `state/logs/2026-10-22-p6.1-soft-mute-badge.md` |
+| [p6.1-mastodon-tags](p6.1-mastodon-tags.md) | clickstone §1.4 | done | `p6.1-mastodon-tags` | `state/logs/2026-10-22-p6.1-mastodon-tags.md` |
+| [p6.1-drive-library](p6.1-drive-library.md) | clickstone §1.10 | done | `p6.1-drive-library` | `state/logs/2026-10-22-p6.1-drive-library.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.
