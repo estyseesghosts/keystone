@@ -147,6 +147,8 @@ export async function misskeyPasswordSignin(opts: {
  * Mastodon-family password grant (Akkoma/Pleroma — vanilla Mastodon has
  * none, the login screen offers OAuth there). Throws `MfaRequiredError`
  * when the account needs a second factor; continue with `mastodonMfaSignin`.
+ * `flavor` selects the requested scope string (ADR 0005) — the caller
+ * (Login screen) always detects first, so it is known here.
  */
 export async function mastodonPasswordSignin(opts: {
   appStore: KeyValueStore
@@ -154,6 +156,7 @@ export async function mastodonPasswordSignin(opts: {
   redirectUri: string
   username: string
   password: string
+  flavor?: ServerFlavor
 }): Promise<PasswordSigninResult> {
   const {token, account} = await firstPartyPasswordSignin(
     opts.appStore,
@@ -161,11 +164,13 @@ export async function mastodonPasswordSignin(opts: {
     opts.redirectUri,
     opts.username.trim(),
     opts.password,
+    opts.flavor,
   )
   return {token, account, grant: 'password'}
 }
 
-/** Second step after `MfaRequiredError`: totp or recovery code. */
+/** Second step after `MfaRequiredError`: totp or recovery code. `flavor`
+ * must match the password-grant attempt (same app-cache scope binding). */
 export async function mastodonMfaSignin(opts: {
   appStore: KeyValueStore
   origin: string
@@ -173,12 +178,13 @@ export async function mastodonMfaSignin(opts: {
   mfaToken: string
   challengeType: string
   code: string
+  flavor?: ServerFlavor
 }): Promise<PasswordSigninResult> {
   const {token, account} = await firstPartyMfa(opts.appStore, opts.origin, opts.redirectUri, {
     mfaToken: opts.mfaToken,
     challengeType: opts.challengeType,
     code: opts.code.trim(),
-  })
+  }, opts.flavor)
   return {token, account, grant: 'password'}
 }
 
@@ -187,17 +193,25 @@ export async function mastodonMfaSignin(opts: {
  * state/PKCE pending ONCE, then hand the authorize URL to the caller-owned
  * browser (`expo-web-browser` on native, same-tab navigation on web). The
  * callback half lives in `completeMastodonOAuth` (AuthCallback screen).
+ *
+ * `flavor` selects the requested scope string (ADR 0005): Mastodon-family
+ * logins register the umbrella triple so the authorize URL stays short.
+ * No detect-first probe here: every caller detects before offering OAuth
+ * (Login screen `detect()` / first-party hosting detection), so the
+ * flavor is always known; absent means the full set (previous behavior).
  */
 export async function startMastodonOAuth(opts: {
   appStore: KeyValueStore
   origin: string
   redirectUri: string
   openBrowser: (url: string) => Promise<unknown>
+  flavor?: ServerFlavor
 }): Promise<void> {
   const app = await registerApp({
     store: opts.appStore,
     origin: opts.origin,
     redirectUri: opts.redirectUri,
+    flavor: opts.flavor,
   })
   const state = randomToken()
   const codeVerifier = randomToken()

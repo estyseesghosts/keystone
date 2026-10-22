@@ -14,6 +14,7 @@
 
 import { adaptCredentialAccount } from "./adapt";
 import type { Account } from "../core/models";
+import type { ServerFlavor } from "../core/detect";
 import type { KeyValueStore } from "../core/sessions";
 import {
   exchangeCode,
@@ -71,15 +72,18 @@ export async function finishOAuthExchange(opts: {
 
 /** Password grant against the home server (verified BEFORE returning).
  * `redirectUri` is the exact registered callback URL (passed in — no
- * router import here); `store` is the app-credential cache. */
+ * router import here); `store` is the app-credential cache. `flavor`
+ * selects the requested scope string (ADR 0005): Mastodon-family logins
+ * register the umbrella triple, Akkoma/Pleroma the full NOW set. */
 export async function firstPartyPasswordSignin(
   store: KeyValueStore,
   origin: string,
   redirectUri: string,
   username: string,
   password: string,
+  flavor?: ServerFlavor,
 ): Promise<{ token: string; account: Account }> {
-  const app = await registerApp({ store, origin, redirectUri });
+  const app = await registerApp({ store, origin, redirectUri, flavor });
   const token = await passwordGrant({
     origin,
     clientId: app.client_id,
@@ -92,14 +96,17 @@ export async function firstPartyPasswordSignin(
   return { token: token.access_token, account };
 }
 
-/** Second step after `MfaRequiredError`: totp or recovery code. */
+/** Second step after `MfaRequiredError`: totp or recovery code. `flavor`
+ * must match the password-grant attempt's (same per-origin app cache —
+ * the cache binds on the scope string, ADR 0005). */
 export async function firstPartyMfa(
   store: KeyValueStore,
   origin: string,
   redirectUri: string,
   opts: { mfaToken: string; challengeType: string; code: string },
+  flavor?: ServerFlavor,
 ): Promise<{ token: string; account: Account }> {
-  const app = await registerApp({ store, origin, redirectUri });
+  const app = await registerApp({ store, origin, redirectUri, flavor });
   const token = await mfaChallenge({
     origin,
     clientId: app.client_id,
