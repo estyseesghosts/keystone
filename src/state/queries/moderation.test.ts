@@ -86,6 +86,7 @@ describe('serverFilterWordsOf (WS-F Mastodon-family word mutes)', () => {
     expiresAt: null,
     irreversible: true,
     wholeWord: true,
+    keywords: [{id: 'k1', keyword: 'buy', wholeWord: true}],
     ...overrides,
   })
 
@@ -95,12 +96,52 @@ describe('serverFilterWordsOf (WS-F Mastodon-family word mutes)', () => {
     expect(serverFilterWordsOf([])).toEqual([])
   })
 
+  it('enforces every keyword of a v2 group, not just the first', () => {
+    expect(
+      serverFilterWordsOf([
+        row({
+          keywords: [
+            {id: 'k1', keyword: 'buy', wholeWord: true},
+            {id: 'k2', keyword: 'spam', wholeWord: false},
+          ],
+        }),
+      ]),
+    ).toEqual([['buy'], ['spam']])
+    const spam = makePost({id: 'spam', content: {plain: 'cheap spam here'}})
+    const good = makePost({id: 'good'})
+    const hard = rules({
+      hardMutedWords: serverFilterWordsOf([
+        row({
+          keywords: [
+            {id: 'k1', keyword: 'buy', wholeWord: true},
+            {id: 'k2', keyword: 'spam', wholeWord: false},
+          ],
+        }),
+      ]),
+    })
+    expect(filterModerated([spam, good], hard).map(p => p.id)).toEqual(['good'])
+  })
+
   it('skips warn-action phrases (soft words badge; no badge UI here)', () => {
     expect(serverFilterWordsOf([row({irreversible: false})])).toEqual([])
   })
 
   it('trims phrases and drops blanks', () => {
-    expect(serverFilterWordsOf([row({phrase: '  buy  '}), row({phrase: '   '})])).toEqual([['buy']])
+    // Rows without a keyword list fall back to `phrase`.
+    expect(
+      serverFilterWordsOf([{...row(), keywords: []}, row({phrase: '   ', keywords: []})]),
+    ).toEqual([['buy']])
+    // Keyword text of a group is trimmed the same way.
+    expect(
+      serverFilterWordsOf([
+        row({
+          keywords: [
+            {id: 'k1', keyword: '  buy  ', wholeWord: true},
+            {id: 'k2', keyword: '   ', wholeWord: false},
+          ],
+        }),
+      ]),
+    ).toEqual([['buy']])
   })
 
   it('hide-action phrases drop matching posts through filterModerated', () => {

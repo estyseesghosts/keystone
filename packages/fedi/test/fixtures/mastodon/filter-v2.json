@@ -4,5 +4,8 @@
   "context": ["home", "public"],
   "expires_at": null,
   "filter_action": "hide",
-  "keywords": [{ "id": "k1", "keyword": "spoiler", "whole_word": true }]
+  "keywords": [
+    { "id": "k1", "keyword": "spoiler", "whole_word": true },
+    { "id": "k2", "keyword": "spoilers", "whole_word": false }
+  ]
 }

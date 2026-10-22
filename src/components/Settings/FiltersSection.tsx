@@ -19,6 +19,22 @@ import {PlaceholderRow, SectionHint, SettingRow} from './rows'
 // word filters (phrase + contexts). The Mastodon family implements
 // `backend.filters`; the Misskey family has no filter endpoints, so it
 // renders an honest placeholder — never an error, never a fake list.
+//
+// A v2 filter is a GROUP of keywords. The row shows all of them, and the
+// edit field edits the primary one (the group's first keyword) — the
+// siblings are listed next to it and the backend writes them all back, so
+// no edit can silently drop or reorder them.
+
+/** All keyword texts of a filter, in server order (a row with no list —
+ * older payloads — still shows its phrase). */
+function keywordsTextOf(f: Filter): string {
+  const words = f.keywords?.length ? f.keywords.map(k => k.keyword) : [f.phrase]
+  return words.filter(w => w.length > 0).join(', ')
+}
+
+function siblingKeywordsOf(f: Filter): string[] {
+  return (f.keywords ?? []).slice(1).map(k => k.keyword)
+}
 
 function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backend['filters']>}}) {
   const filters = backend.filters
@@ -117,30 +133,41 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
           <View style={[atoms.gap_sm]} testID="filter-list">
             {items.map(f =>
               editingId === f.id ? (
-                <View key={f.id} style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
-                  <TextField
-                    label={i18n._(msg`Phrase`)}
-                    value={draft}
-                    onChangeText={setDraft}
-                    testID={`filter-edit-input-${f.id}`}
-                  />
-                  <Button
-                    label={i18n._(msg`Save`)}
-                    variant="primary"
-                    disabled={draft.trim().length === 0}
-                    onPress={() => void saveEdit(f)}
-                    testID={`filter-save-${f.id}`}
-                  />
-                  <Button
-                    label={i18n._(msg`Cancel`)}
-                    variant="secondary"
-                    onPress={() => setEditingId(null)}
-                    testID={`filter-cancel-${f.id}`}
-                  />
+                <View key={f.id} style={[atoms.gap_sm]} testID={`filter-edit-row-${f.id}`}>
+                  <View style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
+                    <TextField
+                      label={i18n._(msg`Phrase`)}
+                      value={draft}
+                      onChangeText={setDraft}
+                      testID={`filter-edit-input-${f.id}`}
+                    />
+                    <Button
+                      label={i18n._(msg`Save`)}
+                      variant="primary"
+                      disabled={draft.trim().length === 0}
+                      onPress={() => void saveEdit(f)}
+                      testID={`filter-save-${f.id}`}
+                    />
+                    <Button
+                      label={i18n._(msg`Cancel`)}
+                      variant="secondary"
+                      onPress={() => setEditingId(null)}
+                      testID={`filter-cancel-${f.id}`}
+                    />
+                  </View>
+                  {siblingKeywordsOf(f).length > 0 ? (
+                    <Caption color="faint" testID={`filter-edit-others-${f.id}`}>
+                      {i18n._(
+                        msg`Editing the first keyword. The rest of this group stay as they are: ${siblingKeywordsOf(
+                          f,
+                        ).join(', ')}`,
+                      )}
+                    </Caption>
+                  ) : null}
                 </View>
               ) : (
                 <View key={f.id} style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
-                  <Body>{f.phrase}</Body>
+                  <Body testID={`filter-text-${f.id}`}>{keywordsTextOf(f)}</Body>
                   <Button
                     label={i18n._(msg`Edit`)}
                     variant="secondary"

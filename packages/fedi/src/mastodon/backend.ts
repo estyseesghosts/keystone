@@ -46,6 +46,7 @@ import type {
   CustomEmoji,
   ExploreUsers,
   Filter,
+  FilterKeyword,
   FollowRequest,
   NewsLink,
   NotificationsOpts,
@@ -224,39 +225,63 @@ function wireNotificationTypes(tokens: readonly string[] | undefined): string[] 
 // whole_word}]}` — while v1 (`/api/v1/filters`, still present on
 // Mastodon and the ONLY shape on Akkoma/Pleroma) speaks single keywords
 // — `{id, phrase, context[], expires_at, irreversible, whole_word}`.
-// The core `Filter` is phrase-shaped (the v1 shape): a v2 group reads as
-// one phrase row (its first keyword — filters created here are
-// single-keyword, so this round-trips; `filter_action: "hide"` is the v2
-// irreversible). v1 has no `filter_action` — it stays absent, never
-// fabricated.
+// The core `Filter` keeps the phrase-shaped v1 fields (`phrase` is the
+// first keyword, what the UI edits) AND the full `keywords` list, so a
+// multi-keyword v2 group is neither hidden nor destroyed on edit:
+// `filter_action: "hide"` is the v2 irreversible. v1 has no
+// `filter_action` — it stays absent, never fabricated.
+
+/** Wire keyword row → core keyword. Missing text becomes "" (the adapter
+ * never invents a phrase) and `whole_word` defaults to false. */
+function adaptFilterKeyword(k: Record<string, unknown>, fallbackId: string): FilterKeyword {
+  return {
+    id: k.id != null ? String(k.id) : fallbackId,
+    keyword: typeof k.keyword === "string" ? k.keyword : "",
+    wholeWord: k.whole_word === true,
+  };
+}
 
 function adaptV1FilterRow(f: Record<string, unknown>, phraseFallback: string): Filter {
+  const id = String(f.id ?? "");
+  const phrase = typeof f.phrase === "string" ? f.phrase : phraseFallback;
+  const wholeWord = f.whole_word === true;
   return {
-    id: String(f.id ?? ""),
-    phrase: typeof f.phrase === "string" ? f.phrase : phraseFallback,
+    id,
+    phrase,
     context: Array.isArray(f.context) ? f.context.map(String) : [],
     expiresAt: typeof f.expires_at === "string" ? f.expires_at : null,
     irreversible: f.irreversible === true,
-    wholeWord: f.whole_word === true,
+    wholeWord,
+    // v1: the row and its single keyword are the same object.
+    keywords: [{ id, keyword: phrase, wholeWord }],
   };
 }
 
 function adaptV2FilterRow(f: Record<string, unknown>): Filter {
-  const keywords = Array.isArray(f.keywords) ? f.keywords : [];
-  const first = (
-    keywords.length > 0 && keywords[0] && typeof keywords[0] === "object"
-      ? (keywords[0] as Record<string, unknown>)
-      : {}
-  );
-  const keyword = typeof first.keyword === "string" ? first.keyword : null;
+  const raw = Array.isArray(f.keywords) ? f.keywords : [];
+  const id = String(f.id ?? "");
+  const keywords = raw
+    .filter((k): k is Record<string, unknown> => !!k && typeof k === "object")
+    .map((k) => adaptFilterKeyword(k, id));
+  const first = keywords[0];
   const title = typeof f.title === "string" ? f.title : null;
+  const phrase = first && first.keyword.length > 0 ? first.keyword : (title ?? "");
+  // A compliant server always sends >= 1 keyword; a keyword-less payload
+  // (fork quirk) still reads as the single phrase the group is named
+  // after — the list is never empty while a phrase exists.
+  if (keywords.length === 0 && phrase.length > 0) {
+    keywords.push({ id, keyword: phrase, wholeWord: false });
+  }
   return {
-    id: String(f.id ?? ""),
-    phrase: keyword && keyword.length > 0 ? keyword : (title ?? ""),
+    id,
+    // Every keyword is carried in `keywords`; `phrase`/`wholeWord` are the
+    // first one (the row the UI edits), never the whole group.
+    phrase,
     context: Array.isArray(f.context) ? f.context.map(String) : [],
     expiresAt: typeof f.expires_at === "string" ? f.expires_at : null,
     irreversible: f.filter_action === "hide",
-    wholeWord: first.whole_word === true,
+    wholeWord: first?.wholeWord === true,
+    keywords,
   };
 }
 
@@ -976,22 +1001,33 @@ export function createMastodonBackend(
           async () => {
             // v2 edits a GROUP: read it first so the phrase edit rewrites
             // the group's keywords in place (first keyword takes the new
-            // phrase, the rest are kept by id) instead of appending a
-            // duplicate keyword on every edit.
+            // phrase, EVERY sibling is written back with its own text and
+            // whole_word) instead of appending a duplicate keyword on
+            // every edit or sending bare `{id}` rows that blank the rest.
             const seen = await client.get<Record<string, unknown>>(pathV2);
-            const prior = Array.isArray((seen.data ?? {}).keywords)
-              ? ((seen.data as Record<string, unknown>).keywords as Array<Record<string, unknown>>)
+            const raw = (seen.data ?? {}) as Record<string, unknown>;
+            const priorRows = Array.isArray(raw.keywords)
+              ? (raw.keywords as unknown[]).filter(
+                  (k): k is Record<string, unknown> => !!k && typeof k === "object",
+                )
               : [];
+            const prior = priorRows.map((k) => adaptFilterKeyword(k, id));
             const keywords_attributes =
               prior.length > 0
                 ? prior.map((k, i) =>
                     i === 0
                       ? { id: k.id, keyword: phrase, whole_word: wholeWord }
-                      : { id: k.id },
+                      : { id: k.id, keyword: k.keyword, whole_word: k.wholeWord },
                   )
                 : [{ keyword: phrase, whole_word: wholeWord }];
+            // The title is the group's label, not the phrase: keep a custom
+            // one, only follow the phrase when it was auto-derived from the
+            // old primary keyword (or absent).
+            const priorTitle = typeof raw.title === "string" ? raw.title.trim() : "";
+            const title =
+              priorTitle.length > 0 && priorTitle !== prior[0]?.keyword ? priorTitle : phrase;
             const body: Record<string, unknown> = {
-              title: phrase,
+              title,
               context,
               keywords_attributes,
             };
