@@ -324,6 +324,26 @@ export interface Status {
   akkoma?: Record<string, unknown>;
 }
 
+/**
+ * One revision of a status (`GET /api/v1/statuses/:id/history`,
+ * `REST::StatusEditSerializer`). The server answers OLDEST-FIRST
+ * (`StatusEdit.ordered` = `order(id: :asc)`) and the FIRST entry is the
+ * original snapshot (`histories_controller` builds one when the status was
+ * never edited). `media_attachments` are `PreservedMediaAttachment`s: each
+ * carries its own `description` — the alt text at that revision.
+ */
+export interface StatusEdit {
+  content: string;
+  spoiler_text: string;
+  sensitive: boolean;
+  created_at: string;
+  account: Account;
+  media_attachments: MediaAttachment[];
+  emojis?: AccountEmoji[];
+  poll?: { options: Array<{ title: string }> } | null;
+  quote?: Record<string, unknown> | null;
+}
+
 // --- Notifications --------------------------------------------------------
 
 /**

@@ -305,8 +305,10 @@ export function adaptNote(note: Note): Post {
     emojis: note.emojis ?? {},
     mentions: note.mentions ?? [],
     tags: note.tags ?? [],
-    // The Misskey wire sends no edit timestamp.
-    editedAt: null,
+    // Edit timestamp: Sharkey packs `Note.updatedAt` and sets it on every
+    // `notes/edit` (`core/NoteEditService.ts`); upstream Misskey packs no
+    // such field, and absent stays null — no badge, never a guess.
+    editedAt: note.updatedAt ?? null,
     filtered: [],
     pinned: false,
     ext: {

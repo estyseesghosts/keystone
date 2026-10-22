@@ -14,7 +14,7 @@ import {t} from '@lingui/macro'
 import '#/locale/i18n'
 
 import type {Capabilities, ReportCategory, ServerFamily, Post} from '@keystone/fedi'
-import {cachedRemotePostUrl, safeHttpUrl} from '@keystone/fedi'
+import {cachedRemotePostUrl, REDRAFT_WARNING, safeHttpUrl} from '@keystone/fedi'
 
 import type {ActionGate} from '#/state/cache'
 import {messagingUnavailableReason} from '#/lib/messaging'
@@ -30,6 +30,9 @@ export type PostMenuItem = {
   confirm?: {
     title: string
     action: string
+    /** Extra explanatory line under the title (e.g. the data-loss warning
+     * on delete-and-redraft). */
+    message?: string
     /** When set, the dialog shows a required text field with this label. */
     commentLabel?: string
     run?: (comment?: string) => void | Promise<void>
@@ -105,6 +108,10 @@ export interface PostMenuInput {
     muteThread: () => void | Promise<void>
     togglePin: () => void | Promise<void>
     onEdit?: (post: Post) => void
+    /** Delete the post, then open the composer seeded with its payload
+     * (clickstone §1.7). The handler owns the delete; the row only confirms
+     * first and shows the data-loss warning. */
+    onRedraft?: (post: Post) => void | Promise<void>
     onClip?: (post: Post) => void
     user?: UserActionHandlers
   }
@@ -329,6 +336,32 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
 
   const group3: PostMenuItem[] = reportRow(input)
   if (input.isOwn) {
+    // Delete-and-redraft (clickstone §1.7): the only redraft path on a
+    // server without `status_editing` (upstream Misskey) and the explicit
+    // "start over" path everywhere else. Delete stays its own row: this one
+    // reopens the composer, so the destructive warning must say so.
+    group3.push(
+      del.gate.enabled
+        ? handlers.onRedraft
+          ? {
+              key: 'redraft',
+              label: t`Delete and redraft`,
+              destructive: true,
+              confirm: {
+                title: t`Delete and redraft this post?`,
+                action: t`Delete and redraft`,
+                message: REDRAFT_WARNING,
+              },
+              run: () => handlers.onRedraft!(post),
+            }
+          : {
+              key: 'redraft',
+              label: t`Delete and redraft`,
+              disabled: true,
+              reason: t`No composer is connected to this view.`,
+            }
+        : {key: 'redraft', label: t`Delete and redraft`, disabled: true, reason: del.gate.reason},
+    )
     group3.push(
       del.gate.enabled
         ? {

@@ -220,6 +220,7 @@ describe('UploadsSection', () => {
               enabled: false,
               reason: 'This server marks media sensitivity for the whole post, not per attachment.',
             },
+        mediaDescription: {enabled: true},
       },
       uploads: {
         items: [

@@ -166,9 +166,13 @@ export interface UploadItem {
   status: UploadStatus
   /** Server media id once done. */
   mediaId: string | null
-  /** Alt text / description, sent WITH the upload (neither family can be
-   * edited afterwards through the Backend surface). */
+  /** Alt text / description, sent WITH the upload (the Misskey-family
+   * `comment` / Mastodon `description`). */
   alt: string
+  /** The alt text as it was when the file finished uploading. A later edit
+   * is saved through `Backend.updateMedia` on submit (clickstone §1.7), so
+   * this is the "what the server already holds" baseline. */
+  altAtUpload?: string
   /** Per-attachment sensitive flag, sent WITH the upload on families that
    * take it (`drive/files/create` `isSensitive`). The composer disables
    * the toggle where the server only has status-level `sensitive`, so
@@ -247,7 +251,7 @@ export async function uploadAll(
         sensitive: item.sensitive,
         target,
       })
-      onUpdate(item.key, {status: 'done', mediaId: id})
+      onUpdate(item.key, {status: 'done', mediaId: id, altAtUpload: item.alt})
       ids.push(id)
     } catch (err) {
       onUpdate(item.key, {
@@ -309,7 +313,8 @@ export function useUploads(backend: Backend | null, target: UploadTarget = {}) {
     [files],
   )
 
-  /** Alt text can change until the file is uploaded. */
+  /** Alt text: sent with the upload, and — where the backend exposes
+   * `updateMedia` — still editable afterwards (saved on submit). */
   const setAlt = useCallback((key: string, alt: string) => patch(key, {alt}), [patch])
 
   /** Per-file sensitive flag; applied when the upload runs. */

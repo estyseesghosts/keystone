@@ -18,6 +18,7 @@ import {
   type Cursor,
   type Page,
   type Post,
+  type PostRevision,
 } from '@keystone/fedi'
 
 import {createQueryKey, type AppQueryKey} from './keys'
@@ -213,4 +214,40 @@ export function useNoteReactionsQuery(
     GC_TIME.FEED,
     options.retry,
   )
+}
+
+// --- Edit history (clickstone §1.7) ------------------------------------------
+
+/** Key for one session's edit-history read of a post. */
+export function editHistoryQueryKey(sessionId: string, postId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'post-history', postId)
+}
+
+/**
+ * One post's revisions, newest-first, through the owning session's backend.
+ * Disabled when the backend has no `editHistory` (the Misskey family): the
+ * screen renders an honest "no history on this server" state instead of a
+ * fake single revision.
+ */
+export function useEditHistoryQuery(
+  sessionId: string | null,
+  postId: string,
+  options: PostThreadQueryOptions = {},
+): UseQueryResult<PostRevision[], Error> & {queryKey: AppQueryKey} {
+  const backend = options.backend ?? null
+  const queryKey = editHistoryQueryKey(sessionId ?? 'signed-out', postId)
+  const query = useQuery<PostRevision[], Error, PostRevision[], AppQueryKey>({
+    queryKey,
+    queryFn: () => {
+      if (!backend?.editHistory) throw new Error('useEditHistoryQuery: no history endpoint')
+      return backend.editHistory(postId)
+    },
+    enabled:
+      sessionId != null && postId.length > 0 && typeof backend?.editHistory === 'function',
+    staleTime: STALE.POST,
+    gcTime: GC_TIME.POST,
+    retry: options.retry ?? 2,
+    refetchOnWindowFocus: false,
+  })
+  return {...query, queryKey}
 }

@@ -369,3 +369,75 @@ describe('translate row (E6)', () => {
     expect(row.reason).toMatch(/sign in again/i)
   })
 })
+
+describe('delete-and-redraft row (clickstone §1.7)', () => {
+  function redraftRow(opts: {delEnabled?: boolean; onRedraft?: unknown} = {}) {
+    const input = {
+      family: 'mastodon',
+      capabilities: {},
+      post: makePost(),
+      origin: 'https://example.social',
+      isOwn: true,
+      copyAvailable: true,
+      bookmark: {gate: {enabled: false, reason: 'x'}, value: false, set: jest.fn()},
+      del: {
+        gate: opts.delEnabled === false ? {enabled: false, reason: 'gate.notYours'} : {enabled: true},
+        run: jest.fn(),
+      },
+      handlers: {
+        copy: jest.fn(),
+        share: jest.fn(),
+        open: jest.fn(),
+        translate: jest.fn(),
+        muteThread: jest.fn(),
+        togglePin: jest.fn(),
+        ...(opts.onRedraft ? {onRedraft: opts.onRedraft} : {}),
+      },
+    } as never
+    return flatten(buildPostMenu(input)).find(i => i.key === 'redraft')
+  }
+
+  it('asks first and carries the data-loss warning', () => {
+    const onRedraft = jest.fn()
+    const row = redraftRow({onRedraft})!
+    expect(row.label).toBe('Delete and redraft')
+    expect(row.destructive).toBe(true)
+    expect(row.confirm?.title).toBe('Delete and redraft this post?')
+    expect(row.confirm?.message).toMatch(/cannot be restored/)
+    expect(onRedraft).not.toHaveBeenCalled()
+  })
+
+  it('is disabled with a reason when no composer is connected', () => {
+    const row = redraftRow()!
+    expect(row.disabled).toBe(true)
+    expect(row.reason).toMatch(/No composer/)
+  })
+
+  it('follows the delete gate (own posts only)', () => {
+    const row = redraftRow({delEnabled: false, onRedraft: jest.fn()})!
+    expect(row.disabled).toBe(true)
+  })
+
+  it('is absent for other people\'s posts', () => {
+    const input = {
+      family: 'misskey',
+      capabilities: {},
+      post: makePost(),
+      origin: 'https://example.social',
+      isOwn: false,
+      copyAvailable: true,
+      bookmark: {gate: {enabled: false, reason: 'x'}, value: false, set: jest.fn()},
+      del: {gate: {enabled: false, reason: 'x'}, run: jest.fn()},
+      handlers: {
+        copy: jest.fn(),
+        share: jest.fn(),
+        open: jest.fn(),
+        translate: jest.fn(),
+        muteThread: jest.fn(),
+        togglePin: jest.fn(),
+        onRedraft: jest.fn(),
+      },
+    } as never
+    expect(flatten(buildPostMenu(input)).find(i => i.key === 'redraft')).toBeUndefined()
+  })
+})

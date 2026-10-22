@@ -14,6 +14,7 @@ import {
   urisMatch,
   type ContentNode,
   type Post,
+  type PostRevision,
 } from '@keystone/fedi'
 
 /** Drop `RE: <url>` markers that duplicate the structured quote card
@@ -67,6 +68,20 @@ export function postBodyNodes(
 // `lookupPackedEmojis`; this only unions the sources. */
 export function postEmojis(post: Post): Record<string, string> {
   return {...post.author.emojis, ...post.emojis}
+}
+
+/** Revision body nodes for the edit-history screen (clickstone §1.7). Same
+ * allow-listed AST as a post body — the revision text is server HTML (or
+ * packed MFM), and it renders through the one `RichText`; no revision ever
+ * reaches `innerHTML`. Tag blocks are pruned exactly as in a post body. */
+export function revisionNodes(revision: PostRevision): ContentNode[] {
+  const c = revision.content
+  if (c.mfm) {
+    const pruned = pruneMfmTagBlocks(c.mfm)
+    return pruned.trim() === '' ? [] : contentFromMfm(pruned)
+  }
+  if (c.html) return pruneHtmlTagBlocks(contentFromHtml(c.html))
+  return c.plain ? [t(c.plain)] : []
 }
 
 // --- WS-B (F10): tag-block pruning -------------------------------------------

@@ -12,6 +12,9 @@ export type TextFieldProps = {
   placeholder?: string
   error?: string
   secure?: boolean
+  /** Read-only field (e.g. alt text on a server without a media-edit
+   * endpoint). The label still renders so the value stays visible. */
+  editable?: boolean
   testID?: string
 }
 
@@ -22,6 +25,7 @@ export function TextField({
   placeholder,
   error,
   secure,
+  editable,
   testID,
 }: TextFieldProps) {
   const theme = useTheme()
@@ -45,6 +49,7 @@ export function TextField({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
+        editable={editable}
         placeholderTextColor={theme.palette.faint}
         secureTextEntry={secure}
         accessibilityLabel={label}

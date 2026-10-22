@@ -75,6 +75,7 @@ import type {
   Page,
   Poll,
   Post,
+  PostRevision,
   ReactionEntry,
   ReactionSummary,
   Relationship,
@@ -92,6 +93,7 @@ import type {
   Poll as WirePoll,
   Relationship as WireRelationship,
   Status,
+  StatusEdit,
   StatusFilterResult,
 } from "./wire";
 
@@ -519,6 +521,40 @@ export function adaptStatus(status: Status): Post {
       ...(mentionUrls ? { mentionUrls } : {}),
     },
   };
+}
+
+// --- Edit history (clickstone §1.7) -----------------------------------------
+
+/** One `StatusEdit` → core `PostRevision`. `original` is decided by the
+ * CALLER (index 0 of the server's oldest-first list), because only the
+ * whole array knows which revision is the creation snapshot. Media carry
+ * their revision-level descriptions; the status-level `sensitive` flag is
+ * passed to each attachment (the wire attachment has no own flag). Pure. */
+export function adaptStatusEdit(edit: StatusEdit, original: boolean): PostRevision {
+  return {
+    content: htmlContentOf(edit.content ?? ""),
+    cw: edit.spoiler_text && edit.spoiler_text.length > 0 ? edit.spoiler_text : null,
+    sensitive: edit.sensitive === true,
+    createdAt: edit.created_at,
+    media: (edit.media_attachments ?? []).map((m) => adaptMedia(m, edit.sensitive === true)),
+    accountId: edit.account?.id ?? null,
+    original,
+  };
+}
+
+/**
+ * Adapt the raw `GET /api/v1/statuses/:id/history` answer. The server is
+ * OLDEST-FIRST (`StatusEdit.ordered`) with the creation snapshot at index
+ * 0; the UI wants newest-first (Mastodon web reverses it too:
+ * `reducers/history.js` maps `original: i === 0` then `.reverse()`), so the
+ * result is reversed here and every revision keeps its honest `original`
+ * flag. An empty answer stays empty — never a fabricated single revision.
+ */
+export function adaptStatusHistory(edits: readonly StatusEdit[]): PostRevision[] {
+  const list = [...edits];
+  const out = list.map((edit, i) => adaptStatusEdit(edit, i === 0));
+  out.reverse();
+  return out;
 }
 
 // --- Relationships ----------------------------------------------------------

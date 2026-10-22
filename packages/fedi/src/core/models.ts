@@ -616,6 +616,29 @@ export function collapseReposts(items: Post[]): CollapsedFeed {
   return { reps, renotersByRep };
 }
 
+// --- Edit history (clickstone §1.7) ----------------------------------------
+
+/** One revision of a post's edit history. Built ONLY from a server that
+ * exposes revisions (Mastodon-family `GET /api/v1/statuses/:id/history`);
+ * a family without that endpoint leaves `Backend.editHistory` undefined and
+ * the UI never invents a history. `content` is the same allow-listed AST the
+ * post uses, so revisions render through the one `RichText`. */
+export interface PostRevision {
+  /** Revision body, already adapted (`html` on the Mastodon family). */
+  content: Content;
+  cw: string | null;
+  sensitive: boolean;
+  /** When this revision was written (server `created_at`). */
+  createdAt: string;
+  /** Attachments as they were in this revision, with their own alt text. */
+  media: Media[];
+  /** Revision author (the status owner). Null when the server sent none. */
+  accountId: string | null;
+  /** True for the ORIGINAL (pre-edit) snapshot: the server's first
+   * revision. Exactly one revision carries it. */
+  original: boolean;
+}
+
 // --- Relationships ---------------------------------------------------------
 
 /** Relation of the viewer to one account. All flags optional — absent

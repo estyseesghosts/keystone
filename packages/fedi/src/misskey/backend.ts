@@ -701,6 +701,9 @@ export function createMisskeyBackend(
     },
 
     async deletePost(id) {
+      // `notes/delete` removes the note only: Misskey never deletes the
+      // Drive files attached to it, so a redraft can reattach them by id.
+      // `opts.keepMedia` is therefore a documented no-op here.
       await call<undefined>("notes/delete", { noteId: id });
     },
 
@@ -1152,6 +1155,17 @@ export function createMisskeyBackend(
         ...(opts.force !== undefined ? { force: opts.force } : {}),
       };
       return adaptDriveFile(await transport.upload<DriveFile>(file, uploadOpts));
+    },
+
+    async updateMedia(id, patch) {
+      // Caption edit is `drive/files/update` `comment` (clickstone §1.7:
+      // title? `mediaDescription` gate). `focus` has no Misskey-family
+      // field at all — it is DROPPED, never sent, and the UI never offers
+      // it there. `null` clears the caption (the param is nullable
+      // upstream); an untouched description is not sent.
+      return drive.updateFile(id, {
+        ...(patch.description !== undefined ? { comment: patch.description } : {}),
+      });
     },
 
     async translate(id, targetLang) {

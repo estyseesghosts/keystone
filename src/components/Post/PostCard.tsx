@@ -43,9 +43,10 @@ import {Pressable} from '#/components/Pressable'
 import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {RichText, defaultHashtagPress, defaultMentionPress} from '#/components/RichText'
 import {canCopy, copyText} from '#/lib/clipboard'
+import {deleteAndRedraft} from '#/lib/redraft'
 import {showToast} from '#/lib/toast'
 import {navigationRef} from '#/navigationRef'
-import {usePostActions, type PostActions} from '#/state/cache'
+import {patchPostInCaches, usePostActions, type PostActions} from '#/state/cache'
 import {isSoftMutedPost, useSoftMutedIds} from '#/state/queries/graph'
 import {useOptionalSessionStore} from '#/state/session/SessionProvider'
 import {useLikeEmoji} from '#/state/emojiPrefs'
@@ -99,6 +100,21 @@ function openAuthorProfile(authorId: string) {
 function openPostDetail(postId: string) {
   if (!navigationRef.isReady()) return
   navigationRef.navigate('Note', {id: postId})
+}
+
+// Edit-history navigation, reached from the Edited badge (clickstone §1.7).
+// Only wired where the backend exposes `editHistory`; a family without the
+// endpoint keeps the badge non-interactive (never a dead link).
+function openEditHistory(postId: string) {
+  if (!navigationRef.isReady()) return
+  navigationRef.navigate('NoteHistory', {id: postId})
+}
+
+// The composer for a redrafted post: its seed is already in the handoff
+// (the caller deleted the post first, so the route cannot re-fetch it).
+function openRedraftComposer(postId: string) {
+  if (!navigationRef.isReady()) return
+  navigationRef.navigate('Compose', {redraftId: postId})
 }
 
 /** Collapsed-boost banner (v1 `TimelineFeed` parity, F17): one reposter
@@ -263,6 +279,10 @@ export type PostCardProps = {
    * soft-mute set and the rendered author; tests and previews inject it
    * explicitly. Omit (or false) to leave the badge off — never guessed. */
   softMuted?: boolean
+  /** Open this post's edit history (clickstone §1.7). Omitted where the
+   * backend has no history endpoint (the Misskey family): the Edited badge
+   * then renders as plain text, never as a dead link. */
+  onEditedPress?: () => void
 }
 
 /** Auto-translate fetch seam (v1): one `backend.translate(id, lang)`
@@ -298,6 +318,7 @@ export function PostCard(props: PostCardProps) {
 function LivePostCard(props: PostCardProps) {
   const {post, sessionId} = props
   const {i18n} = useLingui()
+  const queryClient = useContext(QueryClientContext)
   const store = useOptionalSessionStore()!
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot)
   const session = snapshot.sessions.find(s => s.id === sessionId) ?? null
@@ -401,6 +422,25 @@ function LivePostCard(props: PostCardProps) {
         }
       },
       onEdit: handlers.onEdit,
+      onRedraft:
+        handlers.onRedraft ??
+        (backend
+          ? async post => {
+              try {
+                await deleteAndRedraft(backend, post, {
+                  // Same cache removal a plain delete does: the deleted post
+                  // must not stay tappable in a feed behind the composer.
+                  onDeleted: p => {
+                    if (queryClient) patchPostInCaches(queryClient, sessionId, p.id, () => null)
+                  },
+                })
+                openRedraftComposer(post.id)
+              } catch (e) {
+                // A refused delete leaves the post alone: no composer opens.
+                toastError(e)
+              }
+            }
+          : undefined),
       onClip: handlers.onClip,
       user: handlers.user ?? handlers.userFor?.(effective, sessionId),
     },
@@ -414,6 +454,10 @@ function LivePostCard(props: PostCardProps) {
       resolveQuoteUri={props.resolveQuoteUri ?? resolveQuoteUri}
       linkPreviewAuto={props.linkPreviewAuto ?? !dataSaver}
       softMuted={props.softMuted ?? softMuted}
+      onEditedPress={
+        props.onEditedPress ??
+        (backend?.editHistory ? () => openEditHistory(effective.id) : undefined)
+      }
       live={{
         actions,
         family: session?.family ?? 'misskey',
@@ -446,6 +490,7 @@ function PostCardView({
   onlyAuthorizedQuotes,
   linkPreviewAuto = true,
   softMuted,
+  onEditedPress,
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
   const {i18n} = useLingui()
@@ -734,11 +779,22 @@ function PostCardView({
         )}
         {badges.length > 0 && (
           <View style={styles.badges} testID={`post-badges-${post.id}`}>
-            {badges.map(b => (
-              <Caption key={b.key} color="muted" testID={`post-badge-${b.key}-${post.id}`}>
-                {b.label}
-              </Caption>
-            ))}
+            {badges.map(b =>
+              b.key === 'edited' && onEditedPress ? (
+                <Pressable
+                  key={b.key}
+                  testID={`post-badge-${b.key}-${post.id}`}
+                  accessibilityRole="link"
+                  accessibilityLabel={i18n._(msg`View edit history`)}
+                  onPress={onEditedPress}>
+                  <Caption color="muted">{b.label}</Caption>
+                </Pressable>
+              ) : (
+                <Caption key={b.key} color="muted" testID={`post-badge-${b.key}-${post.id}`}>
+                  {b.label}
+                </Caption>
+              ),
+            )}
           </View>
         )}
         {replyTarget !== null && (

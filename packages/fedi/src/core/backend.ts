@@ -20,6 +20,7 @@ import type {
   Notification,
   Page,
   Post,
+  PostRevision,
   Relationship,
   VisibilityKind,
 } from "./models";
@@ -114,6 +115,17 @@ export interface UploadMediaOpts {
   comment?: string;
   folderId?: string | null;
   force?: boolean;
+}
+
+/** Post-upload media edit (clickstone §1.7). `description` is alt text;
+ * `focus` is the Mastodon crop focal point, a `"-0.5,0.5"`-style pair in
+ * `[-1, 1]`. A family without a field simply never receives it: the
+ * Misskey family has no focus (its caption is `drive/files/update`'s
+ * `comment`) and the backend ignores `focus` there — the UI never offers
+ * it. `null` clears the description. */
+export interface MediaUpdate {
+  description?: string | null;
+  focus?: string | null;
 }
 
 /** A post being composed or edited. `visibility` carries `raw` so an
@@ -910,8 +922,19 @@ export interface Backend {
     opts?: PageOpts & { reaction?: string },
   ): Promise<Page<NoteReactionRow>>;
   createPost(draft: PostDraft): Promise<Post>;
-  deletePost(id: string): Promise<void>;
+  /** Delete one post. `keepMedia` asks the server to keep the attachments
+   * alive after the post is gone so a redraft can reattach them (Mastodon:
+   * `DELETE …?delete_media=false`; the Misskey family never deletes Drive
+   * files with a note, so the flag is a documented no-op there). The UI's
+   * delete-and-redraft flow always passes it; a plain delete omits it. */
+  deletePost(id: string, opts?: { keepMedia?: boolean }): Promise<void>;
   editPost(id: string, draft: PostDraft): Promise<Post>;
+  /** One post's revision history (clickstone §1.7), NEWEST-FIRST with the
+   * original snapshot last (`PostRevision.original`). Optional: absent on a
+   * family with no history endpoint (the Misskey family), where the UI
+   * keeps the Edited badge non-interactive instead of faking a history. A
+   * 404/405 from a fork surfaces as the typed unsupported `ApiError`. */
+  editHistory?(id: string): Promise<PostRevision[]>;
   /** React with `reaction`, or clear with null (set-semantics). */
   react(id: string, reaction: string | null): Promise<void>;
   unreact(id: string): Promise<void>;
@@ -1034,6 +1057,11 @@ export interface Backend {
   // --- Server services (plan §2.2) ---
   customEmojis(): Promise<CustomEmoji[]>;
   uploadMedia(file: File, opts?: UploadMediaOpts): Promise<Media>;
+  /** Edit an uploaded attachment's description (alt text) — and, on the
+   * Mastodon family, its crop focus. Returns the server's media row.
+   * Optional: absent where the family has no endpoint, which leaves the
+   * composer's alt field locked with an honest reason. */
+  updateMedia?(id: string, patch: MediaUpdate): Promise<Media>;
   /** Translate one post's text to the viewer's language (`notes/translate`
    * takes the note id; the server derives the source). */
   translate(id: string, targetLang: string): Promise<Translation>;

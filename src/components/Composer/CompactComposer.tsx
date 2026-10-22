@@ -47,6 +47,7 @@ import {
   RecipientSection,
   ScheduledListSection,
   ScheduleSection,
+  SeededMediaSection,
   ServerDraftsSection,
   UploadsSection,
 } from './ComposerSections'
@@ -215,6 +216,7 @@ export function CompactComposer(props: ComposerProps) {
         </View>
       </View>
       <PollSection c={c} />
+      <SeededMediaSection c={c} />
       <UploadsSection c={c} />
       <RecipientSection c={c} />
       <SuggestionList suggestions={c.suggestions} onPick={c.onPickSuggestion} />

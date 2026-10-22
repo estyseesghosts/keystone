@@ -14,16 +14,21 @@ import {__setStorageForTests, appStorage} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
+import {clearRedraftSeeds, putRedraftSeed} from '#/lib/redraft'
+
 import {ComposeScreen} from './Compose'
 
 jest.mock('../components/Composer/pickMedia', () => ({pickMedia: jest.fn(async () => [])}))
 jest.mock('#/components/EmojiPicker', () => ({EmojiPicker: () => null}))
 
 const mockGoBack = jest.fn()
+// Mutable route params: the redraft test below opens the sheet through the
+// `redraftId` param, every other test uses the plain composer.
+const mockRouteParams: {current: Record<string, unknown>} = {current: {}}
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
-  useRoute: () => ({params: {}}),
+  useRoute: () => ({params: mockRouteParams.current}),
   useNavigation: () => ({canGoBack: () => true, goBack: mockGoBack, dispatch: jest.fn()}),
 }))
 
@@ -63,7 +68,7 @@ function fakeBackend() {
   }
 }
 
-async function setup() {
+async function setup(opts: {expectComposer?: boolean} = {}) {
   const storage = createMemoryStore()
   const restore = appStorage()
   __setStorageForTests({storage})
@@ -99,7 +104,9 @@ async function setup() {
       </QueryClientProvider>
     </ThemeProvider>,
   )
-  await waitFor(() => expect(screen.getByTestId('composer-text')).toBeTruthy())
+  if (opts.expectComposer !== false) {
+    await waitFor(() => expect(screen.getByTestId('composer-text')).toBeTruthy())
+  }
   return {
     listeners,
     addSpy,
@@ -115,6 +122,8 @@ async function setup() {
 describe('ComposeScreen sheet', () => {
   beforeEach(() => {
     mockGoBack.mockClear()
+    mockRouteParams.current = {}
+    clearRedraftSeeds()
   })
 
   it('renders the mobile sheet: overlay, backdrop, grabber, scrollable card', async () => {
@@ -182,5 +191,29 @@ describe('ComposeScreen sheet', () => {
     unmount()
     for (const i of ours) expect(mock.mock.results[i].value.remove).toHaveBeenCalledTimes(1)
     done()
+  })
+})
+
+describe('ComposeScreen delete-and-redraft handoff', () => {
+  it('opens seeded from the handoff the delete flow left behind', async () => {
+    mockRouteParams.current = {redraftId: 'p9'}
+    putRedraftSeed('p9', {text: 'redrafted text', cw: '', cwEnabled: false, media: []})
+    const {done} = await setup()
+    try {
+      expect(screen.getByTestId('composer-text').props.value).toBe('redrafted text')
+    } finally {
+      done()
+    }
+  })
+
+  it('says there is nothing to redraft when the handoff is gone (cold start)', async () => {
+    mockRouteParams.current = {redraftId: 'gone'}
+    const {done} = await setup({expectComposer: false})
+    try {
+      expect(screen.getByText('There is nothing to redraft here.')).toBeTruthy()
+      expect(screen.queryByTestId('composer-text')).toBeNull()
+    } finally {
+      done()
+    }
   })
 })
