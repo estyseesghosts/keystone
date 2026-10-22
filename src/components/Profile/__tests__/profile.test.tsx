@@ -61,21 +61,39 @@ function account(overrides: Partial<Account> = {}): Account {
 }
 
 describe('ProfileTabs (v1 underline tablist)', () => {
-  it('shows Posts/Replies/Media and hides Featured without a source', () => {
+  it('renders Featured/Posts/All/Replies/Media in v1 order', () => {
+    renderWithProviders(
+      <ProfileTabs tab="posts" onChange={() => {}} hasFeatured />,
+    )
+    expect(screen.getAllByRole('tab').map(t => t.props.testID)).toEqual([
+      'profile-tab-featured',
+      'profile-tab-posts',
+      'profile-tab-all',
+      'profile-tab-replies',
+      'profile-tab-media',
+    ])
+  })
+
+  it('hides Featured without a source, keeping All between Posts and Replies', () => {
     renderWithProviders(
       <ProfileTabs tab="posts" onChange={() => {}} hasFeatured={false} />,
     )
-    expect(screen.getByTestId('profile-tab-posts')).toBeTruthy()
-    expect(screen.getByTestId('profile-tab-replies')).toBeTruthy()
-    expect(screen.getByTestId('profile-tab-media')).toBeTruthy()
     expect(screen.queryByTestId('profile-tab-featured')).toBeNull()
+    expect(screen.getAllByRole('tab').map(t => t.props.testID)).toEqual([
+      'profile-tab-posts',
+      'profile-tab-all',
+      'profile-tab-replies',
+      'profile-tab-media',
+    ])
   })
 
-  it('shows Featured with a source and fires onChange', () => {
+  it('fires onChange for All and Media', () => {
     const onChange = jest.fn()
     renderWithProviders(
       <ProfileTabs tab="posts" onChange={onChange} hasFeatured />,
     )
+    fireEvent.press(screen.getByTestId('profile-tab-all'))
+    expect(onChange).toHaveBeenCalledWith('all' satisfies ProfileFeedTab)
     fireEvent.press(screen.getByTestId('profile-tab-media'))
     expect(onChange).toHaveBeenCalledWith('media' satisfies ProfileFeedTab)
   })

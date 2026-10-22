@@ -131,6 +131,9 @@ export async function fetchFeedPage(
       switch (parsed.tab) {
         case 'posts':
           return backend.accountPosts(parsed.id, {...opts, withReplies: false, withRenotes: false})
+        case 'all':
+          // v1's All tab: replies AND renotes together (A1).
+          return backend.accountPosts(parsed.id, {...opts, withReplies: true, withRenotes: true})
         case 'replies':
           return backend.accountPosts(parsed.id, {...opts, withReplies: true, withRenotes: false})
         case 'media':
