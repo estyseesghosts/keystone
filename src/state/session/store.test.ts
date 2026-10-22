@@ -690,10 +690,27 @@ describe('per-flavor scopeHealth (ADR 0005)', () => {
     )
   }
 
-  it('a Mastodon triple token reads current', async () => {
+  it('a Mastodon triple token needs the upgrade (admin:read ships with slice 3.1)', async () => {
+    // Slice 3.1 moves `admin:read` into the requested set: the umbrella
+    // triple alone 403s every `api/v1/admin/*` endpoint (source-verified),
+    // so a pre-slice triple token reads `needsUpgrade` for exactly the one
+    // new scope — the ADR 0003 upgrade prompt, never a revoke.
     const {storage, store} = setup()
     await store.add(mastoInput())
     cacheScopes(storage, ORIGIN_B, 'read write follow')
+    expect(store.scopeHealth()).toEqual({
+      needsReauth: false,
+      needsUpgrade: true,
+      generation: 'pre-scopes',
+      reason: 'stale-scopes',
+      missingScopes: ['admin:read'],
+    })
+  })
+
+  it('a Mastodon triple-plus-admin token reads current', async () => {
+    const {storage, store} = setup()
+    await store.add(mastoInput())
+    cacheScopes(storage, ORIGIN_B, 'read write follow admin:read')
     expect(store.scopeHealth()).toEqual({
       needsReauth: false,
       needsUpgrade: false,
@@ -703,7 +720,7 @@ describe('per-flavor scopeHealth (ADR 0005)', () => {
     })
   })
 
-  it('an old 26-scope Mastodon token reads current (extra scopes are fine, nothing revoked)', async () => {
+  it('an old full-set Mastodon token reads current (extra scopes are fine, nothing revoked)', async () => {
     // Pre-split tokens keep working with exactly the authority they carry:
     // only MISSING flavor-expected scopes upgrade, extras never do.
     const {storage, store} = setup()

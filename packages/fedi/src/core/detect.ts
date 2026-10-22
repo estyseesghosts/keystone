@@ -113,7 +113,17 @@ export type FeatureKey =
   | "password_grant"
   | "mfa_challenge"
   | "pkce"
-  | "miauth";
+  | "miauth"
+  // Server insight (Wave 3, clickstone §3.1 — read-only first). `admin_read`
+  // gates the measures/dimensions reads; `admin_write` gates every future
+  // admin mutation (Wave 3.2+, never this slice). BOTH default to "unknown"
+  // in every flavor row below: detect.ts never infers a role — the
+  // viewer's admin/moderator role comes from verify_credentials
+  // (`is_admin`/`is_moderator`, `role`) at the backend/session layer, and
+  // a 403 on an admin call disables the section with a reason instead of
+  // flipping a flag.
+  | "admin_read"
+  | "admin_write";
 
 export type Capabilities = Record<FeatureKey, FeatureSupport>;
 
@@ -149,6 +159,8 @@ export const FEATURE_KEYS: readonly FeatureKey[] = [
   "mfa_challenge",
   "pkce",
   "miauth",
+  "admin_read",
+  "admin_write",
 ];
 
 export function familyOf(flavor: ServerFlavor): ServerFamily | null {

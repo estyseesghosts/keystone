@@ -105,6 +105,7 @@ export * from "./api/emojiAssets";
 // surface (wire types in `./mastodon/wire` stay internal — tests reach them
 // via the relative path, never this barrel). `ServerFamily`/`FeatureSupport`
 // from `./mastodon/instance` are aliased: the unqualified names are core's.
+export * from "./mastodon/admin";
 export {
   htmlToPlainText,
   htmlContentOf,

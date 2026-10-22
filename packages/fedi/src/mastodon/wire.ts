@@ -529,6 +529,47 @@ export interface Announcement {
   reactions_allowed?: boolean | null;
 }
 
+// --- Server insight (Wave 3 slice 3.1, read-only) ----------------------------
+//
+// `POST /api/v1/admin/measures|dimensions` rows
+// (`REST::Admin::MeasureSerializer` / `REST::Admin::DimensionSerializer`,
+// verified in the local Mastodon checkout). The server stringifies every
+// number (`total: "120"`), so the types keep strings — parsing here would
+// only invent precision. `measure.data` points are `{date, value}` pairs;
+// some measures answer totals only (absent `data`). Dimension `data` rows
+// are `{key, human_key?, value}`.
+
+/** `POST /api/v1/admin/measures` row. */
+export interface AdminMeasure {
+  key: string;
+  unit?: string | null;
+  total?: string | number | null;
+  human_value?: string | null;
+  previous_total?: string | number | null;
+  data?: Array<{ date?: string | null; value?: string | number | null }> | null;
+}
+
+/** `POST /api/v1/admin/dimensions` row. */
+export interface AdminDimension {
+  key: string;
+  data?: Array<{ key?: string | null; human_key?: string | null; value?: string | number | null }> | null;
+}
+
+/** `GET /api/v1/instance/extended_description`
+ * (`REST::ExtendedDescriptionSerializer`): server-rendered Markdown HTML. */
+export interface InstanceExtendedDescription {
+  updated_at?: string | null;
+  content?: string | null;
+}
+
+/** `GET /api/v1/instance/activity` row (string counters, 12 weekly rows). */
+export interface InstanceActivityWeek {
+  week: string;
+  statuses?: string | null;
+  logins?: string | null;
+  registrations?: string | null;
+}
+
 // --- Conversations (P6.2, clickstone §2.1) ------------------------------------
 
 /** `GET /api/v1/conversations` row. Mastodon

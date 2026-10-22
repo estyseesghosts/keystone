@@ -12,6 +12,7 @@ import {Button} from '#/components/Button'
 import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useHosting} from '#/state/hosting'
+import {adminInsightGate} from '#/state/queries/adminInsight'
 import {useActiveSession} from '#/state/session/SessionProvider'
 
 import {PlaceholderRow, SettingRow} from './rows'
@@ -180,9 +181,11 @@ function RejectQuotesRow() {
 export function AccountSection({
   onAddAccount,
   onOpenFollowRequests,
+  onOpenAdminInsight,
 }: {
   onAddAccount: () => void
   onOpenFollowRequests: () => void
+  onOpenAdminInsight: () => void
 }) {
   const session = useActiveSession()
   return (
@@ -202,7 +205,38 @@ export function AccountSection({
           />
         </SettingRow>
       ) : null}
+      <AdminInsightRow onOpen={onOpenAdminInsight} />
       <RejectQuotesRow />
     </View>
+  )
+}
+
+/** Server-insight entry (Wave 3 slice 3.1): the ONLY admin chrome in this
+ * slice. Hidden when the surface cannot exist here (signed out,
+ * non-Mastodon family, no insight module, capability unsupported);
+ * disabled with the honest reason for a signed-in viewer whose account
+ * the server does not report as admin/moderator. Never an inert button. */
+function AdminInsightRow({onOpen}: {onOpen: () => void}) {
+  const {session, backend} = useActiveBackend()
+  const gate = adminInsightGate(backend, session?.user ?? null)
+  if (!gate.ok && gate.reason !== 'not-staff') return null
+  return (
+    <SettingRow
+      title={i18n._(msg`Server insight`)}
+      hint={i18n._(msg`Admin metrics and public server info. No changes can be made here.`)}
+      testID="admin-insight-row">
+      <Button
+        label={i18n._(msg`View insight`)}
+        variant="secondary"
+        disabled={!gate.ok}
+        disabledReason={
+          !gate.ok
+            ? i18n._(msg`Requires an admin or moderator account on this server.`)
+            : undefined
+        }
+        onPress={onOpen}
+        testID="admin-insight-open"
+      />
+    </SettingRow>
   )
 }
