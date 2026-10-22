@@ -188,7 +188,7 @@ function isAbsentEndpoint(err: unknown): boolean {
  * Anything else (401/403 auth, timeout, 5xx) rethrows — a refused lookup
  * is never masked as "not found". No match anywhere reads 404 (the
  * profile renders unavailable, never a wrong account). `read:search` is
- * the scope the fallbacks need (already in `oauth.MASTO_SCOPES`); a
+ * the scope the fallbacks need (already in `oauth.SCOPES_NOW`); a
  * strict server 403s there and the caller surfaces it honestly.
  */
 export async function resolveAccountByHandle(

@@ -33,13 +33,45 @@ import type {
   TokenResponse,
 } from "./wire";
 
-/** Granular v1 scope set (contract §2.1) PLUS the umbrella scopes. Both
- * backends accept it; older servers that only understand umbrella scopes
- * get FALLBACK_SCOPES only when registration fails AND no discovery doc
- * exists. The umbrellas stay because some Akkoma endpoints (e.g.
- * `/api/v1/suggestions`, W5 live-probed) check the umbrella `read` and
- * 403 a token carrying only the granular set. */
-export const MASTO_SCOPES: string[] = [
+// --- Scope set: NOW vs LATER (ADR 0003) ------------------------------------
+//
+// `SCOPES_NOW` is the ONLY scope string this client ever requests: app
+// registration, the `/oauth/authorize` URL, the Akkoma password grant and
+// the token exchange all default to it. `SCOPES_LATER` names the scopes
+// for features that do not ship yet — they are requested by NOBODY. A
+// later slice moves its scope from LATER into NOW in the same change that
+// ships the feature, and the existing `scopeHealth` upgrade prompt
+// re-authorizes sessions minted before it (docs/adr/0003).
+//
+// One NOW entry per shipped surface (docs/mastoapi-contract.md §4):
+//   read:accounts        profile views, handle lookup
+//   write:accounts       profile editor
+//   read:statuses        timelines, threads, translation
+//   write:statuses       post/edit/delete, boost, pin, poll vote, reactions
+//   write:favourites     favourite / unfavourite
+//   read:notifications   notifications
+//   write:notifications  notification read marker (POST /api/v1/markers)
+//   read:search          search, remote handle resolve
+//   read:follows         relationships, followers/following, follow requests
+//   write:follows        follow/unfollow, follow-request decisions
+//   read:blocks          blocked-accounts list
+//   write:blocks         block/unblock
+//   read:mutes           muted-accounts list
+//   write:mutes          mute/unmute
+//   read:bookmarks       saved-posts screen
+//   write:bookmarks      bookmark/unbookmark
+//   read:filters         filter settings read
+//   write:filters        filter create/update/delete
+//   read:lists           lists screen
+//   write:lists          list CRUD + membership
+//
+// The umbrella scopes `read`/`write`/`follow` stay in NOW because Akkoma
+// checks the umbrella itself: `/api/v1/suggestions` 403s a granular-only
+// token while the umbrella form succeeds (live probe, docs/DECISIONS.md
+// 2026-10-21 W5), and suggestions/trends/news are shipped Explore tabs.
+// Dropping them would break shipped Akkoma behavior; the least-privilege
+// cost of keeping them is recorded in ADR 0003.
+export const SCOPES_NOW: string[] = [
   "read",
   "write",
   "follow",
@@ -65,6 +97,38 @@ export const MASTO_SCOPES: string[] = [
   "write:statuses",
   "write:favourites",
 ];
+
+/** Scopes for features this client does NOT ship yet — never requested
+ * (ADR 0003). Each entry names the slice that will move it into
+ * `SCOPES_NOW`:
+ *   write:reports          report composer (docs/clickstone.md §1.5; WS-D
+ *                          deliberately left it out, so granular-token
+ *                          reports toast-fail today)
+ *   read:conversations     DMs / conversations timeline
+ *   write:conversations    DM replies
+ *   push                   Web Push subscriptions
+ *   admin:read             admin/moderation read surface (Wave 3)
+ *   admin:write            admin/moderation write surface (Wave 3)
+ *   read:featured_tags     featured-tags management (absent on Akkoma)
+ *   write:featured_tags    featured-tags management (absent on Akkoma)
+ *   read:favourites        a Mastodon favourites TIMELINE (favouriting
+ *                          itself is write:favourites, shipped) */
+export const SCOPES_LATER: string[] = [
+  "write:reports",
+  "read:conversations",
+  "write:conversations",
+  "push",
+  "admin:read",
+  "admin:write",
+  "read:featured_tags",
+  "write:featured_tags",
+  "read:favourites",
+];
+
+/** @deprecated Use `SCOPES_NOW` (ADR 0003): the name no longer carries a
+ * promise about "all Mastodon scopes". Kept as an alias so out-of-tree
+ * callers keep compiling; nothing inside the workspace should add to it. */
+export const MASTO_SCOPES: string[] = SCOPES_NOW;
 
 /** Legacy umbrella fallback: `read write follow` (contract §2.1). */
 export const FALLBACK_SCOPES = "read write follow";
@@ -135,7 +199,7 @@ export function getCachedApp(
   store: KeyValueStore,
   origin: string,
   redirectUri: string,
-  scopes: string = MASTO_SCOPES.join(" "),
+  scopes: string = SCOPES_NOW.join(" "),
 ): CachedApp | null {
   const app = readApps(store)[origin];
   if (!app) return null;
@@ -205,7 +269,7 @@ export async function registerApp(opts: {
   website?: string;
 }): Promise<CachedApp> {
   const { store, origin, redirectUri } = opts;
-  const scopes = opts.scopes ?? MASTO_SCOPES.join(" ");
+  const scopes = opts.scopes ?? SCOPES_NOW.join(" ");
   const cached = getCachedApp(store, origin, redirectUri, scopes);
   if (cached) return cached;
 
