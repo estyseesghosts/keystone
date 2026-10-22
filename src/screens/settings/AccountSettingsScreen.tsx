@@ -14,6 +14,7 @@ export function AccountSettingsScreen() {
         onAddAccount={() => nav.navigate('Login')}
         onOpenFollowRequests={() => nav.navigate('FollowRequests')}
         onOpenAdminInsight={() => nav.navigate('AdminInsight')}
+        onOpenAdminReports={() => nav.navigate('AdminReports')}
       />
     </SectionShell>
   )

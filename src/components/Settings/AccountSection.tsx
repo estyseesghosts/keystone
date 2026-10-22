@@ -13,6 +13,7 @@ import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useHosting} from '#/state/hosting'
 import {adminInsightGate} from '#/state/queries/adminInsight'
+import {adminReportsGate} from '#/state/queries/adminReports'
 import {useActiveSession} from '#/state/session/SessionProvider'
 
 import {PlaceholderRow, SettingRow} from './rows'
@@ -182,10 +183,12 @@ export function AccountSection({
   onAddAccount,
   onOpenFollowRequests,
   onOpenAdminInsight,
+  onOpenAdminReports,
 }: {
   onAddAccount: () => void
   onOpenFollowRequests: () => void
   onOpenAdminInsight: () => void
+  onOpenAdminReports: () => void
 }) {
   const session = useActiveSession()
   return (
@@ -206,13 +209,14 @@ export function AccountSection({
         </SettingRow>
       ) : null}
       <AdminInsightRow onOpen={onOpenAdminInsight} />
+      <AdminReportsRow onOpen={onOpenAdminReports} />
       <RejectQuotesRow />
     </View>
   )
 }
 
-/** Server-insight entry (Wave 3 slice 3.1): the ONLY admin chrome in this
- * slice. Hidden when the surface cannot exist here (signed out,
+/** Server-insight entry (Wave 3 slice 3.1): read-only admin metrics.
+ * Hidden when the surface cannot exist here (signed out,
  * non-Mastodon family, no insight module, capability unsupported);
  * disabled with the honest reason for a signed-in viewer whose account
  * the server does not report as admin/moderator. Never an inert button. */
@@ -236,6 +240,36 @@ function AdminInsightRow({onOpen}: {onOpen: () => void}) {
         }
         onPress={onOpen}
         testID="admin-insight-open"
+      />
+    </SettingRow>
+  )
+}
+
+/** Reports-queue entry (Wave 3 slice 3.2): the daily moderation surface.
+ * Same gating shape as the insight row — hidden when the surface cannot
+ * exist here (signed out, non-queue family, no queue module, unsupported
+ * capability); disabled with the honest reason for a signed-in viewer the
+ * server does not report as admin/moderator. Never an inert button. */
+function AdminReportsRow({onOpen}: {onOpen: () => void}) {
+  const {session, backend} = useActiveBackend()
+  const gate = adminReportsGate(backend, session?.user ?? null)
+  if (!gate.ok && gate.reason !== 'not-staff') return null
+  return (
+    <SettingRow
+      title={i18n._(msg`Reports`)}
+      hint={i18n._(msg`Moderate user reports. Every change asks for confirmation first.`)}
+      testID="admin-reports-row">
+      <Button
+        label={i18n._(msg`Open queue`)}
+        variant="secondary"
+        disabled={!gate.ok}
+        disabledReason={
+          !gate.ok
+            ? i18n._(msg`Requires an admin or moderator account on this server.`)
+            : undefined
+        }
+        onPress={onOpen}
+        testID="admin-reports-open"
       />
     </SettingRow>
   )

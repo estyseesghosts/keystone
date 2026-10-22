@@ -23,14 +23,25 @@ import type {
   AdminMeasure,
   InstanceActivityWeek,
   InstanceExtendedDescription,
+  QueuedReport,
+  ReportCategory,
+  ReportRecategorizePatch,
+  ReportResolveOpts,
+  ReportsQueueListOpts,
 } from "../core/backend";
+import { REPORT_CATEGORIES } from "../core/backend";
+import { FediError } from "../core/errors";
 import type {
   AdminDimension as WireAdminDimension,
   AdminMeasure as WireAdminMeasure,
+  AdminReport as WireAdminReport,
   InstanceActivityWeek as WireActivityWeek,
   InstanceExtendedDescription as WireExtendedDescription,
+  Account as WireAccount,
 } from "./wire";
-import { toApiError, type MastoClient } from "./client";
+import { toApiError, type MastoClient, type QueryValue } from "./client";
+import { adaptAccount } from "./adapt";
+import { nextContinuation, withCursors, type Continuation } from "./pagination";
 
 /** Measure keys the insight screen requests (upstream
  * `Admin::Metrics::Measure::MEASURES` — requesting an unknown key answers
@@ -214,4 +225,249 @@ export function adminRoleOf(account: Account | null): "admin" | "moderator" | nu
     if (flags.is_moderator === true) return "moderator";
   }
   return null;
+}
+
+// --- Reports queue (Wave 3 slice 3.2 — list + confirm-gated mutations) -------
+//
+// Endpoints (verified in the local Mastodon checkout — `api/v1/admin`
+// namespace, not prose):
+//   GET    /api/v1/admin/reports            Link-paged queue
+//          (`FILTER_PARAMS`: resolved/unresolved/account_id/
+//          target_account_id; `insert_pagination_headers`)
+//   GET    /api/v1/admin/reports/:id        one row
+//   PATCH  /api/v1/admin/reports/:id        `{category, rule_ids[]}` ONLY
+//          (`report_params` permits nothing else)
+//   POST   /api/v1/admin/reports/:id/assign_to_self|unassign|reopen|resolve
+//
+// Auth: index/show need `admin:read` (or granular `admin:read:reports`);
+// every mutation needs `admin:write` (or `admin:write:reports`) —
+// `authorize_if_got_token!` in `reports_controller.rb`, so the move of
+// `admin:write` into `SCOPES_NOW` ships with this surface. A 403 is the
+// typed permission error (the caller disables the section with a reason,
+// never clears the session); a 404 is the honest unsupported state
+// (Akkoma/Pleroma serve no `/api/v1/admin/*`).
+//
+// Deliberately ABSENT (no such API routes — verified in `routes/api.rb`):
+// report notes (create/list) and the report history (`report.history` /
+// `report.notes` are web-admin-only; the API serializer carries only the
+// action outcome). This layer exposes no notes/history methods — the
+// queue rows carry the action state, never faked entries.
+//
+// Error contract like the rest of this module: every failure runs through
+// the `toApiError` boundary (idempotent under the backend's guarded
+// client, real for direct callers).
+
+const REPORTS_PAGE_LIMIT = 20;
+
+/** One queue page: the adapted rows plus the Link continuation (contract
+ * §5 — a missing next link OR an empty page ends the feed). */
+export interface AdminReportsPage {
+  items: QueuedReport[];
+  continuation: Continuation | null;
+  end: boolean;
+}
+
+export interface AdminReportsPageOptions {
+  state?: ReportsQueueListOpts["state"];
+  accountId?: string;
+  targetAccountId?: string;
+  limit?: number;
+  continuation?: Continuation | null;
+}
+
+/** The admin wrapper nests the plain account under `account`
+ * (`REST::Admin::ReportSerializer` `has_one :account`,
+ * `Admin::AccountSerializer`). Prefer the nested row; fall back to the
+ * wrapper itself when a fork packs the plain account directly. Anything
+ * else (null, a bare id) reads null — never a fabricated account. */
+function adminNestedAccount(value: unknown): WireAccount | null {
+  if (!value || typeof value !== "object") return null;
+  const rec = value as Record<string, unknown>;
+  const nested = (rec as { account?: unknown }).account;
+  const candidate = nested && typeof nested === "object" ? nested : value;
+  const row = candidate as Record<string, unknown>;
+  if (typeof row.id === "undefined" || typeof row.acct !== "string") return null;
+  return candidate as WireAccount;
+}
+
+function knownReportCategory(value: unknown): ReportCategory | null {
+  return typeof value === "string" &&
+    (REPORT_CATEGORIES as readonly string[]).includes(value)
+    ? (value as ReportCategory)
+    : null;
+}
+
+/** `REST::Admin::ReportSerializer` → core `QueuedReport`. Statuses and
+ * rules contribute only their ids (the `status_ids` / `rule_ids` the
+ * queue displays); the action outcome (`action_taken*`) is the only
+ * history the API exposes. Unknown categories read null. */
+export function adaptAdminReport(raw: WireAdminReport): QueuedReport {
+  const statuses = Array.isArray(raw.statuses) ? raw.statuses : [];
+  const statusIds: string[] = [];
+  for (const s of statuses) {
+    if (s && typeof s === "object" && s.id != null) {
+      const id = String(s.id);
+      if (id && !statusIds.includes(id)) statusIds.push(id);
+    }
+  }
+  const rules = Array.isArray(raw.rules) ? raw.rules : [];
+  const ruleIds: string[] = [];
+  for (const r of rules) {
+    if (r && typeof r === "object" && r.id != null) {
+      const id = String(r.id);
+      if (id && !ruleIds.includes(id)) ruleIds.push(id);
+    }
+  }
+  const reporter = adminNestedAccount(raw.account);
+  const target = adminNestedAccount(raw.target_account);
+  const assignee = adminNestedAccount(raw.assigned_account);
+  const actionTakenBy = adminNestedAccount(raw.action_taken_by_account);
+  const resolved = raw.action_taken === true;
+  return {
+    id: raw.id != null ? String(raw.id) : "",
+    createdAt: typeof raw.created_at === "string" ? raw.created_at : null,
+    comment: typeof raw.comment === "string" ? raw.comment : "",
+    reporter: reporter ? adaptAccount(reporter) : null,
+    target: target ? adaptAccount(target) : null,
+    statusIds,
+    ruleIds,
+    category: knownReportCategory(raw.category),
+    forwarded: raw.forwarded === true,
+    state: resolved ? "resolved" : "open",
+    assignee: assignee ? adaptAccount(assignee) : null,
+    resolution: null,
+    actionTakenAt: typeof raw.action_taken_at === "string" ? raw.action_taken_at : null,
+    actionTakenBy: actionTakenBy ? adaptAccount(actionTakenBy) : null,
+    moderationNote: null,
+  };
+}
+
+function reportsQuery(opts: AdminReportsPageOptions): Record<string, QueryValue> {
+  const query: Record<string, QueryValue> =
+    opts.continuation?.kind === "url"
+      ? {}
+      : opts.continuation?.kind === "cursors"
+        ? withCursors({}, opts.continuation.cursors)
+        : withCursors({}, { limit: opts.limit ?? REPORTS_PAGE_LIMIT });
+  if (opts.continuation?.kind !== "url") {
+    if (opts.state === "resolved") query.resolved = true;
+    else if (opts.state === "open") query.unresolved = true;
+    if (opts.accountId) query.account_id = opts.accountId;
+    if (opts.targetAccountId) query.target_account_id = opts.targetAccountId;
+  }
+  return query;
+}
+
+/** `GET /api/v1/admin/reports` — one Link-paged queue page. */
+export async function fetchAdminReportsPage(
+  client: MastoClient,
+  opts: AdminReportsPageOptions = {},
+): Promise<AdminReportsPage> {
+  try {
+    const path =
+      opts.continuation?.kind === "url" ? opts.continuation.url : "/api/v1/admin/reports";
+    const res = await client.get<unknown>(path, reportsQuery(opts));
+    if (!Array.isArray(res.data)) {
+      throw new FediError(
+        `Admin reports returned an unexpected response shape (HTTP ${res.status}).`,
+        "errors.shape.expectedList",
+        { kind: "adminReport", status: res.status },
+      );
+    }
+    const items = res.data
+      .filter((r): r is WireAdminReport => !!r && typeof r === "object")
+      .map(adaptAdminReport);
+    const continuation = nextContinuation(res.headers, client.origin);
+    return {
+      items,
+      continuation,
+      end: continuation === null || items.length === 0,
+    };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** `GET /api/v1/admin/reports/:id` — one queued report. */
+export async function fetchAdminReport(client: MastoClient, id: string): Promise<QueuedReport> {
+  try {
+    const res = await client.get<WireAdminReport>(`/api/v1/admin/reports/${encodeURIComponent(id)}`);
+    if (!res.data || typeof res.data !== "object") {
+      throw new FediError(
+        `Admin report lookup returned an unexpected response shape (HTTP ${res.status}).`,
+        "errors.shape.reportLookup",
+      );
+    }
+    return adaptAdminReport(res.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+async function postReportAction(client: MastoClient, id: string, action: string): Promise<void> {
+  try {
+    await client.post(`/api/v1/admin/reports/${encodeURIComponent(id)}/${action}`);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** `POST /:id/assign_to_self` — claim the report for the viewer. */
+export async function assignAdminReportToSelf(client: MastoClient, id: string): Promise<void> {
+  await postReportAction(client, id, "assign_to_self");
+}
+
+/** `POST /:id/unassign` — release the claim. */
+export async function unassignAdminReport(client: MastoClient, id: string): Promise<void> {
+  await postReportAction(client, id, "unassign");
+}
+
+/** `POST /:id/reopen` — re-open a resolved report. */
+export async function reopenAdminReport(client: MastoClient, id: string): Promise<void> {
+  await postReportAction(client, id, "reopen");
+}
+
+/**
+ * `POST /:id/resolve` — resolve the report (no params upstream). A
+ * `decision` is refused with the typed unsupported error: the Mastodon
+ * family has no verdict field, and a verdict the server never stores
+ * must never read as used.
+ */
+export async function resolveAdminReport(
+  client: MastoClient,
+  id: string,
+  opts?: ReportResolveOpts,
+): Promise<void> {
+  if (opts?.decision != null) {
+    throw new FediError(
+      "This server records no verdict on resolved reports.",
+      "errors.unsupported.reportDecision",
+    );
+  }
+  await postReportAction(client, id, "resolve");
+}
+
+/**
+ * `PATCH /:id` — change category/rules (`report_params` permits ONLY
+ * `category` + `rule_ids`). Each field rides only when set; unknown
+ * categories never reach the wire.
+ */
+export async function updateAdminReport(
+  client: MastoClient,
+  id: string,
+  patch: ReportRecategorizePatch,
+): Promise<void> {
+  const body: Record<string, unknown> = {};
+  const category = patch.category;
+  if (category !== undefined && (REPORT_CATEGORIES as readonly string[]).includes(category)) {
+    body.category = category;
+  }
+  if (patch.ruleIds !== undefined) {
+    body.rule_ids = [...patch.ruleIds];
+  }
+  try {
+    await client.patch(`/api/v1/admin/reports/${encodeURIComponent(id)}`, body);
+  } catch (err) {
+    throw toApiError(err);
+  }
 }

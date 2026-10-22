@@ -28,14 +28,21 @@ import type {
   MisskeyQueueCounts,
   MisskeyQueueStats,
   MisskeyServerInfo,
+  QueuedReport,
+  ReportResolution,
+  ReportResolveOpts,
+  ReportsQueueListOpts,
 } from "../core/backend";
 import type { Account } from "../core/models";
 import type { WireCall } from "./client";
+import { adaptAccount } from "./adapt";
 import type {
+  AbuseUserReport,
   AdminMeta,
   AdminQueueStats,
   AdminServerInfo,
   OnlineUsersCount,
+  UserLite,
 } from "./wire";
 
 function str(value: unknown, fallback = ""): string {
@@ -140,4 +147,127 @@ export function misskeyAdminRoleOf(account: Account | null): "admin" | "moderato
   if (flags.isAdmin === true) return "admin";
   if (flags.isModerator === true) return "moderator";
   return null;
+}
+
+// --- Reports queue (Wave 3 slice 3.2 — list + confirm-gated mutations) --------
+//
+// Endpoints (verified in the local Misskey + Sharkey + Catodon checkouts —
+// endpoint files, not prose):
+// - `admin/abuse-user-reports` — moderator role +
+//   `read:admin:abuse-user-reports`; params `limit`/`sinceId`/`untilId`
+//   (cursor paging both ways) + `state: resolved|unresolved` (+
+//   reporter/target origin filters, which the queue does not offer).
+// - `admin/resolve-abuse-user-report {reportId, resolvedAs?}` —
+//   `resolvedAs: accept|reject|null` (omitted/null resolves without a
+//   verdict); kind `write:admin:resolve-abuse-user-report`.
+// - `admin/update-abuse-user-report {reportId, moderationNote}` — the SAME
+//   kind (exact-match on `token.permission`, so one grant covers all three
+//   mutations); `moderationNote` is sent verbatim (an empty string clears
+//   the note server-side).
+// - `admin/forward-abuse-user-report {reportId}` — same kind again;
+//   forwards to the target's home server (409/400 when already forwarded
+//   or the target is local — those propagate, never masked).
+//
+// Deliberately ABSENT (no such endpoints upstream): a show-one route
+// (detail renders the list row), unresolve/reopen (a resolved report
+// stays resolved), assignment (resolve assigns the moderator), and
+// categories/rules/statuses (Misskey files comment-only reports).
+//
+// Like the insight reads: every call posts through the session-bound
+// `WireCall` (caller-`i` precedence, per-origin token), so a 403 flows
+// through the existing `isPermissionError` path — the section disables
+// with a reason, never a session clear.
+
+/** `admin/abuse-user-reports` listing options (cursor paging both ways). */
+export interface AbuseUserReportsPageOptions {
+  state?: ReportsQueueListOpts["state"];
+  limit?: number;
+  sinceId?: string;
+  untilId?: string;
+}
+
+/** One packed user row (or null when the server sent none/invalid). */
+function packedAccount(value: unknown): Account | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.id !== "string" || typeof row.username !== "string") return null;
+  return adaptAccount(value as UserLite);
+}
+
+function knownResolution(value: unknown): ReportResolution | null {
+  return value === "accept" || value === "reject" ? value : null;
+}
+
+/** `AbuseUserReport` pack → core `QueuedReport`. Misskey files no
+ * statuses, rules or categories — those stay empty/null (the queue never
+ * files reports, so there is no unsupported noise to report). */
+export function adaptAbuseUserReport(raw: AbuseUserReport): QueuedReport {
+  const resolved = raw.resolved === true;
+  return {
+    id: typeof raw.id === "string" ? raw.id : "",
+    createdAt: typeof raw.createdAt === "string" ? raw.createdAt : null,
+    comment: typeof raw.comment === "string" ? raw.comment : "",
+    reporter: packedAccount(raw.reporter),
+    target: packedAccount(raw.targetUser),
+    statusIds: [],
+    ruleIds: [],
+    category: null,
+    forwarded: raw.forwarded === true,
+    state: resolved ? "resolved" : "open",
+    assignee: packedAccount(raw.assignee),
+    resolution: knownResolution(raw.resolvedAs),
+    actionTakenAt: null,
+    actionTakenBy: null,
+    moderationNote:
+      typeof raw.moderationNote === "string" ? raw.moderationNote : null,
+  };
+}
+
+/** `admin/abuse-user-reports` — the queue page (`state` maps to the
+ * upstream `state: resolved|unresolved` filter; omitted lists all). */
+export async function fetchAbuseUserReports(
+  call: WireCall,
+  opts: AbuseUserReportsPageOptions = {},
+): Promise<QueuedReport[]> {
+  const params: Record<string, unknown> = { limit: opts.limit ?? 20 };
+  if (opts.state === "resolved") params.state = "resolved";
+  else if (opts.state === "open") params.state = "unresolved";
+  if (opts.sinceId) params.sinceId = opts.sinceId;
+  if (opts.untilId) params.untilId = opts.untilId;
+  const rows = await call<AbuseUserReport[]>("admin/abuse-user-reports", params);
+  return (rows ?? [])
+    .filter((r): r is AbuseUserReport => !!r && typeof r === "object")
+    .map(adaptAbuseUserReport);
+}
+
+/** `admin/resolve-abuse-user-report` — resolve, with or without a verdict
+ * (`resolvedAs: accept|reject`; omitted/null resolves plainly). */
+export async function resolveAbuseUserReport(
+  call: WireCall,
+  reportId: string,
+  opts?: ReportResolveOpts,
+): Promise<void> {
+  await call<undefined>("admin/resolve-abuse-user-report", {
+    reportId,
+    resolvedAs: opts?.decision ?? null,
+  });
+}
+
+/** `admin/update-abuse-user-report` — set the moderator note, verbatim
+ * (empty clears it server-side). */
+export async function updateAbuseUserReportNote(
+  call: WireCall,
+  reportId: string,
+  note: string,
+): Promise<void> {
+  await call<undefined>("admin/update-abuse-user-report", {
+    reportId,
+    moderationNote: note,
+  });
+}
+
+/** `admin/forward-abuse-user-report` — forward to the target's home
+ * server (remote targets only; the server refuses the rest). */
+export async function forwardAbuseUserReport(call: WireCall, reportId: string): Promise<void> {
+  await call<undefined>("admin/forward-abuse-user-report", { reportId });
 }

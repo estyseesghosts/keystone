@@ -62,6 +62,11 @@ import type {
   PostDraft,
   ProfileImageKind,
   ProfileUpdate,
+  QueuedReport,
+  ReportRecategorizePatch,
+  ReportResolveOpts,
+  ReportsQueueApi,
+  ReportsQueueListOpts,
   ScheduledNote,
   SearchPostsOpts,
   StreamHandle,
@@ -158,11 +163,18 @@ import { blockDomain, fetchDomainBlocksPage, unblockDomain } from "./domainBlock
 import {
   ADMIN_INSIGHT_DIMENSION_KEYS,
   ADMIN_INSIGHT_MEASURE_KEYS,
+  assignAdminReportToSelf,
   fetchAdminDimensions,
   fetchAdminMeasures,
+  fetchAdminReport,
+  fetchAdminReportsPage,
   fetchInstanceActivity,
   fetchInstanceExtendedDescription,
   fetchInstancePeers,
+  reopenAdminReport,
+  resolveAdminReport,
+  unassignAdminReport,
+  updateAdminReport,
 } from "./admin";
 import type { Continuation } from "./pagination";
 import { nextContinuation, withCursors } from "./pagination";
@@ -1096,6 +1108,48 @@ export function createMastodonBackend(
         return fetchInstanceActivity(client);
       },
     } satisfies AdminInsightApi,
+
+    // Reports queue (Wave 3 slice 3.2). Wired on every Mastodon-family
+    // flavor like the insight module: vanilla Mastodon serves the admin
+    // routes behind `admin:read` (list/get) + `admin:write` (mutations),
+    // while forks without them (Akkoma/Pleroma) answer 404 — the same
+    // honest unsupported state the UI renders as a reason. No notes or
+    // history members exist on this family (no such API routes), so the
+    // queue rows carry the action outcome (`updateNote`/`forward` stay
+    // undefined). Mutations return void: the UI confirms first, then
+    // refetches — never optimistic.
+    reportsQueue: {
+      async list(opts: ReportsQueueListOpts = {}) {
+        const cont = continuationOf(opts.cursor);
+        const page = await fetchAdminReportsPage(client, {
+          state: opts.state,
+          ...(cont ? { continuation: cont } : { limit: opts.limit ?? DEFAULT_LIMIT }),
+        });
+        return {
+          items: page.items,
+          cursor: encodeContinuation(page.continuation),
+          end: page.end,
+        };
+      },
+      async get(id: string) {
+        return fetchAdminReport(client, id);
+      },
+      async assignToSelf(id: string) {
+        await assignAdminReportToSelf(client, id);
+      },
+      async unassign(id: string) {
+        await unassignAdminReport(client, id);
+      },
+      async reopen(id: string) {
+        await reopenAdminReport(client, id);
+      },
+      async resolve(id: string, opts?: ReportResolveOpts) {
+        await resolveAdminReport(client, id, opts);
+      },
+      async recategorize(id: string, patch: ReportRecategorizePatch) {
+        await updateAdminReport(client, id, patch);
+      },
+    } satisfies ReportsQueueApi,
 
     // DM inbox (P6.2, clickstone §2.1). Mastodon + Akkoma serve the same
     // routes (`/api/v1/conversations`, read, delete) with the same row

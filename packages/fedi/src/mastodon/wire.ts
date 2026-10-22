@@ -570,6 +570,45 @@ export interface InstanceActivityWeek {
   registrations?: string | null;
 }
 
+// --- Reports queue (Wave 3 slice 3.2) -----------------------------------------
+//
+// `GET /api/v1/admin/reports` rows (`REST::Admin::ReportSerializer`,
+// verified in the local Mastodon checkout) plus the `Admin::AccountSerializer`
+// wrapper each account rides in (`{id, ..., account: <plain Account>}`).
+// Field names are exact wire spellings; everything the adapter needs is
+// optional + unknown-typed here so fork drift degrades in the adapter,
+// never at the type boundary. `has_one :ips` / `:ips` embeds and the
+// `:role` extra never cross into the domain model.
+
+/** `Admin::AccountSerializer` wrapper: the admin id plus the nested plain
+ * account under `account`. A fork that packs the plain account directly
+ * still reads (the adapter falls back to the wrapper itself). */
+export interface AdminReportAccount {
+  id?: ID | null;
+  account?: Account | null;
+  [key: string]: unknown;
+}
+
+/** `REST::Admin::ReportSerializer` row. `statuses` carry the full
+ * `Status` rows (the adapter keeps only their ids — the `status_ids`
+ * the queue displays); `rules` carry `{id, text}` (only ids cross). */
+export interface AdminReport {
+  id?: ID | null;
+  action_taken?: boolean | null;
+  action_taken_at?: string | null;
+  category?: string | null;
+  comment?: string | null;
+  forwarded?: boolean | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  account?: AdminReportAccount | Account | null;
+  target_account?: AdminReportAccount | Account | null;
+  assigned_account?: AdminReportAccount | Account | null;
+  action_taken_by_account?: AdminReportAccount | Account | null;
+  statuses?: Array<{ id?: ID | null } | null> | null;
+  rules?: Array<{ id?: ID | number | null } | null> | null;
+}
+
 // --- Conversations (P6.2, clickstone §2.1) ------------------------------------
 
 /** `GET /api/v1/conversations` row. Mastodon

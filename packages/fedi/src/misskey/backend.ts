@@ -49,7 +49,10 @@ import type {
   PostDraft,
   ProfileImageKind,
   ProfileUpdate,
+  ReportResolveOpts,
   ReportUnsupportedField,
+  ReportsQueueApi,
+  ReportsQueueListOpts,
   ScheduledApi,
   ScheduledNote,
   SearchPostsOpts,
@@ -135,9 +138,13 @@ import {
 import { listAnnouncements, readAnnouncement } from "./announcements";
 import {
   fetchInstanceMeta,
+  fetchAbuseUserReports,
   fetchOnlineUsersCount,
   fetchQueueStats,
   fetchServerInfo,
+  forwardAbuseUserReport,
+  resolveAbuseUserReport,
+  updateAbuseUserReportNote,
 } from "./admin";
 import { listFavorites, removeFavorite } from "./favorites";
 import { listFeaturedNotes, listUserFeaturedNotes, pinNote, unpinNote } from "./featured";
@@ -587,6 +594,35 @@ export function createMisskeyBackend(
     },
     onlineUsersCount() {
       return fetchOnlineUsersCount(call);
+    },
+  };
+
+  // Reports queue (Wave 3 slice 3.2). Misskey/sharkey/catodon serve all
+  // four endpoints with identical kinds (verified in their checkouts);
+  // pinetree serves none, so it leaves the member off and the queue gate
+  // renders the honest unavailable state. The Mastodon-family members
+  // (get/assign/unassign/reopen/recategorize) have no Misskey equivalent
+  // and stay undefined — the UI hides those actions, never fakes them.
+  // Mutations return void: the UI confirms first, then refetches.
+  const reportsQueue: ReportsQueueApi = {
+    async list(opts: ReportsQueueListOpts = {}) {
+      const cursor = decodeCursor(opts.cursor ?? null);
+      const items = await fetchAbuseUserReports(call, {
+        state: opts.state,
+        limit: opts.limit ?? DEFAULT_LIMIT,
+        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
+        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
+      });
+      return pageOf(items, opts.limit ?? DEFAULT_LIMIT, (item) => item);
+    },
+    async resolve(id: string, opts?: ReportResolveOpts) {
+      await resolveAbuseUserReport(call, id, opts);
+    },
+    async updateNote(id: string, note: string) {
+      await updateAbuseUserReportNote(call, id, note);
+    },
+    async forward(id: string) {
+      await forwardAbuseUserReport(call, id);
     },
   };
 
@@ -1402,6 +1438,11 @@ export function createMisskeyBackend(
     // the insight gate renders the honest unavailable state.
     ...(flavor === "misskey" || flavor === "sharkey" || flavor === "catodon"
       ? { adminInsight }
+      : {}),
+    // Reports queue ships on the same three flavors (identical abuse
+    // endpoints + kinds; verified in their checkouts). Pinetree stays off.
+    ...(flavor === "misskey" || flavor === "sharkey" || flavor === "catodon"
+      ? { reportsQueue }
       : {}),
     lists,
     scheduled,

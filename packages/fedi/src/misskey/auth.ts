@@ -146,4 +146,11 @@ export const KEYSTONE_PERMISSIONS: string[] = [
   "read:admin:server-info",
   "read:admin:meta",
   "read:admin:queue",
+  // Reports queue (Wave 3 §3.2, list + mutations): the exact endpoint
+  // kinds (verified in the Misskey + Sharkey + Catodon checkouts — all
+  // three mutations share `write:admin:resolve-abuse-user-report`, so one
+  // grant covers resolve + note-update + forward). Old tokens hit the
+  // same 0.8 re-auth prompt.
+  "read:admin:abuse-user-reports",
+  "write:admin:resolve-abuse-user-report",
 ];

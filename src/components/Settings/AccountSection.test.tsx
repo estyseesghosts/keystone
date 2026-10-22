@@ -86,7 +86,7 @@ async function setup({
   const rendered = render(
     <ThemeProvider theme="light">
       <SessionProvider store={sessionStore} homeOrigin={HOME_ORIGIN}>
-        <AccountSection onAddAccount={() => {}} onOpenFollowRequests={() => {}} onOpenAdminInsight={() => {}} />
+        <AccountSection onAddAccount={() => {}} onOpenFollowRequests={() => {}} onOpenAdminInsight={() => {}} onOpenAdminReports={() => {}} />
       </SessionProvider>
     </ThemeProvider>,
   )
