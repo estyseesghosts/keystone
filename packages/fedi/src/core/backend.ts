@@ -99,6 +99,10 @@ export interface PollDraft {
   multiple?: boolean;
   expiresAt?: number;
   expiredAfter?: number;
+  /** Mastodon-family `poll[hide_totals]` (capability
+   * `polls_hide_totals`). `true` only: the field is omitted otherwise, so
+   * a server default is never overwritten by a false. */
+  hideTotals?: boolean;
 }
 
 /** Multipart upload options (addition). `folderId`/`force` are Misskey-
@@ -462,17 +466,43 @@ export interface ListMembershipApi {
   remove(listId: string, accountId: string): Promise<void>;
 }
 
+/** Mastodon `replies_policy` values (`List` enum: `none|followed|list`).
+ * Misskey-family lists have no equivalent. */
+export type ListRepliesPolicy = "none" | "followed" | "list";
+
+/** The optional list row fields (clickstone §1.6). Each one is sent only
+ * when the caller chose it AND `capabilities.lists_replies_policy` /
+ * `capabilities.lists_exclusive` is `supported` — an unsupported or
+ * not-reported server never sees the field. */
+export interface ListFields {
+  repliesPolicy?: ListRepliesPolicy;
+  /** Hide the list's members from the Home feed. */
+  exclusive?: boolean;
+}
+
+export interface ListSummary {
+  id: string;
+  name: string;
+  /** Current reply policy, when the server reports a known value (the
+   * Mastodon family does; the Misskey family has none). */
+  repliesPolicy?: ListRepliesPolicy;
+  /** Current exclusive flag, when the server reports it. */
+  exclusive?: boolean;
+}
+
 export interface ListsApi {
   /** Account membership editing; absent when the server cannot do it. */
   membership?: ListMembershipApi;
-  list(): Promise<Array<{ id: string; name: string }>>;
+  list(): Promise<ListSummary[]>;
   /** `notes/user-list-timeline`. */
   timeline(listId: string, opts?: PageOpts): Promise<Page<Post>>;
   /** Create a list (addition — Misskey `lists/create`, Mastodon
-   * `POST /api/v1/lists`). */
-  create?(name: string): Promise<{ id: string; name: string }>;
-  /** Rename a list (addition). */
-  update?(id: string, patch: { name: string }): Promise<{ id: string; name: string }>;
+   * `POST /api/v1/lists`). The Misskey family ignores `fields` (its
+   * server has no such fields); the Mastodon family sends them behind the
+   * capability gate. */
+  create?(name: string, fields?: ListFields): Promise<ListSummary>;
+  /** Rename a list and optionally set its extra fields (addition). */
+  update?(id: string, patch: { name: string } & ListFields): Promise<ListSummary>;
   /** Delete a list (addition). */
   delete?(id: string): Promise<void>;
 }

@@ -264,6 +264,65 @@ describe("golden wire bodies", () => {
     });
   });
 
+  // 1.6 — Mastodon `poll[hide_totals]` (statuses_controller.rb permits it,
+  // PostStatusService stores it). Only `true` is sent; false/absent leaves
+  // the server default. The gate keeps the field off servers that do not
+  // store it (Akkoma documents it but `make_poll_data/1` drops it).
+  it("Mastodon: hide_totals rides only when true and supported", async () => {
+    async function mastoBody(flavor: "mastodon" | "akkoma", hideTotals?: boolean) {
+      const calls: Array<{ path: string; body: any }> = [];
+      const client = {
+        origin: "https://m.example",
+        token: "t",
+        post: (path: string, body: unknown) => {
+          calls.push({ path, body });
+          return Promise.reject(new Error("stop"));
+        },
+      } as never;
+      const backend = createMastodonBackend(client, { flavor });
+      const built = buildPostDraft(
+        emptyComposeState({
+          text: "vote",
+          poll: { choices: ["a", "b"], multiple: false, durationSeconds: 600, hideTotals },
+        }),
+        ctxFor("mastodon", flavor),
+      );
+      if (!built.ok) throw new Error(built.reason);
+      await backend.createPost(built.draft).catch(() => undefined);
+      return calls[0]?.body;
+    }
+
+    expect((await mastoBody("mastodon", true)).poll).toEqual({
+      options: ["a", "b"],
+      multiple: false,
+      expires_in: 600,
+      hide_totals: true,
+    });
+    // Off → the field is omitted, not `false`.
+    expect((await mastoBody("mastodon", false)).poll).not.toHaveProperty("hide_totals");
+    expect((await mastoBody("mastodon", undefined)).poll).not.toHaveProperty("hide_totals");
+    // Akkoma: unsupported, so the draft never carries it even if state does.
+    expect((await mastoBody("akkoma", true)).poll).not.toHaveProperty("hide_totals");
+  });
+
+  it("gates hide_totals per flavor: Mastodon on, Akkoma/Misskey off with a reason", () => {
+    expect(composeGates("mastodon", caps("mastodon")).pollHideTotals).toEqual({ enabled: true });
+    for (const flavor of ["akkoma", "misskey", "sharkey"] as const) {
+      const gate = composeGates(flavor === "akkoma" ? "mastodon" : "misskey", caps(flavor)).pollHideTotals;
+      expect(gate.enabled).toBe(false);
+      if (!gate.enabled) expect(gate.reason.length).toBeGreaterThan(0);
+    }
+    expect(composeGates("misskey", null, null).pollHideTotals.enabled).toBe(false);
+  });
+
+  it("Misskey never sends hide_totals even when the state sets it", async () => {
+    const call = await misskeyBody("misskey", {
+      text: "vote",
+      poll: { choices: ["a", "b"], multiple: false, durationSeconds: 300, hideTotals: true },
+    });
+    expect(call.params.poll).toEqual({ choices: ["a", "b"], multiple: false, expiredAfter: 300000 });
+  });
+
   it("Misskey create sends noQuote only when the toggle is on", async () => {
     const off = await misskeyBody("sharkey", { text: "plain" });
     expect(off.params).not.toHaveProperty("noQuote");

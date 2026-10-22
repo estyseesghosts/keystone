@@ -454,7 +454,11 @@ export function createMisskeyBackend(
     },
     // List CRUD (C15-data): `users/lists/create|update|delete` — the
     // packed UserList answers `{id, name, ...}`; only id+name surface.
-    async create(name) {
+    // `fields` (Mastodon replies_policy/exclusive) is intentionally
+    // ignored: Misskey user lists have neither, and the capabilities table
+    // reports both unsupported so the UI never offers them. Sending an
+    // unknown param to Misskey is a 400 — never send it.
+    async create(name, _fields = {}) {
       const row = await call<{ id: string; name: string }>("users/lists/create", { name });
       return { id: row.id, name: row.name ?? name };
     },

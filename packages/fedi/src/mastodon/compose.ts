@@ -92,7 +92,7 @@ export interface StatusBody {
   in_reply_to_id?: string;
   quoted_status_id?: string;
   media_ids?: string[];
-  poll?: { options: string[]; multiple?: boolean; expires_in?: number };
+  poll?: { options: string[]; multiple?: boolean; expires_in?: number; hide_totals?: boolean };
 }
 
 export type StatusBodyResult = { ok: true; body: StatusBody } | { ok: false; reason: string };
@@ -144,7 +144,7 @@ export function statusBodyOf(draft: {
   replyId?: string;
   renoteId?: string;
   mediaIds?: string[];
-  poll?: { choices: string[]; multiple?: boolean; expiresAt?: number; expiredAfter?: number } | null;
+  poll?: { choices: string[]; multiple?: boolean; expiresAt?: number; expiredAfter?: number; hideTotals?: boolean } | null;
 }): StatusBody {
   const body: StatusBody = {
     status: (draft.text ?? "").trim(),
@@ -165,6 +165,9 @@ export function statusBodyOf(draft: {
       options: draft.poll.choices,
       ...(draft.poll.multiple != null ? { multiple: draft.poll.multiple } : {}),
       ...(expires != null ? { expires_in: expires } : {}),
+      // `true` only (clickstone §1.6): an omitted field keeps the server
+      // default, and the composer gate decides whether it may be sent.
+      ...(draft.poll.hideTotals === true ? { hide_totals: true } : {}),
     };
   }
   return body;

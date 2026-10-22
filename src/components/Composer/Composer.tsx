@@ -123,7 +123,12 @@ function stateFromDraft(d: LocalDraft): Partial<ComposeState> {
     visibleUserIds: d.visibleUserIds,
     localOnly: d.localOnly,
     poll: d.pollChoices
-      ? {choices: d.pollChoices, multiple: d.pollMultiple, durationSeconds: d.pollDurationSeconds}
+      ? {
+          choices: d.pollChoices,
+          multiple: d.pollMultiple,
+          durationSeconds: d.pollDurationSeconds,
+          hideTotals: d.pollHideTotals,
+        }
       : null,
     reactionAcceptance: d.reactionAcceptance,
     noQuote: d.noQuote,
@@ -209,6 +214,7 @@ export function useComposerController({
         quoteId: state.quote?.id ?? null,
         pollChoices: state.poll?.choices ?? null,
         pollMultiple: state.poll?.multiple ?? false,
+        pollHideTotals: state.poll?.hideTotals ?? false,
         pollDurationSeconds: state.poll?.durationSeconds ?? 86400,
         reactionAcceptance: state.reactionAcceptance,
         noQuote: state.noQuote,

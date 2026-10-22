@@ -224,6 +224,21 @@ export interface Poll {
   own_votes?: number[];
 }
 
+// --- Lists ------------------------------------------------------------------
+
+/**
+ * `GET /api/v1/lists` row (`REST::ListSerializer`): `title` is the list
+ * name. `replies_policy` (`none|followed|list`) is Mastodon-only; Akkoma/
+ * Pleroma render `exclusive` but have no policy field at all — absent
+ * means the server did not report it, never a default.
+ */
+export interface ListRow {
+  id: ID;
+  title: string;
+  replies_policy?: string;
+  exclusive?: boolean;
+}
+
 /**
  * Akkoma/Pleroma emoji-reaction extension (contract §4/§9). The wire
  * carries an ARRAY (one entry per emoji), not a map.

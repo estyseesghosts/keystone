@@ -27,6 +27,9 @@ export const localDraftSchema = z.object({
   quoteId: z.string().nullable().default(null),
   pollChoices: z.array(z.string()).nullable().default(null),
   pollMultiple: z.boolean().default(false),
+  /** Mastodon `hide_totals` (clickstone §1.6); false keeps the old drafts
+   * readable and never sends the field. */
+  pollHideTotals: z.boolean().default(false),
   pollDurationSeconds: z.number().default(86400),
   reactionAcceptance: z.string().nullable().default(null),
   /** Per-note quote refusal (clickstone §1.2); account-wide is separate. */
