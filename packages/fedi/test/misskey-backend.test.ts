@@ -314,6 +314,35 @@ describe("MisskeyBackend accounts and social", () => {
     expect(calls[2].params).toEqual({ query: "ann", limit: 20 });
   });
 
+  // Regression only (Wave 0 slice 0.2): Misskey search already pages,
+  // both directions, via Misskey cursors — this pins it so the Mastodon
+  // Link fix can never be "fixed" by ending Misskey on page 1.
+  it("search.posts pages with untilId/sinceId cursors (regression)", async () => {
+    const { transport, calls } = stubTransport(() => [note, note]);
+    const backend = createMisskeyBackend(transport);
+
+    const first = await backend.search.posts("hello", { limit: 2 });
+    expect(calls[0]).toEqual({ endpoint: "notes/search", params: { query: "hello", limit: 2 } });
+    expect(first.items).toHaveLength(2);
+    expect(first.end).toBe(false);
+    expect(JSON.parse(first.cursor as string)).toEqual({ untilId: note.id });
+
+    await backend.search.posts("hello", { limit: 2, cursor: first.cursor });
+    expect(calls[1]).toEqual({
+      endpoint: "notes/search",
+      params: { query: "hello", limit: 2, untilId: note.id },
+    });
+
+    await backend.search.posts("hello", {
+      limit: 2,
+      cursor: JSON.stringify({ sinceId: "newer1" }) as never,
+    });
+    expect(calls[2]).toEqual({
+      endpoint: "notes/search",
+      params: { query: "hello", limit: 2, sinceId: "newer1" },
+    });
+  });
+
   it("followRequests adapt both sides; accept/reject/cancel pass the id", async () => {
     const { transport, calls } = stubTransport(() => [
       {

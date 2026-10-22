@@ -12,6 +12,7 @@
 
 // Jest port: `describe/it/expect` are globals (no vitest import).
 import { createMastodonBackend, toApiError } from "../src/mastodon/backend";
+import { searchV2 } from "../src/mastodon/endpoints";
 import type { MastoClient, RequestResult } from "../src/mastodon/client";
 import { MastoHttpError } from "../src/mastodon/client";
 import { decodeContinuation } from "../src/mastodon/adapt";
@@ -623,5 +624,141 @@ describe("MastodonBackend explore", () => {
       path: "/api/v2/search",
       body: { q: "ann", type: "accounts", limit: 8 },
     });
+  });
+});
+
+// Wave 0 slice 0.2 — search is not one page. v2 search pages by `offset`
+// (+`limit`, and only when `type` is set upstream) and its Link header is
+// the ONLY source of a cursor: a page without `rel="next"` ends the feed,
+// and nothing is fabricated from item counts (contract §5).
+describe("MastodonBackend search paging (contract §5 Link cursors)", () => {
+  const statusNext =
+    "https://mastodon.example/api/v2/search?q=cats&type=statuses&offset=20&limit=20";
+  const accountNext =
+    "https://mastodon.example/api/v2/search?q=ann&type=accounts&offset=20&limit=20";
+
+  it("search.posts follows rel=next instead of ending on page 1", async () => {
+    const { client, calls } = stubClient({
+      respond: (_m, path) => {
+        // First page: typed search + a next link. Replayed next URL:
+        // one older status and no link (the end).
+        if (path === "/api/v2/search") {
+          return {
+            data: { statuses: [status] },
+            headers: new Headers({ Link: `<${statusNext}>; rel="next"` }),
+          };
+        }
+        return { data: { statuses: [{ ...status, id: "older1" }] } };
+      },
+    });
+    const backend = createMastodonBackend(client);
+
+    const first = await backend.search.posts("cats", { limit: 20 });
+    expect(calls[0]).toEqual({
+      method: "GET",
+      path: "/api/v2/search",
+      body: { q: "cats", type: "statuses", limit: 20 },
+    });
+    expect(first.end).toBe(false);
+    expect(first.cursor).not.toBeNull();
+    expect(decodeContinuation(first.cursor)).toEqual({ kind: "url", url: statusNext });
+
+    const second = await backend.search.posts("cats", { cursor: first.cursor });
+    // The server's exact next URL carries q/type/offset — replayed
+    // verbatim, no duplicated params.
+    expect(calls[1]).toEqual({ method: "GET", path: statusNext, body: {} });
+    expect(calls[1].path).toContain("offset=20");
+    expect(second.items.map((p) => p.id)).toEqual(["older1"]);
+    expect(second.end).toBe(true);
+    expect(second.cursor).toBeNull();
+  });
+
+  it("search.accounts pages by offset too and ends without rel=next", async () => {
+    const { client, calls } = stubClient({
+      respond: (_m, path) => {
+        if (path === "/api/v2/search") {
+          return {
+            data: { accounts: [account] },
+            headers: new Headers({ Link: `<${accountNext}>; rel="next"` }),
+          };
+        }
+        return { data: { accounts: [{ ...account, id: "acc2" }] } };
+      },
+    });
+    const backend = createMastodonBackend(client);
+    const first = await backend.search.accounts("ann", { limit: 20 });
+    expect(calls[0].body).toEqual({ q: "ann", type: "accounts", limit: 20 });
+    expect(first.end).toBe(false);
+    expect(decodeContinuation(first.cursor)).toEqual({ kind: "url", url: accountNext });
+
+    const second = await backend.search.accounts("ann", { cursor: first.cursor });
+    expect(calls[1]).toEqual({ method: "GET", path: accountNext, body: {} });
+    expect(second.items.map((a) => a.id)).toEqual(["acc2"]);
+    expect(second.end).toBe(true);
+    expect(second.cursor).toBeNull();
+  });
+
+  it("a cross-origin next Link carries its offset cursor onto the session origin", async () => {
+    // A proxy/base-url mismatch: the advertised URL leaves the session
+    // origin, so only the cursor PARAMS are carried over — the token
+    // never leaves the origin.
+    const foreign =
+      "https://elsewhere.example/api/v2/search?q=cats&type=statuses&offset=20&limit=20";
+    const { client, calls } = stubClient({
+      respond: (_m, path) =>
+        path === "/api/v2/search"
+          ? { data: { statuses: [status] }, headers: new Headers({ Link: `<${foreign}>; rel="next"` }) }
+          : { data: { statuses: [] } },
+    });
+    const backend = createMastodonBackend(client);
+    const first = await backend.search.posts("cats", { limit: 20 });
+    expect(first.end).toBe(false);
+    expect(decodeContinuation(first.cursor)).toEqual({
+      kind: "cursors",
+      cursors: { offset: 20, limit: 20 },
+    });
+
+    await backend.search.posts("cats", { cursor: first.cursor });
+    expect(calls[1]).toEqual({
+      method: "GET",
+      path: "/api/v2/search",
+      body: { q: "cats", type: "statuses", offset: 20, limit: 20 },
+    });
+  });
+
+  it("a page without any Link is the end — no cursor is invented", async () => {
+    const { client } = stubClient({
+      respond: () => ({ data: { statuses: [status] } }),
+    });
+    const page = await createMastodonBackend(client).search.posts("cats", { limit: 1 });
+    // A FULL page without a next link is still the end (never length<limit).
+    expect(page.items).toHaveLength(1);
+    expect(page.cursor).toBeNull();
+    expect(page.end).toBe(true);
+  });
+
+  it("a next link on an empty page still ends (contract §5)", async () => {
+    const { client } = stubClient({
+      respond: () => ({
+        data: { statuses: [] },
+        headers: new Headers({ Link: `<${statusNext}>; rel="next"` }),
+      }),
+    });
+    const page = await createMastodonBackend(client).search.posts("cats");
+    expect(page.end).toBe(true);
+  });
+
+  it("searchV2 exposes the Link-derived prev plan (back-paging)", async () => {
+    const prevUrl =
+      "https://mastodon.example/api/v2/search?q=ann&type=accounts&offset=0&limit=20";
+    const { client } = stubClient({
+      respond: () => ({
+        data: { accounts: [account] },
+        headers: new Headers({ Link: `<${prevUrl}>; rel="prev"` }),
+      }),
+    });
+    const result = await searchV2(client, "ann", { type: "accounts", limit: 20 });
+    expect(result.continuation).toBeNull();
+    expect(result.prev).toEqual({ kind: "url", url: prevUrl });
   });
 });

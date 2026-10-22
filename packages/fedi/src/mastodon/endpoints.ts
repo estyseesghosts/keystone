@@ -31,7 +31,7 @@ import type { StatusBody } from "./compose";
 import type { Account, Post, Relationship } from "../core/models";
 import type { TimelineKind } from "../core/backend";
 import { getActiveSessionId, loadSessions, type KeyValueStore } from "../core/sessions";
-import { nextContinuation, withCursors } from "./pagination";
+import { nextContinuation, prevContinuation, withCursors } from "./pagination";
 import type { Continuation } from "./pagination";
 import { pickQuotedStatus } from "./quoteMarker";
 import type {
@@ -370,32 +370,76 @@ export async function getStatusContext(
  * serve it; Mastodon needs search-read auth for resolution, Akkoma may
  * answer 403 when instance search is restricted — callers surface that
  * honestly, never as "missing". Hashtags carry `{name,url}` only (no
- * history on Akkoma). */
+ * history on Akkoma).
+ *
+ * Paging: the Link header decides, exactly like every other listing
+ * (contract §5). Mastodon pages `/api/v2/search` by `offset` (+`limit`)
+ * and only when `type` is set (the combined, type-less search pins
+ * offset to 0 upstream), so paged calls always pass a type. `statuses`
+ * additionally accept `max_id`/`min_id`; both directions are carried
+ * over from the Link (`continuation`/`prev`) — never invented. A page
+ * with no Link next is the end: no cursor is fabricated. */
 export interface SearchResult {
   accounts: Account[];
   statuses: Post[];
   hashtags: Array<{ name: string; url: string }>;
+  /** How to fetch the NEXT page (server URL on-origin, cursor carryover
+   * off-origin), or null when the server offered no next link. */
+  continuation: Continuation | null;
+  /** How to fetch the PREVIOUS page, or null when the server offered no
+   * prev link. Search v2 supports back-paging by `offset`. */
+  prev: Continuation | null;
 }
 
 export type SearchV2Type = "accounts" | "hashtags" | "statuses";
 
+export interface SearchV2Options {
+  type?: SearchV2Type;
+  limit?: number;
+  /** Continue from a page's Link-derived plan (`SearchResult.continuation`
+   * or `.prev`). `null`/undefined = fresh first page. */
+  continuation?: Continuation | null;
+  /** Explicit page number (v2 offset paging) for a fresh request. Ignored
+   * when `continuation` replays the server's exact URL. */
+  offset?: number;
+  /** Statuses-only id cursors (older / newer) for a fresh request. */
+  maxId?: string;
+  minId?: string;
+}
+
 export async function searchV2(
   client: MastoClient,
   query: string,
-  opts: { type?: SearchV2Type; limit?: number } = {},
+  opts: SearchV2Options = {},
 ): Promise<SearchResult> {
   const trimmed = query.trim();
-  if (trimmed.length === 0) {
-    return { accounts: [], statuses: [], hashtags: [] };
+  const continuation = opts.continuation ?? null;
+  if (trimmed.length === 0 && continuation === null) {
+    return { accounts: [], statuses: [], hashtags: [], continuation: null, prev: null };
   }
-  const params: Record<string, QueryValue> = { q: trimmed };
-  if (opts.type) params.type = opts.type;
-  if (opts.limit !== undefined) params.limit = opts.limit;
+  // Same request rules as every other Link-paged listing: a same-origin
+  // server next/prev URL already carries every param (q, type, offset,
+  // limit) — replay it verbatim; a cross-origin one only contributes its
+  // cursor PARAMS, rebuilt on the session origin.
+  const path = continuation?.kind === "url" ? continuation.url : "/api/v2/search";
+  const params: Record<string, QueryValue> = {};
+  if (continuation?.kind !== "url") {
+    params.q = trimmed;
+    if (opts.type) params.type = opts.type;
+    if (continuation?.kind === "cursors") {
+      Object.assign(params, withCursors({}, continuation.cursors));
+    } else {
+      if (opts.limit !== undefined) params.limit = opts.limit;
+      if (opts.offset !== undefined) params.offset = opts.offset;
+      if (opts.maxId !== undefined) params.max_id = opts.maxId;
+      if (opts.minId !== undefined) params.min_id = opts.minId;
+    }
+  }
   const res = await client.get<{
     accounts?: WireAccount[];
     statuses?: Status[];
     hashtags?: Array<{ name?: string; url?: string }>;
-  }>("/api/v2/search", params);
+  }>(path, params);
   const data = res.data ?? {};
   return {
     accounts: (data.accounts ?? []).map(adaptAccount),
@@ -403,6 +447,8 @@ export async function searchV2(
     hashtags: (data.hashtags ?? [])
       .filter((t) => typeof t.name === "string" && t.name.length > 0)
       .map((t) => ({ name: t.name as string, url: typeof t.url === "string" ? t.url : "" })),
+    continuation: nextContinuation(res.headers, client.origin),
+    prev: prevContinuation(res.headers, client.origin),
   };
 }
 
