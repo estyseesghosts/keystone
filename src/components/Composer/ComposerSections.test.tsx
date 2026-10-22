@@ -6,6 +6,7 @@ import {ThemeProvider} from '#/alf/index'
 
 import type {ComposerController} from './Composer'
 import {
+  PollSection,
   RecipientSection,
   ScheduledListSection,
   ScheduleSection,
@@ -398,5 +399,90 @@ describe('ServerDraftsSection', () => {
   it('renders nothing without the serverDrafts sub-module', () => {
     draftsSetup({})
     expect(screen.queryByTestId('composer-server-drafts')).toBeNull()
+  })
+})
+
+// 1.6 — the composer poll row. "Hide totals" only exists on servers that
+// store `poll[hide_totals]`; elsewhere it is a disabled chip carrying the
+// reason, never inert.
+describe('PollSection hide totals', () => {
+  function pollSetup({
+    hideTotalsEnabled,
+    reason = 'This server does not support hiding poll totals.',
+    hideTotals = false,
+    multipleEnabled = true,
+  }: {
+    hideTotalsEnabled: boolean
+    reason?: string
+    hideTotals?: boolean
+    multipleEnabled?: boolean
+  }) {
+    const patch = jest.fn()
+    const c = {
+      state: {
+        text: 'vote',
+        cw: '',
+        cwEnabled: false,
+        visibilityRaw: 'public',
+        localOnly: false,
+        replyTo: null,
+        quote: null,
+        media: [],
+        poll: {choices: ['a', 'b'], multiple: false, durationSeconds: 86400, hideTotals},
+        reactionAcceptance: null,
+        noQuote: false,
+        scheduledAt: null,
+        visibleUserIds: [],
+      },
+      patch,
+      gates: {
+        poll: {enabled: true},
+        pollMultiple: multipleEnabled ? {enabled: true} : {enabled: false, reason: 'single only'},
+        pollHideTotals: hideTotalsEnabled ? {enabled: true} : {enabled: false, reason},
+      },
+      limits: {maxChars: 500, maxMedia: 4, maxPollOptions: 4},
+      styles: {row: {}},
+    } as unknown as ComposerController
+    render(
+      <ThemeProvider>
+        <PollSection c={c} />
+      </ThemeProvider>,
+    )
+    return {patch}
+  }
+
+  it('toggles hide totals where the server supports it', () => {
+    const {patch} = pollSetup({hideTotalsEnabled: true})
+    const chip = screen.getByTestId('composer-poll-hide-totals')
+    expect(chip.props.accessibilityState.selected).toBe(false)
+    fireEvent.press(chip)
+    expect(patch).toHaveBeenCalledWith({
+      poll: {choices: ['a', 'b'], multiple: false, durationSeconds: 86400, hideTotals: true},
+    })
+  })
+
+  it('reflects an already-chosen hide totals', () => {
+    pollSetup({hideTotalsEnabled: true, hideTotals: true})
+    expect(
+      screen.getByTestId('composer-poll-hide-totals').props.accessibilityState.selected,
+    ).toBe(true)
+  })
+
+  it('disables the chip with the reason where the server lacks the field', () => {
+    const {patch} = pollSetup({hideTotalsEnabled: false})
+    const chip = screen.getByTestId('composer-poll-hide-totals')
+    expect(chip.props.accessibilityState.disabled).toBe(true)
+    expect(chip.props.accessibilityHint).toBe(
+      'This server does not support hiding poll totals.',
+    )
+    fireEvent.press(chip)
+    expect(patch).not.toHaveBeenCalled()
+  })
+
+  it('keeps multiple choice independent from hide totals', () => {
+    pollSetup({hideTotalsEnabled: false, multipleEnabled: false})
+    expect(
+      screen.getByLabelText('Multiple choice').props.accessibilityState.disabled,
+    ).toBe(true)
   })
 })

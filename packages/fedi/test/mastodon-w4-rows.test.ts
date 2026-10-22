@@ -9,7 +9,9 @@
 // - MD3: filters try v2 groups first, v1 keywords on 404/405; the v1
 //   shape maps directly, the v2 group maps honestly (first keyword is
 //   the phrase, `filter_action: "hide"` is the irreversible);
-// - C15: lists create/update/delete ride `/api/v1/lists` with `title`.
+// - C15: lists create/update/delete ride `/api/v1/lists` with `title`,
+//   plus `replies_policy`/`exclusive` only when chosen AND supported
+//   (clickstone §1.6).
 
 import { createMastodonBackend } from "../src/mastodon/backend";
 import type { MastoClient, RequestResult } from "../src/mastodon/client";
@@ -546,6 +548,71 @@ describe("C15-data — mastodon lists CRUD", () => {
       { method: "POST", path: "/api/v1/lists", body: { title: "news" } },
       { method: "PUT", path: "/api/v1/lists/l1", body: { title: "renamed" } },
       { method: "DELETE", path: "/api/v1/lists/l1", body: undefined },
+    ]);
+  });
+
+  // 1.6 — the optional row fields. Mastodon's controller permits
+  // `title|replies_policy|exclusive` (`lists_controller.rb` `list_params`)
+  // and the serializer returns both, so a Mastodon session may send and
+  // read them.
+  it("sends replies_policy/exclusive only when chosen AND supported", async () => {
+    const { client, calls } = stubClient((method) => ({
+      data: {
+        id: "l1",
+        title: "news",
+        replies_policy: "followed",
+        exclusive: true,
+      },
+    }));
+    const backend = createMastodonBackend(client, { flavor: "mastodon" });
+    await expect(
+      backend.lists!.create!("news", { repliesPolicy: "followed", exclusive: true }),
+    ).resolves.toEqual({ id: "l1", name: "news", repliesPolicy: "followed", exclusive: true });
+    await backend.lists!.update!("l1", {
+      name: "news",
+      repliesPolicy: "none",
+      exclusive: false,
+    });
+    expect(calls.map((c) => c.body)).toEqual([
+      { title: "news", replies_policy: "followed", exclusive: true },
+      { title: "news", replies_policy: "none", exclusive: false },
+    ]);
+  });
+
+  it("omits the fields when the caller did not choose them", async () => {
+    const { client, calls } = stubClient(() => ({ data: { id: "l1", title: "news" } }));
+    const backend = createMastodonBackend(client, { flavor: "mastodon" });
+    await backend.lists!.create!("news");
+    await backend.lists!.update!("l1", { name: "news" });
+    expect(calls.map((c) => c.body)).toEqual([{ title: "news" }, { title: "news" }]);
+  });
+
+  it("never sends an unknown field to a server that does not support it", async () => {
+    // Akkoma: `exclusive` is real (Pleroma.List update_changeset + view),
+    // `replies_policy` is not in the permitted params at all.
+    const akkoma = stubClient(() => ({ data: { id: "l1", title: "news" } }));
+    const akkomaBackend = createMastodonBackend(akkoma.client, { flavor: "akkoma" });
+    await akkomaBackend.lists!.create!("news", { repliesPolicy: "followed", exclusive: true });
+    expect(akkoma.calls[0].body).toEqual({ title: "news", exclusive: true });
+
+    // Unknown flavor: both flags are unknown, so neither field is sent.
+    const unknown = stubClient(() => ({ data: { id: "l1", title: "news" } }));
+    const unknownBackend = createMastodonBackend(unknown.client);
+    await unknownBackend.lists!.create!("news", { repliesPolicy: "list", exclusive: false });
+    expect(unknown.calls[0].body).toEqual({ title: "news" });
+  });
+
+  it("reads the reported policy/exclusive and ignores an unknown policy", async () => {
+    const { client } = stubClient(() => ({
+      data: [
+        { id: "l1", title: "news", replies_policy: "list", exclusive: false },
+        { id: "l2", title: "other", replies_policy: "surprise" },
+      ],
+    }));
+    const backend = createMastodonBackend(client, { flavor: "mastodon" });
+    await expect(backend.lists!.list()).resolves.toEqual([
+      { id: "l1", name: "news", repliesPolicy: "list", exclusive: false },
+      { id: "l2", name: "other" },
     ]);
   });
 });

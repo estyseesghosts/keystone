@@ -50,6 +50,9 @@ import type {
   FollowRequest,
   NewsLink,
   InstanceRule,
+  ListFields,
+  ListRepliesPolicy,
+  ListSummary,
   NotificationsOpts,
   PageOpts,
   PostDraft,
@@ -137,6 +140,7 @@ import { nextContinuation, withCursors } from "./pagination";
 import type {
   CredentialAccount,
   MediaAttachment,
+  ListRow,
   ScheduledStatus as WireScheduledStatus,
   Status as WireStatus,
 } from "./wire";
@@ -321,6 +325,52 @@ async function withFilterFallback<T>(
     if (!isAbsentError(err)) throw err;
     return runV1();
   }
+}
+
+// --- Lists (clickstone §1.6) ------------------------------------------------
+
+const LIST_REPLIES_POLICIES: readonly ListRepliesPolicy[] = ["none", "followed", "list"];
+
+/** The three policy values are the `List` enum (`list`, `followed`,
+ * `none`); anything else the server sends is not guessed at. */
+export function knownRepliesPolicy(value: unknown): ListRepliesPolicy | undefined {
+  return typeof value === "string" && (LIST_REPLIES_POLICIES as readonly string[]).includes(value)
+    ? (value as ListRepliesPolicy)
+    : undefined;
+}
+
+/** `ListRow` → core `ListSummary`. `title` is the name; the extras ride
+ * only when the server reported a known value (the Misskey-backed and
+ * Akkoma rows carry no policy at all). */
+export function adaptListRow(row: ListRow, fallbackName?: string): ListSummary {
+  const out: ListSummary = {
+    id: row.id,
+    name: typeof row.title === "string" ? row.title : (fallbackName ?? ""),
+  };
+  const policy = knownRepliesPolicy(row.replies_policy);
+  if (policy !== undefined) out.repliesPolicy = policy;
+  if (typeof row.exclusive === "boolean") out.exclusive = row.exclusive;
+  return out;
+}
+
+/** Create/update body: `title` always, then each optional field ONLY when
+ * the caller chose it and the server reports the capability as
+ * `supported`. Unknown and unsupported both omit the field — a server that
+ * rejects unknown params (Sharkey 400s; Akkoma's CastAndValidate) never
+ * sees one. */
+export function listFieldsBody(
+  fields: ListFields,
+  capabilities: Capabilities,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const policy = knownRepliesPolicy(fields.repliesPolicy);
+  if (policy !== undefined && capabilities.lists_replies_policy === "supported") {
+    out.replies_policy = policy;
+  }
+  if (typeof fields.exclusive === "boolean" && capabilities.lists_exclusive === "supported") {
+    out.exclusive = fields.exclusive;
+  }
+  return out;
 }
 
 // --- The backend ------------------------------------------------------------
@@ -1188,9 +1238,9 @@ export function createMastodonBackend(
         remove: (listId, accountId) => removeFromListMasto(client, listId, accountId),
       },
       async list() {
-        const res = await client.get<Array<{ id: string; title: string }>>("/api/v1/lists");
+        const res = await client.get<ListRow[]>("/api/v1/lists");
         const items = Array.isArray(res.data) ? res.data : [];
-        return items.map((l) => ({ id: l.id, name: l.title }));
+        return items.map((l) => adaptListRow(l));
       },
       async timeline(listId, opts = {}) {
         const cont = continuationOf(opts.cursor);
@@ -1208,25 +1258,27 @@ export function createMastodonBackend(
       },
       // Lists exist on every flavor here (Mastodon + Akkoma/Pleroma all
       // serve `/api/v1/lists` CRUD) — no v1/v2 split, so no fallback:
-      // absence propagates as the honest unsupported state.
-      async create(name) {
-        const res = await client.post<{ id: string; title: string }>("/api/v1/lists", {
+      // absence propagates as the honest unsupported state. The optional
+      // fields ride only when chosen AND supported (see `listFieldsBody`).
+      async create(name, fields = {}) {
+        const res = await client.post<ListRow>("/api/v1/lists", {
           title: name,
+          ...listFieldsBody(fields, capabilities),
         });
         if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
           throw new FediError("The server did not return the created list.", "errors.shape.createdList");
         }
-        return { id: res.data.id, name: res.data.title ?? name };
+        return adaptListRow(res.data, name);
       },
       async update(id, patch) {
-        const res = await client.put<{ id: string; title: string }>(
+        const res = await client.put<ListRow>(
           `/api/v1/lists/${encodeURIComponent(id)}`,
-          { title: patch.name },
+          { title: patch.name, ...listFieldsBody(patch, capabilities) },
         );
         if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
           throw new FediError("The server did not return the updated list.", "errors.shape.updatedList");
         }
-        return { id: res.data.id, name: res.data.title ?? patch.name };
+        return adaptListRow(res.data, patch.name);
       },
       async delete(id) {
         await client.delete(`/api/v1/lists/${encodeURIComponent(id)}`);

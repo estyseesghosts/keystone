@@ -499,6 +499,47 @@ describe("three-state capabilities", () => {
     expect(FEATURE_KEYS).toContain("direct_messages");
     expect(FEATURE_KEYS).toContain("chats");
   });
+
+  // 1.6 — list reply policy / exclusive and poll hide_totals are
+  // PER-FLAVOR server facts. Verified against the read-only checkouts:
+  // Mastodon `lists_controller.rb` permits `title|replies_policy|exclusive`
+  // and `statuses_controller.rb` permits `poll[:hide_totals]` (stored by
+  // `PostStatusService`/`poll.rb`); Akkoma's `ListOperation` permits
+  // `title|exclusive` only (no policy) and its `make_poll_data/1` never
+  // stores `hide_totals`; Misskey's `users/lists/create` and
+  // `notes/create` carry neither.
+  it("1.6 list fields and poll hide_totals: supported only where the server stores them", () => {
+    const mastodon = buildCapabilities("mastodon");
+    expect(mastodon.lists_replies_policy).toBe("supported");
+    expect(mastodon.lists_exclusive).toBe("supported");
+    expect(mastodon.polls_hide_totals).toBe("supported");
+
+    const akkoma = buildCapabilities("akkoma");
+    expect(akkoma.lists_replies_policy).toBe("unsupported");
+    expect(akkoma.lists_exclusive).toBe("supported");
+    expect(akkoma.polls_hide_totals).toBe("unsupported");
+
+    for (const flavor of ["misskey", "sharkey", "catodon"] as ServerFlavor[]) {
+      const caps = buildCapabilities(flavor);
+      expect([flavor, caps.lists_replies_policy]).toEqual([flavor, "unsupported"]);
+      expect([flavor, caps.lists_exclusive]).toEqual([flavor, "unsupported"]);
+      expect([flavor, caps.polls_hide_totals]).toEqual([flavor, "unsupported"]);
+    }
+    // Pinetree: polls are rejected outright, and its list endpoints were
+    // not recorded — the derived list flags stay unknown (unlocks nothing).
+    expect(buildCapabilities("pinetree").polls_hide_totals).toBe("unsupported");
+    expect(buildCapabilities("pinetree").lists_replies_policy).toBe("unknown");
+
+    // Nothing reported it → unknown, which unlocks nothing.
+    const unknown = buildCapabilities("unknown");
+    expect(unknown.lists_replies_policy).toBe("unknown");
+    expect(unknown.lists_exclusive).toBe("unknown");
+    expect(unknown.polls_hide_totals).toBe("unknown");
+
+    expect(FEATURE_KEYS).toContain("lists_replies_policy");
+    expect(FEATURE_KEYS).toContain("lists_exclusive");
+    expect(FEATURE_KEYS).toContain("polls_hide_totals");
+  });
 });
 
 describe("E6 translation evidence (probe-backed, rig :4000 2026-10-21)", () => {

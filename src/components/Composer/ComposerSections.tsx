@@ -87,6 +87,14 @@ export function PollSection({c}: {c: ComposerController}) {
           disabledReason={c.gates.pollMultiple.enabled ? undefined : c.gates.pollMultiple.reason}
           onPress={() => c.patch({poll: {...c.state.poll!, multiple: !c.state.poll!.multiple}})}
         />
+        <Chip
+          label={i18n._(msg`Hide totals`)}
+          selected={c.state.poll.hideTotals}
+          disabled={!c.gates.pollHideTotals.enabled}
+          disabledReason={c.gates.pollHideTotals.enabled ? undefined : c.gates.pollHideTotals.reason}
+          onPress={() => c.patch({poll: {...c.state.poll!, hideTotals: !c.state.poll!.hideTotals}})}
+          testID="composer-poll-hide-totals"
+        />
       </View>
       <View style={c.styles.row}>
         {POLL_DURATIONS.map(d => (

@@ -9,11 +9,18 @@ import {FlatList, RefreshControl, View} from 'react-native'
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
 
 import {isPermissionError, isUnsupportedError} from '@keystone/fedi'
+import type {
+  Capabilities,
+  ListFields,
+  ListRepliesPolicy,
+  ListSummary,
+} from '@keystone/fedi'
 
 import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {Chip} from '#/components/Composer/Chip'
 import {TextField} from '#/components/forms/TextField'
 import {Loader} from '#/components/Loader'
 import {Pagehead} from '#/components/Pagehead'
@@ -22,11 +29,116 @@ import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 
-type ListSummary = {id: string; name: string}
+// List reply policies (Mastodon `replies_policy`). The labels are Mastodon
+// web's own (`lists.replies_policy.*`). The Misskey family has no
+// equivalent and its capability flag is `unsupported`, so these render
+// disabled with a reason rather than as an inert no-op.
+const REPLIES_POLICIES: ReadonlyArray<{value: ListRepliesPolicy; label: string}> = [
+  {value: 'list', label: 'Members of the list'},
+  {value: 'followed', label: 'Any followed user'},
+  {value: 'none', label: 'No one'},
+]
 
-function CreateRow({onCreate}: {onCreate: (name: string) => Promise<void>}) {
+type ListFieldGate = {enabled: true} | {enabled: false; reason: string}
+
+function fieldGate(
+  support: Capabilities[keyof Capabilities] | undefined,
+  unsupportedReason: string,
+  unknownReason: string,
+): ListFieldGate {
+  if (support === 'supported') return {enabled: true}
+  return {enabled: false, reason: support === 'unsupported' ? unsupportedReason : unknownReason}
+}
+
+function repliesPolicyGate(caps: Capabilities | null | undefined): ListFieldGate {
+  return fieldGate(
+    caps?.lists_replies_policy,
+    'This server cannot choose who replies are shown from.',
+    'This server has not reported list reply settings.',
+  )
+}
+
+function exclusiveGate(caps: Capabilities | null | undefined): ListFieldGate {
+  return fieldGate(
+    caps?.lists_exclusive,
+    'This server cannot hide list members from Home.',
+    'This server has not reported exclusive lists.',
+  )
+}
+
+/** Only the fields the server says it supports ride along. The backend
+ * repeats this check; the UI does it too so the user's choice is never
+ * silently accepted and then dropped. */
+function chosenListFields(
+  caps: Capabilities | null | undefined,
+  policy: ListRepliesPolicy,
+  exclusive: boolean,
+): ListFields {
+  const out: ListFields = {}
+  if (repliesPolicyGate(caps).enabled) out.repliesPolicy = policy
+  if (exclusiveGate(caps).enabled) out.exclusive = exclusive
+  return out
+}
+
+function ListFieldsEditor({
+  idPrefix,
+  caps,
+  policy,
+  exclusive,
+  onPolicy,
+  onExclusive,
+}: {
+  idPrefix: string
+  caps: Capabilities | null | undefined
+  policy: ListRepliesPolicy
+  exclusive: boolean
+  onPolicy: (value: ListRepliesPolicy) => void
+  onExclusive: (value: boolean) => void
+}) {
+  const reply = repliesPolicyGate(caps)
+  const excl = exclusiveGate(caps)
+  return (
+    <View style={[atoms.gap_sm]} testID={`${idPrefix}-fields`}>
+      <Caption color="muted">Show replies from</Caption>
+      <View style={[atoms.row, atoms.gap_sm]}>
+        {REPLIES_POLICIES.map(p => (
+          <Chip
+            key={p.value}
+            label={p.label}
+            selected={policy === p.value}
+            disabled={!reply.enabled}
+            disabledReason={reply.enabled ? undefined : reply.reason}
+            onPress={() => onPolicy(p.value)}
+            testID={`${idPrefix}-policy-${p.value}`}
+          />
+        ))}
+      </View>
+      {reply.enabled ? null : <Caption color="faint">{reply.reason}</Caption>}
+      <View style={[atoms.row, atoms.gap_sm]}>
+        <Chip
+          label="Hide members in Home"
+          selected={exclusive}
+          disabled={!excl.enabled}
+          disabledReason={excl.enabled ? undefined : excl.reason}
+          onPress={() => onExclusive(!exclusive)}
+          testID={`${idPrefix}-exclusive`}
+        />
+      </View>
+      {excl.enabled ? null : <Caption color="faint">{excl.reason}</Caption>}
+    </View>
+  )
+}
+
+function CreateRow({
+  onCreate,
+}: {
+  onCreate: (name: string, fields: ListFields) => Promise<void>
+}) {
   const {backend} = useActiveBackend()
+  const caps = backend?.capabilities
   const [name, setName] = useState('')
+  const [policy, setPolicy] = useState<ListRepliesPolicy>('list')
+  const [exclusive, setExclusive] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const canCreate = !!backend?.lists?.create
@@ -36,7 +148,7 @@ function CreateRow({onCreate}: {onCreate: (name: string) => Promise<void>}) {
     setBusy(true)
     setError(null)
     try {
-      await onCreate(trimmed)
+      await onCreate(trimmed, chosenListFields(caps, policy, exclusive))
       setName('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create the list.')
@@ -53,6 +165,14 @@ function CreateRow({onCreate}: {onCreate: (name: string) => Promise<void>}) {
         placeholder="List name"
         error={error ?? undefined}
         testID="lists-create-input"
+      />
+      <ListFieldsEditor
+        idPrefix="lists-create"
+        caps={caps}
+        policy={policy}
+        exclusive={exclusive}
+        onPolicy={setPolicy}
+        onExclusive={setExclusive}
       />
       <Button
         label={busy ? 'Creating…' : 'Create list'}
@@ -81,7 +201,7 @@ function ListRow({
   onOpen,
 }: {
   list: ListSummary
-  onRename: (name: string) => Promise<void>
+  onRename: (name: string, fields: ListFields) => Promise<void>
   onDelete: () => Promise<void>
   pendingDelete: boolean
   onArmDelete: () => void
@@ -89,12 +209,26 @@ function ListRow({
   onOpen: () => void
 }) {
   const {backend} = useActiveBackend()
+  const caps = backend?.capabilities
   const canRename = !!backend?.lists?.update
   const canDelete = !!backend?.lists?.delete
   const [draft, setDraft] = useState(list.name)
+  // Seeded from what the server reported. Mastodon's default policy is
+  // `list`; a row that does not report the field keeps the default but the
+  // gate below decides whether it is sent at all.
+  const [policy, setPolicy] = useState<ListRepliesPolicy>(list.repliesPolicy ?? 'list')
+  const [exclusive, setExclusive] = useState(list.exclusive ?? false)
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const openEditor = () => {
+    setDraft(list.name)
+    setPolicy(list.repliesPolicy ?? 'list')
+    setExclusive(list.exclusive ?? false)
+    setError(null)
+    setEditing(true)
+  }
 
   const save = async () => {
     const trimmed = draft.trim()
@@ -102,7 +236,7 @@ function ListRow({
     setBusy(true)
     setError(null)
     try {
-      await onRename(trimmed)
+      await onRename(trimmed, chosenListFields(caps, policy, exclusive))
       setEditing(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not rename the list.')
@@ -129,6 +263,14 @@ function ListRow({
             placeholder="List name"
             error={error ?? undefined}
             testID={`lists-rename-input-${list.id}`}
+          />
+          <ListFieldsEditor
+            idPrefix={`lists-edit-${list.id}`}
+            caps={caps}
+            policy={policy}
+            exclusive={exclusive}
+            onPolicy={setPolicy}
+            onExclusive={setExclusive}
           />
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
@@ -157,7 +299,7 @@ function ListRow({
             variant="secondary"
             disabled={!canRename || busy}
             disabledReason={!canRename ? 'This server build cannot rename lists.' : undefined}
-            onPress={() => setEditing(true)}
+            onPress={openEditor}
             testID={`lists-rename-${list.id}`}
           />
           {!canRename ? (
@@ -277,9 +419,9 @@ export function ListsScreen() {
     <View style={atoms.flex1} testID="lists-screen">
       <Pagehead title="Lists" />
       <CreateRow
-        onCreate={async name => {
+        onCreate={async (name, fields) => {
           if (!backend.lists?.create) return
-          const created = await backend.lists.create(name)
+          const created = await backend.lists.create(name, fields)
           setLists(prev => (prev ? [...prev, created] : [created]))
         }}
       />
@@ -306,11 +448,11 @@ export function ListsScreen() {
           renderItem={({item}) => (
             <ListRow
               list={item}
-              onRename={async name => {
+              onRename={async (name, fields) => {
                 if (!backend.lists?.update) return
                 setActionError(null)
                 try {
-                  const updated = await backend.lists.update(item.id, {name})
+                  const updated = await backend.lists.update(item.id, {name, ...fields})
                   setLists(prev => (prev ?? []).map(l => (l.id === item.id ? updated : l)))
                 } catch (err) {
                   setActionError(err instanceof Error ? err.message : 'Could not rename the list.')

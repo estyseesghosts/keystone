@@ -53,6 +53,13 @@ export type FeatureKey =
   | "quote_posting"
   | "status_editing"
   | "polls_multi"
+  // Mastodon-family `poll[hide_totals]` (clickstone §1.6). Mastodon
+  // persists it (`app/models/poll.rb`, `PostStatusService`); Akkoma/Pleroma
+  // document it in the API spec but their poll builder never stores it
+  // (`lib/pleroma/web/common_api/utils.ex` `make_poll_data/1`), so sending
+  // it there would be a silent no-op — unsupported, never sent. The
+  // Misskey family has no such poll field.
+  | "polls_hide_totals"
   | "scheduled_posts"
   | "server_drafts"
   | "local_only"
@@ -79,6 +86,15 @@ export type FeatureKey =
   | "direct_messages"
   // Organization
   | "lists"
+  // Mastodon list row fields (clickstone §1.6). `lists_replies_policy` is
+  // Mastodon `replies_policy` (`none|followed|list`, `List` enum +
+  // `ListsController#list_params`); Akkoma/Pleroma accept `title`/
+  // `exclusive` only and never expose a policy, and the Misskey family's
+  // user lists have no reply filter at all. `lists_exclusive` is the
+  // Mastodon `exclusive` boolean; Akkoma/Pleroma cast and render it too
+  // (`Pleroma.List.update_changeset` + `ListView`), Misskey has none.
+  | "lists_replies_policy"
+  | "lists_exclusive"
   | "bookmarks"
   | "favourites_distinct_from_reactions"
   // Server services
@@ -100,6 +116,7 @@ export const FEATURE_KEYS: readonly FeatureKey[] = [
   "quote_posting",
   "status_editing",
   "polls_multi",
+  "polls_hide_totals",
   "scheduled_posts",
   "server_drafts",
   "local_only",
@@ -112,6 +129,8 @@ export const FEATURE_KEYS: readonly FeatureKey[] = [
   "chats",
   "direct_messages",
   "lists",
+  "lists_replies_policy",
+  "lists_exclusive",
   "bookmarks",
   "favourites_distinct_from_reactions",
   "translation",
@@ -259,6 +278,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     // `notes/create` poll takes `multiple` (v1 `docs/api-surface.md:67`,
     // verified against Misskey/Sharkey/Pinetree backends).
     polls_multi: "supported",
+    // Misskey polls take `multiple` but have no hide-totals switch, and
+    // user lists have neither a reply policy nor an exclusive flag.
+    polls_hide_totals: "unsupported",
     // v1 shipped `notes/edit` (`frontend/src/misskey/noteEdit.ts`); the
     // menu degrades honestly until the W3 editor connects `onEdit`.
     status_editing: "supported",
@@ -279,6 +301,8 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     drive: "supported",
     antennas: "supported",
     lists: "supported",
+    lists_replies_policy: "unsupported",
+    lists_exclusive: "unsupported",
     clips: "supported",
     // `channels/*` exists in stock Misskey (verified against the local
     // backend: search/show/timeline/followed/follow/unfollow), and the
@@ -305,6 +329,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     // Same `notes/create` poll `multiple` support as Misskey (v1
     // `docs/api-surface.md:67`).
     polls_multi: "supported",
+    // Same Misskey-family poll/list shapes: no `hide_totals`, no list
+    // reply policy or exclusive flag.
+    polls_hide_totals: "unsupported",
     // Sharkey-family `notes/edit` (same Misskey-family endpoint v1
     // shipped in `noteEdit.ts`).
     status_editing: "supported",
@@ -320,6 +347,8 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     drive: "supported",
     antennas: "supported",
     lists: "supported",
+    lists_replies_policy: "unsupported",
+    lists_exclusive: "unsupported",
     clips: "supported",
     // Same Misskey-family `channels/*` endpoints (Sharkey inherits them).
     channels: "supported",
@@ -339,6 +368,12 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     quote_posting: "supported",
     local_only: "supported",
     drive: "supported",
+    // Catodon keeps the Misskey-family `users/lists/*` endpoints; their
+    // params carry `name` only (no reply policy or exclusive flag), and its
+    // poll create has no hide-totals field either.
+    lists_replies_policy: "unsupported",
+    lists_exclusive: "unsupported",
+    polls_hide_totals: "unsupported",
     direct_messages: "unsupported",
     favourites_distinct_from_reactions: "unsupported",
     streaming: "supported",
@@ -357,6 +392,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     reactions: "supported",
     quote_posting: "supported",
     polls_multi: "unsupported",
+    // Polls are rejected outright on this backend (see above), so the
+    // hide-totals field has no path either.
+    polls_hide_totals: "unsupported",
     local_only: "supported",
     drive: "unsupported",
     antennas: "unsupported",
@@ -374,6 +412,10 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     reactions: "unsupported",
     like: "unsupported",
     polls_multi: "unsupported",
+    // `poll[hide_totals]` is permitted and persisted by Mastodon
+    // (`statuses_controller.rb` `status_params`, `PostStatusService`,
+    // `poll.rb`); the web UI does not expose it, the API does.
+    polls_hide_totals: "supported",
     status_editing: "supported",
     scheduled_posts: "supported",
     server_drafts: "unsupported",
@@ -390,6 +432,8 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     channels: "unsupported",
     chats: "unsupported",
     lists: "supported",
+    lists_replies_policy: "supported",
+    lists_exclusive: "supported",
     bookmarks: "supported",
     clips: "unsupported",
     direct_messages: "unsupported",
@@ -411,6 +455,15 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     no_quote: "unsupported",
     media_sensitivity: "unsupported",
     lists: "supported",
+    // Akkoma/Pleroma lists carry `exclusive` (`Pleroma.List`
+    // `update_changeset` casts it, `ListView` renders it) but no reply
+    // policy: the create/update request schema permits `title` + `exclusive`
+    // only, and the changeset has no such field. Polls: `hide_totals` is in
+    // the OpenAPI spec but `make_poll_data/1` never stores it — a no-op, so
+    // the flag is unsupported and the field is never sent.
+    lists_replies_policy: "unsupported",
+    lists_exclusive: "supported",
+    polls_hide_totals: "unsupported",
     clips: "unsupported",
     direct_messages: "unsupported",
     favourites_distinct_from_reactions: "supported",
@@ -430,6 +483,12 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     status_editing: "supported",
     reactions: "supported",
     like: "unsupported",
+    // Same Pleroma list/poll shapes as Akkoma (both live in the shared
+    // `Pleroma.*` modules): `exclusive` only, no reply policy, and no
+    // stored `hide_totals`.
+    lists_exclusive: "supported",
+    lists_replies_policy: "unsupported",
+    polls_hide_totals: "unsupported",
     no_quote: "unsupported",
     media_sensitivity: "unsupported",
     favourites_distinct_from_reactions: "supported",

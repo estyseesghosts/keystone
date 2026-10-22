@@ -136,6 +136,8 @@ export interface ComposeGates {
   media: ComposeGate;
   poll: ComposeGate;
   pollMultiple: ComposeGate;
+  /** Mastodon `poll[hide_totals]` (clickstone §1.6). */
+  pollHideTotals: ComposeGate;
   schedule: ComposeGate;
   reactionAcceptance: ComposeGate;
   localOnly: ComposeGate;
@@ -157,6 +159,7 @@ export function composeGates(
       media: none,
       poll: none,
       pollMultiple: none,
+      pollHideTotals: none,
       schedule: none,
       reactionAcceptance: none,
       localOnly: none,
@@ -170,6 +173,15 @@ export function composeGates(
     poll: on,
     pollMultiple:
       caps.polls_multi === "unsupported" ? off("This server allows single-choice polls only.") : on,
+    // Never an inert control: unsupported (no such field) and not-reported
+    // stay distinct. Only Mastodon stores `hide_totals`; Akkoma documents
+    // it but never persists it, so it is unsupported there.
+    pollHideTotals:
+      caps.polls_hide_totals === "supported"
+        ? on
+        : caps.polls_hide_totals === "unsupported"
+          ? off("This server does not support hiding poll totals.")
+          : off("This server has not reported hiding poll totals."),
     schedule:
       caps.scheduled_posts === "supported" && backend?.scheduled
         ? on
@@ -219,6 +231,9 @@ export interface ComposePollState {
   multiple: boolean;
   /** Seconds the poll stays open. */
   durationSeconds: number;
+  /** Hide the tallies until the poll closes (Mastodon `hide_totals`).
+   * Optional so older drafts/seeds load unchanged. */
+  hideTotals?: boolean;
 }
 
 export interface ComposeState {
@@ -347,6 +362,9 @@ export function buildPostDraft(state: ComposeState, ctx: BuildContext): BuildRes
       multiple: gates.pollMultiple.enabled ? state.poll.multiple : false,
       // Misskey `expiredAfter` is milliseconds; Mastodon `expires_in` seconds.
       expiredAfter: family === "mastodon" ? seconds : seconds * 1000,
+      // `true` only, and only where the field exists: a disabled gate drops
+      // it so an unsupported server never sees `hide_totals`.
+      ...(gates.pollHideTotals.enabled && state.poll.hideTotals ? { hideTotals: true } : {}),
     };
   }
   if (gates.reactionAcceptance.enabled && state.reactionAcceptance) {

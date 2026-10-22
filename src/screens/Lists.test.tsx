@@ -129,7 +129,9 @@ describe('Lists screen', () => {
       expect(await screen.findByText('Friends')).toBeTruthy()
       fireEvent.changeText(screen.getByTestId('lists-create-input'), 'Local')
       fireEvent.press(screen.getByTestId('lists-create-submit'))
-      await waitFor(() => expect(backend.lists.create).toHaveBeenCalledWith('Local'))
+      // Misskey-family capabilities report both list fields unsupported, so
+      // the payload carries no replies_policy/exclusive at all.
+      await waitFor(() => expect(backend.lists.create).toHaveBeenCalledWith('Local', {}))
       expect(await screen.findByText('Local')).toBeTruthy()
     } finally {
       done()
@@ -196,6 +198,114 @@ describe('Lists screen', () => {
       expect(await screen.findByText('Could not load lists.')).toBeTruthy()
       fireEvent.press(screen.getByTestId('lists-retry'))
       expect(await screen.findByText('Friends')).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
+
+  // 1.6 — reply policy + exclusive. Mastodon reports both supported, so the
+  // controls are live and the chosen values reach create/update; Akkoma
+  // reports the policy unsupported (its permitted params have no such
+  // field) while `exclusive` is real.
+  const mastodonBackend = (over: Record<string, string> = {}) => ({
+    family: 'mastodon',
+    capabilities: {
+      lists: 'supported',
+      lists_replies_policy: 'supported',
+      lists_exclusive: 'supported',
+      ...over,
+    },
+    lists: {
+      list: jest.fn(async () => [
+        {id: 'l1', name: 'Friends', repliesPolicy: 'list', exclusive: false},
+      ]),
+      create: jest.fn(async (name: string, fields: object) => ({id: 'l2', name, ...fields})),
+      update: jest.fn(async (id: string, patch: object) => ({id, ...patch})),
+      delete: jest.fn(async () => undefined),
+    },
+  })
+
+  it('creates a Mastodon list with the chosen reply policy and exclusive flag', async () => {
+    const backend = mastodonBackend()
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('Friends')).toBeTruthy()
+      fireEvent.changeText(screen.getByTestId('lists-create-input'), 'Quiet')
+      fireEvent.press(screen.getByTestId('lists-create-policy-followed'))
+      fireEvent.press(screen.getByTestId('lists-create-exclusive'))
+      fireEvent.press(screen.getByTestId('lists-create-submit'))
+      await waitFor(() =>
+        expect(backend.lists.create).toHaveBeenCalledWith('Quiet', {
+          repliesPolicy: 'followed',
+          exclusive: true,
+        }),
+      )
+    } finally {
+      done()
+    }
+  })
+
+  it('edits the reply policy of an existing list from the reported values', async () => {
+    const backend = mastodonBackend()
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('Friends')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('lists-rename-l1'))
+      // Seeded from the row: `list` policy, exclusive off.
+      expect(
+        screen.getByTestId('lists-edit-l1-policy-list').props.accessibilityState.selected,
+      ).toBe(true)
+      fireEvent.press(screen.getByTestId('lists-edit-l1-policy-none'))
+      fireEvent.press(screen.getByTestId('lists-edit-l1-exclusive'))
+      fireEvent.press(screen.getByTestId('lists-rename-save-l1'))
+      await waitFor(() =>
+        expect(backend.lists.update).toHaveBeenCalledWith('l1', {
+          name: 'Friends',
+          repliesPolicy: 'none',
+          exclusive: true,
+        }),
+      )
+    } finally {
+      done()
+    }
+  })
+
+  it('disables the list fields with a reason where the server lacks them', async () => {
+    const backend = mastodonBackend({lists_replies_policy: 'unsupported'})
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('Friends')).toBeTruthy()
+      expect(
+        screen.getByTestId('lists-create-policy-none').props.accessibilityState.disabled,
+      ).toBe(true)
+      expect(screen.getByText('This server cannot choose who replies are shown from.')).toBeTruthy()
+      expect(
+        screen.getByTestId('lists-create-exclusive').props.accessibilityState.disabled,
+      ).toBe(false)
+      fireEvent.changeText(screen.getByTestId('lists-create-input'), 'Quiet')
+      fireEvent.press(screen.getByTestId('lists-create-submit'))
+      // The unsupported field is never sent, even though the state kept it.
+      await waitFor(() =>
+        expect(backend.lists.create).toHaveBeenCalledWith('Quiet', {exclusive: false}),
+      )
+    } finally {
+      done()
+    }
+  })
+
+  it('disables both fields with a reason when the server has not reported them', async () => {
+    const backend = mastodonBackend({
+      lists_replies_policy: 'unknown',
+      lists_exclusive: 'unknown',
+    })
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('Friends')).toBeTruthy()
+      expect(
+        screen.getByTestId('lists-create-policy-followed').props.accessibilityState.disabled,
+      ).toBe(true)
+      expect(screen.getByText('This server has not reported list reply settings.')).toBeTruthy()
+      expect(screen.getByText('This server has not reported exclusive lists.')).toBeTruthy()
     } finally {
       done()
     }
