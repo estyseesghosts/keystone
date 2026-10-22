@@ -452,7 +452,18 @@ function NotificationsUnreadBadgeInner({
 // proper or its footer buttons, so the menu no longer duplicates them.
 // Rendered in `AnchoredPopup` (above the sidebar trigger, below the strip
 // trigger), which flips and clamps so the menu can never hang off-screen.
-function AccountMenu({onClose, testPrefix}: {onClose: () => void; testPrefix: string}) {
+function AccountMenu({
+  onClose,
+  testPrefix,
+  overflowActions,
+}: {
+  onClose: () => void
+  testPrefix: string
+  /** Rail overflow: the collapsed sidebar hides its Settings / My Uploads
+   * footer buttons, so the profile menu carries them instead. Expanded
+   * sidebar and mobile strip leave this off (footer owns them there). */
+  overflowActions?: boolean
+}) {
   const {i18n} = useLingui()
   const store = useSessionStore()
   const sessions = useSessions()
@@ -537,12 +548,43 @@ function AccountMenu({onClose, testPrefix}: {onClose: () => void; testPrefix: st
           onPress={() => closeAnd(() => goStackScreen('Announcements'))}
         />
       ) : null}
+      {/* Rail overflow: the collapsed sidebar hides Settings + My Uploads
+          (footer buttons), so they live here instead. Expanded sidebar
+          owns them in the footer, so they stay out of this menu there. */}
+      {overflowActions ? (
+        <>
+          <PopupRow
+            testID={`${testPrefix}-settings`}
+            label={i18n._(msg`Settings`)}
+            onPress={() =>
+              closeAnd(() => {
+                if (navigationRef.isReady()) navigationRef.navigate('Settings')
+              })
+            }
+          />
+          {active?.family === 'misskey' ? (
+            <PopupRow
+              testID={`${testPrefix}-uploads`}
+              label={i18n._(msg`My Uploads`)}
+              onPress={() => closeAnd(() => goStackScreen('Drive'))}
+            />
+          ) : null}
+        </>
+      ) : null}
       {error ? <Caption testID={`${testPrefix}-error`}>{error}</Caption> : null}
     </>
   )
 }
 
-function AccountButton({testPrefix, menuSide}: {testPrefix: string; menuSide: 'below' | 'above'}) {
+function AccountButton({
+  testPrefix,
+  menuSide,
+  overflowActions,
+}: {
+  testPrefix: string
+  menuSide: 'below' | 'above'
+  overflowActions?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const anchor = useRef<ViewType | null>(null)
   return (
@@ -565,7 +607,11 @@ function AccountButton({testPrefix, menuSide}: {testPrefix: string; menuSide: 'b
           side={menuSide}
           minWidth={240}
           testID={`${testPrefix}-menu`}>
-          <AccountMenu onClose={() => setOpen(false)} testPrefix={`${testPrefix}-menu`} />
+          <AccountMenu
+            onClose={() => setOpen(false)}
+            testPrefix={`${testPrefix}-menu`}
+            overflowActions={overflowActions}
+          />
         </AnchoredPopup>
       ) : null}
     </>
@@ -825,22 +871,16 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
       {collectionRows.length > 0 ? (
         <View style={styles.sideGroup}>{collectionRows.map(renderCollectionRow)}</View>
       ) : null}
-      {session && !rail ? (
-        <Pressable
-          onPress={() => navigationRef.navigate('Compose')}
-          accessibilityRole="button"
-          accessibilityLabel={t`Write a post`}
-          style={[styles.navlink, styles.postButton, {borderColor: alf.palette.edge}]}>
-          <PencilIcon size={20} color={alf.palette.text} />
-          <Body>{t`Post`}</Body>
-        </Pressable>
-      ) : null}
       <View style={{flex: 1}} />
       <View style={styles.navuser}>
         {session ? (
           <>
             <View style={[styles.navlink, rail && styles.navlinkRail]}>
-              <AccountButton testPrefix="sidebar-account" menuSide="above" />
+              <AccountButton
+                testPrefix="sidebar-account"
+                menuSide="above"
+                overflowActions={rail}
+              />
               {rail ? null : (
                 <View style={{flex: 1, minWidth: 0}}>
                   <Body numberOfLines={1}>
@@ -852,22 +892,41 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
                 </View>
               )}
             </View>
+            {/* Post sits below the profile, above the quick actions — in
+                BOTH layouts, so the narrow sidebar never loses it. The
+                outline + pencil mark it apart from the category tabs. */}
+            <Pressable
+              onPress={() => navigationRef.navigate('Compose')}
+              accessibilityRole="button"
+              accessibilityLabel={t`Write a post`}
+              testID="sidebar-post"
+              style={[
+                styles.navlink,
+                rail && styles.navlinkRail,
+                styles.postButton,
+                {borderColor: alf.palette.edge},
+              ]}>
+              <PencilIcon size={20} color={alf.palette.text} />
+              {rail ? null : <Body>{t`Post`}</Body>}
+            </Pressable>
             {rail ? (
               <View style={styles.quickRail}>
-                {quickActions.map(a => (
-                  <Pressable
-                    key={a.key}
-                    onPress={a.onPress}
-                    accessibilityRole="button"
-                    accessibilityLabel={a.label}
-                    testID={a.testID}
-                    style={styles.navlinkRail}>
-                    <a.Icon size={20} color={alf.palette.text} />
-                    {a.badge ? (
-                      <NotificationsUnreadBadge sessionId={session.id} compact />
-                    ) : null}
-                  </Pressable>
-                ))}
+                {quickActions
+                  .filter(a => a.key !== 'settings' && a.key !== 'uploads')
+                  .map(a => (
+                    <Pressable
+                      key={a.key}
+                      onPress={a.onPress}
+                      accessibilityRole="button"
+                      accessibilityLabel={a.label}
+                      testID={a.testID}
+                      style={styles.navlinkRail}>
+                      <a.Icon size={20} color={alf.palette.text} />
+                      {a.badge ? (
+                        <NotificationsUnreadBadge sessionId={session.id} compact />
+                      ) : null}
+                    </Pressable>
+                  ))}
               </View>
             ) : (
               <View style={[styles.quickGrid, isMisskey && styles.quickGridWrap]}>
@@ -1162,7 +1221,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sideGroup: {
-    marginTop: 16,
+    marginTop: 28,
   },
   quickGrid: {
     flexDirection: 'row',

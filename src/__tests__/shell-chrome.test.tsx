@@ -87,6 +87,14 @@ jest.mock('#/screens/Announcements', () => {
   }
 })
 
+jest.mock('#/screens/Compose', () => {
+  const React = jest.requireActual('react')
+  const {View} = jest.requireActual('react-native')
+  return {
+    ComposeScreen: () => React.createElement(View, {testID: 'compose-screen'}),
+  }
+})
+
 const memVault = (): TokenVault => ({
   getToken: () => Promise.resolve(null),
   setToken: () => Promise.resolve(),
@@ -390,5 +398,65 @@ describe('sidebar reshuffle (collections + footer actions)', () => {
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     fireEvent.press(screen.getByTestId('strip-account'))
     expect(screen.queryByTestId('strip-account-menu-drive')).toBeNull()
+  })
+
+  it('post button opens the composer on the expanded sidebar', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-post'))
+    expect(await screen.findByTestId('compose-screen')).toBeTruthy()
+  })
+})
+
+describe('sidebar rail (collapsed)', () => {
+  it('keeps Post + Messages + Notifications, hides Settings + Uploads', async () => {
+    widthHolder.width = 800
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-post')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-messages')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-notifications')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-settings')).toBeNull()
+    expect(screen.queryByTestId('sidebar-uploads')).toBeNull()
+  })
+
+  it('post button opens the composer on the rail', async () => {
+    widthHolder.width = 800
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-post'))
+    expect(await screen.findByTestId('compose-screen')).toBeTruthy()
+  })
+
+  it('rail profile menu overflows Settings + Uploads (misskey)', async () => {
+    widthHolder.width = 800
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-account'))
+    expect(screen.getByTestId('sidebar-account-menu-settings')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-account-menu-uploads')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-account-menu-uploads'))
+    expect(await screen.findByTestId('drive-screen')).toBeTruthy()
+  })
+
+  it('rail profile menu overflows Settings but no Uploads (mastodon)', async () => {
+    widthHolder.width = 800
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-account'))
+    expect(screen.getByTestId('sidebar-account-menu-settings')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-account-menu-uploads')).toBeNull()
+    fireEvent.press(screen.getByTestId('sidebar-account-menu-settings'))
+    expect(await screen.findByTestId('settings-screen')).toBeTruthy()
+  })
+
+  it('expanded profile menu carries no Settings/Uploads overflow', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-account'))
+    expect(screen.queryByTestId('sidebar-account-menu-settings')).toBeNull()
+    expect(screen.queryByTestId('sidebar-account-menu-uploads')).toBeNull()
   })
 })
