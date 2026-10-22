@@ -116,7 +116,10 @@ export type RootParamList = {
    * family only, capability-gated. */
   Conversations: undefined
   Conversation: {id: string}
-  /** Misskey chat (P6.2, clickstone §2.2): the room list + one room
+  /** One article's discussions: every post referencing the link, via the
+   * shared `search|<url>` feed. Params ride navigation state (a raw URL
+   * is no path segment); `/news/discussions` is the deep-link stub. */
+  NewsDiscussions: {url: string; title?: string}  /** Misskey chat (P6.2, clickstone §2.2): the room list + one room
    * thread + one 1-on-1 thread. Misskey family only, capability-gated. */
   ChatRooms: undefined
   ChatRoom: {roomId: string}
@@ -179,6 +182,7 @@ export const paths: Record<keyof RootParamList, string> = {
   Channels: '/channels',
   Conversations: '/conversations',
   Conversation: '/conversations/:id',
+  NewsDiscussions: '/news/discussions',
   ChatRooms: '/chat',
   ChatRoom: '/chat/rooms/:roomId',
   ChatUser: '/chat/users/:userId',
@@ -298,6 +302,7 @@ export function linkingScreens(): LinkingScreens {
     Channels: leaf('Channels'),
     Conversations: leaf('Conversations'),
     Conversation: leaf('Conversation'),
+    NewsDiscussions: leaf('NewsDiscussions'),
     ChatRooms: leaf('ChatRooms'),
     ChatRoom: leaf('ChatRoom'),
     ChatUser: leaf('ChatUser'),
@@ -367,6 +372,8 @@ export function titleForRoute(
       return t`Messages`
     case 'Conversation':
       return t`Conversation`
+    case 'NewsDiscussions':
+      return t`Discussions`
     case 'ChatRooms':
       return t`Chat`
     case 'ChatRoom':

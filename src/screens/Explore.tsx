@@ -16,7 +16,7 @@
 // member exists. No fake data, ever.
 
 import {useEffect, useRef, useState} from 'react'
-import {FlatList, Image, StyleSheet, View} from 'react-native'
+import {FlatList, Image, Linking, StyleSheet, View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
 import {msg} from '@lingui/macro'
@@ -25,6 +25,7 @@ import {
   displayNameOf,
   handleOf,
   isUnsupportedError,
+  safeHttpUrl,
   type Account,
   type Backend,
   type ExploreUsers,
@@ -45,6 +46,7 @@ import {SignInButton} from '#/components/SignInButton'
 import {ExploreSearchBar} from '#/components/Explore/ExploreSearchBar'
 import {ExploreSuggestPopup} from '#/components/Explore/ExploreSuggestPopup'
 import {ExploreTabBar} from '#/components/Explore/ExploreTabBar'
+import {showToast} from '#/lib/toast'
 import {i18n} from '#/locale/i18n'
 import {applySuggestion, suggestTrigger} from '#/components/Explore/suggest'
 import {exploreTabFromParam, type ExploreTab, type RootParamList} from '#/routes'
@@ -135,21 +137,48 @@ function TagChip({tag, onOpen}: {tag: TrendingTag; onOpen: () => void}) {
 
 function NewsCard({link}: {link: NewsLink}) {
   const theme = useTheme()
+  const navigation = useNavigation<NavigationProp<RootParamList>>()
+  const openLink = () => {
+    const safe = safeHttpUrl(link.url)
+    if (!safe) {
+      showToast('Could not open this link.')
+      return
+    }
+    void Linking.openURL(safe).catch(() => showToast('Could not open this link.'))
+  }
   return (
-    <View style={[atoms.py_sm, atoms.px_md, styles.newsRow]} testID="explore-news-item">
-      {link.image ? (
-        <Image
-          source={{uri: link.image}}
-          style={[styles.newsPhoto, {backgroundColor: theme.palette.raise}]}
-          resizeMode="cover"
-          accessibilityIgnoresInvertColors
-          testID="explore-news-photo"
-        />
-      ) : null}
-      <View style={styles.newsText}>
-        <Body>{link.title}</Body>
-        {link.providerName ? <Caption color="faint">{link.providerName}</Caption> : null}
-        {link.description ? <Caption color="faint">{link.description}</Caption> : null}
+    <View style={[atoms.py_sm, atoms.px_md]} testID="explore-news-item">
+      <Pressable
+        onPress={openLink}
+        accessibilityRole="link"
+        accessibilityLabel={`Open link: ${link.title}`}
+        testID="explore-news-open"
+        style={styles.newsRow}>
+        {link.image ? (
+          <Image
+            source={{uri: link.image}}
+            style={[styles.newsPhoto, {backgroundColor: theme.palette.raise}]}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+            testID="explore-news-photo"
+          />
+        ) : null}
+        <View style={styles.newsText}>
+          <Body>{link.title}</Body>
+          {link.providerName ? <Caption color="faint">{link.providerName}</Caption> : null}
+          {link.description ? <Caption color="faint">{link.description}</Caption> : null}
+        </View>
+      </Pressable>
+      <View style={styles.discussRow}>
+        <Pressable
+          onPress={() => navigation.navigate('NewsDiscussions', {url: link.url, title: link.title})}
+          accessibilityRole="button"
+          accessibilityLabel={`Discussions about ${link.title}`}
+          testID="explore-news-discussions">
+          <View style={[styles.discussPill, {borderColor: theme.palette.edge}]}>
+            <Caption>{i18n._(msg`Discussions`)}</Caption>
+          </View>
+        </Pressable>
       </View>
     </View>
   )
@@ -174,6 +203,10 @@ const styles = StyleSheet.create({
   newsRow: {flexDirection: 'row', gap: 12},
   newsPhoto: {width: 112, minHeight: 64, borderRadius: 8},
   newsText: {flex: 1, minWidth: 0, justifyContent: 'center'},
+  // Discussions pill rides bottom-right of the article, below the
+  // link body and clear of its tap target.
+  discussRow: {flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8},
+  discussPill: {borderWidth: 1, borderRadius: 9999, paddingHorizontal: 12, paddingVertical: 6},
 })
 
 // --- Tab bodies --------------------------------------------------------------

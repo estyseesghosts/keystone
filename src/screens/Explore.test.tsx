@@ -5,6 +5,7 @@ import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-native'
+import {Linking} from 'react-native'
 
 import type {Session} from '@keystone/fedi'
 
@@ -235,6 +236,41 @@ describe('ExploreScreen', () => {
     // Only the link with an image renders a photo; one rule per pair.
     expect(screen.getAllByTestId('explore-news-photo')).toHaveLength(1)
     expect(screen.getAllByTestId('explore-news-sep')).toHaveLength(1)
+  })
+
+  it('tapping an article opens its link and the pill opens its discussions', async () => {
+    const openSpy = jest.spyOn(Linking, 'openURL').mockImplementation(() => Promise.resolve(true as never))
+    try {
+      const backend = baseBackend({
+        explore: {
+          posts: jest.fn(async () => ({items: [], cursor: null, end: true})),
+          news: jest.fn(async () => ({
+            items: [
+              {
+                url: 'https://n.example/1',
+                title: 'Big news',
+                description: 'Details here',
+                providerName: 'N',
+                image: null,
+              },
+            ],
+            cursor: null,
+            end: true,
+          })),
+        },
+      })
+      setup({backend, params: {tab: 'news'}})
+      expect(await screen.findByText('Big news')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('explore-news-open'))
+      expect(openSpy).toHaveBeenCalledWith('https://n.example/1')
+      fireEvent.press(screen.getByTestId('explore-news-discussions'))
+      expect(mockNavigate).toHaveBeenCalledWith('NewsDiscussions', {
+        url: 'https://n.example/1',
+        title: 'Big news',
+      })
+    } finally {
+      openSpy.mockRestore()
+    }
   })
 
   it('posts search runs the search.posts feed', async () => {

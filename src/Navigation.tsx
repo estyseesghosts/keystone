@@ -66,6 +66,7 @@ import {ChannelScreen} from '#/screens/Channel'
 import {ChannelsScreen} from '#/screens/Channels'
 import {ConversationScreen} from '#/screens/Conversation'
 import {ConversationsScreen} from '#/screens/Conversations'
+import {NewsDiscussionsScreen} from '#/screens/NewsDiscussions'
 import {ChatRoomScreen} from '#/screens/ChatRoom'
 import {ChatRoomsScreen} from '#/screens/ChatRooms'
 import {ChatUserScreen} from '#/screens/ChatUser'
@@ -1169,6 +1170,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <Stack.Screen name="Channels" component={ChannelsScreen} />
               <Stack.Screen name="Conversations" component={ConversationsScreen} />
               <Stack.Screen name="Conversation" component={ConversationScreen} />
+              <Stack.Screen name="NewsDiscussions" component={NewsDiscussionsScreen} />
               <Stack.Screen name="ChatRooms" component={ChatRoomsScreen} />
               <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
               <Stack.Screen name="ChatUser" component={ChatUserScreen} />
