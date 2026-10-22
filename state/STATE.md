@@ -13,18 +13,19 @@ Wave 2: 2.1 Mastodon conversations/DM inbox (`ConversationsApi`,
 `direct_messages` on mastodon+akkoma), 2.3 transfer UI (ADR 0004
 `expo-document-picker`, 5 Misskey families real, 12 Mastodon rows
 honest-disabled), 2.2 Misskey chat (`ChatApi`, rooms+stream, Misskey
-`direct_messages` flipped). Hotfix: `read:conversations` dropped —
-not a real Mastodon scope (upstream `enforce_configured_scopes`
-rejected app registration); scope subset now test-pinned.
+`direct_messages` flipped). Login fixes: `read:conversations` dropped
+(not a real Mastodon scope — 422); per-flavor scopes (ADR 0005,
+Mastodon triple `read write follow` — logged-in authorize 502'd over
+~512-char URLs, verified live 200 after fix).
 
-Verification on `main`: **182 suites / 2273 tests green**;
+Verification on `main`: **182 suites / 2286 tests green**;
 `typecheck` (ios+android+web) + `lint` clean. Per-slice logs:
 `state/logs/2026-10-22-p6.*.md`; task index `docs/tasks/README.md`.
 
 ## Next 3 steps
 
-1. PAUSED per owner: Mastodon login broke (`read:conversations` fix
-   merged this session) — owner confirms login works before Wave 3 starts.
+1. PAUSED per owner: Wave 2 + both login fixes merged — owner
+   confirms mstdn.ca login works before Wave 3 starts.
 2. Wave 3.1: admin insight, two branches (`-masto` owns the
    admin-capability+scope seam in `detect.ts`/`oauth.ts`; `-misskey`
    after, rebase onto the seam).
