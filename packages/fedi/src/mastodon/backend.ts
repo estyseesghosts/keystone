@@ -75,7 +75,7 @@ import {
   htmlToPlainText,
   pageOf,
 } from "./adapt";
-import type { ContinuationPage, TimelinePageOptions } from "./endpoints";
+import type { ContinuationPage, SearchResult, TimelinePageOptions } from "./endpoints";
 import {
   answerFollowRequest,
   deleteStatus,
@@ -322,6 +322,19 @@ export function createMastodonBackend(
       // Contract §5: no next link OR an empty page.
       end: page.end,
     };
+  }
+
+  /** One adapted search page (v2 search mixes result kinds, so the
+   * continuation applies to the whole answer while this maps only the
+   * requested kind). Same §5 end rule: only the server's absent next
+   * Link ends the feed — a full page without one stays the end (never a
+   * length heuristic, never an invented cursor). */
+  function toSearchPage<T>(result: SearchResult, items: T[]): Page<T> {
+    return toPage({
+      items,
+      continuation: result.continuation,
+      end: result.continuation === null || items.length === 0,
+    });
   }
 
   function pageOpts(opts: PageOpts): TimelinePageOptions {
@@ -712,18 +725,27 @@ export function createMastodonBackend(
     // --- Search -------------------------------------------------------------
 
     search: {
+      /** Full-text post search, paged by the v2 Link header. `type` is
+       * always sent: upstream pins combined (type-less) search to
+       * offset 0, so only a typed search can page. */
       async posts(query: string, opts: SearchPostsOpts = {}) {
-        void opts;
-        const result = await searchV2(client, query);
-        return { items: result.statuses, cursor: null, end: true };
+        const result = await searchV2(client, query, {
+          type: "statuses",
+          ...pageOpts(opts),
+        });
+        return toSearchPage(result, result.statuses);
       },
       async tags(tag: string, opts: PageOpts = {}) {
         return toPage(await fetchTagTimelinePage(client, tag, pageOpts(opts)));
       },
+      /** Account search, same Link paging (v2 search pages accounts by
+       * `offset`; a prev Link is available as `searchV2(...).prev`). */
       async accounts(query: string, opts: PageOpts = {}) {
-        void opts;
-        const result = await searchV2(client, query);
-        return { items: result.accounts, cursor: null, end: true };
+        const result = await searchV2(client, query, {
+          type: "accounts",
+          ...pageOpts(opts),
+        });
+        return toSearchPage(result, result.accounts);
       },
       /** `#` autocomplete: tag-name candidates via typed v2 search. */
       async suggestTags(query: string, opts: PageOpts = {}) {

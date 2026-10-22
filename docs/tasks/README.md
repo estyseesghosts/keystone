@@ -38,5 +38,6 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p4.7-sharkey-likes](p4.7-sharkey-likes.md) | kissme spec (owner) | in progress, live tap pending | `p3.1-signin-functional` | (this session) |
 | [p5.1-settings-tree](p5.1-settings-tree.md) | §5 P5 settings | in progress | `p3.1-signin-functional` | `state/logs/2026-10-20-p5.1-settings-tree.md` |
 | [gap-closure](gap-closure.md) | cross-cutting (register) | not started | `p6.0-gap-closure` | `state/logs/2026-10-20-gap-audit.md` |
+| [p6.0-search-paging](p6.0-search-paging.md) | clickstone §0.2 | done | `p6.0-search-paging` | `state/logs/2026-10-22-p6.0-search-paging.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.

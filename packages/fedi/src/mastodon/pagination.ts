@@ -57,11 +57,15 @@ export function prevLink(headers: Headers, origin: string): string | null {
 }
 
 /** Cursor params understood by both backends (contract §5). `max_id` pages
- * older, `since_id` newer, `min_id` newer-where-supported. */
+ * older, `since_id` newer, `min_id` newer-where-supported. `offset` is
+ * the page-number cursor of the endpoints that use one (`/api/v2/search`;
+ * combined — type-less — search ignores it, so search pages by type). */
 export interface Cursors {
   max_id?: string;
   since_id?: string;
   min_id?: string;
+  /** Page number for offset-paged endpoints (v2 search). */
+  offset?: number;
   limit?: number;
 }
 
@@ -75,6 +79,7 @@ export function withCursors(
   if (cursors.max_id !== undefined) out.max_id = cursors.max_id;
   if (cursors.since_id !== undefined) out.since_id = cursors.since_id;
   if (cursors.min_id !== undefined) out.min_id = cursors.min_id;
+  if (cursors.offset !== undefined) out.offset = cursors.offset;
   if (cursors.limit !== undefined) out.limit = cursors.limit;
   return out;
 }
@@ -95,10 +100,15 @@ export function cursorsFromUrl(url: string): Cursors {
     const maxId = get("max_id");
     const sinceId = get("since_id");
     const minId = get("min_id");
+    const offset = get("offset");
     const limit = get("limit");
     if (maxId !== undefined) out.max_id = maxId;
     if (sinceId !== undefined) out.since_id = sinceId;
     if (minId !== undefined) out.min_id = minId;
+    if (offset !== undefined) {
+      const n = Number(offset);
+      if (Number.isFinite(n)) out.offset = n;
+    }
     if (limit !== undefined) {
       const n = Number(limit);
       if (Number.isFinite(n)) out.limit = n;
@@ -141,9 +151,18 @@ export type Continuation =
  *   token never leaves it (the raw URL itself is never followed).
  * - Returns null for "no next link" and for a cross-origin link with no
  *   recognized cursor (end of feed — never a wrong request).
+ *
+ * `rel` selects the direction; `nextContinuation`/`prevContinuation` are
+ * the only intended callers (`prev` is used where an endpoint offers
+ * back-paging — search v2 carries `offset`, which `cursorsFromUrl`
+ * recognizes).
  */
-export function nextContinuation(headers: Headers, origin: string): Continuation | null {
-  const raw = parseLinkHeader(headers.get("Link")).next;
+function linkContinuation(
+  headers: Headers,
+  origin: string,
+  rel: "next" | "prev",
+): Continuation | null {
+  const raw = parseLinkHeader(headers.get("Link"))[rel];
   if (!raw) return null;
   const same = resolveSameOriginUrl(origin, raw);
   if (same) return { kind: "url", url: same };
@@ -151,9 +170,22 @@ export function nextContinuation(headers: Headers, origin: string): Continuation
   if (
     cursors.max_id !== undefined ||
     cursors.since_id !== undefined ||
-    cursors.min_id !== undefined
+    cursors.min_id !== undefined ||
+    cursors.offset !== undefined
   ) {
     return { kind: "cursors", cursors };
   }
   return null;
+}
+
+/** Next-page plan for a page's Link header (see `linkContinuation`). */
+export function nextContinuation(headers: Headers, origin: string): Continuation | null {
+  return linkContinuation(headers, origin, "next");
+}
+
+/** Previous-page plan for a page's Link header. Same origin/cursor rules
+ * as `nextContinuation`; `offset` is a recognized cursor here because
+ * v2 search back-pages by page number. */
+export function prevContinuation(headers: Headers, origin: string): Continuation | null {
+  return linkContinuation(headers, origin, "prev");
 }
