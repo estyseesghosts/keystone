@@ -55,6 +55,7 @@ import type {
   ServerDraftsApi,
   StreamHandle,
   TimelineKind,
+  TransferApi,
   Translation,
   UserReaction,
 } from "../core/backend";
@@ -136,6 +137,7 @@ import {
   listServerDrafts,
   updateServerDraft,
 } from "./serverDrafts";
+import { exportData, importData } from "./importExport";
 
 // --- Transport -------------------------------------------------------------
 //
@@ -592,6 +594,23 @@ export function createMisskeyBackend(
     async remove(noteId) {
       await removeFavorite(call, noteId);
     },
+  };
+
+  // Account data portability (clickstone §2.3): imports upload the picked
+  // file to Drive and then call `i/import-*` with the returned `{fileId}`
+  // (never `{file}`); exports only ENQUEUE and report the rate window +
+  // the `exportCompleted` notification to watch. The 0.6 shapes stand.
+  const transfer: TransferApi = {
+    importFile: (kind, file, opts) => {
+      const onPhase = opts?.onPhase;
+      return importData(
+        transport,
+        kind,
+        file,
+        onPhase ? { onProgress: (progress) => onPhase(progress.phase) } : {},
+      );
+    },
+    exportList: (kind) => exportData(call, kind),
   };
 
   return {
@@ -1241,6 +1260,7 @@ export function createMisskeyBackend(
     scheduled,
     serverDrafts,
     bookmarks,
+    transfer,
   };
 
   async function listAccounts(
