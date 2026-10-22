@@ -37,6 +37,7 @@ import {useSessionStore} from '#/state/session/SessionProvider'
 import {appStorage} from '#/storage'
 
 import {
+  completeMastodonOAuth,
   getWebOrigin,
   mastodonMfaSignin,
   mastodonPasswordSignin,
@@ -48,6 +49,7 @@ import {
   webCallbackUri,
   type MisskeyMiAuthPending,
 } from './LoginFlows'
+import {parseCallbackParams} from './AuthCallback'
 
 // Complete the iOS auth session when the app returns from the browser.
 void WebBrowser.maybeCompleteAuthSession()
@@ -74,13 +76,18 @@ export function redirectUriFor(): string {
   return Linking.createURL(AUTH_CALLBACK_PATH.replace(/^\//, ''))
 }
 
-async function openBrowser(url: string): Promise<void> {
+async function openBrowser(url: string): Promise<string | null> {
   if (Platform.OS === 'web') {
     const loc = (globalThis as {location?: {assign?: (url: string) => void}}).location
     loc?.assign?.(url)
-    return
+    return null
   }
-  await WebBrowser.openAuthSessionAsync(url, redirectUriFor())
+  // The auth session captures the redirect in-session and reports it as
+  // the result URL. Callers that can complete inline (iOS, below) use it;
+  // the AuthCallback deep-link screen remains the completion path
+  // everywhere the OS re-opens the app with the redirect (Android).
+  const res = await WebBrowser.openAuthSessionAsync(url, redirectUriFor())
+  return res.type === 'success' ? res.url : null
 }
 
 function gateMessage(value: string | undefined, action: string): string | null {
@@ -267,13 +274,17 @@ export function LoginScreen() {
     setBusy(true)
     setError(null)
     try {
-      await startMastodonOAuth({
+      const callbackUrl = await startMastodonOAuth({
         appStore: appStorage(),
         origin: firstParty.homeOrigin,
         redirectUri: redirectUriFor(),
         openBrowser,
         flavor: firstParty.flavor,
       })
+      if (Platform.OS === 'ios' && callbackUrl) {
+        await finishOAuthCallbackUrl(callbackUrl, 'first-party')
+        return
+      }
       // The callback screen completes the flow (AuthCallback).
     } catch (err) {
       fail(err)
@@ -377,13 +388,17 @@ export function LoginScreen() {
     setBusy(true)
     setError(null)
     try {
-      await startMastodonOAuth({
+      const callbackUrl = await startMastodonOAuth({
         appStore: appStorage(),
         origin: detection.origin,
         redirectUri: redirectUriFor(),
         openBrowser,
         flavor: detection.flavor,
       })
+      if (Platform.OS === 'ios' && callbackUrl) {
+        await finishOAuthCallbackUrl(callbackUrl, 'third-party')
+        return
+      }
       // The callback screen completes the flow (AuthCallback).
     } catch (err) {
       fail(err)
@@ -441,6 +456,51 @@ export function LoginScreen() {
     setMiauth(null)
     setMiauthStatus(null)
     setError(null)
+  }
+
+  /** iOS inline OAuth completion (parity with AuthCallback's mastodon
+   * branch): `openAuthSessionAsync` consumes the redirect in-session and
+   * never re-opens the app, so the AuthCallback deep link never fires —
+   * exchange + verify + store here from the session's result URL. Returns
+   * true when the flow is complete or definitively failed; false when the
+   * URL carries no response and the caller should keep waiting on the
+   * link path (Android) instead. */
+  const finishOAuthCallbackUrl = async (
+    href: string,
+    hosting: 'first-party' | 'third-party',
+  ): Promise<boolean> => {
+    const params = parseCallbackParams(href)
+    if (params.error) {
+      setError('The sign-in was cancelled or denied.')
+      return true
+    }
+    if (!params.code || !params.state) return false
+    const done = await completeMastodonOAuth({
+      appStore: appStorage(),
+      code: params.code,
+      state: params.state,
+    })
+    if (!done) return false // replay: the link path owns it
+    let flavor: ServerFlavor = 'unknown'
+    let evidence: DetectionEvidence | null = null
+    try {
+      const found = await detectServer(done.origin)
+      if (found.family === 'mastodon') flavor = found.flavor
+      evidence = found.evidence
+    } catch {
+      // Flavor refines later; the verified session stores regardless.
+    }
+    await finish({
+      origin: done.origin,
+      family: 'mastodon',
+      flavor,
+      token: done.token,
+      account: done.account,
+      grant: 'oauth-pkce',
+      hosting,
+      evidence,
+    })
+    return true
   }
 
   const passwordGate = detection ? gateMessage(detection.features.password_grant, 'password sign-in') : null

@@ -251,6 +251,27 @@ describe('mastodon MFA + OAuth', () => {
     await expect(complete({appStore: store, code, state})).resolves.toBeNull()
   })
 
+  it('start returns the browser session result URL (iOS inline completion)', async () => {
+    const store: KeyValueStore = createMemoryStore()
+    globalThis.fetch = jest.fn(async (input: unknown) => {
+      const url = String(input)
+      if (url === `${ORIGIN_B}/api/v1/apps`) {
+        return jsonResponse({client_id: 'cid', client_secret: 'csec'})
+      }
+      throw new Error(`unexpected request ${url}`)
+    }) as unknown as typeof fetch
+
+    // Browser captures the redirect (iOS auth session): the URL passes through.
+    const callback = 'keystone://auth/callback?code=c&state=s'
+    await expect(
+      start({appStore: store, origin: ORIGIN_B, redirectUri: `${ORIGIN_B}/auth/callback`, openBrowser: () => Promise.resolve(callback)}),
+    ).resolves.toBe(callback)
+    // Web navigation / cancel: no URL passes through.
+    await expect(
+      start({appStore: store, origin: ORIGIN_B, redirectUri: `${ORIGIN_B}/auth/callback`, openBrowser: () => Promise.resolve()}),
+    ).resolves.toBeNull()
+  })
+
   it('requests the umbrella triple on mastodon flavor, the full set on akkoma (ADR 0005)', async () => {
     const calls: Array<{url: string; body: string}> = []
     globalThis.fetch = jest.fn(async (input: unknown, init?: RequestInit) => {

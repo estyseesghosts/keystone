@@ -22,7 +22,6 @@ const stripSymbolLocs = () => ({
 })
 
 const workletsPluginOptions = {
-  bundleMode: true,
   strictGlobal: true, // optional, but recommended
 }
 

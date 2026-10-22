@@ -1,6 +1,6 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: **P6 Wave 2 COMPLETE + login hotfix on `main` (2026-10-22)**.
+Phase/slice: **Mobile bring-up DONE on `main`, tree dirty (2026-10-22)**.
 Program source of truth: `docs/clickstone.md` +
 `docs/2026-10-22-full-audit-mastodon-misskey-v1-parity/`. The old V2
 E6/E7 program is closed; do not reopen it from `docs/parity-gaps.md`.
@@ -24,19 +24,25 @@ Verification on `main`: **182 suites / 2286 tests green**;
 
 ## Next 3 steps
 
-1. PAUSED per owner: Wave 2 + both login fixes merged — owner
-   confirms mstdn.ca login works before Wave 3 starts.
-2. Wave 3.1: admin insight, two branches (`-masto` owns the
+1. OWNER DECIDES: mobile bring-up tree is dirty on `main` (app.config,
+   plugins/, metro/babel, hosting, Login+tests, ios/ untracked) — commit
+   as-is or say what to split. Trio green (182/2287), both devices live.
+2. PAUSED per owner: Wave 2 + both login fixes merged — owner
+   confirms mstdn.ca login works before Wave 3 starts. (iPhone Mastodon
+   login now also verified live on device.)
+3. Wave 3.1: admin insight, two branches (`-masto` owns the
    admin-capability+scope seam in `detect.ts`/`oauth.ts`; `-misskey`
    after, rebase onto the seam).
-3. Wave 3.2 → 3.3+3.4 → 3.5 after 3.1 lands. Wave 4 out of scope.
 
 ## Blockers / debts
 
 - Rig Misskey `:3101` / Sharkey `:3102` refused; owner live-tests
   externally — do not spend a workstream on a rig. All live runs
   `not verified (owner live-tests externally)`.
-- No device pass (Oppo `3B15A500TQD00000`, iOS) and no TalkBack pass.
+- Device pass DONE 2026-10-22 (Oppo feed live, iPhone sign-in + Mastodon
+  login live; log `state/logs/2026-10-22-mobile-bringup.md`). iPhone is on
+  the second Apple ID's free provisioning (rebuild after 7-day expiry;
+  first team still at Apple's 3-device cap). No TalkBack pass.
 - Owner G1–G4 visual/parity reviews still open.
 - `fr`+7 catalogs still have untranslated management-screen tail; new
   Wave 0/1/2 strings English-only until the planned i18n sweep.

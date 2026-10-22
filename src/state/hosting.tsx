@@ -5,6 +5,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import {Platform} from 'react-native'
 
 import {
   getHosting,
@@ -38,7 +39,17 @@ export function useHosting(): HostingResolution | null {
 export async function resolveAppHosting(
   origin: string,
 ): Promise<HostingResolution> {
-  const config = await loadRuntimeConfig()
+  // Native has no document base: `fetch('/keystone.config.json')` is a
+  // request with no URL. On iOS that promise never settles (no resolve, no
+  // reject) and boot hangs on a blank screen — Android rejects the same
+  // request and Web resolves it same-origin, so only iOS blanks. Fail
+  // closed to config defaults on native instead of fetching.
+  const config =
+    Platform.OS === 'web'
+      ? await loadRuntimeConfig()
+      : await loadRuntimeConfig({
+          prober: async () => ({status: 0, body: null}),
+        })
   const resolution = await resolveHosting(config, {origin})
   setHostingState(resolution)
   return resolution

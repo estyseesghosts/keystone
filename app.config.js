@@ -27,6 +27,24 @@ module.exports = function (_config) {
       ios: {
         supportsTablet: true,
         bundleIdentifier: 'app.keystone.dev',
+        // iOS 27 SDK traps at launch (EXC_BREAKPOINT in
+        // ___UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption)
+        // unless the app adopts the scene life cycle. Expo 57 ships
+        // EXExpoAppSceneDelegate for exactly this but wires no manifest
+        // itself, so we declare it here (survives `expo prebuild`).
+        infoPlist: {
+          UIApplicationSceneManifest: {
+            UIApplicationSupportsMultipleScenes: false,
+            UISceneConfigurations: {
+              UIWindowSceneSessionRoleApplication: [
+                {
+                  UISceneConfigurationName: 'Default Configuration',
+                  UISceneDelegateClassName: 'EXExpoAppSceneDelegate',
+                },
+              ],
+            },
+          },
+        },
       },
       android: {
         package: 'app.keystone.dev',
@@ -45,7 +63,7 @@ module.exports = function (_config) {
           backgroundColor: '#1f3a5f',
         },
       },
-      plugins: [],
+      plugins: ['./plugins/withAppleTeamId.js', './plugins/withSceneLifecycle.js'],
     },
   }
 }
