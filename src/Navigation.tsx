@@ -1175,7 +1175,10 @@ const styles = StyleSheet.create({
   },
   shellRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    // Left-aligned: the rail/full sidebar hugs the window's left edge.
+    // Centering here left a dead gutter between the rail and the edge on
+    // any window wider than rail + feed max (dead-space screenshot).
+    justifyContent: 'flex-start',
   },
   shellColumn: {
     flexDirection: 'column',
