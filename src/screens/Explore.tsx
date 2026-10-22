@@ -134,12 +134,13 @@ function TagChip({tag, onOpen}: {tag: TrendingTag; onOpen: () => void}) {
 }
 
 function NewsCard({link}: {link: NewsLink}) {
+  const theme = useTheme()
   return (
     <View style={[atoms.py_sm, atoms.px_md, styles.newsRow]} testID="explore-news-item">
       {link.image ? (
         <Image
           source={{uri: link.image}}
-          style={styles.newsPhoto}
+          style={[styles.newsPhoto, {backgroundColor: theme.palette.raise}]}
           resizeMode="cover"
           accessibilityIgnoresInvertColors
           testID="explore-news-photo"
@@ -167,10 +168,11 @@ const styles = StyleSheet.create({
   avatarFallback: {alignItems: 'center', justifyContent: 'center'},
   accountRow: {flexDirection: 'row', alignItems: 'center', gap: 12},
   accountText: {flex: 1, minWidth: 0},
-  // News photo: fixed width, stretches to the row's full height with all
-  // text riding to the right; omitted entirely when the link has no image.
+  // News photo: one fixed width everywhere, height follows each image's
+  // own aspect (RN measures the intrinsic size once loaded). minHeight +
+  // raise background holds a calm placeholder until the bytes arrive.
   newsRow: {flexDirection: 'row', gap: 12},
-  newsPhoto: {width: 84, alignSelf: 'stretch', minHeight: 84, borderRadius: 8},
+  newsPhoto: {width: 112, minHeight: 64, borderRadius: 8},
   newsText: {flex: 1, minWidth: 0, justifyContent: 'center'},
 })
 
