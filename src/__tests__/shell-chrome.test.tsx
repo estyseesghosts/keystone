@@ -1,11 +1,13 @@
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {act, fireEvent, render, screen} from '@testing-library/react-native'
+import {Platform} from 'react-native'
 
 import {createMemoryStore} from '@keystone/fedi'
 
 import type {TokenVault} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
+import {resetSidebarMode} from '#/state/sideNav'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {
   clearFeedScrolls,
@@ -140,6 +142,7 @@ function renderShell(options?: {
 
 beforeEach(() => {
   widthHolder.width = 390
+  resetSidebarMode()
   resetLastFeed()
   clearFeedScrolls()
 })
@@ -472,5 +475,70 @@ describe('sidebar rail (collapsed)', () => {  it('keeps Post + Messages + Notifi
     fireEvent.press(screen.getByTestId('sidebar-account'))
     expect(screen.queryByTestId('sidebar-account-menu-settings')).toBeNull()
     expect(screen.queryByTestId('sidebar-account-menu-uploads')).toBeNull()
+  })
+})
+
+describe('sidebar collapse toggle (width-independent)', () => {
+  it('collapses the expanded sidebar to the rail', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-collapse')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-collapse'))
+    expect(screen.getByTestId('sidebar-expand')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-settings')).toBeNull()
+    expect(screen.getByTestId('sidebar-messages')).toBeTruthy()
+  })
+
+  it('expands the rail to full width', async () => {
+    widthHolder.width = 800
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-expand')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-expand'))
+    expect(screen.getByTestId('sidebar-collapse')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-settings')).toBeTruthy()
+  })
+
+  it('never leaves the mobile layout', async () => {
+    widthHolder.width = 390
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-collapse')).toBeNull()
+    expect(screen.queryByTestId('sidebar-expand')).toBeNull()
+  })
+})
+
+describe('widgets column (width-gated)', () => {
+  // Widgets are a web-shell column; the native shell never mounts them.
+  let restoreOs: {restore: () => void} | null = null
+  beforeEach(() => {
+    restoreOs = jest.replaceProperty(Platform, 'OS', 'web')
+  })
+  afterEach(() => {
+    restoreOs?.restore()
+    restoreOs = null
+  })
+  it('shows widgets on a wide window with the full sidebar', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('right-nav')).toBeTruthy()
+  })
+
+  it('hides widgets when the feed + full sidebar fill the window', async () => {
+    widthHolder.width = 1050
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('right-nav')).toBeNull()
+  })
+
+  it('collapsing the sidebar earns the widgets back', async () => {
+    widthHolder.width = 1050
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('right-nav')).toBeNull()
+    fireEvent.press(screen.getByTestId('sidebar-collapse'))
+    expect(screen.getByTestId('right-nav')).toBeTruthy()
   })
 })

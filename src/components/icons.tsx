@@ -336,6 +336,26 @@ export function MessageIcon(p: IconProps) {
   )
 }
 
+/** Collapse the sidebar to the icon rail (panel + left chevron). */
+export function CollapseIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
+      <Path d="M13.5 9.5l-3 2.5 3 2.5" />
+    </Base>
+  )
+}
+
+/** Expand the sidebar to full width (panel + right chevron). */
+export function ExpandIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
+      <Path d="M10.5 9.5l3 2.5-3 2.5" />
+    </Base>
+  )
+}
+
 /** Misskey Pages stub: a document (ships in a later slice). */
 export function PageIcon(p: IconProps) {
   return (

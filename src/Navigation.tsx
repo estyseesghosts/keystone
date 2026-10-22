@@ -19,7 +19,8 @@ import type {I18n} from '@lingui/core'
 import {msg} from '@lingui/macro'
 
 import {useTheme as useAlfTheme} from '#/alf'
-import {useLayoutBreakpoints, useShellLayout, type ShellLayout} from '#/alf/breakpoints'
+import {useShellLayout, type ShellLayout} from '#/alf/breakpoints'
+import {useViewportWidth} from '#/alf/useViewportWidth'
 import {butterflyPx} from '#/alf/tokens'
 import {Body, Caption, Heading} from '#/alf/typography'
 import {AnchoredPopup, PopupDesc, PopupHead, PopupRadioDot, PopupRow, PopupSep} from '#/components/Popup'
@@ -27,10 +28,12 @@ import {
   AnnouncementIcon,
   BackIcon,
   BellIcon,
+  CollapseIcon,
   DriveIcon,
   ClipIcon,
   AntennaIcon,
   ChannelIcon,
+  ExpandIcon,
   HomeIcon,
   ListIcon,
   LoginIcon,
@@ -45,6 +48,12 @@ import {
 } from '#/components/icons'
 import {ScopeUpgradeBanner} from '#/components/ScopeUpgradeBanner'
 import {navigationRef} from '#/navigationRef'
+import {
+  collapseSidebar,
+  effectiveSidebarLayout,
+  expandSidebar,
+  useSidebarMode,
+} from '#/state/sideNav'
 import type {RootParamList} from '#/routes'
 import {isAuthCallbackPath, linkingScreens, rewriteLegacyPath, titleForRoute} from '#/routes'
 import {useOptionalActiveSession, useSessionStore, useSessions} from '#/state/session/SessionProvider'
@@ -836,9 +845,26 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
         {borderRightColor: alf.palette.border},
       ]}>
       {rail ? (
-        <Heading style={styles.brand}>K</Heading>
+        <Pressable
+          onPress={expandSidebar}
+          accessibilityRole="button"
+          accessibilityLabel={t`Expand sidebar`}
+          testID="sidebar-expand"
+          style={[styles.navlinkRail, styles.brandRail]}>
+          <ExpandIcon size={20} color={alf.palette.text} />
+        </Pressable>
       ) : (
-        <Heading style={styles.brand}>Keystone</Heading>
+        <View style={styles.brandRow}>
+          <Heading style={styles.brand}>Keystone</Heading>
+          <Pressable
+            onPress={collapseSidebar}
+            accessibilityRole="button"
+            accessibilityLabel={t`Collapse sidebar`}
+            testID="sidebar-collapse"
+            style={styles.brandToggle}>
+            <CollapseIcon size={20} color={alf.palette.text} />
+          </Pressable>
+        </View>
       )}
       {entries.map(e => {
         const active = isTabFocused(leaf, e.key, session?.accountId ?? null)
@@ -974,10 +1000,13 @@ function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
   )
 }
 
+// Widgets column (Phase 5 stub): 300 content + 16 padding per side.
+const RIGHT_NAV_WIDTH = 300 + 32
+
 function RightNav() {
   const {i18n} = useLingui()
   return (
-    <View style={[{width: 300}, {padding: 16}]}>
+    <View style={[{width: 300}, {padding: 16}]} testID="right-nav">
       <Body color="faint">{i18n._(msg`Widgets land in Phase 5.`)}</Body>
     </View>
   )
@@ -1033,8 +1062,12 @@ function MainTabs() {
 }
 
 export function Navigation({initialState}: {initialState?: InitialState}) {
-  const layout = useShellLayout()
-  const {rightNavVisible} = useLayoutBreakpoints()
+  const autoLayout = useShellLayout()
+  const sidebarMode = useSidebarMode()
+  // Manual collapse/expand overrides the width-derived layout on desktop;
+  // mobile is always mobile (the override never applies there).
+  const layout = effectiveSidebarLayout(autoLayout, sidebarMode)
+  const viewportWidth = useViewportWidth()
   const [leaf, setLeaf] = useState<LeafState>({name: undefined})
   const alf = useAlfTheme()
   // Runtime deploy base (hosting boot in Root.tsx): subscribe, never a
@@ -1052,7 +1085,17 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
     [shellBase],
   )
   const mobile = layout === 'mobile'
-  const wide = Platform.OS === 'web' && rightNavVisible
+  // Widgets render only when the feed keeps its full 600 AND the 332px
+  // widgets column (300 + padding) fits beside the *effective* sidebar —
+  // collapsing the sidebar can earn the widgets back on narrow windows.
+  // Without widgets the feed widens to mainColMaxWide instead of leaving
+  // the freed space empty.
+  const sidebarWidth = layout === 'full' ? butterflyPx.sidebarMin : butterflyPx.railWidth
+  const wide =
+    Platform.OS === 'web' &&
+    !mobile &&
+    viewportWidth >= sidebarWidth + butterflyPx.mainColMax + RIGHT_NAV_WIDTH
+  const feedMaxWidth = wide ? butterflyPx.mainColMax : butterflyPx.mainColMaxWide
   // The compose overlay takes over the whole viewport (v1): the mobile
   // strip stays out of its way while it is focused.
   const stripVisible = mobile && leaf.name !== 'Compose'
@@ -1103,6 +1146,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
           <View
             style={[
               styles.maincol,
+              {maxWidth: feedMaxWidth},
               mobile
                 ? null
                 : {borderRightColor: alf.palette.border, borderRightWidth: 1},
@@ -1208,7 +1252,20 @@ const styles = StyleSheet.create({
   brand: {
     fontWeight: '700',
     fontSize: 20,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  brandRail: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  brandToggle: {
+    padding: 4,
+    borderRadius: 8,
   },
   navlink: {
     flexDirection: 'row',
