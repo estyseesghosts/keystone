@@ -129,22 +129,39 @@ describe('ExploreScreen', () => {
 
   it('tags tab renders trending tags that open the tag screen', async () => {
     const backend = baseBackend({
-      explore: {tags: jest.fn(async () => [{name: 'cats', users: 3, uses: 7}])},
+      explore: {
+        tags: jest.fn(async () => [
+          {name: 'cats', users: 3, uses: 7},
+          {name: 'dogs', users: null, uses: 2},
+        ]),
+      },
     })
     setup({backend, params: {tab: 'tags'}})
     expect(await screen.findByText('#cats')).toBeTruthy()
+    expect(screen.getByText('#dogs')).toBeTruthy()
+    expect(screen.getAllByTestId('explore-tags-sep')).toHaveLength(1)
     fireEvent.press(screen.getByTestId('explore-tag-cats'))
     expect(mockNavigate).toHaveBeenCalledWith('Tag', {tag: 'cats'})
   })
 
-  it('users tab renders pinned and suggested accounts', async () => {
-    const alice = makeAccount({id: 'a1', username: 'alice', acct: 'alice@example.social'})
+  it('users tab renders pinned and suggested accounts with avatars and separators', async () => {
+    const alice = makeAccount({
+      id: 'a1',
+      username: 'alice',
+      acct: 'alice@example.social',
+      avatarUrl: 'https://img.example/alice.png',
+    })
     const bob = makeAccount({id: 'b1', username: 'bob', acct: 'bob@example.social'})
     const backend = baseBackend({
       explore: {users: jest.fn(async () => ({pinned: [alice], suggested: [bob]}))},
     })
     setup({backend, params: {tab: 'users'}})
     expect(await screen.findByTestId('explore-users')).toBeTruthy()
+    // Profile pictures ride left of each row (real photo or initial fallback).
+    expect(screen.getByTestId('explore-avatar-a1')).toBeTruthy()
+    expect(screen.getByTestId('explore-avatar-b1')).toBeTruthy()
+    // Label + Alice + label + Bob: one rule between every pair.
+    expect(screen.getAllByTestId('explore-users-sep')).toHaveLength(3)
     fireEvent.press(screen.getByTestId('explore-account-b1'))
     expect(mockNavigate).toHaveBeenCalledWith('User', {id: 'b1'})
   })
@@ -158,12 +175,27 @@ describe('ExploreScreen', () => {
     expect(screen.queryByTestId('explore-tab-news')).toBeNull()
   })
 
-  it('news tab renders trending links when the backend offers them', async () => {
+  it('news tab renders trending links with photos and separators', async () => {
     const backend = baseBackend({
       explore: {
         posts: jest.fn(async () => ({items: [], cursor: null, end: true})),
         news: jest.fn(async () => ({
-          items: [{url: 'https://n.example/1', title: 'Big news', description: null, providerName: 'N', image: null}],
+          items: [
+            {
+              url: 'https://n.example/1',
+              title: 'Big news',
+              description: null,
+              providerName: 'N',
+              image: 'https://n.example/1.png',
+            },
+            {
+              url: 'https://n.example/2',
+              title: 'Small news',
+              description: null,
+              providerName: null,
+              image: null,
+            },
+          ],
           cursor: null,
           end: true,
         })),
@@ -172,6 +204,10 @@ describe('ExploreScreen', () => {
     setup({backend, params: {tab: 'news'}})
     expect(screen.getByTestId('explore-tab-news')).toBeTruthy()
     expect(await screen.findByText('Big news')).toBeTruthy()
+    expect(screen.getByText('Small news')).toBeTruthy()
+    // Only the link with an image renders a photo; one rule per pair.
+    expect(screen.getAllByTestId('explore-news-photo')).toHaveLength(1)
+    expect(screen.getAllByTestId('explore-news-sep')).toHaveLength(1)
   })
 
   it('posts search runs the search.posts feed', async () => {

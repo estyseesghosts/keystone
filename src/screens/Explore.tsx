@@ -16,7 +16,7 @@
 // member exists. No fake data, ever.
 
 import {useEffect, useRef, useState} from 'react'
-import {FlatList, View} from 'react-native'
+import {FlatList, Image, StyleSheet, View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
 import {msg} from '@lingui/macro'
@@ -35,6 +35,7 @@ import {
 } from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
+import {useTheme} from '#/alf'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
@@ -63,6 +64,36 @@ function stripTagPrefix(query: string): string {
 
 // --- Rows -------------------------------------------------------------------
 
+/** 1px theme-border rule between explore entries (v1 feed rule, same as
+ * the post separators). */
+function RowSeparator({testID}: {testID: string}) {
+  const theme = useTheme()
+  return <View testID={testID} style={{height: 1, backgroundColor: theme.palette.border}} />
+}
+
+function ExploreAvatar({account}: {account: Account}) {
+  const theme = useTheme()
+  const label = displayNameOf(account).slice(0, 1).toUpperCase()
+  if (account.avatarUrl) {
+    return (
+      <Image
+        source={{uri: account.avatarUrl}}
+        style={styles.avatar}
+        accessibilityIgnoresInvertColors
+        accessibilityLabel={`${displayNameOf(account)} profile picture`}
+        testID={`explore-avatar-${account.id}`}
+      />
+    )
+  }
+  return (
+    <View
+      style={[styles.avatar, styles.avatarFallback, {backgroundColor: theme.palette.raise}]}
+      testID={`explore-avatar-${account.id}`}>
+      <Body>{label}</Body>
+    </View>
+  )
+}
+
 function AccountRow({account, onOpen}: {account: Account; onOpen: () => void}) {
   return (
     <Pressable
@@ -70,9 +101,12 @@ function AccountRow({account, onOpen}: {account: Account; onOpen: () => void}) {
       accessibilityRole="button"
       accessibilityLabel={displayNameOf(account)}
       testID={`explore-account-${account.id}`}>
-      <View style={[atoms.py_sm, atoms.px_md]}>
-        <Body>{displayNameOf(account)}</Body>
-        <Caption color="faint">{handleOf(account)}</Caption>
+      <View style={[atoms.py_sm, atoms.px_md, styles.accountRow]}>
+        <ExploreAvatar account={account} />
+        <View style={styles.accountText}>
+          <Body>{displayNameOf(account)}</Body>
+          <Caption color="faint">{handleOf(account)}</Caption>
+        </View>
       </View>
     </Pressable>
   )
@@ -101,10 +135,21 @@ function TagChip({tag, onOpen}: {tag: TrendingTag; onOpen: () => void}) {
 
 function NewsCard({link}: {link: NewsLink}) {
   return (
-    <View style={[atoms.py_sm, atoms.px_md]} testID="explore-news-item">
-      <Body>{link.title}</Body>
-      {link.providerName ? <Caption color="faint">{link.providerName}</Caption> : null}
-      {link.description ? <Caption color="faint">{link.description}</Caption> : null}
+    <View style={[atoms.py_sm, atoms.px_md, styles.newsRow]} testID="explore-news-item">
+      {link.image ? (
+        <Image
+          source={{uri: link.image}}
+          style={styles.newsPhoto}
+          resizeMode="cover"
+          accessibilityIgnoresInvertColors
+          testID="explore-news-photo"
+        />
+      ) : null}
+      <View style={styles.newsText}>
+        <Body>{link.title}</Body>
+        {link.providerName ? <Caption color="faint">{link.providerName}</Caption> : null}
+        {link.description ? <Caption color="faint">{link.description}</Caption> : null}
+      </View>
     </View>
   )
 }
@@ -116,6 +161,18 @@ function SectionTitle({label}: {label: string}) {
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  avatar: {width: 44, height: 44, borderRadius: 22},
+  avatarFallback: {alignItems: 'center', justifyContent: 'center'},
+  accountRow: {flexDirection: 'row', alignItems: 'center', gap: 12},
+  accountText: {flex: 1, minWidth: 0},
+  // News photo: fixed width, stretches to the row's full height with all
+  // text riding to the right; omitted entirely when the link has no image.
+  newsRow: {flexDirection: 'row', gap: 12},
+  newsPhoto: {width: 84, alignSelf: 'stretch', minHeight: 84, borderRadius: 8},
+  newsText: {flex: 1, minWidth: 0, justifyContent: 'center'},
+})
 
 // --- Tab bodies --------------------------------------------------------------
 
@@ -177,6 +234,7 @@ function AccountsSearch({backend, query}: {backend: Backend; query: string}) {
       data={accounts}
       keyExtractor={a => a.id}
       testID="explore-accounts"
+      ItemSeparatorComponent={() => <RowSeparator testID="explore-accounts-sep" />}
       renderItem={({item}) => <AccountRow account={item} onOpen={() => openAccount(item.id)} />}
     />
   )
@@ -266,6 +324,7 @@ function UsersTab({backend, submitted}: {backend: Backend; submitted: string | n
   return (
     <FlatList
       testID="explore-users"
+      ItemSeparatorComponent={() => <RowSeparator testID="explore-users-sep" />}
       data={[
         ...(users.pinned.length > 0 ? [{key: 'pinned-label', label: 'Pinned'}] : []),
         ...users.pinned.map(a => ({key: `pinned-${a.id}`, account: a})),
@@ -401,6 +460,7 @@ function TagsTab({
       testID="explore-tags"
       data={tags}
       keyExtractor={t => t.name}
+      ItemSeparatorComponent={() => <RowSeparator testID="explore-tags-sep" />}
       renderItem={({item}) => <TagChip tag={item} onOpen={() => openTag(item.name)} />}
     />
   )
@@ -528,6 +588,7 @@ function NewsTab({backend}: {backend: Backend}) {
         testID="explore-news"
         data={links}
         keyExtractor={l => l.url}
+        ItemSeparatorComponent={() => <RowSeparator testID="explore-news-sep" />}
         renderItem={({item}) => <NewsCard link={item} />}
       />
       {!end ? (

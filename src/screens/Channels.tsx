@@ -1,7 +1,6 @@
-// Channels index (`/channels`): the Misskey-family group timelines the
-// server publishes. The directory is `channels/search` with an empty query
-// (the paged listing; `channels/featured` is a fixed top-10 with no
-// cursor), newest first. Tapping a row opens the channel at
+// Channels index (`/channels`): the Misskey-family group timelines. Two
+// tabs: My channels (the viewer's followed channels) and Server channels
+// (the whole public directory). Tapping a row opens the channel at
 // `/channels/:id`. Gated on `capabilities.channels === "supported"` and a
 // present `channels` module: the Mastodon family (and any unverified fork)
 // gets the honest "not available" state, never an empty list pretending the
@@ -12,7 +11,13 @@ import {useCallback, useEffect, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
 
-import {isUnsupportedError, type Channel, type Cursor} from '@keystone/fedi'
+import {
+  isUnsupportedError,
+  type Channel,
+  type Cursor,
+  type Page,
+  type PageOpts,
+} from '@keystone/fedi'
 
 import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
@@ -22,10 +27,13 @@ import {Loader} from '#/components/Loader'
 import {Pagehead} from '#/components/Pagehead'
 import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
+import {Tabs} from '#/components/Tabs'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 
 const PAGE_SIZE = 20
+
+type ChannelsTab = 'mine' | 'server'
 
 export function channelSummaryLine(channel: Channel): string {
   const bits: string[] = []
@@ -73,6 +81,17 @@ export function ChannelsScreen() {
 
   const channelsApi = backend?.channels
   const capable = backend?.capabilities.channels === 'supported'
+  const [tab, setTab] = useState<ChannelsTab>('mine')
+
+  // Mine = the viewer's followed channels; server = the whole public
+  // directory. Both page the same way, so one loader serves both tabs.
+  const fetchPage = useCallback(
+    (opts: PageOpts): Promise<Page<Channel>> => {
+      if (!channelsApi) return Promise.reject(new Error('no channels module'))
+      return tab === 'mine' ? channelsApi.followed(opts) : channelsApi.list(opts)
+    },
+    [channelsApi, tab],
+  )
 
   const load = useCallback(async () => {
     if (!session || !channelsApi || !capable) {
@@ -82,7 +101,7 @@ export function ChannelsScreen() {
     setFetching(true)
     setError(null)
     try {
-      const page = await channelsApi.list({limit: PAGE_SIZE})
+      const page = await fetchPage({limit: PAGE_SIZE})
       setChannels(page.items)
       setCursor(page.cursor)
       setEnd(page.end)
@@ -94,13 +113,13 @@ export function ChannelsScreen() {
       setLoading(false)
       setFetching(false)
     }
-  }, [session, channelsApi, capable])
+  }, [session, channelsApi, capable, fetchPage])
 
   const loadMore = useCallback(async () => {
     if (!channelsApi || fetching || end || cursor == null) return
     setFetching(true)
     try {
-      const page = await channelsApi.list({cursor, limit: PAGE_SIZE})
+      const page = await fetchPage({cursor, limit: PAGE_SIZE})
       setChannels(prev => {
         const seen = new Set((prev ?? []).map(c => c.id))
         return [...(prev ?? []), ...page.items.filter(c => !seen.has(c.id))]
@@ -113,7 +132,7 @@ export function ChannelsScreen() {
     } finally {
       setFetching(false)
     }
-  }, [channelsApi, cursor, end, fetching])
+  }, [channelsApi, cursor, end, fetching, fetchPage])
 
   useEffect(() => {
     setChannels(null)
@@ -150,6 +169,17 @@ export function ChannelsScreen() {
   return (
     <View style={atoms.flex1} testID="channels-screen">
       <Pagehead title="Channels" />
+      <Tabs
+        tabs={[
+          {key: 'mine', label: 'My channels'},
+          {key: 'server', label: 'Server channels'},
+        ]}
+        active={tab}
+        onChange={setTab}
+        testID="channels-tabs"
+        testIDPrefix="channels-tab"
+        accessibilityLabel="Channels"
+      />
       {loading ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
           <Loader testID="channels-loading" />
@@ -172,6 +202,9 @@ export function ChannelsScreen() {
         <FlatList
           data={channels ?? []}
           keyExtractor={item => item.id}
+          ItemSeparatorComponent={() => (
+            <View testID="channels-sep" style={{height: 1, backgroundColor: theme.palette.border}} />
+          )}
           renderItem={({item}) => (
             <ChannelRow
               channel={item}
@@ -191,9 +224,21 @@ export function ChannelsScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={[atoms.centered, atoms.p_md]}>
-              <Body>No channels found on this server.</Body>
-            </View>
+            tab === 'mine' ? (
+              <View style={[atoms.centered, atoms.gap_sm, atoms.p_md]}>
+                <Body>You are not following any channels yet.</Body>
+                <Button
+                  label="Browse server channels"
+                  variant="secondary"
+                  onPress={() => setTab('server')}
+                  testID="channels-browse-server"
+                />
+              </View>
+            ) : (
+              <View style={[atoms.centered, atoms.p_md]}>
+                <Body>No channels found on this server.</Body>
+              </View>
+            )
           }
         />
       )}
