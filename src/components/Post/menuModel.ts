@@ -141,8 +141,9 @@ const LATER = (what: string) => t`${what} is not available in this build yet.`
 /** DM row (P6.2): enabled only when `direct_messages` is supported AND a
  * message opener is connected. Otherwise disabled WITH a reason — the row
  * never disappears. The reason is per-flavor: the missing inbox on
- * akkoma/pleroma without conversation support, the client gap everywhere
- * else (Misskey chat is slice 2.2). */
+ * akkoma/pleroma without conversation support, no chat on pinetree, the
+ * unverified client gap on catodon/unknown, the generic client gap
+ * everywhere else (misskey/sharkey past the gate never reach it). */
 function dmRow(input: PostMenuInput): PostMenuItem {
   const {post, capabilities, handlers} = input
   const onMessage = handlers.user?.onMessage

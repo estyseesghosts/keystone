@@ -57,6 +57,9 @@ import {ChannelScreen} from '#/screens/Channel'
 import {ChannelsScreen} from '#/screens/Channels'
 import {ConversationScreen} from '#/screens/Conversation'
 import {ConversationsScreen} from '#/screens/Conversations'
+import {ChatRoomScreen} from '#/screens/ChatRoom'
+import {ChatRoomsScreen} from '#/screens/ChatRooms'
+import {ChatUserScreen} from '#/screens/ChatUser'
 import {AnnouncementsScreen} from '#/screens/Announcements'
 import {ClipScreen} from '#/screens/Clip'
 import {ClipsScreen} from '#/screens/Clips'
@@ -252,6 +255,7 @@ type StackEntryKey =
   | 'Clips'
   | 'Channels'
   | 'Conversations'
+  | 'ChatRooms'
   | 'Announcements'
   | 'Drive'
   | 'Antennas'
@@ -262,6 +266,7 @@ const STACK_ICONS: Record<StackEntryKey, (p: {size?: number; color?: string}) =>
   Clips: ClipIcon,
   Channels: ChannelIcon,
   Conversations: MessageIcon,
+  ChatRooms: MessageIcon,
   Announcements: AnnouncementIcon,
   Drive: DriveIcon,
   Antennas: AntennaIcon,
@@ -292,6 +297,12 @@ function stackEntries(
   if (backend?.capabilities.direct_messages === 'supported' && backend.conversations) {
     out.push('Conversations')
   }
+  // Chat (P6.2 §2.2): rooms ship on misskey + sharkey (capability +
+  // module gate, same pattern). The entry opens the room list; the room
+  // and 1-on-1 threads are reached from rows, never listed here.
+  if (backend?.capabilities.direct_messages === 'supported' && backend.chat) {
+    out.push('ChatRooms')
+  }
   // Announcements exist on EVERY family, but only where the capability is
   // verified AND the module is present: an unknown fork keeps the entry off
   // rather than opening an inert screen (the screen itself still carries
@@ -317,6 +328,8 @@ function stackEntryLabel(i18n: I18n, key: StackEntryKey): string {
       return i18n._(msg`Channels`)
     case 'Conversations':
       return i18n._(msg`Messages`)
+    case 'ChatRooms':
+      return i18n._(msg`Chat`)
     case 'Announcements':
       return i18n._(msg`Announcements`)
     case 'Drive':
@@ -500,14 +513,21 @@ function AccountMenu({onClose, testPrefix}: {onClose: () => void; testPrefix: st
         label={i18n._(msg`Profile`)}
         onPress={() => closeAnd(() => goMainTab('User'))}
       />
-      {/* P6.2 — the DM inbox ships on mastodon + akkoma: the row opens it
-          there, and stays disabled with the per-flavor reason everywhere
-          else (never a silent absence, never an inert tap). */}
+      {/* P6.2 — the DM inbox ships on mastodon + akkoma (opens it), and
+          Misskey chat ships on misskey + sharkey (opens the room list).
+          Everywhere else the row stays disabled with the per-flavor
+          reason (never a silent absence, never an inert tap). */}
       {backend?.capabilities.direct_messages === 'supported' && backend.conversations ? (
         <PopupRow
           testID={`${testPrefix}-messages`}
           label={i18n._(msg`Messages`)}
           onPress={() => closeAnd(() => goStackScreen('Conversations'))}
+        />
+      ) : backend?.capabilities.direct_messages === 'supported' && backend.chat ? (
+        <PopupRow
+          testID={`${testPrefix}-messages`}
+          label={i18n._(msg`Messages`)}
+          onPress={() => closeAnd(() => goStackScreen('ChatRooms'))}
         />
       ) : (
         <PopupRow
@@ -970,6 +990,9 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <Stack.Screen name="Channels" component={ChannelsScreen} />
               <Stack.Screen name="Conversations" component={ConversationsScreen} />
               <Stack.Screen name="Conversation" component={ConversationScreen} />
+              <Stack.Screen name="ChatRooms" component={ChatRoomsScreen} />
+              <Stack.Screen name="ChatRoom" component={ChatRoomScreen} />
+              <Stack.Screen name="ChatUser" component={ChatUserScreen} />
               <Stack.Screen name="Announcements" component={AnnouncementsScreen} />
               <Stack.Screen name="Antenna" component={AntennaScreen} />
               <Stack.Screen name="Antennas" component={AntennasScreen} />

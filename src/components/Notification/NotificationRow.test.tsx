@@ -310,15 +310,36 @@ describe('NotificationRow kind labels (clickstone §1.11)', () => {
     }
   })
 
-  it('says "chat invitation" for the unsupported chat type, not "unknown"', () => {
+  it('labels the chat invitation with its own kind and deep-links to the room (2.2)', () => {
+    jest.spyOn(navigationRef, 'isReady').mockReturnValue(true)
+    const navigateSpy = jest.spyOn(navigationRef, 'navigate').mockImplementation(() => {})
+    try {
+      renderWithTheme(
+        <NotificationRow
+          notification={labelless({
+            kind: 'chatRoomInvitation',
+            rawType: 'chatRoomInvitationReceived',
+            ext: {invitedRoomId: 'room1', invitedRoomName: 'Lounge'},
+          })}
+        />,
+      )
+      expect(screen.getByText('invited you to a chat room')).toBeTruthy()
+      expect(screen.queryByText('chatRoomInvitationReceived')).toBeNull()
+      fireEvent.press(screen.getByTestId('notification-room-n1'))
+      expect(navigateSpy).toHaveBeenCalledWith('ChatRoom', {roomId: 'room1'})
+    } finally {
+      jest.restoreAllMocks()
+    }
+  })
+
+  it('labels the invitation without a room link when the wire packed none', () => {
     renderWithTheme(
       <NotificationRow
-        notification={labelless({kind: 'unknown', rawType: 'chatRoomInvitationReceived'})}
+        notification={labelless({kind: 'chatRoomInvitation', rawType: 'chatRoomInvitationReceived'})}
       />,
     )
-    expect(screen.getByText('chat invitation')).toBeTruthy()
-    expect(screen.queryByText('unknown')).toBeNull()
-    expect(screen.queryByText('chatRoomInvitationReceived')).toBeNull()
+    expect(screen.getByText('invited you to a chat room')).toBeTruthy()
+    expect(screen.queryByTestId('notification-room-n1')).toBeNull()
   })
 
   it('still falls back to the raw type for a genuinely new type', () => {

@@ -245,14 +245,14 @@ describe('account menu (N16)', () => {
     expect(Object.keys(paths)).toContain('Conversations')
   })
 
-  it('carries the same disabled Messages entry on a Misskey session', async () => {
+  it('carries an enabled Messages entry on Misskey (chat ships there)', async () => {
     widthHolder.width = 390
     await renderShell({signedIn: true, family: 'misskey'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     fireEvent.press(screen.getByTestId('strip-account'))
     const row = screen.getByTestId('strip-account-menu-messages')
-    expect(row.props.accessibilityState.disabled).toBe(true)
-    expect(row.props.accessibilityLabel).toMatch(/not on your server/i)
+    expect(row.props.accessibilityState.disabled).not.toBe(true)
+    expect(Object.keys(paths)).toContain('ChatRooms')
   })
 })
 
@@ -317,11 +317,12 @@ describe('stack destinations (E7 nav)', () => {
     expect(screen.getByTestId('sidebar-conversations')).toBeTruthy()
   })
 
-  it('misskey sidebar hides Messages (chat is slice 2.2)', async () => {
+  it('misskey sidebar shows Chat, not the DM inbox (2.2)', async () => {
     widthHolder.width = 1280
     await renderShell({signedIn: true, family: 'misskey'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     expect(screen.queryByTestId('sidebar-conversations')).toBeNull()
+    expect(screen.getByTestId('sidebar-chatrooms')).toBeTruthy()
   })
 
   it('hides Messages signed out (no inert entry)', async () => {

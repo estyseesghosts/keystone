@@ -1,9 +1,8 @@
-// Misskey notification-type completion (clickstone §1.11). The wire
-// vocabulary is `misskey-js/src/consts.ts` `notificationTypes` (22 entries);
-// before this slice 10 of them fell into `unknown`, including two that were
-// spelled differently upstream (`achievementEarned`, `scheduledNotePostFailed`).
-// These tests pin the mapping table, the per-type `ext` detail the wire
-// packs, and the one type that deliberately STAYS unknown until chat ships.
+// Misskey notification-type completion (clickstone §1.11, extended by
+// P6.2 §2.2 for the chat invitation). The wire vocabulary is
+// `misskey-js/src/consts.ts` `notificationTypes` (22 entries); 1.11 mapped
+// the schedulable/system rows, and 2.2 maps `chatRoomInvitationReceived`
+// to its own kind with the room id in `ext` now that chat ships.
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -60,7 +59,7 @@ describe("Misskey notification kinds (clickstone §1.11)", () => {
     expect(n.actors[0].id).toBe(base.user?.id);
   });
 
-  it("keeps chatRoomInvitationReceived unknown with its raw type", () => {
+  it("maps the chat-room invitation to its kind with the room id (2.2)", () => {
     const n = adaptNotification(
       systemRow({
         type: "chatRoomInvitationReceived",
@@ -68,10 +67,18 @@ describe("Misskey notification kinds (clickstone §1.11)", () => {
         invitation: { room: { id: "room1", name: "Lounge" } },
       }),
     );
-    expect(n.kind).toBe("unknown");
+    expect(n.kind).toBe("chatRoomInvitation");
     expect(n.rawType).toBe("chatRoomInvitationReceived");
-    // No actor is invented for a row the app has no surface for.
+    expect(n.ext.invitedRoomId).toBe("room1");
+    expect(n.ext.invitedRoomName).toBe("Lounge");
+    // No actor is invented for a row the wire left actor-less.
     expect(n.actors).toEqual([]);
+  });
+
+  it("labels the invitation honestly when the wire packed no room", () => {
+    const n = adaptNotification(systemRow({ type: "chatRoomInvitationReceived" }));
+    expect(n.kind).toBe("chatRoomInvitation");
+    expect(n.ext.invitedRoomId).toBeUndefined();
   });
 
   it("keeps a genuinely new wire type unknown (extensible string)", () => {

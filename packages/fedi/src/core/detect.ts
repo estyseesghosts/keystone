@@ -87,8 +87,11 @@ export type FeatureKey =
   // serverside. The Mastodon family ships the inbox in slice 2.1
   // (P6.2 — `/api/v1/conversations`, source-verified on mastodon +
   // akkoma), so those flavors read `supported`; pleroma is unverified and
-  // stays gated, and the Misskey family waits for slice 2.2 chat. `chats`
-  // below stays the Misskey-family server feature — do not overload it.
+  // stays gated. The Misskey family ships chat in slice 2.2 (P6.2 —
+  // `chat/*`, verified on upstream develop + live Sharkey), so misskey +
+  // sharkey read `supported` there while catodon (unverified) and
+  // pinetree (no chat) stay gated. `chats` is the Misskey-family server
+  // feature fact — do not overload it.
   | "direct_messages"
   // Organization
   | "lists"
@@ -266,12 +269,16 @@ const UNKNOWN_ALL = (): Capabilities => {
  * except where the docs say the feature is absent.
  *
  * `direct_messages` is the one deliberately client-shaped flag: it reads
- * `supported` only on the flavors where Keystone ships the inbox surface
+ * `supported` only on the flavors where Keystone ships the surface
  * (P6.2 slice 2.1: mastodon + akkoma, whose `/api/v1/conversations` is
- * source-verified) — NOT because other servers lack DMs/chat. Pleroma is
- * unverified and the Misskey family waits for slice 2.2 chat, so both
- * stay `unsupported` with an honest reason; UI reasons name the client
- * gap where the server is not at fault — see `src/lib/messaging.ts`.
+ * source-verified; P6.2 slice 2.2: misskey + sharkey, whose `chat/*` is
+ * verified on upstream develop + live Sharkey) — NOT because other
+ * servers lack DMs/chat. Pleroma + catodon are unverified and pinetree
+ * has no chat, so those stay `unsupported` with an honest reason; UI
+ * reasons name the client gap where the server is not at fault — see
+ * `src/lib/messaging.ts`. `chats` is the Misskey-family server-feature
+ * fact (supported where the `chat/*` endpoints ship); old stock Misskey
+ * releases without them degrade per screen via the 404→unsupported path.
  */
 const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
   misskey: {
@@ -320,7 +327,10 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     // are stock Misskey endpoints (verified in the local backend and the
     // reference client's announcements page) — clickstone §1.12.
     announcements: "supported",
-    direct_messages: "unsupported",
+    // Chat ships here (upstream `chat/*` on develop; old stock releases
+    // without them 404 per screen via the unsupported path).
+    chats: "supported",
+    direct_messages: "supported",
     // v1 shipped `i/favorites` + `notes/favorites/create|delete`
     // (`frontend/src/misskey/favorites.ts`, `NoteMenu.tsx:490`).
     bookmarks: "supported",
@@ -367,7 +377,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     // Same Misskey-family `announcements` + `i/read-announcement` endpoints
     // (verified in the local Sharkey checkout's endpoint list).
     announcements: "supported",
-    direct_messages: "unsupported",
+    // Same Misskey-family `chat/*` endpoints (live-verified on Sharkey).
+    chats: "supported",
+    direct_messages: "supported",
     // Same `i/favorites` + `notes/favorites/*` endpoints v1 shipped.
     bookmarks: "supported",
     favourites_distinct_from_reactions: "unsupported",

@@ -26,16 +26,28 @@ export interface MessagingGate {
 
 /**
  * Why a messaging row is disabled. Per-flavor by P6.2:
- * - Misskey family → the client gap (chat is slice 2.2; the server is
- *   not blamed);
+ * - Misskey family on pinetree → the honest server reason (Pinetree has
+ *   no chat);
+ * - Misskey family on catodon → the client gap, unverified (chat is not
+ *   confirmed there, so Keystone makes no promise);
  * - mastodon family on akkoma/pleroma → the honest server reason (no DM
  *   inbox Keystone can open there);
- * - everything else (mastodon flavor, unknown, signed-out/stale caps) →
- *   the generic client-gap sentence.
+ * - everything else (misskey/sharkey past the gate, mastodon flavor,
+ *   unknown, signed-out/stale caps) → the generic client-gap sentence.
+ *
+ * misskey/sharkey render this only when the capability is NOT supported
+ * (stale caps, signed-out): where chat ships the gate is open and the
+ * row is enabled. The sentence stays generic there — the gap is
+ * Keystone's session state, not the server.
  */
 export function messagingUnavailableReason(gate: MessagingGate = {}): string {
   if (gate.family === 'misskey') {
-    return t`Messaging is not implemented in Keystone yet — Misskey chat ships in a later slice, so this client has no chat screen. The gap is here, not on your server.`
+    if (gate.flavor === 'pinetree') {
+      return t`This server has no chat.`
+    }
+    if (gate.flavor === 'catodon' || gate.flavor === 'unknown' || gate.flavor == null) {
+      return t`Messaging is not implemented in Keystone yet for this server — chat support here is unverified, so this client has no chat screen for it. The gap is here, not on your server.`
+    }
   }
   if (gate.family === 'mastodon' && (gate.flavor === 'akkoma' || gate.flavor === 'pleroma')) {
     return t`This server has no DM inbox Keystone can open.`

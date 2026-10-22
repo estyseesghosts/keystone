@@ -343,8 +343,7 @@ export function adaptUserRelation(relation: UserRelation): Relationship {
 /** Misskey-family wire `type` -> core kind. The wire vocabulary is
  * `misskey-js/src/consts.ts` `notificationTypes`; the exact spellings
  * matter (`achievementEarned`, `scheduledNotePostFailed`). `unknown` stays
- * for types this app has no honest surface for — today that is
- * `chatRoomInvitationReceived` (chat ships in a later wave) and any fork
+ * for types this app has no honest surface for — today that is any fork
  * extension; those render their raw type, never a guessed action. */
 export const MISSKEY_NOTIFICATION_KINDS: ReadonlyArray<[wire: string, kind: Notification["kind"]]> = [
   ["note", "note"],
@@ -370,6 +369,9 @@ export const MISSKEY_NOTIFICATION_KINDS: ReadonlyArray<[wire: string, kind: Noti
   ["roleAssigned", "roleAssigned"],
   ["login", "login"],
   ["createToken", "createToken"],
+  // Chat ships in P6.2 slice 2.2: the invitation maps to its own kind
+  // with the room id in `ext` so the row deep-links (clickstone §2.2).
+  ["chatRoomInvitationReceived", "chatRoomInvitation"],
   ["test", "test"],
   // The grouped listing can label its aggregate rows; the same adapters
   // map them so grouped and flat rows never disagree about the kind.
@@ -431,6 +433,15 @@ function systemExtOf(item: NotificationItem): NotificationExt {
   }
   if (typeof item.noteDraft?.id === "string" && item.noteDraft.id.length > 0) {
     ext.failedDraftId = item.noteDraft.id;
+  }
+  // The invitation packs the room (`invitation.room.id/name`); the row
+  // deep-links to it when present, labels honestly when absent.
+  const room = item.invitation?.room;
+  if (room && typeof room.id === "string" && room.id.length > 0) {
+    ext.invitedRoomId = room.id;
+    if (typeof room.name === "string" && room.name.length > 0) {
+      ext.invitedRoomName = room.name;
+    }
   }
   return ext;
 }
