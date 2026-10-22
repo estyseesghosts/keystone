@@ -1,11 +1,12 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: **P6 Wave 2 COMPLETE + login hotfix on `main` (2026-10-22)**.
+Phase/slice: **P6 Wave 3.1 DONE on `main` (2026-10-22)** — both admin-insight
+halves merged (masto + misskey). Next: 3.2 reports queue.
 Program source of truth: `docs/clickstone.md` +
 `docs/2026-10-22-full-audit-mastodon-misskey-v1-parity/`. The old V2
 E6/E7 program is closed; do not reopen it from `docs/parity-gaps.md`.
 
-## What landed (26 slices merged; Wave 0+1 closed earlier)
+## What landed (27 slices merged; Wave 0+1+2 closed earlier)
 
 Wave 0 correctness + Wave 1 daily-driver: see prior revision (22 slices).
 Wave 2: 2.1 Mastodon conversations/DM inbox (`ConversationsApi`,
@@ -18,18 +19,24 @@ honest-disabled), 2.2 Misskey chat (`ChatApi`, rooms+stream, Misskey
 Mastodon triple `read write follow` — logged-in authorize 502'd over
 ~512-char URLs, verified live 200 after fix).
 
-Verification on `main`: **182 suites / 2286 tests green**;
+Verification on `main`: **185 suites / 2333 tests green**;
 `typecheck` (ios+android+web) + `lint` clean. Per-slice logs:
 `state/logs/2026-10-22-p6.*.md`; task index `docs/tasks/README.md`.
+Wave 3.1-masto: `admin_read`/`admin_write` seam in `detect.ts`,
+`admin:read` in NOW (Mastodon flavor = triple + `admin:read`),
+read-only `AdminInsight` screen (measures/dimensions + public fallback).
+Wave 3.1-misskey: `misskey/admin.ts` (server-info/meta/queue/online-users),
++3 `read:admin:*` permissions, same screen extended by family branch.
 
 ## Next 3 steps
 
-1. PAUSED per owner: Wave 2 + both login fixes merged — owner
-   confirms mstdn.ca login works before Wave 3 starts.
-2. Wave 3.1: admin insight, two branches (`-masto` owns the
-   admin-capability+scope seam in `detect.ts`/`oauth.ts`; `-misskey`
-   after, rebase onto the seam).
-3. Wave 3.2 → 3.3+3.4 → 3.5 after 3.1 lands. Wave 4 out of scope.
+1. Wave 3.2: reports queue (Misskey `admin/abuse-user-reports` +
+   resolve/update/forward; Mastodon `GET/POST api/v1/admin/reports` +
+   notes) — display the ids 1.5 already sends. Single agent.
+2. Wave 3.3 + 3.4 in parallel after 3.2 (file-disjoint); 3.5 after 3.2
+   (may run alongside if file-disjoint). Wave 4 out of scope.
+3. End of program: intl extract/compile + deferred locale sweep
+   (fr+7 catalogs, `errors.unsupported.avatar` cleanup).
 
 ## Blockers / debts
 
