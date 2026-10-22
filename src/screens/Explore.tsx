@@ -585,26 +585,18 @@ function NewsTab({backend}: {backend: Backend}) {
       .finally(() => setLoading(false))
   }
   return (
-    <View style={atoms.flex1}>
-      <FlatList
-        testID="explore-news"
-        data={links}
-        keyExtractor={l => l.url}
-        ItemSeparatorComponent={() => <RowSeparator testID="explore-news-sep" />}
-        renderItem={({item}) => <NewsCard link={item} />}
-      />
-      {!end ? (
-        <View style={[atoms.centered, atoms.py_sm]}>
-          <Button
-            label={loading ? i18n._(msg`Loading…`) : i18n._(msg`Show more`)}
-            variant="secondary"
-            disabled={loading}
-            onPress={loadMore}
-            testID="explore-news-more"
-          />
-        </View>
-      ) : null}
-    </View>
+    <FlatList
+      testID="explore-news"
+      data={links}
+      keyExtractor={l => l.url}
+      ItemSeparatorComponent={() => <RowSeparator testID="explore-news-sep" />}
+      renderItem={({item}) => <NewsCard link={item} />}
+      // Infinite scroll with early prefetch: the next page starts loading
+      // well before the bottom edge, so the button-less list never stalls.
+      // `loadMore` is already guarded (loading/end/cursor), never a dupe.
+      onEndReached={() => void loadMore()}
+      onEndReachedThreshold={2}
+    />
   )
 }
 

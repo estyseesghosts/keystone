@@ -175,6 +175,33 @@ describe('ExploreScreen', () => {
     expect(screen.queryByTestId('explore-tab-news')).toBeNull()
   })
 
+  it('news tab prefetches the next page on scroll, no button', async () => {
+    const news = jest
+      .fn()
+      .mockResolvedValueOnce({
+        items: [
+          {url: 'https://n.example/1', title: 'Big news', description: null, providerName: 'N', image: null},
+        ],
+        cursor: 'c1',
+        end: false,
+      })
+      .mockResolvedValue({items: [], cursor: null, end: true})
+    const backend = baseBackend({
+      explore: {
+        posts: jest.fn(async () => ({items: [], cursor: null, end: true})),
+        news,
+      },
+    })
+    setup({backend, params: {tab: 'news'}})
+    expect(await screen.findByText('Big news')).toBeTruthy()
+    // No overlay row, no button: the next page loads from the scroll edge.
+    expect(screen.queryByTestId('explore-news-more')).toBeNull()
+    const list = screen.getByTestId('explore-news')
+    ;(list.props as {onEndReached: () => void}).onEndReached()
+    await waitFor(() => expect(news).toHaveBeenCalledTimes(2))
+    expect(news).toHaveBeenLastCalledWith({limit: 10, cursor: 'c1'})
+  })
+
   it('news tab renders trending links with photos and separators', async () => {
     const backend = baseBackend({
       explore: {
