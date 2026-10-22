@@ -69,7 +69,7 @@ import {
   decodeCursor,
   pageOf,
 } from "./adapt";
-import { likeSupportFor, likeViaNotesLike, seedLikeSupport } from "./like";
+import { likeSupportFor, likeViaNotesLike } from "./like";
 import type {
   DriveFile,
   DriveFolder as WireDriveFolder,
@@ -214,12 +214,11 @@ export function createMisskeyBackend(
   // table is the floor, `opts.evidence` (the session's stored probe
   // evidence) raises it where the server is authoritative.
   const capabilities = buildCapabilities(flavor, opts.evidence ?? {});
-  // MK13: where the table already proves `notes/like` absent (stock
-  // Misskey), seed the per-origin cache so the first heart press falls
-  // straight back to a ❤ reaction — never a doomed probe-by-fire 404.
-  if (capabilities.like === "unsupported" && opts.origin) {
-    seedLikeSupport(opts.origin, false);
-  }
+  // `notes/like` support is NEVER seeded from the flavor table: stock
+  // Misskey may be backported, so a flavor label cannot prove the endpoint
+  // absent (p6.0 0.7). The first heart press probes once per origin via
+  // `like.ts`; a real 404 caches absence and only then falls back to a ❤
+  // reaction. See `likeViaNotesLike`.
 
   async function callNotes(
     endpoint: string,
@@ -406,7 +405,14 @@ export function createMisskeyBackend(
   const scheduled: ScheduledApi = {
     async list(opts = {}) {
       const cursor = decodeCursor(opts.cursor ?? null);
-      const items = await listScheduledNotes(call, opts.limit ?? DEFAULT_LIMIT, cursor.untilId);
+      // Both directions: `untilId` pages down, `sinceId` lets pull-to-
+      // refresh see rows created after the newest one it already holds.
+      const items = await listScheduledNotes(
+        call,
+        opts.limit ?? DEFAULT_LIMIT,
+        cursor.untilId,
+        cursor.sinceId,
+      );
       return items.map(
         (s): ScheduledNote => ({
           id: s.id,
@@ -439,9 +445,14 @@ export function createMisskeyBackend(
   const serverDrafts: ServerDraftsApi = {
     async list(opts = {}) {
       const cursor = decodeCursor(opts.cursor ?? null);
-      return (await listServerDrafts(call, opts.limit ?? DEFAULT_LIMIT, cursor.untilId)).map(
-        adaptServerDraft,
-      );
+      return (
+        await listServerDrafts(
+          call,
+          opts.limit ?? DEFAULT_LIMIT,
+          cursor.untilId,
+          cursor.sinceId,
+        )
+      ).map(adaptServerDraft);
     },
     async create(draft) {
       return adaptServerDraft(
@@ -637,6 +648,23 @@ export function createMisskeyBackend(
           ...(draft.visibility?.localOnly ? { localOnly: true } : {}),
           ...(draft.mediaIds && draft.mediaIds.length > 0
             ? { fileIds: draft.mediaIds }
+            : {}),
+          // Per-note quote refusal (create parity). Edit forwards the value
+          // the caller carries, so `false` can lift an earlier refusal.
+          ...(draft.noQuote !== undefined ? { noQuote: draft.noQuote } : {}),
+          // Poll edits use the exact create shape. A server-side rejection
+          // (4xx) propagates from `editNote` — never silently dropped.
+          ...(draft.poll
+            ? {
+                poll: {
+                  choices: draft.poll.choices,
+                  multiple: draft.poll.multiple,
+                  ...(draft.poll.expiredAfter != null
+                    ? { expiredAfter: draft.poll.expiredAfter }
+                    : {}),
+                  ...(draft.poll.expiresAt != null ? { expiresAt: draft.poll.expiresAt } : {}),
+                },
+              }
             : {}),
         },
       );
@@ -1005,9 +1033,16 @@ export function createMisskeyBackend(
     },
 
     async uploadMedia(file, opts = {}) {
-      return adaptDriveFile(
-        await transport.upload<DriveFile>(file, opts as UploadOptions),
-      );
+      // Build the multipart options explicitly: `folderId`/`force` are
+      // opt-in Drive fields. A null folderId means the Drive root and is
+      // omitted (never sent as an empty field — Sharkey rejects those).
+      const uploadOpts: UploadOptions = {
+        ...(opts.isSensitive !== undefined ? { isSensitive: opts.isSensitive } : {}),
+        ...(opts.comment !== undefined ? { comment: opts.comment } : {}),
+        ...(opts.folderId != null ? { folderId: opts.folderId } : {}),
+        ...(opts.force !== undefined ? { force: opts.force } : {}),
+      };
+      return adaptDriveFile(await transport.upload<DriveFile>(file, uploadOpts));
     },
 
     async translate(id, targetLang) {

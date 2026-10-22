@@ -115,6 +115,34 @@ describe('uploadAll', () => {
     expect(patches.a.status).toBe('done')
     expect(patches.b).toMatchObject({status: 'error', error: 'too big'})
   })
+
+  it('carries the Drive folder target (folderId/force) and keeps root by default', async () => {
+    const uploadMedia = jest.fn().mockImplementation(async () => ({id: 'm-new'}))
+    const files = new Map([['a', new File(['x'], 'a.png')]])
+    await uploadAll(
+      {uploadMedia} as unknown as Backend,
+      [item('a', {alt: 'a cat'})],
+      files,
+      () => {},
+      {folderId: 'folder-1', force: true},
+    )
+    expect(uploadMedia.mock.calls[0][1]).toEqual({
+      comment: 'a cat',
+      folderId: 'folder-1',
+      force: true,
+    })
+
+    // Root: no folderId/force reaches the backend (never an empty field).
+    uploadMedia.mockClear()
+    await uploadAll(
+      {uploadMedia} as unknown as Backend,
+      [item('a')],
+      files,
+      () => {},
+      {folderId: null},
+    )
+    expect(uploadMedia.mock.calls[0][1]).toEqual({})
+  })
 })
 
 const SESS = {id: 's1', origin: 'https://x.example', family: 'misskey'} as unknown as Session

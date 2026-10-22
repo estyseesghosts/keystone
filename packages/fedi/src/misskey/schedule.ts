@@ -21,10 +21,12 @@ export async function listScheduledNotes(
   call: WireCall,
   limit = 20,
   untilId?: string,
+  sinceId?: string,
 ): Promise<WireScheduledNote[]> {
   return call<WireScheduledNote[]>("notes/schedule/list", {
     limit,
     ...(untilId ? { untilId } : {}),
+    ...(sinceId ? { sinceId } : {}),
   });
 }
 

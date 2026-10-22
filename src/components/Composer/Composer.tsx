@@ -103,6 +103,11 @@ export interface ComposerProps {
   editing?: Post | null
   /** Restore this local draft on open. */
   draftId?: string | null
+  /** Drive folder for uploads made from this composer (Misskey family).
+   * Omitted/`null` is the Drive root — the wire field is not sent. The
+   * composer has no folder picker yet; a caller that has a target (e.g. a
+   * folder-scoped screen) passes it here. */
+  uploadFolderId?: string | null
   /** Dismiss the composer. Omit for the inline (home) composer, which has
    * no Cancel button — it stays mounted like the reference client. */
   onClose?: () => void
@@ -133,6 +138,7 @@ export function useComposerController({
   quote = null,
   editing = null,
   draftId = null,
+  uploadFolderId = null,
   onClose,
   onPosted,
 }: ComposerProps) {
@@ -145,7 +151,7 @@ export function useComposerController({
   const limitsQuery = useComposeLimits(session)
   const limits = limitsQuery.data ?? composeDefaultsFor(family)
   const emojis = useSessionCustomEmojis(session, backend)
-  const uploads = useUploads(backend)
+  const uploads = useUploads(backend, {folderId: uploadFolderId})
   const create = useCreatePost(session, backend)
   const edit = useEditPost(session, backend)
 

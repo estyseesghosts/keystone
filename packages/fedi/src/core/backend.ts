@@ -99,6 +99,17 @@ export interface PollDraft {
   expiredAfter?: number;
 }
 
+/** Multipart upload options (addition). `folderId`/`force` are Misskey-
+ * family Drive fields; the Mastodon family ignores them because Drive does
+ * not exist there. Root is the default: omit `folderId` rather than
+ * sending a null/empty value. */
+export interface UploadMediaOpts {
+  isSensitive?: boolean;
+  comment?: string;
+  folderId?: string | null;
+  force?: boolean;
+}
+
 /** A post being composed or edited. `visibility` carries `raw` so an
  * edited `home` post is written back as `home` (plan §2.1) — when `raw` is
  * absent (a fresh compose) the adapter maps `kind` to its own wire value
@@ -665,7 +676,7 @@ export interface Backend {
 
   // --- Server services (plan §2.2) ---
   customEmojis(): Promise<CustomEmoji[]>;
-  uploadMedia(file: File, opts?: { isSensitive?: boolean; comment?: string }): Promise<Media>;
+  uploadMedia(file: File, opts?: UploadMediaOpts): Promise<Media>;
   /** Translate one post's text to the viewer's language (`notes/translate`
    * takes the note id; the server derives the source). */
   translate(id: string, targetLang: string): Promise<Translation>;

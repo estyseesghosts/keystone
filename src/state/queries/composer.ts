@@ -178,13 +178,27 @@ export interface UploadableFile {
   previewUri: string | null
 }
 
+/** Drive targeting for an upload batch (Misskey family). Omitted/`null`
+ * folderId means the Drive root, which is the default — the wire field is
+ * never sent for root (Sharkey rejects empty fields). `force` is likewise
+ * opt-in and keeps the server's duplicate detection when unset. */
+export interface UploadTarget {
+  folderId?: string | null
+  force?: boolean
+}
+
 /** Upload one file through the owning session's backend. */
 export async function uploadOne(
   backend: Backend,
   file: File,
   alt: string,
+  target: UploadTarget = {},
 ): Promise<{id: string}> {
-  const media = await backend.uploadMedia(file, alt ? {comment: alt} : {})
+  const media = await backend.uploadMedia(file, {
+    ...(alt ? {comment: alt} : {}),
+    ...(target.folderId ? {folderId: target.folderId} : {}),
+    ...(target.force !== undefined ? {force: target.force} : {}),
+  })
   return {id: media.id}
 }
 
@@ -193,12 +207,16 @@ export async function uploadOne(
  * (`onUpdate`). Returns the media ids in order, or null if any failed (the
  * failure stays on its item for retry; successful items are not re-sent).
  * Neither transport reports bytes, so progress is per-file state.
+ *
+ * `target` carries the Drive folder (and optional `force`) for this batch;
+ * the default is the Drive root.
  */
 export async function uploadAll(
   backend: Backend,
   items: UploadItem[],
   files: Map<string, File>,
   onUpdate: (key: string, patch: Partial<UploadItem>) => void,
+  target: UploadTarget = {},
 ): Promise<string[] | null> {
   const ids: string[] = []
   let failed = false
@@ -215,7 +233,7 @@ export async function uploadAll(
     }
     onUpdate(item.key, {status: 'uploading', error: null})
     try {
-      const {id} = await uploadOne(backend, file, item.alt)
+      const {id} = await uploadOne(backend, file, item.alt, target)
       onUpdate(item.key, {status: 'done', mediaId: id})
       ids.push(id)
     } catch (err) {
@@ -229,11 +247,16 @@ export async function uploadAll(
   return failed ? null : ids
 }
 
-export function useUploads(backend: Backend | null) {
+export function useUploads(backend: Backend | null, target: UploadTarget = {}) {
   const [items, setItems] = useState<UploadItem[]>([])
   const files = useMemo(() => new Map<string, File>(), [])
   const itemsRef = useRef(items)
   itemsRef.current = items
+  // The batch target is read at upload time (a folder chosen after staging
+  // still applies); a fresh object literal from the caller never re-creates
+  // `ensureUploaded`.
+  const targetRef = useRef(target)
+  targetRef.current = target
 
   const patch = useCallback((key: string, p: Partial<UploadItem>) => {
     setItems(cur => cur.map(i => (i.key === key ? {...i, ...p} : i)))
@@ -277,7 +300,7 @@ export function useUploads(backend: Backend | null) {
 
   const ensureUploaded = useCallback(async (): Promise<string[] | null> => {
     if (!backend) return null
-    return uploadAll(backend, itemsRef.current, files, patch)
+    return uploadAll(backend, itemsRef.current, files, patch, targetRef.current)
   }, [backend, files, patch])
 
   const clear = useCallback(() => {
