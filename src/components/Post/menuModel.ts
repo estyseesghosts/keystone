@@ -13,7 +13,7 @@ import {t} from '@lingui/macro'
 // without it, bare importers (unit tests) hit Lingui's no-locale error.
 import '#/locale/i18n'
 
-import type {Capabilities, ReportCategory, ServerFamily, Post} from '@keystone/fedi'
+import type {Capabilities, ReportCategory, ServerFamily, ServerFlavor, Post} from '@keystone/fedi'
 import {cachedRemotePostUrl, REDRAFT_WARNING, safeHttpUrl} from '@keystone/fedi'
 
 import type {ActionGate} from '#/state/cache'
@@ -85,13 +85,17 @@ export interface UserActionHandlers {
   muted?: boolean
   renoteMuted?: boolean
   blocking?: boolean
-  /** Open a message composer addressed to the author. No view wire one yet;
-   * the DM row is gated on `direct_messages` first (0.9). */
+  /** Open a message conversation for the author. The row is gated on
+   * `direct_messages` first (P6.2); the opener navigates to the inbox. */
   onMessage?: (post: Post) => void | Promise<void>
 }
 
 export interface PostMenuInput {
   family: ServerFamily
+  /** Detected flavor, when the session reported one — drives the per-flavor
+   * DM unavailable reason (P6.2). Absent keeps the generic client-gap
+   * sentence, never a server claim. */
+  flavor?: ServerFlavor | null
   capabilities: Capabilities | null
   /** The post whose menu this is (already the appeared note for reposts). */
   post: Post
@@ -134,15 +138,21 @@ function clipRow(input: PostMenuInput): PostMenuItem {
 const NO_CLIPBOARD = t`Clipboard is not available on this platform.`
 const LATER = (what: string) => t`${what} is not available in this build yet.`
 
-/** DM row (0.9): gated on `direct_messages`, which is `unsupported` on every
- * flavor until Wave 2 ships a messaging surface. The row never disappears —
- * it stays disabled with the client-gap reason, so the absence is
- * detectable and the server is not blamed for it. */
+/** DM row (P6.2): enabled only when `direct_messages` is supported AND a
+ * message opener is connected. Otherwise disabled WITH a reason — the row
+ * never disappears. The reason is per-flavor: the missing inbox on
+ * akkoma/pleroma without conversation support, the client gap everywhere
+ * else (Misskey chat is slice 2.2). */
 function dmRow(input: PostMenuInput): PostMenuItem {
   const {post, capabilities, handlers} = input
   const onMessage = handlers.user?.onMessage
   if (capabilities?.direct_messages !== 'supported') {
-    return {key: 'dm', label: t`Send a message`, disabled: true, reason: messagingUnavailableReason()}
+    return {
+      key: 'dm',
+      label: t`Send a message`,
+      disabled: true,
+      reason: messagingUnavailableReason({family: input.family, flavor: input.flavor ?? null}),
+    }
   }
   if (!onMessage) {
     return {

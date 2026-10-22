@@ -112,6 +112,10 @@ export type RootParamList = {
   Antennas: undefined
   Channel: {id: string}
   Channels: undefined
+  /** DM inbox (P6.2, clickstone §2.1): the list + one thread. Mastodon
+   * family only, capability-gated. */
+  Conversations: undefined
+  Conversation: {id: string}
   /** Server notices (clickstone §1.12): read + dismiss; no authoring. */
   Announcements: undefined
   Drive: undefined
@@ -159,6 +163,8 @@ export const paths: Record<keyof RootParamList, string> = {
   Antennas: '/antennas',
   Channel: '/channels/:id',
   Channels: '/channels',
+  Conversations: '/conversations',
+  Conversation: '/conversations/:id',
   Announcements: '/announcements',
   Drive: '/drive',
   Favorites: '/favorites',
@@ -270,6 +276,8 @@ export function linkingScreens(): LinkingScreens {
     Antennas: leaf('Antennas'),
     Channel: leaf('Channel'),
     Channels: leaf('Channels'),
+    Conversations: leaf('Conversations'),
+    Conversation: leaf('Conversation'),
     Announcements: leaf('Announcements'),
     Drive: leaf('Drive'),
     Favorites: leaf('Favorites'),
@@ -329,6 +337,10 @@ export function titleForRoute(
       return t`Channel`
     case 'Channels':
       return t`Channels`
+    case 'Conversations':
+      return t`Messages`
+    case 'Conversation':
+      return t`Conversation`
     case 'Announcements':
       return t`Announcements`
     case 'Drive':

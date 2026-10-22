@@ -232,18 +232,17 @@ describe('account menu (N16)', () => {
     expect(screen.queryByTestId('strip-account')).toBeNull()
   })
 
-  // 0.9 — messaging is gated, not invisible: the entry is discoverable in
-  // the account menu on BOTH families, disabled, and says why (client gap).
-  // There is deliberately no route behind it yet.
-  it('carries a disabled Messages entry with the client-gap reason (mastodon)', async () => {
+  // P6.2 — the DM inbox ships on mastodon: the account-menu entry is
+  // enabled and backed by the Conversations route (shell chrome pins
+  // presence; the press path is covered by the screen tests).
+  it('carries an enabled Messages entry on mastodon (the inbox ships)', async () => {
     widthHolder.width = 390
     await renderShell({signedIn: true, family: 'mastodon'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     fireEvent.press(screen.getByTestId('strip-account'))
     const row = screen.getByTestId('strip-account-menu-messages')
-    expect(row.props.accessibilityState.disabled).toBe(true)
-    expect(row.props.accessibilityLabel).toMatch(/Messaging is not implemented in Keystone yet/i)
-    expect(Object.keys(paths)).not.toContain('Messages')
+    expect(row.props.accessibilityState.disabled).not.toBe(true)
+    expect(Object.keys(paths)).toContain('Conversations')
   })
 
   it('carries the same disabled Messages entry on a Misskey session', async () => {
@@ -309,6 +308,27 @@ describe('stack destinations (E7 nav)', () => {
     await renderShell({signedIn: false})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     expect(screen.queryByTestId('sidebar-announcements')).toBeNull()
+  })
+
+  it('mastodon sidebar shows Messages (the DM inbox ships there)', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-conversations')).toBeTruthy()
+  })
+
+  it('misskey sidebar hides Messages (chat is slice 2.2)', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-conversations')).toBeNull()
+  })
+
+  it('hides Messages signed out (no inert entry)', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: false})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-conversations')).toBeNull()
   })
 
   it('misskey account menu carries Drive (mobile entry point)', async () => {

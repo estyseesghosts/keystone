@@ -98,7 +98,7 @@ describe('Navigation', () => {
     for (const name of ['Home', 'Network', 'Explore', 'Notifications', 'User'] as const) {
       expect(main[name]).toBe(strip(paths[name]))
     }
-    for (const name of ['Note', 'Tag', 'List', 'Lists', 'Clip', 'Clips', 'Antenna', 'Antennas', 'Channel', 'Channels', 'Announcements', 'Drive', 'Favorites', 'Followers', 'Following', 'FollowRequests', 'ProfileEdit', 'Settings', 'Login', 'AuthCallback', 'KeystoneCallback', 'SysDebug', 'Compose'] as const) {
+    for (const name of ['Note', 'Tag', 'List', 'Lists', 'Clip', 'Clips', 'Antenna', 'Antennas', 'Channel', 'Channels', 'Conversations', 'Conversation', 'Announcements', 'Drive', 'Favorites', 'Followers', 'Following', 'FollowRequests', 'ProfileEdit', 'Settings', 'Login', 'AuthCallback', 'KeystoneCallback', 'SysDebug', 'Compose'] as const) {
       expect(screens[name]).toBe(strip(paths[name]))
     }
     // Legacy rewrites land on canonical paths table entries.
@@ -140,6 +140,20 @@ describe('Navigation', () => {
     expect(paths.Announcements).toBe('/announcements')
     expect((linkingScreens() as Record<string, string>).Announcements).toBe('announcements')
     expect(titleForRoute('Announcements')).toBe('Announcements')
+  })
+
+  it('routes the DM inbox at /conversations with a thread leaf (P6.2 §2.1)', () => {
+    const inbox = getStateFromPath('/conversations', linking.config)
+    expect(JSON.stringify(inbox)).toMatch(/Conversations/)
+    const thread = getStateFromPath('/conversations/c1', linking.config)
+    expect(JSON.stringify(thread)).toMatch(/Conversation/)
+    expect(JSON.stringify(thread)).toMatch(/"id":"c1"/)
+    expect(paths.Conversations).toBe('/conversations')
+    expect(paths.Conversation).toBe('/conversations/:id')
+    expect((linkingScreens() as Record<string, string>).Conversations).toBe('conversations')
+    expect((linkingScreens() as Record<string, string>).Conversation).toBe('conversations/:id')
+    expect(titleForRoute('Conversations')).toBe('Messages')
+    expect(titleForRoute('Conversation')).toBe('Conversation')
   })
 
   it('routes the edit-history screen under the note (clickstone §1.7)', () => {

@@ -197,3 +197,22 @@ describe("authorization requests carry SCOPES_NOW", () => {
     expect(getCachedApp(store, ORIGIN, REDIRECT)?.client_id).toBe("cid");
   });
 });
+
+describe("P6.2 DMs: conversations scopes are NOW (the inbox ships)", () => {
+  it("requests read:conversations + write:conversations and never stops asking for them", () => {
+    expect(SCOPES_NOW).toContain("read:conversations");
+    expect(SCOPES_NOW).toContain("write:conversations");
+    expect(SCOPES_LATER).not.toContain("read:conversations");
+    expect(SCOPES_LATER).not.toContain("write:conversations");
+  });
+
+  it("registerApp posts the conversation scopes (old tokens upgrade via the prompt)", async () => {
+    const store = createMemoryStore();
+    const calls = stubFetch(() => ({ client_id: "cid", client_secret: "csec" }));
+    await registerApp({ store, origin: ORIGIN, redirectUri: REDIRECT });
+    const body = JSON.parse(String(calls[0].init?.body)) as { scopes: string };
+    const tokens = body.scopes.split(" ");
+    expect(tokens).toContain("read:conversations");
+    expect(tokens).toContain("write:conversations");
+  });
+});

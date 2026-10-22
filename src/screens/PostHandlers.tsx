@@ -109,6 +109,13 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
         muted: known?.isMuted,
         renoteMuted,
         blocking: known?.isBlocking,
+        // P6.2: the DM row opens the inbox, and only when the session's
+        // backend actually has the conversations module (capability-gated
+        // in the menu — without the module the row stays disabled with
+        // the "no composer connected" reason, never a dead tap).
+        ...(backend.conversations
+          ? {onMessage: () => nav.navigate('Conversations')}
+          : {}),
       }
     },
     [store, qc],

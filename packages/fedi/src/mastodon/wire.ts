@@ -529,6 +529,22 @@ export interface Announcement {
   reactions_allowed?: boolean | null;
 }
 
+// --- Conversations (P6.2, clickstone §2.1) ------------------------------------
+
+/** `GET /api/v1/conversations` row. Mastodon
+ * (`REST::ConversationSerializer`) sends `{id, accounts[],
+ * last_status|null, unread}`; Akkoma (`ConversationView
+ * participation.json`) sends the same four keys with the same meanings
+ * (`unread: !read`, `last_status` null when the participation has no
+ * activity). There is NO show route on either server, so rows are only
+ * ever read as list members — see `conversations.ts` `fetchConversation`. */
+export interface Conversation {
+  id: ID;
+  accounts?: Account[] | null;
+  unread?: boolean | null;
+  last_status?: Status | null;
+}
+
 // --- OAuth ----------------------------------------------------------------
 
 /** `POST /api/v1/apps` response (contract §2.1). */
