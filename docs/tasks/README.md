@@ -62,5 +62,7 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p6.1-announcements](p6.1-announcements.md) | clickstone §1.12 | done | `p6.1-announcements` | `state/logs/2026-10-22-p6.1-announcements.md` |
 | [p6.2-conversations](p6.2-conversations.md) | clickstone §2.1 | done | `p6.2-conversations` | `state/logs/2026-10-22-p6.2-conversations.md` |
 | [p6.2-transfer-ui](p6.2-transfer-ui.md) | clickstone §2.3 | done | `p6.2-transfer-ui` | `state/logs/2026-10-22-p6.2-transfer-ui.md` |
+| [p6.2-misskey-chat](p6.2-misskey-chat.md) | clickstone §2.2 | done | `p6.2-misskey-chat` | `state/logs/2026-10-22-p6.2-misskey-chat.md` |
+| [p6.2-login-hotfix](p6.2-login-hotfix.md) | login break 2.1 → fix | done | `p6.2-login-hotfix` | `state/logs/2026-10-22-p6.2-login-hotfix.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.

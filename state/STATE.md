@@ -1,27 +1,30 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase/slice: **P6 Wave 2 in progress — 2.1 + 2.3 MERGED on `main` (2026-10-22)**.
+Phase/slice: **P6 Wave 2 COMPLETE + login hotfix on `main` (2026-10-22)**.
 Program source of truth: `docs/clickstone.md` +
 `docs/2026-10-22-full-audit-mastodon-misskey-v1-parity/`. The old V2
 E6/E7 program is closed; do not reopen it from `docs/parity-gaps.md`.
 
-## What landed (24 slices merged; Wave 0+1 closed earlier)
+## What landed (26 slices merged; Wave 0+1 closed earlier)
 
 Wave 0 correctness + Wave 1 daily-driver: see prior revision (22 slices).
 Wave 2: 2.1 Mastodon conversations/DM inbox (`ConversationsApi`,
-`read/write:conversations` → `SCOPES_NOW`, inbox+thread screens;
+`write:conversations` → `SCOPES_NOW`, inbox+thread screens;
 `direct_messages` on mastodon+akkoma), 2.3 transfer UI (ADR 0004
 `expo-document-picker`, 5 Misskey families real, 12 Mastodon rows
-honest-disabled, export completes via `exportCompleted`).
+honest-disabled), 2.2 Misskey chat (`ChatApi`, rooms+stream, Misskey
+`direct_messages` flipped). Hotfix: `read:conversations` dropped —
+not a real Mastodon scope (upstream `enforce_configured_scopes`
+rejected app registration); scope subset now test-pinned.
 
-Verification on `main`: **176 suites / 2202 tests green**;
+Verification on `main`: **182 suites / 2273 tests green**;
 `typecheck` (ios+android+web) + `lint` clean. Per-slice logs:
 `state/logs/2026-10-22-p6.*.md`; task index `docs/tasks/README.md`.
 
 ## Next 3 steps
 
-1. Wave 2.2: Misskey chat (`p6.2-misskey-chat` agent running in
-   background — history+rooms+stream, then flip Misskey `direct_messages`).
+1. PAUSED per owner: Mastodon login broke (`read:conversations` fix
+   merged this session) — owner confirms login works before Wave 3 starts.
 2. Wave 3.1: admin insight, two branches (`-masto` owns the
    admin-capability+scope seam in `detect.ts`/`oauth.ts`; `-misskey`
    after, rebase onto the seam).
