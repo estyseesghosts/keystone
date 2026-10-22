@@ -76,6 +76,23 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   'language',
 ]
 
+// --- OAuth/MiAuth callback paths (clickstone §1.13, audit A5) ---------------
+//
+// v1 accepted `/keystone/callback` at a ROOT base (its `/auth/*` prefix
+// belongs to the server behind a same-origin deploy) and
+// `${base}/auth/callback` under a sub-path. v2 registers one canonical path,
+// `/auth/callback`, at every base (`webCallbackUri` in `screens/LoginFlows`)
+// and keeps the v1 root path as a first-class route, so a redirect_uri
+// registered before the rebuild — or an old bookmark — still lands on the
+// callback screen. Both are exempt from base stripping: under base
+// `/keystone`, `/keystone/callback` must not become `/callback`.
+export const AUTH_CALLBACK_PATH = '/auth/callback'
+export const LEGACY_AUTH_CALLBACK_PATH = '/keystone/callback'
+export const AUTH_CALLBACK_PATHS: readonly string[] = [
+  AUTH_CALLBACK_PATH,
+  LEGACY_AUTH_CALLBACK_PATH,
+]
+
 export type RootParamList = {
   Home: undefined
   Network: {tab?: NetworkTab} | undefined
@@ -103,6 +120,8 @@ export type RootParamList = {
    * re-opens sign-in for the session that needs a fresh token. */
   Login: {origin?: string} | undefined
   AuthCallback: undefined
+  /** v1 root-base callback URL (`/keystone/callback`) — same screen. */
+  KeystoneCallback: undefined
   SysDebug: undefined
   Compose: {replyToId?: string; quoteId?: string; draftId?: string; editId?: string} | undefined
 }
@@ -131,7 +150,8 @@ export const paths: Record<keyof RootParamList, string> = {
   ProfileEdit: '/profile/edit',
   Settings: '/settings/:section?',
   Login: '/login',
-  AuthCallback: '/auth/callback',
+  AuthCallback: AUTH_CALLBACK_PATH,
+  KeystoneCallback: LEGACY_AUTH_CALLBACK_PATH,
   SysDebug: '/sys/debug',
   Compose: '/compose',
 }
@@ -158,6 +178,41 @@ export function rewriteLegacyPath(path: string): string {
     default:
       return path
   }
+}
+
+// --- Callback URL helpers ---------------------------------------------------
+//
+// Pure string transforms (no `URL` global): the route table is also loaded
+// on native, and both callbacks must survive base stripping, legacy
+// rewriting, and the post-exchange address-bar cleanup unchanged.
+
+/** Path part of `raw` (a route path or a web URL), query/fragment dropped. */
+function pathOf(raw: string): string {
+  const schemeAndAuthority = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/?#]*/.exec(raw)
+  const rest = schemeAndAuthority ? raw.slice(schemeAndAuthority[0].length) : raw
+  return rest.split(/[?#]/, 1)[0] ?? ''
+}
+
+function withoutTrailingSlash(path: string): string {
+  return path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
+}
+
+/** True when `raw` (a route path or a web URL) targets a callback path —
+ * the canonical one or the v1 root alias. Query/fragment/trailing slash are
+ * ignored; the deploy base, when present, is not stripped here. */
+export function isAuthCallbackPath(raw: string): boolean {
+  if (!raw) return false
+  return AUTH_CALLBACK_PATHS.includes(withoutTrailingSlash(pathOf(raw)))
+}
+
+/** The address-bar URL after the callback consumed its one-time params: the
+ * SAME path (deploy base included), no `?query`/`#fragment`, so the
+ * one-time `code`/`state`/`session` never stay visible — for both the
+ * canonical and the legacy path. Falls back to the canonical path when
+ * `raw` is unusable. */
+export function callbackCleanHref(raw: string | null | undefined): string {
+  const path = raw ? withoutTrailingSlash(pathOf(raw)) : ''
+  return path || AUTH_CALLBACK_PATH
 }
 
 // --- Single-source linking table -------------------------------------------
@@ -205,6 +260,9 @@ export function linkingScreens(): LinkingScreens {
     Settings: leaf('Settings'),
     Login: leaf('Login'),
     AuthCallback: leaf('AuthCallback'),
+    // v1 root-base callback URL: same screen, separate leaf so both URLs
+    // resolve (clickstone §1.13).
+    KeystoneCallback: leaf('KeystoneCallback'),
     SysDebug: leaf('SysDebug'),
     Compose: leaf('Compose'),
   }
@@ -288,6 +346,7 @@ export function titleForRoute(
     }
     case 'Login':
     case 'AuthCallback':
+    case 'KeystoneCallback':
       return t`Sign in`
     case 'SysDebug':
       return t`Debug`

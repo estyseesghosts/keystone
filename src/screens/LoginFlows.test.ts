@@ -1,8 +1,12 @@
 import {
+  callbackUri,
   createMemoryStore,
+  DEFAULT_CALLBACK_PATH,
   MfaRequiredError,
   type KeyValueStore,
 } from '@keystone/fedi'
+
+import {AUTH_CALLBACK_PATHS, AUTH_CALLBACK_PATH, LEGACY_AUTH_CALLBACK_PATH} from '#/routes'
 
 import {
   completeMastodonOAuth as complete,
@@ -14,6 +18,7 @@ import {
   startMastodonOAuth as start,
   startMisskeyMiAuth,
   takeMisskeyPending,
+  webCallbackUri,
 } from './LoginFlows'
 
 const ORIGIN_A = 'https://a.example'
@@ -33,6 +38,26 @@ const realFetch = globalThis.fetch
 
 afterEach(() => {
   globalThis.fetch = realFetch
+})
+
+describe('registered OAuth callback (clickstone §1.13)', () => {
+  it('registers the canonical /auth/callback at every base', () => {
+    // The exact redirect_uri handed to `registerApp` on web. Unchanged from
+    // the original v2 registration, so no instance re-registers.
+    expect(webCallbackUri('https://app.example')).toBe('https://app.example/auth/callback')
+    expect(webCallbackUri('https://app.example')).toBe(
+      callbackUri('https://app.example', AUTH_CALLBACK_PATH),
+    )
+    // A root-relative deploy has no origin yet; the path is still canonical.
+    expect(webCallbackUri(null)).toBe(AUTH_CALLBACK_PATH)
+  })
+
+  it('accepts the packages/fedi default path too (v1 root alias kept)', () => {
+    // Whatever the package-level default is, the route table serves it:
+    // that is what keeps pre-rebuild registrations landing.
+    expect(AUTH_CALLBACK_PATHS).toContain(DEFAULT_CALLBACK_PATH)
+    expect(AUTH_CALLBACK_PATHS).toContain(LEGACY_AUTH_CALLBACK_PATH)
+  })
 })
 
 describe('normalizeServerInput', () => {

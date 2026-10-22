@@ -2,10 +2,20 @@ import {getStateFromPath} from '@react-navigation/native'
 import {I18nProvider} from '@lingui/react'
 import {fireEvent, render, screen} from '@testing-library/react-native'
 
-import {linking, Navigation} from '#/Navigation'
-import {linkingScreens, paths, rewriteLegacyPath} from '#/routes'
+import {getStateFromPathWithBase, linking, Navigation, stripShellBase} from '#/Navigation'
+import {
+  AUTH_CALLBACK_PATH,
+  AUTH_CALLBACK_PATHS,
+  callbackCleanHref,
+  isAuthCallbackPath,
+  LEGACY_AUTH_CALLBACK_PATH,
+  linkingScreens,
+  paths,
+  rewriteLegacyPath,
+} from '#/routes'
 import {i18n} from '#/locale/i18n'
 import {Root} from '#/Root'
+import {redirectUriFor} from '#/screens/Login'
 
 jest.mock('expo-linking', () => ({
   createURL: (path: string) => `keystone://${path}`,
@@ -87,7 +97,7 @@ describe('Navigation', () => {
     for (const name of ['Home', 'Network', 'Explore', 'Notifications', 'User'] as const) {
       expect(main[name]).toBe(strip(paths[name]))
     }
-    for (const name of ['Note', 'Tag', 'List', 'Lists', 'Clip', 'Clips', 'Antenna', 'Antennas', 'Channel', 'Channels', 'Drive', 'Favorites', 'Followers', 'Following', 'FollowRequests', 'ProfileEdit', 'Settings', 'Login', 'AuthCallback', 'SysDebug', 'Compose'] as const) {
+    for (const name of ['Note', 'Tag', 'List', 'Lists', 'Clip', 'Clips', 'Antenna', 'Antennas', 'Channel', 'Channels', 'Drive', 'Favorites', 'Followers', 'Following', 'FollowRequests', 'ProfileEdit', 'Settings', 'Login', 'AuthCallback', 'KeystoneCallback', 'SysDebug', 'Compose'] as const) {
       expect(screens[name]).toBe(strip(paths[name]))
     }
     // Legacy rewrites land on canonical paths table entries.
@@ -121,6 +131,72 @@ describe('Navigation', () => {
     const channel = getStateFromPath('/channels/ch1', linking.config)
     expect(JSON.stringify(channel)).toMatch(/Channel/)
     expect(JSON.stringify(channel)).toMatch(/"id":"ch1"/)
+  })
+
+  it('accepts both the canonical and the v1 root OAuth callback paths (clickstone §1.13)', () => {
+    const canonical = getStateFromPath('/auth/callback?code=c1&state=s1', linking.config)
+    expect(JSON.stringify(canonical)).toMatch(/AuthCallback/)
+    expect(JSON.stringify(canonical)).toMatch(/"code":"c1"/)
+    expect(JSON.stringify(canonical)).toMatch(/"state":"s1"/)
+
+    // v1's root-base callback URL: a real route (same screen), not a
+    // rewrite — the alias keeps the URL the instance was registered with.
+    const legacy = getStateFromPath('/keystone/callback?code=c1&state=s1', linking.config)
+    expect(JSON.stringify(legacy)).toMatch(/KeystoneCallback/)
+    expect(JSON.stringify(legacy)).toMatch(/"code":"c1"/)
+
+    expect(paths.AuthCallback).toBe(AUTH_CALLBACK_PATH)
+    expect(paths.KeystoneCallback).toBe(LEGACY_AUTH_CALLBACK_PATH)
+    expect((linkingScreens() as Record<string, string>).KeystoneCallback).toBe('keystone/callback')
+
+    // Neither callback is a legacy rewrite target.
+    for (const path of AUTH_CALLBACK_PATHS) {
+      expect(rewriteLegacyPath(path)).toBe(path)
+    }
+    expect(isAuthCallbackPath('/keystone/callback')).toBe(true)
+    expect(isAuthCallbackPath('/auth/callback?code=c1')).toBe(true)
+    // The base-prefixed canonical form is NOT itself a callback path: it
+    // strips to the canonical path first, so it is not double-handled.
+    expect(isAuthCallbackPath('/keystone/auth/callback')).toBe(false)
+  })
+
+  it('resolves either callback under a deployed base without mangling it', () => {
+    for (const path of [
+      '/auth/callback?code=c1&state=s1',
+      '/keystone/auth/callback?code=c1&state=s1',
+    ]) {
+      const state = getStateFromPathWithBase(path, '/keystone/', linking.config)
+      expect(JSON.stringify(state)).toMatch(/AuthCallback/)
+      expect(JSON.stringify(state)).toMatch(/"code":"c1"/)
+    }
+    // The v1 root URL survives a base whose own prefix is `/keystone`
+    // (stripping would otherwise leave `/callback`, which matches nothing).
+    const legacy = getStateFromPathWithBase('/keystone/callback?code=c1&state=s1', '/keystone/', linking.config)
+    expect(JSON.stringify(legacy)).toMatch(/KeystoneCallback/)
+    expect(JSON.stringify(legacy)).toMatch(/"code":"c1"/)
+    // Base stripping leaves the callback path alone (no double-prefix), and
+    // the stripped-away `/callback` shape resolves to nothing.
+    expect(stripShellBase('/keystone/callback', '/keystone/')).toBe('/keystone/callback')
+    expect(getStateFromPath('/callback', linking.config)).toBeUndefined()
+  })
+
+  it('cleans the callback URL after the exchange for both paths', () => {
+    expect(callbackCleanHref('https://app.example/auth/callback?code=c1&state=s1')).toBe('/auth/callback')
+    expect(callbackCleanHref('https://app.example/keystone/callback?code=c1&state=s1')).toBe(
+      '/keystone/callback',
+    )
+    // The deploy base stays in the address bar (the app is mounted there).
+    expect(callbackCleanHref('https://app.example/keystone/auth/callback?code=c1#frag')).toBe(
+      '/keystone/auth/callback',
+    )
+    // Unusable URL → the canonical path, never a URL carrying the code.
+    expect(callbackCleanHref(null)).toBe(AUTH_CALLBACK_PATH)
+  })
+
+  it('registers one stable callback URI for login (no path change)', () => {
+    // Native (jest runs the iOS preset): the app-scheme URL for the
+    // canonical path; web composition is asserted in LoginFlows.test.ts.
+    expect(redirectUriFor()).toBe('keystone://auth/callback')
   })
 
   it('accepts an initial state (deep-link landing)', () => {

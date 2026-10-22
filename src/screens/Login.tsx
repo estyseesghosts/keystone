@@ -31,6 +31,7 @@ import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
 import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
+import {AUTH_CALLBACK_PATH} from '#/routes'
 import {useHosting} from '#/state/hosting'
 import {useSessionStore} from '#/state/session/SessionProvider'
 import {appStorage} from '#/storage'
@@ -44,6 +45,7 @@ import {
   pollMisskeyApproval,
   startMastodonOAuth,
   startMisskeyMiAuth,
+  webCallbackUri,
   type MisskeyMiAuthPending,
 } from './LoginFlows'
 
@@ -61,11 +63,15 @@ interface Detection {
   evidence: DetectionEvidence | null
 }
 
-function redirectUriFor(): string {
+/** The redirect URI registered with every instance (clickstone §1.13):
+ * web is `${origin}/auth/callback` at every base (see `webCallbackUri`);
+ * native keeps the app's own scheme path. Both callback paths are routed,
+ * so this URI is stable — no re-registration. Exported for the URI test. */
+export function redirectUriFor(): string {
   if (Platform.OS === 'web') {
-    return `${getWebOrigin() ?? ''}/auth/callback`
+    return webCallbackUri(getWebOrigin())
   }
-  return Linking.createURL('auth/callback')
+  return Linking.createURL(AUTH_CALLBACK_PATH.replace(/^\//, ''))
 }
 
 async function openBrowser(url: string): Promise<void> {

@@ -44,7 +44,7 @@ import {ScopeUpgradeBanner} from '#/components/ScopeUpgradeBanner'
 import {navigationRef} from '#/navigationRef'
 import {messagingUnavailableReason} from '#/lib/messaging'
 import type {RootParamList} from '#/routes'
-import {linkingScreens, rewriteLegacyPath, titleForRoute} from '#/routes'
+import {isAuthCallbackPath, linkingScreens, rewriteLegacyPath, titleForRoute} from '#/routes'
 import {useOptionalActiveSession, useSessionStore, useSessions} from '#/state/session/SessionProvider'
 import {backendForSession, type Backend} from '@keystone/fedi'
 import {useHosting} from '#/state/hosting'
@@ -115,8 +115,14 @@ export function normalizeShellBase(base: string | null | undefined): string {
   return stripped === '' ? '/' : stripped
 }
 
-/** Strip the deploy base off a path (`/keystone/notes/x` → `/notes/x`). */
+/** Strip the deploy base off a path (`/keystone/notes/x` → `/notes/x`).
+ * Callback paths are exempt: both are accepted at the origin root as well
+ * (v1 registered `/keystone/callback` there), and under base `/keystone`
+ * stripping would turn that URL into `/callback`, which matches no route.
+ * The canonical callback is also accepted base-prefixed — that form is
+ * longer, so it never equals a bare callback path and strips normally. */
 export function stripShellBase(path: string, base: string | null | undefined): string {
+  if (isAuthCallbackPath(path)) return path
   const b = normalizeShellBase(base)
   if (b === '/') return path
   if (path === b) return '/'
@@ -932,6 +938,9 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <Stack.Screen name="Settings" component={SettingsScreen} />
               <Stack.Screen name="Login" component={LoginScreen} />
               <Stack.Screen name="AuthCallback" component={AuthCallbackScreen} />
+              {/* clickstone §1.13: v1's root-base callback URL renders the
+                  same screen (`/auth/callback` stays canonical). */}
+              <Stack.Screen name="KeystoneCallback" component={AuthCallbackScreen} />
               <Stack.Screen name="SysDebug" component={SysDebugScreen} />
               <Stack.Screen
                 name="Compose"
