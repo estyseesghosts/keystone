@@ -430,6 +430,26 @@ describe("MisskeyBackend notifications, drive, emojis, translate", () => {
     expect(calls[2].endpoint).toBe("notifications/mark-all-as-read");
   });
 
+  it("sends preset KINDS as Misskey WIRE types (achievementEarned, not achievement)", async () => {
+    const { transport, calls } = stubTransport(() => []);
+    const backend = createMisskeyBackend(transport);
+    // The system preset (clickstone §1.11) is authored in core kinds; the
+    // one spelling that differs upstream is translated, the rest pass.
+    await backend.notifications({
+      includeTypes: ["scheduledNotePosted", "achievement", "login"],
+      excludeTypes: ["test"],
+    });
+    expect(calls[0].endpoint).toBe("i/notifications");
+    expect(calls[0].params).toEqual({
+      limit: 20,
+      includeTypes: ["scheduledNotePosted", "achievementEarned", "login"],
+      excludeTypes: ["test"],
+    });
+    // An empty selection never becomes an (unfiltered) empty array param.
+    await backend.notifications({ includeTypes: [] });
+    expect(calls[1].params).toEqual({ limit: 20 });
+  });
+
   it("drive files page with the server-side type filter", async () => {
     const { transport, calls } = stubTransport(() => [fixture<DriveFile>("drive-file.json")]);
     const backend = createMisskeyBackend(transport);

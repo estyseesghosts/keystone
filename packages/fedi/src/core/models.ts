@@ -654,6 +654,28 @@ export type NotificationKind =
   | "followRequestAccepted"
   | "achievement"
   | "app"
+  /** Misskey `note`: a new note from an account the viewer follows. The
+   * post is the note; there is no acting user on the row. */
+  | "note"
+  /** Misskey `scheduledNotePosted`: the viewer's own scheduled note went
+   * out. The post is the note that was published. */
+  | "scheduledNotePosted"
+  /** Misskey `scheduledNotePostFailed`: the viewer's own scheduled note
+   * failed to post. `ext.failedDraftId` names the draft the server kept
+   * (never a post: nothing was published). */
+  | "scheduledNotePostFailed"
+  /** Misskey `exportCompleted`: an export archive is ready.
+   * `ext.exportedEntity` / `ext.exportedFileId` carry what/where. */
+  | "exportCompleted"
+  /** Misskey `roleAssigned`: a role was granted to the viewer.
+   * `ext.roleName` carries the server's role name when it packed one. */
+  | "roleAssigned"
+  /** Misskey `login`: someone signed in to the viewer's account. */
+  | "login"
+  /** Misskey `createToken`: an access token was created for the account. */
+  | "createToken"
+  /** Misskey `test`: the viewer's own test notification. */
+  | "test"
   | "unknown";
 
 /** One actor in a notification row. Grouped rows carry several (including
@@ -696,6 +718,20 @@ export interface NotificationExt {
    * the sampled actors, so a row never rounds the packed samples up into
    * the count. Absent on flat rows and on groups that report none. */
   groupedCount?: number;
+  /** `roleAssigned` (Misskey): the server's role name, when it packed one.
+   * Absent = the wire did not name it (never invented). */
+  roleName?: string;
+  /** `exportCompleted` (Misskey): the exported entity token VERBATIM
+   * (`note`, `following`, `muting`, …) — display only, never routed on. */
+  exportedEntity?: string;
+  /** `exportCompleted` (Misskey): the Drive file id of the archive, when
+   * packed. Absent = unknown (never faked). */
+  exportedFileId?: string;
+  /** `achievementEarned` (Misskey): the achievement token VERBATIM. */
+  achievement?: string;
+  /** `scheduledNotePostFailed` (Misskey): the draft id the server kept so
+   * the note can be re-drafted. Absent = the wire named none. */
+  failedDraftId?: string;
 }
 
 // --- Pagination ------------------------------------------------------------

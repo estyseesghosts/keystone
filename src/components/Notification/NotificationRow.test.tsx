@@ -278,3 +278,110 @@ describe('NotificationRow excerpt links (PF-E2/E3)', () => {
     expect(navigateSpy).toHaveBeenCalledWith('Note', {id: 'p1'})
   })
 })
+
+// clickstone §1.11 — the Misskey types that used to read "unknown" now get
+// a real label, and the one type without a surface (chat) says what it is.
+describe('NotificationRow kind labels (clickstone §1.11)', () => {
+  function labelless(over: Partial<Notification>): Notification {
+    // System rows pack no actor at all (Misskey sends no `user`).
+    return notification({actors: [], post: null, reaction: null, ...over})
+  }
+
+  it('labels the newly mapped system kinds', () => {
+    const cases: Array<[string, string, string]> = [
+      ['note', 'note', 'posted a new note'],
+      ['scheduledNotePosted', 'scheduledNotePosted', 'posted your scheduled note'],
+      ['scheduledNotePostFailed', 'scheduledNotePostFailed', 'could not post your scheduled note'],
+      ['exportCompleted', 'exportCompleted', 'completed your export'],
+      ['roleAssigned', 'roleAssigned', 'gave you a role'],
+      ['login', 'login', 'signed in to your account'],
+      ['createToken', 'createToken', 'created an access token'],
+      ['test', 'test', 'sent a test notification'],
+      ['achievementEarned', 'achievement', 'earned an achievement'],
+    ]
+    for (const [rawType, kind, label] of cases) {
+      const view = renderWithTheme(
+        <NotificationRow notification={labelless({kind: kind as Notification['kind'], rawType})} />,
+      )
+      expect(screen.getByText(label)).toBeTruthy()
+      // Never the old generic fallback (a bare raw type) for these kinds.
+      expect(screen.queryByText(rawType)).toBeNull()
+      view.unmount()
+    }
+  })
+
+  it('says "chat invitation" for the unsupported chat type, not "unknown"', () => {
+    renderWithTheme(
+      <NotificationRow
+        notification={labelless({kind: 'unknown', rawType: 'chatRoomInvitationReceived'})}
+      />,
+    )
+    expect(screen.getByText('chat invitation')).toBeTruthy()
+    expect(screen.queryByText('unknown')).toBeNull()
+    expect(screen.queryByText('chatRoomInvitationReceived')).toBeNull()
+  })
+
+  it('still falls back to the raw type for a genuinely new type', () => {
+    renderWithTheme(
+      <NotificationRow notification={labelless({kind: 'unknown', rawType: 'someFutureThing'})} />,
+    )
+    expect(screen.getByText('someFutureThing')).toBeTruthy()
+  })
+
+  it('renders a viewer-event row without an invented actor', () => {
+    renderWithTheme(
+      <NotificationRow
+        notification={labelless({
+          kind: 'roleAssigned',
+          rawType: 'roleAssigned',
+          ext: {roleName: 'Moderator'},
+        })}
+      />,
+    )
+    expect(screen.getByText('gave you a role')).toBeTruthy()
+    // The role name the server packed is the honest secondary line.
+    expect(screen.getByText('Moderator')).toBeTruthy()
+    // No avatar, no "Someone" placeholder, no profile link.
+    expect(screen.queryByTestId('notification-avatar-n1')).toBeNull()
+    expect(screen.queryByTestId('notification-avatar-fallback-n1')).toBeNull()
+    expect(screen.queryByTestId('notification-actor-n1')).toBeNull()
+    expect(screen.queryByText('Someone')).toBeNull()
+  })
+
+  it('names the exported entity when the wire packed one', () => {
+    renderWithTheme(
+      <NotificationRow
+        notification={labelless({
+          kind: 'exportCompleted',
+          rawType: 'exportCompleted',
+          ext: {exportedEntity: 'note', exportedFileId: 'file1'},
+        })}
+      />,
+    )
+    expect(screen.getByText('completed your export')).toBeTruthy()
+    expect(screen.getByTestId('notification-detail-n1')).toHaveTextContent('notes')
+  })
+
+  it('shows no detail line when the wire packed none', () => {
+    renderWithTheme(
+      <NotificationRow notification={labelless({kind: 'exportCompleted', rawType: 'exportCompleted'})} />,
+    )
+    expect(screen.queryByTestId('notification-detail-n1')).toBeNull()
+  })
+})
+
+describe('NotificationRow dismiss (Mastodon, clickstone §1.11)', () => {
+  it('renders no dismiss control when the screen passes no handler', () => {
+    renderWithTheme(<NotificationRow notification={notification()} />)
+    expect(screen.queryByTestId('notification-dismiss-n1')).toBeNull()
+  })
+
+  it('fires the handler and is labelled for screen readers', () => {
+    const onDismiss = jest.fn()
+    renderWithTheme(<NotificationRow notification={notification()} onDismiss={onDismiss} />)
+    const button = screen.getByTestId('notification-dismiss-n1')
+    fireEvent.press(button)
+    expect(onDismiss).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText('Dismiss notification')).toBeTruthy()
+  })
+})

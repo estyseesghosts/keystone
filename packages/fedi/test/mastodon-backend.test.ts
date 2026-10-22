@@ -446,6 +446,55 @@ describe("MastodonBackend notifications", () => {
     const marker = calls.find((c) => c.path === "/api/v1/markers");
     expect(marker?.body).toEqual({ notifications: { last_read_id: fav.id } });
   });
+
+  // clickstone §1.11 — dismiss/clear exist on Mastodon AND Akkoma
+  // (contract §4 "Dismiss/clear notif."), so both are implemented; the id
+  // is opaque and encoded, and the calls carry no body.
+  it("dismissNotification posts /notifications/:id/dismiss with an encoded id", async () => {
+    const { client, calls } = stubClient({ respond: () => ({ data: {} }) });
+    await createMastodonBackend(client).dismissNotification!("a/b c");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].path).toBe("/api/v1/notifications/a%2Fb%20c/dismiss");
+    expect(calls[0].body).toBeUndefined();
+  });
+
+  it("clearNotifications posts /notifications/clear with no body", async () => {
+    const { client, calls } = stubClient({ respond: () => ({ data: {} }) });
+    await createMastodonBackend(client).clearNotifications!();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe("POST");
+    expect(calls[0].path).toBe("/api/v1/notifications/clear");
+    expect(calls[0].body).toBeUndefined();
+  });
+
+  it("keeps a 404 on dismiss as the typed unsupported error (never silent success)", async () => {
+    const { client } = stubClient({
+      respond: () => {
+        throw new MastoHttpError({
+          message: "Not Found",
+          status: 404,
+          kind: "http",
+          origin: "https://mastodon.example",
+        });
+      },
+    });
+    const backend = createMastodonBackend(client);
+    await expect(backend.dismissNotification!("n1")).rejects.toMatchObject({ status: 404 });
+    await expect(backend.clearNotifications!()).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("answers an EMPTY page, not every row, when a preset kind has no wire type", async () => {
+    // The Misskey system kinds have no Mastodon equivalent. Sending an
+    // empty `types[]` would drop the filter and return everything — the
+    // honest answer is an empty page with no request at all.
+    const { client, calls } = stubClient({ respond: () => ({ data: [] }) });
+    const page = await createMastodonBackend(client).notifications({
+      includeTypes: ["exportCompleted", "roleAssigned"],
+    });
+    expect(page).toEqual({ items: [], cursor: null, end: true });
+    expect(calls).toHaveLength(0);
+  });
 });
 
 describe("MastodonBackend services and error boundary", () => {

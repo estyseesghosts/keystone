@@ -1140,6 +1140,21 @@ export async function markNotificationsRead(
   });
 }
 
+/** `POST /api/v1/notifications/:id/dismiss` (Mastodon
+ * `Api::V1::NotificationsController#dismiss`, route `member do post
+ * :dismiss end`; Akkoma/Pleroma ship the same route — contract §4). The
+ * id is opaque: encoded, never parsed. Server answers an empty body. */
+export async function dismissNotification(client: MastoClient, id: string): Promise<void> {
+  await client.post(`/api/v1/notifications/${encodeURIComponent(id)}/dismiss`);
+}
+
+/** `POST /api/v1/notifications/clear` (Mastodon `#clear`, route
+ * `collection do post :clear end`; Akkoma/Pleroma too — contract §4).
+ * Destroys every notification for the account server-side. */
+export async function clearNotifications(client: MastoClient): Promise<void> {
+  await client.post("/api/v1/notifications/clear");
+}
+
 // --- Server services (contract §4) ----------------------------------------
 
 export interface WireCustomEmoji {

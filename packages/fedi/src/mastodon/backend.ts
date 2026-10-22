@@ -83,7 +83,9 @@ import {
 import type { ContinuationPage, SearchResult, TimelinePageOptions } from "./endpoints";
 import {
   answerFollowRequest,
+  clearNotifications,
   deleteStatus,
+  dismissNotification,
   editStatus,
   fetchAccountListPage,
   fetchAccountStatusesPage,
@@ -1012,6 +1014,13 @@ export function createMastodonBackend(
       const cont = continuationOf(opts.cursor);
       const types = wireNotificationTypes(opts.includeTypes);
       const excludeTypes = wireNotificationTypes(opts.excludeTypes);
+      // A preset whose kinds do not exist on this family (the Misskey
+      // system rows) must read as an EMPTY list, never as "no filter":
+      // an empty `types[]` would be dropped from the query and the server
+      // would answer every notification — a silent lie. Kinds only.
+      if (opts.includeTypes && opts.includeTypes.length > 0 && types.length === 0) {
+        return { items: [], cursor: null, end: true };
+      }
       // Prefer the grouped v2 endpoint; fall back to flat v1 when the
       // server has none (404/405 — Akkoma/Pleroma) or answers an envelope
       // the adapter cannot read (null). ONLY absence falls back: auth,
@@ -1061,6 +1070,14 @@ export function createMastodonBackend(
       const newest = page.items[0];
       if (!newest) return;
       await markNotificationsRead(client, newest.id);
+    },
+
+    async dismissNotification(id: string) {
+      await dismissNotification(client, id);
+    },
+
+    async clearNotifications() {
+      await clearNotifications(client);
     },
 
     // --- Server services -----------------------------------------------------

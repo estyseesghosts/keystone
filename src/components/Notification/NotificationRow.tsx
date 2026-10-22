@@ -47,6 +47,7 @@ const styles = StyleSheet.create({
   main: {flex: 1, gap: 2, minWidth: 0},
   headline: {flexDirection: 'row', alignItems: 'baseline', gap: 6, flexWrap: 'wrap'},
   name: {fontWeight: '700', flexShrink: 1},
+  dismiss: {paddingHorizontal: 8, paddingVertical: 8, alignSelf: 'flex-start'},
 })
 
 export function notificationKindLabel(notification: Notification): string {
@@ -77,10 +78,74 @@ export function notificationKindLabel(notification: Notification): string {
       return t`earned an achievement`
     case 'app':
       return t`sent an update`
+    // Misskey system rows (clickstone §1.11): the viewer's OWN account did
+    // this, so the labels never name an actor.
+    case 'note':
+      return t`posted a new note`
+    case 'scheduledNotePosted':
+      return t`posted your scheduled note`
+    case 'scheduledNotePostFailed':
+      return t`could not post your scheduled note`
+    case 'exportCompleted':
+      return t`completed your export`
+    case 'roleAssigned':
+      return t`gave you a role`
+    case 'login':
+      return t`signed in to your account`
+    case 'createToken':
+      return t`created an access token`
+    case 'test':
+      return t`sent a test notification`
     case 'unknown':
     default:
+      // Unsupported-but-known wires still get an honest label instead of
+      // the raw type: Misskey's chat invitation exists before this app has
+      // a chat surface, so it says what it is and nothing more.
+      if (notification.rawType === 'chatRoomInvitationReceived') return t`chat invitation`
       return notification.rawType || t`sent a notification`
   }
+}
+
+/** Kinds the viewer's own account caused: the wire packs no actor for
+ * them, so the row renders no avatar/name — never an invented one. */
+const VIEWER_EVENT_KINDS: ReadonlySet<Notification['kind']> = new Set([
+  'scheduledNotePosted',
+  'scheduledNotePostFailed',
+  'exportCompleted',
+  'roleAssigned',
+  'login',
+  'createToken',
+  'test',
+  'achievement',
+])
+
+export function isViewerEvent(notification: Notification): boolean {
+  return VIEWER_EVENT_KINDS.has(notification.kind)
+}
+
+const EXPORTED_ENTITY_LABELS: Record<string, () => string> = {
+  note: () => t`notes`,
+  following: () => t`following`,
+  muting: () => t`mutes`,
+  blocking: () => t`blocks`,
+  clip: () => t`clips`,
+  antenna: () => t`antennas`,
+  customEmoji: () => t`custom emoji`,
+  favorite: () => t`favorites`,
+  userList: () => t`lists`,
+}
+
+/** Secondary line the wire actually packed (role name, export target).
+ * Null where the row has no honest detail — never a token dump. */
+export function notificationKindDetail(notification: Notification): string | null {
+  if (notification.kind === 'roleAssigned') return notification.ext.roleName ?? null
+  if (notification.kind === 'exportCompleted') {
+    const entity = notification.ext.exportedEntity
+    if (!entity) return null
+    const label = EXPORTED_ENTITY_LABELS[entity]
+    return label ? label() : entity
+  }
+  return null
 }
 
 function openAuthorProfile(accountId: string) {
@@ -131,11 +196,16 @@ function NotificationAvatar({account, actorId}: {account: Account | null; actorI
 export function NotificationRow({
   notification,
   sessionId = null,
+  onDismiss = null,
 }: {
   notification: Notification
   /** Owning session (WS-C remote emoji fallback): explicit wins;
    * otherwise the active session; null = packed-only resolution. */
   sessionId?: string | null
+  /** Per-row dismiss (Mastodon family, clickstone §1.11). Null = the
+   * server has no dismiss endpoint (or the family has none at all), so NO
+   * control renders — an unsupported action is never shown inert. */
+  onDismiss?: (() => void) | null
 }) {
   // Singleton `i18n` (not the hook) keeps provider-less trees — jest,
   // previews — rendering; `useLocale` below still re-renders on switch.
@@ -173,62 +243,75 @@ export function NotificationRow({
   }
   const excerpt = notification.post?.content.plain
   const label = notificationKindLabel(notification)
+  const detail = notificationKindDetail(notification)
+  // Viewer-event rows (Misskey system types) pack no actor at all: render
+  // no avatar and no name rather than an invented "Someone" profile.
+  const viewerEvent = isViewerEvent(notification) && first === null
   return (
     <View testID={`notification-${notification.id}`} style={[atoms.py_sm, atoms.px_md, styles.row]}>
-      <Pressable
-        testID={`notification-actor-${notification.id}`}
-        onPress={() => {
-          if (first) openAuthorProfile(first.id)
-        }}
-        accessibilityRole="link"
-        accessibilityLabel={
-          shownAccount
-            ? i18n._(msg`Open profile of ${displayNameOf(shownAccount)}`)
-            : i18n._(msg`Open profile of the notifier`)
-        }>
-        <NotificationAvatar account={shownAccount} actorId={first?.id ?? null} />
-      </Pressable>
+      {viewerEvent ? null : (
+        <Pressable
+          testID={`notification-actor-${notification.id}`}
+          onPress={() => {
+            if (first) openAuthorProfile(first.id)
+          }}
+          accessibilityRole="link"
+          accessibilityLabel={
+            shownAccount
+              ? i18n._(msg`Open profile of ${displayNameOf(shownAccount)}`)
+              : i18n._(msg`Open profile of the notifier`)
+          }>
+          <NotificationAvatar account={shownAccount} actorId={first?.id ?? null} />
+        </Pressable>
+      )}
       <View style={styles.main}>
         <View style={styles.headline}>
-          <Pressable
-            testID={`notification-actor-name-${notification.id}`}
-            onPress={() => {
-              if (first) openAuthorProfile(first.id)
-            }}
-            accessibilityRole="link"
-            accessibilityLabel={
-              shownAccount
-                ? i18n._(msg`Open profile of ${displayNameOf(shownAccount)}`)
-                : i18n._(msg`Open profile of the notifier`)
-            }>
-            {shownAccount ? (
-              shouldCollapseName(shownAccount) ? (
-                <DisplayName
-                  account={{...shownAccount, displayName: handleOf(shownAccount)}}
-                  sessionId={sid}
-                  size={15}
-                  textStyle={styles.name}
-                  testID={`notification-actor-displayname-${notification.id}`}
-                />
-              ) : (
-                <>
+          {viewerEvent ? null : (
+            <Pressable
+              testID={`notification-actor-name-${notification.id}`}
+              onPress={() => {
+                if (first) openAuthorProfile(first.id)
+              }}
+              accessibilityRole="link"
+              accessibilityLabel={
+                shownAccount
+                  ? i18n._(msg`Open profile of ${displayNameOf(shownAccount)}`)
+                  : i18n._(msg`Open profile of the notifier`)
+              }>
+              {shownAccount ? (
+                shouldCollapseName(shownAccount) ? (
                   <DisplayName
-                    account={shownAccount}
+                    account={{...shownAccount, displayName: handleOf(shownAccount)}}
                     sessionId={sid}
                     size={15}
                     textStyle={styles.name}
                     testID={`notification-actor-displayname-${notification.id}`}
                   />
-                  <Caption color="muted" numberOfLines={1}>
-                    {handleOf(shownAccount)}
-                  </Caption>
-                </>
-              )
-            ) : (
-              <Body>{first ? idOnlyActorLabel(first.id) : i18n._(msg`Someone`)}</Body>
-            )}
-          </Pressable>
+                ) : (
+                  <>
+                    <DisplayName
+                      account={shownAccount}
+                      sessionId={sid}
+                      size={15}
+                      textStyle={styles.name}
+                      testID={`notification-actor-displayname-${notification.id}`}
+                    />
+                    <Caption color="muted" numberOfLines={1}>
+                      {handleOf(shownAccount)}
+                    </Caption>
+                  </>
+                )
+              ) : (
+                <Body>{first ? idOnlyActorLabel(first.id) : i18n._(msg`Someone`)}</Body>
+              )}
+            </Pressable>
+          )}
           <Body>{label}</Body>
+          {detail ? (
+            <Caption color="muted" testID={`notification-detail-${notification.id}`}>
+              {detail}
+            </Caption>
+          ) : null}
         </View>
         {extraCount > 0 ? (
           <Caption color="faint" testID={`notification-others-${notification.id}`}>
@@ -283,6 +366,16 @@ export function NotificationRow({
         {notification.read === true ? <Caption color="faint">{i18n._(msg`Read`)}</Caption> : null}
         {notification.read === false ? <Caption color="faint">{i18n._(msg`New`)}</Caption> : null}
       </View>
+      {onDismiss ? (
+        <Pressable
+          testID={`notification-dismiss-${notification.id}`}
+          onPress={onDismiss}
+          accessibilityRole="button"
+          accessibilityLabel={i18n._(msg`Dismiss notification`)}
+          style={styles.dismiss}>
+          <Caption color="muted">{i18n._(msg`Dismiss`)}</Caption>
+        </Pressable>
+      ) : null}
     </View>
   )
 }

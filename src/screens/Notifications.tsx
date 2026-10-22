@@ -13,8 +13,8 @@ import {FlatList, RefreshControl, View} from 'react-native'
 import {msg} from '@lingui/macro'
 
 import {
-  NOTIFICATION_FILTER_PRESETS,
   isUnsupportedError,
+  notificationFilterPresets,
   type Backend,
   type Notification,
 } from '@keystone/fedi'
@@ -23,6 +23,7 @@ import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {Dialog} from '#/components/Dialog'
 import {Loader} from '#/components/Loader'
 import {SignInButton} from '#/components/SignInButton'
 import {Tabs} from '#/components/Tabs'
@@ -32,6 +33,8 @@ import {Pagehead} from '#/components/Pagehead'
 import {useLiveNotifications} from '#/state/streaming'
 import {
   notificationsItems,
+  useClearNotifications,
+  useDismissNotification,
   useMarkNotificationsRead,
   useNotificationsQuery,
   useUnreadNotificationsCount,
@@ -168,7 +171,7 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
           <Caption color="faint">
             {i18n._(msg`Choose who notifies you, per type. Empty means the server default.`)}
           </Caption>
-          {NOTIFICATION_FILTER_PRESETS.filter(p => p.id !== 'all').map(preset => (
+          {notificationFilterPresets(backend.family).filter(p => p.id !== 'all').map(preset => (
             <View key={preset.id} testID={`notifications-settings-row-${preset.id}`}>
               <Caption>{preset.label}</Caption>
               <Tabs
@@ -208,8 +211,19 @@ export function NotificationsScreen() {
   const [filterId, setFilterId] = useState('all')
   const [groupedPref, setGroupedPref] = useState(true)
   const [groupedUnsupported, setGroupedUnsupported] = useState(false)
+  // Dismiss/clear are Mastodon-family actions (clickstone §1.11). When the
+  // server answers 404/405 the actions are HIDDEN with a reason — a fork
+  // without the routes never gets an error wall or an inert button.
+  const [dismissUnsupported, setDismissUnsupported] = useState(false)
+  const [clearUnsupported, setClearUnsupported] = useState(false)
+  const [clearOpen, setClearOpen] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
-  const preset = NOTIFICATION_FILTER_PRESETS.find(p => p.id === filterId) ?? NOTIFICATION_FILTER_PRESETS[0]
+  const presets = useMemo(
+    () => notificationFilterPresets(backend?.family ?? 'misskey'),
+    [backend?.family],
+  )
+  const preset = presets.find(p => p.id === filterId) ?? presets[0]
 
   const query = useNotificationsQuery(
     session?.id ?? null,
@@ -225,6 +239,44 @@ export function NotificationsScreen() {
   const items = useMemo(() => notificationsItems(query.data), [query.data])
   const unread = useUnreadNotificationsCount(session?.id ?? null)
   const markRead = useMarkNotificationsRead(session?.id ?? null, {backend: backend ?? null})
+  const dismiss = useDismissNotification(session?.id ?? null, {backend: backend ?? null})
+  const clear = useClearNotifications(session?.id ?? null, {backend: backend ?? null})
+
+  const family = backend?.family ?? null
+  const canDismiss =
+    family === 'mastodon' && !dismissUnsupported && typeof backend?.dismissNotification === 'function'
+  const canClear =
+    family === 'mastodon' && !clearUnsupported && typeof backend?.clearNotifications === 'function'
+
+  /** One dismiss: a 404/405 means the route does not exist on this server,
+   * so the action disappears with an honest caption; anything else is
+   * surfaced as a message beside the list (never a faked success). */
+  const runDismiss = (id: string) => {
+    setActionError(null)
+    dismiss.mutate(id, {
+      onError: err => {
+        if (isUnsupportedError(err)) {
+          setDismissUnsupported(true)
+          return
+        }
+        setActionError(i18n._(msg`Could not dismiss that notification.`))
+      },
+    })
+  }
+
+  const runClear = () => {
+    setClearOpen(false)
+    setActionError(null)
+    clear.mutate(undefined, {
+      onError: err => {
+        if (isUnsupportedError(err)) {
+          setClearUnsupported(true)
+          return
+        }
+        setActionError(i18n._(msg`Could not clear notifications.`))
+      },
+    })
+  }
 
   // Grouped rows are not universal: Misskey servers without
   // `i/notifications-grouped` answer unsupported (the Mastodon backend
@@ -236,6 +288,21 @@ export function NotificationsScreen() {
       setGroupedUnsupported(true)
     }
   }, [groupedPref, query.isError, query.error])
+
+  // A preset the current family cannot serve (Misskey `system`/`notes`
+  // after switching to a Mastodon account) falls back to "All" — the chip
+  // is gone, so the selection must not stay on a filter that is not there.
+  useEffect(() => {
+    if (!presets.some(p => p.id === filterId)) setFilterId('all')
+  }, [presets, filterId])
+
+  // Endpoint support is per SERVER: a new session starts from "unknown but
+  // offered", never from the previous server's 404.
+  useEffect(() => {
+    setDismissUnsupported(false)
+    setClearUnsupported(false)
+    setActionError(null)
+  }, [session?.id])
 
   const markError = markRead.error
     ? isUnsupportedError(markRead.error)
@@ -257,7 +324,7 @@ export function NotificationsScreen() {
       ) : (
         <View style={atoms.flex1}>
           <Tabs
-            tabs={NOTIFICATION_FILTER_PRESETS.map(p => ({key: p.id, label: p.label}))}
+            tabs={presets.map(p => ({key: p.id, label: p.label}))}
             active={filterId}
             onChange={setFilterId}
             testID="notification-filters"
@@ -305,7 +372,32 @@ export function NotificationsScreen() {
               disabledReason={i18n._(msg`Marking notifications read.`)}
               testID="notifications-mark-read"
             />
+            {canClear ? (
+              <Button
+                label={clear.isPending ? i18n._(msg`Clearing…`) : i18n._(msg`Clear all`)}
+                variant="secondary"
+                onPress={() => setClearOpen(true)}
+                disabled={clear.isPending || items.length === 0}
+                disabledReason={
+                  items.length === 0
+                    ? i18n._(msg`There are no notifications to clear.`)
+                    : i18n._(msg`Clearing notifications.`)
+                }
+                testID="notifications-clear"
+              />
+            ) : null}
             {markError ? <Caption color="faint">{markError}</Caption> : null}
+            {family === 'mastodon' && dismissUnsupported ? (
+              <Caption color="faint" testID="notifications-dismiss-unsupported">
+                {i18n._(msg`Dismissing a notification is not on this server.`)}
+              </Caption>
+            ) : null}
+            {family === 'mastodon' && clearUnsupported ? (
+              <Caption color="faint" testID="notifications-clear-unsupported">
+                {i18n._(msg`Clearing notifications is not on this server.`)}
+              </Caption>
+            ) : null}
+            {actionError ? <Caption color="faint">{actionError}</Caption> : null}
           </View>
           <ReceiveConfigSection backend={backend} />
           {query.isPending ? (
@@ -327,7 +419,12 @@ export function NotificationsScreen() {
             <FlatList
               data={items}
               keyExtractor={(item: Notification) => item.id}
-              renderItem={({item}) => <NotificationRow notification={item} />}
+              renderItem={({item}) => (
+                <NotificationRow
+                  notification={item}
+                  onDismiss={canDismiss ? () => runDismiss(item.id) : null}
+                />
+              )}
               refreshControl={
                 <RefreshControl
                   refreshing={query.isRefetching}
@@ -365,6 +462,24 @@ export function NotificationsScreen() {
               }
             />
           )}
+          {clearOpen ? (
+            <Dialog
+              open
+              onClose={() => setClearOpen(false)}
+              title={i18n._(msg`Clear all notifications?`)}
+              testID="notifications-clear-confirm">
+              <Body>{i18n._(msg`Every notification is deleted on the server. This cannot be undone.`)}</Body>
+              <View style={[atoms.row, atoms.gap_sm]}>
+                <Button
+                  label={i18n._(msg`Cancel`)}
+                  variant="secondary"
+                  onPress={() => setClearOpen(false)}
+                  testID="notifications-clear-cancel"
+                />
+                <Button label={i18n._(msg`Clear all`)} onPress={runClear} testID="notifications-clear-confirm-action" />
+              </View>
+            </Dialog>
+          ) : null}
         </View>
       )}
     </View>

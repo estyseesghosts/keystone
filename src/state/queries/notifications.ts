@@ -143,6 +143,74 @@ export function useMarkNotificationsRead(
   })
 }
 
+/**
+ * Dismiss ONE notification (Mastodon family — `dismissNotification` is
+ * optional on `Backend` and absent on Misskey). Errors are surfaced to the
+ * caller untouched: a 404/405 `ApiError` means the server does not have the
+ * endpoint (`isUnsupportedError`), which the screen renders as a hidden
+ * action with a reason, never as an error wall. Success invalidates the
+ * session's notification queries so the row disappears from the SERVER's
+ * answer — the cache is never locally pruned into a lie.
+ */
+export function useDismissNotification(
+  sessionId: string | null,
+  options: NotificationsQueryOptions = {},
+) {
+  const queryClient = useQueryClient()
+  const backend =
+    options.backend !== undefined
+      ? options.backend
+      : sessionId != null
+        ? resolveSessionBackend(options.store ?? appStorage(), sessionId)
+        : null
+  return useMutation<void, Error, string>({
+    mutationFn: async (id: string) => {
+      if (!backend) throw new Error('Sign in to dismiss notifications.')
+      if (!backend.dismissNotification) {
+        throw new Error('This server cannot dismiss a notification.')
+      }
+      await backend.dismissNotification(id)
+    },
+    onSuccess: () => {
+      if (sessionId) {
+        void queryClient.invalidateQueries({queryKey: [sessionId, 'notifications']})
+      }
+    },
+  })
+}
+
+/**
+ * Clear EVERY notification (Mastodon family). Destructive and server-side:
+ * the UI confirms first, then invalidates the session's notification
+ * queries on success. Same unsupported-error discipline as dismiss.
+ */
+export function useClearNotifications(
+  sessionId: string | null,
+  options: NotificationsQueryOptions = {},
+) {
+  const queryClient = useQueryClient()
+  const backend =
+    options.backend !== undefined
+      ? options.backend
+      : sessionId != null
+        ? resolveSessionBackend(options.store ?? appStorage(), sessionId)
+        : null
+  return useMutation<void, Error>({
+    mutationFn: async () => {
+      if (!backend) throw new Error('Sign in to clear notifications.')
+      if (!backend.clearNotifications) {
+        throw new Error('This server cannot clear notifications.')
+      }
+      await backend.clearNotifications()
+    },
+    onSuccess: () => {
+      if (sessionId) {
+        void queryClient.invalidateQueries({queryKey: [sessionId, 'notifications']})
+      }
+    },
+  })
+}
+
 /** Count unread rows across the newest cached page per query (deduped by id). */
 function countUnreadInCache(
   queries: Array<readonly [unknown, InfiniteData<Page<Notification>> | undefined]>,

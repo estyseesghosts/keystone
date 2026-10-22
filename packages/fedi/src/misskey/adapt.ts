@@ -39,6 +39,7 @@ import type {
   MediaKind,
   Notification,
   NotificationActor,
+  NotificationExt,
   Page,
   Poll,
   Post,
@@ -337,7 +338,14 @@ export function adaptUserRelation(relation: UserRelation): Relationship {
 
 // --- Notifications ---------------------------------------------------------
 
-const NOTIFICATION_KINDS: ReadonlyArray<[wire: string, kind: Notification["kind"]]> = [
+/** Misskey-family wire `type` -> core kind. The wire vocabulary is
+ * `misskey-js/src/consts.ts` `notificationTypes`; the exact spellings
+ * matter (`achievementEarned`, `scheduledNotePostFailed`). `unknown` stays
+ * for types this app has no honest surface for — today that is
+ * `chatRoomInvitationReceived` (chat ships in a later wave) and any fork
+ * extension; those render their raw type, never a guessed action. */
+export const MISSKEY_NOTIFICATION_KINDS: ReadonlyArray<[wire: string, kind: Notification["kind"]]> = [
+  ["note", "note"],
   ["follow", "follow"],
   ["mention", "mention"],
   ["reply", "reply"],
@@ -348,19 +356,81 @@ const NOTIFICATION_KINDS: ReadonlyArray<[wire: string, kind: Notification["kind"
   ["pollEnded", "pollEnded"],
   ["receiveFollowRequest", "receiveFollowRequest"],
   ["followRequestAccepted", "followRequestAccepted"],
-  ["achievement", "achievement"],
+  ["achievementEarned", "achievement"],
   ["app", "app"],
+  ["scheduledNotePosted", "scheduledNotePosted"],
+  ["scheduledNotePostFailed", "scheduledNotePostFailed"],
+  // Some Misskey-family forks spell the failure row without "Post"
+  // (clickstone §1.11 named it `scheduledNoteFailed`); same meaning, so
+  // both spellings resolve to the one kind.
+  ["scheduledNoteFailed", "scheduledNotePostFailed"],
+  ["exportCompleted", "exportCompleted"],
+  ["roleAssigned", "roleAssigned"],
+  ["login", "login"],
+  ["createToken", "createToken"],
+  ["test", "test"],
+  // The grouped listing can label its aggregate rows; the same adapters
+  // map them so grouped and flat rows never disagree about the kind.
+  ["reaction:grouped", "reaction"],
+  ["renote:grouped", "renote"],
 ];
 
 function notificationKindOf(rawType: string): Notification["kind"] {
-  for (const [wire, kind] of NOTIFICATION_KINDS) {
+  for (const [wire, kind] of MISSKEY_NOTIFICATION_KINDS) {
     if (wire === rawType) return kind;
   }
   return "unknown";
 }
 
+/** Core notification KIND -> Misskey wire types, for
+ * `i/notifications{,-grouped}` `includeTypes`/`excludeTypes`. Only kinds
+ * whose wire spelling differs need an entry (`achievement` ->
+ * `achievementEarned`); the rest are identity. Tokens missing from this
+ * map are sent verbatim (a fork type or a future kind is still
+ * filterable by its wire spelling) — a filter, never a model merge. */
+const MISSKEY_NOTIFY_WIRE_TYPES: Record<string, string[]> = {
+  achievement: ["achievementEarned"],
+};
+
+/** Translate core preset kinds to Misskey wire types (deduped, order
+ * preserved). Pure. */
+export function misskeyNotificationTypes(tokens: readonly string[] | undefined): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const token of tokens ?? []) {
+    for (const wire of MISSKEY_NOTIFY_WIRE_TYPES[token] ?? [token]) {
+      if (seen.has(wire)) continue;
+      seen.add(wire);
+      out.push(wire);
+    }
+  }
+  return out;
+}
+
 function actorOf(id: string, account: Account | null, reaction: string | null): NotificationActor {
   return { id, account, reaction };
+}
+
+/** Per-kind detail the wire packed (role name, export target, achievement,
+ * kept draft). Absent fields stay absent — nothing is invented. */
+function systemExtOf(item: NotificationItem): NotificationExt {
+  const ext: NotificationExt = {};
+  if (typeof item.role?.name === "string" && item.role.name.length > 0) {
+    ext.roleName = item.role.name;
+  }
+  if (typeof item.exportedEntity === "string" && item.exportedEntity.length > 0) {
+    ext.exportedEntity = item.exportedEntity;
+  }
+  if (typeof item.fileId === "string" && item.fileId.length > 0) {
+    ext.exportedFileId = item.fileId;
+  }
+  if (typeof item.achievement === "string" && item.achievement.length > 0) {
+    ext.achievement = item.achievement;
+  }
+  if (typeof item.noteDraft?.id === "string" && item.noteDraft.id.length > 0) {
+    ext.failedDraftId = item.noteDraft.id;
+  }
+  return ext;
 }
 
 /** Wire `NotificationItem` (flat row) -> core Notification. */
@@ -381,7 +451,7 @@ export function adaptNotification(item: NotificationItem): Notification {
     actors,
     post: item.note ? adaptNote(item.note) : null,
     reaction,
-    ext: {},
+    ext: systemExtOf(item),
   };
 }
 
