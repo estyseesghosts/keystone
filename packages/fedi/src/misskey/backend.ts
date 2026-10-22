@@ -29,6 +29,7 @@ import type {
 } from "../core/models";
 import type {
   AccountPostsOpts,
+  AdminInsightApi,
   AnnouncementsApi,
   Antenna,
   AntennasApi,
@@ -63,7 +64,7 @@ import type {
 import type { DetectionEvidence, ServerFlavor } from "../core/detect";
 import { buildCapabilities } from "../core/detect";
 import { normalizeReportOptions, reportUnsupported } from "../core/backend";
-import { FediError } from "../core/errors";
+import { ApiError, FediError } from "../core/errors";
 import {
   adaptAccount,
   adaptDriveFile,
@@ -132,6 +133,12 @@ import {
   userTimeline,
 } from "./chat";
 import { listAnnouncements, readAnnouncement } from "./announcements";
+import {
+  fetchInstanceMeta,
+  fetchOnlineUsersCount,
+  fetchQueueStats,
+  fetchServerInfo,
+} from "./admin";
 import { listFavorites, removeFavorite } from "./favorites";
 import { listFeaturedNotes, listUserFeaturedNotes, pinNote, unpinNote } from "./featured";
 import {
@@ -543,6 +550,43 @@ export function createMisskeyBackend(
     },
     async dismiss(id) {
       await readAnnouncement(call, id);
+    },
+  };
+
+  // Read-only server insight (Wave 3 slice 3.1 — NO mutations here).
+  // Misskey/sharkey/catodon serve all four endpoints (verified in their
+  // checkouts); pinetree serves none, so it leaves the member off and the
+  // query gate renders the honest unavailable state. The five
+  // Mastodon-family methods throw the typed unsupported error — this
+  // family has no such endpoints, and the query layer never calls them on
+  // this family (family branch); a 404 maps to `absent` if one ever is.
+  const adminInsight: AdminInsightApi = {
+    measures() {
+      return unsupportedAdminInsight("measures");
+    },
+    dimensions() {
+      return unsupportedAdminInsight("dimensions");
+    },
+    peers() {
+      return unsupportedAdminInsight("peers");
+    },
+    extendedDescription() {
+      return unsupportedAdminInsight("extended description");
+    },
+    activity() {
+      return unsupportedAdminInsight("activity");
+    },
+    serverInfo() {
+      return fetchServerInfo(call);
+    },
+    instanceMeta() {
+      return fetchInstanceMeta(call);
+    },
+    queueStats() {
+      return fetchQueueStats(call);
+    },
+    onlineUsersCount() {
+      return fetchOnlineUsersCount(call);
     },
   };
 
@@ -1352,6 +1396,13 @@ export function createMisskeyBackend(
     // gate instead of a missing module (mastodon-conversations pattern).
     ...(flavor === "misskey" || flavor === "sharkey" ? { chat } : {}),
     announcements,
+    // Server insight ships on misskey + sharkey + catodon (all three
+    // serve the four insight endpoints with identical kinds; verified in
+    // their checkouts). Pinetree serves none — the member stays off and
+    // the insight gate renders the honest unavailable state.
+    ...(flavor === "misskey" || flavor === "sharkey" || flavor === "catodon"
+      ? { adminInsight }
+      : {}),
     lists,
     scheduled,
     serverDrafts,
@@ -1375,6 +1426,18 @@ export function createMisskeyBackend(
 }
 
 // --- Wire-shaped helpers that are not worth a module ----------------------
+
+/** The honest answer for an insight section this family cannot serve
+ * (the Mastodon-family methods on the Misskey backend — no such
+ * endpoints here). Status 404 so the UI's "not on this server" states
+ * trigger exactly as they do for a missing Misskey endpoint. */
+function unsupportedAdminInsight(scope: string): never {
+  throw new ApiError(
+    `Server insight ${scope} is not available on this server.`,
+    404,
+    "errors.unsupported.adminInsight",
+  );
+}
 
 function adaptServerDraft(raw: WireServerDraft): ServerDraft {
   return {

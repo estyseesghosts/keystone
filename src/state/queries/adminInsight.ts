@@ -7,16 +7,23 @@
 // - Role comes from verify_credentials at the session layer: the live
 //   `useMe` account first, the sign-in-time `session.user` cache as the
 //   sync fallback for entries. `adminRoleOf` reads the Mastodon `role`
-//   verbatim plus Akkoma/Pleroma `is_admin`/`is_moderator` — never a guess.
+//   verbatim plus Akkoma/Pleroma `is_admin`/`is_moderator`;
+//   `misskeyAdminRoleOf` reads the self `i` flags (`ext.me.isAdmin` /
+//   `isModerator`) — never a guess on either family.
 // - `adminInsightGate` is the single entry/section gate: signed-out,
-//   non-Mastodon or module-less backends stay hidden; a capability flag
-//   reading `unsupported` closes the surface; a non-staff viewer gets the
-//   honest not-staff reason instead of an empty screen.
-// - A 403 on measures/dimensions disables THAT section with a reason — it
-//   never clears the session (nothing here touches the session store; the
+//   non-insight-family or module-less backends stay hidden; a capability
+//   flag reading `unsupported` closes the surface; a non-staff viewer gets
+//   the honest not-staff reason instead of an empty screen.
+// - A 403 on any section disables THAT section with a reason — it never
+//   clears the session (nothing here touches the session store; the
 //   global scope-upgrade prompt already owns re-auth).
-// - A 404 (forks without `/api/v1/admin/*`, disabled public endpoints)
-//   reads as the honest absent state, never an error page.
+// - A 404 (forks without the endpoints, disabled public endpoints) reads
+//   as the honest absent state, never an error page.
+//
+// The Mastodon family serves measures/dimensions/peers/extended-
+// description/activity; the Misskey family serves server-info/instance-
+// meta/queue-stats/online-users-count. Each family reads only its own
+// sections — the other family's fields stay null, never fetched.
 
 import {useMemo, useSyncExternalStore} from 'react'
 import {useQuery} from '@tanstack/react-query'
@@ -26,12 +33,16 @@ import {
   backendForSession,
   isPermissionError,
   isUnsupportedError,
+  misskeyAdminRoleOf,
   type Account,
   type AdminDimension,
   type AdminMeasure,
   type Backend,
   type InstanceActivityWeek,
   type InstanceExtendedDescription,
+  type MisskeyInstanceMeta,
+  type MisskeyQueueStats,
+  type MisskeyServerInfo,
   type Session,
 } from '@keystone/fedi'
 
@@ -57,20 +68,25 @@ export type AdminGate = {ok: true} | {ok: false; reason: AdminGateReason}
 /**
  * The single entry/section gate. `account` is the live `useMe` account
  * with the sign-in-time `session.user` as fallback (both carry the
- * verify_credentials role on `ext.mastodon`).
+ * verify_credentials role on `ext.mastodon`, or the self `i` flags on
+ * `ext.me` for the Misskey family).
  */
 export function adminInsightGate(
   backend: Backend | null,
   account: Account | null,
 ): AdminGate {
   if (!backend) return {ok: false, reason: 'signed-out'}
-  if (backend.family !== 'mastodon' || !backend.adminInsight) {
+  if (backend.family !== 'mastodon' && backend.family !== 'misskey') {
+    return {ok: false, reason: 'unsupported'}
+  }
+  if (!backend.adminInsight) {
     return {ok: false, reason: 'unsupported'}
   }
   if (backend.capabilities.admin_read === 'unsupported') {
     return {ok: false, reason: 'unsupported'}
   }
-  if (adminRoleOf(account) == null) return {ok: false, reason: 'not-staff'}
+  const role = backend.family === 'misskey' ? misskeyAdminRoleOf(account) : adminRoleOf(account)
+  if (role == null) return {ok: false, reason: 'not-staff'}
   return {ok: true}
 }
 
@@ -161,19 +177,37 @@ export interface AdminInsightState {
   peers: AdminSection<string[]>
   extendedDescription: AdminSection<InstanceExtendedDescription>
   activity: AdminSection<InstanceActivityWeek[]>
+  /** Misskey-family sections (null on the Mastodon family — never fetched). */
+  serverInfo: AdminSection<MisskeyServerInfo> | null
+  instanceMeta: AdminSection<MisskeyInstanceMeta> | null
+  queueStats: AdminSection<MisskeyQueueStats> | null
+  onlineUsersCount: AdminSection<number> | null
 }
 
 export function useAdminInsight(sessionId: string | null): AdminInsightState {
   const {session, backend} = useSessionBackend(sessionId)
   const {me} = useMe(sessionId)
   const account = me ?? session?.user ?? null
-  const role = adminRoleOf(account)
+  const role = backend?.family === 'misskey' ? misskeyAdminRoleOf(account) : adminRoleOf(account)
   const gate = adminInsightGate(backend, account)
 
   const staff = gate.ok
+  const isMisskey = backend?.family === 'misskey'
   const base = sessionId ? adminInsightQueryKey(sessionId) : ['admin-insight', 'signed-out']
   const keyFor = (part: string): AppQueryKey => [...base, part]
   const admin = backend?.adminInsight ?? null
+  // The optional Misskey methods, captured once into an always-defined
+  // record. React Compiler memoizes each section's `run` closure on the
+  // values it reads: reading through this record keeps the synthesized
+  // dependency reads safe when the module is absent (a bare
+  // `admin.serverInfo` dep read would throw on the null base — the
+  // compiler does not inherit the `?.` guard from the `enabled` flag).
+  const misskeyInsight = {
+    serverInfo: admin?.serverInfo,
+    instanceMeta: admin?.instanceMeta,
+    queueStats: admin?.queueStats,
+    onlineUsersCount: admin?.onlineUsersCount,
+  }
 
   const measures = useAdminSection<AdminMeasure[]>(
     keyFor('measures'),
@@ -205,6 +239,34 @@ export function useAdminInsight(sessionId: string | null): AdminInsightState {
     () => admin!.activity(),
     isEmptyList,
   )
+  // Misskey-family sections: fetched only on a Misskey backend with the
+  // member wired. Scalar/counted values (online users) are never "empty" —
+  // a zero count is real data.
+  const neverEmpty = (): boolean => false
+  const serverInfo = useAdminSection<MisskeyServerInfo>(
+    keyFor('server-info'),
+    staff && isMisskey && !!misskeyInsight.serverInfo,
+    () => misskeyInsight.serverInfo!(),
+    neverEmpty,
+  )
+  const instanceMeta = useAdminSection<MisskeyInstanceMeta>(
+    keyFor('instance-meta'),
+    staff && isMisskey && !!misskeyInsight.instanceMeta,
+    () => misskeyInsight.instanceMeta!(),
+    neverEmpty,
+  )
+  const queueStats = useAdminSection<MisskeyQueueStats>(
+    keyFor('queue-stats'),
+    staff && isMisskey && !!misskeyInsight.queueStats,
+    () => misskeyInsight.queueStats!(),
+    neverEmpty,
+  )
+  const onlineUsersCount = useAdminSection<number>(
+    keyFor('online-users-count'),
+    staff && isMisskey && !!misskeyInsight.onlineUsersCount,
+    () => misskeyInsight.onlineUsersCount!(),
+    neverEmpty,
+  )
 
   if (!sessionId || !backend) {
     const unavailable = <T,>(s: AdminSection<T>): AdminSection<T> => ({
@@ -221,7 +283,24 @@ export function useAdminInsight(sessionId: string | null): AdminInsightState {
       peers: unavailable(peers),
       extendedDescription: unavailable(extendedDescription),
       activity: unavailable(activity),
+      serverInfo: unavailable(serverInfo),
+      instanceMeta: unavailable(instanceMeta),
+      queueStats: unavailable(queueStats),
+      onlineUsersCount: unavailable(onlineUsersCount),
     }
   }
-  return {backend, role, gate, measures, dimensions, peers, extendedDescription, activity}
+  return {
+    backend,
+    role,
+    gate,
+    measures,
+    dimensions,
+    peers,
+    extendedDescription,
+    activity,
+    serverInfo: isMisskey ? serverInfo : null,
+    instanceMeta: isMisskey ? instanceMeta : null,
+    queueStats: isMisskey ? queueStats : null,
+    onlineUsersCount: isMisskey ? onlineUsersCount : null,
+  }
 }

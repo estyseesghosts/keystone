@@ -830,6 +830,65 @@ export interface InstanceActivityWeek {
   registrations: string | null;
 }
 
+// --- Misskey-family server insight (Wave 3 slice 3.1 — read-only) ----------
+
+/**
+ * Misskey-family hardware snapshot (`admin/server-info`, moderator role +
+ * `read:admin:server-info`). Byte counts stay raw numbers — the UI formats
+ * them, so no precision is invented here.
+ */
+export interface MisskeyServerInfo {
+  machine: string;
+  os: string;
+  node: string;
+  psql: string;
+  cpu: { model: string; cores: number };
+  /** Total RAM, bytes. */
+  memTotal: number;
+  /** Filesystem total / used, bytes. */
+  fsTotal: number;
+  fsUsed: number;
+}
+
+/**
+ * Misskey-family instance display/policy subset (`admin/meta`, ADMIN role
+ * + `read:admin:meta`). The server sends 133 properties including secrets;
+ * only these renderable, non-secret fields cross into the UI.
+ */
+export interface MisskeyInstanceMeta {
+  name: string | null;
+  shortName: string | null;
+  description: string | null;
+  maintainerName: string | null;
+  maintainerEmail: string | null;
+  version: string;
+  uri: string;
+  disableRegistration: boolean;
+  emailRequiredForSignup: boolean;
+}
+
+/** One BullMQ queue's job counters (`admin/queue/stats`). A null counter
+ * means the server did not report it — never zero, which is a real
+ * measurement. */
+export interface MisskeyQueueCounts {
+  waiting: number | null;
+  active: number | null;
+  delayed: number | null;
+  completed: number | null;
+  failed: number | null;
+  paused: number | null;
+}
+
+/** Misskey-family queue counts (`admin/queue/stats`, moderator role +
+ * `read:admin:queue`). Count reads only — the queue-job mutation endpoints
+ * are an explicit non-goal and have no member here. */
+export interface MisskeyQueueStats {
+  deliver: MisskeyQueueCounts;
+  inbox: MisskeyQueueCounts;
+  db: MisskeyQueueCounts;
+  objectStorage: MisskeyQueueCounts;
+}
+
 /**
  * Read-only server insight (Wave 3 slice 3.1 — NO mutations here at all).
  *
@@ -857,6 +916,31 @@ export interface AdminInsightApi {
   extendedDescription(): Promise<InstanceExtendedDescription>;
   /** `GET /api/v1/instance/activity` — public weekly counters. */
   activity(): Promise<InstanceActivityWeek[]>;
+  /**
+   * Misskey-family `admin/server-info` — hardware snapshot (moderator
+   * role + `read:admin:server-info`). Undefined on the Mastodon family,
+   * which has no such endpoint. A 403 disables the section with a reason
+   * (never a session clear); a 404 is the honest absent state.
+   */
+  serverInfo?(): Promise<MisskeyServerInfo>;
+  /**
+   * Misskey-family `admin/meta` display/policy subset (ADMIN role +
+   * `read:admin:meta`). Undefined on the Mastodon family. A moderator
+   * without the admin role 403s here while the moderator-level sections
+   * still render — each section degrades independently.
+   */
+  instanceMeta?(): Promise<MisskeyInstanceMeta>;
+  /**
+   * Misskey-family `admin/queue/stats` — per-queue job counts (moderator
+   * role + `read:admin:queue`). Count reads only. Undefined on the
+   * Mastodon family.
+   */
+  queueStats?(): Promise<MisskeyQueueStats>;
+  /**
+   * Misskey-family `get-online-users-count` — public, no permission
+   * needed. Undefined on the Mastodon family.
+   */
+  onlineUsersCount?(): Promise<number>;
 }
 
 // --- Direct messages (P6.2, clickstone §2.1) -------------------------------
