@@ -467,20 +467,17 @@ describe("three-state capabilities", () => {
     expect(buildCapabilities("unknown").like).toBe("unknown");
   });
 
-  // 0.9 — messaging is gated, not invisible. The flag is a CLIENT gate:
-  // every detected flavor answers "unsupported" because Keystone has no
-  // messaging surface yet, not because the server lacks DMs/chat.
-  it("0.9 direct_messages: unsupported on both families, never a server claim", () => {
-    const flavors: ServerFlavor[] = [
-      "misskey",
-      "sharkey",
-      "catodon",
-      "pinetree",
-      "mastodon",
-      "akkoma",
-      "pleroma",
-    ];
-    for (const flavor of flavors) {
+  // 2.1 — conversations ship on mastodon + akkoma (source-verified
+  // `/api/v1/conversations` in both checkouts; Mastodon
+  // `ConversationsController`, Akkoma `ConversationController`). Pleroma
+  // is unverified — unsupported with a reason, never unlocked. The
+  // Misskey family stays unsupported (chat is slice 2.2). `direct_messages`
+  // remains a client gate: supported means Keystone has the inbox surface
+  // for that flavor, not a fresh server probe.
+  it("2.1 direct_messages: supported where the inbox ships, gated elsewhere", () => {
+    expect(buildCapabilities("mastodon").direct_messages).toBe("supported");
+    expect(buildCapabilities("akkoma").direct_messages).toBe("supported");
+    for (const flavor of ["pleroma", "misskey", "sharkey", "catodon", "pinetree"] as const) {
       expect([flavor, buildCapabilities(flavor).direct_messages]).toEqual([
         flavor,
         "unsupported",

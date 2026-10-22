@@ -536,8 +536,9 @@ describe('scopeHealth (MD5 scope generations)', () => {
     const {storage, store} = setup()
     await store.add(mastoInput())
     // A token that already carries the whole NOW set (plus, say, a LATER
-    // DMs scope) is current: LATER features are not shipped (ADR 0003).
-    cacheScopes(storage, ORIGIN_B, [...SCOPES_NOW, 'read:conversations'].join(' '))
+    // push scope) is current: LATER features are not shipped (ADR 0003).
+    // DMs used to be the example here; they moved into NOW in P6.2.
+    cacheScopes(storage, ORIGIN_B, [...SCOPES_NOW, 'push'].join(' '))
     expect(store.scopeHealth()).toEqual({
       needsReauth: false,
       needsUpgrade: false,
@@ -600,6 +601,37 @@ describe('scopeHealth (MD5 scope generations)', () => {
       reason: 'stale-scopes',
       missingScopes: ['write:filters'],
     })
+  })
+
+  it('conversations scopes are NOW: a token minted before DMs needs the upgrade prompt', async () => {
+    const {storage, store} = setup()
+    await store.add(mastoInput())
+    // Current token: the cached app carries the whole NOW set, including
+    // the DM scopes shipped in P6.2 (clickstone §2.1).
+    expect(SCOPES_NOW).toContain('read:conversations')
+    expect(SCOPES_NOW).toContain('write:conversations')
+    expect(SCOPES_LATER).not.toContain('read:conversations')
+    expect(SCOPES_LATER).not.toContain('write:conversations')
+    cacheScopes(storage, ORIGIN_B, SCOPES_NOW.join(' '))
+    expect(store.scopeHealth()).toEqual({
+      needsReauth: false,
+      needsUpgrade: false,
+      generation: 'current',
+      reason: 'current',
+      missingScopes: [],
+    })
+    // A token minted before the slice lacks both scopes; ADR 0003 says
+    // that is the intended upgrade prompt, not a special case. Nothing is
+    // revoked or cleared — the banner asks for re-auth.
+    cacheScopes(
+      storage,
+      ORIGIN_B,
+      SCOPES_NOW.filter(s => s !== 'read:conversations' && s !== 'write:conversations').join(' '),
+    )
+    const old = store.scopeHealth()
+    expect(old.needsUpgrade).toBe(true)
+    expect(old.reason).toBe('stale-scopes')
+    expect(old.missingScopes).toEqual(['read:conversations', 'write:conversations'])
   })
 
   it('granular-only cache reads as the W4 generation with missing umbrellas', async () => {

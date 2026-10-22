@@ -39,7 +39,7 @@ const memVault = (): TokenVault => ({
 
 const ORIGIN = 'https://wsd.example'
 
-function backend(family: 'misskey' | 'mastodon' = 'misskey') {
+function backend(family: 'misskey' | 'mastodon' = 'misskey', withConversations = false) {
   const b = {
     family,
     capabilities: {},
@@ -51,6 +51,16 @@ function backend(family: 'misskey' | 'mastodon' = 'misskey') {
     unblock: jest.fn(async () => undefined),
     relationships: jest.fn(async (ids: string[]) => ids.map(id => ({id}))),
     reportAccount: jest.fn(async () => undefined),
+    ...(withConversations
+      ? {
+          conversations: {
+            list: jest.fn(async () => ({items: [], cursor: null, end: true})),
+            get: jest.fn(),
+            delete: jest.fn(),
+            markRead: jest.fn(),
+          },
+        }
+      : {}),
   }
   mockBackend.current = b as never
   return b
@@ -72,8 +82,8 @@ function Probe({onHandlers}: {onHandlers: (h: PostCardHandlers) => void}) {
   return null
 }
 
-async function setup(family: 'misskey' | 'mastodon' = 'misskey') {
-  const b = backend(family)
+async function setup(family: 'misskey' | 'mastodon' = 'misskey', withConversations = false) {
+  const b = backend(family, withConversations)
   const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: ORIGIN})
   await store.add({
     origin: ORIGIN,
@@ -181,5 +191,17 @@ describe('PostHandlers user actions (WS-D)', () => {
     b.mute.mockRejectedValueOnce(new Error('server said no'))
     await user.onMute!()
     expect(toastStore.getSnapshot().map(t => t.message)).toContain('server said no')
+  })
+
+  it('DM opener exists only when the backend has the conversations module', async () => {
+    const {user} = await setup('mastodon', true)
+    expect(typeof user.onMessage).toBe('function')
+  })
+
+  it('DM opener stays absent without the module (the row disables with a reason)', async () => {
+    for (const family of ['mastodon', 'misskey'] as const) {
+      const {user} = await setup(family, false)
+      expect(user.onMessage).toBeUndefined()
+    }
   })
 })

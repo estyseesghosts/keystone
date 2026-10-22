@@ -756,6 +756,52 @@ export interface AnnouncementsApi {
   dismiss?(id: string): Promise<void>;
 }
 
+// --- Direct messages (P6.2, clickstone §2.1) -------------------------------
+
+/**
+ * One DM inbox row (both Mastodon-family servers pack the same four
+ * keys — Mastodon `REST::ConversationSerializer`, Akkoma
+ * `participation.json`).
+ *
+ * Only the fields the thread view can render honestly:
+ * - `accounts` are the OTHER participants (the viewer's own row is never
+ *   in the list — both servers exclude it, except a self-only thread),
+ *   adapted like any other accounts;
+ * - `lastPost` is the conversation's latest post, or null when the
+ *   server sent none (never a fabricated placeholder);
+ * - `unread` is the server's own flag, never derived client-side.
+ */
+export interface Conversation {
+  id: string;
+  accounts: Account[];
+  lastPost: Post | null;
+  unread: boolean;
+}
+
+/**
+ * The DM inbox (P6.2 — Mastodon family only; Misskey chat is slice 2.2).
+ *
+ * Replies reuse the existing status-post path (`createPost` with
+ * `visibility: direct` + `in_reply_to_id`) — there is deliberately no
+ * compose method here, and the composer already sends direct+recipients.
+ * History for a thread comes from `thread(lastPost)` (the DM chain is a
+ * reply chain), not from a statuses endpoint neither server exposes on
+ * `/api/v1`.
+ */
+export interface ConversationsApi {
+  /** The inbox, newest first, Link-paged (contract §5 end rule). */
+  list(opts?: PageOpts): Promise<Page<Conversation>>;
+  /** One inbox row by id (a terminating inbox scan — neither server has
+   * a show route). A scan miss reads like any other absent row (the
+   * typed 404 the UI renders as unavailable, never a crash). */
+  get(id: string): Promise<Conversation>;
+  /** Leave a conversation (`DELETE /api/v1/conversations/:id`). */
+  delete(id: string): Promise<void>;
+  /** Mark a conversation read (`POST .../:id/read`); answers the
+   * updated row so the caller mirrors the server flag, never a guess. */
+  markRead(id: string): Promise<Conversation>;
+}
+
 // --- Hashtag follow / feature / mute (clickstone §1.4) ----------------------
 
 /** One hashtag's server state (`GET /api/v1/tags/:id`). `following` and
@@ -1149,6 +1195,11 @@ export interface Backend {
   lists?: ListsApi;
   channels?: ChannelsApi;
   announcements?: AnnouncementsApi;
+  /** DM inbox (P6.2, Mastodon family only). Undefined where the flavor
+   * has no conversations endpoint (or it is unverified) and everywhere
+   * on the Misskey family — the UI shows the honest unavailable state,
+   * never an empty inbox. */
+  conversations?: ConversationsApi;
   scheduled?: ScheduledApi;
   serverDrafts?: ServerDraftsApi;
   bookmarks?: BookmarksApi;

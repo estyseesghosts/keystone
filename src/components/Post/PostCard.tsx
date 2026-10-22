@@ -368,6 +368,7 @@ function LivePostCard(props: PostCardProps) {
 
   const menu = buildPostMenu({
     family: session?.family ?? 'misskey',
+    flavor: session?.flavor ?? null,
     capabilities: backend?.capabilities ?? null,
     post: shown,
     origin: session?.origin ?? '',

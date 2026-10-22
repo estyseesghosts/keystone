@@ -126,11 +126,12 @@ describe('clip row (W5)', () => {
   })
 })
 
-describe('DM row (0.9 — messaging gated, not invisible)', () => {
-  function dmInput(opts: {caps?: unknown; onMessage?: () => void; family?: 'mastodon' | 'misskey'} = {}) {
+describe('DM row (2.1 — inbox ships on mastodon + akkoma)', () => {
+  function dmInput(opts: {caps?: unknown; onMessage?: () => void; family?: 'mastodon' | 'misskey'; flavor?: 'mastodon' | 'akkoma' | 'pleroma' | 'unknown'} = {}) {
     const post = makePost()
     return {
       family: opts.family ?? 'mastodon',
+      ...(opts.flavor ? {flavor: opts.flavor} : {}),
       capabilities: opts.caps === undefined ? {} : opts.caps,
       post,
       origin: 'https://example.social',
@@ -150,7 +151,7 @@ describe('DM row (0.9 — messaging gated, not invisible)', () => {
     } as never
   }
 
-  function dmRow(opts: {caps?: unknown; onMessage?: () => void; family?: 'mastodon' | 'misskey'} = {}) {
+  function dmRow(opts: {caps?: unknown; onMessage?: () => void; family?: 'mastodon' | 'misskey'; flavor?: 'mastodon' | 'akkoma' | 'pleroma' | 'unknown'} = {}) {
     return flatten(buildUserSubmenu(dmInput(opts))).find(i => i.key === 'dm')
   }
 
@@ -159,6 +160,22 @@ describe('DM row (0.9 — messaging gated, not invisible)', () => {
       i => i.key === 'user',
     )
     expect(flatten(user!.submenu!).map(i => i.key)).toContain('dm')
+  })
+
+  it('names the missing inbox on akkoma/pleroma without conversation support', () => {
+    for (const flavor of ['akkoma', 'pleroma'] as const) {
+      const row = dmRow({caps: {direct_messages: 'unsupported'}, flavor})
+      expect(row).toBeDefined()
+      expect(row!.disabled).toBe(true)
+      // Honest server reason: the inbox is missing there, not Keystone.
+      expect(row!.reason).toMatch(/no DM inbox/i)
+    }
+  })
+
+  it('keeps the client-gap reason on the Misskey family (chat is slice 2.2)', () => {
+    const row = dmRow({caps: {direct_messages: 'unsupported'}, family: 'misskey'})
+    expect(row!.disabled).toBe(true)
+    expect(row!.reason).toMatch(/not implemented in Keystone yet/i)
   })
 
   it('is present and disabled with the client-gap reason, never omitted (mastodon)', () => {

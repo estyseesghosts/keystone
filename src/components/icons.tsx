@@ -324,3 +324,14 @@ export function AnnouncementIcon(p: IconProps) {
     </Base>
   )
 }
+
+/** Direct messages: a chat bubble (the DM inbox). */
+export function MessageIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1z" />
+      <Path d="M8 10.5h8" />
+      <Path d="M8 14h5" />
+    </Base>
+  )
+}

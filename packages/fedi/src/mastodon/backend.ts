@@ -44,6 +44,7 @@ import type {
   AccountPostsOpts,
   AnnouncementsApi,
   Backend,
+  ConversationsApi,
   CustomEmoji,
   ExploreUsers,
   Filter,
@@ -128,6 +129,12 @@ import {
   updateMediaAttachment,
   voteInPoll,
 } from "./endpoints";
+import {
+  deleteConversation,
+  fetchConversation,
+  fetchConversationsPage,
+  markConversationRead,
+} from "./conversations";
 import { createStatus, setEmojiReaction, setStatusToggle } from "./statusActions";
 import { newIdempotencyKey, statusBodyOf } from "./compose";
 import { adaptStatusHistory } from "./adapt";
@@ -1054,6 +1061,32 @@ export function createMastodonBackend(
         await dismissAnnouncement(client, id);
       },
     } satisfies AnnouncementsApi,
+
+    // DM inbox (P6.2, clickstone §2.1). Mastodon + Akkoma serve the same
+    // routes (`/api/v1/conversations`, read, delete) with the same row
+    // shape — verified in both checkouts, so the module is wired for both.
+    // Pleroma is unverified and unknown never unlocks UI: those flavors
+    // leave the member off and the capability reads unsupported, so the
+    // screen renders the honest gate instead of a missing module. A fork
+    // whose routes 404 maps to the same typed unsupported `ApiError`.
+    ...(flavor === "mastodon" || flavor === "akkoma"
+      ? {
+          conversations: {
+            async list(opts: PageOpts = {}) {
+              return toPage(await fetchConversationsPage(client, pageOpts(opts)));
+            },
+            async get(id: string) {
+              return fetchConversation(client, id);
+            },
+            async delete(id: string) {
+              await deleteConversation(client, id);
+            },
+            async markRead(id: string) {
+              return markConversationRead(client, id);
+            },
+          } satisfies ConversationsApi,
+        }
+      : {}),
 
     async notifications(opts: NotificationsOpts = {}) {
       const cont = continuationOf(opts.cursor);

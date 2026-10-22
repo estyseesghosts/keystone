@@ -34,6 +34,7 @@ import {
   HomeIcon,
   ListIcon,
   LoginIcon,
+  MessageIcon,
   NetworkIcon,
   PencilIcon,
   ProfileIcon,
@@ -54,6 +55,8 @@ import {AntennaScreen} from '#/screens/Antenna'
 import {AntennasScreen} from '#/screens/Antennas'
 import {ChannelScreen} from '#/screens/Channel'
 import {ChannelsScreen} from '#/screens/Channels'
+import {ConversationScreen} from '#/screens/Conversation'
+import {ConversationsScreen} from '#/screens/Conversations'
 import {AnnouncementsScreen} from '#/screens/Announcements'
 import {ClipScreen} from '#/screens/Clip'
 import {ClipsScreen} from '#/screens/Clips'
@@ -248,6 +251,7 @@ type StackEntryKey =
   | 'Lists'
   | 'Clips'
   | 'Channels'
+  | 'Conversations'
   | 'Announcements'
   | 'Drive'
   | 'Antennas'
@@ -257,6 +261,7 @@ const STACK_ICONS: Record<StackEntryKey, (p: {size?: number; color?: string}) =>
   Lists: ListIcon,
   Clips: ClipIcon,
   Channels: ChannelIcon,
+  Conversations: MessageIcon,
   Announcements: AnnouncementIcon,
   Drive: DriveIcon,
   Antennas: AntennaIcon,
@@ -279,6 +284,13 @@ function stackEntries(
   // capability and the module off, so the entry never renders there.
   if (backend?.capabilities.channels === 'supported' && backend.channels) {
     out.push('Channels')
+  }
+  // Messages (P6.2): the DM inbox ships on mastodon + akkoma (capability +
+  // module gate, like Announcements). Everywhere else the entry stays off
+  // — the account menu below still carries the honest disabled row, and
+  // the screens carry the unavailable state for deep links.
+  if (backend?.capabilities.direct_messages === 'supported' && backend.conversations) {
+    out.push('Conversations')
   }
   // Announcements exist on EVERY family, but only where the capability is
   // verified AND the module is present: an unknown fork keeps the entry off
@@ -303,6 +315,8 @@ function stackEntryLabel(i18n: I18n, key: StackEntryKey): string {
       return i18n._(msg`Clips`)
     case 'Channels':
       return i18n._(msg`Channels`)
+    case 'Conversations':
+      return i18n._(msg`Messages`)
     case 'Announcements':
       return i18n._(msg`Announcements`)
     case 'Drive':
@@ -486,17 +500,27 @@ function AccountMenu({onClose, testPrefix}: {onClose: () => void; testPrefix: st
         label={i18n._(msg`Profile`)}
         onPress={() => closeAnd(() => goMainTab('User'))}
       />
-      {/* 0.9 — messaging is gated, not invisible: the entry stays in the menu
-          (a silent absence is what this slice removes) but is disabled with
-          the client-gap reason. No route exists behind it by design; Wave 2
-          slice 2.1/2.2 replaces this row when the surface ships. */}
-      <PopupRow
-        testID={`${testPrefix}-messages`}
-        label={i18n._(msg`Messages`)}
-        disabled
-        reason={messagingUnavailableReason()}
-        onPress={() => {}}
-      />
+      {/* P6.2 — the DM inbox ships on mastodon + akkoma: the row opens it
+          there, and stays disabled with the per-flavor reason everywhere
+          else (never a silent absence, never an inert tap). */}
+      {backend?.capabilities.direct_messages === 'supported' && backend.conversations ? (
+        <PopupRow
+          testID={`${testPrefix}-messages`}
+          label={i18n._(msg`Messages`)}
+          onPress={() => closeAnd(() => goStackScreen('Conversations'))}
+        />
+      ) : (
+        <PopupRow
+          testID={`${testPrefix}-messages`}
+          label={i18n._(msg`Messages`)}
+          disabled
+          reason={messagingUnavailableReason({
+            family: active?.family ?? null,
+            flavor: active?.flavor ?? null,
+          })}
+          onPress={() => {}}
+        />
+      )}
       {stackEntries(active, backend).map(key => (
         <PopupRow
           key={key}
@@ -944,6 +968,8 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <Stack.Screen name="Clips" component={ClipsScreen} />
               <Stack.Screen name="Channel" component={ChannelScreen} />
               <Stack.Screen name="Channels" component={ChannelsScreen} />
+              <Stack.Screen name="Conversations" component={ConversationsScreen} />
+              <Stack.Screen name="Conversation" component={ConversationScreen} />
               <Stack.Screen name="Announcements" component={AnnouncementsScreen} />
               <Stack.Screen name="Antenna" component={AntennaScreen} />
               <Stack.Screen name="Antennas" component={AntennasScreen} />

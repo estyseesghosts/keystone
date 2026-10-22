@@ -65,6 +65,17 @@ export function serverFiltersQueryKey(sessionId: string): AppQueryKey {
   return createQueryKey(sessionId, "server-filters");
 }
 
+/** Key for the DM inbox (P6.2, clickstone §2.1). Session first, like
+ * every other key, so two accounts never share an inbox cache entry. */
+export function conversationsQueryKey(sessionId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'conversations');
+}
+
+/** Key for one DM thread (session + conversation id). */
+export function conversationQueryKey(sessionId: string, conversationId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'conversation', conversationId);
+}
+
 /** Key for the server's published rules (report chooser, clickstone §1.5).
  * Public per server, but scoped by session like every other key so two
  * accounts never share a cache entry. */

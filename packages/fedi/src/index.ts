@@ -151,6 +151,7 @@ export type {
 } from "./mastodon/client";
 export { MastoHttpError } from "./mastodon/client";
 export * from "./mastodon/compose";
+export * from "./mastodon/conversations";
 export * from "./mastodon/endpoints";
 export type {
   ServerFamily as MastodonServerFamily,

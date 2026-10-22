@@ -66,6 +66,9 @@ import type {
 //   write:lists          list CRUD + membership
 //   write:reports        report chooser (`POST /api/v1/reports`, clickstone
 //                        §1.5; Akkoma also accepts the umbrella `write`)
+//   read:conversations   DM inbox (`GET /api/v1/conversations`, P6.2
+//                        clickstone §2.1)
+//   write:conversations  DM replies + delete + mark-read (same slice)
 //
 // The umbrella scopes `read`/`write`/`follow` stay in NOW because Akkoma
 // checks the umbrella itself: `/api/v1/suggestions` 403s a granular-only
@@ -99,13 +102,13 @@ export const SCOPES_NOW: string[] = [
   "write:reports",
   "write:statuses",
   "write:favourites",
+  "read:conversations",
+  "write:conversations",
 ];
 
 /** Scopes for features this client does NOT ship yet — never requested
  * (ADR 0003). Each entry names the slice that will move it into
  * `SCOPES_NOW`:
- *   read:conversations     DMs / conversations timeline
- *   write:conversations    DM replies
  *   push                   Web Push subscriptions
  *   admin:read             admin/moderation read surface (Wave 3)
  *   admin:write            admin/moderation write surface (Wave 3)
@@ -114,8 +117,6 @@ export const SCOPES_NOW: string[] = [
  *   read:favourites        a Mastodon favourites TIMELINE (favouriting
  *                          itself is write:favourites, shipped) */
 export const SCOPES_LATER: string[] = [
-  "read:conversations",
-  "write:conversations",
   "push",
   "admin:read",
   "admin:write",

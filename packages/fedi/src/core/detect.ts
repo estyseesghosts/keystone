@@ -82,11 +82,13 @@ export type FeatureKey =
   | "announcements"
   | "chats"
   // Messaging
-  // `direct_messages` gates DM/conversation/chat surfaces in the app. It is
-  // a CLIENT gate, not a server fact: both families have DMs/chat
-  // serverside, and Keystone ships neither yet (clickstone §0.9, Wave 2
-  // slices 2.1 conversations / 2.2 chat own the implementation). `chats`
-  // above stays the Misskey-family server feature — do not overload it.
+  // `direct_messages` gates the DM/conversation inbox surface in the app.
+  // It is a CLIENT gate, not a server fact: both families have DMs/chat
+  // serverside. The Mastodon family ships the inbox in slice 2.1
+  // (P6.2 — `/api/v1/conversations`, source-verified on mastodon +
+  // akkoma), so those flavors read `supported`; pleroma is unverified and
+  // stays gated, and the Misskey family waits for slice 2.2 chat. `chats`
+  // below stays the Misskey-family server feature — do not overload it.
   | "direct_messages"
   // Organization
   | "lists"
@@ -263,12 +265,13 @@ const UNKNOWN_ALL = (): Capabilities => {
  * (see `buildCapabilities`) but never silently downgrade a verified fact
  * except where the docs say the feature is absent.
  *
- * `direct_messages` is the one deliberately client-shaped flag: it is
- * `unsupported` on every detected flavor because Keystone has no messaging
- * surface yet (clickstone §0.9), NOT because these servers lack DMs/chat.
- * Wave 2 (slices 2.1 conversations / 2.2 chat) flips it per flavor in the
- * same slice that ships the surface, and UI reasons must name the client
- * gap until then — see `src/lib/messaging.ts`.
+ * `direct_messages` is the one deliberately client-shaped flag: it reads
+ * `supported` only on the flavors where Keystone ships the inbox surface
+ * (P6.2 slice 2.1: mastodon + akkoma, whose `/api/v1/conversations` is
+ * source-verified) — NOT because other servers lack DMs/chat. Pleroma is
+ * unverified and the Misskey family waits for slice 2.2 chat, so both
+ * stay `unsupported` with an honest reason; UI reasons name the client
+ * gap where the server is not at fault — see `src/lib/messaging.ts`.
  */
 const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
   misskey: {
@@ -458,7 +461,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     lists_exclusive: "supported",
     bookmarks: "supported",
     clips: "unsupported",
-    direct_messages: "unsupported",
+    // P6.2 ships the DM inbox on vanilla Mastodon (`ConversationsController`
+    // + `REST::ConversationSerializer`, verified in the local checkout).
+    direct_messages: "supported",
     favourites_distinct_from_reactions: "supported",
     streaming: "supported",
     password_grant: "unsupported",
@@ -490,7 +495,10 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     // (`MastodonAPI.AnnouncementController#index/#mark_read`).
     announcements: "supported",
     clips: "unsupported",
-    direct_messages: "unsupported",
+    // P6.2 ships the inbox on Akkoma too (`ConversationController` index/
+    // read/delete on `/api/v1/conversations` + the Mastodon-shaped
+    // `participation.json` view, verified in the local 3.20.1 checkout).
+    direct_messages: "supported",
     favourites_distinct_from_reactions: "supported",
     // No static translation claim: Akkoma only translates when the admin
     // enables a machine-translation backend, advertised as the
@@ -520,6 +528,8 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     media_sensitivity: "unsupported",
     favourites_distinct_from_reactions: "supported",
     clips: "unsupported",
+    // Pleroma proper is unverified for `/api/v1/conversations` (only
+    // Akkoma's fork was checked) — stays gated, never unlocked on a guess.
     direct_messages: "unsupported",
     local_only: "supported",
     streaming: "supported",
