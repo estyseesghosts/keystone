@@ -148,6 +148,9 @@ function NewsCard({link}: {link: NewsLink}) {
   }
   return (
     <View style={[atoms.py_sm, atoms.px_md]} testID="explore-news-item">
+      {/* The Discussions pill nests inside the article link target: the RN
+          responder hands the tap to the innermost pressable, so the pill
+          navigates while the article around it still opens the link. */}
       <Pressable
         onPress={openLink}
         accessibilityRole="link"
@@ -166,20 +169,27 @@ function NewsCard({link}: {link: NewsLink}) {
         <View style={styles.newsText}>
           <Body>{link.title}</Body>
           {link.providerName ? <Caption color="faint">{link.providerName}</Caption> : null}
-          {link.description ? <Caption color="faint">{link.description}</Caption> : null}
+          <View style={styles.descRow}>
+            {link.description ? (
+              <Caption color="faint" style={styles.descText}>
+                {link.description}
+              </Caption>
+            ) : (
+              <View style={styles.descText} />
+            )}
+            <Pressable
+              onPress={() => navigation.navigate('NewsDiscussions', {url: link.url, title: link.title})}
+              accessibilityRole="button"
+              accessibilityLabel={`Discussions about ${link.title}`}
+              testID="explore-news-discussions"
+              style={styles.discussPillWrap}>
+              <View style={[styles.discussPill, {borderColor: theme.palette.edge}]}>
+                <Caption>{i18n._(msg`Discussions`)}</Caption>
+              </View>
+            </Pressable>
+          </View>
         </View>
       </Pressable>
-      <View style={styles.discussRow}>
-        <Pressable
-          onPress={() => navigation.navigate('NewsDiscussions', {url: link.url, title: link.title})}
-          accessibilityRole="button"
-          accessibilityLabel={`Discussions about ${link.title}`}
-          testID="explore-news-discussions">
-          <View style={[styles.discussPill, {borderColor: theme.palette.edge}]}>
-            <Caption>{i18n._(msg`Discussions`)}</Caption>
-          </View>
-        </Pressable>
-      </View>
     </View>
   )
 }
@@ -203,9 +213,11 @@ const styles = StyleSheet.create({
   newsRow: {flexDirection: 'row', gap: 12},
   newsPhoto: {width: 112, minHeight: 64, borderRadius: 8},
   newsText: {flex: 1, minWidth: 0, justifyContent: 'center'},
-  // Discussions pill rides bottom-right of the article, below the
-  // link body and clear of its tap target.
-  discussRow: {flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8},
+  // Blurb + pill share one row: the description wraps down the pill's
+  // left while the pill pins to its bottom-right — no full-width row.
+  descRow: {flexDirection: 'row', gap: 8, marginTop: 4, alignItems: 'flex-end'},
+  descText: {flex: 1, minWidth: 0},
+  discussPillWrap: {flexShrink: 0},
   discussPill: {borderWidth: 1, borderRadius: 9999, paddingHorizontal: 12, paddingVertical: 6},
 })
 
