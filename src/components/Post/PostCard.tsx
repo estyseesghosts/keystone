@@ -84,10 +84,13 @@ const styles = StyleSheet.create({
   contextBlock: {gap: 2},
   cardRow: {flexDirection: 'row', gap: 12},
   main: {flex: 1, gap: 2, minWidth: 0},
-  header: {flexDirection: 'row', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap'},
+  header: {minWidth: 0},
+  headerCol: {gap: 1},
+  nameRow: {flexDirection: 'row', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap'},
   // Display name over handle, always (collapsed single-line case is
   // handled by omitting the handle, not by this style).
-  headerAuthor: {flexDirection: 'column', alignItems: 'flex-start', flexShrink: 1, minWidth: 0},
+  headerNamePress: {flexShrink: 1, minWidth: 0},
+  headerHandlePress: {alignSelf: 'flex-start', flexShrink: 1, minWidth: 0, maxWidth: '100%'},
   headerName: {flexShrink: 1, maxWidth: 220, fontWeight: '700'},
   // Time text top-aligns with the name line: name runs 15/20, captions
   // 12/16, so a 2px offset lines the cap heights up.
@@ -828,48 +831,62 @@ function PostCardView({
             backend={backend}
             onOpenProfile={() => openAuthorProfile(effective.author.id)}
             testID={`author-hover-name-${effective.author.id}`}>
-            <Pressable
-              testID={`author-press-${effective.author.id}`}
-              onPress={() => openAuthorProfile(effective.author.id)}
-              accessibilityRole="link"
-              accessibilityLabel={i18n._(msg`Open profile of ${displayNameOf(effective.author)}`)}
-              style={styles.headerAuthor}>
-              <DisplayName
-                account={
-                  shouldCollapseName(effective.author)
-                    ? {...effective.author, displayName: handleOf(effective.author)}
-                    : effective.author
-                }
-                sessionId={sessionId}
-                size={15}
-                textStyle={styles.headerName}
-                testID={`author-name-${effective.author.id}`}
-              />
+            {/* Single hover zone, two tap targets: the time sits in the
+              name row (bound to the display-name width, never the
+              handle's), the handle lives on its own row below. */}
+            <View style={styles.headerCol}>
+              <View style={styles.nameRow}>
+                <Pressable
+                  testID={`author-press-${effective.author.id}`}
+                  onPress={() => openAuthorProfile(effective.author.id)}
+                  accessibilityRole="link"
+                  accessibilityLabel={i18n._(msg`Open profile of ${displayNameOf(effective.author)}`)}
+                  style={styles.headerNamePress}>
+                  <DisplayName
+                    account={
+                      shouldCollapseName(effective.author)
+                        ? {...effective.author, displayName: handleOf(effective.author)}
+                        : effective.author
+                    }
+                    sessionId={sessionId}
+                    size={15}
+                    textStyle={styles.headerName}
+                    testID={`author-name-${effective.author.id}`}
+                  />
+                </Pressable>
+                <Pressable
+                  testID={`post-time-${effective.id}`}
+                  onPress={() => openPostDetail(effective.id)}
+                  accessibilityRole="link"
+                  accessibilityLabel={i18n._(msg`Open post by ${displayNameOf(effective.author)}`)}
+                  style={styles.headerTime}>
+                  <Caption color="muted" numberOfLines={1}>
+                    {`· ${formatRelativeTime(effective.createdAt, undefined, locale)}`}
+                  </Caption>
+                </Pressable>
+                {/* WS-B (F10): tag-block bubble at the header end (v1 parity). */}
+                {tagBubble.hasBlocks ? (
+                  <TagBubble
+                    tags={tagBubble.tags}
+                    onHashtagPress={handleHashtagPress}
+                    testID={`post-tags-${effective.id}`}
+                  />
+                ) : null}
+              </View>
               {shouldCollapseName(effective.author) ? null : (
-                <Caption color="muted" numberOfLines={1}>
-                  {handleOf(effective.author)}
-                </Caption>
+                <Pressable
+                  testID={`author-handle-${effective.author.id}`}
+                  onPress={() => openAuthorProfile(effective.author.id)}
+                  accessibilityRole="link"
+                  accessibilityLabel={i18n._(msg`Open profile of ${displayNameOf(effective.author)}`)}
+                  style={styles.headerHandlePress}>
+                  <Caption color="muted" numberOfLines={1}>
+                    {handleOf(effective.author)}
+                  </Caption>
+                </Pressable>
               )}
-            </Pressable>
+            </View>
           </HoverAuthor>
-          <Pressable
-            testID={`post-time-${effective.id}`}
-            onPress={() => openPostDetail(effective.id)}
-            accessibilityRole="link"
-            accessibilityLabel={i18n._(msg`Open post by ${displayNameOf(effective.author)}`)}
-            style={styles.headerTime}>
-            <Caption color="muted" numberOfLines={1}>
-              {`· ${formatRelativeTime(effective.createdAt, undefined, locale)}`}
-            </Caption>
-          </Pressable>
-          {/* WS-B (F10): tag-block bubble at the header end (v1 parity). */}
-          {tagBubble.hasBlocks ? (
-            <TagBubble
-              tags={tagBubble.tags}
-              onHashtagPress={handleHashtagPress}
-              testID={`post-tags-${effective.id}`}
-            />
-          ) : null}
         </View>
         {cw !== null && (
           <View style={[styles.cwBox, {backgroundColor: theme.palette.bg, borderColor: theme.palette.borderStrong}]} testID={`cw-${post.id}`}>

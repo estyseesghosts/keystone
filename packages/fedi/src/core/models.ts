@@ -848,7 +848,11 @@ export function parseAcct(
   const parts = bare.split("@");
   if (parts.length > 2) return null;
   const [username, host] = parts;
-  if (!username || !/^[\w-]+$/.test(username)) return null;
+  // Bridged actors (e.g. `alice.bsky.social@bsky.brid.gy`) carry dots in
+  // the username part — dotted labels are legal, never leading/trailing
+  // dots or runs. Lookup stays authoritative: garbage resolves to
+  // nothing and renders static, never a wrong account.
+  if (!username || !/^[\w-]+(?:\.[\w-]+)*$/.test(username)) return null;
   if (host !== undefined && (host.length === 0 || !/^[\w.-]+$/.test(host))) return null;
   return {username, host: host ?? null};
 }

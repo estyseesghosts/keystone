@@ -110,6 +110,7 @@ describe('RichText handler-less mention/hashtag routing (PF-E2/E3)', () => {
   })
   afterEach(() => {
     jest.restoreAllMocks()
+    jest.clearAllMocks()
   })
 
   it('E2: an MFM mention with no handler opens the profile by handle', () => {
@@ -152,6 +153,45 @@ describe('RichText handler-less mention/hashtag routing (PF-E2/E3)', () => {
       params: {acct: 'bob@ex.ample'},
     })
     expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('E2: a bridged dotted-handle mention opens the fediverse profile in-app', () => {
+    renderRichText(<RichText nodes={contentFromMfm('hi @alice.bsky.social@bsky.brid.gy')} />)
+    fireEvent.press(screen.getByText('@alice.bsky.social@bsky.brid.gy'))
+    expect(navigateSpy).toHaveBeenCalledWith('Main', {
+      screen: 'User',
+      params: {acct: 'alice.bsky.social@bsky.brid.gy'},
+    })
+    expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('E2: a bsky.app mention URL opens the bridged profile, never the browser', () => {
+    renderRichText(
+      <RichText
+        nodes={contentFromHtml(
+          '<p><a class="u-url mention" href="https://bsky.app/profile/alice.bsky.social">Alice</a></p>',
+        )}
+      />,
+    )
+    fireEvent.press(screen.getByText('Alice'))
+    expect(navigateSpy).toHaveBeenCalledWith('Main', {
+      screen: 'User',
+      params: {acct: 'alice.bsky.social@bsky.brid.gy'},
+    })
+    expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('E2: a malformed bsky.app URL still leaves the app (never a dead tap)', () => {
+    renderRichText(
+      <RichText
+        nodes={contentFromHtml(
+          '<p><a class="u-url mention" href="https://bsky.app/profile/">Alice B</a></p>',
+        )}
+      />,
+    )
+    fireEvent.press(screen.getByText('Alice B'))
+    expect(navigateSpy).not.toHaveBeenCalled()
+    expect(openSpy).toHaveBeenCalledWith('https://bsky.app/profile/')
   })
 
   it('E3: an MFM hashtag with no handler opens the Tag screen', () => {

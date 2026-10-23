@@ -240,6 +240,34 @@ describe('RichText structural markers (MD4 remainder)', () => {
     expect(account).toHaveBeenCalledWith({username: 'rob', host: null})
   })
 
+  it('resolves bridged dotted-handle mentions through either family backend', async () => {
+    const account = jest.fn(async () => ({
+      id: 'u9',
+      username: 'alice.bsky.social',
+      host: 'bsky.brid.gy',
+      name: 'Alice',
+      displayName: 'Alice',
+      avatarUrl: 'https://bsky.brid.gy/alice.png',
+    }))
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <QueryClientProvider client={qc}>
+            <RichText
+              nodes={contentFromMfm('hi @alice.bsky.social@bsky.brid.gy')}
+              backend={{account} as never}
+              sessionId="sess-1"
+            />
+          </QueryClientProvider>
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    expect(await screen.findByTestId('richtext-mention-avatar')).toBeTruthy()
+    expect(screen.getByText('Alice')).toBeTruthy()
+    expect(account).toHaveBeenCalledWith({username: 'alice.bsky.social', host: 'bsky.brid.gy'})
+  })
+
   it('prefers page titles on link chips when known', () => {
     renderRichText(
       <RichText

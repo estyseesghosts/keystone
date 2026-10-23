@@ -41,6 +41,7 @@ import {
 import {Pressable} from '#/components/Pressable'
 
 import {useComposerController, type ComposerProps} from './Composer'
+import {useAutogrowInput, autogrowStyle} from './useAutogrowInput'
 import {
   CwSection,
   PollSection,
@@ -142,6 +143,9 @@ export function CompactComposer(props: ComposerProps) {
   const [moreOpen, setMoreOpen] = useState(false)
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [showDraftList, setShowDraftList] = useState(false)
+  // Inline box rests at 72px and grows with the prose to 320px, then
+  // scrolls internally. Same hook as the floating composer.
+  const autogrow = useAutogrowInput(72, 320)
   const audienceAnchor = useRef<ViewType | null>(null)
   const moreAnchor = useRef<ViewType | null>(null)
   const emojiAnchor = useRef<ViewType | null>(null)
@@ -210,7 +214,9 @@ export function CompactComposer(props: ComposerProps) {
                 fontSize: 15 * theme.fontScaleMultiplier,
                 lineHeight: 21 * theme.fontScaleMultiplier,
               },
+              autogrowStyle(autogrow.height),
             ]}
+            onContentSizeChange={autogrow.onContentSizeChange}
           />
           <CwSection c={c} />
         </View>
@@ -492,7 +498,14 @@ const styles = StyleSheet.create({
   avatar: {width: 40, height: 40, borderRadius: 20},
   avatarFallback: {alignItems: 'center', justifyContent: 'center'},
   inputCol: {flex: 1, gap: 8, minWidth: 0},
-  input: {minHeight: 72, fontSize: 15, lineHeight: 21, textAlignVertical: 'top'},
+  input: {
+    minHeight: 72,
+    fontSize: 15,
+    lineHeight: 21,
+    textAlignVertical: 'top',
+    // No OS/browser focus ring on the chrome-free box.
+    outlineWidth: 0,
+  },
   context: {
     borderWidth: 1,
     borderRadius: 8,

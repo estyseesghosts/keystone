@@ -345,6 +345,13 @@ describe("display-name helpers", () => {
     expect(parseAcct("bob")).toEqual({ username: "bob", host: null });
     expect(parseAcct("@bob@ex.ample")).toEqual({ username: "bob", host: "ex.ample" });
     expect(parseAcct("bob@ex.ample")).toEqual({ username: "bob", host: "ex.ample" });
+    // Bridged actors carry dots in the username part.
+    expect(parseAcct("@alice.bsky.social@bsky.brid.gy")).toEqual({
+      username: "alice.bsky.social",
+      host: "bsky.brid.gy",
+    });
+    expect(parseAcct("@.leading@bsky.brid.gy")).toBeNull();
+    expect(parseAcct("@trailing.@bsky.brid.gy")).toBeNull();
     expect(parseAcct(null)).toBeNull();
     expect(parseAcct("")).toBeNull();
     expect(parseAcct("@")).toBeNull();

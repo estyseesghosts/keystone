@@ -166,19 +166,45 @@ export function acctFromProfileUrl(href: string | null | undefined): string | nu
   return `${username}@${url.hostname}`
 }
 
+/** Bluesky profile URL → bridged fediverse handle (`bsky.app` only).
+ * `https://bsky.app/profile/<handle>` names `<handle>@bsky.brid.gy`,
+ * the AP actor Bridgy Fed serves for that Bluesky user — resolvable
+ * through either family's `backend.account`, so the mention stays
+ * in-app. Bare `bsky.app` links (not mentions) still open externally.
+ * Pure. */
+export function acctFromBskyAppUrl(href: string | null | undefined): string | null {
+  if (!href) return null
+  let url: URL
+  try {
+    url = new URL(href)
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+  if (url.hostname !== 'bsky.app') return null
+  const segments = url.pathname.split('/').filter(s => s.length > 0)
+  if (segments.length !== 2 || segments[0] !== 'profile') return null
+  const handle = segments[1] ?? ''
+  if (!/^[\w-]+(?:\.[\w-]+)*$/.test(handle)) return null
+  return `${handle}@bsky.brid.gy`
+}
+
 /** Default mention tap (E2): a full `user@host` label wins outright;
  * otherwise the server-provided profile URL names the account (a bare
  * `@user` label on a remote href, or a display-name label anywhere) —
- * the URL is authoritative, the label is display text. A bare label with
- * no URL resolves locally; only an unresolvable mention with a URL
- * leaves the app (plain links still can). */
+ * the URL is authoritative, the label is display text. Bluesky profile
+ * URLs map to their bridged fediverse actor (`/profile/<handle>` on
+ * `bsky.app` → `<handle>@bsky.brid.gy`) so bridged mentions stay in-app
+ * instead of opening the browser. A bare label with no URL resolves
+ * locally; only an unresolvable mention with a URL leaves the app
+ * (plain links still can). */
 export function defaultMentionPress(href: string | null, label: string): void {
   const ref = parseAcct(label)
   if (ref?.host) {
     openMentionProfile(`${ref.username}@${ref.host}`)
     return
   }
-  const acct = acctFromProfileUrl(href)
+  const acct = acctFromProfileUrl(href) ?? acctFromBskyAppUrl(href)
   if (acct) {
     openMentionProfile(acct)
     return

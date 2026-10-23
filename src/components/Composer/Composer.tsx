@@ -44,6 +44,7 @@ import {
 } from '#/storage/drafts'
 
 import {useSuggestions, type Suggestion} from './Autocomplete'
+import {useAutogrowInput, autogrowStyle} from './useAutogrowInput'
 import {Chip} from './Chip'
 import {
   CwSection,
@@ -499,6 +500,8 @@ export function useComposerController({
       // P1: the compose box is prose — it scales with the text setting.
       fontSize: typeSize.body * theme.fontScaleMultiplier,
       textAlignVertical: 'top',
+      // No OS/browser focus ring on the bordered box either.
+      outlineWidth: 0,
     },
     row: {flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center'},
     spread: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
@@ -547,6 +550,9 @@ export function Composer(props: ComposerProps) {
   // its targets into state (C6), and state initializes from props otherwise.
   const replyTo = state.replyTo
   const quote = state.quote
+  // Floating box rests at 120px and grows with the prose to 480px, then
+  // scrolls internally. Same hook as the inline composer.
+  const autogrow = useAutogrowInput(120, 480)
 
   return (
     <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
@@ -591,7 +597,8 @@ export function Composer(props: ComposerProps) {
         placeholder={replyTo ? i18n._(msg`Write your reply`) : i18n._(msg`What's happening?`)}
         placeholderTextColor={theme.palette.faint}
         accessibilityLabel={i18n._(msg`Post text`)}
-        style={styles.input}
+        style={[styles.input, autogrowStyle(autogrow.height)]}
+        onContentSizeChange={autogrow.onContentSizeChange}
       />
       <SuggestEmojiSection c={controller} />
 

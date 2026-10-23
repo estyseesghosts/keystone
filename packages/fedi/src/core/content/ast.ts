@@ -340,7 +340,8 @@ function validTranslatedHandle(handle: string): { username: string; host: string
   const parts = handle.split("@");
   if (parts.length > 2) return null;
   const [username, host] = parts;
-  if (!username || !/^[\w-]+$/.test(username)) return null;
+  // Same dotted-username allowance as `parseAcct` (bridged actors).
+  if (!username || !/^[\w-]+(?:\.[\w-]+)*$/.test(username)) return null;
   if (host !== undefined && (host.length === 0 || !/^[\w.-]+$/.test(host))) return null;
   return { username, host: host ?? null };
 }
