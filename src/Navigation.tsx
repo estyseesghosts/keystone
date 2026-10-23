@@ -1007,7 +1007,7 @@ const RIGHT_NAV_WIDTH = 300 + 32
 function RightNav() {
   const {i18n} = useLingui()
   return (
-    <View style={[{width: 300}, {padding: 16}]} testID="right-nav">
+    <View style={{width: RIGHT_NAV_WIDTH, paddingHorizontal: 16, paddingVertical: 16}} testID="right-nav">
       <Body color="faint">{i18n._(msg`Widgets land in Phase 5.`)}</Body>
     </View>
   )
@@ -1144,20 +1144,27 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
             mobile ? styles.shellColumn : styles.shellRow,
           ]}>
           {mobile ? null : <Sidebar layout={layout} leaf={leaf} />}
-          <View
-            style={[
-              styles.maincol,
-              {maxWidth: feedMaxWidth},
-              mobile
-                ? null
-                : {borderRightColor: alf.palette.border, borderRightWidth: 1},
-            ]}>
+          {/* Feed column: flexes with the window; the capped inner feed
+              centers, so leftover space becomes L/R padding on large
+              screens. The widgets rail beside it is a fixed width,
+              mounted only when it fits (see `wide` above). */}
+          <View style={[styles.maincol, mobile ? styles.maincolMobile : styles.maincolCenter]}>
             {stripVisible ? <MobileStrip leaf={leaf} /> : null}
             {/* 0.8 — global, per-session permission/scope prompt. Reads
                 `scopeHealth` for the active session, so it survives a
                 screen unmount and shows for every route in the shell. */}
-            <ScopeUpgradeBanner />
-            <Stack.Navigator screenOptions={{headerShown: false, animation: 'none'}}>
+            <View style={styles.bannerStretch}>
+              <ScopeUpgradeBanner />
+            </View>
+            <View
+              style={[
+                styles.feedcol,
+                {maxWidth: mobile ? butterflyPx.mainColMax : feedMaxWidth},
+                mobile
+                  ? null
+                  : {borderRightColor: alf.palette.border, borderRightWidth: 1},
+              ]}>
+              <Stack.Navigator screenOptions={{headerShown: false, animation: 'none'}}>
               <Stack.Screen name="Main" component={MainTabs} />
               <Stack.Screen name="Note" component={NoteScreen} />
               <Stack.Screen name="NoteHistory" component={NoteHistoryScreen} />
@@ -1205,7 +1212,8 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
                 component={ComposeScreen}
                 options={{presentation: 'transparentModal', animation: 'none'}}
               />
-            </Stack.Navigator>
+              </Stack.Navigator>
+            </View>
           </View>
           {wide ? <RightNav /> : null}
           {mobile ? <ShellTabBar leaf={leaf} /> : null}
@@ -1324,7 +1332,19 @@ const styles = StyleSheet.create({
   maincol: {
     flex: 1,
     width: '100%',
+  },
+  maincolMobile: {
     maxWidth: butterflyPx.mainColMax,
+  },
+  maincolCenter: {
+    alignItems: 'center',
+  },
+  bannerStretch: {
+    alignSelf: 'stretch',
+  },
+  feedcol: {
+    flex: 1,
+    width: '100%',
   },
   strip: {
     flexDirection: 'row',
