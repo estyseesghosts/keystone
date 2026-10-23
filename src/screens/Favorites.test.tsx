@@ -101,7 +101,7 @@ describe('Favorites screen', () => {
   it('is honestly unavailable without a bookmarks module', async () => {
     const {done} = await setup({backend: {family: 'misskey', capabilities: {}}})
     try {
-      expect(await screen.findByText('Favorites are not available on this server.')).toBeTruthy()
+      expect(await screen.findByText('Favourites are not available on this server.')).toBeTruthy()
     } finally {
       done()
     }

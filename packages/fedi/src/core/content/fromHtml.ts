@@ -185,9 +185,14 @@ function pushText(out: ContentNode[], text: string): void {
 }
 
 /** Convert one element's children in flow mode: block children are
- * separated by `br` pairs, blank blocks are skipped. */
+ * separated by `br` pairs, blank blocks are skipped. Whitespace-only
+ * text next to a block boundary is source formatting (pretty-printed
+ * HTML), not content — browsers collapse it, so it is dropped rather
+ * than becoming a literal run that renders as extra blank lines. Inline
+ * spacing (`a <b>b</b>`) never qualifies: its neighbors are not blocks. */
 function convertFlow(children: readonly DomNode[], out: ContentNode[]): void {
-  for (const child of children) {
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
     if (child.type === "tag" && BLOCK_TAGS.has((child.name ?? "").toLowerCase())) {
       const block: ContentNode[] = [];
       convertElement(child, block);
@@ -198,8 +203,18 @@ function convertFlow(children: readonly DomNode[], out: ContentNode[]): void {
       out.push(...block);
       continue;
     }
+    if (child.type === "text" && /^\s*$/.test(child.data ?? "")) {
+      const prev = children[i - 1];
+      const next = children[i + 1];
+      if (isBlockTag(prev) || isBlockTag(next)) continue;
+    }
     convertNode(child, out);
   }
+}
+
+/** Block-level tag check for the whitespace rule above. */
+function isBlockTag(node: DomNode | undefined): boolean {
+  return node !== undefined && node.type === "tag" && BLOCK_TAGS.has((node.name ?? "").toLowerCase());
 }
 
 /** Convert the children of a transparent wrapper (span, div, unknown

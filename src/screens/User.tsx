@@ -10,7 +10,7 @@ import {type Account, type Relationship, parseAcct} from '@keystone/fedi'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {ProfileActions} from '#/components/ProfileActions'
 import {ProfileHeader, ProfileTabs} from '#/components/Profile'
 import {SignInButton} from '#/components/SignInButton'
@@ -134,10 +134,7 @@ export function UserScreen() {
           <SignInButton />
         </View>
       ) : resolving || loading ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Loader testID="profile-loading" />
-          <Caption color="faint">{i18n._(msg`Loading profile…`)}</Caption>
-        </View>
+        <SkeletonList variant="account" testID="profile-loading" />
       ) : resolveError || error || !account ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>{i18n._(msg`Could not load this profile.`)}</Body>
@@ -163,6 +160,7 @@ export function UserScreen() {
               <ProfileHeader
                 account={account}
                 isSelf={isSelf}
+                backend={backend}
                 relationship={relationship}
                 onPressFollowers={() => nav.navigate('Followers', {id: account.id})}
                 onPressFollowing={() => nav.navigate('Following', {id: account.id})}

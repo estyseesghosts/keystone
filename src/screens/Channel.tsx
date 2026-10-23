@@ -18,7 +18,7 @@ import {ApiError, isUnsupportedError, type Channel, type FeedDescriptor} from '@
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
@@ -118,10 +118,9 @@ export function ChannelScreen() {
 
   if (state === 'loading') {
     return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="channel-screen">
+      <View style={atoms.flex1} testID="channel-screen">
         <Pagehead title="Channel" />
-        <Loader testID="channel-loading" />
-        <Caption color="faint">Loading…</Caption>
+        <SkeletonList variant="post" testID="channel-loading" />
       </View>
     )
   }

@@ -16,7 +16,7 @@
 // member exists. No fake data, ever.
 
 import {useEffect, useRef, useState} from 'react'
-import {FlatList, View} from 'react-native'
+import {FlatList, Image, Linking, StyleSheet, View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
 import {msg} from '@lingui/macro'
@@ -25,6 +25,7 @@ import {
   displayNameOf,
   handleOf,
   isUnsupportedError,
+  safeHttpUrl,
   type Account,
   type Backend,
   type ExploreUsers,
@@ -35,15 +36,17 @@ import {
 } from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
+import {useTheme} from '#/alf'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
 import {ExploreSearchBar} from '#/components/Explore/ExploreSearchBar'
 import {ExploreSuggestPopup} from '#/components/Explore/ExploreSuggestPopup'
 import {ExploreTabBar} from '#/components/Explore/ExploreTabBar'
+import {showToast} from '#/lib/toast'
 import {i18n} from '#/locale/i18n'
 import {applySuggestion, suggestTrigger} from '#/components/Explore/suggest'
 import {exploreTabFromParam, type ExploreTab, type RootParamList} from '#/routes'
@@ -63,6 +66,36 @@ function stripTagPrefix(query: string): string {
 
 // --- Rows -------------------------------------------------------------------
 
+/** 1px theme-border rule between explore entries (v1 feed rule, same as
+ * the post separators). */
+function RowSeparator({testID}: {testID: string}) {
+  const theme = useTheme()
+  return <View testID={testID} style={{height: 1, backgroundColor: theme.palette.border}} />
+}
+
+function ExploreAvatar({account}: {account: Account}) {
+  const theme = useTheme()
+  const label = displayNameOf(account).slice(0, 1).toUpperCase()
+  if (account.avatarUrl) {
+    return (
+      <Image
+        source={{uri: account.avatarUrl}}
+        style={styles.avatar}
+        accessibilityIgnoresInvertColors
+        accessibilityLabel={`${displayNameOf(account)} profile picture`}
+        testID={`explore-avatar-${account.id}`}
+      />
+    )
+  }
+  return (
+    <View
+      style={[styles.avatar, styles.avatarFallback, {backgroundColor: theme.palette.raise}]}
+      testID={`explore-avatar-${account.id}`}>
+      <Body>{label}</Body>
+    </View>
+  )
+}
+
 function AccountRow({account, onOpen}: {account: Account; onOpen: () => void}) {
   return (
     <Pressable
@@ -70,9 +103,12 @@ function AccountRow({account, onOpen}: {account: Account; onOpen: () => void}) {
       accessibilityRole="button"
       accessibilityLabel={displayNameOf(account)}
       testID={`explore-account-${account.id}`}>
-      <View style={[atoms.py_sm, atoms.px_md]}>
-        <Body>{displayNameOf(account)}</Body>
-        <Caption color="faint">{handleOf(account)}</Caption>
+      <View style={[atoms.py_sm, atoms.px_md, styles.accountRow]}>
+        <ExploreAvatar account={account} />
+        <View style={styles.accountText}>
+          <Body>{displayNameOf(account)}</Body>
+          <Caption color="faint">{handleOf(account)}</Caption>
+        </View>
       </View>
     </Pressable>
   )
@@ -100,11 +136,60 @@ function TagChip({tag, onOpen}: {tag: TrendingTag; onOpen: () => void}) {
 }
 
 function NewsCard({link}: {link: NewsLink}) {
+  const theme = useTheme()
+  const navigation = useNavigation<NavigationProp<RootParamList>>()
+  const openLink = () => {
+    const safe = safeHttpUrl(link.url)
+    if (!safe) {
+      showToast('Could not open this link.')
+      return
+    }
+    void Linking.openURL(safe).catch(() => showToast('Could not open this link.'))
+  }
   return (
     <View style={[atoms.py_sm, atoms.px_md]} testID="explore-news-item">
-      <Body>{link.title}</Body>
-      {link.providerName ? <Caption color="faint">{link.providerName}</Caption> : null}
-      {link.description ? <Caption color="faint">{link.description}</Caption> : null}
+      {/* The Discussions pill nests inside the article link target: the RN
+          responder hands the tap to the innermost pressable, so the pill
+          navigates while the article around it still opens the link. */}
+      <Pressable
+        onPress={openLink}
+        accessibilityRole="link"
+        accessibilityLabel={`Open link: ${link.title}`}
+        testID="explore-news-open"
+        style={styles.newsRow}>
+        {link.image ? (
+          <Image
+            source={{uri: link.image}}
+            style={[styles.newsPhoto, {backgroundColor: theme.palette.raise}]}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+            testID="explore-news-photo"
+          />
+        ) : null}
+        <View style={styles.newsText}>
+          <Body>{link.title}</Body>
+          {link.providerName ? <Caption color="faint">{link.providerName}</Caption> : null}
+          <View style={styles.descRow}>
+            {link.description ? (
+              <Caption color="faint" style={styles.descText}>
+                {link.description}
+              </Caption>
+            ) : (
+              <View style={styles.descText} />
+            )}
+            <Pressable
+              onPress={() => navigation.navigate('NewsDiscussions', {url: link.url, title: link.title})}
+              accessibilityRole="button"
+              accessibilityLabel={`Discussions about ${link.title}`}
+              testID="explore-news-discussions"
+              style={styles.discussPillWrap}>
+              <View style={[styles.discussPill, {borderColor: theme.palette.edge}]}>
+                <Caption>{i18n._(msg`Discussions`)}</Caption>
+              </View>
+            </Pressable>
+          </View>
+        </View>
+      </Pressable>
     </View>
   )
 }
@@ -116,6 +201,25 @@ function SectionTitle({label}: {label: string}) {
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  avatar: {width: 44, height: 44, borderRadius: 22},
+  avatarFallback: {alignItems: 'center', justifyContent: 'center'},
+  accountRow: {flexDirection: 'row', alignItems: 'center', gap: 12},
+  accountText: {flex: 1, minWidth: 0},
+  // News photo: one fixed width everywhere, height follows each image's
+  // own aspect (RN measures the intrinsic size once loaded). minHeight +
+  // raise background holds a calm placeholder until the bytes arrive.
+  newsRow: {flexDirection: 'row', gap: 12},
+  newsPhoto: {width: 112, minHeight: 64, borderRadius: 8},
+  newsText: {flex: 1, minWidth: 0, justifyContent: 'center'},
+  // Blurb + pill share one row: the description wraps down the pill's
+  // left while the pill pins to its bottom-right — no full-width row.
+  descRow: {flexDirection: 'row', gap: 8, marginTop: 4, alignItems: 'flex-end'},
+  descText: {flex: 1, minWidth: 0},
+  discussPillWrap: {flexShrink: 0},
+  discussPill: {borderWidth: 1, borderRadius: 9999, paddingHorizontal: 12, paddingVertical: 6},
+})
 
 // --- Tab bodies --------------------------------------------------------------
 
@@ -159,11 +263,7 @@ function AccountsSearch({backend, query}: {backend: Backend; query: string}) {
     )
   }
   if (!accounts) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Loader testID="explore-accounts-loading" />
-      </View>
-    )
+    return <SkeletonList variant="account" testID="explore-accounts-loading" />
   }
   if (accounts.length === 0) {
     return (
@@ -177,6 +277,7 @@ function AccountsSearch({backend, query}: {backend: Backend; query: string}) {
       data={accounts}
       keyExtractor={a => a.id}
       testID="explore-accounts"
+      ItemSeparatorComponent={() => <RowSeparator testID="explore-accounts-sep" />}
       renderItem={({item}) => <AccountRow account={item} onOpen={() => openAccount(item.id)} />}
     />
   )
@@ -250,11 +351,7 @@ function UsersTab({backend, submitted}: {backend: Backend; submitted: string | n
     )
   }
   if (!users) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Loader testID="explore-users-loading" />
-      </View>
-    )
+    return <SkeletonList variant="account" testID="explore-users-loading" />
   }
   if (users.pinned.length === 0 && users.suggested.length === 0) {
     return (
@@ -266,6 +363,7 @@ function UsersTab({backend, submitted}: {backend: Backend; submitted: string | n
   return (
     <FlatList
       testID="explore-users"
+      ItemSeparatorComponent={() => <RowSeparator testID="explore-users-sep" />}
       data={[
         ...(users.pinned.length > 0 ? [{key: 'pinned-label', label: 'Pinned'}] : []),
         ...users.pinned.map(a => ({key: `pinned-${a.id}`, account: a})),
@@ -383,11 +481,7 @@ function TagsTab({
     )
   }
   if (!tags) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Loader testID="explore-tags-loading" />
-      </View>
-    )
+    return <SkeletonList variant="row" testID="explore-tags-loading" />
   }
   if (tags.length === 0) {
     return (
@@ -401,6 +495,7 @@ function TagsTab({
       testID="explore-tags"
       data={tags}
       keyExtractor={t => t.name}
+      ItemSeparatorComponent={() => <RowSeparator testID="explore-tags-sep" />}
       renderItem={({item}) => <TagChip tag={item} onOpen={() => openTag(item.name)} />}
     />
   )
@@ -485,11 +580,7 @@ function NewsTab({backend}: {backend: Backend}) {
     )
   }
   if (loading && links.length === 0) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Loader testID="explore-news-loading" />
-      </View>
-    )
+    return <SkeletonList variant="card" testID="explore-news-loading" />
   }
   if (error && links.length === 0) {
     return (
@@ -523,25 +614,18 @@ function NewsTab({backend}: {backend: Backend}) {
       .finally(() => setLoading(false))
   }
   return (
-    <View style={atoms.flex1}>
-      <FlatList
-        testID="explore-news"
-        data={links}
-        keyExtractor={l => l.url}
-        renderItem={({item}) => <NewsCard link={item} />}
-      />
-      {!end ? (
-        <View style={[atoms.centered, atoms.py_sm]}>
-          <Button
-            label={loading ? i18n._(msg`Loading…`) : i18n._(msg`Show more`)}
-            variant="secondary"
-            disabled={loading}
-            onPress={loadMore}
-            testID="explore-news-more"
-          />
-        </View>
-      ) : null}
-    </View>
+    <FlatList
+      testID="explore-news"
+      data={links}
+      keyExtractor={l => l.url}
+      ItemSeparatorComponent={() => <RowSeparator testID="explore-news-sep" />}
+      renderItem={({item}) => <NewsCard link={item} />}
+      // Infinite scroll with early prefetch: the next page starts loading
+      // well before the bottom edge, so the button-less list never stalls.
+      // `loadMore` is already guarded (loading/end/cursor), never a dupe.
+      onEndReached={() => void loadMore()}
+      onEndReachedThreshold={2}
+    />
   )
 }
 

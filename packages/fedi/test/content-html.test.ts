@@ -348,3 +348,22 @@ describe("MD4 remainder (WS-B): invisible spans, bullets, headings", () => {
     expect(isBlankContent(contentFromHtml("<h2>  </h2>"))).toBe(true);
   });
 });
+
+describe("inter-block whitespace (pretty-printed HTML)", () => {
+  it("drops whitespace-only runs between blocks (no phantom blank lines)", () => {
+    expect(contentFromHtml("<p>a</p>\n<p>b</p>")).toEqual([
+      { kind: "text", text: "a" },
+      { kind: "br" },
+      { kind: "br" },
+      { kind: "text", text: "b" },
+    ]);
+  });
+
+  it("keeps inline spacing around inline nodes", () => {
+    expect(contentFromHtml("<p>a <b>b</b> c</p>")).toEqual([
+      { kind: "text", text: "a " },
+      { kind: "bold", children: [{ kind: "text", text: "b" }] },
+      { kind: "text", text: " c" },
+    ]);
+  });
+});

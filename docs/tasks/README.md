@@ -68,5 +68,6 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p6.3-admin-insight-masto](p6.3-admin-insight-masto.md) | clickstone §3.1 (Mastodon) | done | `p6.3-admin-insight-masto` | `state/logs/2026-10-22-p6.3-admin-insight-masto.md` |
 | [p6.3-admin-insight-misskey](p6.3-admin-insight-misskey.md) | clickstone §3.1 (Misskey) | done | `p6.3-admin-insight-misskey` | `state/logs/2026-10-22-p6.3-admin-insight-misskey.md` |
 | [p6.3-reports-queue](p6.3-reports-queue.md) | clickstone §3.2 | done | `p6.3-reports-queue` | `state/logs/2026-10-22-p6.3-reports-queue.md` |
+| [p6.4-sidebar-reshuffle](p6.4-sidebar-reshuffle.md) | sidebar.jpg sketch (pre-W3) | in progress | `p6.4-sidebar-reshuffle` | `state/logs/2026-10-22-sidebar-reshuffle.md` |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.

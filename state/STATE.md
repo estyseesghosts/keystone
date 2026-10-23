@@ -38,6 +38,9 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
+0. P6.4 sidebar reshuffle (branch `p6.4-sidebar-reshuffle`, pre-Wave-3):
+   code + tests green (187/2368), pending owner desktop-large visual
+   pass, then merge to `main`. Task `docs/tasks/p6.4-sidebar-reshuffle.md`.
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
    user-note/modlog/reset-password; Mastodon account_actions
    warn/suspend/silence + notes; NO delete-account). Single agent,

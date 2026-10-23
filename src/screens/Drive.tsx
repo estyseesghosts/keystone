@@ -35,6 +35,7 @@ import {pickMedia} from '#/components/Composer/pickMedia'
 import {Dialog} from '#/components/Dialog'
 import {TextField} from '#/components/forms/TextField'
 import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {postBodyNodes} from '#/components/Post/body'
 import {RichText} from '#/components/RichText'
@@ -792,10 +793,7 @@ export function DriveScreen() {
       <Pagehead title="Drive" />
       {actionError ? <Caption color="faint">{actionError}</Caption> : null}
       {loading ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Loader testID="drive-loading" />
-          <Caption color="faint">Loading…</Caption>
-        </View>
+        <SkeletonList variant="row" testID="drive-loading" />
       ) : denied ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>Your account cannot view drive here.</Body>

@@ -19,6 +19,8 @@ import {
   backendForSession,
   type Translation,
   contentFromHtml,
+  contentFromTranslatedText,
+  collectBareLinkHrefs,
   displayNameOf,
   findTextualQuoteMarker,
   foldTree,
@@ -31,6 +33,7 @@ import {
   structuredUrisOf,
   resolveRemotePostUrl,
   type Account,
+  type Backend,
   type Capabilities,
   type EmojiStyle,
   type Media,
@@ -64,7 +67,7 @@ import {PostMediaGrid} from './PostMediaGrid'
 import {PostPoll} from './PostPoll'
 import {PostQuote} from './PostQuote'
 import {TagBubble} from './TagBubble'
-import {UserHoverCard} from '#/components/Profile/UserHoverCard'
+import {HoverPreview} from '#/components/Profile/HoverPreview'
 import {formatCount, useLocale} from '#/locale/i18n'
 import {ReactionChips} from './ReactionChips'
 import {formatRelativeTime} from './time'
@@ -129,7 +132,8 @@ export function boostLabel(post: Post, renoters?: Account[]): string {
 // Desktop hover preview (P7): web-only wrapper around an author press.
 // After ~400ms of hover the profile card floats below the anchor; native
 // renders the child alone (no hover exists there). The card floats in an
-// absolutely-positioned web layer, never in layout.
+// absolutely-positioned web layer, never in layout. Placement flips
+// above/below (and left/right) based on viewport room.
 function HoverAuthor({
   account,
   sessionId,
@@ -143,56 +147,17 @@ function HoverAuthor({
   children: React.ReactNode
   testID?: string
 }) {
-  const [show, setShow] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(
-    () => () => {
-      if (timer.current !== null) clearTimeout(timer.current)
-    },
-    [],
-  )
   if (Platform.OS !== 'web') return <>{children}</>
-  // `onHoverIn`/`onHoverOut` exist on the web host view but are absent
-  // from this RN version's `ViewProps` types — spread them in (spreads
-  // skip excess-prop checks) so native trees never see the props.
-  const hoverHandlers: {onHoverIn?: () => void; onHoverOut?: () => void} =
-    Platform.OS === 'web'
-      ? {
-          onHoverIn: () => {
-            if (timer.current !== null) clearTimeout(timer.current)
-            timer.current = setTimeout(() => setShow(true), 400)
-          },
-          onHoverOut: () => {
-            if (timer.current !== null) clearTimeout(timer.current)
-            setShow(false)
-          },
-        }
-      : {}
   return (
-    <View {...hoverHandlers}>
+    <HoverPreview
+      account={account}
+      sessionId={sessionId}
+      onOpenProfile={onOpenProfile}
+      testID={testID}>
       {children}
-      {show ? (
-        <View style={hoverStyles.card}>
-          <UserHoverCard
-            account={account}
-            sessionId={sessionId}
-            onOpenProfile={onOpenProfile}
-            testID={testID}
-          />
-        </View>
-      ) : null}
-    </View>
+    </HoverPreview>
   )
 }
-
-const hoverStyles = StyleSheet.create({
-  card: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    zIndex: 50,
-  },
-})
 
 function Avatar({post, sessionId}: {post: Post; sessionId: string}) {
   const theme = useTheme()
@@ -279,6 +244,11 @@ export type PostCardProps = {
    * soft-mute set and the rendered author; tests and previews inject it
    * explicitly. Omit (or false) to leave the badge off — never guessed. */
   softMuted?: boolean
+  /** Backend for mention → account resolution (avatar + display name
+   * in chips). The live card injects the session backend; tests and
+   * previews omit it — chips fall back to the handle label, never a
+   * spinner. */
+  backend?: Backend | null
   /** Open this post's edit history (clickstone §1.7). Omitted where the
    * backend has no history endpoint (the Misskey family): the Edited badge
    * then renders as plain text, never as a dead link. */
@@ -451,6 +421,7 @@ function LivePostCard(props: PostCardProps) {
     <PostCardView
       {...props}
       capabilities={props.capabilities ?? backend?.capabilities ?? null}
+      backend={props.backend ?? backend}
       translationSource={translationSource ?? props.translationSource ?? null}
       resolveQuoteUri={props.resolveQuoteUri ?? resolveQuoteUri}
       linkPreviewAuto={props.linkPreviewAuto ?? !dataSaver}
@@ -476,6 +447,7 @@ function LivePostCard(props: PostCardProps) {
 
 function PostCardView({
   post,
+  backend,
   capabilities,
   emojiStyle = 'twemoji',
   onMentionPress,
@@ -658,6 +630,26 @@ function PostCardView({
     () => (effective.card !== null ? null : firstBareUrl(fullNodes, coveredQuoteUris)),
     [effective.card, fullNodes, coveredQuoteUris],
   )
+  // Link chips prefer the embed's page title; a lone bare link with its
+  // own embed card drops the chip (the card carries the action). The
+  // count runs over the full unfolded nodes so folding never flips the
+  // rule mid-scroll.
+  const linkTitles = useMemo(() => {
+    const card = effective.card
+    if (!card) return undefined
+    const url = safeHttpUrl(card.url)
+    if (!url || !card.title) return undefined
+    return {[url]: card.title}
+  }, [effective.card])
+  const hideLoneLinkChipFor = useMemo(() => {
+    const bare = collectBareLinkHrefs(fullNodes)
+    if (bare.length !== 1) return null
+    const only = bare[0]
+    if (effective.card !== null) {
+      return safeHttpUrl(effective.card.url) === only ? only : null
+    }
+    return firstBareUrl(fullNodes, coveredQuoteUris) === only ? only : null
+  }, [fullNodes, effective.card, coveredQuoteUris])
   // Timeline fold (F13): long bodies fold to the budget with an
   // in-place Show more/less toggle; the body tap still opens detail.
   const [expanded, setExpanded] = useState(false)
@@ -731,6 +723,13 @@ function PostCardView({
   // toggles back and forth. Hidden with the CW gate so a closed warning
   // never leaks the translated text early.
   const showingTranslation = !bodyHidden && shownTranslation !== null && !showOriginal
+  // Translated bodies parse back into nodes (mentions/links stay live,
+  // newlines survive) — the ONLY difference from the original is the
+  // text content, never the chrome around it.
+  const translatedNodes = useMemo(
+    () => (shownTranslation ? contentFromTranslatedText(shownTranslation.text) : null),
+    [shownTranslation?.text],
+  )
 
   // Warm the remote-page cache for federated posts (MK17): by the
   // time the menu opens, "Copy remote link" carries the human page
@@ -881,7 +880,26 @@ function PostCardView({
           </Pressable>
         )}
         {showingTranslation ? (
-          <Body testID={`post-translation-${post.id}`}>{shownTranslation.text}</Body>
+          <Pressable
+            testID={`post-open-${effective.id}`}
+            onPress={openPost}
+            accessibilityRole="link"
+            accessibilityLabel={i18n._(msg`Open post by ${displayNameOf(effective.author)}`)}>
+            <RichText
+              nodes={translatedNodes ?? []}
+              emojis={emojis}
+              sessionId={sessionId}
+              authorHost={effective.author.host}
+              emojiStyle={emojiStyle}
+              backend={backend}
+              linkTitles={linkTitles}
+              hideLoneLinkChipFor={hideLoneLinkChipFor}
+              onMentionPress={handleMentionPress}
+              onHashtagPress={handleHashtagPress}
+              onLinkPress={handleLinkPress}
+              testID={`post-translation-${post.id}`}
+            />
+          </Pressable>
         ) : (
           !bodyHidden && (
           <Pressable
@@ -895,6 +913,9 @@ function PostCardView({
               sessionId={sessionId}
               authorHost={effective.author.host}
               emojiStyle={emojiStyle}
+              backend={backend}
+              linkTitles={linkTitles}
+              hideLoneLinkChipFor={hideLoneLinkChipFor}
               onMentionPress={handleMentionPress}
               onHashtagPress={handleHashtagPress}
               onLinkPress={handleLinkPress}

@@ -127,16 +127,63 @@ describe('Channels screen', () => {
     }
   })
 
-  it('lists channels and opens the detail feed', async () => {
+  it('mine tab shows followed channels by default', async () => {
+    const backend = fullBackend({
+      followed: jest.fn(async () => ({
+        items: [{id: 'chF', name: 'Following', isFollowing: true}],
+        cursor: null,
+        end: true,
+      })),
+    })
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('Following')).toBeTruthy()
+      expect(backend.channels.followed).toHaveBeenCalledWith({limit: 20})
+      expect(backend.channels.list).not.toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+
+  it('server tab shows the whole directory and opens the detail feed', async () => {
     const backend = fullBackend()
     const {done} = await setup({backend})
     try {
+      // Mine is empty by default (followed stub returns no items).
+      expect(await screen.findByText('You are not following any channels yet.')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('channels-tab-server'))
       expect(await screen.findByText('General')).toBeTruthy()
       expect(screen.getByText('Anything goes')).toBeTruthy()
       expect(screen.getByText('Art')).toBeTruthy()
+      expect(backend.channels.list).toHaveBeenCalledWith({limit: 20})
       fireEvent.press(screen.getByTestId('channels-open-ch1'))
       expect(mockNavigate).toHaveBeenCalledWith('Channel', {id: 'ch1'})
-      expect(backend.channels.list).toHaveBeenCalledWith({limit: 20})
+    } finally {
+      done()
+    }
+  })
+
+  it('mine empty state links to the server tab', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByTestId('channels-browse-server')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('channels-browse-server'))
+      expect(await screen.findByText('General')).toBeTruthy()
+      expect(backend.channels.list).toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+
+  it('separates channel rows', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      fireEvent.press(screen.getByTestId('channels-tab-server'))
+      expect(await screen.findByText('General')).toBeTruthy()
+      // Two rows, one rule between them.
+      expect(screen.getAllByTestId('channels-sep')).toHaveLength(1)
     } finally {
       done()
     }
@@ -148,6 +195,7 @@ describe('Channels screen', () => {
     })
     const {done} = await setup({backend})
     try {
+      fireEvent.press(screen.getByTestId('channels-tab-server'))
       expect(await screen.findByText('No channels found on this server.')).toBeTruthy()
     } finally {
       done()
@@ -156,7 +204,7 @@ describe('Channels screen', () => {
 
   it('offers a retry when the listing fails', async () => {
     const backend = fullBackend({
-      list: jest.fn(async () => {
+      followed: jest.fn(async () => {
         throw new Error('boom')
       }),
     })

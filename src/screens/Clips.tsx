@@ -15,7 +15,7 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
@@ -279,6 +279,18 @@ export function ClipsScreen() {
     <View style={atoms.flex1} testID="clips-screen">
       <Pagehead title="Clips" />
       {addNoteId ? <Caption color="faint">Choose a clip for this post.</Caption> : null}
+      {/* Misskey favourites live here too: the sidebar has one collections
+          row per concept, so Clips carries the entry point to Favourites. */}
+      {session?.family === 'misskey' ? (
+        <View style={[atoms.px_md, atoms.py_sm]}>
+          <Button
+            label="Favourites"
+            variant="secondary"
+            onPress={() => navigation.navigate('Favorites')}
+            testID="clips-favourites-link"
+          />
+        </View>
+      ) : null}
       <CreateRow
         onCreate={async (name, isPublic) => {
           if (!backend.clips) return
@@ -288,10 +300,7 @@ export function ClipsScreen() {
       />
       {actionError ? <Caption color="faint">{actionError}</Caption> : null}
       {loading ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Loader testID="clips-loading" />
-          <Caption color="faint">Loading…</Caption>
-        </View>
+        <SkeletonList variant="row" testID="clips-loading" />
       ) : denied ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>Your account cannot view clips here.</Body>

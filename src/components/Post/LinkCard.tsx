@@ -88,6 +88,11 @@ export function LinkCard({card, testID}: {card: LinkCardModel; testID?: string})
           <Caption color="faint" numberOfLines={1}>
             {card.providerName || hostOf(url)}
           </Caption>
+          {/* v1 parity: an untitled card still names its target — host
+              plus the full URL, so a bare domain never stands alone. */}
+          {!card.title ? (
+            <Body numberOfLines={2}>{url}</Body>
+          ) : null}
         </View>
       </View>
     </Pressable>

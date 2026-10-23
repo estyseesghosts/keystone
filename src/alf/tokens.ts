@@ -54,4 +54,7 @@ export const butterflyPx = {
   sidebarMin: 220,
   railWidth: 68,
   mainColMax: 600,
+  // Feed max when the widgets column is hidden: wider than the standard
+  // 600 so the freed space goes to content, still capped for readability.
+  mainColMaxWide: 720,
 } as const

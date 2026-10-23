@@ -19,7 +19,7 @@ import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
@@ -139,10 +139,7 @@ export function ConversationScreen() {
       <Pagehead title={conversation ? conversationTitle(conversation) : 'Conversation'} />
       {deleteError ? <Caption color="faint">{deleteError}</Caption> : null}
       {thread.isPending ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Loader testID="conversation-loading" />
-          <Caption color="faint">Loading…</Caption>
-        </View>
+        <SkeletonList variant="row" testID="conversation-loading" />
       ) : thread.error || !conversation ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>Could not load this conversation.</Body>

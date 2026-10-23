@@ -538,6 +538,78 @@ describe('auto-translate (v1)', () => {
     expect(screen.queryByTestId('post-translation-tr6')).toBeNull()
     expect(screen.queryByTestId('translation-toggle-tr6')).toBeNull()
   })
+
+  it('translated bodies keep chips and the open-post tap target', async () => {
+    const fetch: TranslationSource['fetch'] = jest.fn(async () => ({
+      sourceLang: 'es',
+      text: 'hola @ana, mira https://a.b/x',
+    }))
+    renderCard(
+      <PostCard post={makePost({id: 'tr7'})} sessionId={SESSION} translationSource={source(fetch)} />,
+    )
+    expect(await screen.findByTestId('post-translation-tr7')).toBeTruthy()
+    // Mention chip, link chip, and the body tap target all survive.
+    expect(screen.getByTestId('richtext-mention-chip')).toBeTruthy()
+    expect(screen.getByTestId('richtext-link-chip')).toBeTruthy()
+    expect(screen.getByTestId('post-open-tr7')).toBeTruthy()
+  })
+
+  it('a lone bare link with its embed card hides the chip', () => {
+    renderCard(
+      <PostCard
+        post={makePost({
+          id: 'lc1',
+          content: {
+            mfm: 'read this https://cards.example/article',
+            plain: 'read this https://cards.example/article',
+          },
+          card: {
+            url: 'https://cards.example/article',
+            title: 'Great Article',
+            description: '',
+            providerName: 'Cards',
+            image: null,
+            type: 'link',
+            authorName: null,
+            authorUrl: null,
+          },
+        })}
+        sessionId={SESSION}
+      />,
+    )
+    // The card carries the action; the pill is gone.
+    expect(screen.queryByTestId('richtext-link-chip')).toBeNull()
+    expect(screen.getByText('Great Article')).toBeTruthy()
+  })
+
+  it('a titled link chip shows the page title', () => {
+    renderCard(
+      <PostCard
+        post={makePost({
+          id: 'lc2',
+          content: {
+            mfm: 'read this https://cards.example/article and https://other.example/x',
+            plain: 'read this https://cards.example/article and https://other.example/x',
+          },
+          card: {
+            url: 'https://cards.example/article',
+            title: 'Great Article',
+            description: '',
+            providerName: 'Cards',
+            image: null,
+            type: 'link',
+            authorName: null,
+            authorUrl: null,
+          },
+        })}
+        sessionId={SESSION}
+      />,
+    )
+    // Two bare links: chips stay, and the known one shows its title
+    // (the card renders the same title — chip and card both).
+    expect(screen.getAllByText('Great Article')).toHaveLength(2)
+    expect(screen.getAllByTestId('richtext-link-chip')).toHaveLength(2)
+  })
 })
 
 describe('display-name emoji (F11)', () => {

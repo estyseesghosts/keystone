@@ -24,7 +24,7 @@ import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
@@ -142,10 +142,7 @@ export function ChatRoomsScreen() {
       <Pagehead title="Chat" />
       {readAllError ? <Caption color="faint">{readAllError}</Caption> : null}
       {list.isPending ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Loader testID="chatrooms-loading" />
-          <Caption color="faint">Loading…</Caption>
-        </View>
+        <SkeletonList variant="row" testID="chatrooms-loading" />
       ) : list.error ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>Could not load chats.</Body>

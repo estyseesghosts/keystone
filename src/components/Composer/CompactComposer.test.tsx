@@ -75,6 +75,10 @@ describe('CompactComposer', () => {
     setup()
     fireEvent.press(screen.getByTestId('composer-audience'))
     expect(screen.getByTestId('composer-audience-menu')).toBeTruthy()
+    // Full-height option icons lead each row; the description rides under
+    // the label in the text column.
+    expect(screen.getByTestId('composer-vis-icon-home')).toBeTruthy()
+    expect(screen.getByText('Hidden from global timelines')).toBeTruthy()
     fireEvent.press(screen.getByTestId('composer-vis-home'))
     expect(screen.queryByTestId('composer-audience-menu')).toBeNull()
   })

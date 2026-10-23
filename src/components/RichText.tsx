@@ -16,8 +16,9 @@
 // motion (`spin`, `tada`, …), `blur` and unknown functions degrade to
 // their children — content is never dropped, effects never faked.
 
-import {Fragment, useMemo} from 'react'
+import {Fragment, useContext, useMemo} from 'react'
 import {
+  Image,
   Linking,
   StyleSheet,
   Text,
@@ -27,10 +28,15 @@ import {
   type ViewStyle,
 } from 'react-native'
 
-import {DEFAULT_EMOJI_STYLE, parseAcct, plainTextOf, type ContentNode, type EmojiStyle} from '@keystone/fedi'
+import {DEFAULT_EMOJI_STYLE, bareLinkLabel, displayNameOf, parseAcct, plainTextOf, type Backend, type ContentNode, type EmojiStyle} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {CustomEmojiGlyph, UnicodeEmoji} from '#/components/EmojiImage'
+import {ProfileIcon} from '#/components/icons'
+import {Pressable} from '#/components/Pressable'
+import {QueryClientContext} from '@tanstack/react-query'
+import {useMentionedAccount} from '#/state/queries'
+import {HoverPreview} from '#/components/Profile/HoverPreview'
 import {useContentMode} from '#/state/appearance'
 import {navigationRef} from '#/navigationRef'
 
@@ -53,6 +59,17 @@ export type RichTextProps = {
   onMentionPress?: (href: string | null, label: string) => void
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
+  /** Backend for mention → account resolution (avatar + display name
+   * in chips). Omit where no backend is handy (bio, logged-out trees):
+   * chips fall back to the handle label, never a spinner. */
+  backend?: Backend | null
+  /** Page titles keyed by link href: bare-link chips show the title
+   * (capped) instead of the truncated URL when known. */
+  linkTitles?: Record<string, string>
+  /** Lone-link rule: when a post has exactly one bare link AND an embed
+   * card for it, the chip degrades to plain text (the card carries the
+   * action). Pass the href to hide, else null. */
+  hideLoneLinkChipFor?: string | null
   style?: StyleProp<ViewStyle>
   textStyle?: StyleProp<TextStyle>
   testID?: string
@@ -68,10 +85,20 @@ type Ctx = {
   onMentionPress?: (href: string | null, label: string) => void
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
+  backend?: Backend | null
+  /** Page titles keyed by link href: bare-link chips show the title
+   * (capped) instead of the truncated URL when known. */
+  linkTitles?: Record<string, string>
+  /** Lone-link rule: when a post has exactly one bare link AND an embed
+   * card for it, the chip degrades to plain text (the card carries the
+   * action). Pass the href to hide, else null. */
+  hideLoneLinkChipFor?: string | null
   linkColor: string
   textColor: string
   codeBg: string
   quoteEdge: string
+  /** Hairline color for inline chips (border only). */
+  edge: string
   /** Set when rendering inside a centered block: every line centers. */
   align?: 'center'
 }
@@ -82,6 +109,18 @@ const styles = StyleSheet.create({
   mention: {fontWeight: '600'},
   quote: {borderLeftWidth: 2, paddingLeft: 8, marginVertical: 4},
   codeBlock: {borderRadius: 6, padding: 8, marginVertical: 4},
+  // Inline chips (v1 `.mchip` parity): an atomic pill the line-box never
+  // splits mid-word, so long URLs and handles wrap as a unit instead of
+  // chopping across lines.
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
 })
 
 function openExternal(href: string) {
@@ -295,6 +334,100 @@ function Fn({node, ctx, depth}: {node: Extract<ContentNode, {kind: 'fn'}>; ctx: 
   }
 }
 
+// Inline avatar chip for a resolvable mention (v1 parity). Resolves the
+// handle to an account over the passed backend (cached per session):
+// display name + photo when loaded, handle + glyph meanwhile, in
+// backend-less trees, or when the lookup fails. Taps always route;
+// the label (not the photo) is authoritative for the destination.
+//
+// Resolver trees need a QueryClient (the card usually has one; bare
+// presentational/test trees do not): without one the chip renders static
+// — never a hook crash, never a spinner.
+function StaticMentionChip({
+  name,
+  avatar,
+  label,
+  ctx,
+  onPress,
+}: {
+  name: string
+  avatar: string | null
+  label: string
+  ctx: Ctx
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      style={[styles.chip, {borderColor: ctx.edge}]}
+      accessibilityRole="link"
+      accessibilityLabel={`Open profile: ${name}`}
+      testID="richtext-mention-chip"
+      onPress={onPress}>
+      {avatar ? (
+        <Image
+          source={{uri: avatar}}
+          style={{width: 16, height: 16, borderRadius: 8}}
+          accessibilityIgnoresInvertColors
+          testID="richtext-mention-avatar"
+        />
+      ) : (
+        <ProfileIcon size={14} color={ctx.textColor} />
+      )}
+      <Text style={{fontSize: ctx.size, color: ctx.textColor}} numberOfLines={1}>
+        {name}
+      </Text>
+    </Pressable>
+  )
+}
+
+function ResolvingMentionChip({
+  label,
+  ctx,
+  onPress,
+}: {
+  label: string
+  ctx: Ctx
+  onPress: () => void
+}) {
+  const account = useMentionedAccount(ctx.backend ?? null, ctx.sessionId, label)
+  const chip = (
+    <StaticMentionChip
+      name={account ? displayNameOf(account) : label}
+      avatar={account?.avatarUrl ?? null}
+      label={label}
+      ctx={ctx}
+      onPress={onPress}
+    />
+  )
+  // Hover previews the resolved account; the handle-only fallback has
+  // nothing to preview (and HoverPreview no-ops on native anyway).
+  if (!account) return chip
+  return (
+    <HoverPreview
+      account={account}
+      sessionId={ctx.sessionId ?? 'signed-out'}
+      onOpenProfile={() => defaultMentionPress(null, label)}>
+      {chip}
+    </HoverPreview>
+  )
+}
+
+function MentionChip({
+  label,
+  ctx,
+  onPress,
+}: {
+  label: string
+  ctx: Ctx
+  onPress: () => void
+}) {
+  const qc = useContext(QueryClientContext)
+  if (!qc || !ctx.backend) {
+    return <StaticMentionChip name={label} avatar={null} label={label} ctx={ctx} onPress={onPress} />
+  }
+  return <ResolvingMentionChip label={label} ctx={ctx} onPress={onPress} />
+}
+
 // Inline nodes inside a parent <Text>. Block nodes (codeBlock, quote)
 // never appear here — the flow splitter hoists them out.
 function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; depth: number}) {
@@ -324,7 +457,39 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
                 size={ctx.size + 2}
               />
             )
-          case 'link':
+          case 'link': {
+            const bareLabel = bareLinkLabel(node)
+            if (bareLabel !== null) {
+              // Lone link with its own embed card: no pill, just the
+              // words (the card below carries the action).
+              if (ctx.hideLoneLinkChipFor === node.href) {
+                return (
+                  <Text key={key} style={{color: ctx.textColor}}>
+                    {bareLabel}
+                  </Text>
+                )
+              }
+              const title = ctx.linkTitles?.[node.href]
+              const chipLabel =
+                title && title.length > 0
+                  ? title.length > 48
+                    ? `${title.slice(0, 47)}…`
+                    : title
+                  : bareLabel
+              return (
+                <Pressable
+                  key={key}
+                  style={[styles.chip, {borderColor: ctx.edge}]}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open link: ${node.href}`}
+                  testID="richtext-link-chip"
+                  onPress={() => (ctx.onLinkPress ? ctx.onLinkPress(node.href) : openExternal(node.href))}>
+                  <Text style={{fontSize: ctx.size, color: ctx.textColor}} numberOfLines={1}>
+                    {chipLabel}
+                  </Text>
+                </Pressable>
+              )
+            }
             return (
               <Text
                 key={key}
@@ -334,6 +499,7 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
                 <Inline nodes={node.children} ctx={ctx} depth={depth + 1} />
               </Text>
             )
+          }
           case 'mention': {
             // Handler-less surfaces (bio, fields, notification excerpts)
             // land in-app through the defaults — never the browser, never
@@ -344,19 +510,26 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
               ctx.onMentionPress !== undefined ||
               parseAcct(label) !== null ||
               acctFromProfileUrl(node.href) !== null
+            // Resolvable mentions render as an inline avatar chip (v1
+            // parity): display name + photo once the account resolves,
+            // handle + glyph meanwhile or where no backend is handy.
+            // Unresolvable mentions stay plain text — never a dead chip.
+            if (pressable) {
+              return (
+                <MentionChip
+                  key={key}
+                  label={label}
+                  ctx={ctx}
+                  onPress={() =>
+                    ctx.onMentionPress
+                      ? ctx.onMentionPress(node.href, label)
+                      : defaultMentionPress(node.href, label)
+                  }
+                />
+              )
+            }
             return (
-              <Text
-                key={key}
-                style={[styles.mention, pressable && {color: ctx.linkColor}]}
-                accessibilityRole={pressable ? 'link' : undefined}
-                onPress={
-                  pressable
-                    ? () =>
-                        ctx.onMentionPress
-                          ? ctx.onMentionPress(node.href, label)
-                          : defaultMentionPress(node.href, label)
-                    : undefined
-                }>
+              <Text key={key} style={styles.mention}>
                 <Inline nodes={node.children} ctx={ctx} depth={depth + 1} />
               </Text>
             )
@@ -508,6 +681,9 @@ export function RichText({
   onMentionPress,
   onHashtagPress,
   onLinkPress,
+  backend = null,
+  linkTitles,
+  hideLoneLinkChipFor = null,
   style,
   textStyle,
   testID,
@@ -530,12 +706,16 @@ export function RichText({
       onMentionPress,
       onHashtagPress,
       onLinkPress,
+      backend,
+      linkTitles: linkTitles ?? {},
+      hideLoneLinkChipFor,
       linkColor: theme.palette.text,
       textColor: theme.palette.text,
       codeBg: theme.palette.bgSoft,
       quoteEdge: theme.palette.edge,
+      edge: theme.palette.edge,
     }),
-    [emojis, sessionId, authorHost, emojiStyle, scaledSize, onMentionPress, onHashtagPress, onLinkPress, theme],
+    [emojis, sessionId, authorHost, emojiStyle, scaledSize, onMentionPress, onHashtagPress, onLinkPress, backend, linkTitles, hideLoneLinkChipFor, theme],
   )
   if (contentMode === 'plain') {
     return (

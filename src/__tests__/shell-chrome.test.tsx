@@ -1,17 +1,20 @@
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {act, fireEvent, render, screen} from '@testing-library/react-native'
+import {Platform} from 'react-native'
 
 import {createMemoryStore} from '@keystone/fedi'
 
 import type {TokenVault} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
+import {resetSidebarMode} from '#/state/sideNav'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {
   clearFeedScrolls,
   feedScrollKey,
   getStateFromPathWithBase,
   goBackOrFeed,
+  handleLine,
   lastFeedTabName,
   linking,
   Navigation,
@@ -63,6 +66,38 @@ jest.mock('#/screens/Drive', () => {
   }
 })
 
+jest.mock('#/screens/Conversations', () => {
+  const React = jest.requireActual('react')
+  const {View} = jest.requireActual('react-native')
+  return {
+    ConversationsScreen: () => React.createElement(View, {testID: 'conversations-screen'}),
+  }
+})
+
+jest.mock('#/screens/ChatRooms', () => {
+  const React = jest.requireActual('react')
+  const {View} = jest.requireActual('react-native')
+  return {
+    ChatRoomsScreen: () => React.createElement(View, {testID: 'chatrooms-screen'}),
+  }
+})
+
+jest.mock('#/screens/Announcements', () => {
+  const React = jest.requireActual('react')
+  const {View} = jest.requireActual('react-native')
+  return {
+    AnnouncementsScreen: () => React.createElement(View, {testID: 'announcements-screen'}),
+  }
+})
+
+jest.mock('#/screens/Compose', () => {
+  const React = jest.requireActual('react')
+  const {View} = jest.requireActual('react-native')
+  return {
+    ComposeScreen: () => React.createElement(View, {testID: 'compose-screen'}),
+  }
+})
+
 const memVault = (): TokenVault => ({
   getToken: () => Promise.resolve(null),
   setToken: () => Promise.resolve(),
@@ -107,6 +142,7 @@ function renderShell(options?: {
 
 beforeEach(() => {
   widthHolder.width = 390
+  resetSidebarMode()
   resetLastFeed()
   clearFeedScrolls()
 })
@@ -202,26 +238,31 @@ describe('pagehead back affordance (N15)', () => {
   })
 })
 
-describe('account menu (N16)', () => {
-  it('opens a menu with profile + settings entries, profile lands on User', async () => {
+describe('account menu (N16, reshuffle: no sidebar duplicates)', () => {
+  it('opens a menu with profile, profile lands on User', async () => {
     widthHolder.width = 390
     await renderShell({signedIn: true})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     fireEvent.press(screen.getByTestId('strip-account'))
     expect(screen.getByTestId('strip-account-menu')).toBeTruthy()
     expect(screen.getByTestId('strip-account-menu-profile')).toBeTruthy()
-    expect(screen.getByTestId('strip-account-menu-settings')).toBeTruthy()
     fireEvent.press(screen.getByTestId('strip-account-menu-profile'))
     expect(await screen.findByTestId('user-screen')).toBeTruthy()
   })
 
-  it('settings entry lands on Settings', async () => {
+  it('menu carries no settings/messages/drive rows (footer owns them)', async () => {
     widthHolder.width = 390
-    await renderShell({signedIn: true})
+    await renderShell({signedIn: true, family: 'misskey'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     fireEvent.press(screen.getByTestId('strip-account'))
-    fireEvent.press(screen.getByTestId('strip-account-menu-settings'))
-    expect(await screen.findByTestId('settings-screen')).toBeTruthy()
+    expect(screen.queryByTestId('strip-account-menu-settings')).toBeNull()
+    expect(screen.queryByTestId('strip-account-menu-messages')).toBeNull()
+    expect(screen.queryByTestId('strip-account-menu-drive')).toBeNull()
+    expect(screen.queryByTestId('strip-account-menu-lists')).toBeNull()
+    expect(screen.queryByTestId('strip-account-menu-clips')).toBeNull()
+    expect(screen.queryByTestId('strip-account-menu-channels')).toBeNull()
+    expect(screen.queryByTestId('strip-account-menu-antennas')).toBeNull()
+    expect(screen.queryByTestId('strip-account-menu-favorites')).toBeNull()
   })
 
   it('signed-out strip keeps the sign-in entry (no menu)', async () => {
@@ -232,114 +273,127 @@ describe('account menu (N16)', () => {
     expect(screen.queryByTestId('strip-account')).toBeNull()
   })
 
-  // P6.2 — the DM inbox ships on mastodon: the account-menu entry is
-  // enabled and backed by the Conversations route (shell chrome pins
-  // presence; the press path is covered by the screen tests).
-  it('carries an enabled Messages entry on mastodon (the inbox ships)', async () => {
+  // Reshuffle: Messages lives in the sidebar footer, not the menu. The
+  // menu carries no messages row on any family (never a duplicate).
+  it('carries no Messages entry on mastodon (footer owns it)', async () => {
     widthHolder.width = 390
     await renderShell({signedIn: true, family: 'mastodon'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     fireEvent.press(screen.getByTestId('strip-account'))
-    const row = screen.getByTestId('strip-account-menu-messages')
-    expect(row.props.accessibilityState.disabled).not.toBe(true)
+    expect(screen.queryByTestId('strip-account-menu-messages')).toBeNull()
     expect(Object.keys(paths)).toContain('Conversations')
   })
 
-  it('carries an enabled Messages entry on Misskey (chat ships there)', async () => {
+  it('carries no Messages entry on Misskey (footer owns it)', async () => {
     widthHolder.width = 390
     await renderShell({signedIn: true, family: 'misskey'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     fireEvent.press(screen.getByTestId('strip-account'))
-    const row = screen.getByTestId('strip-account-menu-messages')
-    expect(row.props.accessibilityState.disabled).not.toBe(true)
+    expect(screen.queryByTestId('strip-account-menu-messages')).toBeNull()
     expect(Object.keys(paths)).toContain('ChatRooms')
   })
 })
 
-describe('stack destinations (E7 nav)', () => {
-  it('mastodon sidebar hides Drive + Antennas (family gate)', async () => {
+describe('sidebar reshuffle (collections + footer actions)', () => {
+  it('mastodon sidebar shows Bookmarks + Lists, hides channels/pages/uploads', async () => {
     widthHolder.width = 1280
     await renderShell({signedIn: true, family: 'mastodon'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.queryByTestId('sidebar-drive')).toBeNull()
+    expect(screen.getByTestId('sidebar-bookmarks')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-lists')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-channels')).toBeNull()
+    expect(screen.queryByTestId('sidebar-clips')).toBeNull()
     expect(screen.queryByTestId('sidebar-antennas')).toBeNull()
+    expect(screen.queryByTestId('sidebar-pages')).toBeNull()
+    expect(screen.getByTestId('sidebar-settings')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-messages')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-notifications')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-uploads')).toBeNull()
   })
 
-  it('misskey sidebar shows Drive + Antennas and Drive lands on the page', async () => {
-    widthHolder.width = 1280
-    await renderShell({signedIn: true, family: 'misskey'})
-    expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.getByTestId('sidebar-drive')).toBeTruthy()
-    expect(screen.getByTestId('sidebar-antennas')).toBeTruthy()
-    fireEvent.press(screen.getByTestId('sidebar-drive'))
-    expect(await screen.findByTestId('drive-screen')).toBeTruthy()
-  })
-
-  it('misskey sidebar shows Channels (capability + module gate)', async () => {
+  it('misskey sidebar shows Channels + Clips + Antennas + Pages stub, footer grid of 4', async () => {
     widthHolder.width = 1280
     await renderShell({signedIn: true, family: 'misskey'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     expect(screen.getByTestId('sidebar-channels')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-clips')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-antennas')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-pages')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-bookmarks')).toBeNull()
+    expect(screen.queryByTestId('sidebar-lists')).toBeNull()
+    expect(screen.getByTestId('sidebar-settings')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-messages')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-uploads')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-notifications')).toBeTruthy()
   })
 
-  it('mastodon sidebar hides Channels', async () => {
-    widthHolder.width = 1280
-    await renderShell({signedIn: true, family: 'mastodon'})
-    expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.queryByTestId('sidebar-channels')).toBeNull()
-  })
-
-  it('shows Announcements on both families (capability + module gate)', async () => {
+  it('misskey Pages stub is disabled, never an inert tap', async () => {
     widthHolder.width = 1280
     await renderShell({signedIn: true, family: 'misskey'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.getByTestId('sidebar-announcements')).toBeTruthy()
+    const row = screen.getByTestId('sidebar-pages')
+    expect(row.props.accessibilityState.disabled).toBe(true)
   })
 
-  it('shows Announcements on the Mastodon family too (vanilla has the API)', async () => {
+  it('footer settings lands on Settings', async () => {
     widthHolder.width = 1280
     await renderShell({signedIn: true, family: 'mastodon'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.getByTestId('sidebar-announcements')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-settings'))
+    expect(await screen.findByTestId('settings-screen')).toBeTruthy()
   })
 
-  it('hides Announcements signed out (no inert entry)', async () => {
+  it('footer uploads lands on Drive (misskey only)', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-uploads'))
+    expect(await screen.findByTestId('drive-screen')).toBeTruthy()
+  })
+
+  it('mastodon footer messages opens the DM inbox', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-messages'))
+    expect(await screen.findByTestId('conversations-screen')).toBeTruthy()
+  })
+
+  it('misskey footer messages opens chat rooms', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-messages'))
+    expect(await screen.findByTestId('chatrooms-screen')).toBeTruthy()
+  })
+
+  it('hides footer actions signed out (no inert entries)', async () => {
     widthHolder.width = 1280
     await renderShell({signedIn: false})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-settings')).toBeNull()
+    expect(screen.queryByTestId('sidebar-messages')).toBeNull()
+    expect(screen.queryByTestId('sidebar-uploads')).toBeNull()
+    expect(screen.queryByTestId('sidebar-notifications')).toBeNull()
+  })
+
+  it('announcements lives in the account menu, not the sidebar', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     expect(screen.queryByTestId('sidebar-announcements')).toBeNull()
+    fireEvent.press(screen.getByTestId('sidebar-account'))
+    expect(screen.getByTestId('sidebar-account-menu-announcements')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-account-menu-announcements'))
+    expect(await screen.findByTestId('announcements-screen')).toBeTruthy()
   })
 
-  it('mastodon sidebar shows Messages (the DM inbox ships there)', async () => {
-    widthHolder.width = 1280
-    await renderShell({signedIn: true, family: 'mastodon'})
-    expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.getByTestId('sidebar-conversations')).toBeTruthy()
-  })
-
-  it('misskey sidebar shows Chat, not the DM inbox (2.2)', async () => {
-    widthHolder.width = 1280
-    await renderShell({signedIn: true, family: 'misskey'})
-    expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.queryByTestId('sidebar-conversations')).toBeNull()
-    expect(screen.getByTestId('sidebar-chatrooms')).toBeTruthy()
-  })
-
-  it('hides Messages signed out (no inert entry)', async () => {
-    widthHolder.width = 1280
-    await renderShell({signedIn: false})
-    expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.queryByTestId('sidebar-conversations')).toBeNull()
-  })
-
-  it('misskey account menu carries Drive (mobile entry point)', async () => {
+  it('misskey account menu carries no Drive row (footer owns it)', async () => {
     widthHolder.width = 390
     await renderShell({signedIn: true, family: 'misskey'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     fireEvent.press(screen.getByTestId('strip-account'))
-    expect(screen.getByTestId('strip-account-menu-drive')).toBeTruthy()
-    fireEvent.press(screen.getByTestId('strip-account-menu-drive'))
-    expect(await screen.findByTestId('drive-screen')).toBeTruthy()
+    expect(screen.queryByTestId('strip-account-menu-drive')).toBeNull()
   })
 
   it('mastodon account menu hides Drive', async () => {
@@ -348,5 +402,143 @@ describe('stack destinations (E7 nav)', () => {
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     fireEvent.press(screen.getByTestId('strip-account'))
     expect(screen.queryByTestId('strip-account-menu-drive')).toBeNull()
+  })
+
+  it('post button opens the composer on the expanded sidebar', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-post'))
+    expect(await screen.findByTestId('compose-screen')).toBeTruthy()
+  })
+})
+
+describe('sidebar identity handle', () => {
+  it('prefers the profile username over the internal accountId', () => {
+    expect(
+      handleLine({accountId: 'are3i8gsgn', origin: 'https://dvd.chat', user: {username: 'jm'}}),
+    ).toBe('@jm@dvd.chat')
+  })
+
+  it('falls back to the accountId when the profile is unknown', () => {
+    expect(handleLine({accountId: 'alice', origin: 'https://mastodon.example'})).toBe(
+      '@alice@mastodon.example',
+    )
+  })
+})
+
+describe('sidebar rail (collapsed)', () => {  it('keeps Post + Messages + Notifications, hides Settings + Uploads', async () => {
+    widthHolder.width = 800
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-post')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-messages')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-notifications')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-settings')).toBeNull()
+    expect(screen.queryByTestId('sidebar-uploads')).toBeNull()
+  })
+
+  it('post button opens the composer on the rail', async () => {
+    widthHolder.width = 800
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-post'))
+    expect(await screen.findByTestId('compose-screen')).toBeTruthy()
+  })
+
+  it('rail profile menu overflows Settings + Uploads (misskey)', async () => {
+    widthHolder.width = 800
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-account'))
+    expect(screen.getByTestId('sidebar-account-menu-settings')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-account-menu-uploads')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-account-menu-uploads'))
+    expect(await screen.findByTestId('drive-screen')).toBeTruthy()
+  })
+
+  it('rail profile menu overflows Settings but no Uploads (mastodon)', async () => {
+    widthHolder.width = 800
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-account'))
+    expect(screen.getByTestId('sidebar-account-menu-settings')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-account-menu-uploads')).toBeNull()
+    fireEvent.press(screen.getByTestId('sidebar-account-menu-settings'))
+    expect(await screen.findByTestId('settings-screen')).toBeTruthy()
+  })
+
+  it('expanded profile menu carries no Settings/Uploads overflow', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-account'))
+    expect(screen.queryByTestId('sidebar-account-menu-settings')).toBeNull()
+    expect(screen.queryByTestId('sidebar-account-menu-uploads')).toBeNull()
+  })
+})
+
+describe('sidebar collapse toggle (width-independent)', () => {
+  it('collapses the expanded sidebar to the rail', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-collapse')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-collapse'))
+    expect(screen.getByTestId('sidebar-expand')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-settings')).toBeNull()
+    expect(screen.getByTestId('sidebar-messages')).toBeTruthy()
+  })
+
+  it('expands the rail to full width', async () => {
+    widthHolder.width = 800
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-expand')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('sidebar-expand'))
+    expect(screen.getByTestId('sidebar-collapse')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-settings')).toBeTruthy()
+  })
+
+  it('never leaves the mobile layout', async () => {
+    widthHolder.width = 390
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-collapse')).toBeNull()
+    expect(screen.queryByTestId('sidebar-expand')).toBeNull()
+  })
+})
+
+describe('widgets column (width-gated)', () => {
+  // Widgets are a web-shell column; the native shell never mounts them.
+  let restoreOs: {restore: () => void} | null = null
+  beforeEach(() => {
+    restoreOs = jest.replaceProperty(Platform, 'OS', 'web')
+  })
+  afterEach(() => {
+    restoreOs?.restore()
+    restoreOs = null
+  })
+  it('shows widgets on a wide window with the full sidebar', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('right-nav')).toBeTruthy()
+  })
+
+  it('hides widgets when the feed + full sidebar fill the window', async () => {
+    widthHolder.width = 1050
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('right-nav')).toBeNull()
+  })
+
+  it('collapsing the sidebar earns the widgets back', async () => {
+    widthHolder.width = 1050
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('right-nav')).toBeNull()
+    fireEvent.press(screen.getByTestId('sidebar-collapse'))
+    expect(screen.getByTestId('right-nav')).toBeTruthy()
   })
 })

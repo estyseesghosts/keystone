@@ -33,7 +33,7 @@ import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {RichText} from '#/components/RichText'
 import {SignInButton} from '#/components/SignInButton'
@@ -243,10 +243,7 @@ export function AnnouncementsScreen() {
       <Pagehead title="Announcements" />
       {dismissError ? <Caption color="faint">{dismissError}</Caption> : null}
       {loading ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Loader testID="announcements-loading" />
-          <Caption color="faint">Loading…</Caption>
-        </View>
+        <SkeletonList variant="row" testID="announcements-loading" />
       ) : error ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>Could not load announcements.</Body>
