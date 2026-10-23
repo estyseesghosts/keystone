@@ -103,3 +103,23 @@ Goal: fix rapidly-blinking hovercards; merge sidebar slice; prune 48-branch pile
   `UserHoverCard` → bio `RichText` + mention-chip cards, so bio chips
   resolve (avatar + display name) everywhere.
 - `pnpm test` → 193 suites / 2444 tests green; typecheck + lint clean.
+
+## Follow-up: header time row, composer UX, bridged mentions (`<hash>`, owner-verified next)
+
+- `· time` moved into the display-name row (bound to name width, not
+  the handle's); handle on its own row below under the same hover
+  zone; context rows already full-width above the avatar row.
+- Both composers: `outlineWidth: 0` (no browser focus ring);
+  `useAutogrowInput` grows/shrinks the field (inline 72–320,
+  floating 120–480) with internal scroll past the cap.
+- Bridged `@bsky.brid.gy` mentions: root cause was `parseAcct`
+  rejecting dots in the username part (mfm-js parses them fine), so
+  chips stayed static and taps fell through to the bsky.app URL in
+  the browser. Dots now accepted (parseAcct + translated-handle
+  scan); `bsky.app/profile/<h>` maps to `<h>@bsky.brid.gy` in-app;
+  both families resolve via `backend.account` (Misskey users/show,
+  Mastodon lookup). Malformed bsky URLs still open externally.
+- Tests: 194 suites / 2449 green; typecheck + lint clean. Test-env
+  note: `restoreAllMocks` was leaking `openURL` calls across tests
+  in the routing block (no prior test ever recorded one) —
+  `clearAllMocks` added.
