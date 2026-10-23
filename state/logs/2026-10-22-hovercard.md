@@ -25,6 +25,17 @@ resolve in bios + profile fields.
   bio + profile fields render resolving mention chips + working
   hashtag taps; backend-less trees (tests) keep static chips.
 
+## Follow-up: invisible cards (same day)
+
+- Owner report: no hovercard appears. Cause: the card rendered as an
+  in-tree absolute layer inside the scrolling feed, where list
+  `overflow` clips it to nothing. Fix (`05be761`): render through a
+  transparent `Modal` (same escape hatch as `AnchoredPopup`), fixed
+  viewport coords, 400ms open / 250ms close grace, dismiss on
+  scroll/resize. Full suite green at commit (192/2434).
+- Open question to owner: web or native? Touch devices have no hover —
+  the card intentionally never mounts there (tap goes to profile).
+
 ## Not built (explicit)
 
 - Notification-row hover mounts (mount point noted in code, not wired).
