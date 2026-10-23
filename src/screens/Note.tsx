@@ -37,6 +37,7 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {PostCard} from '#/components/Post/index'
 import {Pressable} from '#/components/Pressable'
 import {Tabs} from '#/components/Tabs'
@@ -480,10 +481,7 @@ export function NoteScreen() {
           <SignInButton />
         </View>
       ) : thread.isPending ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Loader testID="thread-loading" />
-          <Caption color="faint">Loading thread…</Caption>
-        </View>
+        <SkeletonList variant="post" testID="thread-loading" />
       ) : thread.isError || !focused ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>Could not load this thread.</Body>

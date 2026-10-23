@@ -15,7 +15,7 @@ import {isUnsupportedError, type Antenna, type FeedDescriptor} from '@keystone/f
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
@@ -97,10 +97,9 @@ export function AntennaScreen() {
 
   if (antennaState === 'loading') {
     return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="antenna-screen">
+      <View style={atoms.flex1} testID="antenna-screen">
         <Pagehead title="Antenna" />
-        <Loader testID="antenna-loading" />
-        <Caption color="faint">Loading…</Caption>
+        <SkeletonList variant="post" testID="antenna-loading" />
       </View>
     )
   }

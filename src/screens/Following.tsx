@@ -29,7 +29,7 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {DisplayName} from '#/components/DisplayName'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {Pressable} from '#/components/Pressable'
 import {ProfileAvatar} from '#/components/Profile/ProfileAvatar'
@@ -244,10 +244,7 @@ export function FollowingScreen() {
     return (
       <View style={atoms.flex1} testID="following-screen">
         <Pagehead title="Following" />
-        <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Loader testID="following-loading" />
-          <Caption color="faint">Loading…</Caption>
-        </View>
+        <SkeletonList variant="account" testID="following-loading" />
       </View>
     )
   }

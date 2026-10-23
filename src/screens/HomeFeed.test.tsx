@@ -107,7 +107,8 @@ describe('FeedView states', () => {
       store,
     )
     expect(screen.getByTestId('feed-skeleton')).toBeTruthy()
-    expect(screen.getByTestId('feed-loading')).toBeTruthy()
+    // Skeleton only — no redundant spinner underneath.
+    expect(screen.queryByTestId('feed-loading')).toBeNull()
   })
 
   it('retries the next page after a failure', async () => {

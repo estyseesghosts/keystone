@@ -25,6 +25,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Dialog} from '#/components/Dialog'
 import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {SignInButton} from '#/components/SignInButton'
 import {Tabs} from '#/components/Tabs'
 import {i18n} from '#/locale/i18n'
@@ -401,10 +402,7 @@ export function NotificationsScreen() {
           </View>
           <ReceiveConfigSection backend={backend} />
           {query.isPending ? (
-            <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-              <Loader testID="notifications-loading" />
-              <Caption color="faint">{i18n._(msg`Loading…`)}</Caption>
-            </View>
+            <SkeletonList variant="account" testID="notifications-loading" />
           ) : query.isError && items.length === 0 ? (
             <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
               <Body>{i18n._(msg`Could not load notifications.`)}</Body>

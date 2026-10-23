@@ -39,7 +39,7 @@ import {atoms} from '#/alf/atoms'
 import {useTheme} from '#/alf'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
@@ -263,11 +263,7 @@ function AccountsSearch({backend, query}: {backend: Backend; query: string}) {
     )
   }
   if (!accounts) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Loader testID="explore-accounts-loading" />
-      </View>
-    )
+    return <SkeletonList variant="account" testID="explore-accounts-loading" />
   }
   if (accounts.length === 0) {
     return (
@@ -355,11 +351,7 @@ function UsersTab({backend, submitted}: {backend: Backend; submitted: string | n
     )
   }
   if (!users) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Loader testID="explore-users-loading" />
-      </View>
-    )
+    return <SkeletonList variant="account" testID="explore-users-loading" />
   }
   if (users.pinned.length === 0 && users.suggested.length === 0) {
     return (
@@ -489,11 +481,7 @@ function TagsTab({
     )
   }
   if (!tags) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Loader testID="explore-tags-loading" />
-      </View>
-    )
+    return <SkeletonList variant="row" testID="explore-tags-loading" />
   }
   if (tags.length === 0) {
     return (
@@ -592,11 +580,7 @@ function NewsTab({backend}: {backend: Backend}) {
     )
   }
   if (loading && links.length === 0) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Loader testID="explore-news-loading" />
-      </View>
-    )
+    return <SkeletonList variant="card" testID="explore-news-loading" />
   }
   if (error && links.length === 0) {
     return (

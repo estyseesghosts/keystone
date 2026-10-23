@@ -14,7 +14,7 @@ import {isUnsupportedError, type FeedDescriptor} from '@keystone/fedi'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
@@ -80,10 +80,9 @@ export function ClipScreen() {
 
   if (nameState === 'loading') {
     return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="clip-screen">
+      <View style={atoms.flex1} testID="clip-screen">
         <Pagehead title="Clip" />
-        <Loader testID="clip-loading" />
-        <Caption color="faint">Loading…</Caption>
+        <SkeletonList variant="post" testID="clip-loading" />
       </View>
     )
   }

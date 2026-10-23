@@ -34,6 +34,7 @@ import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {SignInButton} from '#/components/SignInButton'
 import {ThreadRow} from '#/components/PostFeed/ThreadRow'
 import {i18n} from '#/locale/i18n'
@@ -85,34 +86,13 @@ function useNewPosts(feedKey: string, items: Post[]) {
 
 // --- Feed view: refresh + pill + empty/loading/error ------------------------
 
-// Skeleton rows for the initial load (F21): grey boxes in the shape of a
-// post row, so the layout does not jump when the first page lands. Plain
-// Views only — no animation dependency (reduced-motion safe by default).
+// Initial load (F21): the shared post skeletons, matched to real row
+// geometry so the layout does not jump when the first page lands. Static
+// Views only — no animation dependency (reduced-motion safe by default),
+// and no redundant spinner underneath. Shared with every other initial
+// load through `#/components/Skeleton`.
 function FeedSkeleton({testID}: {testID?: string}) {
-  const theme = useTheme()
-  const styles = StyleSheet.create({
-    row: {flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 12},
-    avatar: {width: 40, height: 40, borderRadius: 20, backgroundColor: theme.palette.raise},
-    col: {flex: 1, gap: 8},
-    bar: {height: 12, borderRadius: 6, backgroundColor: theme.palette.raise},
-  })
-  return (
-    <View testID={testID} style={atoms.flex1} accessibilityLabel={i18n._(msg`Loading feed`)}>
-      {[0, 1, 2, 3].map(i => (
-        <View key={i} style={styles.row}>
-          <View style={styles.avatar} />
-          <View style={styles.col}>
-            <View style={[styles.bar, {width: '40%'}]} />
-            <View style={styles.bar} />
-            <View style={[styles.bar, {width: '70%'}]} />
-          </View>
-        </View>
-      ))}
-      <View style={[atoms.centered, atoms.py_sm]}>
-        <Loader testID="feed-loading" />
-      </View>
-    </View>
-  )
+  return <SkeletonList variant="post" count={5} testID={testID} />
 }
 
 // Chrome overlays: absolutely positioned so they never take layout space

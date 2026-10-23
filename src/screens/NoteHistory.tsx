@@ -22,7 +22,7 @@ import {useTheme} from '#/alf/index'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {Loader} from '#/components/Loader'
+import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {RichText} from '#/components/RichText'
 import {revisionNodes} from '#/components/Post/body'
@@ -105,9 +105,7 @@ export function NoteHistoryScreen() {
           </Caption>
         </View>
       ) : history.isPending ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Loader testID="note-history-loading" />
-        </View>
+        <SkeletonList variant="row" testID="note-history-loading" />
       ) : history.isError ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]} testID="note-history-error">
           <Body>
