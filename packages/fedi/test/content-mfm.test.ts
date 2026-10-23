@@ -174,3 +174,18 @@ describe("carriage returns", () => {
     ]);
   });
 });
+
+describe("split text nodes keep boundary breaks", () => {
+  it("a leading newline survives when mfm-js chunks the line", () => {
+    // mfm-js may hand one line run over as several text nodes; a break
+    // dropped at the seam eats the blank line (v1/v2 spacing parity).
+    expect(convertNode({ type: "text", props: { text: "\nLink:" } } as never)).toEqual([
+      { kind: "br" },
+      { kind: "text", text: "Link:" },
+    ]);
+    expect(convertNode({ type: "text", props: { text: "scale\n" } } as never)).toEqual([
+      { kind: "text", text: "scale" },
+      { kind: "br" },
+    ]);
+  });
+});

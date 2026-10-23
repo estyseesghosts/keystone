@@ -15,6 +15,7 @@ import {
   link,
   mention,
   bareLinkLabel,
+  collectBareLinkHrefs,
   contentFromTranslatedText,
   mentionAccountIdOf,
   plainTextOf,
@@ -297,5 +298,17 @@ describe("translated text nodes", () => {
     ]);
     expect(contentFromTranslatedText("")).toEqual([]);
     expect(contentFromTranslatedText(null)).toEqual([]);
+  });
+});
+
+describe("collectBareLinkHrefs", () => {
+  it("collects bare links in order, nested included", () => {
+    expect(
+      collectBareLinkHrefs([
+        link("https://a.b/1", [{ kind: "text", text: "https://a.b/1" }]),
+        { kind: "bold", children: [link("https://a.b/2", [{ kind: "text", text: "https://a.b/2" }])] },
+        link("https://a.b/3", [{ kind: "text", text: "labeled" }]),
+      ]),
+    ).toEqual(["https://a.b/1", "https://a.b/2"]);
   });
 });

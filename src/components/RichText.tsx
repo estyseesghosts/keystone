@@ -62,6 +62,13 @@ export type RichTextProps = {
    * in chips). Omit where no backend is handy (bio, logged-out trees):
    * chips fall back to the handle label, never a spinner. */
   backend?: Backend | null
+  /** Page titles keyed by link href: bare-link chips show the title
+   * (capped) instead of the truncated URL when known. */
+  linkTitles?: Record<string, string>
+  /** Lone-link rule: when a post has exactly one bare link AND an embed
+   * card for it, the chip degrades to plain text (the card carries the
+   * action). Pass the href to hide, else null. */
+  hideLoneLinkChipFor?: string | null
   style?: StyleProp<ViewStyle>
   textStyle?: StyleProp<TextStyle>
   testID?: string
@@ -78,6 +85,13 @@ type Ctx = {
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
   backend?: Backend | null
+  /** Page titles keyed by link href: bare-link chips show the title
+   * (capped) instead of the truncated URL when known. */
+  linkTitles?: Record<string, string>
+  /** Lone-link rule: when a post has exactly one bare link AND an embed
+   * card for it, the chip degrades to plain text (the card carries the
+   * action). Pass the href to hide, else null. */
+  hideLoneLinkChipFor?: string | null
   linkColor: string
   textColor: string
   codeBg: string
@@ -432,8 +446,24 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
               />
             )
           case 'link': {
-            const chipLabel = bareLinkLabel(node)
-            if (chipLabel !== null) {
+            const bareLabel = bareLinkLabel(node)
+            if (bareLabel !== null) {
+              // Lone link with its own embed card: no pill, just the
+              // words (the card below carries the action).
+              if (ctx.hideLoneLinkChipFor === node.href) {
+                return (
+                  <Text key={key} style={{color: ctx.textColor}}>
+                    {bareLabel}
+                  </Text>
+                )
+              }
+              const title = ctx.linkTitles?.[node.href]
+              const chipLabel =
+                title && title.length > 0
+                  ? title.length > 48
+                    ? `${title.slice(0, 47)}…`
+                    : title
+                  : bareLabel
               return (
                 <Pressable
                   key={key}
@@ -640,6 +670,8 @@ export function RichText({
   onHashtagPress,
   onLinkPress,
   backend = null,
+  linkTitles,
+  hideLoneLinkChipFor = null,
   style,
   textStyle,
   testID,
@@ -663,13 +695,15 @@ export function RichText({
       onHashtagPress,
       onLinkPress,
       backend,
+      linkTitles: linkTitles ?? {},
+      hideLoneLinkChipFor,
       linkColor: theme.palette.text,
       textColor: theme.palette.text,
       codeBg: theme.palette.bgSoft,
       quoteEdge: theme.palette.edge,
       edge: theme.palette.edge,
     }),
-    [emojis, sessionId, authorHost, emojiStyle, scaledSize, onMentionPress, onHashtagPress, onLinkPress, backend, theme],
+    [emojis, sessionId, authorHost, emojiStyle, scaledSize, onMentionPress, onHashtagPress, onLinkPress, backend, linkTitles, hideLoneLinkChipFor, theme],
   )
   if (contentMode === 'plain') {
     return (

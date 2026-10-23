@@ -64,13 +64,18 @@ const KNOWN_FN: ReadonlySet<string> = new Set([
 
 /** Split MFM text on newlines: each `\n` is one `br`, so a blank line is
  * a `br` pair — the same paragraph boundary `fromHtml` emits. Empty
- * runs never become empty text nodes. `\r\n`/`\r` normalize to `\n`
- * first (a stray `\r` would otherwise render as a visible spacer). Pure. */
+ * runs never become empty text nodes. Leading breaks are always kept:
+ * mfm-js may split one line run across several text nodes, and a break
+ * dropped at a node boundary would eat the blank line (chunking must
+ * never change the output). Document-level trim happens once in
+ * `contentFromMfm`. `\r\n`/`\r` normalize to `\n` first (a stray `\r`
+ * would otherwise render as a visible spacer). Pure. */
 function textNodes(text: string): ContentNode[] {
   const out: ContentNode[] = [];
-  for (const part of text.replace(/\r\n?/g, "\n").split("\n")) {
-    if (out.length > 0) out.push(br());
-    if (part.length > 0) out.push(t(part));
+  const parts = text.replace(/\r\n?/g, "\n").split("\n");
+  for (let i = 0; i < parts.length; i++) {
+    if (i > 0) out.push(br());
+    if (parts[i].length > 0) out.push(t(parts[i]));
   }
   return out;
 }
@@ -149,7 +154,8 @@ export function convertNode(node: MfmNode): ContentNode[] {
 
 /** Parse MFM source into the shared AST. Never throws: unparseable
  * input degrades to one verbatim text node (content is never dropped),
- * empty input to no nodes. Pure. */
+ * empty input to no nodes. Leading/trailing paragraph breaks are
+ * trimmed at the document level (same rule as the HTML path). Pure. */
 export function contentFromMfm(source: string | null | undefined): ContentNode[] {
   const text = source ?? "";
   if (text.length === 0) return [];
@@ -159,7 +165,10 @@ export function contentFromMfm(source: string | null | undefined): ContentNode[]
   } catch {
     return [t(text)];
   }
-  return splitRemoteCodes(nodes.flatMap(convertNode));
+  const out = splitRemoteCodes(nodes.flatMap(convertNode));
+  while (out.length > 0 && out[0].kind === "br") out.shift();
+  while (out.length > 0 && out[out.length - 1].kind === "br") out.pop();
+  return out;
 }
 
 /** Split remote `:name@host:` codes out of text runs (F11). mfm-js

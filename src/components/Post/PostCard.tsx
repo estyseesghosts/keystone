@@ -20,6 +20,7 @@ import {
   type Translation,
   contentFromHtml,
   contentFromTranslatedText,
+  collectBareLinkHrefs,
   displayNameOf,
   findTextualQuoteMarker,
   foldTree,
@@ -667,6 +668,26 @@ function PostCardView({
     () => (effective.card !== null ? null : firstBareUrl(fullNodes, coveredQuoteUris)),
     [effective.card, fullNodes, coveredQuoteUris],
   )
+  // Link chips prefer the embed's page title; a lone bare link with its
+  // own embed card drops the chip (the card carries the action). The
+  // count runs over the full unfolded nodes so folding never flips the
+  // rule mid-scroll.
+  const linkTitles = useMemo(() => {
+    const card = effective.card
+    if (!card) return undefined
+    const url = safeHttpUrl(card.url)
+    if (!url || !card.title) return undefined
+    return {[url]: card.title}
+  }, [effective.card])
+  const hideLoneLinkChipFor = useMemo(() => {
+    const bare = collectBareLinkHrefs(fullNodes)
+    if (bare.length !== 1) return null
+    const only = bare[0]
+    if (effective.card !== null) {
+      return safeHttpUrl(effective.card.url) === only ? only : null
+    }
+    return firstBareUrl(fullNodes, coveredQuoteUris) === only ? only : null
+  }, [fullNodes, effective.card, coveredQuoteUris])
   // Timeline fold (F13): long bodies fold to the budget with an
   // in-place Show more/less toggle; the body tap still opens detail.
   const [expanded, setExpanded] = useState(false)
@@ -909,6 +930,8 @@ function PostCardView({
               authorHost={effective.author.host}
               emojiStyle={emojiStyle}
               backend={backend}
+              linkTitles={linkTitles}
+              hideLoneLinkChipFor={hideLoneLinkChipFor}
               onMentionPress={handleMentionPress}
               onHashtagPress={handleHashtagPress}
               onLinkPress={handleLinkPress}
@@ -929,6 +952,8 @@ function PostCardView({
               authorHost={effective.author.host}
               emojiStyle={emojiStyle}
               backend={backend}
+              linkTitles={linkTitles}
+              hideLoneLinkChipFor={hideLoneLinkChipFor}
               onMentionPress={handleMentionPress}
               onHashtagPress={handleHashtagPress}
               onLinkPress={handleLinkPress}

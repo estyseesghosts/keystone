@@ -213,8 +213,7 @@ describe('RichText structural markers (MD4 remainder)', () => {
     expect(screen.getByTestId('richtext-link-chip')).toBeTruthy()
   })
 
-  it('resolves mention chips to avatar + display name when a backend is wired', async () => {
-    const account = jest.fn(async () => ({
+  it('resolves mention chips to avatar + display name when a backend is wired', async () => {    const account = jest.fn(async () => ({
       id: 'u1',
       username: 'rob',
       host: 'cloudisland.nz',
@@ -239,6 +238,28 @@ describe('RichText structural markers (MD4 remainder)', () => {
     expect(await screen.findByTestId('richtext-mention-avatar')).toBeTruthy()
     expect(screen.getByText('Rob Isaac')).toBeTruthy()
     expect(account).toHaveBeenCalledWith({username: 'rob', host: null})
+  })
+
+  it('prefers page titles on link chips when known', () => {
+    renderRichText(
+      <RichText
+        nodes={contentFromMfm('see https://www.bbc.co.uk/news/live/ckgel5xp2xv9t here')}
+        linkTitles={{'https://www.bbc.co.uk/news/live/ckgel5xp2xv9t': 'Formal Verification Breakthrough'}}
+      />,
+    )
+    expect(screen.getByText('Formal Verification Breakthrough')).toBeTruthy()
+    expect(screen.queryByText(/bbc\.co\.uk/)).toBeNull()
+  })
+
+  it('degrades a lone link chip to text when its embed shows', () => {
+    renderRichText(
+      <RichText
+        nodes={contentFromMfm('see https://a.b/x here')}
+        hideLoneLinkChipFor="https://a.b/x"
+      />,
+    )
+    expect(screen.getByText('a.b/x')).toBeTruthy()
+    expect(screen.queryByTestId('richtext-link-chip')).toBeNull()
   })
 
   it('renders resolvable mentions as chips, unresolvable as plain text', () => {

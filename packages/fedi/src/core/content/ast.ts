@@ -390,6 +390,24 @@ export function contentFromTranslatedText(text: string | null | undefined): Cont
   return out;
 }
 
+/** Every bare-link href in a tree, in document order (nested included).
+ * PostCard uses the count: a lone bare link with an embed card for it
+ * hides its chip (the card carries the action). Pure. */
+export function collectBareLinkHrefs(nodes: readonly ContentNode[]): string[] {
+  const out: string[] = [];
+  const walk = (list: readonly ContentNode[]): void => {
+    for (const node of list) {
+      if (node.kind === "link") {
+        const label = bareLinkLabel(node);
+        if (label !== null) out.push(node.href);
+      }
+      if ("children" in node) walk(node.children);
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
 // --- Mention / hashtag routing (the reunion point) ------------------------------
 
 /**
