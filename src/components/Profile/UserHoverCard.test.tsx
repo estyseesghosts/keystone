@@ -7,7 +7,7 @@ import {ThemeProvider} from '#/alf/index'
 import {i18n} from '#/locale/i18n'
 
 import {UserHoverCard, UserHoverCardView} from './UserHoverCard'
-import {HOVER_CARD_HEIGHT, HOVER_CARD_WIDTH, placementFor} from './HoverPreview'
+import {cardPosition, HOVER_CARD_HEIGHT, HOVER_CARD_WIDTH, placementFor} from './HoverPreview'
 
 i18n.load('en', {})
 i18n.activate('en')
@@ -158,5 +158,21 @@ describe('placementFor (above/below + left/right)', () => {
   it('exposes the card size constants', () => {
     expect(HOVER_CARD_WIDTH).toBe(320)
     expect(HOVER_CARD_HEIGHT).toBe(380)
+  })
+
+  it('cardPosition pins fixed viewport coordinates', () => {
+    expect(
+      cardPosition(
+        {top: 100, bottom: 140, left: 100, right: 200},
+        {width: 1280, height: 800},
+      ).pos,
+    ).toEqual({top: 146, left: 100})
+    const above = cardPosition(
+      {top: 700, bottom: 740, left: 1100, right: 1200},
+      {width: 1280, height: 800},
+    )
+    expect(above.placement).toEqual({vertical: 'above', align: 'right'})
+    expect(above.pos.bottom).toBe(800 - 700 + 6)
+    expect(above.pos.right).toBe(1280 - 1200)
   })
 })
