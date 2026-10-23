@@ -75,15 +75,25 @@ import {formatRelativeTime} from './time'
 const AVATAR = 40
 
 const styles = StyleSheet.create({
-  card: {flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 12},
+  card: {gap: 8, paddingHorizontal: 16, paddingVertical: 12},
   avatar: {width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, borderWidth: 1},
   avatarFallback: {alignItems: 'center', justifyContent: 'center'},
+  // Context rows (boost / badges / reply) sit full-width above the
+  // avatar row, so the avatar always lines up with the name block —
+  // never floating above it on replies and reposts.
+  contextBlock: {gap: 2},
+  cardRow: {flexDirection: 'row', gap: 12},
   main: {flex: 1, gap: 2, minWidth: 0},
-  header: {flexDirection: 'row', alignItems: 'baseline', gap: 6, flexWrap: 'wrap'},
-  headerAuthor: {flexDirection: 'row', alignItems: 'baseline', gap: 6, flexShrink: 1, minWidth: 0},
+  header: {flexDirection: 'row', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap'},
+  // Display name over handle, always (collapsed single-line case is
+  // handled by omitting the handle, not by this style).
+  headerAuthor: {flexDirection: 'column', alignItems: 'flex-start', flexShrink: 1, minWidth: 0},
   headerName: {flexShrink: 1, maxWidth: 220, fontWeight: '700'},
-  context: {marginBottom: 2},
-  badges: {flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 2},
+  // Time text top-aligns with the name line: name runs 15/20, captions
+  // 12/16, so a 2px offset lines the cap heights up.
+  headerTime: {paddingTop: 2, flexShrink: 0},
+  context: {},
+  badges: {flexDirection: 'row', gap: 8, flexWrap: 'wrap'},
   actions: {flexDirection: 'row', gap: 16, marginTop: 6},
   cwBox: {borderRadius: 6, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8, marginVertical: 8},
 })
@@ -774,39 +784,44 @@ function PostCardView({
 
   return (
     <View style={styles.card} testID={testID ?? `post-${post.id}`}>
-      <Avatar post={effective} sessionId={sessionId} backend={backend} />
-      <View style={styles.main}>
-        {isBoost && (
-          <Caption color="muted" style={styles.context} testID={`boost-header-${post.id}`}>
-            {boostLabel(post, renoters)}
-          </Caption>
-        )}
-        {badges.length > 0 && (
-          <View style={styles.badges} testID={`post-badges-${post.id}`}>
-            {badges.map(b =>
-              b.key === 'edited' && onEditedPress ? (
-                <Pressable
-                  key={b.key}
-                  testID={`post-badge-${b.key}-${post.id}`}
-                  accessibilityRole="link"
-                  accessibilityLabel={i18n._(msg`View edit history`)}
-                  onPress={onEditedPress}>
-                  <Caption color="muted">{b.label}</Caption>
-                </Pressable>
-              ) : (
-                <Caption key={b.key} color="muted" testID={`post-badge-${b.key}-${post.id}`}>
-                  {b.label}
-                </Caption>
-              ),
-            )}
-          </View>
-        )}
-        {replyTarget !== null && (
-          <Caption color="muted" style={styles.context} testID={`reply-context-${post.id}`}>
-            {i18n._(msg`Replying to @${replyTarget.author.acct}`)}
-          </Caption>
-        )}
-        <View style={styles.header}>
+      {(isBoost || badges.length > 0 || replyTarget !== null) && (
+        <View style={styles.contextBlock}>
+          {isBoost && (
+            <Caption color="muted" style={styles.context} testID={`boost-header-${post.id}`}>
+              {boostLabel(post, renoters)}
+            </Caption>
+          )}
+          {badges.length > 0 && (
+            <View style={styles.badges} testID={`post-badges-${post.id}`}>
+              {badges.map(b =>
+                b.key === 'edited' && onEditedPress ? (
+                  <Pressable
+                    key={b.key}
+                    testID={`post-badge-${b.key}-${post.id}`}
+                    accessibilityRole="link"
+                    accessibilityLabel={i18n._(msg`View edit history`)}
+                    onPress={onEditedPress}>
+                    <Caption color="muted">{b.label}</Caption>
+                  </Pressable>
+                ) : (
+                  <Caption key={b.key} color="muted" testID={`post-badge-${b.key}-${post.id}`}>
+                    {b.label}
+                  </Caption>
+                ),
+              )}
+            </View>
+          )}
+          {replyTarget !== null && (
+            <Caption color="muted" style={styles.context} testID={`reply-context-${post.id}`}>
+              {i18n._(msg`Replying to @${replyTarget.author.acct}`)}
+            </Caption>
+          )}
+        </View>
+      )}
+      <View style={styles.cardRow}>
+        <Avatar post={effective} sessionId={sessionId} backend={backend} />
+        <View style={styles.main}>
+          <View style={styles.header}>
           <HoverAuthor
             account={effective.author}
             sessionId={sessionId}
@@ -841,7 +856,8 @@ function PostCardView({
             testID={`post-time-${effective.id}`}
             onPress={() => openPostDetail(effective.id)}
             accessibilityRole="link"
-            accessibilityLabel={i18n._(msg`Open post by ${displayNameOf(effective.author)}`)}>
+            accessibilityLabel={i18n._(msg`Open post by ${displayNameOf(effective.author)}`)}
+            style={styles.headerTime}>
             <Caption color="muted" numberOfLines={1}>
               {`· ${formatRelativeTime(effective.createdAt, undefined, locale)}`}
             </Caption>
@@ -1055,6 +1071,7 @@ function PostCardView({
         ) : (
           <StaticActionBar post={effective} />
         )}
+        </View>
       </View>
     </View>
   )
