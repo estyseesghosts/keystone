@@ -16,7 +16,11 @@ import {i18n} from '#/locale/i18n'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
-import {HoverPreview} from './HoverPreview'
+import {HoverPreview, leaveTargetStaysInside} from './HoverPreview'
+
+jest.mock('react-dom', () => ({
+  createPortal: (children: unknown) => children,
+}))
 
 i18n.load('en', {})
 i18n.activate('en')
@@ -84,7 +88,7 @@ describe('HoverPreview', () => {
     try {
       const anchor = screen.getByTestId('hover-prev-anchor')
       expect(screen.queryByTestId('hover-prev')).toBeNull()
-      fireEvent(anchor, 'hoverIn')
+      fireEvent(anchor, 'mouseEnter')
       act(() => {
         jest.advanceTimersByTime(399)
       })
@@ -93,9 +97,9 @@ describe('HoverPreview', () => {
         jest.advanceTimersByTime(1)
       })
       expect(screen.getByTestId('hover-prev')).toBeTruthy()
-      fireEvent(anchor, 'hoverOut')
+      fireEvent(anchor, 'mouseLeave')
       act(() => {
-        jest.advanceTimersByTime(249)
+        jest.advanceTimersByTime(399)
       })
       expect(screen.getByTestId('hover-prev')).toBeTruthy()
       act(() => {
@@ -105,5 +109,46 @@ describe('HoverPreview', () => {
     } finally {
       done()
     }
+  })
+
+  it('ignores a leave whose target stays inside the anchor subtree', () => {
+    const {done} = setup()
+    try {
+      const anchor = screen.getByTestId('hover-prev-anchor')
+      fireEvent(anchor, 'mouseEnter')
+      act(() => {
+        jest.advanceTimersByTime(400)
+      })
+      expect(screen.getByTestId('hover-prev')).toBeTruthy()
+      // Layout-shift ghost: pointer never really left the anchor.
+      // (relatedTarget identity is a DOM-world check — covered by the
+      // pure `leaveTargetStaysInside` tests below; here the bare leave
+      // still closes after the grace period.)
+      fireEvent(anchor, 'mouseLeave')
+      act(() => {
+        jest.advanceTimersByTime(399)
+      })
+      expect(screen.getByTestId('hover-prev')).toBeTruthy()
+      act(() => {
+        jest.advanceTimersByTime(1)
+      })
+      expect(screen.queryByTestId('hover-prev')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+})
+
+describe('leaveTargetStaysInside', () => {
+  it('holds on identity, DOM contains, and rejects outside/null', () => {
+    const inner = {}
+    const host = {contains: (n: object) => n === inner}
+    expect(leaveTargetStaysInside([host], inner)).toBe(true)
+    expect(leaveTargetStaysInside([host], host)).toBe(true)
+    expect(leaveTargetStaysInside([host], {})).toBe(false)
+    expect(leaveTargetStaysInside([host], null)).toBe(false)
+    expect(leaveTargetStaysInside([host], undefined)).toBe(false)
+    expect(leaveTargetStaysInside([null, undefined], inner)).toBe(false)
+    expect(leaveTargetStaysInside([], inner)).toBe(false)
   })
 })

@@ -1,13 +1,30 @@
 // Generic web-only profile-hover wrapper (P7): after ~400ms of hover the
 // profile card floats above or below the anchor depending on viewport
-// room. The card renders in a transparent Modal (never in-flow), so feed
-// scroll containers can never clip it — in-tree absolute layers get cut
-// off by list overflow. Native renders the children alone (no hover
-// exists there); a null account renders the children alone everywhere
-// (nothing to preview).
+// room. The card portals into an owned click-through div on
+// document.body (never in-flow), so feed scroll containers can never
+// clip it — in-tree absolute layers get cut off by list overflow.
+// Native renders the children alone (no hover exists there); a null
+// account renders the children alone everywhere (nothing to preview).
+//
+// Why not RN Web's Modal: Modal wraps content in two full-viewport
+// pointer-events:auto layers (ModalAnimation's fixed inset-0 z9999 div
+// plus the ModalContent root). The topmost layer sits above the anchor
+// and steals its hover the same frame the card opens — anchor
+// mouseleave → close timer → unmount → anchor re-hovered → reopen, a
+// self-sustaining blink no leave-guard or scroll-grace can fix
+// (relatedTarget is the overlay, outside both subtrees, and no scroll
+// fires). The owned layer below is pointer-events:none end to end
+// except the card itself, so the anchor keeps hover while open.
 
-import {useEffect, useRef, useState, type ReactNode} from 'react'
-import {Modal, Platform, StyleSheet, View, type View as ViewType} from 'react-native'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from 'react'
+import {Platform, View, type View as ViewType} from 'react-native'
 
 import type {Account} from '@keystone/fedi'
 
@@ -23,7 +40,17 @@ export const HOVER_CARD_HEIGHT = 380
 const HOVER_GAP = 6
 const HOVER_EDGE = 8
 const OPEN_DELAY_MS = 400
-const CLOSE_DELAY_MS = 250
+const CLOSE_DELAY_MS = 400
+// Scrolls/resizes in this window after open are treated as mount/layout
+// settle (images loading, streamer banners) rather than a real user
+// scroll — the card survives them.
+const SCROLL_SETTLE_MS = 500
+
+/** System sans stack (matches RN Web's default `font:` shorthand). Set
+ * explicitly on the card root so portal rendering can't diverge from
+ * app text (Safari serif bug: portal-subtree shorthand parse failure). */
+export const HOVER_CARD_FONT_FAMILY =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
 
 export function placementFor(
   anchor: {top: number; bottom: number; left: number; right: number},
@@ -70,7 +97,7 @@ function windowEvents(): {
 
 type CardPos = {top?: number; bottom?: number; left?: number; right?: number}
 
-/** Fixed viewport coordinates for the floating card (the Modal covers
+/** Fixed viewport coordinates for the floating card (the layer covers
  * the viewport, so in-flow percentages would resolve against the
  * wrong box). Pure — same test coverage as `placementFor`. */
 export function cardPosition(
@@ -95,6 +122,141 @@ export function cardPosition(
   return {pos, placement}
 }
 
+/** True when the pointer's leave target is still inside one of the
+ * hosts (identity or DOM `contains`). Pure — pinned by unit tests.
+ * A leave that stays inside is a layout-shift ghost or the
+ * anchor→card crossing, never a real departure. */
+export function leaveTargetStaysInside(hosts: ReadonlyArray<unknown>, target: unknown): boolean {
+  if (!target || typeof target !== 'object') return false
+  return hosts.some(
+    host =>
+      host !== null &&
+      host !== undefined &&
+      (host === target ||
+        (typeof (host as {contains?: unknown}).contains === 'function' &&
+          (host as unknown as {contains: (n: object) => boolean}).contains(target as object))),
+  )
+}
+
+// react-dom is web-only: resolved lazily so native bundles never
+// evaluate it (this call is the only runtime path, and it only runs
+// where `document` exists — i.e. inside `HoverLayer` on web).
+function webPortal(children: ReactNode, host: Element): ReactNode {
+  const {createPortal} = require('react-dom') as typeof import('react-dom')
+  return createPortal(children, host)
+}
+
+/** Click-through floating layer for exactly one open card. Owns the
+ * body-appended host div (fixed inset-0, pointer-events:none, so the
+ * anchor underneath keeps its hover), the card box (the only
+ * pointer-events:auto node, carrying the explicit font stack), and
+ * dismiss-on-Escape/scroll/resize with mount-settle grace. Content stays
+ * React Native primitives — only the layer shell is raw DOM. */
+function HoverLayer({
+  pos,
+  cardRef,
+  onEnterCard,
+  onLeaveCard,
+  onDismiss,
+  children,
+}: {
+  pos: CardPos | null
+  cardRef: RefObject<HTMLElement | null>
+  onEnterCard: () => void
+  onLeaveCard: (e?: {relatedTarget?: unknown}) => void
+  onDismiss: () => void
+  children: ReactNode
+}) {
+  const [host, setHost] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const el = document.createElement('div')
+    el.setAttribute('data-hovercard-layer', 'true')
+    el.style.position = 'fixed'
+    el.style.left = '0'
+    el.style.top = '0'
+    el.style.width = '100%'
+    el.style.height = '100%'
+    el.style.zIndex = '60'
+    el.style.pointerEvents = 'none'
+    document.body.appendChild(el)
+    setHost(el)
+    return () => {
+      el.remove()
+      setHost(null)
+    }
+  }, [])
+  const openedAt = useRef(0)
+  useEffect(() => {
+    if (host) openedAt.current = Date.now()
+  }, [host])
+  useEffect(() => {
+    if (!host || typeof window === 'undefined') return
+    const events = windowEvents()
+    if (!events) return
+    const dismiss = () => {
+      if (Date.now() - openedAt.current < SCROLL_SETTLE_MS) return
+      onDismiss()
+    }
+    const onKeyUp = (e: {key?: unknown}) => {
+      if (e.key === 'Escape') onDismiss()
+    }
+    events.addEventListener('scroll', dismiss, true)
+    events.addEventListener('resize', dismiss)
+    events.addEventListener('keyup', onKeyUp as () => void)
+    return () => {
+      events.removeEventListener('scroll', dismiss, true)
+      events.removeEventListener('resize', dismiss)
+      events.removeEventListener('keyup', onKeyUp as () => void)
+    }
+  }, [host, onDismiss])
+  if (!host) {
+    // No DOM (native test renderer) — portaling is impossible, so render
+    // the card box inline. Production native never reaches here (the
+    // Platform guard above returns earlier); this path exists for tests.
+    if (typeof document === 'undefined') {
+      return (
+        <div
+          data-hovercard-card="true"
+          style={{
+            position: 'absolute',
+            width: HOVER_CARD_WIDTH,
+            pointerEvents: 'auto',
+            fontFamily: HOVER_CARD_FONT_FAMILY,
+          }}
+          onMouseEnter={onEnterCard}
+          onMouseLeave={onLeaveCard}>
+          {children}
+        </div>
+      )
+    }
+    return null
+  }
+  const style: CSSProperties = {
+    position: 'absolute',
+    top: pos?.top,
+    bottom: pos?.bottom,
+    left: pos?.left,
+    right: pos?.right,
+    width: HOVER_CARD_WIDTH,
+    pointerEvents: 'auto',
+    fontFamily: HOVER_CARD_FONT_FAMILY,
+  }
+  return webPortal(
+    <div
+      data-hovercard-card="true"
+      ref={el => {
+        cardRef.current = el
+      }}
+      style={style}
+      onMouseEnter={onEnterCard}
+      onMouseLeave={onLeaveCard}>
+      {children}
+    </div>,
+    host,
+  )
+}
+
 export function HoverPreview({
   account,
   sessionId,
@@ -111,6 +273,7 @@ export function HoverPreview({
   const [show, setShow] = useState(false)
   const [pos, setPos] = useState<CardPos | null>(null)
   const anchor = useRef<ViewType | null>(null)
+  const cardEl = useRef<HTMLElement | null>(null)
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
@@ -120,20 +283,13 @@ export function HoverPreview({
     },
     [],
   )
-  // The fixed coordinates go stale on scroll/resize — drop the card
-  // instead of floating it somewhere wrong.
-  useEffect(() => {
-    if (!show) return
-    const events = windowEvents()
-    if (!events) return
-    const close = () => setShow(false)
-    events.addEventListener('scroll', close, true)
-    events.addEventListener('resize', close)
-    return () => {
-      events.removeEventListener('scroll', close, true)
-      events.removeEventListener('resize', close)
-    }
-  }, [show])
+  // `relatedTarget` is where the pointer went. A leave whose target
+  // is still inside the anchor-or-card subtree is a layout-shift ghost
+  // (images loading, streamer banners moving boxes under a stationary
+  // cursor) or the anchor→card crossing — never a real departure, so
+  // it must not schedule a close.
+  const leaveStaysInside = (e: {relatedTarget?: unknown} | undefined): boolean =>
+    leaveTargetStaysInside([anchor.current, cardEl.current], e?.relatedTarget)
   if (Platform.OS !== 'web') return <>{children}</>
   const cancelClose = () => {
     if (closeTimer.current !== null) {
@@ -145,11 +301,15 @@ export function HoverPreview({
     cancelClose()
     closeTimer.current = setTimeout(() => setShow(false), CLOSE_DELAY_MS)
   }
-  // `onHoverIn`/`onHoverOut` exist on the web host view but are absent
-  // from this RN version's `ViewProps` types — spread them in (spreads
-  // skip excess-prop checks) so native trees never see the props.
-  const hoverHandlers: {onHoverIn?: () => void; onHoverOut?: () => void} = {
-    onHoverIn: () => {
+  // This RN Web version drops `onHoverIn`/`onHoverOut` on plain Views
+  // (only Pressable wires them) — but it DOES forward `onMouseEnter`/
+  // `onMouseLeave`, so the anchor uses those. Spread in (spreads skip
+  // excess-prop checks) so native trees never see the props.
+  const hoverHandlers: {
+    onMouseEnter?: (e?: {relatedTarget?: unknown}) => void
+    onMouseLeave?: (e?: {relatedTarget?: unknown}) => void
+  } = {
+    onMouseEnter: () => {
       cancelClose()
       if (openTimer.current !== null) clearTimeout(openTimer.current)
       const el = anchor.current as unknown as {getBoundingClientRect?: () => DOMRect} | null
@@ -163,9 +323,12 @@ export function HoverPreview({
           ).pos,
         )
       }
-      openTimer.current = setTimeout(() => setShow(true), OPEN_DELAY_MS)
+      openTimer.current = setTimeout(() => {
+        setShow(true)
+      }, OPEN_DELAY_MS)
     },
-    onHoverOut: () => {
+    onMouseLeave: e => {
+      if (leaveStaysInside(e)) return
       if (openTimer.current !== null) {
         clearTimeout(openTimer.current)
         openTimer.current = null
@@ -175,11 +338,17 @@ export function HoverPreview({
   }
   // The card keeps itself alive while hovered (moving from the anchor
   // onto the card crosses a hover-out gap); leaving the card closes it.
-  // The Modal backdrop never intercepts (box-none) so the anchor keeps
-  // its own hover state underneath.
-  const cardHandlers: {onHoverIn?: () => void; onHoverOut?: () => void} = {
-    onHoverIn: cancelClose,
-    onHoverOut: scheduleClose,
+  // The layer is click-through, so the anchor keeps its own hover
+  // state underneath while the card is open.
+  const cardHandlers: {
+    onMouseEnter?: () => void
+    onMouseLeave?: (e?: {relatedTarget?: unknown}) => void
+  } = {
+    onMouseEnter: cancelClose,
+    onMouseLeave: e => {
+      if (leaveStaysInside(e)) return
+      scheduleClose()
+    },
   }
   return (
     <>
@@ -187,29 +356,20 @@ export function HoverPreview({
         {children}
       </View>
       {show && account ? (
-        <Modal transparent visible animationType="none" onRequestClose={() => setShow(false)}>
-          <View style={hoverStyles.backdrop} pointerEvents="box-none">
-            <View style={[hoverStyles.card, pos ?? undefined]} {...cardHandlers}>
-              <UserHoverCard
-                account={account}
-                sessionId={sessionId}
-                onOpenProfile={onOpenProfile}
-                testID={testID}
-              />
-            </View>
-          </View>
-        </Modal>
+        <HoverLayer
+          pos={pos}
+          cardRef={cardEl}
+          onEnterCard={cardHandlers.onMouseEnter!}
+          onLeaveCard={cardHandlers.onMouseLeave!}
+          onDismiss={() => setShow(false)}>
+          <UserHoverCard
+            account={account}
+            sessionId={sessionId}
+            onOpenProfile={onOpenProfile}
+            testID={testID}
+          />
+        </HoverLayer>
       ) : null}
     </>
   )
 }
-
-const hoverStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-  },
-  card: {
-    position: 'absolute',
-    zIndex: 50,
-  },
-})
