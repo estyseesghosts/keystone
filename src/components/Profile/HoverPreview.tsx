@@ -50,6 +50,24 @@ function viewportSize(): {width: number; height: number} | null {
   return {width: innerWidth, height: innerHeight}
 }
 
+function windowEvents(): {
+  addEventListener: (type: string, listener: () => void, opts?: boolean) => void
+  removeEventListener: (type: string, listener: () => void, opts?: boolean) => void
+} | null {
+  if (typeof window === 'undefined') return null
+  const w = window as unknown as {
+    addEventListener?: unknown
+    removeEventListener?: unknown
+  }
+  if (typeof w.addEventListener !== 'function' || typeof w.removeEventListener !== 'function') {
+    return null
+  }
+  return w as {
+    addEventListener: (type: string, listener: () => void, opts?: boolean) => void
+    removeEventListener: (type: string, listener: () => void, opts?: boolean) => void
+  }
+}
+
 type CardPos = {top?: number; bottom?: number; left?: number; right?: number}
 
 /** Fixed viewport coordinates for the floating card (the Modal covers
@@ -105,13 +123,15 @@ export function HoverPreview({
   // The fixed coordinates go stale on scroll/resize — drop the card
   // instead of floating it somewhere wrong.
   useEffect(() => {
-    if (!show || typeof window === 'undefined') return
+    if (!show) return
+    const events = windowEvents()
+    if (!events) return
     const close = () => setShow(false)
-    window.addEventListener('scroll', close, true)
-    window.addEventListener('resize', close)
+    events.addEventListener('scroll', close, true)
+    events.addEventListener('resize', close)
     return () => {
-      window.removeEventListener('scroll', close, true)
-      window.removeEventListener('resize', close)
+      events.removeEventListener('scroll', close, true)
+      events.removeEventListener('resize', close)
     }
   }, [show])
   if (Platform.OS !== 'web') return <>{children}</>
@@ -163,7 +183,7 @@ export function HoverPreview({
   }
   return (
     <>
-      <View ref={anchor} {...hoverHandlers}>
+      <View ref={anchor} testID={testID ? `${testID}-anchor` : undefined} {...hoverHandlers}>
         {children}
       </View>
       {show && account ? (
