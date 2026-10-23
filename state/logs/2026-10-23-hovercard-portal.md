@@ -87,3 +87,19 @@ Goal: fix rapidly-blinking hovercards; merge sidebar slice; prune 48-branch pile
   `ResizeObserver` re-clamps when banner/avatar loads resize the
   box. Correction resets whenever the anchor position changes.
 - `pnpm test` → 193 suites / 2441 tests green; typecheck + lint clean.
+
+## Follow-up: bio chips + Misskey banners (same day, `0febedc`, owner-verified live)
+
+- Owner report: gray banner strip on every Misskey (dvd.chat/Sharkey)
+  hovercard; bio mention chips static (handle, no avatar) on both
+  families. Verified live: Sharkey packs note `user` WITHOUT
+  `bannerUrl` (key absent); `users/show` returns it
+  (`chatstorage.dvd.moe/...webp`, 200, no hotlink blocking) —
+  missing data, not a broken image. Mastodon embeds are full.
+- Fix: `useFullAccount` (`src/state/queries/accounts.ts`) — card
+  shows the embed immediately, upgrades to `backend.account({id})`
+  when `headerUrl` is missing (cached per session; Mastodon never
+  fetches). Session `backend` threaded `HoverPreview` →
+  `UserHoverCard` → bio `RichText` + mention-chip cards, so bio chips
+  resolve (avatar + display name) everywhere.
+- `pnpm test` → 193 suites / 2444 tests green; typecheck + lint clean.
