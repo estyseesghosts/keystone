@@ -16,7 +16,7 @@ import {i18n} from '#/locale/i18n'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
-import {HoverPreview, leaveTargetStaysInside} from './HoverPreview'
+import {HoverPreview, clampToViewport, leaveTargetStaysInside} from './HoverPreview'
 
 jest.mock('react-dom', () => ({
   createPortal: (children: unknown) => children,
@@ -136,6 +136,33 @@ describe('HoverPreview', () => {
     } finally {
       done()
     }
+  })
+})
+
+describe('clampToViewport', () => {
+  const viewport = {width: 1280, height: 800}
+  it('returns null when the card fits', () => {
+    expect(
+      clampToViewport({top: 100, bottom: 400, left: 100, right: 420}, viewport),
+    ).toBeNull()
+  })
+  it('shifts a tall card up when it runs past the bottom edge', () => {
+    // 500px card starting at y=400 would end at 900 (100 past the edge).
+    expect(clampToViewport({top: 400, bottom: 900, left: 100, right: 420}, viewport)).toEqual({
+      top: 292,
+      left: 100,
+    })
+  })
+  it('shifts the card down when it runs past the top edge', () => {
+    expect(clampToViewport({top: -50, bottom: 250, left: 100, right: 420}, viewport)).toEqual({
+      top: 8,
+      left: 100,
+    })
+  })
+  it('shifts the card left when it runs past the right edge', () => {
+    expect(
+      clampToViewport({top: 100, bottom: 400, left: 1000, right: 1320}, viewport),
+    ).toEqual({top: 100, left: 952})
   })
 })
 

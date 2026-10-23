@@ -122,6 +122,24 @@ export function cardPosition(
   return {pos, placement}
 }
 
+/** Shift a measured card box fully inside the viewport with an edge
+ * margin, or null when it already fits. Pure — pinned by unit tests. */
+export function clampToViewport(
+  rect: {top: number; bottom: number; left: number; right: number},
+  viewport: {width: number; height: number},
+  edge = HOVER_EDGE,
+): {top: number; left: number} | null {
+  const overBottom = rect.bottom - (viewport.height - edge)
+  const underTop = edge - rect.top
+  const overRight = rect.right - (viewport.width - edge)
+  const underLeft = edge - rect.left
+  const top =
+    overBottom > 0 ? rect.top - overBottom : underTop > 0 ? rect.top + underTop : null
+  const left =
+    overRight > 0 ? rect.left - overRight : underLeft > 0 ? rect.left + underLeft : null
+  return top === null && left === null ? null : {top: top ?? rect.top, left: left ?? rect.left}
+}
+
 /** True when the pointer's leave target is still inside one of the
  * hosts (identity or DOM `contains`). Pure — pinned by unit tests.
  * A leave that stays inside is a layout-shift ghost or the
@@ -168,6 +186,14 @@ function HoverLayer({
   children: ReactNode
 }) {
   const [host, setHost] = useState<HTMLElement | null>(null)
+  // Measured correction so a taller-than-estimate card never leaves the
+  // viewport: explicit top/left replacing the anchor-derived pos. Reset
+  // whenever pos changes, re-measured after mount and whenever card
+  // content (banner/avatar) resizes it.
+  const [fix, setFix] = useState<{top: number; left: number} | null>(null)
+  useEffect(() => {
+    setFix(null)
+  }, [pos])
   useEffect(() => {
     if (typeof document === 'undefined') return
     const el = document.createElement('div')
@@ -210,6 +236,31 @@ function HoverLayer({
       events.removeEventListener('keyup', onKeyUp as () => void)
     }
   }, [host, onDismiss])
+  // Keep the whole card inside the viewport: the flip estimate assumes
+  // a fixed card height, but bios make real cards taller or shorter, so
+  // near the top/bottom edges the estimate can overflow. Measure the
+  // mounted box (viewport-relative already — the layer is fixed) and
+  // shift it in with an edge margin; re-run when card content resizes
+  // (banner/avatar loads changing its height).
+  useEffect(() => {
+    if (!host || fix !== null || typeof document === 'undefined') return
+    const el = cardRef.current
+    if (!el || typeof el.getBoundingClientRect !== 'function') return
+    if (typeof window === 'undefined') return
+    const clamp = () => {
+      const r = el.getBoundingClientRect()
+      const fixed = clampToViewport(
+        {top: r.top, bottom: r.bottom, left: r.left, right: r.right},
+        {width: window.innerWidth, height: window.innerHeight},
+      )
+      if (fixed) setFix(fixed)
+    }
+    clamp()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => setFix(null))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [host, pos, fix])
   if (!host) {
     // No DOM (native test renderer) — portaling is impossible, so render
     // the card box inline. Production native never reaches here (the
@@ -232,16 +283,25 @@ function HoverLayer({
     }
     return null
   }
-  const style: CSSProperties = {
-    position: 'absolute',
-    top: pos?.top,
-    bottom: pos?.bottom,
-    left: pos?.left,
-    right: pos?.right,
-    width: HOVER_CARD_WIDTH,
-    pointerEvents: 'auto',
-    fontFamily: HOVER_CARD_FONT_FAMILY,
-  }
+  const style: CSSProperties = fix
+    ? {
+        position: 'absolute',
+        top: fix.top,
+        left: fix.left,
+        width: HOVER_CARD_WIDTH,
+        pointerEvents: 'auto',
+        fontFamily: HOVER_CARD_FONT_FAMILY,
+      }
+    : {
+        position: 'absolute',
+        top: pos?.top,
+        bottom: pos?.bottom,
+        left: pos?.left,
+        right: pos?.right,
+        width: HOVER_CARD_WIDTH,
+        pointerEvents: 'auto',
+        fontFamily: HOVER_CARD_FONT_FAMILY,
+      }
   return webPortal(
     <div
       data-hovercard-card="true"
