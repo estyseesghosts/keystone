@@ -67,7 +67,7 @@ import {PostMediaGrid} from './PostMediaGrid'
 import {PostPoll} from './PostPoll'
 import {PostQuote} from './PostQuote'
 import {TagBubble} from './TagBubble'
-import {UserHoverCard} from '#/components/Profile/UserHoverCard'
+import {HoverPreview} from '#/components/Profile/HoverPreview'
 import {formatCount, useLocale} from '#/locale/i18n'
 import {ReactionChips} from './ReactionChips'
 import {formatRelativeTime} from './time'
@@ -132,7 +132,8 @@ export function boostLabel(post: Post, renoters?: Account[]): string {
 // Desktop hover preview (P7): web-only wrapper around an author press.
 // After ~400ms of hover the profile card floats below the anchor; native
 // renders the child alone (no hover exists there). The card floats in an
-// absolutely-positioned web layer, never in layout.
+// absolutely-positioned web layer, never in layout. Placement flips
+// above/below (and left/right) based on viewport room.
 function HoverAuthor({
   account,
   sessionId,
@@ -146,56 +147,17 @@ function HoverAuthor({
   children: React.ReactNode
   testID?: string
 }) {
-  const [show, setShow] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(
-    () => () => {
-      if (timer.current !== null) clearTimeout(timer.current)
-    },
-    [],
-  )
   if (Platform.OS !== 'web') return <>{children}</>
-  // `onHoverIn`/`onHoverOut` exist on the web host view but are absent
-  // from this RN version's `ViewProps` types — spread them in (spreads
-  // skip excess-prop checks) so native trees never see the props.
-  const hoverHandlers: {onHoverIn?: () => void; onHoverOut?: () => void} =
-    Platform.OS === 'web'
-      ? {
-          onHoverIn: () => {
-            if (timer.current !== null) clearTimeout(timer.current)
-            timer.current = setTimeout(() => setShow(true), 400)
-          },
-          onHoverOut: () => {
-            if (timer.current !== null) clearTimeout(timer.current)
-            setShow(false)
-          },
-        }
-      : {}
   return (
-    <View {...hoverHandlers}>
+    <HoverPreview
+      account={account}
+      sessionId={sessionId}
+      onOpenProfile={onOpenProfile}
+      testID={testID}>
       {children}
-      {show ? (
-        <View style={hoverStyles.card}>
-          <UserHoverCard
-            account={account}
-            sessionId={sessionId}
-            onOpenProfile={onOpenProfile}
-            testID={testID}
-          />
-        </View>
-      ) : null}
-    </View>
+    </HoverPreview>
   )
 }
-
-const hoverStyles = StyleSheet.create({
-  card: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    zIndex: 50,
-  },
-})
 
 function Avatar({post, sessionId}: {post: Post; sessionId: string}) {
   const theme = useTheme()

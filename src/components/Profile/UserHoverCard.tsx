@@ -1,15 +1,16 @@
-import {useState} from 'react'
+import {useMemo, useState} from 'react'
 import {Image, Platform, StyleSheet, View} from 'react-native'
 
 import {msg, t} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
 
 import type {Account} from '@keystone/fedi'
-import {displayNameOf} from '@keystone/fedi'
+import {contentFromHtml, contentFromMfm, displayNameOf, safeHttpUrl} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
+import {RichText} from '#/components/RichText'
 import {formatCount, useLocale} from '#/locale/i18n'
 import {formatFediError, isKnownErrorCode} from '#/lib/localeErrors'
 import {showToast} from '#/lib/toast'
@@ -96,6 +97,7 @@ function UserHoverCardLoader({
   return (
     <UserHoverCardView
       account={account}
+      sessionId={sessionId}
       followState={state}
       followAllowed={actions.follow.gate.enabled}
       followReason={actions.follow.gate.enabled ? undefined : actions.follow.gate.reason}
@@ -109,6 +111,7 @@ function UserHoverCardLoader({
 
 export function UserHoverCardView({
   account,
+  sessionId = null,
   followState,
   followAllowed,
   followReason,
@@ -118,6 +121,9 @@ export function UserHoverCardView({
   testID,
 }: {
   account: Account
+  /** Owning session for bio RichText (WS-C emoji fallback); mention
+   * chips in the bio stay static without a backend, taps still work. */
+  sessionId?: string | null
   followState: HoverFollowState
   followAllowed: boolean
   followReason?: string
@@ -147,71 +153,130 @@ export function UserHoverCardView({
   // Placeholder names come from the variable names, so the source string
   // stays `{notes} notes · …` — the same id the catalogs were seeded with.
   const stats = t`${notes} notes · ${following} following · ${followers} followers`
+  const bannerUri = safeHttpUrl(account.headerUrl)
+  const bioNodes = useMemo(
+    () =>
+      account.bio.mfm
+        ? contentFromMfm(account.bio.mfm)
+        : account.bio.html
+          ? contentFromHtml(account.bio.html)
+          : null,
+    [account.bio.html, account.bio.mfm],
+  )
   const styles = StyleSheet.create({
     card: {
       backgroundColor: theme.palette.bg,
       borderColor: theme.palette.edge,
       borderWidth: 1,
       borderRadius: 12,
-      padding: 12,
-      gap: 8,
-      width: 300,
+      overflow: 'hidden',
+      width: 320,
     },
-    row: {flexDirection: 'row', alignItems: 'center', gap: 10},
-    avatar: {width: 48, height: 48, borderRadius: 24, backgroundColor: theme.palette.bgSoft},
+    banner: {
+      width: '100%',
+      height: 88,
+      backgroundColor: theme.palette.bgSoft,
+    },
+    body: {
+      paddingHorizontal: 12,
+      paddingBottom: 12,
+      gap: 6,
+    },
+    avatarRow: {flexDirection: 'row', alignItems: 'center', gap: 10},
+    avatarOverlap: {marginTop: -28},
+    avatar: {width: 56, height: 56, borderRadius: 28, backgroundColor: theme.palette.bgSoft},
+    followSlot: {flex: 1, alignItems: 'flex-end'},
+    followButton: {
+      borderWidth: 1,
+      borderColor: theme.palette.edge,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    openLink: {textDecorationLine: 'underline'},
   })
   return (
     <View
       testID={testID}
       accessibilityLabel={label}
       style={styles.card}>
-      <View style={styles.row}>
-        {account.avatarUrl ? (
-          <Image
-            source={{uri: account.avatarUrl}}
-            style={styles.avatar}
-            accessibilityLabel={name}
-            testID={testID ? `${testID}-avatar` : undefined}
-          />
-        ) : null}
-        <View style={{flex: 1, minWidth: 0}}>
-          <Body numberOfLines={1}>{name}</Body>
-          <Caption color="faint" numberOfLines={1}>
-            @{account.acct}
-            {account.locked ? i18n._(msg` · locked`) : ''}
-            {account.bot ? i18n._(msg` · automated`) : ''}
-          </Caption>
+      {bannerUri ? (
+        <Image
+          source={{uri: bannerUri}}
+          style={styles.banner}
+          accessibilityIgnoresInvertColors
+          testID={testID ? `${testID}-banner` : undefined}
+        />
+      ) : (
+        <View style={styles.banner} testID={testID ? `${testID}-banner` : undefined} />
+      )}
+      <View style={styles.body}>
+        <View style={styles.avatarRow}>
+          <View style={styles.avatarOverlap}>
+            {account.avatarUrl ? (
+              <Image
+                source={{uri: account.avatarUrl}}
+                style={styles.avatar}
+                accessibilityLabel={name}
+                testID={testID ? `${testID}-avatar` : undefined}
+              />
+            ) : (
+              <View
+                style={[styles.avatar, {alignItems: 'center', justifyContent: 'center'}]}
+                testID={testID ? `${testID}-avatar` : undefined}>
+                <Body>{name.slice(0, 1).toUpperCase()}</Body>
+              </View>
+            )}
+          </View>
+          <View style={styles.followSlot}>
+            <Pressable
+              testID={testID ? `${testID}-follow` : undefined}
+              disabled={!followAllowed || busy}
+              accessibilityRole="button"
+              accessibilityState={{disabled: !followAllowed || busy}}
+              accessibilityLabel={
+                !followAllowed && followReason ? `${followLabel}. ${followReason}` : followLabel
+              }
+              onPress={onToggleFollow}
+              style={styles.followButton}>
+              <Body>{busy ? '…' : followLabel}</Body>
+            </Pressable>
+          </View>
         </View>
-        <Pressable
-          testID={testID ? `${testID}-follow` : undefined}
-          disabled={!followAllowed || busy}
-          accessibilityRole="button"
-          accessibilityState={{disabled: !followAllowed || busy}}
-          accessibilityLabel={
-            !followAllowed && followReason ? `${followLabel}. ${followReason}` : followLabel
-          }
-          onPress={onToggleFollow}
-          style={{paddingHorizontal: 12, paddingVertical: 8}}>
-          <Body>{busy ? '…' : followLabel}</Body>
-        </Pressable>
-      </View>
-      <Caption numberOfLines={3}>{stats}</Caption>
-      {account.bio.plain ? (
-        <Caption color="muted" numberOfLines={4}>
-          {account.bio.plain}
+        <Body numberOfLines={1}>{name}</Body>
+        <Caption color="faint" numberOfLines={1}>
+          @{account.acct}
+          {account.locked ? i18n._(msg` · locked`) : ''}
+          {account.bot ? i18n._(msg` · automated`) : ''}
         </Caption>
-      ) : null}
-      {onOpenProfile ? (
-        <Pressable
-          testID={testID ? `${testID}-open` : undefined}
-          accessibilityRole="link"
-          accessibilityLabel={openLabel}
-          onPress={onOpenProfile}
-          style={{paddingVertical: 4}}>
-          <Caption color="faint">{openLabel}</Caption>
-        </Pressable>
-      ) : null}
-      {!followAllowed && followReason ? <Caption color="faint">{followReason}</Caption> : null}
+        {bioNodes ? (
+          <RichText
+            nodes={bioNodes}
+            emojis={account.emojis}
+            sessionId={sessionId}
+            authorHost={account.host}
+            testID={testID ? `${testID}-bio` : undefined}
+          />
+        ) : account.bio.plain ? (
+          <Caption color="muted" numberOfLines={4}>
+            {account.bio.plain}
+          </Caption>
+        ) : null}
+        <Caption numberOfLines={1}>{stats}</Caption>
+        {onOpenProfile ? (
+          <Pressable
+            testID={testID ? `${testID}-open` : undefined}
+            accessibilityRole="link"
+            accessibilityLabel={openLabel}
+            onPress={onOpenProfile}
+            style={{paddingVertical: 4, alignSelf: 'flex-start'}}>
+            <Caption color="faint" style={styles.openLink}>
+              {openLabel}
+            </Caption>
+          </Pressable>
+        ) : null}
+        {!followAllowed && followReason ? <Caption color="faint">{followReason}</Caption> : null}
+      </View>
     </View>
   )
 }

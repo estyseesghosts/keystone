@@ -1,5 +1,6 @@
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen} from '@testing-library/react-native'
 import {View} from 'react-native'
 
@@ -162,5 +163,48 @@ describe('ProfileHeader (v1 banner + avatar row + bio + stats)', () => {
     )
     expect(screen.getByTestId('profile-name')).toHaveTextContent('@jules')
     expect(screen.queryByTestId('profile-handle')).toBeNull()
+  })
+
+  it('resolves bio mentions to display names with a backend', async () => {
+    const backend = {
+      account: jest.fn(async () => ({
+        id: 'u2',
+        username: 'ana',
+        host: 'example.social',
+        name: 'Ana Liddell',
+        displayName: 'Ana Liddell',
+        avatarUrl: null,
+      })),
+    }
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <QueryClientProvider client={qc}>
+            <ProfileHeader
+              account={account({bio: {mfm: 'hi @ana', plain: 'hi @ana'}})}
+              sessionId="s1"
+              backend={backend as never}
+              isSelf={false}
+              relationship={null}
+            />
+          </QueryClientProvider>
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    expect(await screen.findByText('Ana Liddell')).toBeTruthy()
+    expect(backend.account).toHaveBeenCalledWith({username: 'ana', host: null})
+  })
+
+  it('bio mentions stay tappable text without a backend', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({bio: {mfm: 'hi @ana', plain: 'hi @ana'}})}
+        isSelf={false}
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('richtext-mention-chip')).toBeTruthy()
+    expect(screen.getByText('@ana')).toBeTruthy()
   })
 })

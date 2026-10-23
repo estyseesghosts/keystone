@@ -7,6 +7,7 @@ import {ThemeProvider} from '#/alf/index'
 import {i18n} from '#/locale/i18n'
 
 import {UserHoverCard, UserHoverCardView} from './UserHoverCard'
+import {HOVER_CARD_HEIGHT, HOVER_CARD_WIDTH, placementFor} from './HoverPreview'
 
 i18n.load('en', {})
 i18n.activate('en')
@@ -95,5 +96,67 @@ describe('UserHoverCard', () => {
     )
     // jest-expo/ios preset: Platform.OS is ios, so the card stays unmounted.
     expect(tree.queryByTestId('hover')).toBeNull()
+  })
+})
+
+describe('hovercard visuals (v1 parity)', () => {
+  it('renders the banner image, falling back to a blank banner', () => {
+    const {unmount} = renderView({
+      account: {...account, headerUrl: 'https://example/banner.png'} as Account,
+    })
+    expect(screen.getByTestId('hover-banner')).toBeTruthy()
+    unmount()
+    renderView()
+    expect(screen.getByTestId('hover-banner')).toBeTruthy()
+  })
+
+  it('renders bio mentions as chips', () => {
+    renderView({
+      account: {
+        ...account,
+        bio: {mfm: 'hi @bob', plain: 'hi @bob'},
+      } as Account,
+    })
+    expect(screen.getByTestId('richtext-mention-chip')).toBeTruthy()
+    expect(screen.getByText('@bob')).toBeTruthy()
+  })
+})
+
+describe('placementFor (above/below + left/right)', () => {
+  const viewport = {width: 1280, height: 800}
+  it('sits below with room', () => {
+    expect(
+      placementFor({top: 100, bottom: 140, left: 100, right: 200}, viewport),
+    ).toEqual({vertical: 'below', align: 'left'})
+  })
+  it('flips above when the bottom has no room', () => {
+    expect(
+      placementFor({top: 700, bottom: 740, left: 100, right: 200}, viewport),
+    ).toEqual({vertical: 'above', align: 'left'})
+  })
+  it('prefers below on a tie, and the roomier side otherwise', () => {
+    expect(
+      placementFor(
+        {top: 400, bottom: 400, left: 100, right: 200},
+        viewport,
+        {width: HOVER_CARD_WIDTH, height: 400},
+      ),
+    ).toEqual({vertical: 'below', align: 'left'})
+    expect(
+      placementFor(
+        {top: 500, bottom: 540, left: 100, right: 200},
+        viewport,
+        {width: HOVER_CARD_WIDTH, height: 400},
+      ),
+    ).toEqual({vertical: 'above', align: 'left'})
+  })
+  it('right-aligns near the right edge', () => {
+    expect(
+      placementFor({top: 100, bottom: 140, left: 1100, right: 1200}, viewport),
+    ).toEqual({vertical: 'below', align: 'right'})
+  })
+  it('exposes the card size constants', () => {
+    expect(HOVER_CARD_WIDTH).toBe(320)
+    expect(HOVER_CARD_HEIGHT).toBe(380)
   })
 })

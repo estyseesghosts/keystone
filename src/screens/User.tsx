@@ -160,6 +160,7 @@ export function UserScreen() {
               <ProfileHeader
                 account={account}
                 isSelf={isSelf}
+                backend={backend}
                 relationship={relationship}
                 onPressFollowers={() => nav.navigate('Followers', {id: account.id})}
                 onPressFollowing={() => nav.navigate('Following', {id: account.id})}

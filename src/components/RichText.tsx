@@ -36,6 +36,7 @@ import {ProfileIcon} from '#/components/icons'
 import {Pressable} from '#/components/Pressable'
 import {QueryClientContext} from '@tanstack/react-query'
 import {useMentionedAccount} from '#/state/queries'
+import {HoverPreview} from '#/components/Profile/HoverPreview'
 import {useContentMode} from '#/state/appearance'
 import {navigationRef} from '#/navigationRef'
 
@@ -389,7 +390,7 @@ function ResolvingMentionChip({
   onPress: () => void
 }) {
   const account = useMentionedAccount(ctx.backend ?? null, ctx.sessionId, label)
-  return (
+  const chip = (
     <StaticMentionChip
       name={account ? displayNameOf(account) : label}
       avatar={account?.avatarUrl ?? null}
@@ -397,6 +398,17 @@ function ResolvingMentionChip({
       ctx={ctx}
       onPress={onPress}
     />
+  )
+  // Hover previews the resolved account; the handle-only fallback has
+  // nothing to preview (and HoverPreview no-ops on native anyway).
+  if (!account) return chip
+  return (
+    <HoverPreview
+      account={account}
+      sessionId={ctx.sessionId ?? 'signed-out'}
+      onOpenProfile={() => defaultMentionPress(null, label)}>
+      {chip}
+    </HoverPreview>
   )
 }
 

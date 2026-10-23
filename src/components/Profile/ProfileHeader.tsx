@@ -13,6 +13,7 @@ import {
   displayNameOf,
   handleOf,
   type Account,
+  type Backend,
   type Relationship,
 } from '@keystone/fedi'
 
@@ -102,6 +103,7 @@ function StatsLine({
 export function ProfileHeader({
   account,
   sessionId = null,
+  backend = null,
   isSelf,
   relationship,
   actions,
@@ -112,6 +114,10 @@ export function ProfileHeader({
   /** Owning session (WS-C remote emoji fallback): explicit wins;
    * otherwise the active session; null = packed-only resolution. */
   sessionId?: string | null
+  /** Backend for mention → account resolution in the bio/fields (avatar
+   * + display name chips). Omit where none is handy: chips fall back to
+   * the handle label, taps still route. */
+  backend?: Backend | null
   isSelf: boolean
   relationship: Relationship | null
   /** Follow controls (others) or settings entry (self), supplied by the caller. */
@@ -182,6 +188,7 @@ export function ProfileHeader({
             nodes={bioNodes}
             emojis={account.emojis}
             sessionId={sid}
+            backend={backend}
             authorHost={account.host}
             textStyle={{color: theme.palette.text}}
           />
@@ -201,6 +208,7 @@ export function ProfileHeader({
                     nodes={fieldNodes[i]}
                     emojis={account.emojis}
                     sessionId={sid}
+                    backend={backend}
                     authorHost={account.host}
                     textStyle={{color: theme.palette.text}}
                   />
