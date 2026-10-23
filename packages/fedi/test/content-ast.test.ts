@@ -14,10 +14,13 @@ import {
   italic,
   link,
   mention,
+  bareLinkLabel,
+  contentFromTranslatedText,
   mentionAccountIdOf,
   plainTextOf,
   quoteNode,
   safeHttpUrl,
+  shortenBareUrl,
   safeUrl,
   strike,
   t,
@@ -216,5 +219,83 @@ describe("hashtagTagOf", () => {
     expect(hashtagTagOf({ class: "mention", href: "https://a.b/tags/x" })).toBeNull();
     expect(hashtagTagOf({ class: "hashtag", href: "not a url" })).toBeNull();
     expect(hashtagTagOf({ class: "hashtag", href: "https://a.b/tags/a%20b" })).toBeNull();
+  });
+});
+
+describe("bare-link chips (v1 .mchip parity)", () => {
+  it("shortens bare URLs: scheme stripped, truncated with …", () => {
+    expect(shortenBareUrl("https://www.bbc.co.uk/news/live/ckgel5xp2xv9t")).toBe(
+      "www.bbc.co.uk/news/live/ckgel5x…",
+    );
+    expect(shortenBareUrl("https://a.b/c")).toBe("a.b/c");
+    expect(shortenBareUrl("http://a.b/c")).toBe("a.b/c");
+  });
+
+  it("chips Misskey bare URLs (visible text is the href)", () => {
+    const href = "https://example.social/notes/abc123";
+    expect(bareLinkLabel(link(href, [{ kind: "text", text: href }]))).toBe(
+      "example.social/notes/abc123",
+    );
+  });
+
+  it("chips Mastodon server-shortened links (visible + invisible)", () => {
+    const href = "https://example.social/very/long/hidden/part";
+    expect(
+      bareLinkLabel(
+        link(href, [
+          { kind: "text", text: "example.social/very/long…" },
+          { kind: "invisible", text: "hidden/part" },
+        ]),
+      ),
+    ).toBe("example.social/very/long…");
+  });
+
+  it("never chips labeled links, empty labels, or non-web schemes", () => {
+    expect(bareLinkLabel(link("https://a.b/x", [{ kind: "text", text: "click here" }]))).toBeNull();
+    expect(bareLinkLabel(link("https://a.b/x", []))).toBeNull();
+    expect(bareLinkLabel(link("mailto:a@b.c", [{ kind: "text", text: "mailto:a@b.c" }]))).toBeNull();
+    expect(
+      bareLinkLabel(
+        link("https://a.b/x", [
+          { kind: "text", text: "see " },
+          { kind: "code", code: "x" },
+        ]),
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("translated text nodes", () => {
+  it("finds mentions and links, keeps newlines", () => {
+    expect(contentFromTranslatedText("hi @u@example.social, see https://a.b/x")).toEqual([
+      { kind: "text", text: "hi " },
+      { kind: "mention", href: null, children: [{ kind: "text", text: "@u@example.social" }] },
+      { kind: "text", text: ", see " },
+      { kind: "link", href: "https://a.b/x", children: [{ kind: "text", text: "https://a.b/x" }] },
+    ]);
+  });
+
+  it("leaves emails and punctuation outside the token", () => {
+    expect(contentFromTranslatedText("mail me@example.com, ok?")).toEqual([
+      { kind: "text", text: "mail me@example.com, ok?" },
+    ]);
+    expect(contentFromTranslatedText("hey @u, see https://a.b/x.")).toEqual([
+      { kind: "text", text: "hey " },
+      { kind: "mention", href: null, children: [{ kind: "text", text: "@u" }] },
+      { kind: "text", text: ", see " },
+      { kind: "link", href: "https://a.b/x", children: [{ kind: "text", text: "https://a.b/x" }] },
+      { kind: "text", text: "." },
+    ]);
+  });
+
+  it("splits lines and ignores empty input", () => {
+    expect(contentFromTranslatedText("a\n\nb")).toEqual([
+      { kind: "text", text: "a" },
+      { kind: "br" },
+      { kind: "br" },
+      { kind: "text", text: "b" },
+    ]);
+    expect(contentFromTranslatedText("")).toEqual([]);
+    expect(contentFromTranslatedText(null)).toEqual([]);
   });
 });

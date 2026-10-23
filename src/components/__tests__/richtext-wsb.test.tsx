@@ -2,6 +2,7 @@
 // plain projection in the sole renderer.
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen} from '@testing-library/react-native'
 import {StyleSheet} from 'react-native'
 
@@ -181,6 +182,82 @@ describe('RichText structural markers (MD4 remainder)', () => {
     )
     fireEvent.press(screen.getByText('label'))
     expect(onLink).toHaveBeenCalledWith('https://example.com/x')
+  })
+
+  it('renders bare URLs as shortened chips, never split mid-word', () => {
+    const onLink = jest.fn()
+    renderRichText(
+      <RichText
+        nodes={contentFromMfm(
+          'see https://www.bbc.co.uk/news/live/ckgel5xp2xv9t for details',
+        )}
+        onLinkPress={onLink}
+      />,
+    )
+    // Scheme stripped, truncated, one atomic pill.
+    expect(screen.getByText('www.bbc.co.uk/news/live/ckgel5x…')).toBeTruthy()
+    expect(screen.getByTestId('richtext-link-chip')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('richtext-link-chip'))
+    expect(onLink).toHaveBeenCalledWith('https://www.bbc.co.uk/news/live/ckgel5xp2xv9t')
+  })
+
+  it('renders server-shortened links as chips with the visible label', () => {
+    renderRichText(
+      <RichText
+        nodes={contentFromHtml(
+          '<p><a href="https://example.social/very/long/hidden/part">example.social/very/long<span class="invisible">hidden/part</span><span>…</span></a></p>',
+        )}
+      />,
+    )
+    expect(screen.getByText('example.social/very/long…')).toBeTruthy()
+    expect(screen.getByTestId('richtext-link-chip')).toBeTruthy()
+  })
+
+  it('resolves mention chips to avatar + display name when a backend is wired', async () => {
+    const account = jest.fn(async () => ({
+      id: 'u1',
+      username: 'rob',
+      host: 'cloudisland.nz',
+      name: 'Rob Isaac',
+      displayName: 'Rob Isaac',
+      avatarUrl: 'https://cloudisland.nz/rob.png',
+    }))
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <QueryClientProvider client={qc}>
+            <RichText
+              nodes={contentFromHtml('<p>hi <a href="https://x/@rob" class="mention">@rob</a></p>')}
+              backend={{account} as never}
+              sessionId="sess-1"
+            />
+          </QueryClientProvider>
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    expect(await screen.findByTestId('richtext-mention-avatar')).toBeTruthy()
+    expect(screen.getByText('Rob Isaac')).toBeTruthy()
+    expect(account).toHaveBeenCalledWith({username: 'rob', host: null})
+  })
+
+  it('renders resolvable mentions as chips, unresolvable as plain text', () => {
+    const onMention = jest.fn()
+    renderRichText(
+      <RichText
+        nodes={contentFromHtml(
+          '<p>hi <a href="https://a.b/@u" class="mention">@u</a> and <a href="https://a.b/x">plain label</a></p>',
+        )}
+        onMentionPress={onMention}
+      />,
+    )
+    expect(screen.getByTestId('richtext-mention-chip')).toBeTruthy()
+    expect(screen.getByText('@u')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('richtext-mention-chip'))
+    expect(onMention).toHaveBeenCalledWith('https://a.b/@u', '@u')
+    // A labeled non-mention link stays a text link, never a chip.
+    expect(screen.getByText('plain label')).toBeTruthy()
+    expect(screen.queryByTestId('richtext-link-chip')).toBeNull()
   })
 })
 

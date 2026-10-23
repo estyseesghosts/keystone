@@ -19,6 +19,7 @@ import {
   backendForSession,
   type Translation,
   contentFromHtml,
+  contentFromTranslatedText,
   displayNameOf,
   findTextualQuoteMarker,
   foldTree,
@@ -31,6 +32,7 @@ import {
   structuredUrisOf,
   resolveRemotePostUrl,
   type Account,
+  type Backend,
   type Capabilities,
   type EmojiStyle,
   type Media,
@@ -279,6 +281,11 @@ export type PostCardProps = {
    * soft-mute set and the rendered author; tests and previews inject it
    * explicitly. Omit (or false) to leave the badge off — never guessed. */
   softMuted?: boolean
+  /** Backend for mention → account resolution (avatar + display name
+   * in chips). The live card injects the session backend; tests and
+   * previews omit it — chips fall back to the handle label, never a
+   * spinner. */
+  backend?: Backend | null
   /** Open this post's edit history (clickstone §1.7). Omitted where the
    * backend has no history endpoint (the Misskey family): the Edited badge
    * then renders as plain text, never as a dead link. */
@@ -451,6 +458,7 @@ function LivePostCard(props: PostCardProps) {
     <PostCardView
       {...props}
       capabilities={props.capabilities ?? backend?.capabilities ?? null}
+      backend={props.backend ?? backend}
       translationSource={translationSource ?? props.translationSource ?? null}
       resolveQuoteUri={props.resolveQuoteUri ?? resolveQuoteUri}
       linkPreviewAuto={props.linkPreviewAuto ?? !dataSaver}
@@ -476,6 +484,7 @@ function LivePostCard(props: PostCardProps) {
 
 function PostCardView({
   post,
+  backend,
   capabilities,
   emojiStyle = 'twemoji',
   onMentionPress,
@@ -731,6 +740,13 @@ function PostCardView({
   // toggles back and forth. Hidden with the CW gate so a closed warning
   // never leaks the translated text early.
   const showingTranslation = !bodyHidden && shownTranslation !== null && !showOriginal
+  // Translated bodies parse back into nodes (mentions/links stay live,
+  // newlines survive) — the ONLY difference from the original is the
+  // text content, never the chrome around it.
+  const translatedNodes = useMemo(
+    () => (shownTranslation ? contentFromTranslatedText(shownTranslation.text) : null),
+    [shownTranslation?.text],
+  )
 
   // Warm the remote-page cache for federated posts (MK17): by the
   // time the menu opens, "Copy remote link" carries the human page
@@ -881,7 +897,24 @@ function PostCardView({
           </Pressable>
         )}
         {showingTranslation ? (
-          <Body testID={`post-translation-${post.id}`}>{shownTranslation.text}</Body>
+          <Pressable
+            testID={`post-open-${effective.id}`}
+            onPress={openPost}
+            accessibilityRole="link"
+            accessibilityLabel={i18n._(msg`Open post by ${displayNameOf(effective.author)}`)}>
+            <RichText
+              nodes={translatedNodes ?? []}
+              emojis={emojis}
+              sessionId={sessionId}
+              authorHost={effective.author.host}
+              emojiStyle={emojiStyle}
+              backend={backend}
+              onMentionPress={handleMentionPress}
+              onHashtagPress={handleHashtagPress}
+              onLinkPress={handleLinkPress}
+              testID={`post-translation-${post.id}`}
+            />
+          </Pressable>
         ) : (
           !bodyHidden && (
           <Pressable
@@ -895,6 +928,7 @@ function PostCardView({
               sessionId={sessionId}
               authorHost={effective.author.host}
               emojiStyle={emojiStyle}
+              backend={backend}
               onMentionPress={handleMentionPress}
               onHashtagPress={handleHashtagPress}
               onLinkPress={handleLinkPress}

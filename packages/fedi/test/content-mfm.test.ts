@@ -162,3 +162,15 @@ describe("F11: remote custom emoji in MFM text", () => {
     ]);
   });
 });
+
+describe("carriage returns", () => {
+  it("\\r\\n is one break, lone \\r is a break", () => {
+    expect(contentFromMfm("a\r\nb\rc")).toEqual([
+      { kind: "text", text: "a" },
+      { kind: "br" },
+      { kind: "text", text: "b" },
+      { kind: "br" },
+      { kind: "text", text: "c" },
+    ]);
+  });
+});

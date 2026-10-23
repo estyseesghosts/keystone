@@ -123,7 +123,8 @@ describe('NewsDiscussions screen', () => {
     })
     try {
       expect(await screen.findByText('Big news')).toBeTruthy()
-      expect(await screen.findByText('discussing https://n.example/1')).toBeTruthy()
+      // The referenced URL renders as a shortened chip, not raw text.
+      expect(screen.getByText('n.example/1')).toBeTruthy()
       expect(searchPosts).toHaveBeenCalledWith('https://n.example/1', expect.anything())
     } finally {
       done()

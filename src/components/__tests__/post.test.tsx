@@ -538,6 +538,21 @@ describe('auto-translate (v1)', () => {
     expect(screen.queryByTestId('post-translation-tr6')).toBeNull()
     expect(screen.queryByTestId('translation-toggle-tr6')).toBeNull()
   })
+
+  it('translated bodies keep chips and the open-post tap target', async () => {
+    const fetch: TranslationSource['fetch'] = jest.fn(async () => ({
+      sourceLang: 'es',
+      text: 'hola @ana, mira https://a.b/x',
+    }))
+    renderCard(
+      <PostCard post={makePost({id: 'tr7'})} sessionId={SESSION} translationSource={source(fetch)} />,
+    )
+    expect(await screen.findByTestId('post-translation-tr7')).toBeTruthy()
+    // Mention chip, link chip, and the body tap target all survive.
+    expect(screen.getByTestId('richtext-mention-chip')).toBeTruthy()
+    expect(screen.getByTestId('richtext-link-chip')).toBeTruthy()
+    expect(screen.getByTestId('post-open-tr7')).toBeTruthy()
+  })
 })
 
 describe('display-name emoji (F11)', () => {

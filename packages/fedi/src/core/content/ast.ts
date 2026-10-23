@@ -290,6 +290,106 @@ export function safeHttpUrl(raw: string | null | undefined): string | null {
   return protocol === "http:" || protocol === "https:" ? href : null;
 }
 
+// --- Bare-link chip labels (v1 `.mchip` parity) ---------------------------
+
+/** Short display form of a bare URL (v1 link chip): scheme stripped,
+ * truncated to `max` chars with `…`. Pure. */
+export function shortenBareUrl(href: string, max = 32): string {
+  const noScheme = href.replace(/^https?:\/\//, "");
+  if (noScheme.length <= max) return noScheme;
+  return noScheme.slice(0, max - 1) + "…";
+}
+
+/** Display label when a link should render as an inline chip, else null.
+ * Misskey bare URLs (visible text IS the href) shorten; Mastodon
+ * server-shortened links (visible text + `invisible` remainder) keep the
+ * server's visible label (capped). Labeled links ("click here") never
+ * qualify, and neither do non-web schemes. Pure. */
+export function bareLinkLabel(node: ContentNode): string | null {
+  if (node.kind !== "link") return null;
+  if (!/^https?:\/\//.test(node.href)) return null;
+  let visible = "";
+  let hasInvisible = false;
+  for (const child of node.children) {
+    if (child.kind === "text") visible += child.text;
+    else if (child.kind === "invisible") hasInvisible = true;
+    else return null;
+  }
+  if (visible.length === 0) return null;
+  if (visible === node.href) return shortenBareUrl(node.href);
+  if (hasInvisible) return visible.length > 48 ? visible.slice(0, 47) + "…" : visible;
+  return null;
+}
+
+// --- Translated-text nodes --------------------------------------------------
+// Translated post bodies arrive as plain strings (no server AST), so
+// mentions and bare URLs would render dead — and in v1 they are live.
+// Scan them back out: `@user` / `@user@host` (same classes `parseAcct`
+// accepts, tap-time resolution stays authoritative) and http(s) URLs.
+// Newlines survive as `br`, like every other path. Hashtags stay text:
+// a translated tag is not a routable tag. Pure.
+const TRANSLATED_TOKEN_PATTERN = /(^|[\s>(])@([\w-]+(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
+
+/** Trailing punctuation is prose, never address (matches and lookups
+ * would fail or mistarget on it). Pure. */
+function stripTokenPunctuation(token: string): string {
+  return token.replace(/[.,;:!?)\]}>]+$/, "");
+}
+
+function validTranslatedHandle(handle: string): { username: string; host: string | null } | null {
+  const parts = handle.split("@");
+  if (parts.length > 2) return null;
+  const [username, host] = parts;
+  if (!username || !/^[\w-]+$/.test(username)) return null;
+  if (host !== undefined && (host.length === 0 || !/^[\w.-]+$/.test(host))) return null;
+  return { username, host: host ?? null };
+}
+
+/** Plain translated text → content nodes with live mentions and links. */
+export function contentFromTranslatedText(text: string | null | undefined): ContentNode[] {
+  if (!text) return [];
+  const out: ContentNode[] = [];
+  const pushText = (s: string): void => {
+    if (s.length > 0) out.push(t(s));
+  };
+  for (const line of text.replace(/\r\n?/g, "\n").split("\n")) {
+    if (out.length > 0) out.push(br());
+    TRANSLATED_TOKEN_PATTERN.lastIndex = 0;
+    let last = 0;
+    let match: RegExpExecArray | null;
+    while ((match = TRANSLATED_TOKEN_PATTERN.exec(line)) !== null) {
+      const full = match[0];
+      const lead = match[1] ?? "";
+      const token = stripTokenPunctuation(full.slice(lead.length));
+      const trail = full.slice(lead.length + token.length);
+      pushText(line.slice(last, match.index) + lead);
+      if (token.startsWith("@")) {
+        const ref = validTranslatedHandle(token.slice(1));
+        if (ref !== null) {
+          out.push(
+            mention(null, [t(`@${ref.username}${ref.host ? `@${ref.host}` : ""}`)]),
+          );
+          pushText(trail);
+          last = match.index + full.length;
+          continue;
+        }
+      } else {
+        const href = safeUrl(token);
+        if (href !== null && /^https?:\/\//.test(href)) {
+          out.push(link(href, [t(token)]));
+          pushText(trail);
+          last = match.index + full.length;
+          continue;
+        }
+      }
+      pushText(full);
+      last = match.index + full.length;
+    }
+    pushText(line.slice(last));
+  }
+  return out;
+}
+
 // --- Mention / hashtag routing (the reunion point) ------------------------------
 
 /**

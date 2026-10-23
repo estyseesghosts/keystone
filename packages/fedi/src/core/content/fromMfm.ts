@@ -64,10 +64,11 @@ const KNOWN_FN: ReadonlySet<string> = new Set([
 
 /** Split MFM text on newlines: each `\n` is one `br`, so a blank line is
  * a `br` pair — the same paragraph boundary `fromHtml` emits. Empty
- * runs never become empty text nodes. Pure. */
+ * runs never become empty text nodes. `\r\n`/`\r` normalize to `\n`
+ * first (a stray `\r` would otherwise render as a visible spacer). Pure. */
 function textNodes(text: string): ContentNode[] {
   const out: ContentNode[] = [];
-  for (const part of text.split("\n")) {
+  for (const part of text.replace(/\r\n?/g, "\n").split("\n")) {
     if (out.length > 0) out.push(br());
     if (part.length > 0) out.push(t(part));
   }
