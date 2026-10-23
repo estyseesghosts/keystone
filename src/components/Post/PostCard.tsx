@@ -137,12 +137,14 @@ export function boostLabel(post: Post, renoters?: Account[]): string {
 function HoverAuthor({
   account,
   sessionId,
+  backend,
   onOpenProfile,
   children,
   testID,
 }: {
   account: Account
   sessionId: string
+  backend?: Backend | null
   onOpenProfile: () => void
   children: React.ReactNode
   testID?: string
@@ -152,6 +154,7 @@ function HoverAuthor({
     <HoverPreview
       account={account}
       sessionId={sessionId}
+      backend={backend}
       onOpenProfile={onOpenProfile}
       testID={testID}>
       {children}
@@ -159,7 +162,7 @@ function HoverAuthor({
   )
 }
 
-function Avatar({post, sessionId}: {post: Post; sessionId: string}) {
+function Avatar({post, sessionId, backend}: {post: Post; sessionId: string; backend?: Backend | null}) {
   const theme = useTheme()
   const [failed, setFailed] = useState(false)
   // Server strings are never trusted as image sources: anything but
@@ -188,6 +191,7 @@ function Avatar({post, sessionId}: {post: Post; sessionId: string}) {
     <HoverAuthor
       account={post.author}
       sessionId={sessionId}
+      backend={backend}
       onOpenProfile={() => openAuthorProfile(post.author.id)}
       testID={`author-hover-${post.author.id}`}>
       <Pressable
@@ -770,7 +774,7 @@ function PostCardView({
 
   return (
     <View style={styles.card} testID={testID ?? `post-${post.id}`}>
-      <Avatar post={effective} sessionId={sessionId} />
+      <Avatar post={effective} sessionId={sessionId} backend={backend} />
       <View style={styles.main}>
         {isBoost && (
           <Caption color="muted" style={styles.context} testID={`boost-header-${post.id}`}>
@@ -806,6 +810,7 @@ function PostCardView({
           <HoverAuthor
             account={effective.author}
             sessionId={sessionId}
+            backend={backend}
             onOpenProfile={() => openAuthorProfile(effective.author.id)}
             testID={`author-hover-name-${effective.author.id}`}>
             <Pressable

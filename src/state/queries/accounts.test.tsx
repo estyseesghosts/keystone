@@ -4,9 +4,9 @@
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {renderHook, waitFor} from '@testing-library/react-native'
 
-import type {Backend} from '@keystone/fedi'
+import type {Account, Backend} from '@keystone/fedi'
 
-import {mentionedAccountQueryKey, useMentionedAccount} from './accounts'
+import {fullAccountQueryKey, mentionedAccountQueryKey, useFullAccount, useMentionedAccount} from './accounts'
 
 function testClient(): QueryClient {
   return new QueryClient({defaultOptions: {queries: {retry: false, gcTime: 60_000}}})
@@ -75,5 +75,46 @@ describe('useMentionedAccount', () => {
     })
     await waitFor(() => expect(account).toHaveBeenCalled())
     expect(result.current).toBeNull()
+  })
+})
+
+describe('useFullAccount', () => {
+  const lite = {...alice, headerUrl: null} as unknown as Account
+  const full = {...alice, headerUrl: 'https://example.social/banner.png'} as unknown as Account
+
+  it('shows the embedded account immediately, then upgrades to the fetched full account', async () => {
+    const account = jest.fn(async () => full)
+    const {result} = renderHook(() => useFullAccount(fakeBackend(account), 'sess-a', lite), {
+      wrapper: wrapper(testClient()),
+    })
+    // Embedded data renders at once (no blank card while fetching).
+    expect(result.current?.username).toBe('alice')
+    await waitFor(() => expect(result.current?.headerUrl).toBe('https://example.social/banner.png'))
+    expect(account).toHaveBeenCalledWith({id: 'u1'})
+    expect(fullAccountQueryKey('sess-a', 'u1')[0]).toBe('sess-a')
+  })
+
+  it('skips the fetch when the embedded account already has a banner', async () => {
+    const account = jest.fn(async () => full)
+    const {result} = renderHook(() => useFullAccount(fakeBackend(account), 'sess-a', full), {
+      wrapper: wrapper(testClient()),
+    })
+    expect(result.current?.headerUrl).toBe('https://example.social/banner.png')
+    // Give the query a chance to (not) fire.
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(account).not.toHaveBeenCalled()
+  })
+
+  it('returns null without a backend or account and never fetches', () => {
+    const account = jest.fn(async () => full)
+    const {result: noBackend} = renderHook(() => useFullAccount(null, 'sess-a', lite), {
+      wrapper: wrapper(testClient()),
+    })
+    expect(noBackend.current).toEqual(lite)
+    const {result: noAccount} = renderHook(() => useFullAccount(fakeBackend(account), 'sess-a', null), {
+      wrapper: wrapper(testClient()),
+    })
+    expect(noAccount.current).toBeNull()
+    expect(account).not.toHaveBeenCalled()
   })
 })

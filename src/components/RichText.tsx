@@ -406,6 +406,7 @@ function ResolvingMentionChip({
     <HoverPreview
       account={account}
       sessionId={ctx.sessionId ?? 'signed-out'}
+      backend={ctx.backend ?? null}
       onOpenProfile={() => defaultMentionPress(null, label)}>
       {chip}
     </HoverPreview>

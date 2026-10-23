@@ -4,7 +4,7 @@ import {Image, Platform, StyleSheet, View} from 'react-native'
 import {msg, t} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
 
-import type {Account} from '@keystone/fedi'
+import type {Account, Backend} from '@keystone/fedi'
 import {contentFromHtml, contentFromMfm, displayNameOf, safeHttpUrl} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
@@ -15,6 +15,7 @@ import {formatCount, useLocale} from '#/locale/i18n'
 import {formatFediError, isKnownErrorCode} from '#/lib/localeErrors'
 import {showToast} from '#/lib/toast'
 import {useGraphActions, useRelationship} from '#/state/queries/graph'
+import {useFullAccount} from '#/state/queries/accounts'
 
 // Desktop-only profile hover preview (P7, v1 `hover` dict parity).
 // Web-only by design: returns null on native, where hover does not exist.
@@ -33,11 +34,16 @@ export type HoverFollowState = 'follow' | 'following' | 'requested'
 export function UserHoverCard({
   account,
   sessionId,
+  backend,
   onOpenProfile,
   testID,
 }: {
   account: Account
   sessionId: string
+  /** Session backend: bio mention chips resolve (avatar + display
+   * name) and lite embedded authors upgrade to the full account
+   * (banner/bio). Absent → static chips, embedded data as-is. */
+  backend?: Backend | null
   onOpenProfile?: () => void
   testID?: string
 }) {
@@ -49,6 +55,7 @@ export function UserHoverCard({
     <UserHoverCardLoader
       account={account}
       sessionId={sessionId}
+      backend={backend}
       onOpenProfile={onOpenProfile}
       testID={testID}
     />
@@ -58,17 +65,20 @@ export function UserHoverCard({
 function UserHoverCardLoader({
   account,
   sessionId,
+  backend,
   onOpenProfile,
   testID,
 }: {
   account: Account
   sessionId: string
+  backend?: Backend | null
   onOpenProfile?: () => void
   testID?: string
 }) {
   const {i18n} = useLingui()
-  const actions = useGraphActions(sessionId, {id: account.id, locked: account.locked})
-  const relQuery = useRelationship(sessionId, account.id)
+  const full = useFullAccount(backend ?? null, sessionId, account) ?? account
+  const actions = useGraphActions(sessionId, {id: full.id, locked: full.locked})
+  const relQuery = useRelationship(sessionId, full.id)
   const [busy, setBusy] = useState(false)
   const rel = relQuery.data ?? null
   const state: HoverFollowState = rel?.hasPendingFollowRequestFromYou
@@ -96,8 +106,9 @@ function UserHoverCardLoader({
   }
   return (
     <UserHoverCardView
-      account={account}
+      account={full}
       sessionId={sessionId}
+      backend={backend}
       followState={state}
       followAllowed={actions.follow.gate.enabled}
       followReason={actions.follow.gate.enabled ? undefined : actions.follow.gate.reason}
@@ -112,6 +123,7 @@ function UserHoverCardLoader({
 export function UserHoverCardView({
   account,
   sessionId = null,
+  backend = null,
   followState,
   followAllowed,
   followReason,
@@ -122,8 +134,9 @@ export function UserHoverCardView({
 }: {
   account: Account
   /** Owning session for bio RichText (WS-C emoji fallback); mention
-   * chips in the bio stay static without a backend, taps still work. */
+   * chips in the bio resolve through this backend, static without it. */
   sessionId?: string | null
+  backend?: Backend | null
   followState: HoverFollowState
   followAllowed: boolean
   followReason?: string
@@ -254,6 +267,7 @@ export function UserHoverCardView({
             nodes={bioNodes}
             emojis={account.emojis}
             sessionId={sessionId}
+            backend={backend}
             authorHost={account.host}
             testID={testID ? `${testID}-bio` : undefined}
           />

@@ -26,7 +26,7 @@ import {
 } from 'react'
 import {Platform, View, type View as ViewType} from 'react-native'
 
-import type {Account} from '@keystone/fedi'
+import type {Account, Backend} from '@keystone/fedi'
 
 import {UserHoverCard} from './UserHoverCard'
 
@@ -320,12 +320,17 @@ function HoverLayer({
 export function HoverPreview({
   account,
   sessionId,
+  backend,
   onOpenProfile,
   children,
   testID,
 }: {
   account: Account | null
   sessionId: string
+  /** Session backend: bio mention chips resolve and lite embedded
+   * authors upgrade to the full account. Absent → static chips,
+   * embedded data as-is. */
+  backend?: Backend | null
   onOpenProfile?: () => void
   children: ReactNode
   testID?: string
@@ -425,6 +430,7 @@ export function HoverPreview({
           <UserHoverCard
             account={account}
             sessionId={sessionId}
+            backend={backend}
             onOpenProfile={onOpenProfile}
             testID={testID}
           />
