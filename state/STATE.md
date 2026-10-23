@@ -22,7 +22,7 @@ honest-disabled), 2.2 Misskey chat (`ChatApi`, rooms+stream, Misskey
 Mastodon triple `read write follow` — logged-in authorize 502'd over
 ~512-char URLs, verified live 200 after fix).
 
-Verification on `main`: **187 suites / 2368 tests green**;
+Verification on `main`: **193 suites / 2437 tests green**;
 `typecheck` (ios+android+web) + `lint` clean. Per-slice logs:
 `state/logs/2026-10-22-p6.*.md`; task index `docs/tasks/README.md`.
 Wave 3.1: admin seam + read-only insight both families.
@@ -38,9 +38,13 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
-0. P6.4 sidebar reshuffle (branch `p6.4-sidebar-reshuffle`, pre-Wave-3):
-   code + tests green (187/2368), pending owner desktop-large visual
-   pass, then merge to `main`. Task `docs/tasks/p6.4-sidebar-reshuffle.md`.
+0. P6.4 sidebar reshuffle MERGED to `main` (2026-10-23, `2e4b55b`):
+   hovercard blink fixed by replacing RNW Modal with an owned
+   click-through portal (`416d39e`; Modal's fullscreen auto-hit
+   layers stole anchor hover → open/close limit cycle). Owner
+   live-verified on external servers. Branch pruned; 46 stale
+   merged branches + superseded `pf-bio` deleted — only `main`
+   remains locally. `main` is 11 ahead of `origin/main` (unpushed).
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
    user-note/modlog/reset-password; Mastodon account_actions
    warn/suspend/silence + notes; NO delete-account). Single agent,
