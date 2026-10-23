@@ -75,3 +75,15 @@ Goal: fix rapidly-blinking hovercards; merge sidebar slice; prune 48-branch pile
 
 - Owner: push `main` (11 ahead of origin).
 - Wave 3.3 user moderation (per STATE.md Next steps).
+
+## Follow-up: viewport clipping fix (same day, `20fd545`)
+
+- Owner report: cards over anchors near the window top/bottom clip
+  off-screen. Cause: the above/below flip estimates a fixed 380px
+  card, but real cards vary with bio length. Fix: `HoverLayer`
+  measures the mounted box (`getBoundingClientRect`, already
+  viewport-relative) and shifts it inside with an 8px margin via pure
+  `clampToViewport` (unit-tested: fits/bottom/top/right); a
+  `ResizeObserver` re-clamps when banner/avatar loads resize the
+  box. Correction resets whenever the anchor position changes.
+- `pnpm test` → 193 suites / 2441 tests green; typecheck + lint clean.
