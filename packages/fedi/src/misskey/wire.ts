@@ -28,6 +28,13 @@ export interface UserDetailed extends UserLite {
   lastFetchedAt: string | null;
   bannerUrl: string | null;
   bannerBlurhash: string | null;
+  /** Profile-page background image URL (newer Misskey-family; absent on
+   * older servers and Pinetree until packed). Never sent on writes. */
+  backgroundUrl?: string | null;
+  /** Profile-page background as a packed DriveFile (newer Misskey-family
+   * alternative to `backgroundUrl`). Only `url` is read; the rest of the
+   * file is ignored. */
+  background?: { url?: string | null } | null;
   isLocked: boolean;
   isSilenced: boolean;
   isSuspended: boolean;

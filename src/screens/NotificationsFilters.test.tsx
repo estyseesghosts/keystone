@@ -52,6 +52,7 @@ const baseNotification: Notification = {
         avatarBlurhash: null,
         headerUrl: null,
         headerBlurhash: null,
+        backgroundUrl: null,
         followersCount: 0,
         followingCount: 0,
         statusesCount: 0,

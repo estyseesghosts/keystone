@@ -11,6 +11,12 @@ import {ThemeProvider} from '#/alf/index'
 import {ProfileHeader} from '#/components/Profile/ProfileHeader'
 import {AccountReactionsBlock} from '#/components/Profile/AccountReactions'
 
+// ProfileHeader splits bio/fields on desktop widths; these tests pin a
+// mobile viewport so they exercise the stacked layout.
+jest.mock('#/alf/useViewportWidth', () => ({
+  useViewportWidth: () => 390,
+}))
+
 i18n.load('en', {})
 i18n.activate('en')
 

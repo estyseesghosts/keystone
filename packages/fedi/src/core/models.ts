@@ -165,6 +165,10 @@ export interface Account {
   /** Banner image (Misskey `bannerUrl` / Mastodon `header`). */
   headerUrl: string | null;
   headerBlurhash: string | null;
+  /** Profile-page background (Misskey-family `background` / `backgroundUrl`).
+   * Distinct from `headerUrl` (the banner). Null when the server sent none
+   * or the family has no such image. Never invent one. */
+  backgroundUrl: string | null;
   followersCount: number;
   followingCount: number;
   /** Posts count (Misskey `notesCount` / Mastodon `statuses_count`). */

@@ -172,6 +172,8 @@ describe("adaptAccount / adaptMe (all three flavors)", () => {
     expect(account.acct).toBe("ann");
     expect(account.bio.mfm).toContain("MFM **bio**");
     expect(account.headerUrl).toBe(user.bannerUrl);
+    // Fixture packs neither background shape: null, never the banner.
+    expect(account.backgroundUrl).toBeNull();
     expect(account.statusesCount).toBe(56);
     expect(account.followersCount).toBe(12);
     expect(account.cat).toBe(true);
@@ -197,6 +199,33 @@ describe("adaptAccount / adaptMe (all three flavors)", () => {
     expect(account.isFollowing).toBeUndefined();
     expect(account.hasPendingFollowRequestFromYou).toBeUndefined();
     expect(account.birthday).toBeNull();
+    expect(account.backgroundUrl).toBeNull();
+  });
+
+  it("adapts backgroundUrl, leaving the banner in headerUrl", () => {
+    const user = fixture<UserDetailed>("misskey", "user.json");
+    const account = adaptAccount({...user, backgroundUrl: "https://example.test/bg.png"});
+    expect(account.backgroundUrl).toBe("https://example.test/bg.png");
+    expect(account.headerUrl).toBe(user.bannerUrl);
+  });
+
+  it("adapts a packed background file url when backgroundUrl is absent", () => {
+    const user = fixture<UserDetailed>("misskey", "user.json");
+    const account = adaptAccount({
+      ...user,
+      backgroundUrl: undefined,
+      background: {url: "https://example.test/bg2.png"},
+    });
+    expect(account.backgroundUrl).toBe("https://example.test/bg2.png");
+    expect(account.headerUrl).toBe(user.bannerUrl);
+  });
+
+  it("null background shapes adapt to null, never the banner", () => {
+    const user = fixture<UserDetailed>("misskey", "user.json");
+    const bare = {...user, backgroundUrl: undefined, background: undefined};
+    expect(adaptAccount({...bare, background: null}).backgroundUrl).toBeNull();
+    expect(adaptAccount(bare).backgroundUrl).toBeNull();
+    expect(adaptAccount({...bare, backgroundUrl: ""}).backgroundUrl).toBeNull();
   });
 
   it("adaptMe carries the raw i bag in ext.me for the profile editor", () => {

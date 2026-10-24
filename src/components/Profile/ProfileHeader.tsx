@@ -1,11 +1,12 @@
 // Profile header (Keystone v1 pattern, our own code): banner, an
-// avatar row overlapping the banner with the action slot on the right
-// (follow controls for others — supplied by the caller), display name,
-// handle, locked/bot markers, bio through the sole RichText renderer,
-// and stats gated on ffVisibility. Wire types never cross here: only
-// domain models from `@keystone/fedi`.
-import {useMemo, type ReactNode} from 'react'
-import {StyleSheet, View} from 'react-native'
+// avatar straddling the banner's bottom edge with the action slot
+// immediately to its right, centered display name/handle, bio and profile
+// fields in rounded cards (split halves on desktop, stacked on mobile),
+// then stats gated on ffVisibility. A Misskey-family profile background
+// paints behind the header content; anything else is `palette.bg`.
+// Wire types never cross here: only domain models from `@keystone/fedi`.
+import {useMemo, useState, type ReactNode} from 'react'
+import {Image, StyleSheet, View} from 'react-native'
 
 import {
   contentFromHtml,
@@ -18,14 +19,16 @@ import {
 } from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
+import {useShellLayout} from '#/alf/breakpoints'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 import {Body, Caption} from '#/alf/typography'
 import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
-import {space} from '#/alf/tokens'
+import {radius, space} from '#/alf/tokens'
 import {ProfileAvatar} from '#/components/Profile/ProfileAvatar'
 import {ProfileBanner} from '#/components/Profile/ProfileBanner'
+import {profileDetailLayout} from '#/components/Profile/profileDetailLayout'
 
 export function FollowStateCaption({relationship}: {relationship: Relationship | null}) {
   if (!relationship) return null
@@ -128,6 +131,10 @@ export function ProfileHeader({
   onPressFollowing?: () => void
 }) {
   const theme = useTheme()
+  const desktop = useShellLayout() !== 'mobile'
+  // A failed background image unmounts to `palette.bg`. Never a broken
+  // icon, never a retry.
+  const [bgFailed, setBgFailed] = useState(false)
   // WS-C: the profile screen passes its session when known; the
   // DisplayName/RichText pair falls back to the active session, so
   // remote `:name@host:` codes in names and bios resolve there too.
@@ -152,8 +159,68 @@ export function ProfileHeader({
     // is the correct dep.
     [account.fields],
   )
+  const hasBio = (bioNodes?.length ?? 0) > 0 || (account.bio.plain?.length ?? 0) > 0
+  const hasFields = account.fields.length > 0
+  const detail = profileDetailLayout({desktop, hasBio, hasFields})
+  const bioCard = hasBio ? (
+    <View
+      testID="profile-bio-card"
+      style={[styles.card, {backgroundColor: theme.palette.bgSoft}]}>
+      {bioNodes?.length ? (
+        <RichText
+          testID="profile-bio"
+          nodes={bioNodes}
+          emojis={account.emojis}
+          sessionId={sid}
+          backend={backend}
+          authorHost={account.host}
+          textStyle={{color: theme.palette.text}}
+        />
+      ) : (
+        <Body testID="profile-bio">{account.bio.plain}</Body>
+      )}
+    </View>
+  ) : null
+  const fieldsList = hasFields ? (
+    <View testID="profile-fields" style={styles.fields}>
+      {account.fields.map((f, i) => (
+        <View
+          key={`${f.name}-${i}`}
+          testID={`profile-field-${i}`}
+          style={[styles.card, {backgroundColor: theme.palette.bgSoft}]}>
+          <Caption color="faint">
+            {f.name}
+            {f.verifiedAt ? ' · Verified.' : ''}
+          </Caption>
+          {fieldNodes[i]?.length ? (
+            <RichText
+              nodes={fieldNodes[i]}
+              emojis={account.emojis}
+              sessionId={sid}
+              backend={backend}
+              authorHost={account.host}
+              textStyle={{color: theme.palette.text}}
+            />
+          ) : (
+            <Body>{f.value}</Body>
+          )}
+        </View>
+      ))}
+    </View>
+  ) : null
   return (
-    <View testID="profile-header">
+    <View testID="profile-header" style={{backgroundColor: theme.palette.bg}}>
+      {account.backgroundUrl && !bgFailed ? (
+        <Image
+          testID="profile-background"
+          source={{uri: account.backgroundUrl}}
+          resizeMode="cover"
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+          onError={() => setBgFailed(true)}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       <ProfileBanner uri={account.headerUrl} />
       <View style={styles.body}>
         <View style={styles.avatarRow}>
@@ -162,61 +229,46 @@ export function ProfileHeader({
           </View>
           <View style={styles.actionSlot}>{actions}</View>
         </View>
-        {/* F11-half: custom-emoji names render through DisplayName.
-            Name==handle collapse (v1): the handle renders AS the display
-            name — one line, no second smaller handle line. */}
-        {shouldCollapseName(account) ? (
-          <DisplayName
-            account={{...account, displayName: handleOf(account)}}
-            sessionId={sid}
-            size={20}
-            testID="profile-name"
-          />
-        ) : (
-          <>
-            <DisplayName account={account} sessionId={sid} size={20} testID="profile-name" />
-            <Caption color="faint" testID="profile-handle">
-              {handleOf(account)}
-            </Caption>
-          </>
-        )}
-        {account.locked ? <Caption color="faint">Locked account.</Caption> : null}
-        {account.bot ? <Caption color="faint">Automated account.</Caption> : null}
-        {bioNodes ? (
-          <RichText
-            testID="profile-bio"
-            nodes={bioNodes}
-            emojis={account.emojis}
-            sessionId={sid}
-            backend={backend}
-            authorHost={account.host}
-            textStyle={{color: theme.palette.text}}
-          />
-        ) : account.bio.plain ? (
-          <Body testID="profile-bio">{account.bio.plain}</Body>
-        ) : null}
-        {account.fields.length > 0 ? (
-          <View testID="profile-fields" style={styles.fields}>
-            {account.fields.map((f, i) => (
-              <View key={`${f.name}-${i}`} testID={`profile-field-${i}`}>
-                <Caption color="faint">
-                  {f.name}
-                  {f.verifiedAt ? ' · Verified.' : ''}
-                </Caption>
-                {fieldNodes[i]?.length ? (
-                  <RichText
-                    nodes={fieldNodes[i]}
-                    emojis={account.emojis}
-                    sessionId={sid}
-                    backend={backend}
-                    authorHost={account.host}
-                    textStyle={{color: theme.palette.text}}
-                  />
-                ) : (
-                  <Body>{f.value}</Body>
-                )}
-              </View>
-            ))}
+        {/* Identity is centered; stats stay left-aligned below the cards. */}
+        <View style={styles.identity}>
+          {/* F11-half: custom-emoji names render through DisplayName.
+              Name==handle collapse (v1): the handle renders AS the display
+              name — one line, no second smaller handle line. */}
+          {shouldCollapseName(account) ? (
+            <DisplayName
+              account={{...account, displayName: handleOf(account)}}
+              sessionId={sid}
+              size={20}
+              testID="profile-name"
+            />
+          ) : (
+            <>
+              <DisplayName account={account} sessionId={sid} size={20} testID="profile-name" />
+              <Caption color="faint" testID="profile-handle">
+                {handleOf(account)}
+              </Caption>
+            </>
+          )}
+          {account.locked ? <Caption color="faint">Locked account.</Caption> : null}
+          {account.bot ? <Caption color="faint">Automated account.</Caption> : null}
+        </View>
+        {detail === 'split' ? (
+          <View testID="profile-detail-split" style={styles.splitRow}>
+            <View style={styles.splitCell}>{bioCard}</View>
+            <View style={styles.splitCell}>{fieldsList}</View>
+          </View>
+        ) : detail === 'center-bio' ? (
+          <View testID="profile-detail-center-bio" style={styles.centerRow}>
+            <View style={styles.centerCell}>{bioCard}</View>
+          </View>
+        ) : detail === 'center-fields' ? (
+          <View testID="profile-detail-center-fields" style={styles.centerRow}>
+            <View style={styles.centerCell}>{fieldsList}</View>
+          </View>
+        ) : detail === 'stack' ? (
+          <View testID="profile-detail-stack" style={styles.stack}>
+            {bioCard}
+            {fieldsList}
           </View>
         ) : null}
         <StatsLine
@@ -234,16 +286,35 @@ export function ProfileHeader({
 const styles = StyleSheet.create({
   body: {
     paddingHorizontal: space.md,
-    paddingBottom: space.sm,
+    paddingBottom: space.lg,
     gap: space.sm,
   },
   avatarRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     gap: space.sm,
   },
-  avatarOverlap: {marginTop: -36},
-  actionSlot: {flex: 1, alignItems: 'flex-end', justifyContent: 'center'},
+  // Half of the 88px avatar: it straddles the banner edge, and the
+  // action slot's matching top margin puts the buttons beside the half
+  // that hangs below the banner — never pinned to the far edge.
+  avatarOverlap: {marginTop: -44},
+  actionSlot: {
+    flexGrow: 0,
+    flexShrink: 1,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginTop: 44,
+  },
+  identity: {alignItems: 'center', width: '100%'},
+  card: {
+    borderRadius: radius.lg,
+    padding: space.md,
+  },
   fields: {gap: space.sm},
+  stack: {width: '100%', gap: space.sm},
+  splitRow: {width: '100%', flexDirection: 'row', gap: space.md, alignItems: 'flex-start'},
+  splitCell: {flex: 1},
+  centerRow: {width: '100%', flexDirection: 'row', justifyContent: 'center'},
+  centerCell: {width: '50%'},
   statsRow: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center'},
 })

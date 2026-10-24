@@ -242,6 +242,8 @@ export function adaptAccount(account: WireAccount): Account {
     avatarBlurhash: null,
     headerUrl: account.header_static ?? account.header ?? null,
     headerBlurhash: null,
+    // Mastodon has no profile-page background image. Always null.
+    backgroundUrl: null,
     followersCount: account.followers_count ?? 0,
     followingCount: account.following_count ?? 0,
     statusesCount: account.statuses_count ?? 0,

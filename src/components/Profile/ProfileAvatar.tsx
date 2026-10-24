@@ -6,7 +6,7 @@ import {Image, StyleSheet, View} from 'react-native'
 import {useTheme} from '#/alf/index'
 import {Body} from '#/alf/typography'
 
-export const PROFILE_AVATAR_SIZE = 72
+export const PROFILE_AVATAR_SIZE = 88
 
 export function ProfileAvatar({
   uri,

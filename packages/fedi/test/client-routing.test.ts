@@ -99,6 +99,7 @@ function accountRow(userId: string, host: string): Session["user"] {
     avatarBlurhash: null,
     headerUrl: null,
     headerBlurhash: null,
+    backgroundUrl: null,
     followersCount: 0,
     followingCount: 0,
     statusesCount: 0,

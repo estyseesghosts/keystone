@@ -72,6 +72,7 @@ function accountWithMe(me: Record<string, unknown> | undefined): Account {
     avatarBlurhash: null,
     headerUrl: null,
     headerBlurhash: null,
+    backgroundUrl: null,
     followersCount: 0,
     followingCount: 0,
     statusesCount: 0,

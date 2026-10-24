@@ -302,6 +302,8 @@ describe("adaptAccount / adaptCredentialAccount", () => {
     expect(account.emojis.keystone).toContain("custom_emojis/keystone.png");
     expect(account.avatarUrl).toContain("static/1.png"); // static preferred
     expect(account.headerUrl).toContain("static/1.png");
+    // Mastodon has no profile-page background. Always null.
+    expect(account.backgroundUrl).toBeNull();
     expect(account.movedTo).toBeNull();
     expect(account.suspended).toBe(false);
     expect(account.silenced).toBe(false);

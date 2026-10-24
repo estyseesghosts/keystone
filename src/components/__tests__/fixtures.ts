@@ -16,6 +16,7 @@ export function makeAccount(overrides: Partial<Account> = {}): Account {
     avatarBlurhash: null,
     headerUrl: null,
     headerBlurhash: null,
+    backgroundUrl: null,
     followersCount: 10,
     followingCount: 5,
     statusesCount: 42,

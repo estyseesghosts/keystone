@@ -21,6 +21,7 @@
 //   User.name/username/host-> Account.name/username/host (+ acct, displayName)
 //   User.description       -> Account.bio (MFM)
 //   User.bannerUrl         -> Account.headerUrl
+//   User.background[Url]   -> Account.backgroundUrl (never the banner)
 //   User.notesCount        -> Account.statusesCount
 //   DriveFile.*            -> Media.* (properties -> meta verbatim)
 //   DriveFolder.*          -> core DriveFolder (id/name/parentId only)
@@ -93,6 +94,7 @@ export function adaptAccount(user: UserLite | UserDetailed): Account {
     avatarBlurhash: user.avatarBlurhash ?? null,
     headerUrl: detailed.bannerUrl ?? null,
     headerBlurhash: detailed.bannerBlurhash ?? null,
+    backgroundUrl: backgroundUrlOf(detailed),
     followersCount: detailed.followersCount ?? 0,
     followingCount: detailed.followingCount ?? 0,
     statusesCount: detailed.notesCount ?? 0,
@@ -140,6 +142,20 @@ function bioContent(description: string | null | undefined): Content {
     mfm: description.length > 0 ? description : undefined,
     plain: plainFromMfm(description),
   };
+}
+
+/** Profile-page background URL: `backgroundUrl` wins, else the packed
+ * `background` file's `url`. Anything else (absent, null, empty, wrong
+ * shape) is null — never the banner, never invented. */
+function backgroundUrlOf(user: Partial<UserDetailed>): string | null {
+  const raw = user.backgroundUrl;
+  if (typeof raw === "string" && raw.length > 0) return raw;
+  const bg = user.background;
+  if (typeof bg === "object" && bg !== null) {
+    const url = (bg as { url?: unknown }).url;
+    if (typeof url === "string" && url.length > 0) return url;
+  }
+  return null;
 }
 
 function accountFields(user: Partial<UserDetailed>): AccountFieldModel[] {

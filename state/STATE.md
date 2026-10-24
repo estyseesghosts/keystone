@@ -53,6 +53,12 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
    Owner live-tests externally.
    P6.4 sidebar reshuffle also on `main` (`2e4b55b`; hovercard portal
    `416d39e`). Only `main` remains locally (unpushed).
+0c. Profile layout on `main` 2026-10-24 (unpushed; owner said
+    main, not a branch): avatar 88, centered identity, bio/field
+    cards, desktop split / mobile stack, `Account.backgroundUrl`
+    (Misskey shapes, Mastodon null). Log
+    `state/logs/2026-10-24-profile-layout.md`. 199 suites / 2551
+    tests green. Visual `not verified`.
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
    user-note/modlog/reset-password; Mastodon account_actions
    warn/suspend/silence + notes; NO delete-account). Single agent,

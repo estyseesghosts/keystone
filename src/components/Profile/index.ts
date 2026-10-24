@@ -4,4 +4,5 @@
 export {ProfileAvatar, PROFILE_AVATAR_SIZE} from '#/components/Profile/ProfileAvatar'
 export {ProfileBanner, PROFILE_BANNER_HEIGHT} from '#/components/Profile/ProfileBanner'
 export {FollowStateCaption, ProfileHeader} from '#/components/Profile/ProfileHeader'
+export {profileDetailLayout, type ProfileDetailLayout} from '#/components/Profile/profileDetailLayout'
 export {profileTabLabel, ProfileTabs} from '#/components/Profile/ProfileTabs'

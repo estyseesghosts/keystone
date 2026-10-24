@@ -10,6 +10,12 @@ import {ThemeProvider} from '#/alf/index'
 import {ProfileHeader, ProfileTabs} from '#/components/Profile'
 import type {ProfileFeedTab} from '#/state/queries'
 
+// ProfileHeader splits bio/fields on desktop widths; these tests pin a
+// mobile viewport so they exercise the stacked layout.
+jest.mock('#/alf/useViewportWidth', () => ({
+  useViewportWidth: () => 390,
+}))
+
 i18n.load('en', {})
 i18n.activate('en')
 
