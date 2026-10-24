@@ -183,6 +183,10 @@ export function ComposeScreen() {
   }
   return shell(
     <CompactComposer
+      // The sheet owns the single KeyboardAvoidingView (above) plus the
+      // maxHeight/inset geometry, so the composer's inner KAV is skipped —
+      // two layers would double-offset on iOS and Android (R0.3).
+      disableKeyboardAvoidance
       // Remount when the account or target changes: state never carries across.
       key={`${session.id}|${replyToId ?? ''}|${quoteId ?? ''}|${draftId ?? ''}|${editId ?? ''}|${redraftId ?? ''}`}
       session={session}

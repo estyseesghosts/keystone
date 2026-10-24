@@ -2,7 +2,7 @@
 // the backend exposes `renoteMutes`, and keeps the honest placeholder when
 // it does not (the Mastodon family has no endpoint and stays absent).
 
-import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
 import {ApiError, createMemoryStore} from '@keystone/fedi'
 
@@ -389,6 +389,95 @@ describe('Mutes section domain blocks (clickstone 1.4)', () => {
       expect(screen.queryByTestId('domain-blocks-input')).toBeNull()
     } finally {
       done()
+    }
+  })
+})
+
+// R0.1: word-mute fields must not cross accounts. Switching sessions
+// reseeds the textareas from the NEW account's record; saving then writes
+// the new account's strings to the new account's backend — never A's text
+// onto B.
+describe('Mutes section word fields reseed on account switch (R0.1)', () => {
+  const accountWithWords = (id: string, name: string, mutedWords: string[][], hardMutedWords: string[][]) =>
+    fakeAccount({
+      id,
+      username: name,
+      acct: name,
+      displayName: name,
+      ext: {me: {mutedWords, hardMutedWords, mutedInstances: []}},
+    })
+
+  it('shows account B text after a switch and saves B payload to the B backend', async () => {
+    const backendA = {
+      ...baseBackend(),
+      me: jest.fn(async () => accountWithWords('a1', 'alice', [['alpha']], [['hard-a']])),
+      updateProfile: jest.fn(async () => accountWithWords('a1', 'alice', [['alpha']], [['hard-a']])),
+    }
+    const backendB = {
+      ...baseBackend(),
+      me: jest.fn(async () => accountWithWords('b2', 'bob', [['beta']], [['hard-b']])),
+      updateProfile: jest.fn(async () => accountWithWords('b2', 'bob', [['beta']], [['hard-b']])),
+    }
+    const storage = createMemoryStore()
+    const restore = appStorage()
+    __setStorageForTests({storage})
+    mockBackendHolder.current = backendA
+    const sessionStore = createSessionStore({
+      storage: createMemoryStore(),
+      vault: memVault(),
+      homeOrigin: HOME_ORIGIN,
+      revokeFetch: (() => Promise.resolve(new Response('{}', {status: 200}))) as unknown as typeof fetch,
+    })
+    const sessionA = await sessionStore.add({
+      origin: ORIGIN,
+      family: 'misskey',
+      flavor: 'misskey',
+      accountId: 'alice',
+      token: 'token-alice',
+      grant: 'password',
+      hosting: 'third-party',
+    })
+    const sessionB = await sessionStore.add({
+      origin: ORIGIN,
+      family: 'misskey',
+      flavor: 'misskey',
+      accountId: 'bob',
+      token: 'token-bob',
+      grant: 'password',
+      hosting: 'third-party',
+    })
+    // Last add wins: start the tree on alice.
+    sessionStore.switch(sessionA.id)
+    render(
+      <ThemeProvider theme="light">
+        <SessionProvider store={sessionStore} homeOrigin={HOME_ORIGIN}>
+          <SettingsScreen />
+        </SessionProvider>
+      </ThemeProvider>,
+    )
+    try {
+      const softValue = () => screen.getByTestId('wordfield-mutedWords-input').props.value
+      const hardValue = () => screen.getByTestId('wordfield-hardMutedWords-input').props.value
+      await waitFor(() => expect(softValue()).toBe('alpha'))
+      expect(hardValue()).toBe('hard-a')
+
+      // Switch accounts: backend and session change together, the way the
+      // shell does. The fields must reseed from B, not keep A's text.
+      await act(async () => {
+        mockBackendHolder.current = backendB
+        sessionStore.switch(sessionB.id)
+      })
+      await waitFor(() => expect(softValue()).toBe('beta'))
+      expect(hardValue()).toBe('hard-b')
+
+      fireEvent.press(screen.getByTestId('wordfield-mutedWords-save'))
+      await waitFor(() =>
+        expect(backendB.updateProfile).toHaveBeenCalledWith({ext: {mutedWords: [['beta']]}}),
+      )
+      expect(backendA.updateProfile).not.toHaveBeenCalled()
+    } finally {
+      __setStorageForTests({storage: restore})
+      mockBackendHolder.current = null
     }
   })
 })

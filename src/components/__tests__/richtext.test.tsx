@@ -1,6 +1,6 @@
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
-import {fireEvent, render, screen} from '@testing-library/react-native'
+import {act, fireEvent, render, screen} from '@testing-library/react-native'
 import {Linking} from 'react-native'
 
 import {contentFromHtml, contentFromMfm} from '@keystone/fedi'
@@ -290,6 +290,28 @@ describe('RichText text scale + content mode (P1/P3)', () => {
         <RichText nodes={contentFromMfm('**bold** and [label](https://example.com)')} testID="plain" />,
       )
       expect(screen.getByText('bold and label')).toBeTruthy()
+    } finally {
+      appearanceStore.setContentMode('auto')
+    }
+  })
+
+  it('keeps rendering across a rich -> plain -> rich contentMode flip', () => {
+    // R0.2: `hasBlock` is computed unconditionally above the `plain` early
+    // return, so the hook count cannot change when the mode flips. This
+    // exercises the flip through the real store subscription and locks the
+    // output in both modes.
+    appearanceStore.setContentMode('auto')
+    try {
+      renderRichText(<RichText nodes={contentFromMfm('hello')} testID="flip" />)
+      expect(screen.getByText('hello')).toBeTruthy()
+      act(() => {
+        appearanceStore.setContentMode('plain')
+      })
+      expect(screen.getByText('hello')).toBeTruthy()
+      act(() => {
+        appearanceStore.setContentMode('auto')
+      })
+      expect(screen.getByText('hello')).toBeTruthy()
     } finally {
       appearanceStore.setContentMode('auto')
     }

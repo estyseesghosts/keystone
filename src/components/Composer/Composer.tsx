@@ -67,13 +67,6 @@ import {pickMedia} from './pickMedia'
 // Every optional control is gated by `composeGates` (capabilities + backend
 // sub-modules): unsupported controls are hidden or disabled WITH a reason.
 
-const POLL_DURATIONS: Array<{label: string; seconds: number}> = [
-  {label: '5 min', seconds: 300},
-  {label: '1 hour', seconds: 3600},
-  {label: '1 day', seconds: 86400},
-  {label: '7 days', seconds: 604800},
-]
-
 // Sheet keyboard helpers (C2/C3): pure, jest-covered. The sheet's
 // KeyboardAvoidingView already offsets on iOS; these drive the native-only
 // maxHeight/padding adjustments from keyboard show/hide listeners so the
@@ -220,6 +213,11 @@ export function useComposerController({
   // informational, never an error — the post went through.
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Single-flight guard (R0.3): `busy` state commits after an async gap, so
+  // a second submit dispatched in the same tick (double-tap, keyboard
+  // submit, both chromes) would run validation + upload + create twice.
+  // The ref flips synchronously, before any await, and clears in `finally`.
+  const submitRef = useRef(false)
   const [showDrafts, setShowDrafts] = useState(false)
   const [pickingEmoji, setPickingEmoji] = useState(false)
   const patch = useCallback((p: Partial<ComposeState>) => setState(s => ({...s, ...p})), [])
@@ -350,6 +348,10 @@ export function useComposerController({
   }, [family, uploads])
 
   const submit = async () => {
+    // Single-flight: a submit already in flight (ref set synchronously at
+    // entry, before any await) wins; the late caller is dropped, not queued.
+    if (submitRef.current) return
+    submitRef.current = true
     setError(null)
     setNotice(null)
     // Edit mode (C7): validate the same rules, then save through
@@ -363,6 +365,7 @@ export function useComposerController({
       const pre = buildPostDraft({...state, replyTo: null, quote: null}, {family, gates, limits})
       if (!pre.ok) {
         setError(pre.reason)
+        submitRef.current = false
         return
       }
       setBusy(true)
@@ -393,6 +396,7 @@ export function useComposerController({
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not save the edit.')
       } finally {
+        submitRef.current = false
         setBusy(false)
       }
       return
@@ -410,6 +414,7 @@ export function useComposerController({
     )
     if (!pre.ok) {
       setError(pre.reason)
+      submitRef.current = false
       return
     }
     setBusy(true)
@@ -477,6 +482,7 @@ export function useComposerController({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not post.')
     } finally {
+      submitRef.current = false
       setBusy(false)
     }
   }

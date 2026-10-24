@@ -30,7 +30,7 @@ const session = (): Session =>
     user: {id: 'me', displayName: 'Me', avatarUrl: null},
   }) as unknown as Session
 
-function setup(props?: {onClose?: () => void}) {
+function setup(props?: {onClose?: () => void; disableKeyboardAvoidance?: boolean}) {
   const store = createMemoryStore()
   const backend = {
     family: 'misskey',
@@ -49,7 +49,13 @@ function setup(props?: {onClose?: () => void}) {
   render(
     <QueryClientProvider client={qc}>
       <ThemeProvider>
-        <CompactComposer session={s} backend={backend} store={store} onClose={props?.onClose} />
+        <CompactComposer
+          session={s}
+          backend={backend}
+          store={store}
+          onClose={props?.onClose}
+          disableKeyboardAvoidance={props?.disableKeyboardAvoidance}
+        />
       </ThemeProvider>
     </QueryClientProvider>,
   )
@@ -115,5 +121,14 @@ describe('CompactComposer', () => {
   it('wraps content in a KeyboardAvoidingView so the toolbar stays reachable', () => {
     setup()
     expect(screen.UNSAFE_getByType(KeyboardAvoidingView)).toBeTruthy()
+  })
+
+  it('skips its KeyboardAvoidingView when an ancestor already offsets (compose sheet)', () => {
+    setup({disableKeyboardAvoidance: true})
+    // Same chrome, single offset owner: the sheet's KAV does the work.
+    expect(screen.getByTestId('composer-compact')).toBeTruthy()
+    expect(screen.UNSAFE_queryAllByType(KeyboardAvoidingView)).toHaveLength(0)
+    expect(screen.getByTestId('composer-text')).toBeTruthy()
+    expect(screen.getByTestId('composer-submit')).toBeTruthy()
   })
 })

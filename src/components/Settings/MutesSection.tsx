@@ -71,11 +71,24 @@ function WordField({
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // The account record can arrive after the user starts typing: seed from
-  // it at most once, and never over an edit (refs, so no stale closures).
+  // it at most once per account, and never over an edit (refs, so no
+  // stale closures). When the account identity changes — including to null
+  // while the next account loads — drop the old text AND old edits (R0.1):
+  // account A's draft must never seed, and save onto, account B.
   const seeded = useRef(false)
   const edited = useRef(false)
+  const lastAccountId = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
+    const id = me?.id ?? null
+    if (lastAccountId.current != null && lastAccountId.current !== id) {
+      lastAccountId.current = id
+      edited.current = false
+      seeded.current = me != null
+      setValue(me ? fieldValues(me, field) : '')
+      return
+    }
+    lastAccountId.current = id
     if (!seeded.current && me) {
       seeded.current = true
       if (!edited.current) setValue(fieldValues(me, field))
@@ -609,6 +622,14 @@ export function MutesSection() {
   const [me, setMe] = useState<Account | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const refresh = useCallback(() => setRefreshKey(k => k + 1), [])
+
+  // Account switch: drop the previous account's record immediately so the
+  // word fields clear while the next account loads instead of seeding from
+  // (and briefly displaying) stale data. Same-account refreshes do not
+  // clear: refreshKey alone leaves me (and in-progress edits) intact.
+  useEffect(() => {
+    setMe(null)
+  }, [backend])
 
   useEffect(() => {
     let cancelled = false

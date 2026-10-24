@@ -4,7 +4,7 @@
 
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-native'
-import {Keyboard, StyleSheet} from 'react-native'
+import {Keyboard, KeyboardAvoidingView, StyleSheet} from 'react-native'
 
 import {buildCapabilities, createMemoryStore} from '@keystone/fedi'
 
@@ -175,6 +175,18 @@ describe('ComposeScreen sheet', () => {
         maxHeight?: number
       }
       expect(hidden.maxHeight).toBe(before.maxHeight)
+    } finally {
+      done()
+    }
+  })
+
+  it('offsets for the keyboard exactly once (single KeyboardAvoidingView)', async () => {
+    // R0.3: the sheet owns the KAV; the composer's inner KAV is skipped on
+    // this path so iOS/Android do not double-offset. Home's standalone
+    // composer keeps its own KAV (covered by CompactComposer.test.tsx).
+    const {done} = await setup()
+    try {
+      expect(screen.UNSAFE_queryAllByType(KeyboardAvoidingView)).toHaveLength(1)
     } finally {
       done()
     }

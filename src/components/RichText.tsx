@@ -1028,6 +1028,7 @@ export function RichText({
     }),
     [emojis, sessionId, authorHost, emojiStyle, scaledSize, onMentionPress, onHashtagPress, onLinkPress, backend, linkTitles, hideLoneLinkChipFor, theme],
   )
+  const hasBlock = useMemo(() => nodes.some(isBlock), [nodes])
   if (contentMode === 'plain') {
     return (
       <View style={style} testID={testID}>
@@ -1042,7 +1043,6 @@ export function RichText({
       </View>
     )
   }
-  const hasBlock = useMemo(() => nodes.some(isBlock), [nodes])
   if (!hasBlock) {
     return (
       <View style={style} testID={testID}>

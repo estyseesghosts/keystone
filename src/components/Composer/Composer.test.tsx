@@ -1,4 +1,4 @@
-import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {StyleSheet} from 'react-native'
 import {I18nProvider} from '@lingui/react'
@@ -101,6 +101,33 @@ describe('Composer', () => {
       visibility: {kind: 'quiet', localOnly: false, raw: 'home'},
     })
     expect(listDrafts(store, s.id)).toEqual([])
+  })
+
+  it('submits only once when submit fires twice before busy commits', async () => {
+    // Single-flight (R0.3): `busy` state commits after an async gap, so two
+    // synchronous dispatches (double-tap, keyboard submit) must still
+    // produce one create. The gate holds the first create pending so both
+    // dispatches run to their first await before either finishes.
+    let release!: (post: unknown) => void
+    const gate = new Promise<unknown>(resolve => {
+      release = resolve
+    })
+    const created = {
+      id: 'new',
+      author: {id: 'me'},
+      counts: {replies: 0, boosts: 0, quotes: 0, reactions: 0, favourites: 0},
+    }
+    const createPost = jest.fn().mockReturnValue(gate.then(() => created))
+    const {onClose} = setup('sharkey', {createPost})
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+    const submit = screen.getByTestId('composer-submit')
+    fireEvent.press(submit)
+    fireEvent.press(submit)
+    await act(async () => {})
+    expect(createPost).toHaveBeenCalledTimes(1)
+    release(created)
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(createPost).toHaveBeenCalledTimes(1)
   })
 
   it('autosaves a draft keyed by session and restores it', async () => {

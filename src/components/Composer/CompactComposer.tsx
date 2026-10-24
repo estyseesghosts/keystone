@@ -138,8 +138,16 @@ function ToolButton({
   )
 }
 
-export function CompactComposer(props: ComposerProps) {
-  const c = useComposerController(props)
+export interface CompactComposerProps extends ComposerProps {
+  /** Skip the inner KeyboardAvoidingView when an ancestor already offsets
+   * for the keyboard (the compose sheet owns its KAV + maxHeight/inset).
+   * Standalone use (Home inline composer) keeps the default. */
+  disableKeyboardAvoidance?: boolean
+}
+
+export function CompactComposer(props: CompactComposerProps) {
+  const {disableKeyboardAvoidance = false, ...rest} = props
+  const c = useComposerController(rest)
   const theme = useTheme()
   const muted = theme.palette.muted
   const [audienceOpen, setAudienceOpen] = useState(false)
@@ -173,12 +181,10 @@ export function CompactComposer(props: ComposerProps) {
   const avatarUri = c.session.user?.avatarUrl ?? null
   const avatarName = c.session.user?.displayName ?? c.session.accountId
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      testID="composer-compact"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={0}>
+  // Single keyboard-offset owner: standalone (Home) keeps the KAV below;
+  // when already wrapped (compose sheet), the ancestor offsets instead.
+  const body = (
+    <>
       {/* C2 close control: inline Home composer has no onClose and stays
           chrome-free (v1 postbox). The full mobile-sheet redesign rides W6 —
           this header button is only a dismiss escape hatch until then. */}
@@ -493,6 +499,22 @@ export function CompactComposer(props: ComposerProps) {
         </Body>
       ) : null}
       {c.notice ? <Body testID="composer-notice">{c.notice}</Body> : null}
+    </>
+  )
+  if (disableKeyboardAvoidance) {
+    return (
+      <View style={styles.root} testID="composer-compact">
+        {body}
+      </View>
+    )
+  }
+  return (
+    <KeyboardAvoidingView
+      style={styles.root}
+      testID="composer-compact"
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}>
+      {body}
     </KeyboardAvoidingView>
   )
 }
