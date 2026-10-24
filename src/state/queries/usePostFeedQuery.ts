@@ -22,6 +22,7 @@ import {appStorage} from '#/storage'
 
 import {feedQueryKey, type AppQueryKey} from './keys'
 import {GC_TIME, STALE} from './stale'
+import {retryPolicy} from './retry'
 
 // Post-feed infinite query (slice 3.2): serves every timeline screen and
 // every deck column. `usePostFeedQuery(sessionId, descriptor)` pages the
@@ -226,7 +227,7 @@ export function usePostFeedQuery(
     staleTime: STALE.FEED,
     gcTime: GC_TIME.FEED,
     enabled: backend != null,
-    retry: options.retry ?? 2,
+    retry: retryPolicy(options.retry),
     refetchOnWindowFocus: false,
   })
   return {...query, queryKey}

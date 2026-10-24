@@ -50,6 +50,7 @@ import {
   type AppQueryKey,
 } from './keys'
 import {GC_TIME, STALE} from './stale'
+import {retryPolicy} from './retry'
 import {SIGNED_OUT_SCOPE} from './usePostFeedQuery'
 
 export const CHAT_PAGE_LIMIT = 20
@@ -129,7 +130,7 @@ export function useChatRoomsQuery(sessionId: string | null, options: ChatQueryOp
     staleTime: STALE.FEED,
     gcTime: GC_TIME.FEED,
     enabled: backend != null,
-    retry: options.retry ?? 2,
+    retry: retryPolicy(options.retry),
     refetchOnWindowFocus: false,
   })
   return {...query, queryKey}
@@ -151,7 +152,7 @@ export function useChatRoomQuery(
     staleTime: STALE.FEED,
     gcTime: GC_TIME.FEED,
     enabled: backend != null && roomId != null,
-    retry: options.retry ?? 2,
+    retry: retryPolicy(options.retry),
     refetchOnWindowFocus: false,
   })
   return {...query, queryKey}
@@ -176,7 +177,7 @@ function useChatMessages(
     staleTime: STALE.FEED,
     gcTime: GC_TIME.FEED,
     enabled: backend != null && enabled,
-    retry: options.retry ?? 2,
+    retry: retryPolicy(options.retry),
     refetchOnWindowFocus: false,
   })
   return {...query, queryKey: key}

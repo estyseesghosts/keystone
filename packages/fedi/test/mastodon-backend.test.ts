@@ -559,6 +559,41 @@ describe("MastodonBackend services and error boundary", () => {
     expect((err as ApiError).kind).toBe("timeout");
   });
 
+  it("a 429 keeps its Retry-After headers in params for backoff", () => {
+    const err = toApiError(
+      new MastoHttpError({
+        message: "Too Many Requests",
+        kind: "http",
+        origin: "https://mastodon.example",
+        path: "/api/v1/accounts/x",
+        status: 429,
+        rateLimit: { limit: "300", remaining: "0", reset: "123", retryAfter: "42" },
+      }),
+    );
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(429);
+    expect((err as ApiError).params).toMatchObject({
+      status: 429,
+      retryAfter: "42",
+      retryAfterMs: 42000,
+      rateLimitRemaining: "0",
+      rateLimitReset: "123",
+    });
+  });
+
+  it("a 429 without headers converts with no retry hints", () => {
+    const err = toApiError(
+      new MastoHttpError({
+        message: "Too Many Requests",
+        kind: "http",
+        origin: "https://mastodon.example",
+        path: "/api/v1/accounts/x",
+        status: 429,
+      }),
+    );
+    expect((err as ApiError).params).toEqual({ status: 429 });
+  });
+
   it("stream() binds the session origin (WebSocket design); null only with no WebSocket", () => {
     // Feeds keep refresh + paging whenever streaming is unavailable.
     const RealWebSocket = (globalThis as { WebSocket?: unknown }).WebSocket;

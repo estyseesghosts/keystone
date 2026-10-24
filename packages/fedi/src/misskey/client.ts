@@ -32,6 +32,15 @@ import type { ServerFlavor } from "../core/detect";
 import type { Session } from "../core/sessions";
 import { ApiError, FediError } from "../core/errors";
 
+/** Dev-only API census (see the Mastodon transport): one console line
+ * per endpoint call. Silent in tests and production. */
+declare const __DEV__: boolean | undefined;
+const DEV_MISSKEY_API_LOG =
+  typeof __DEV__ !== "undefined" &&
+  __DEV__ &&
+  typeof process !== "undefined" &&
+  process.env.NODE_ENV !== "test";
+
 interface ApiErrorBody {
   error?: { message?: string; code?: string; kind?: string };
 }
@@ -199,6 +208,7 @@ export function createMisskeyClient(
     const path = endpointPath(session.origin, endpoint);
     const body = authenticated ? authedParams(session, params) : params;
     try {
+      if (DEV_MISSKEY_API_LOG) console.debug(`[fedi-api] → POST /api/${endpoint}`);
       const res = await requestJson<T>(session.origin, path, {
         method: "POST",
         json: body,

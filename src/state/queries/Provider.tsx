@@ -8,6 +8,7 @@ import type {KeyValueStore} from '@keystone/fedi'
 import {appKeyValueStore} from '#/storage'
 
 import {GC_TIME, QUERY_BUSTER, QUERY_PERSIST_MAX_AGE, STALE} from './stale'
+import {retryPolicy} from './retry'
 
 // Query provider (slice 3.2): the app's `QueryClient` plus MMKV-backed
 // query persistence. Nothing persisted before this slice (verified: no
@@ -30,7 +31,7 @@ export function createAppQueryClient(): QueryClient {
       queries: {
         staleTime: STALE.FEED,
         gcTime: GC_TIME.FEED,
-        retry: 2,
+        retry: retryPolicy(),
         refetchOnWindowFocus: false,
       },
     },

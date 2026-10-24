@@ -23,6 +23,7 @@ import {
 
 import {createQueryKey, type AppQueryKey} from './keys'
 import {GC_TIME, STALE} from './stale'
+import {retryPolicy} from './retry'
 
 /** Key for one session's loaded thread (post + ancestors). */
 export function threadQueryKey(sessionId: string, postId: string): AppQueryKey {
@@ -89,7 +90,7 @@ export function usePostThreadQuery(
     enabled: sessionId != null && postId.length > 0 && backend != null,
     staleTime: STALE.POST,
     gcTime: GC_TIME.POST,
-    retry: options.retry ?? 2,
+    retry: retryPolicy(options.retry),
     refetchOnWindowFocus: false,
   })
   return {...query, queryKey}
@@ -126,7 +127,7 @@ export function useThreadRepliesQuery(
     enabled: sessionId != null && parentId.length > 0 && backend != null,
     staleTime: STALE.FEED,
     gcTime: GC_TIME.FEED,
-    retry: options.retry ?? 2,
+    retry: retryPolicy(options.retry),
     refetchOnWindowFocus: false,
   })
   return {...query, queryKey}
@@ -163,7 +164,7 @@ function infinitePages<PageT>(
     enabled: sessionId != null && id.length > 0 && backend != null,
     staleTime: stale,
     gcTime: gc,
-    retry: retry ?? 2,
+    retry: retryPolicy(retry),
     refetchOnWindowFocus: false,
   })
   return {...query, queryKey}
@@ -246,7 +247,7 @@ export function useEditHistoryQuery(
       sessionId != null && postId.length > 0 && typeof backend?.editHistory === 'function',
     staleTime: STALE.POST,
     gcTime: GC_TIME.POST,
-    retry: options.retry ?? 2,
+    retry: retryPolicy(options.retry),
     refetchOnWindowFocus: false,
   })
   return {...query, queryKey}

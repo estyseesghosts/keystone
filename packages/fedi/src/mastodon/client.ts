@@ -28,6 +28,24 @@ import { resolveSameOriginUrl } from "../core/http";
  * `kind: "timeout"` errors naming the endpoint — never eternal skeletons. */
 export const DEFAULT_TIMEOUT_MS = 30_000;
 
+/** Dev-only API census: one console line per request (method + path)
+ * plus a line for non-2xx statuses, so a throttle storm shows its
+ * shape directly in the dev console. Silent in tests and production. */
+declare const __DEV__: boolean | undefined;
+const DEV_API_LOG =
+  typeof __DEV__ !== "undefined" &&
+  __DEV__ &&
+  typeof process !== "undefined" &&
+  process.env.NODE_ENV !== "test";
+
+function devLogRequest(method: string, path: string): void {
+  if (DEV_API_LOG) console.debug(`[fedi-api] → ${method} ${path}`);
+}
+
+function devLogStatus(method: string, path: string, status: number): void {
+  if (DEV_API_LOG) console.debug(`[fedi-api] ✕ ${method} ${path} → ${status}`);
+}
+
 export type QueryPrimitive = string | number | boolean | null | undefined;
 export type QueryValue = QueryPrimitive | QueryValue[] | { [key: string]: QueryValue };
 
@@ -96,14 +114,29 @@ export function isTimeoutError(err: unknown): boolean {
   return err instanceof MastoHttpError && err.kind === "timeout";
 }
 
+/** Parse a raw `Retry-After` value (delta-seconds or HTTP-date) to a
+ * millisecond delay, else null. Pure. */
+export function retryAfterMs(raw: string | null | undefined): number | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  if (/^\d+$/.test(trimmed)) return Number(trimmed) * 1000;
+  const at = Date.parse(trimmed);
+  if (!Number.isNaN(at)) return Math.max(0, at - Date.now());
+  return null;
+}
+
 /**
  * Transport errors become the UI's shared `ApiError` AT the boundary, so
  * every honest-state rule the Misskey family relies on (`isUnsupportedError`
  * = 404/405, `isPermissionError` = 401/403) reads the same here. A
  * timeout keeps `kind: "timeout"` — it is never "endpoint unsupported".
- * Non-transport values pass through untouched. Direct endpoint / oauth /
- * instance callers (which bypass the backend's guarded client) should run
- * failures through this before probing support — MD12.
+ * The 429 headers survive in `params` (`retryAfter` raw +
+ * `retryAfterMs` parsed) so callers can back off intelligently instead
+ * of hammering. Non-transport values pass through untouched. Direct
+ * endpoint / oauth / instance callers (which bypass the backend's
+ * guarded client) should run failures through this before probing
+ * support — MD12.
  */
 export function toApiError(err: unknown): unknown {
   if (err instanceof MastoHttpError) {
@@ -111,7 +144,17 @@ export function toApiError(err: unknown): unknown {
       err.body !== null && typeof err.body === "object"
         ? ((err.body as { error?: unknown }).error as string | undefined)
         : undefined;
-    return new ApiError(err.message, err.status, code, err.kind);
+    const rateLimit = err.rateLimit;
+    return new ApiError(err.message, err.status, code, err.kind, {
+      ...(rateLimit
+        ? {
+            retryAfter: rateLimit.retryAfter,
+            retryAfterMs: retryAfterMs(rateLimit.retryAfter),
+            rateLimitRemaining: rateLimit.remaining,
+            rateLimitReset: rateLimit.reset,
+          }
+        : {}),
+    });
   }
   return err;
 }
@@ -283,6 +326,7 @@ export async function request<T = unknown>(
 
   let response: Response;
   try {
+    devLogRequest(method, url.pathname + url.search);
     response = await fetch(url.toString(), {
       method,
       headers,
@@ -353,6 +397,7 @@ export async function request<T = unknown>(
 
   if (!response.ok) {
     // 202 (async media) and 206 (regenerating/processing) are OK statuses.
+    devLogStatus(method, url.pathname + url.search, response.status);
     throw new MastoHttpError({
       kind: "http",
       code: "errors.network.apiError",

@@ -34,6 +34,7 @@ import {appStorage} from '#/storage'
 
 import {conversationQueryKey, conversationsQueryKey, type AppQueryKey} from './keys'
 import {GC_TIME, STALE} from './stale'
+import {retryPolicy} from './retry'
 import {SIGNED_OUT_SCOPE} from './usePostFeedQuery'
 
 export const CONVERSATIONS_PAGE_LIMIT = 20
@@ -104,7 +105,7 @@ export function useConversationsQuery(
     staleTime: STALE.FEED,
     gcTime: GC_TIME.FEED,
     enabled: backend != null,
-    retry: options.retry ?? 2,
+    retry: retryPolicy(options.retry),
     refetchOnWindowFocus: false,
   })
   return {...query, queryKey}
@@ -126,7 +127,7 @@ export function useConversationQuery(
     staleTime: STALE.FEED,
     gcTime: GC_TIME.FEED,
     enabled: backend != null && conversationId != null,
-    retry: options.retry ?? 2,
+    retry: retryPolicy(options.retry),
     refetchOnWindowFocus: false,
   })
   return {...query, queryKey}

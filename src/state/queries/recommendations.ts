@@ -19,6 +19,7 @@ import {useSessionStore} from '#/state/session/SessionProvider'
 
 import {meQueryKey, recommendationInterestsQueryKey, recommendationsProbeQueryKey} from './keys'
 import {STALE} from './stale'
+import {retryPolicy} from './retry'
 import {useMe} from './me'
 
 /** Backend for an arbitrary session id (mirrors HomeFeed's helper without
@@ -87,7 +88,7 @@ export function useRecommendationsAvailable(
     queryKey: sessionId ? recommendationsProbeQueryKey(sessionId) : ['recommendations', 'probe', 'signed-out'],
     enabled: sessionId != null && backend != null && hasModule && enabled,
     staleTime: STALE.FEED,
-    retry: 1,
+    retry: retryPolicy(1),
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<boolean> => {
       if (!backend?.recommendations) return false
@@ -120,7 +121,7 @@ export function useRecommendationInterests(
     queryKey: sessionId ? recommendationInterestsQueryKey(sessionId) : ['recommendations', 'interests', 'signed-out'],
     enabled: sessionId != null && backend?.recommendations != null,
     staleTime: STALE.FEED,
-    retry: 1,
+    retry: retryPolicy(1),
     refetchOnWindowFocus: false,
     queryFn: async () => {
       if (!backend?.recommendations) return {interested: [], disinterested: []}

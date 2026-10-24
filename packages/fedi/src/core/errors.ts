@@ -51,3 +51,34 @@ export class ApiError extends FediError {
     this.kind = kind;
   }
 }
+
+/** Best-effort HTTP status of anything a query/mutation may throw:
+ * `.status` when present and sane (`ApiError`, `HttpError`), else the
+ * `params.status` the constructors mirror there. 0 (never reached the
+ * server) and absent both read null — never a retry decision. Pure. */
+export function httpStatusOf(err: unknown): number | null {
+  if (typeof err !== "object" || err === null) return null;
+  const direct = (err as { status?: unknown }).status;
+  if (typeof direct === "number" && Number.isFinite(direct) && direct > 0) return direct;
+  const params = (err as { params?: unknown }).params;
+  if (typeof params === "object" && params !== null) {
+    const mirrored = (params as { status?: unknown }).status;
+    if (typeof mirrored === "number" && Number.isFinite(mirrored) && mirrored > 0) {
+      return mirrored;
+    }
+  }
+  return null;
+}
+
+/** HTTP statuses no retry can fix: rejected auth, a missing target, an
+ * unprocessable request, or explicit throttling. Timeouts, network
+ * failures (status 0/absent), and 5xx stay retryable. Pure. */
+const NON_RETRYABLE_STATUSES: ReadonlySet<number> = new Set([401, 403, 404, 410, 422, 429]);
+
+/** True when refetching this failure is pointless (auth/missing/
+ * invalid/throttled). Query `retry` predicates consult this so one
+ * throttled request does not become three. Pure. */
+export function isNonRetryableStatus(err: unknown): boolean {
+  const status = httpStatusOf(err);
+  return status !== null && NON_RETRYABLE_STATUSES.has(status);
+}
