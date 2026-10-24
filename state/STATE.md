@@ -38,11 +38,10 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
-0. Composer shrink snap fixed on `main` 2026-10-24 (unpushed):
-   single measuring path per platform — web remeasures
-   unconditionally, pre-paint on typing + post-commit on text change.
-   Log `state/logs/2026-10-24-composer-shrink-snap.md`. 197 suites /
-   2529 tests green. Owner confirms visually.
+0. Composer freeze fixed on `main` 2026-10-24 (unpushed): event
+   owns growth again, unconditional remeasure keeps shrink — one writer
+   per direction. Log `state/logs/2026-10-24-composer-freeze-fix.md`.
+   197 suites / 2529 tests green. Owner confirms visually.
 0b. Recommendations feed (dvd-sharkey fork port) on `main` 2026-10-24
    (unpushed): `recommendations` descriptor + Backend module
    (offset-paged, probe-detected), Home tab bar above the composer,

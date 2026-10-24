@@ -2,20 +2,23 @@
 // content between a floor (the resting box) and a ceiling (past it the
 // field scrolls internally).
 //
-// One measuring path per platform, one source of truth — the two paths
-// must never disagree or the box visibly fights between sizes:
-// - native: `onContentSizeChange` (content size is content-based there).
-// - web: imperative `remeasure` — RN Web reports `scrollHeight`, which
-//   never drops below an explicit height, so the contentSize event goes
-//   blind on shrink and only the unconstrained read (`height: auto` →
-//   `scrollHeight` → restore, no paint in between) sees the truth.
+// Two cooperating paths, each owning one direction — they never fight
+// because they never disagree about the steady state:
+// - growth: `onContentSizeChange`. On web this only fires when content
+//   outgrows the box, which is exactly the growth case, so the event is
+//   authoritative there (and the sole path on native, where content
+//   size is content-based).
+// - shrink: imperative `remeasure` on web. RN Web reports
+//   `scrollHeight`, which never drops below an explicit height, so the
+//   contentSize event goes blind on shrink and only the unconstrained
+//   read (`height: auto` → `scrollHeight` → restore, no paint in
+//   between) sees the truth.
 //
 // `remeasure` runs unconditionally: before paint from `onChangeText`
 // (zero-lag while typing) and after commit for every text change
 // (covers drafts, restores, and suggestion picks, which bypass the text
-// handler). All three compute the identical clamped value, so repeated
-// calls converge instead of fighting. Values round up and clamp;
-// identical heights bail out in state, so there is no layout loop.
+// handler). Values round up and clamp; identical heights bail out in
+// state, so there is no layout loop.
 
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {
@@ -50,10 +53,9 @@ export function useAutogrowInput(minHeight: number, maxHeight: number, text: str
   )
   const onContentSizeChange = useCallback(
     (e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
-      // Native path. On web this stays attached but rarely fires (an
-      // explicit height pins `scrollHeight`); when it does, it agrees
-      // with `remeasure` below — same clamped value, never a fight.
-      if (Platform.OS === 'web') return
+      // Growth lives here on every platform: the event fires exactly
+      // when content outgrows the box. (It goes blind on shrink once an
+      // explicit height is set — that half belongs to `remeasure`.)
       clamp(e.nativeEvent.contentSize.height)
     },
     [clamp],
