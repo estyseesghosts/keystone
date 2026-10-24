@@ -4,7 +4,7 @@ import {fireEvent, render, screen} from '@testing-library/react-native'
 import type {Media} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
-import {PostMediaGrid, displayAspect, tileAspect} from './PostMediaGrid'
+import {PostMediaGrid, displayAspect, isOutOfRange, tileAspect, MAX_DISPLAY_H} from './PostMediaGrid'
 
 i18n.load('en', {})
 i18n.activate('en')
@@ -74,6 +74,20 @@ describe('tileAspect', () => {
     expect(tileAspect(metaMedia(100, 300), true)).toBe(0.75)
   })
 
+  it('bounds single height absolutely (wide-column portraits)', () => {
+    expect(MAX_DISPLAY_H).toBe(480)
+  })
+
+  it('flags only outside ratios for cropping', () => {
+    expect(isOutOfRange(2)).toBe(false)
+    expect(isOutOfRange(0.75)).toBe(false)
+    expect(isOutOfRange(1)).toBe(false)
+    expect(isOutOfRange(3)).toBe(true)
+    expect(isOutOfRange(0.5)).toBe(true)
+    expect(isOutOfRange(NaN)).toBe(false)
+    expect(isOutOfRange(0)).toBe(false)
+  })
+
   it('defaults a metadata-less single to 16:10', () => {
     expect(tileAspect(imageMedia(), true)).toBe(16 / 10)
   })
@@ -100,6 +114,43 @@ describe('PostMediaGrid sizing', () => {
     expect(screen.getByLabelText('A cat')).toBeTruthy()
     fireEvent.press(screen.getByLabelText('Open media: A cat'))
     expect(onOpen).toHaveBeenCalledWith(0)
+  })
+
+  it('fits single stills (contain — scale down, never crop)', () => {
+    const onOpen = jest.fn()
+    renderWithProviders(
+      <PostMediaGrid
+        media={[imageMedia({id: 'm1', description: 'Tall'})]}
+        onOpen={onOpen}
+        testID="grid"
+      />,
+    )
+    expect(screen.getByLabelText('Tall').props.resizeMode).toBe('contain')
+  })
+
+  it('crops ONLY outside singles (cover to the clamped box)', () => {
+    const onOpen = jest.fn()
+    renderWithProviders(
+      <PostMediaGrid
+        media={[metaMedia(3000, 1000, {id: 'm1', description: 'Pano'})]}
+        onOpen={onOpen}
+        testID="grid"
+      />,
+    )
+    expect(screen.getByLabelText('Pano').props.resizeMode).toBe('cover')
+  })
+
+  it('keeps the uniform cover crop on strip tiles', () => {
+    const onOpen = jest.fn()
+    renderWithProviders(
+      <PostMediaGrid
+        media={[imageMedia({id: 'm1', description: 'One'}), imageMedia({id: 'm2', description: 'Two'})]}
+        onOpen={onOpen}
+        testID="grid"
+      />,
+    )
+    expect(screen.getByLabelText('One').props.resizeMode).toBe('cover')
+    expect(screen.getByLabelText('Two').props.resizeMode).toBe('cover')
   })
 
   it('renders nothing without media', () => {

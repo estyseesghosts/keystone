@@ -38,11 +38,12 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
-0. X-style post image sizing on `main` 2026-10-24 (unpushed):
-   singles render full-width natural AR clamped 2:1 … 3:4 (crop only
-   outside); 320px cap removed; all post surfaces via PostMediaGrid.
-   Log `state/logs/2026-10-24-image-sizing.md`. 197 suites /
-   2494 tests green. Owner confirms visually.
+0. Post media fit + hugging frame on `main` 2026-10-24 (unpushed):
+   singles full-width natural AR clamped 2:1 … 3:4, height capped
+   480 (scales down, never crops); crop ONLY outside images; frame
+   hugs content left-justified. Log
+   `state/logs/2026-10-24-image-sizing-fit.md`. 197 suites /
+   2499 tests green. Owner confirms visually.
 0b. Recommendations feed (dvd-sharkey fork port) on `main` 2026-10-24
    (unpushed): `recommendations` descriptor + Backend module
    (offset-paged, probe-detected), Home tab bar above the composer,

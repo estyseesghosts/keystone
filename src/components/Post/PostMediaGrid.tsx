@@ -1,9 +1,10 @@
 // Post media (X-style natural sizing per docs/image-sizing.md): a lone
 // attachment renders fit-width at its natural aspect ratio, clamped to
-// the 2:1-landscape … 3:4-portrait display range — in-range images show
-// in full, only outside shapes crop to the clamped box. Two or more
-// render as a horizontal snap strip of 220px-tall items (unchanged).
-// Sensitive media stays behind an explicit reveal.
+// the 2:1-landscape … 3:4-portrait display range and capped at 480px
+// tall. In-range images show in full; the height cap scales down
+// (letterboxes); ONLY outside shapes crop, to the clamped box. Two or
+// more render as a horizontal snap strip of 220px-tall cover-crop items
+// (unchanged). Sensitive media stays behind an explicit reveal.
 //
 // Kind branches (v1 `NoteBody` parity): image/gifv stills, video with
 // native controls, gifv as a muted autoplay loop (RN has no reliable
@@ -40,6 +41,11 @@ const STRIP_H = 220
 export const MAX_DISPLAY_AR = 2 / 1
 export const MIN_DISPLAY_AR = 3 / 4
 
+/** Absolute height bound for single post media: the ratio clamp alone
+ * lets wide-column portraits run ~900px tall, so height is capped here.
+ * The cap scales down (letterboxes), never crops. */
+export const MAX_DISPLAY_H = 480
+
 /** Clamp a natural aspect ratio into the display range. Non-finite and
  * non-positive inputs read as the neutral landscape default. Pure. */
 export function displayAspect(ar: number): number {
@@ -47,9 +53,19 @@ export function displayAspect(ar: number): number {
   return Math.min(MAX_DISPLAY_AR, Math.max(MIN_DISPLAY_AR, ar))
 }
 
+/** True when the natural ratio falls outside the display range — the
+ * ONLY case that crops (to the clamped box). Everything else, including
+ * height-capped portraits, scales to fit. Pure. */
+export function isOutOfRange(natural: number): boolean {
+  if (!Number.isFinite(natural) || natural <= 0) return false
+  return natural < MIN_DISPLAY_AR || natural > MAX_DISPLAY_AR
+}
+
 const styles = StyleSheet.create({
   wrap: {marginTop: 8},
-  single: {width: '100%', borderRadius: 6, borderWidth: 1, overflow: 'hidden'},
+  // Singles size per-frame below (hug the displayed image, left-justified
+  // like post content); this holds only the shared chrome.
+  single: {maxHeight: MAX_DISPLAY_H, borderRadius: 6, borderWidth: 1, overflow: 'hidden'},
   image: {width: '100%', height: '100%'},
   strip: {flexDirection: 'row', gap: 8},
   stripItem: {height: STRIP_H, borderRadius: 6, borderWidth: 1, overflow: 'hidden'},
@@ -123,6 +139,11 @@ function TileFrame({
         style={[
           single ? styles.single : styles.stripItem,
           {aspectRatio: aspect, borderColor: theme.palette.border},
+          // Shrink-to-fit: the frame hugs the displayed image instead of
+          // forcing full width (no side bars inside the border).
+          // Uncapped images hit maxWidth and stay full-width; capped ones
+          // hug at 480 × aspect, left-justified like post content.
+          ...(single ? [{width: MAX_DISPLAY_H * aspect, maxWidth: '100%'} as const] : []),
         ]}>
         {children}
       </View>
@@ -157,14 +178,18 @@ function Still({item, single, index, onOpen}: {item: Media; single: boolean; ind
   if (full === null || preview === null || failed) {
     return <Placeholder label="Image unavailable" reason="The server sent no image URL." testID={`media-missing-${item.id}`} />
   }
-  // Singles clamp the measured-or-meta ratio to the display range (full
-  // image in range, crop outside); the strip keeps its own layout.
-  const ar = single ? displayAspect(measured ?? metaAspect(item) ?? SINGLE_AR) : tileAspect(item, single)
+  // Singles: full-width natural ratio clamped to the display range, and
+  // the whole image shows EXCEPT outside shapes, which crop to the
+  // clamped box. Capped portraits scale down (letterbox), never crop.
+  const natural = measured ?? metaAspect(item) ?? SINGLE_AR
+  const ar = single ? displayAspect(natural) : tileAspect(item, single)
+  const crop = single && isOutOfRange(natural)
   return (
     <TileFrame item={item} single={single} index={index} aspect={ar} onOpen={onOpen} label={mediaLabel(item)}>
       <Image
         source={{uri: preview}}
         style={styles.image}
+        resizeMode={crop || !single ? 'cover' : 'contain'}
         accessibilityRole="image"
         accessibilityLabel={mediaLabel(item)}
         onError={() => setFailed(true)}
@@ -194,9 +219,12 @@ function LoopTile({item, single, index, onOpen, url}: {item: Media; single: bool
     p.muted = true
     p.play()
   })
+  // Singles crop only outside shapes (no measured path for video — meta
+  // only); in-range loops fit like stills, strip keeps cover.
+  const crop = single && isOutOfRange(metaAspect(item) ?? SINGLE_AR)
   return (
     <TileFrame item={item} single={single} index={index} aspect={tileAspect(item, single)} onOpen={onOpen} testID={`media-gifv-${item.id}`} label={mediaLabel(item)}>
-      <VideoView player={player as unknown as ViewPlayer} contentFit="cover" style={styles.video} testID={`media-gifv-player-${item.id}`} />
+      <VideoView player={player as unknown as ViewPlayer} contentFit={crop || !single ? 'cover' : 'contain'} style={styles.video} testID={`media-gifv-player-${item.id}`} />
     </TileFrame>
   )
 }
