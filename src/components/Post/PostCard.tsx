@@ -56,6 +56,7 @@ import {useLikeEmoji} from '#/state/emojiPrefs'
 import {useDataSaver, useOnlyAuthorizedQuotes} from '#/state/appearance'
 
 import {ActionBar, StaticActionBar, toastError} from './ActionBar'
+import {RecommendationReasonDialog} from '#/components/Recommendations/RecommendationReasonDialog'
 import {badgesFor} from './badges'
 import {postBodyNodes, postEmojis, postTagBubble} from './body'
 import {usePostCardHandlers, type PostCardHandlers} from './handlers'
@@ -351,6 +352,34 @@ function LivePostCard(props: PostCardProps) {
     [backend],
   )
 
+  // Recommendation rows (fork): the breakdown rides the OUTER wrapper
+  // note, while the API takes the appeared (unwrapped) id. Hooks stay
+  // above the deleted early-return: it flips mid-life and must not change
+  // the hook count.
+  const recBreakdown = post.ext?.recommendation ?? null
+  const [recReasonOpen, setRecReasonOpen] = useState(false)
+  const recommendation =
+    recBreakdown != null && backend?.recommendations
+      ? {
+          onWhy: () => setRecReasonOpen(true),
+          onNotInterested: async () => {
+            try {
+              await backend.recommendations!.notInterested(effective.id)
+              showToast(i18n._(msg`We'll show you fewer posts like this.`))
+            } catch (e) {
+              toastError(e)
+              return
+            }
+            if (queryClient) {
+              patchPostInCaches(queryClient, sessionId, post.id, () => null)
+              if (effective.id !== post.id) {
+                patchPostInCaches(queryClient, sessionId, effective.id, () => null)
+              }
+            }
+          },
+        }
+      : undefined
+
   if (actions.shadowed.isDeleted) return null
 
   const menu = buildPostMenu({
@@ -432,9 +461,11 @@ function LivePostCard(props: PostCardProps) {
       onClip: handlers.onClip,
       user: handlers.user ?? handlers.userFor?.(effective, sessionId),
     },
+    ...(recommendation ? {recommendation} : {}),
   })
 
   return (
+    <>
     <PostCardView
       {...props}
       capabilities={props.capabilities ?? backend?.capabilities ?? null}
@@ -459,6 +490,12 @@ function LivePostCard(props: PostCardProps) {
         },
       }}
     />
+    <RecommendationReasonDialog
+      breakdown={recBreakdown}
+      open={recReasonOpen}
+      onClose={() => setRecReasonOpen(false)}
+    />
+    </>
   )
 }
 

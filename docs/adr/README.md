@@ -8,6 +8,9 @@ Load-bearing decisions. Numbered, append-only, never renumbered.
 | [0001](0001-patterns-not-code.md) | Patterns, not code (Bluesky reference use) | 2026-10-20 | accepted |
 | [0002](0002-butterfly-tarantula.md) | Two UI layouts: butterfly and tarantula | 2026-10-20 | accepted |
 | [0003](0003-oauth-scopes-now-vs-later.md) | OAuth scopes: SCOPES_NOW vs SCOPES_LATER | 2026-10-22 | accepted |
+| [0004](0004-document-picker.md) | Document picker module for import files | 2026-10-22 | accepted |
+| [0005](0005-per-flavor-oauth-scopes.md) | Per-flavor OAuth scope strings (Mastodon triple, Akkoma full) | 2026-10-22 | accepted |
+| [0006](0006-recommendations-feed.md) | Fork recommendations feed (dvd-sharkey port) | 2026-10-24 | accepted |
 
 ## When to write one
 

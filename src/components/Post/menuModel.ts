@@ -104,6 +104,13 @@ export interface PostMenuInput {
   copyAvailable: boolean
   bookmark: {gate: ActionGate; value: boolean; set: (next: boolean) => Promise<void>}
   del: {gate: ActionGate; run: () => Promise<void>}
+  /** Recommendation actions (fork feed): present only when the outer
+   * wrapper note carries `ext.recommendation`. `notInterested` hides the
+   * note and reports it; `why` opens the breakdown dialog. */
+  recommendation?: {
+    onWhy: () => void
+    onNotInterested: () => void | Promise<void>
+  }
   handlers: {
     copy: (text: string) => void | Promise<void>
     share: (url: string, text: string) => void | Promise<void>
@@ -345,6 +352,27 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
   }
   group2.push({key: 'user', label: t`User`, submenu: buildUserSubmenu(input)})
 
+  // Recommendation feed rows (fork): the breakdown rides the outer wrapper
+  // note, so these two rows sit above everything else. Other timelines
+  // never pass `recommendation` and render the normal menu.
+  const recGroup: PostMenuSection[] =
+    input.recommendation != null
+      ? [
+          [
+            {
+              key: 'rec-why',
+              label: t`Why is this post recommended?`,
+              run: input.recommendation.onWhy,
+            },
+            {
+              key: 'rec-not-interested',
+              label: t`Not interested`,
+              run: input.recommendation.onNotInterested,
+            },
+          ],
+        ]
+      : []
+
   const group3: PostMenuItem[] = reportRow(input)
   if (input.isOwn) {
     // Delete-and-redraft (clickstone §1.7): the only redraft path on a
@@ -385,7 +413,7 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
         : {key: 'delete', label: t`Delete`, destructive: true, disabled: true, reason: del.gate.reason},
     )
   }
-  return [group1, group2, group3]
+  return [...recGroup, group1, group2, group3]
 }
 
 export function flatten(sections: PostMenuSection[]): PostMenuItem[] {

@@ -17,6 +17,7 @@ export type FeedDescriptor =
   | "timeline|local"
   | "timeline|social"
   | "timeline|global"
+  | "recommendations"
   | `list|${string}`
   | `antenna|${string}`
   | `channel|${string}`
@@ -35,6 +36,7 @@ export type UserFeedTab = "posts" | "all" | "replies" | "media" | "featured";
 /** The structured form of a `FeedDescriptor` for dispatch. */
 export type ParsedFeedDescriptor =
   | { kind: "timeline"; timeline: TimelineKind }
+  | { kind: "recommendations" }
   | { kind: "list"; id: string }
   | { kind: "antenna"; id: string }
   | { kind: "channel"; id: string }
@@ -83,6 +85,7 @@ export function parseFeedDescriptor(descriptor: string): ParsedFeedDescriptor {
   if (parts.length === 1) {
     if (parts[0] === "bookmarks") return { kind: "bookmarks" };
     if (parts[0] === "mentions") return { kind: "mentions" };
+    if (parts[0] === "recommendations") return { kind: "recommendations" };
     invalid(descriptor);
   }
   if (parts.length === 2) {
@@ -147,6 +150,8 @@ export function formatFeedDescriptor(parsed: ParsedFeedDescriptor): FeedDescript
       return "bookmarks";
     case "mentions":
       return "mentions";
+    case "recommendations":
+      return "recommendations";
     case "user":
       if (!USER_TABS.has(parsed.tab)) invalid(parsed);
       return `user|${arg("user", parsed.id, parsed)}|${parsed.tab}` as FeedDescriptor;

@@ -20,6 +20,7 @@ const VALID: Array<{ descriptor: FeedDescriptor; parsed: ParsedFeedDescriptor }>
   { descriptor: "search|hello world", parsed: { kind: "search", query: "hello world" } },
   { descriptor: "search|#tag @user", parsed: { kind: "search", query: "#tag @user" } },
   { descriptor: "explore|posts", parsed: { kind: "explore" } },
+  { descriptor: "recommendations", parsed: { kind: "recommendations" } },
   { descriptor: "bookmarks", parsed: { kind: "bookmarks" } },
   { descriptor: "mentions", parsed: { kind: "mentions" } },
   {

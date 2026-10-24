@@ -103,3 +103,14 @@ export function chatUserMessagesQueryKey(sessionId: string, userId: string): App
 export function reportRulesQueryKey(sessionId: string): AppQueryKey {
   return createQueryKey(sessionId, "report-rules");
 }
+
+/** Key for the recommendations endpoint probe (fork `notes/recommendations`
+ * presence, one verdict per session). Session first like every other key. */
+export function recommendationsProbeQueryKey(sessionId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'recommendations', 'probe');
+}
+
+/** Key for the recommender's interest overlay (`i/recommendation-interests`). */
+export function recommendationInterestsQueryKey(sessionId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'recommendations', 'interests');
+}

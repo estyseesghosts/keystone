@@ -49,6 +49,7 @@ import type {
   PostDraft,
   ProfileImageKind,
   ProfileUpdate,
+  RecommendationsApi,
   ReportResolveOpts,
   ReportUnsupportedField,
   ReportsQueueApi,
@@ -83,6 +84,14 @@ import {
   pageOf,
 } from "./adapt";
 import { likeSupportFor, likeViaNotesLike } from "./like";
+import {
+  fetchRecommendationInterests,
+  fetchRecommendationPage,
+  markRecommendationNotInterested,
+  recommendationsSupportFor,
+  reportRecommendationDwell,
+  updateRecommendationSettings,
+} from "./recommendations";
 import type {
   DriveFile,
   DriveFolder as WireDriveFolder,
@@ -783,6 +792,22 @@ export function createMisskeyBackend(
     exportList: (kind) => exportData(call, kind),
   };
 
+  // Fork recommendation feed (dvd-sharkey): present on every Misskey-family
+  // flavor (the member exists so the UI can probe); a server without the
+  // fork endpoints 404s and the UI hides the tab. Support is probed lazily
+  // by the first feed/probe call and cached — never a static flavor seed,
+  // and never a fire-and-forget request at construction (callers assert
+  // exact endpoint sequences).
+  const recommendations: RecommendationsApi = {
+    feed: (o = {}) =>
+      fetchRecommendationPage(call, opts.origin ?? null, o.cursor ?? null, o),
+    dwell: (items) => reportRecommendationDwell(call, opts.origin ?? null, items),
+    notInterested: (noteId: string) => markRecommendationNotInterested(call, opts.origin ?? null, noteId),
+    interests: () => fetchRecommendationInterests(call, opts.origin ?? null),
+    updateSettings: (patch) => updateRecommendationSettings(call, opts.origin ?? null, patch),
+    isSupported: () => (opts.origin ? recommendationsSupportFor(opts.origin) : null),
+  };
+
   return {
     family: "misskey",
     capabilities,
@@ -1449,6 +1474,7 @@ export function createMisskeyBackend(
     serverDrafts,
     bookmarks,
     transfer,
+    recommendations,
   };
 
   async function listAccounts(

@@ -228,6 +228,73 @@ export interface ExploreApi {
   news?(opts?: PageOpts): Promise<Page<NewsLink>>;
 }
 
+// --- Recommendations (fork `notes/recommendations`, dvd-sharkey) --------
+
+/**
+ * Recommendation feed options. `offset` pages the server-maintained
+ * relevance queue (not an id cursor); `refresh` forces a re-rank.
+ * `lang` is the viewer's UI language; `withSensitive`/`withRenotes`
+ * mirror the NSFW and show-boosts prefs.
+ */
+export interface RecommendationFeedOpts extends PageOpts {
+  lang?: string;
+  withSensitive?: boolean;
+  withRenotes?: boolean;
+  offset?: number;
+  refresh?: boolean;
+}
+
+export interface RecommendationDwellItem {
+  noteId: string;
+  dwellMs: number;
+}
+
+export interface RecommendationInterests {
+  interested: string[];
+  disinterested: string[];
+}
+
+/**
+ * Recommendation settings patch (`i/update {recommendationSettings}`).
+ * Every field optional; absent fields keep the server value.
+ */
+export interface RecommendationSettingsPatch {
+  enabled?: boolean;
+  recommendNsfw?: boolean;
+  factors?: Partial<Record<string, number>>;
+  engagement?: Partial<Record<string, number>>;
+  interestTopics?: string[];
+  disinterestTopics?: string[];
+  languages?: string[];
+  followedRatio?: number;
+}
+
+/**
+ * Fork recommendation surface (dvd-sharkey `notes/recommendations*`,
+ * `i/recommendation-interests`, `i/update {recommendationSettings}`).
+ *
+ * Optional like every capability-gated member: the Misskey family
+ * provides it; the Mastodon family leaves it undefined. A Misskey-family
+ * server WITHOUT the fork endpoints answers 404/405 — the UI treats
+ * that as "not on this server" (the tab hides), never an error page.
+ * Support is probed once per origin and cached; a flavor label never
+ * proves absence (a backport may add the endpoints).
+ */
+export interface RecommendationsApi {
+  /** The recommendation queue, offset-paged (limit default 10). */
+  feed(opts?: RecommendationFeedOpts): Promise<Page<Post>>;
+  /** Visible-time report (best-effort impression log). Batched to 50/call. */
+  dwell(items: RecommendationDwellItem[]): Promise<void>;
+  /** Explicit "not interested" (strong negative + hide). */
+  notInterested(noteId: string): Promise<void>;
+  /** The recommender's current interest overlay (activity-derived + saved). */
+  interests(): Promise<RecommendationInterests>;
+  /** Save settings (`i/update`); answers the refreshed viewer account. */
+  updateSettings(patch: RecommendationSettingsPatch): Promise<Account>;
+  /** Endpoint presence by origin: true/false, or null when unprobed. */
+  isSupported(): boolean | null;
+}
+
 // --- Custom emoji ----------------------------------------------------------
 
 export interface CustomEmoji {
@@ -1779,6 +1846,11 @@ export interface Backend {
   /** Hashtag follow/feature curation (Mastodon family; clickstone §1.4).
    * Undefined on the Misskey family, which has no tag-follow endpoint. */
   tags?: TagsApi;
+  /** Fork recommendation feed (dvd-sharkey `notes/recommendations*`).
+   * Misskey family only; undefined on the Mastodon family. A
+   * Misskey-family server without the fork endpoints keeps the member
+   * but answers 404/405 — the UI hides the tab, never an error. */
+  recommendations?: RecommendationsApi;
   /** Personal domain blocks (Mastodon family; clickstone §1.4). Undefined
    * where the server has no `/api/v1/domain_blocks`. */
   domainBlocks?: DomainBlocksApi;

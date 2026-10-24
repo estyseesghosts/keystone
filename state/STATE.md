@@ -38,13 +38,14 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
-0. P6.4 sidebar reshuffle MERGED to `main` (2026-10-23, `2e4b55b`):
-   hovercard blink fixed by replacing RNW Modal with an owned
-   click-through portal (`416d39e`; Modal's fullscreen auto-hit
-   layers stole anchor hover → open/close limit cycle). Owner
-   live-verified on external servers. Branch pruned; 46 stale
-   merged branches + superseded `pf-bio` deleted — only `main`
-   remains locally. `main` is 11 ahead of `origin/main` (unpushed).
+0. Recommendations feed (dvd-sharkey fork port) landed on `main`
+   2026-10-24 (unpushed): `recommendations` descriptor + Backend module
+   (offset-paged, probe-detected), Home tab bar above the composer,
+   overlay settings with save-or-discard, per-note Why/Not-interested.
+   ADR 0006. Log `state/logs/2026-10-24-recommendations-feed.md`.
+   196 suites / 2480 tests green. Owner live-tests externally.
+   P6.4 sidebar reshuffle also on `main` (`2e4b55b`; hovercard portal
+   `416d39e`). Only `main` remains locally (unpushed).
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
    user-note/modlog/reset-password; Mastodon account_actions
    warn/suspend/silence + notes; NO delete-account). Single agent,

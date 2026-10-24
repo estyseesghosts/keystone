@@ -7,6 +7,7 @@
 export * from "./core/errors";
 export * from "./core/feedDescriptor";
 export * from "./core/models";
+export * from "./core/recommendations";
 export * from "./core/detect";
 export * from "./core/backend";
 export * from "./core/http";
@@ -41,6 +42,7 @@ export * from "./misskey/importExport";
 export * from "./misskey/likeEmoji";
 export * from "./misskey/mutes";
 export * from "./misskey/noteEdit";
+export * from "./misskey/recommendations";
 export * from "./misskey/quote";
 export * from "./misskey/remotepost";
 export * from "./misskey/schedule";

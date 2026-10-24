@@ -48,6 +48,9 @@ export interface PostFeedQueryOptions {
   limit?: number
   /** Retry count (tests pass 0 to fail fast). Defaults to 2. */
   retry?: number | false
+  /** Recommendation feed params (only read when the descriptor is
+   * `recommendations`; absent = server defaults). */
+  rec?: {lang?: string; withSensitive?: boolean; withRenotes?: boolean; refresh?: boolean}
 }
 
 /**
@@ -59,11 +62,29 @@ export async function fetchFeedPage(
   parsed: ParsedFeedDescriptor,
   cursor: Cursor | null,
   limit: number = FEED_PAGE_LIMIT,
+  rec?: {lang?: string; withSensitive?: boolean; withRenotes?: boolean; refresh?: boolean},
 ): Promise<Page<Post>> {
   const opts = {cursor, limit}
   switch (parsed.kind) {
     case 'timeline':
       return backend.timeline(parsed.timeline, opts)
+    case 'recommendations': {
+      if (!backend.recommendations) {
+        throw new ApiError(
+          'Recommendations are not available on this server.',
+          404,
+          'errors.unsupported.recommendations',
+        )
+      }
+      return backend.recommendations.feed({
+        cursor,
+        limit: limit === FEED_PAGE_LIMIT ? 10 : limit,
+        ...(rec?.lang !== undefined ? {lang: rec.lang} : {}),
+        ...(rec?.withSensitive !== undefined ? {withSensitive: rec.withSensitive} : {}),
+        ...(rec?.withRenotes !== undefined ? {withRenotes: rec.withRenotes} : {}),
+        ...(rec?.refresh !== undefined ? {refresh: rec.refresh} : {}),
+      })
+    }
     case 'list': {
       if (!backend.lists) {
         throw new ApiError('Lists are not available on this server.', 404, 'errors.unsupported.lists')
@@ -186,12 +207,19 @@ export function usePostFeedQuery(
     (sessionId != null
       ? resolveSessionBackend(options.store ?? appStorage(), sessionId)
       : null)
-  const queryKey = feedQueryKey(sessionId ?? SIGNED_OUT_SCOPE, descriptor)
+  const recSuffix =
+    parsed.kind === 'recommendations' && options.rec
+      ? JSON.stringify([options.rec.lang ?? null, options.rec.withSensitive ?? null, options.rec.withRenotes ?? null])
+      : null
+  const queryKey =
+    recSuffix != null
+      ? feedQueryKey(sessionId ?? SIGNED_OUT_SCOPE, `${descriptor}|${recSuffix}`)
+      : feedQueryKey(sessionId ?? SIGNED_OUT_SCOPE, descriptor)
   const query = useInfiniteQuery<Page<Post>, Error, InfiniteData<Page<Post>>, AppQueryKey, Cursor | null>({
     queryKey,
     queryFn: ({pageParam}) => {
       if (!backend) throw new Error('usePostFeedQuery: no backend for session')
-      return fetchFeedPage(backend, parsed, pageParam, limit)
+      return fetchFeedPage(backend, parsed, pageParam, limit, options.rec)
     },
     initialPageParam: null,
     getNextPageParam: last => (last.end ? undefined : (last.cursor ?? undefined)),

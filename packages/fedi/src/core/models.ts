@@ -532,6 +532,11 @@ export interface PostExt {
    * (the server HTML mention anchors link by URL; `Post.mentions` carries
    * only the ids). Read by the HTML renderer only. */
   mentionUrls?: Record<string, string>;
+  /** Recommendation breakdown (fork `notes/recommendations` transient
+   * `_recommendationFactors_`, moved here by the adapter). Present only
+   * on notes from that feed — never persisted, never forwarded on
+   * renote/reply/quote/create. */
+  recommendation?: import("./recommendations").RecommendationBreakdown;
 }
 
 /** Mirror of Misskey `is-renote.ts` (packed-note variants): a pure renote
