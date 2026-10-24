@@ -555,7 +555,7 @@ export function Composer(props: ComposerProps) {
   const quote = state.quote
   // Floating box rests at 120px and grows with the prose to 480px, then
   // scrolls internally. Same hook as the inline composer.
-  const autogrow = useAutogrowInput(120, 480)
+  const autogrow = useAutogrowInput(120, 480, state.text)
 
   return (
     <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
@@ -588,7 +588,7 @@ export function Composer(props: ComposerProps) {
         value={state.text}
         onChangeText={text => {
           patch({text})
-          autogrow.remeasure(text)
+          autogrow.remeasure()
         }}
         onSelectionChange={e => setCaret(e.nativeEvent.selection.end)}
         placeholder={

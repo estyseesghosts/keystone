@@ -1,5 +1,5 @@
-// useAutogrowInput: floor/ceiling clamping for adaptive composer height,
-// plus the web shrink path (scrollHeight sticks to the old box).
+// useAutogrowInput: floor/ceiling clamping, one measuring path per
+// platform, unconditional web remeasure on every text change.
 import {act, renderHook} from '@testing-library/react-native'
 import {Platform} from 'react-native'
 
@@ -14,9 +14,19 @@ function webNode(scrollHeight: number) {
   return {style: {height: ''}, scrollHeight}
 }
 
+function withWebOs(fn: () => void) {
+  const prevOS = Platform.OS
+  ;(Platform as {OS: string}).OS = 'web'
+  try {
+    fn()
+  } finally {
+    ;(Platform as {OS: string}).OS = prevOS
+  }
+}
+
 describe('useAutogrowInput', () => {
   it('rests at null, clamps content height to [min, max], and contracts', () => {
-    const {result} = renderHook(() => useAutogrowInput(72, 320))
+    const {result} = renderHook(() => useAutogrowInput(72, 320, ''))
     expect(result.current.height).toBeNull()
     act(() => result.current.onContentSizeChange(sizeEvent(10)))
     expect(result.current.height).toBe(72)
@@ -29,98 +39,78 @@ describe('useAutogrowInput', () => {
   })
 
   it('ignores remeasure off web (native content size is content-based)', () => {
-    const {result} = renderHook(() => useAutogrowInput(72, 320))
-    act(() => result.current.onContentSizeChange(sizeEvent(200)))
-    expect(result.current.height).toBe(200)
+    const {result} = renderHook(() => useAutogrowInput(72, 320, 'hi'))
     const node = webNode(90)
     act(() => {
       ;(result.current.inputRef as {current: unknown}).current = node
-      result.current.remeasure('shorter')
+      result.current.remeasure()
     })
     // iOS test env: no DOM node read, height untouched.
-    expect(result.current.height).toBe(200)
+    expect(result.current.height).toBeNull()
     expect(node.style.height).toBe('')
   })
 
-  it('contracts on web by measuring the unconstrained box', () => {
-    const prevOS = Platform.OS
-    ;(Platform as {OS: string}).OS = 'web'
-    try {
-      const {result} = renderHook(() => useAutogrowInput(72, 320))
-      // Type the long post: the event reports the grown box.
-      act(() => result.current.onContentSizeChange(sizeEvent(200)))
-      expect(result.current.height).toBe(200)
-      // Delete most of it: the stuck event would repeat 200, so the
-      // caller remeasures — the reset exposes the true 90px content.
+  it('measures on mount and on every text change, up and down', () => {
+    withWebOs(() => {
+      const hook = renderHook(({text}: {text: string}) => useAutogrowInput(72, 320, text), {
+        initialProps: {text: 'hi'},
+      })
+      // Mount with text present: the post-commit measure sizes the box.
       const node = webNode(90)
       act(() => {
-        ;(result.current.inputRef as {current: unknown}).current = node
-        result.current.remeasure('short')
+        ;(hook.result.current.inputRef as {current: unknown}).current = node
       })
-      expect(result.current.height).toBe(90)
-      // Inline height is restored (React state stays the source of truth).
-      expect(node.style.height).toBe('')
-      // Growth is the event's job: strictly longer text skips the
-      // synchronous reflow entirely (node untouched, height kept).
-      const grown = webNode(50)
+      // Effect already ran on mount (empty node then); drive a text change.
+      const grown = webNode(200)
       act(() => {
-        ;(result.current.inputRef as {current: unknown}).current = grown
-        result.current.remeasure('short but a little longer than before!!')
+        ;(hook.result.current.inputRef as {current: unknown}).current = grown
       })
-      expect(result.current.height).toBe(90)
+      hook.rerender({text: 'hi there, much longer now'})
+      expect(hook.result.current.height).toBe(200)
       expect(grown.style.height).toBe('')
-      // Empty box clamps back to the floor.
-      const empty = webNode(0)
+      // Deleting measures down — no stuck tall box, no snap.
+      const shrunk = webNode(80)
       act(() => {
-        ;(result.current.inputRef as {current: unknown}).current = empty
-        result.current.remeasure('')
+        ;(hook.result.current.inputRef as {current: unknown}).current = shrunk
       })
-      expect(result.current.height).toBe(72)
-      // Ceiling still holds (a first measure always runs, even long).
-      const {result: tallHook} = renderHook(() => useAutogrowInput(72, 320))
-      act(() => tallHook.current.onContentSizeChange(sizeEvent(200)))
-      expect(tallHook.current.height).toBe(200)
-      const tall = webNode(900)
-      act(() => {
-        ;(tallHook.current.inputRef as {current: unknown}).current = tall
-        tallHook.current.remeasure('x'.repeat(900))
-      })
-      expect(tallHook.current.height).toBe(320)
-    } finally {
-      ;(Platform as {OS: string}).OS = prevOS
-    }
+      hook.rerender({text: 'hi'})
+      expect(hook.result.current.height).toBe(80)
+    })
   })
 
-  it('skips the reflow when no explicit height is set', () => {
-    const prevOS = Platform.OS
-    ;(Platform as {OS: string}).OS = 'web'
-    try {
-      const {result} = renderHook(() => useAutogrowInput(72, 320))
-      const node = webNode(200)
-      act(() => {
-        ;(result.current.inputRef as {current: unknown}).current = node
-        result.current.remeasure('hello')
+  it('clamps the measured box to [min, max]', () => {
+    withWebOs(() => {
+      const hook = renderHook(({text}: {text: string}) => useAutogrowInput(72, 320, text), {
+        initialProps: {text: 'x'},
       })
-      // Resting box: unconstrained already, the event sees truth.
-      expect(result.current.height).toBeNull()
-      expect(node.style.height).toBe('')
-    } finally {
-      ;(Platform as {OS: string}).OS = prevOS
-    }
+      const empty = webNode(0)
+      act(() => {
+        ;(hook.result.current.inputRef as {current: unknown}).current = empty
+      })
+      hook.rerender({text: 'y'})
+      expect(hook.result.current.height).toBe(72)
+      const tall = webNode(900)
+      act(() => {
+        ;(hook.result.current.inputRef as {current: unknown}).current = tall
+      })
+      hook.rerender({text: 'y!'})
+      expect(hook.result.current.height).toBe(320)
+    })
   })
 
   it('ignores a malformed node instead of crashing', () => {
-    const prevOS = Platform.OS
-    ;(Platform as {OS: string}).OS = 'web'
-    try {
-      const {result} = renderHook(() => useAutogrowInput(72, 320))
-      act(() => {
-        ;(result.current.inputRef as {current: unknown}).current = {style: {}, scrollHeight: 'big'}
-        result.current.remeasure('x')
+    withWebOs(() => {
+      const hook = renderHook(({text}: {text: string}) => useAutogrowInput(72, 320, text), {
+        initialProps: {text: 'x'},
       })
-      expect(result.current.height).toBeNull()
-    } finally {
-      ;(Platform as {OS: string}).OS = prevOS
-    }
+      act(() => {
+        ;(hook.result.current.inputRef as {current: unknown}).current = {
+          style: {},
+          scrollHeight: 'big',
+        }
+      })
+      hook.rerender({text: 'y'})
+      expect(hook.result.current.height).toBeNull()
+    })
   })
 })

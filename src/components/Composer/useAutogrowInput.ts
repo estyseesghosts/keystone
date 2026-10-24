@@ -1,19 +1,23 @@
 // Adaptive composer height: the text field grows and shrinks with its
 // content between a floor (the resting box) and a ceiling (past it the
-// field scrolls internally). Driven by `onContentSizeChange`, which
-// fires on native and on web (RN Web reports `scrollHeight`). Values
-// round up and clamp; identical heights bail out in state, so there is
-// no feedback loop with layout.
+// field scrolls internally).
 //
-// Web shrink caveat: once an explicit height is set, `scrollHeight`
-// never drops below it, so after deleting text the contentSize event
-// keeps reporting the old (large) box and the field would only ever
-// grow. `remeasure` fixes it: called on every text change, it drops the
-// inline height for one synchronous read (`height: auto` → `scrollHeight`
-// → restore, no paint in between) and clamps the true content height.
-// Native keeps the event path (its content size is content-based).
+// One measuring path per platform, one source of truth — the two paths
+// must never disagree or the box visibly fights between sizes:
+// - native: `onContentSizeChange` (content size is content-based there).
+// - web: imperative `remeasure` — RN Web reports `scrollHeight`, which
+//   never drops below an explicit height, so the contentSize event goes
+//   blind on shrink and only the unconstrained read (`height: auto` →
+//   `scrollHeight` → restore, no paint in between) sees the truth.
+//
+// `remeasure` runs unconditionally: before paint from `onChangeText`
+// (zero-lag while typing) and after commit for every text change
+// (covers drafts, restores, and suggestion picks, which bypass the text
+// handler). All three compute the identical clamped value, so repeated
+// calls converge instead of fighting. Values round up and clamp;
+// identical heights bail out in state, so there is no layout loop.
 
-import {useCallback, useRef, useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import {
   Platform,
   type NativeSyntheticEvent,
@@ -37,39 +41,37 @@ function asWebNode(ref: unknown): WebMeasurableNode | null {
   return node as WebMeasurableNode
 }
 
-export function useAutogrowInput(minHeight: number, maxHeight: number) {
+export function useAutogrowInput(minHeight: number, maxHeight: number, text: string) {
   const [height, setHeight] = useState<number | null>(null)
   const inputRef = useRef<TextInput | null>(null)
-  const prevLenRef = useRef<number | null>(null)
   const clamp = useCallback(
     (h: number) => setHeight(Math.min(maxHeight, Math.max(minHeight, Math.ceil(h)))),
     [minHeight, maxHeight],
   )
   const onContentSizeChange = useCallback(
     (e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
+      // Native path. On web this stays attached but rarely fires (an
+      // explicit height pins `scrollHeight`); when it does, it agrees
+      // with `remeasure` below — same clamped value, never a fight.
+      if (Platform.OS === 'web') return
       clamp(e.nativeEvent.contentSize.height)
     },
     [clamp],
   )
-  const remeasure = useCallback(
-    (text: string) => {
-      const prevLen = prevLenRef.current
-      prevLenRef.current = text.length
-      // Growth is covered by `onContentSizeChange`; an explicit height is
-      // only ever too TALL after deletions/replacements, so skip the
-      // synchronous reflow when the text strictly grew or no explicit
-      // height is set (unconstrained box — the event sees truth).
-      if (height === null) return
-      if (prevLen !== null && text.length > prevLen) return
-      const node = asWebNode(inputRef.current)
-      if (!node) return
-      node.style.height = 'auto'
-      const h = node.scrollHeight
-      node.style.height = ''
-      clamp(h)
-    },
-    [clamp, height],
-  )
+  const remeasure = useCallback(() => {
+    const node = asWebNode(inputRef.current)
+    if (!node) return
+    node.style.height = 'auto'
+    const h = node.scrollHeight
+    node.style.height = ''
+    clamp(h)
+  }, [clamp])
+  // Post-commit measure for every text change: covers typing (same
+  // value the pre-paint call already set — a no-op) and programmatic
+  // changes that bypass the text handler (drafts, restores, picks).
+  useEffect(() => {
+    remeasure()
+  }, [text, remeasure])
   return {height, onContentSizeChange, inputRef, remeasure}
 }
 

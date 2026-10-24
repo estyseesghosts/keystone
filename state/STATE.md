@@ -38,11 +38,10 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
-0. Quote review + hashtag strip + bridged in-app on `main` 2026-10-24
-   (unpushed): markdown/redirect hashtag links always become plain
-   hashtags (anti-phishing); RE prefix tolerates leading blanks;
-   bridged posts/profiles open in-app, never the browser. Log
-   `state/logs/2026-10-24-quote-strip-bridged.md`. 197 suites /
+0. Composer shrink snap fixed on `main` 2026-10-24 (unpushed):
+   single measuring path per platform — web remeasures
+   unconditionally, pre-paint on typing + post-commit on text change.
+   Log `state/logs/2026-10-24-composer-shrink-snap.md`. 197 suites /
    2529 tests green. Owner confirms visually.
 0b. Recommendations feed (dvd-sharkey fork port) on `main` 2026-10-24
    (unpushed): `recommendations` descriptor + Backend module

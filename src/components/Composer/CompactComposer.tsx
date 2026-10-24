@@ -148,7 +148,7 @@ export function CompactComposer(props: ComposerProps) {
   const [showDraftList, setShowDraftList] = useState(false)
   // Inline box rests at 72px and grows with the prose to 320px, then
   // scrolls internally. Same hook as the floating composer.
-  const autogrow = useAutogrowInput(72, 320)
+  const autogrow = useAutogrowInput(72, 320, c.state.text)
   const audienceAnchor = useRef<ViewType | null>(null)
   const moreAnchor = useRef<ViewType | null>(null)
   const emojiAnchor = useRef<ViewType | null>(null)
@@ -197,7 +197,7 @@ export function CompactComposer(props: ComposerProps) {
             value={c.state.text}
             onChangeText={text => {
               c.patch({text})
-              autogrow.remeasure(text)
+              autogrow.remeasure()
             }}
             onSelectionChange={e => c.setCaret(e.nativeEvent.selection.end)}
             placeholder={
