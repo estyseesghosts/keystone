@@ -1,15 +1,21 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {StyleSheet} from 'react-native'
+import {I18nProvider} from '@lingui/react'
+import {i18n} from '@lingui/core'
 
 import {ApiError, buildCapabilities, createMemoryStore, type Backend, type Session} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {themes, type ThemeName} from '#/alf/themes'
 import {draftsKeyFor, listDrafts} from '#/storage/drafts'
+import {makePost} from '#/components/__tests__/fixtures'
 
 import {Composer, sheetKeyboardInset, sheetVisibleMaxHeight} from './Composer'
 import {pickMedia} from './pickMedia'
+
+i18n.load('en', {})
+i18n.activate('en')
 
 jest.mock('./pickMedia', () => ({pickMedia: jest.fn(async () => [])}))
 jest.mock('@keystone/fedi', () => ({
@@ -57,9 +63,11 @@ function setup(flavor: 'sharkey' | 'mastodon', extra: Partial<Backend> = {}, pro
   const s = session(flavor === 'mastodon' ? 'mastodon' : 'misskey', flavor)
   render(
     <QueryClientProvider client={qc}>
-      <ThemeProvider>
-        <Composer session={s} backend={backend} store={store} onClose={onClose} {...props} />
-      </ThemeProvider>
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider>
+          <Composer session={s} backend={backend} store={store} onClose={onClose} {...props} />
+        </ThemeProvider>
+      </I18nProvider>
     </QueryClientProvider>,
   )
   return {store, backend, onClose, s}
@@ -156,7 +164,7 @@ describe('Composer', () => {
   })
 
   it('recovers from quote refusal by posting without the quote', async () => {
-    const quote = {id: 'q1', author: {acct: 'quoted'}} as never
+    const quote = makePost({id: 'q1'})
     const store = createMemoryStore()
     const s = session('misskey', 'sharkey')
     const createPost = jest
@@ -167,9 +175,11 @@ describe('Composer', () => {
     const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
     render(
       <QueryClientProvider client={qc}>
-        <ThemeProvider>
-          <Composer session={s} backend={backend} store={store} quote={quote} onClose={() => {}} />
-        </ThemeProvider>
+        <I18nProvider i18n={i18n}>
+          <ThemeProvider>
+            <Composer session={s} backend={backend} store={store} quote={quote} onClose={() => {}} />
+          </ThemeProvider>
+        </I18nProvider>
       </QueryClientProvider>,
     )
     fireEvent.changeText(screen.getByTestId('composer-text'), 'my take')
@@ -178,6 +188,33 @@ describe('Composer', () => {
     expect(createPost.mock.calls[0][0]).toMatchObject({renoteId: 'q1'})
     expect(createPost.mock.calls[1][0]).not.toHaveProperty('renoteId')
     expect(await screen.findByTestId('composer-notice')).toBeTruthy()
+  })
+
+  it('shows the real quoted card while quoting, with an Add a comment box', () => {
+    setup('sharkey', {}, {quote: makePost({id: 'q1', content: {mfm: 'quoted words', plain: 'quoted words'}})})
+    expect(screen.getByTestId('composer-quote-preview')).toBeTruthy()
+    expect(screen.getByText('quoted words')).toBeTruthy()
+    expect(screen.getByTestId('composer-text').props.placeholder).toBe('Add a comment')
+    expect(screen.queryByTestId('composer-quote-context')).toBeNull()
+  })
+
+  it('shows the real original above the reply box, with a Replying to row', () => {
+    setup('sharkey', {}, {replyTo: makePost({id: 'p1', content: {mfm: 'original words', plain: 'original words'}})})
+    expect(screen.getByTestId('composer-reply-preview')).toBeTruthy()
+    expect(screen.getByText('original words')).toBeTruthy()
+    expect(screen.getByTestId('composer-replying-to')).toBeTruthy()
+    expect(screen.getByTestId('composer-text').props.placeholder).toBe('Write your reply')
+    expect(screen.queryByTestId('composer-reply-context')).toBeNull()
+  })
+
+  it('nests one quoted card level inside a reply preview', () => {
+    const inner = makePost({id: 'inner', content: {mfm: 'inner words', plain: 'inner words'}})
+    const replyTo = makePost({id: 'p1', content: {mfm: 'outer words', plain: 'outer words'}, quote: inner})
+    setup('sharkey', {}, {replyTo})
+    expect(screen.getByTestId('composer-reply-quote')).toBeTruthy()
+    expect(screen.getByText('inner words')).toBeTruthy()
+    // No card-in-a-card beyond the one flat level.
+    expect(screen.queryByTestId('composer-reply-quote-nested')).toBeNull()
   })
 
   it('restored reply/quote drafts re-attach their targets', async () => {
@@ -190,25 +227,29 @@ describe('Composer', () => {
         drafts: [{id: 'dd', updatedAt: 1, text: 'reply text', replyToId: 'p1', quoteId: 'p2'}],
       }),
     )
-    const replyTo = {id: 'p1', author: {acct: 'alice'}} as never
-    const quote = {id: 'p2', author: {acct: 'bob'}} as never
+    const replyTo = makePost({id: 'p1', content: {mfm: 'hello there', plain: 'hello there'}})
+    const quote = makePost({id: 'p2', content: {mfm: 'quoted words', plain: 'quoted words'}})
     const post = jest.fn(async (id: string) => (id === 'p1' ? replyTo : quote))
     const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
     render(
       <QueryClientProvider client={qc}>
-        <ThemeProvider>
-          <Composer
-            session={session('misskey', 'sharkey')}
-            backend={backendFor('sharkey', {post})}
-            store={store}
-            draftId="dd"
-            onClose={() => {}}
-          />
-        </ThemeProvider>
+        <I18nProvider i18n={i18n}>
+          <ThemeProvider>
+            <Composer
+              session={session('misskey', 'sharkey')}
+              backend={backendFor('sharkey', {post})}
+              store={store}
+              draftId="dd"
+              onClose={() => {}}
+            />
+          </ThemeProvider>
+        </I18nProvider>
       </QueryClientProvider>,
     )
-    expect(await screen.findByText('Replying to @alice')).toBeTruthy()
-    expect(await screen.findByText('Quoting @bob')).toBeTruthy()
+    expect(await screen.findByTestId('composer-reply-preview')).toBeTruthy()
+    expect(await screen.findByText('hello there')).toBeTruthy()
+    expect(screen.getByTestId('composer-quote-preview')).toBeTruthy()
+    expect(screen.getByText('quoted words')).toBeTruthy()
   })
 
   it('saves edits through editPost and keeps existing attachments', async () => {

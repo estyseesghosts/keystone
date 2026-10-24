@@ -63,12 +63,19 @@ export function isOutOfRange(natural: number): boolean {
 
 const styles = StyleSheet.create({
   wrap: {marginTop: 8},
+  /** Edge-to-edge wrap inside a quote card (cancels the card's padding;
+   * the media reaches the card border, corners clipped by its overflow). */
+  bleedWrap: {marginHorizontal: -8, marginBottom: -8},
   // Singles size per-frame below (hug the displayed image, left-justified
   // like post content); this holds only the shared chrome.
   single: {maxHeight: MAX_DISPLAY_H, borderRadius: 6, borderWidth: 1, overflow: 'hidden'},
   image: {width: '100%', height: '100%'},
   strip: {flexDirection: 'row', gap: 8},
   stripItem: {height: STRIP_H, borderRadius: 6, borderWidth: 1, overflow: 'hidden'},
+  /** Edge-to-edge frame inside a quote card: the card's own border
+   * delineates, so the inner border goes (corners clip via the card's
+   * overflow, set by the quote). */
+  bleedFrame: {borderWidth: 0, borderRadius: 0},
   video: {width: '100%', height: '100%'},
   audioBox: {borderRadius: 6, borderWidth: 1, padding: 4, justifyContent: 'center', minHeight: 80},
   row: {flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12},
@@ -116,6 +123,7 @@ function TileFrame({
   testID,
   children,
   label,
+  bleed,
 }: {
   item: Media
   single: boolean
@@ -125,6 +133,9 @@ function TileFrame({
   testID?: string
   children: React.ReactNode
   label: string
+  /** Edge-to-edge inside a quote card: no inner border (the card's own
+   * border delineates), corners clipped by the card's overflow. */
+  bleed?: boolean
 }) {
   const theme = useTheme()
   const {i18n} = useLingui()
@@ -144,6 +155,7 @@ function TileFrame({
           // Uncapped images hit maxWidth and stay full-width; capped ones
           // hug at 480 × aspect, left-justified like post content.
           ...(single ? [{width: MAX_DISPLAY_H * aspect, maxWidth: '100%'} as const] : []),
+          bleed ? styles.bleedFrame : null,
         ]}>
         {children}
       </View>
@@ -168,7 +180,7 @@ function mediaLabel(item: Media): string {
   return item.description ?? item.name ?? item.kind
 }
 
-function Still({item, single, index, onOpen}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void}) {
+function Still({item, single, index, onOpen, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; bleed?: boolean}) {
   const [failed, setFailed] = useState(false)
   const [measured, setMeasured] = useState<number | null>(null)
   // Server strings are never trusted as image sources (F4): anything
@@ -185,7 +197,7 @@ function Still({item, single, index, onOpen}: {item: Media; single: boolean; ind
   const ar = single ? displayAspect(natural) : tileAspect(item, single)
   const crop = single && isOutOfRange(natural)
   return (
-    <TileFrame item={item} single={single} index={index} aspect={ar} onOpen={onOpen} label={mediaLabel(item)}>
+    <TileFrame item={item} single={single} index={index} aspect={ar} onOpen={onOpen} label={mediaLabel(item)} bleed={bleed}>
       <Image
         source={{uri: preview}}
         style={styles.image}
@@ -205,15 +217,15 @@ function Still({item, single, index, onOpen}: {item: Media; single: boolean; ind
 /** gifv as a muted autoplay loop (v1 shows gifv as an `<img>`; RN has no
  * reliable animated-img, and the Lightbox already loops gifv — the loop
  * matches the behavior). Tapping opens the Lightbox. */
-function GifvTile({item, single, index, onOpen}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void}) {
+function GifvTile({item, single, index, onOpen, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; bleed?: boolean}) {
   const url = safeHttpUrl(item.url)
   if (url === null) {
     return <Placeholder label="Video unavailable" reason="The server sent no video URL." testID={`media-missing-${item.id}`} />
   }
-  return <LoopTile item={item} single={single} index={index} onOpen={onOpen} url={url} />
+  return <LoopTile item={item} single={single} index={index} onOpen={onOpen} url={url} bleed={bleed} />
 }
 
-function LoopTile({item, single, index, onOpen, url}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; url: string}) {
+function LoopTile({item, single, index, onOpen, url, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; url: string; bleed?: boolean}) {
   const player = useVideoPlayer(url, p => {
     p.loop = true
     p.muted = true
@@ -223,26 +235,26 @@ function LoopTile({item, single, index, onOpen, url}: {item: Media; single: bool
   // only); in-range loops fit like stills, strip keeps cover.
   const crop = single && isOutOfRange(metaAspect(item) ?? SINGLE_AR)
   return (
-    <TileFrame item={item} single={single} index={index} aspect={tileAspect(item, single)} onOpen={onOpen} testID={`media-gifv-${item.id}`} label={mediaLabel(item)}>
+    <TileFrame item={item} single={single} index={index} aspect={tileAspect(item, single)} onOpen={onOpen} testID={`media-gifv-${item.id}`} label={mediaLabel(item)} bleed={bleed}>
       <VideoView player={player as unknown as ViewPlayer} contentFit={crop || !single ? 'cover' : 'contain'} style={styles.video} testID={`media-gifv-player-${item.id}`} />
     </TileFrame>
   )
 }
 
-function VideoTile({item, single, index, onOpen}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void}) {
+function VideoTile({item, single, index, onOpen, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; bleed?: boolean}) {
   const url = safeHttpUrl(item.url)
   if (url === null) {
     return <Placeholder label="Video unavailable" reason="The server sent no video URL." testID={`media-missing-${item.id}`} />
   }
-  return <PlayerTile item={item} single={single} index={index} onOpen={onOpen} url={url} />
+  return <PlayerTile item={item} single={single} index={index} onOpen={onOpen} url={url} bleed={bleed} />
 }
 
-function PlayerTile({item, single, index, onOpen, url}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; url: string}) {
+function PlayerTile({item, single, index, onOpen, url, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; url: string; bleed?: boolean}) {
   const player = useVideoPlayer(url, p => {
     p.loop = false
   })
   return (
-    <TileFrame item={item} single={single} index={index} aspect={tileAspect(item, single)} onOpen={onOpen} testID={`media-video-${item.id}`} label={mediaLabel(item)}>
+    <TileFrame item={item} single={single} index={index} aspect={tileAspect(item, single)} onOpen={onOpen} testID={`media-video-${item.id}`} label={mediaLabel(item)} bleed={bleed}>
       <VideoView
         player={player as unknown as ViewPlayer}
         nativeControls
@@ -360,7 +372,7 @@ function SensitiveTile({
   )
 }
 
-export function PostMediaGrid({media, onOpen, testID}: {media: Media[]; onOpen?: (index: number) => void; testID?: string}) {
+export function PostMediaGrid({media, onOpen, testID, bleed}: {media: Media[]; onOpen?: (index: number) => void; testID?: string; bleed?: boolean}) {
   // Per-tile reveal, keyed by index: revealing one sensitive attachment
   // leaves every other hidden tile behind its own gate (v1 `NoteBody`).
   const [revealed, setRevealed] = useState<ReadonlySet<number>>(() => new Set())
@@ -395,11 +407,11 @@ export function PostMediaGrid({media, onOpen, testID}: {media: Media[]; onOpen?:
     const single = media.length === 1
     switch (item.kind) {
       case 'image':
-        return <Still key={item.id} item={item} single={single} index={i} onOpen={onOpen} />
+        return <Still key={item.id} item={item} single={single} index={i} onOpen={onOpen} bleed={bleed} />
       case 'gifv':
-        return <GifvTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} />
+        return <GifvTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} bleed={bleed} />
       case 'video':
-        return <VideoTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} />
+        return <VideoTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} bleed={bleed} />
       case 'audio':
         return <AudioTile key={item.id} item={item} index={i} onOpen={onOpen} />
       default:
@@ -408,13 +420,13 @@ export function PostMediaGrid({media, onOpen, testID}: {media: Media[]; onOpen?:
   }
   if (media.length === 1) {
     return (
-      <View style={styles.wrap} testID={testID}>
+      <View style={[styles.wrap, bleed ? styles.bleedWrap : null]} testID={testID}>
         {renderItem(media[0], 0)}
       </View>
     )
   }
   return (
-    <View style={styles.wrap} testID={testID}>
+    <View style={[styles.wrap, bleed ? styles.bleedWrap : null]} testID={testID}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

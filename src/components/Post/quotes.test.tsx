@@ -4,7 +4,7 @@ import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-na
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 
-import type {Post} from '@keystone/fedi'
+import type {Media, Post} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {PostCard} from '#/components/Post/index'
@@ -237,6 +237,109 @@ describe('PostQuote (WS-A)', () => {
     })
     renderCard(<PostQuote quote={nested} unavailable={false} testID="qn" />)
     expect(screen.queryByText(/RE:/)).toBeTruthy()
+  })
+})
+
+describe('PostQuote X cards (docs/quotes)', () => {
+  function videoMedia(over: Partial<Media> = {}): Media {
+    return {
+      id: 'v1',
+      kind: 'video',
+      mimeType: 'video/mp4',
+      url: 'https://cdn.example/v1.mp4',
+      previewUrl: 'https://cdn.example/v1.png',
+      name: 'v1.mp4',
+      description: 'Launch clip',
+      blurhash: null,
+      isSensitive: false,
+      size: 10,
+      md5: null,
+      meta: null,
+      createdAt: null,
+      folderId: null,
+      userId: null,
+      ...over,
+    } as Media
+  }
+
+  function imageMedia(over: Partial<Media> = {}): Media {
+    return {
+      id: 'm1',
+      kind: 'image',
+      mimeType: 'image/png',
+      url: 'https://cdn.example/i1.png',
+      previewUrl: null,
+      name: 'i1.png',
+      description: 'A cat',
+      blurhash: null,
+      isSensitive: false,
+      size: 10,
+      md5: null,
+      meta: null,
+      createdAt: null,
+      folderId: null,
+      userId: null,
+      ...over,
+    } as Media
+  }
+
+  it('shows an avatar and the handle in the header', () => {
+    const withAvatar = makePost({
+      id: 'qa',
+      author: {...quotedPost().author, avatarUrl: 'https://cdn.example/a.png', displayName: 'Cat'},
+    })
+    const first = renderCard(<PostQuote quote={withAvatar} unavailable={false} testID="qa" />)
+    expect(screen.getByTestId('qa-avatar')).toBeTruthy()
+    first.unmount()
+    const fallback = makePost({id: 'qb'})
+    const second = renderCard(<PostQuote quote={fallback} unavailable={false} testID="qb" />)
+    expect(screen.getByTestId('qb-avatar')).toBeTruthy()
+    second.unmount()
+  })
+
+  it('renders one flat nested level, never a card-in-a-card', () => {
+    const inner = makePost({id: 'inner2', content: {mfm: 'inner text here', plain: 'inner text here'}})
+    const outer = makePost({
+      id: 'outer',
+      content: {mfm: 'outer text here', plain: 'outer text here'},
+      renoteId: 'inner2',
+      renote: inner,
+      quote: inner,
+    })
+    renderCard(<PostQuote quote={outer} unavailable={false} testID="qn2" />)
+    expect(screen.getByTestId('qn2-nested')).toBeTruthy()
+    expect(screen.getByText(/inner text here/)).toBeTruthy()
+    expect(screen.getByText(/outer text here/)).toBeTruthy()
+    expect(screen.queryByTestId('qn2-nested-card')).toBeNull()
+  })
+
+  it('shows an honest line for a missing inner target', () => {
+    const outer = makePost({id: 'qm', renoteId: 'rx'})
+    renderCard(<PostQuote quote={outer} unavailable={false} testID="qm" />)
+    expect(screen.getByTestId('qm-nested-missing')).toBeTruthy()
+  })
+
+  it('renders quoted video as a compact thumb row, not a full player', () => {
+    renderCard(
+      <PostQuote
+        quote={makePost({id: 'qv', media: [videoMedia()]})}
+        unavailable={false}
+        onPress={() => {}}
+        testID="qv"
+      />,
+    )
+    expect(screen.getByTestId('qv-compact')).toBeTruthy()
+    expect(screen.getByTestId('qv-compact-thumb')).toBeTruthy()
+    // No full-width media tile in compact mode.
+    expect(screen.queryByTestId('media-v1')).toBeNull()
+  })
+
+  it('renders quoted photos full width (no compact row)', () => {
+    renderCard(
+      <PostQuote quote={makePost({id: 'qp', media: [imageMedia()]})} unavailable={false} testID="qp" />,
+    )
+    expect(screen.queryByTestId('qp-compact')).toBeNull()
+    expect(screen.getByTestId('media-m1')).toBeTruthy()
   })
 })
 

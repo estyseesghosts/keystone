@@ -1,16 +1,25 @@
 import {useEffect, useState} from 'react'
-import {Image, Keyboard, View} from 'react-native'
+import {Image, Keyboard, StyleSheet, View} from 'react-native'
 
 import {msg} from '@lingui/macro'
 
 import {
   buildPostDraft,
+  structuredUrisOf,
+  type Post,
   type ScheduledNote,
   type ServerDraft,
 } from '@keystone/fedi'
 
 import {space} from '#/alf/tokens'
+import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
+import {DisplayName} from '#/components/DisplayName'
+import {RichText} from '#/components/RichText'
+import {PostQuote} from '#/components/Post/PostQuote'
+import {postBodyNodes, postEmojis} from '#/components/Post/body'
+import {formatRelativeTime} from '#/components/Post/time'
+import {useLocale} from '#/locale/i18n'
 import {TextField} from '#/components/forms/TextField'
 import {Dialog} from '#/components/Dialog'
 import {EmojiPicker} from '#/components/EmojiPicker'
@@ -47,6 +56,102 @@ export function CwSection({c}: {c: ComposerController}) {
       value={c.state.cw}
       onChangeText={cw => c.patch({cw})}
       testID="composer-cw"
+    />
+  )
+}
+
+// Reply + quote previews (docs/quotes): the composer shows the real
+// referenced post, not a one-line caption — the full original above the
+// reply box (with its own nested quote card when it quotes), and the
+// full quoted card below the comment box.
+
+function PreviewAvatar({uri, name, size}: {uri: string | null; name: string; size: number}) {
+  const theme = useTheme()
+  if (uri) {
+    return (
+      <Image
+        source={{uri}}
+        style={{width: size, height: size, borderRadius: size / 2}}
+        accessibilityRole="image"
+        accessibilityLabel={name}
+      />
+    )
+  }
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: theme.palette.raise,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+      <Body>{name.slice(0, 1).toUpperCase()}</Body>
+    </View>
+  )
+}
+
+const previewStyles = StyleSheet.create({
+  block: {gap: 8},
+  opRow: {flexDirection: 'row', gap: 8},
+  rail: {width: 40, alignItems: 'center'},
+  thread: {flex: 1, width: 2, marginTop: 4},
+  opBody: {flex: 1, minWidth: 0, gap: 4},
+  opHead: {flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap'},
+})
+
+export function ReplyPreviewSection({c}: {c: ComposerController}) {
+  const theme = useTheme()
+  const locale = useLocale()
+  const replyTo = c.state.replyTo
+  if (!replyTo) return null
+  return (
+    <View testID="composer-reply-preview" style={previewStyles.block}>
+      <View style={previewStyles.opRow}>
+        <View style={previewStyles.rail}>
+          <PreviewAvatar uri={replyTo.author.avatarUrl} name={replyTo.author.displayName} size={40} />
+          <View style={[previewStyles.thread, {backgroundColor: theme.palette.border}]} />
+        </View>
+        <View style={previewStyles.opBody}>
+          <View style={previewStyles.opHead}>
+            <DisplayName account={replyTo.author} sessionId={c.session.id} />
+            <Caption color="muted" numberOfLines={1}>
+              @{replyTo.author.acct} · {formatRelativeTime(replyTo.createdAt, Date.now(), locale)}
+            </Caption>
+          </View>
+          <RichText
+            nodes={postBodyNodes(replyTo, {coveredQuoteUris: structuredUrisOf(replyTo)})}
+            emojis={postEmojis(replyTo)}
+            sessionId={c.session.id}
+            authorHost={replyTo.author.host ?? null}
+          />
+          {replyTo.quote ? (
+            <PostQuote
+              quote={replyTo.quote}
+              unavailable={false}
+              sessionId={c.session.id}
+              testID="composer-reply-quote"
+            />
+          ) : null}
+        </View>
+      </View>
+      <Caption testID="composer-replying-to">
+        {i18n._(msg`Replying to @${replyTo.author.acct}`)}
+      </Caption>
+    </View>
+  )
+}
+
+export function QuotePreviewSection({c}: {c: ComposerController}) {
+  const quote = c.state.quote
+  if (!quote) return null
+  return (
+    <PostQuote
+      quote={quote}
+      unavailable={false}
+      sessionId={c.session.id}
+      testID="composer-quote-preview"
     />
   )
 }

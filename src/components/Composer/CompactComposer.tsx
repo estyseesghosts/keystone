@@ -46,7 +46,9 @@ import {NO_OUTLINE} from './noOutline'
 import {
   CwSection,
   PollSection,
+  QuotePreviewSection,
   RecipientSection,
+  ReplyPreviewSection,
   ScheduledListSection,
   ScheduleSection,
   SeededMediaSection,
@@ -185,16 +187,7 @@ export function CompactComposer(props: ComposerProps) {
           <Button label={i18n._(msg`Cancel`)} variant="secondary" onPress={c.onClose} testID="composer-cancel" />
         </View>
       ) : null}
-      {c.state.replyTo ? (
-        <View style={styles.context} testID="composer-reply-context">
-          <Caption color="muted">{i18n._(msg`Replying to @${c.state.replyTo.author.acct}`)}</Caption>
-        </View>
-      ) : null}
-      {c.state.quote ? (
-        <View style={styles.context} testID="composer-quote-context">
-          <Caption color="muted">{i18n._(msg`Quoting @${c.state.quote.author.acct}`)}</Caption>
-        </View>
-      ) : null}
+      <ReplyPreviewSection c={c} />
       <View style={styles.topRow}>
         <ComposerAvatar uri={avatarUri} name={avatarName} />
         <View style={styles.inputCol}>
@@ -207,7 +200,13 @@ export function CompactComposer(props: ComposerProps) {
               autogrow.remeasure(text)
             }}
             onSelectionChange={e => c.setCaret(e.nativeEvent.selection.end)}
-            placeholder={c.state.replyTo ? i18n._(msg`Write your reply`) : i18n._(msg`What's happening?`)}
+            placeholder={
+              c.state.replyTo
+                ? i18n._(msg`Write your reply`)
+                : c.state.quote
+                  ? i18n._(msg`Add a comment`)
+                  : i18n._(msg`What's happening?`)
+            }
             placeholderTextColor={theme.palette.faint}
             accessibilityLabel={i18n._(msg`Post text`)}
             ref={autogrow.inputRef}
@@ -227,6 +226,7 @@ export function CompactComposer(props: ComposerProps) {
           <CwSection c={c} />
         </View>
       </View>
+      <QuotePreviewSection c={c} />
       <PollSection c={c} />
       <SeededMediaSection c={c} />
       <UploadsSection c={c} />
@@ -513,12 +513,6 @@ const styles = StyleSheet.create({
     // UA's `auto`-style ring, so the style itself goes (see noOutline).
     outlineWidth: 0,
     outlineColor: 'transparent',
-  },
-  context: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
   },
   pillRow: {flexDirection: 'row'},
   pill: {

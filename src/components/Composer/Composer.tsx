@@ -51,7 +51,9 @@ import {
   CwSection,
   DraftsSection,
   PollSection,
+  QuotePreviewSection,
   RecipientSection,
+  ReplyPreviewSection,
   ScheduledListSection,
   ScheduleSection,
   SeededMediaSection,
@@ -571,16 +573,7 @@ export function Composer(props: ComposerProps) {
         />
       </View>
 
-      {replyTo ? (
-        <View style={styles.context} testID="composer-reply-context">
-          <Caption color="muted">{i18n._(msg`Replying to @${replyTo.author.acct}`)}</Caption>
-        </View>
-      ) : null}
-      {quote ? (
-        <View style={styles.context} testID="composer-quote-context">
-          <Caption color="muted">{i18n._(msg`Quoting @${quote.author.acct}`)}</Caption>
-        </View>
-      ) : null}
+      <ReplyPreviewSection c={controller} />
       {editing ? (
         <View style={styles.context} testID="composer-edit-context">
           <Caption color="muted">{i18n._(msg`Editing your post`)}</Caption>
@@ -598,13 +591,20 @@ export function Composer(props: ComposerProps) {
           autogrow.remeasure(text)
         }}
         onSelectionChange={e => setCaret(e.nativeEvent.selection.end)}
-        placeholder={replyTo ? i18n._(msg`Write your reply`) : i18n._(msg`What's happening?`)}
+        placeholder={
+          replyTo
+            ? i18n._(msg`Write your reply`)
+            : quote
+              ? i18n._(msg`Add a comment`)
+              : i18n._(msg`What's happening?`)
+        }
         placeholderTextColor={theme.palette.faint}
         accessibilityLabel={i18n._(msg`Post text`)}
         ref={autogrow.inputRef}
         style={[styles.input, autogrowStyle(autogrow.height), NO_OUTLINE]}
         onContentSizeChange={autogrow.onContentSizeChange}
       />
+      <QuotePreviewSection c={controller} />
       <SuggestEmojiSection c={controller} />
 
       <View style={styles.spread}>
