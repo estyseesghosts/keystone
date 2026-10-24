@@ -31,6 +31,7 @@ import {
   italic,
   link,
   mention,
+  mentionLabelOf,
   quoteNode,
   safeHttpUrl,
   safeUrl,
@@ -297,6 +298,18 @@ function convertAnchor(node: DomNode, out: ContentNode[]): void {
   const redirectTag = hashtagLabelOf(inner);
   if (redirectTag !== null) {
     out.push(hashtag(redirectTag, null, [t(`#${redirectTag}`)]));
+    return;
+  }
+  // A link labelled exactly one handle is the mention (the
+  // `[@handle@host](url)` markdown / pixelfed-anchor shape): the label
+  // routes in-app, so it renders as a mention chip. The href is kept —
+  // a bare `@user` label still needs the profile URL to resolve
+  // remotely — and taps resolve the label first, so a mismatched URL
+  // can never hijack the chip into a browser. Anything richer stays a
+  // link.
+  const redirectMention = mentionLabelOf(inner);
+  if (redirectMention !== null) {
+    out.push(mention(href, [t(redirectMention)]));
     return;
   }
   out.push(link(href, inner));

@@ -388,3 +388,25 @@ describe("hashtag redirect links (phishing surface)", () => {
     ]);
   });
 });
+
+describe("mention-labelled anchors (in-app chips)", () => {
+  it("unclassed handle-labelled anchors become mentions, href kept", () => {
+    expect(contentFromHtml('<p><a href="https://doma.in/@handle">@handle@doma.in</a></p>')).toEqual([
+      {
+        kind: "mention",
+        href: "https://doma.in/@handle",
+        children: [{ kind: "text", text: "@handle@doma.in" }],
+      },
+    ]);
+  });
+
+  it("richer labels stay links", () => {
+    expect(contentFromHtml('<p><a href="https://a.b/c">contact @u@h.social</a></p>')).toEqual([
+      {
+        kind: "link",
+        href: "https://a.b/c",
+        children: [{ kind: "text", text: "contact @u@h.social" }],
+      },
+    ]);
+  });
+});

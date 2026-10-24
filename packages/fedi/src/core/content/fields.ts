@@ -1,0 +1,152 @@
+// Profile field values → content AST (pure, framework-free).
+//
+// Mastodon-family values arrive as HTML, Misskey-family values as plain
+// text that often carries markdown links (`[label](url)` for personal
+// sites and contact methods), bare URLs, and bare `@handle` mentions —
+// all dead unless scanned back out. This module parses HTML first (both
+// families' anchors keep working), then expands eligible text runs
+// (never inside link / mention / hashtag / code — labels already
+// decided there). Hashtags stay text: a field tag is not a routable
+// tag. A link labelled exactly one handle becomes a mention chip (same
+// rule as both content parsers); a lone-hashtag label becomes the tag
+// with the href dropped (same phishing rule).
+
+import {
+  hashtag,
+  hashtagLabelOf,
+  link,
+  mention,
+  mentionLabelOf,
+  safeUrl,
+  stripTokenPunctuation,
+  t,
+  validTranslatedHandle,
+  type ContentNode,
+} from "./ast";
+import { contentFromHtml } from "./fromHtml";
+
+const FIELD_MARKDOWN_PATTERN = /\[([^\[\]\n]+)\]\(([^)\s]+)\)/g;
+const FIELD_TOKEN_PATTERN = /(^|[\s>(])@([\w-]+(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
+
+/** Text runs that must not be re-scanned (their labels already
+ * decided): links, mentions, hashtags, and opaque code. */
+const FIELD_OPAQUE: ReadonlySet<ContentNode["kind"]> = new Set([
+  "link",
+  "mention",
+  "hashtag",
+  "code",
+  "codeBlock",
+]);
+
+function pushFieldText(out: ContentNode[], s: string): void {
+  if (s.length === 0) return;
+  const last = out[out.length - 1];
+  if (last && last.kind === "text") {
+    out[out.length - 1] = t(last.text + s);
+    return;
+  }
+  out.push(t(s));
+}
+
+/** One non-markdown run: bare URLs linkify, bare handles chip. Newlines
+ * stay literal text (field rendering today, never `br`). */
+function scanFieldSegment(seg: string, out: ContentNode[]): void {
+  FIELD_TOKEN_PATTERN.lastIndex = 0;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = FIELD_TOKEN_PATTERN.exec(seg)) !== null) {
+    const full = match[0];
+    const lead = match[1] ?? "";
+    const token = stripTokenPunctuation(full.slice(lead.length));
+    const trail = full.slice(lead.length + token.length);
+    pushFieldText(out, seg.slice(last, match.index) + lead);
+    if (token.startsWith("@")) {
+      const ref = validTranslatedHandle(token.slice(1));
+      if (ref !== null) {
+        out.push(mention(null, [t(`@${ref.username}${ref.host ? `@${ref.host}` : ""}`)]));
+        pushFieldText(out, trail);
+        last = match.index + full.length;
+        continue;
+      }
+    } else {
+      const href = safeUrl(token);
+      if (href !== null && /^https?:\/\//.test(href)) {
+        out.push(link(href, [t(token)]));
+        pushFieldText(out, trail);
+        last = match.index + full.length;
+        continue;
+      }
+    }
+    pushFieldText(out, full);
+    last = match.index + full.length;
+  }
+  pushFieldText(out, seg.slice(last));
+}
+
+/** Expand markdown links, bare URLs, and bare mentions in one text run. */
+function expandFieldText(text: string, out: ContentNode[]): void {
+  FIELD_MARKDOWN_PATTERN.lastIndex = 0;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = FIELD_MARKDOWN_PATTERN.exec(text)) !== null) {
+    scanFieldSegment(text.slice(last, match.index), out);
+    const label = match[1];
+    const rawHref = match[2];
+    const handle = mentionLabelOf([t(label)]);
+    if (handle !== null) {
+      // The href is kept: a bare `@user` label still needs the profile
+      // URL to resolve remotely (a null href resolves locally only).
+      // Taps resolve the label first, so a mismatched URL can never
+      // hijack the chip into a browser.
+      out.push(mention(safeUrl(rawHref), [t(handle)]));
+    } else {
+      const tag = hashtagLabelOf([t(label)]);
+      if (tag !== null) {
+        out.push(hashtag(tag, null, [t(`#${tag}`)]));
+      } else {
+        const href = safeUrl(rawHref);
+        if (href !== null && /^https?:\/\//.test(href)) out.push(link(href, [t(label)]));
+        else pushFieldText(out, match[0]);
+      }
+    }
+    last = match.index + match[0].length;
+  }
+  scanFieldSegment(text.slice(last), out);
+}
+
+/** Expand eligible text nodes in a parsed tree (transparent containers
+ * recurse; opaque labels pass through untouched). */
+function expandFieldNodes(nodes: ContentNode[]): ContentNode[] {
+  const out: ContentNode[] = [];
+  for (const node of nodes) {
+    if (node.kind === "text") {
+      expandFieldText(node.text, out);
+      continue;
+    }
+    if (FIELD_OPAQUE.has(node.kind)) {
+      out.push(node);
+      continue;
+    }
+    if ("children" in node) {
+      const children = expandFieldNodes(node.children);
+      out.push({ ...node, children });
+      continue;
+    }
+    out.push(node);
+  }
+  return out;
+}
+
+/** Parse a profile field value into the shared AST. HTML values parse as
+ * HTML (both families' anchors keep working); plain-text values gain
+ * live markdown links, bare URLs, and mention chips. Never throws. */
+export function contentFromFieldValue(value: string | null | undefined): ContentNode[] {
+  if (typeof value !== "string" || value.length === 0) return [];
+  let nodes: ContentNode[];
+  try {
+    nodes = contentFromHtml(value);
+  } catch {
+    return [t(value)];
+  }
+  return expandFieldNodes(nodes);
+}

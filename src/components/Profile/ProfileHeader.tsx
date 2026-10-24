@@ -9,6 +9,7 @@ import {useMemo, useState, type ReactNode} from 'react'
 import {Image, StyleSheet, View} from 'react-native'
 
 import {
+  contentFromFieldValue,
   contentFromHtml,
   contentFromMfm,
   displayNameOf,
@@ -210,10 +211,13 @@ export function ProfileHeader({
   )
   // Profile fields (C14): Mastodon-family values arrive as HTML, Misskey
   // values as plain text — both go through the allow-listed AST so no
-  // raw markup ever renders. Unparseable-but-nonempty values fall back
+  // raw markup ever renders. Field values gain live markdown links,
+  // bare URLs, and mention chips (`contentFromFieldValue`); lone-handle
+  // labels become mentions and lone-hashtag labels become tags, same as
+  // the post parsers. Unparseable-but-nonempty values fall back
   // to plain text (shown, never dropped).
   const fieldNodes = useMemo(
-    () => account.fields.map(f => contentFromHtml(f.value)),
+    () => account.fields.map(f => contentFromFieldValue(f.value)),
     // `fields` is replaced wholesale by the adapter; the array identity
     // is the correct dep.
     [account.fields],

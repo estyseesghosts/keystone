@@ -177,6 +177,82 @@ describe('ProfileHeader fields (C14)', () => {
     expect(screen.getByTestId('profile-name')).toBeTruthy()
     expect(screen.queryByText('Ann :blobcat:')).toBeNull()
   })
+
+  it('renders markdown links in field values as tappable links', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          fields: [{name: 'site', value: '[my site](https://example.com)', verifiedAt: null}],
+        })}
+        isSelf
+        relationship={null}
+      />,
+    )
+    expect(screen.getByText('my site')).toBeTruthy()
+    expect(screen.getByRole('link')).toBeTruthy()
+  })
+
+  it('renders bare URLs in field values as link chips', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          fields: [{name: 'site', value: 'https://example.com/x', verifiedAt: null}],
+        })}
+        isSelf
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('richtext-link-chip')).toBeTruthy()
+  })
+
+  it('renders bare handle mentions in field values as chips', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          fields: [{name: 'contact', value: 'hi @ana', verifiedAt: null}],
+        })}
+        isSelf={false}
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('richtext-mention-chip')).toBeTruthy()
+    expect(screen.getByText('@ana')).toBeTruthy()
+  })
+
+  it('normalizes handle-labelled markdown in fields to a mention chip', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          fields: [
+            {
+              name: 'contact',
+              value: '[@ana@example.social](https://example.social/@ana)',
+              verifiedAt: null,
+            },
+          ],
+        })}
+        isSelf={false}
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('richtext-mention-chip')).toBeTruthy()
+    expect(screen.getByText('@ana@example.social')).toBeTruthy()
+    expect(screen.queryByTestId('richtext-link-chip')).toBeNull()
+  })
+
+  it('strips hashtag-labelled markdown in fields to plain tag text', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          fields: [{name: 'tag', value: '[#photo](https://x.example/?q=photo)', verifiedAt: null}],
+        })}
+        isSelf
+        relationship={null}
+      />,
+    )
+    expect(screen.getByText('#photo')).toBeTruthy()
+    expect(screen.queryByTestId('richtext-link-chip')).toBeNull()
+  })
 })
 
 describe('AccountReactionsBlock (C14)', () => {

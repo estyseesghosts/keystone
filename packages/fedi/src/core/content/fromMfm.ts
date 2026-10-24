@@ -26,6 +26,7 @@ import {
   italic,
   link,
   mention,
+  mentionLabelOf,
   quoteNode,
   safeUrl,
   splitRemoteEmojiCodes,
@@ -130,6 +131,11 @@ export function convertNode(node: MfmNode): ContentNode[] {
       // is dropped and no link node survives to embed, chip, or unfurl.
       const tag = hashtagLabelOf(children);
       if (tag !== null) return [hashtag(tag, null, [t(`#${tag}`)])];
+      // A link labelled exactly one handle is the mention: the label
+      // routes in-app as a chip (same rule as the HTML parser). The
+      // href is kept for remote resolution of bare `@user` labels.
+      const handle = mentionLabelOf(children);
+      if (handle !== null) return [mention(href, [t(handle)])];
       if (href === null) return children.length > 0 ? children : [t(node.props.url)];
       return [link(href, children.length > 0 ? children : [t(node.props.url)])];
     }

@@ -59,6 +59,7 @@ export * from "./misskey/translate";
 export * from "./core/content/ast";
 export * from "./core/content/fromMfm";
 export * from "./core/content/fromHtml";
+export * from "./core/content/fields";
 // Pure `api/` ports (no DOM, no i18n): MFM fold + tag blocks, link
 // previews, picker emoji data, emoji asset URLs. `FoldResult` is aliased:
 // the bare name is the Mastodon tree fold's (`./mastodon/presentation`).

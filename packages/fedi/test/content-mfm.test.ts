@@ -227,3 +227,25 @@ describe("hashtag redirect links (phishing surface)", () => {
     ]);
   });
 });
+
+describe("mention-labelled links (in-app chips)", () => {
+  it("normalizes a full-handle markdown link to a mention, keeping the href", () => {
+    expect(contentFromMfm("[@u@h.social](https://h.social/@u)")).toEqual([
+      {
+        kind: "mention",
+        href: "https://h.social/@u",
+        children: [{ kind: "text", text: "@u@h.social" }],
+      },
+    ]);
+  });
+
+  it("keeps the href so bare-handle labels resolve remotely", () => {
+    expect(contentFromMfm("[@u](https://h.social/@u)")).toEqual([
+      { kind: "mention", href: "https://h.social/@u", children: [{ kind: "text", text: "@u" }] },
+    ]);
+  });
+
+  it("leaves richer labels as links", () => {
+    expect(contentFromMfm("[contact @u@h.social](https://h.social/@u)")[0].kind).toBe("link");
+  });
+});

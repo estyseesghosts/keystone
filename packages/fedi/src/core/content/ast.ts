@@ -327,16 +327,64 @@ export function bareLinkLabel(node: ContentNode): string | null {
 // Scan them back out: `@user` / `@user@host` (same classes `parseAcct`
 // accepts, tap-time resolution stays authoritative) and http(s) URLs.
 // Newlines survive as `br`, like every other path. Hashtags stay text:
-// a translated tag is not a routable tag. Pure.
-const TRANSLATED_TOKEN_PATTERN = /(^|[\s>(])@([\w-]+(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
+// a translated tag is not a routable tag — markdown hashtag links and
+// bare hashtag URLs collapse to plain `#tag` text instead of rendering
+// a chip that shows the author's instance hashtag URL. Pure.
+const TRANSLATED_TOKEN_PATTERN =
+  /(\[#[^\s#\]]{1,128}\]\([^)\s]+\))|(^|[\s>(])@([\w-]+(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
+
+/** Plain `#tag` text for a translated hashtag construct, else null:
+// markdown `[#tag](url)`, or a bare hashtag URL (`/tags/<tag>`,
+// `/hashtag/<tag>`, `?q=<tag>` / `?tag=<tag>` pixelfed-style). The tag
+// is percent-decoded and validated; junk stays a link or literal. Pure. */
+export function translatedHashtagOf(token: string): string | null {
+  const markdown = /^\[#([^\s#\]]{1,128})\]\(([^)\s]+)\)$/.exec(token);
+  if (markdown) return `#${markdown[1]}`;
+  let url: URL;
+  try {
+    url = new URL(token);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  const tailOf = (segments: string[]): string | null => {
+    if (segments.length === 0) return null;
+    let tail: string;
+    try {
+      tail = decodeURIComponent(segments[segments.length - 1] ?? "");
+    } catch {
+      return null;
+    }
+    return /^[^\s/#?]{1,128}$/.test(tail) ? tail : null;
+  };
+  const segments = url.pathname.split("/").filter((s) => s.length > 0);
+  const prev = segments.length > 1 ? (segments[segments.length - 2] ?? "").toLowerCase() : "";
+  if (prev === "tags" || prev === "hashtag") {
+    const tail = tailOf(segments);
+    if (tail !== null) return `#${tail}`;
+    return null;
+  }
+  const query = url.searchParams.get("q") ?? url.searchParams.get("tag");
+  if (query !== null) {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(query);
+    } catch {
+      return null;
+    }
+    if (/^[^\s/#?]{1,128}$/.test(decoded)) return `#${decoded}`;
+  }
+  return null;
+}
 
 /** Trailing punctuation is prose, never address (matches and lookups
- * would fail or mistarget on it). Pure. */
-function stripTokenPunctuation(token: string): string {
+ * would fail or mistarget on it). Shared with the field-value scanner.
+ * Pure. */
+export function stripTokenPunctuation(token: string): string {
   return token.replace(/[.,;:!?)\]}>]+$/, "");
 }
 
-function validTranslatedHandle(handle: string): { username: string; host: string | null } | null {
+export function validTranslatedHandle(handle: string): { username: string; host: string | null } | null {
   const parts = handle.split("@");
   if (parts.length > 2) return null;
   const [username, host] = parts;
@@ -360,7 +408,16 @@ export function contentFromTranslatedText(text: string | null | undefined): Cont
     let match: RegExpExecArray | null;
     while ((match = TRANSLATED_TOKEN_PATTERN.exec(line)) !== null) {
       const full = match[0];
-      const lead = match[1] ?? "";
+      // A markdown hashtag link is the tag, full stop — never a chip
+      // showing the author's instance URL.
+      if (match[1] !== undefined) {
+        pushText(line.slice(last, match.index));
+        const tag = translatedHashtagOf(full);
+        pushText(tag ?? full);
+        last = match.index + full.length;
+        continue;
+      }
+      const lead = match[2] ?? "";
       const token = stripTokenPunctuation(full.slice(lead.length));
       const trail = full.slice(lead.length + token.length);
       pushText(line.slice(last, match.index) + lead);
@@ -375,6 +432,14 @@ export function contentFromTranslatedText(text: string | null | undefined): Cont
           continue;
         }
       } else {
+        // A bare hashtag URL is its tag as plain text, not a link.
+        const tag = translatedHashtagOf(token);
+        if (tag !== null) {
+          out.push(t(tag));
+          pushText(trail);
+          last = match.index + full.length;
+          continue;
+        }
         const href = safeUrl(token);
         if (href !== null && /^https?:\/\//.test(href)) {
           out.push(link(href, [t(token)]));
@@ -467,6 +532,24 @@ export function hashtagLabelOf(children: readonly ContentNode[]): string | null 
   if (label === null) return null;
   const match = /^#([^\s#]{1,128})$/.exec(label);
   return match ? (match[1] as string) : null;
+}
+
+/**
+ * The canonical handle when a link's ENTIRE visible label is one handle
+ * (`[@user@host](url)` markdown, a bare `@user` anchor) — or null. The
+ * mention analog of `hashtagLabelOf`: the label routes in-app (taps
+ * resolve the handle first and never open the href blindly), so callers
+ * render a mention chip instead of an external link. Anything richer
+ * than a lone handle stays a link. Pure.
+ */
+export function mentionLabelOf(children: readonly ContentNode[]): string | null {
+  if (children.length !== 1) return null;
+  const only = children[0];
+  const label = only.kind === "text" ? only.text.trim() : null;
+  if (label === null || !label.startsWith("@")) return null;
+  const ref = validTranslatedHandle(label.slice(1));
+  if (ref === null) return null;
+  return `@${ref.username}${ref.host ? `@${ref.host}` : ""}`;
 }
 
 // --- Remote custom-emoji codes (`:name@host:`) --------------------------

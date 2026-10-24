@@ -18,6 +18,7 @@ import {
   collectBareLinkHrefs,
   contentFromTranslatedText,
   mentionAccountIdOf,
+  mentionLabelOf,
   plainTextOf,
   quoteNode,
   safeHttpUrl,
@@ -26,9 +27,11 @@ import {
   strike,
   t,
   textOf,
+  translatedHashtagOf,
   unicodeEmoji,
   type ContentNode,
 } from "../src/core/content/ast";
+import { contentFromFieldValue } from "../src/core/content/fields";
 
 describe("constructors", () => {
   it("builds each node kind", () => {
@@ -298,6 +301,137 @@ describe("translated text nodes", () => {
     ]);
     expect(contentFromTranslatedText("")).toEqual([]);
     expect(contentFromTranslatedText(null)).toEqual([]);
+  });
+
+  it("collapses markdown hashtag links to plain tag text, never a URL chip", () => {
+    expect(
+      contentFromTranslatedText("see [#presentaçao](https://masto.br/tags/presenta%C3%A7ao) ok"),
+    ).toEqual([
+      { kind: "text", text: "see " },
+      { kind: "text", text: "#presentaçao" },
+      { kind: "text", text: " ok" },
+    ]);
+  });
+
+  it("collapses bare hashtag URLs to plain tag text", () => {
+    expect(contentFromTranslatedText("see https://masto.br/tags/foo ok")).toEqual([
+      { kind: "text", text: "see " },
+      { kind: "text", text: "#foo" },
+      { kind: "text", text: " ok" },
+    ]);
+    expect(contentFromTranslatedText("see https://masto.br/?q=photo ok")).toEqual([
+      { kind: "text", text: "see " },
+      { kind: "text", text: "#photo" },
+      { kind: "text", text: " ok" },
+    ]);
+  });
+
+  it("leaves non-hashtag URLs as links", () => {
+    expect(contentFromTranslatedText("see https://a.b/notes/1 ok")).toEqual([
+      { kind: "text", text: "see " },
+      {
+        kind: "link",
+        href: "https://a.b/notes/1",
+        children: [{ kind: "text", text: "https://a.b/notes/1" }],
+      },
+      { kind: "text", text: " ok" },
+    ]);
+  });
+});
+
+describe("translatedHashtagOf", () => {
+  it("reads markdown hashtag links by their label", () => {
+    expect(translatedHashtagOf("[#presentaçao](https://masto.br/tags/presenta%C3%A7ao)")).toBe(
+      "#presentaçao",
+    );
+  });
+
+  it("reads /tags/ and /hashtag/ tails, decoded", () => {
+    expect(translatedHashtagOf("https://masto.br/tags/foo")).toBe("#foo");
+    expect(translatedHashtagOf("https://x.example/hashtag/presenta%C3%A7ao")).toBe("#presentaçao");
+  });
+
+  it("reads pixelfed-style ?q= / ?tag= params", () => {
+    expect(translatedHashtagOf("https://masto.br/?q=presenta%C3%A7ao")).toBe("#presentaçao");
+    expect(translatedHashtagOf("https://pix.example/?tag=photo")).toBe("#photo");
+  });
+
+  it("rejects non-hashtag URLs and junk", () => {
+    expect(translatedHashtagOf("https://a.b/notes/1")).toBeNull();
+    expect(translatedHashtagOf("https://a.b/tags/")).toBeNull();
+    expect(translatedHashtagOf("not a url")).toBeNull();
+    expect(translatedHashtagOf("mailto:a@b.c")).toBeNull();
+  });
+});
+
+describe("mentionLabelOf", () => {
+  it("normalizes lone-handle labels", () => {
+    expect(mentionLabelOf([t("@u@h.social")])).toBe("@u@h.social");
+    expect(mentionLabelOf([t("  @u  ")])).toBe("@u");
+  });
+
+  it("rejects display names, emails, and richer labels", () => {
+    expect(mentionLabelOf([t("Laura")])).toBeNull();
+    expect(mentionLabelOf([t("me@example.com")])).toBeNull();
+    expect(mentionLabelOf([t("contact @u@h.social")])).toBeNull();
+    expect(mentionLabelOf([t("@u@")])).toBeNull();
+    expect(mentionLabelOf([t("@u"), t("x")])).toBeNull();
+  });
+});
+
+describe("contentFromFieldValue", () => {
+  it("renders markdown links as links", () => {
+    expect(contentFromFieldValue("[my site](https://example.com)")).toEqual([
+      {
+        kind: "link",
+        href: "https://example.com/",
+        children: [{ kind: "text", text: "my site" }],
+      },
+    ]);
+  });
+
+  it("normalizes handle-labelled markdown to a mention, href kept", () => {
+    expect(contentFromFieldValue("[@u@h.social](https://h.social/@u)")).toEqual([
+      {
+        kind: "mention",
+        href: "https://h.social/@u",
+        children: [{ kind: "text", text: "@u@h.social" }],
+      },
+    ]);
+  });
+
+  it("chips bare mentions and bare URLs, keeps prose", () => {
+    expect(contentFromFieldValue("hi @u@h.social, see https://a.b/x")).toEqual([
+      { kind: "text", text: "hi " },
+      { kind: "mention", href: null, children: [{ kind: "text", text: "@u@h.social" }] },
+      { kind: "text", text: ", see " },
+      { kind: "link", href: "https://a.b/x", children: [{ kind: "text", text: "https://a.b/x" }] },
+    ]);
+  });
+
+  it("strips hashtag-labelled markdown to a plain hashtag", () => {
+    expect(contentFromFieldValue("[#tag](https://x.example/?q=tag)")).toEqual([
+      { kind: "hashtag", tag: "tag", href: null, children: [{ kind: "text", text: "#tag" }] },
+    ]);
+  });
+
+  it("parses HTML anchors and leaves emails alone", () => {
+    expect(contentFromFieldValue('<a href="https://h.social/@u">@u@h.social</a>')).toEqual([
+      {
+        kind: "mention",
+        href: "https://h.social/@u",
+        children: [{ kind: "text", text: "@u@h.social" }],
+      },
+    ]);
+    expect(contentFromFieldValue("me@example.com")).toEqual([
+      { kind: "text", text: "me@example.com" },
+    ]);
+  });
+
+  it("returns no nodes for empty input, keeps newlines literal", () => {
+    expect(contentFromFieldValue("")).toEqual([]);
+    expect(contentFromFieldValue(null)).toEqual([]);
+    expect(contentFromFieldValue("a\nb")).toEqual([{ kind: "text", text: "a\nb" }]);
   });
 });
 
