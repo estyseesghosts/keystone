@@ -4,12 +4,14 @@
 // (desktop rail/full — both are `!== 'mobile'`).
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
-import {render, screen, act} from '@testing-library/react-native'
+import {render, screen, act, within} from '@testing-library/react-native'
+import {View} from 'react-native'
 
 import type {Account} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {ProfileHeader} from '#/components/Profile/ProfileHeader'
+import {PROFILE_AVATAR_SIZE} from '#/components/Profile/ProfileAvatar'
 
 const widthHolder: {width: number} = {width: 390}
 jest.mock('#/alf/useViewportWidth', () => ({
@@ -128,6 +130,44 @@ describe('ProfileHeader cards', () => {
     expect(screen.getByTestId('profile-fields')).toBeTruthy()
     expect(screen.getByTestId('profile-field-0')).toBeTruthy()
     expect(screen.getByTestId('profile-field-1')).toBeTruthy()
+  })
+})
+
+describe('ProfileHeader identity row', () => {
+  it('pins the avatar size (~10% over the previous 88)', () => {
+    expect(PROFILE_AVATAR_SIZE).toBe(96)
+  })
+
+  it('left-justifies the identity text and keeps actions in the same row', () => {
+    widthHolder.width = 390
+    renderWithProviders(
+      <ProfileHeader
+        account={account({bio: {plain: ''}})}
+        isSelf
+        relationship={null}
+        actions={<View testID="stub-actions" />}
+      />,
+    )
+    expect(screen.getByTestId('profile-identity').props.style).toMatchObject({
+      flex: 1,
+      alignItems: 'flex-start',
+    })
+    const actionsSlot = screen.getByTestId('profile-identity-actions')
+    expect(actionsSlot.props.style).toMatchObject({flexShrink: 0})
+    expect(screen.getByTestId('stub-actions')).toBeTruthy()
+    // Same visual row: the name, handle, and actions share one row.
+    const row = screen.getByTestId('profile-identity-row')
+    expect(within(row).getByTestId('profile-identity')).toBeTruthy()
+    expect(within(row).getByTestId('profile-name')).toBeTruthy()
+    expect(within(row).getByTestId('profile-handle')).toBeTruthy()
+    expect(within(row).getByTestId('stub-actions')).toBeTruthy()
+  })
+
+  it('renders no actions slot when the caller supplies none', () => {
+    widthHolder.width = 390
+    renderWithProviders(header(account({bio: {plain: ''}})))
+    expect(screen.queryByTestId('profile-identity-actions')).toBeNull()
+    expect(screen.getByTestId('profile-name')).toBeTruthy()
   })
 })
 

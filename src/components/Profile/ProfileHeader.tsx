@@ -1,8 +1,8 @@
 // Profile header (Keystone v1 pattern, our own code): banner, an
-// avatar straddling the banner's bottom edge with the action slot
-// immediately to its right, centered display name/handle, bio and profile
-// fields in rounded cards (split halves on desktop, stacked on mobile),
-// then stats gated on ffVisibility. A Misskey-family profile background
+// avatar straddling the banner's bottom edge, a left-justified
+// identity row (name/handle text plus the action slot on its right),
+// bio and profile fields in rounded cards (split halves on desktop,
+// stacked on mobile), then stats gated on ffVisibility. A Misskey-family profile background
 // paints behind the header content; anything else is `palette.bg`.
 // Wire types never cross here: only domain models from `@keystone/fedi`.
 import {useMemo, useState, type ReactNode} from 'react'
@@ -227,30 +227,39 @@ export function ProfileHeader({
           <View style={styles.avatarOverlap}>
             <ProfileAvatar uri={account.avatarUrl} name={displayNameOf(account)} />
           </View>
-          <View style={styles.actionSlot}>{actions}</View>
         </View>
-        {/* Identity is centered; stats stay left-aligned below the cards. */}
-        <View style={styles.identity}>
-          {/* F11-half: custom-emoji names render through DisplayName.
-              Name==handle collapse (v1): the handle renders AS the display
-              name — one line, no second smaller handle line. */}
-          {shouldCollapseName(account) ? (
-            <DisplayName
-              account={{...account, displayName: handleOf(account)}}
-              sessionId={sid}
-              size={20}
-              testID="profile-name"
-            />
-          ) : (
-            <>
-              <DisplayName account={account} sessionId={sid} size={20} testID="profile-name" />
-              <Caption color="faint" testID="profile-handle">
-                {handleOf(account)}
-              </Caption>
-            </>
-          )}
-          {account.locked ? <Caption color="faint">Locked account.</Caption> : null}
-          {account.bot ? <Caption color="faint">Automated account.</Caption> : null}
+        {/* Identity row: left-justified name/handle text takes the free
+            space (long names truncate via DisplayName's single line, never
+            pushing the buttons); actions sit to its right in the same
+            visual row. */}
+        <View testID="profile-identity-row" style={styles.identityRow}>
+          <View testID="profile-identity" style={styles.identityText}>
+            {/* F11-half: custom-emoji names render through DisplayName.
+                Name==handle collapse (v1): the handle renders AS the display
+                name — one line, no second smaller handle line. */}
+            {shouldCollapseName(account) ? (
+              <DisplayName
+                account={{...account, displayName: handleOf(account)}}
+                sessionId={sid}
+                size={20}
+                testID="profile-name"
+              />
+            ) : (
+              <>
+                <DisplayName account={account} sessionId={sid} size={20} testID="profile-name" />
+                <Caption color="faint" testID="profile-handle">
+                  {handleOf(account)}
+                </Caption>
+              </>
+            )}
+            {account.locked ? <Caption color="faint">Locked account.</Caption> : null}
+            {account.bot ? <Caption color="faint">Automated account.</Caption> : null}
+          </View>
+          {actions ? (
+            <View testID="profile-identity-actions" style={styles.identityActions}>
+              {actions}
+            </View>
+          ) : null}
         </View>
         {detail === 'split' ? (
           <View testID="profile-detail-split" style={styles.splitRow}>
@@ -294,18 +303,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: space.sm,
   },
-  // Half of the 88px avatar: it straddles the banner edge, and the
-  // action slot's matching top margin puts the buttons beside the half
-  // that hangs below the banner — never pinned to the far edge.
-  avatarOverlap: {marginTop: -44},
-  actionSlot: {
-    flexGrow: 0,
-    flexShrink: 1,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    marginTop: 44,
+  // Half of the 96px avatar: it straddles the banner edge.
+  avatarOverlap: {marginTop: -48},
+  // Identity row: the text column takes the free space and truncates
+  // (DisplayName is single-line); the buttons keep their size at the
+  // right and are never pushed by long names/handles.
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    width: '100%',
   },
-  identity: {alignItems: 'center', width: '100%'},
+  identityText: {flex: 1, minWidth: 0, alignItems: 'flex-start'},
+  identityActions: {flexShrink: 0, alignItems: 'center', justifyContent: 'center'},
   card: {
     borderRadius: radius.lg,
     padding: space.md,

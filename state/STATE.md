@@ -58,7 +58,10 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
     cards, desktop split / mobile stack, `Account.backgroundUrl`
     (Misskey shapes, Mastodon null). Log
     `state/logs/2026-10-24-profile-layout.md`. 199 suites / 2551
-    tests green. Visual `not verified`.
+    tests green. Visual `not verified`. Follow-up same day:
+    identity row (actions right of left-justified name/handle),
+    avatar 96. Log `state/logs/2026-10-24-profile-identity-row.md`.
+    199 suites / 2554 tests green.
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
    user-note/modlog/reset-password; Mastodon account_actions
    warn/suspend/silence + notes; NO delete-account). Single agent,
