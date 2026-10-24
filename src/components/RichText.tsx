@@ -34,14 +34,14 @@ import {
 import {msg} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
 
-import {DEFAULT_EMOJI_STYLE, bareLinkLabel, displayNameOf, parseAcct, plainTextOf, type Backend, type ContentNode, type EmojiStyle} from '@keystone/fedi'
+import {DEFAULT_EMOJI_STYLE, acctFromBridgeUrl, bareLinkLabel, displayNameOf, isBridgeUrl, parseAcct, plainTextOf, type Backend, type ContentNode, type EmojiStyle} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {Body} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {CustomEmojiGlyph, UnicodeEmoji} from '#/components/EmojiImage'
 import {ProfileIcon} from '#/components/icons'
-import {HoverLayer, HOVER_CLOSE_DELAY_MS, HOVER_FADE_LEAD_MS, cardPosition, ensurePointerTracking, leaveTargetStaysInside, pointerRecentlyMoved} from '#/components/Profile/HoverPreview'
+import {HoverLayer, HOVER_CLOSE_DELAY_MS, HOVER_FADE_LEAD_MS, cardPosition, ensurePointerTracking, leaveTargetStaysInside, pointerRecentlyMoved, shouldReviveCard} from '#/components/Profile/HoverPreview'
 import {canCopy, copyText} from '#/lib/clipboard'
 import {showToast} from '#/lib/toast'
 import {Pressable} from '#/components/Pressable'
@@ -205,14 +205,25 @@ export function acctFromBskyAppUrl(href: string | null | undefined): string | nu
  * `@user` label on a remote href, or a display-name label anywhere) —
  * the URL is authoritative, the label is display text. Bluesky profile
  * URLs map to their bridged fediverse actor (`/profile/<handle>` on
- * `bsky.app` → `<handle>@bsky.brid.gy`) so bridged mentions stay in-app
- * instead of opening the browser. A bare label with no URL resolves
- * locally; only an unresolvable mention with a URL leaves the app
- * (plain links still can). */
+ * `bsky.app` → `<handle>@bsky.brid.gy`), and bridge redirect pages
+ * (`bsky.brid.gy/r/…`, whose labels Mastodon truncates to `@<handle>`)
+ * unwrap to the same actor — bridged mentions stay in-app instead of
+ * flattening to a local lookup or opening the browser. A bare label with
+ * no URL resolves locally (a bare label on a bridge URL stays put — the
+ * href names a remote actor, never a local user); an unresolvable mention
+ * with a non-bridge URL
+ * leaves the app (plain links still can); an unresolvable mention on a
+ * bridge URL stays put — a bridge URL is always an actor identity, never
+ * a page to browse. */
 export function defaultMentionPress(href: string | null, label: string): void {
   const ref = parseAcct(label)
   if (ref?.host) {
     openMentionProfile(`${ref.username}@${ref.host}`)
+    return
+  }
+  const bridge = acctFromBridgeUrl(href)
+  if (bridge) {
+    openMentionProfile(bridge)
     return
   }
   const acct = acctFromProfileUrl(href) ?? acctFromBskyAppUrl(href)
@@ -220,6 +231,10 @@ export function defaultMentionPress(href: string | null, label: string): void {
     openMentionProfile(acct)
     return
   }
+  // A bridge href is always a remote actor identity: a bare label must
+  // never flatten to a local lookup, and the URL must never open the
+  // browser. Unresolvable bridge mentions stay put.
+  if (isBridgeUrl(href)) return
   if (ref) {
     openMentionProfile(ref.username)
     return
@@ -560,6 +575,9 @@ function MatrixHover({
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Last genuine anchor-or-card leave (same revive gate as
+  // HoverPreview): stays-inside ghosts never stamp it.
+  const leaveAt = useRef<number | null>(null)
   useEffect(
     () => () => {
       if (openTimer.current !== null) clearTimeout(openTimer.current)
@@ -618,6 +636,7 @@ function MatrixHover({
     fadeTimer.current = setTimeout(() => setFaded(true), MATRIX_OPEN_DELAY_MS + HOVER_FADE_LEAD_MS)
   }
   const handleLeave = () => {
+    leaveAt.current = Date.now()
     setFaded(false)
     clearOpenPair()
     if (show) scheduleClose()
@@ -644,6 +663,9 @@ function MatrixHover({
           anchorRef={anchor}
           fade={faded}
           onEnterCard={() => {
+            // Same revive gate as HoverPreview: only a gap crossing
+            // inside the close grace resurrects a closing card.
+            if (!shouldReviveCard(leaveAt.current, Date.now())) return
             cancelClose()
             setFaded(true)
           }}
@@ -776,11 +798,22 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
             // land in-app through the defaults — never the browser, never
             // a dead tap for a resolvable mention.
             const label = labelOf(node.children)
+            // Bridge redirect hrefs carry a truncated `@<handle>` label
+            // (Mastodon drops the `@bsky.brid.gy` suffix): the chip shows
+            // the recovered full handle so it reads — and resolves,
+            // through `useMentionedAccount` — as the bridged actor, never
+            // a local user. Bridge hrefs with no recoverable handle are
+            // unresolvable actor identities: static text, never a dead
+            // chip, never the browser.
+            const bridgeAcct = acctFromBridgeUrl(node.href)
+            const chipLabel = bridgeAcct !== null ? `@${bridgeAcct}` : label
+            const bridgeUnresolved = bridgeAcct === null && isBridgeUrl(node.href)
             const pressable =
-              node.href !== null ||
-              ctx.onMentionPress !== undefined ||
-              parseAcct(label) !== null ||
-              acctFromProfileUrl(node.href) !== null
+              !bridgeUnresolved &&
+              (node.href !== null ||
+                ctx.onMentionPress !== undefined ||
+                parseAcct(label) !== null ||
+                acctFromProfileUrl(node.href) !== null)
             // Resolvable mentions render as an inline avatar chip (v1
             // parity): display name + photo once the account resolves,
             // handle + glyph meanwhile or where no backend is handy.
@@ -789,12 +822,12 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
               return (
                 <MentionChip
                   key={key}
-                  label={label}
+                  label={chipLabel}
                   ctx={ctx}
                   onPress={() =>
                     ctx.onMentionPress
-                      ? ctx.onMentionPress(node.href, label)
-                      : defaultMentionPress(node.href, label)
+                      ? ctx.onMentionPress(node.href, chipLabel)
+                      : defaultMentionPress(node.href, chipLabel)
                   }
                 />
               )

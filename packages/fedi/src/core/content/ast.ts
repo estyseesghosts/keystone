@@ -624,15 +624,22 @@ export function splitMatrixMatch(full: string): { lead: string; id: string; trai
   return { lead, id, trail: full.slice(lead.length + raw.length) };
 }
 
-/** A bare local mention label (`@name`, no host), else null. Both
- * parsers emit Matrix IDs as exactly this plus trailing `:server`
+/** A mention label usable as a Matrix localpart (`@name`), else null.
+ * Both parsers emit Matrix IDs as exactly this plus trailing `:server`
  * text (mfm-js splits them; Mastodon's autolinker links only the
- * `@name` half as a hallucinated local mention). */
-function bareLocalMentionLabel(node: ContentNode): string | null {
+ * `@name` half as a hallucinated local mention). Hosted labels
+ * (`@name@fedihost`) also qualify, returning the bare `@name`: a
+ * Misskey-family server federating Mastodon's shredded
+ * `<a>@JM</a>:nope.chat` field markup rewrites the hallucinated
+ * mention to `@JM@mstdn.ca` and leaves `:nope.chat` dangling, so the
+ * merge must see through the injected host. */
+function matrixMergeLocal(node: ContentNode): string | null {
   if (node.kind !== "mention" || node.children.length !== 1) return null;
   const only = node.children[0];
   if (!only || only.kind !== "text") return null;
-  return /^@[\w-]+$/.test(only.text) ? only.text : null;
+  if (/^@[\w-]+$/.test(only.text)) return only.text;
+  const hosted = /^@([\w-]+)@[\w.-]+$/.exec(only.text);
+  return hosted ? `@${hosted[1]}` : null;
 }
 
 const MATRIX_SUFFIX_PATTERN = /^:([A-Za-z0-9.-]+(?::\d+)?)/;
@@ -649,9 +656,12 @@ const MATRIX_MERGE_CONTAINERS: ReadonlySet<ContentNode["kind"]> = new Set([
   "heading",
 ]);
 
-/** Rejoin Matrix IDs the parsers split into a bare local mention plus
+/** Rejoin Matrix IDs the parsers split into a mention plus
  * trailing `:server` text (`@JM` + `:nope.chat` → one matrix node,
- * Mastodon's hallucinated profile URL dropped with it). Only merges
+ * Mastodon's hallucinated profile URL dropped with it). A hosted
+ * mention label (`@JM@mstdn.ca`, Misskey's federation rewrite of the
+ * shredded field markup) merges the same way, the injected host
+ * dropped: the result is always the bare `@local:server`. Only merges
  * when the suffix is DNS-shaped (a dot, optional `:port`) with no
  * space — `@user: hello` prose and `@3:30` timestamps never qualify.
  * Uniform across both parsers: the same keystrokes mean the same ID
@@ -664,7 +674,7 @@ export function mergeMatrixMentions(nodes: ContentNode[]): ContentNode[] {
       out.push({ ...node, children: mergeMatrixMentions(node.children) } as ContentNode);
       continue;
     }
-    const local = bareLocalMentionLabel(node);
+    const local = matrixMergeLocal(node);
     const next = i + 1 < nodes.length ? nodes[i + 1] : undefined;
     if (local !== null && next && next.kind === "text") {
       const suffix = MATRIX_SUFFIX_PATTERN.exec(next.text);

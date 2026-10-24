@@ -6,7 +6,7 @@ import {Linking} from 'react-native'
 import {contentFromHtml, contentFromMfm} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
-import {RichText} from '#/components/RichText'
+import {RichText, defaultMentionPress} from '#/components/RichText'
 import {navigationRef} from '#/navigationRef'
 import {appearanceStore} from '#/state/appearance'
 
@@ -192,6 +192,59 @@ describe('RichText handler-less mention/hashtag routing (PF-E2/E3)', () => {
     fireEvent.press(screen.getByText('Alice B'))
     expect(navigateSpy).not.toHaveBeenCalled()
     expect(openSpy).toHaveBeenCalledWith('https://bsky.app/profile/')
+  })
+
+  it('E2: a live Bridgy Fed mention renders the full handle and opens the bridged profile', () => {
+    // Live shape recorded 2026-10-24: Mastodon status 117488106059876736
+    // (@ctr@mstdn.ca) mentions `@foxtails.me@bsky.brid.gy`, but the
+    // Mastodon HTML truncates the label to `@foxtails.me` on the bridge
+    // redirect URL (`GET /api/v1/statuses/117488106059876736`, no auth).
+    // Before the fix the chip read `@foxtails.me` and tapped to a broken
+    // local `@foxtails.me@mstdn.ca` lookup.
+    renderRichText(
+      <RichText
+        nodes={contentFromHtml(
+          '<p><span class="h-card" translate="no"><a href="https://bsky.brid.gy/r/https://bsky.app/profile/foxtails.me" class="u-url mention">@<span>foxtails.me</span></a></span></p>',
+        )}
+      />,
+    )
+    fireEvent.press(screen.getByText('@foxtails.me@bsky.brid.gy'))
+    expect(navigateSpy).toHaveBeenCalledWith('Main', {
+      screen: 'User',
+      params: {acct: 'foxtails.me@bsky.brid.gy'},
+    })
+    expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('E2: a truncated bridge label routes in-app even when tapped by label', () => {
+    defaultMentionPress(
+      'https://bsky.brid.gy/r/https://bsky.app/profile/foxtails.me',
+      '@foxtails.me',
+    )
+    expect(navigateSpy).toHaveBeenCalledWith('Main', {
+      screen: 'User',
+      params: {acct: 'foxtails.me@bsky.brid.gy'},
+    })
+    expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('E2: an unresolvable bridge URL never leaves the app and never navigates', () => {
+    defaultMentionPress('https://bsky.brid.gy/ap/did:plc:abcdef', '@someone')
+    expect(navigateSpy).not.toHaveBeenCalled()
+    expect(openSpy).not.toHaveBeenCalled()
+  })
+
+  it('E2: an unresolvable bridge mention renders static text, never a dead chip', () => {
+    renderRichText(
+      <RichText
+        nodes={contentFromHtml(
+          '<p><span class="h-card" translate="no"><a href="https://bsky.brid.gy/ap/did:plc:abcdef" class="u-url mention">@<span>someone</span></a></span></p>',
+        )}
+      />,
+    )
+    expect(screen.getByText('@someone')).toBeTruthy()
+    expect(screen.queryByTestId('richtext-mention-chip')).toBeNull()
+    expect(openSpy).not.toHaveBeenCalled()
   })
 
   it('E3: an MFM hashtag with no handler opens the Tag screen', () => {

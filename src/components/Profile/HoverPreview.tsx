@@ -208,6 +208,21 @@ export function leaveTargetStaysInside(hosts: ReadonlyArray<unknown>, target: un
   )
 }
 
+/** True when a card-enter may revive a closing card: only inside the
+ * close-grace window after the last genuine anchor-or-card leave. A
+ * real anchor→card gap crossing always lands inside the grace; a
+ * pointer wandering back over the dying card's screen area later must
+ * not resurrect it — the scheduled unmount proceeds. Null (no
+ * departure recorded yet) always revives. Pure. */
+export function shouldReviveCard(
+  leaveAt: number | null,
+  now: number = Date.now(),
+  graceMs: number = CLOSE_DELAY_MS,
+): boolean {
+  if (leaveAt === null) return true
+  return now - leaveAt <= graceMs
+}
+
 /** True when the anchor drifted out from under the pointer (streaming
  * inserts, late image loads): the open card points at stale
  * coordinates and must dismiss. Pure — pinned by unit tests. */
@@ -457,6 +472,9 @@ export function HoverPreview({
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Last genuine anchor-or-card leave (stays-inside ghosts never reach
+  // `handleLeave`, so never stamp it): gates card-enter revives.
+  const leaveAt = useRef<number | null>(null)
   useEffect(
     () => () => {
       if (openTimer.current !== null) clearTimeout(openTimer.current)
@@ -529,6 +547,7 @@ export function HoverPreview({
   const handleLeave = () => {
     // Fade starts at once; the unmount follows after the grace window
     // (re-entering cancels it and fades back in).
+    leaveAt.current = Date.now()
     setFaded(false)
     clearOpenPair()
     if (show) scheduleClose()
@@ -556,6 +575,11 @@ export function HoverPreview({
     onMouseLeave?: (e?: {relatedTarget?: unknown}) => void
   } = {
     onMouseEnter: () => {
+      // A closing card revives only for a genuine anchor→card gap
+      // crossing (inside the close grace). A pointer drifting back over
+      // the dying card's area later must not resurrect it — the
+      // scheduled unmount proceeds.
+      if (!shouldReviveCard(leaveAt.current, Date.now())) return
       cancelClose()
       setFaded(true)
     },

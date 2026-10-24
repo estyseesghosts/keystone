@@ -17,7 +17,7 @@ import {i18n} from '#/locale/i18n'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
-import {HoverPreview, anchorMoved, clampToViewport, leaveTargetStaysInside} from './HoverPreview'
+import {HoverPreview, anchorMoved, clampToViewport, leaveTargetStaysInside, shouldReviveCard} from './HoverPreview'
 
 jest.mock('react-dom', () => ({
   createPortal: (children: unknown) => children,
@@ -144,6 +144,82 @@ describe('HoverPreview', () => {
     } finally {
       done()
     }
+  })
+
+  it('ignores a late card-enter over the dying card (stays gone)', () => {
+    const {done} = setup()
+    try {
+      const anchor = screen.getByTestId('hover-prev-anchor')
+      fireEvent(anchor, 'mouseEnter')
+      act(() => {
+        jest.advanceTimersByTime(420)
+      })
+      expect(screen.getByTestId('hover-prev')).toBeTruthy()
+      // The card box itself (RNT fireEvent does not bubble, so fire the
+      // card's own handler element directly).
+      const card = screen.UNSAFE_getByProps({'data-hovercard-card': 'true'})
+      fireEvent(anchor, 'mouseLeave')
+      act(() => {
+        // Past the 400ms close grace, still inside the 150ms fade-out.
+        jest.advanceTimersByTime(450)
+      })
+      expect(screen.queryByTestId('hover-prev')).toBeTruthy()
+      // Drifting back over the dying card's area: not a gap crossing,
+      // so the scheduled unmount proceeds.
+      fireEvent(card, 'mouseEnter')
+      act(() => {
+        jest.advanceTimersByTime(200)
+      })
+      expect(screen.queryByTestId('hover-prev')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('revives the card on a card-enter inside the grace window', () => {
+    const {done} = setup()
+    try {
+      const anchor = screen.getByTestId('hover-prev-anchor')
+      fireEvent(anchor, 'mouseEnter')
+      act(() => {
+        jest.advanceTimersByTime(420)
+      })
+      expect(screen.getByTestId('hover-prev')).toBeTruthy()
+      const card = screen.UNSAFE_getByProps({'data-hovercard-card': 'true'})
+      fireEvent(anchor, 'mouseLeave')
+      act(() => {
+        jest.advanceTimersByTime(200)
+      })
+      // Genuine anchor→card gap crossing: cancels the close.
+      fireEvent(card, 'mouseEnter')
+      act(() => {
+        // Past the original unmount point — still alive for clicks.
+        jest.advanceTimersByTime(500)
+      })
+      expect(screen.getByTestId('hover-prev')).toBeTruthy()
+      // Leaving the card for good still closes it.
+      fireEvent(card, 'mouseLeave')
+      act(() => {
+        jest.advanceTimersByTime(550)
+      })
+      expect(screen.queryByTestId('hover-prev')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+})
+
+describe('shouldReviveCard', () => {
+  it('revives with no recorded leave, inside the grace, and at the boundary', () => {
+    expect(shouldReviveCard(null, 1000)).toBe(true)
+    expect(shouldReviveCard(1000, 1000)).toBe(true)
+    // Default grace is the 400ms close window.
+    expect(shouldReviveCard(1000, 1400)).toBe(true)
+  })
+  it('ignores enters past the grace and honors a custom grace', () => {
+    expect(shouldReviveCard(1000, 1401)).toBe(false)
+    expect(shouldReviveCard(1000, 2000)).toBe(false)
+    expect(shouldReviveCard(1000, 1500, 600)).toBe(true)
   })
 })
 

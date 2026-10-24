@@ -293,6 +293,27 @@ describe('ProfileHeader fields (C14)', () => {
     expect(screen.getByText('[m] JM:nope.chat')).toBeTruthy()
     expect(screen.queryByTestId('richtext-mention-chip')).toBeNull()
   })
+
+  it('rejoins the Misskey-federated hosted rewrite into one matrix chip', () => {
+    // Live-recorded 2026-10-24 (`POST https://dvd.chat/api/users/show`
+    // `{"username":"ctr","host":"mstdn.ca"}` → `fields` entry
+    // `{name:"matrix", value:"@JM@mstdn.ca:nope.chat"}`): Misskey
+    // rewrote the shredded markup to a hosted mention with `:nope.chat`
+    // dangling. One matrix chip out, no mention remnant, so no backend
+    // lookup fires for the Matrix fragment.
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          fields: [{name: 'matrix', value: '@JM@mstdn.ca:nope.chat', verifiedAt: null}],
+        })}
+        isSelf={false}
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('richtext-matrix-chip')).toBeTruthy()
+    expect(screen.getByText('[m] JM:nope.chat')).toBeTruthy()
+    expect(screen.queryByTestId('richtext-mention-chip')).toBeNull()
+  })
 })
 
 describe('AccountReactionsBlock (C14)', () => {

@@ -273,6 +273,20 @@ describe("Matrix IDs (never local mentions)", () => {
     expect(nodes.some(n => n.kind === "matrix")).toBe(false);
   });
 
+  it("rejoins the Misskey-federated hosted rewrite into one matrix node", () => {
+    // Live-recorded 2026-10-24 (dvd.chat `users/show` for @ctr@mstdn.ca:
+    // the `matrix` field arrives as `@JM@mstdn.ca:nope.chat` — Misskey's
+    // rewrite of Mastodon's shredded `<a>@JM</a>:nope.chat` markup).
+    // Same rule as the bare split: the injected host is dropped.
+    expect(contentFromMfm("@JM@mstdn.ca:nope.chat")).toEqual([
+      {
+        kind: "matrix",
+        userId: "@JM:nope.chat",
+        children: [{ kind: "text", text: "@JM:nope.chat" }],
+      },
+    ]);
+  });
+
   it("normalizes matrix-labelled markdown links, dropping the web URL", () => {
     expect(contentFromMfm("[@jm:nope.chat](https://x.example/chat)")).toEqual([
       {

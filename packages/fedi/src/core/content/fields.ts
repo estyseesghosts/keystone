@@ -19,6 +19,7 @@ import {
   matrixLabelOf,
   mention,
   mentionLabelOf,
+  mergeMatrixMentions,
   safeUrl,
   splitMatrixMatch,
   stripTokenPunctuation,
@@ -165,7 +166,10 @@ function expandFieldNodes(nodes: ContentNode[]): ContentNode[] {
 
 /** Parse a profile field value into the shared AST. HTML values parse as
  * HTML (both families' anchors keep working); plain-text values gain
- * live markdown links, bare URLs, and mention chips. Never throws. */
+ * live markdown links, bare URLs, and mention chips. The field scanner
+ * can split a federated Matrix ID into a hosted mention plus a dangling
+ * `:server` suffix, so the Matrix merge runs again after expansion
+ * (same rule as both content parsers). Never throws. */
 export function contentFromFieldValue(value: string | null | undefined): ContentNode[] {
   if (typeof value !== "string" || value.length === 0) return [];
   let nodes: ContentNode[];
@@ -174,5 +178,5 @@ export function contentFromFieldValue(value: string | null | undefined): Content
   } catch {
     return [t(value)];
   }
-  return expandFieldNodes(nodes);
+  return mergeMatrixMentions(expandFieldNodes(nodes));
 }

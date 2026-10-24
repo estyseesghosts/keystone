@@ -881,6 +881,68 @@ function hostOfUrl(value: string | null | undefined): string | null {
   }
 }
 
+/** True for a URL on the Bridgy Fed bridge host. Bridge URLs are actor
+ * identities Keystone already holds — they never open the browser, even
+ * when no handle can be recovered (then the mention stays static text).
+ * Pure. */
+export function isBridgeUrl(href: string | null | undefined): boolean {
+  if (!href) return false;
+  try {
+    const url = new URL(href);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.hostname.toLowerCase() === BRIDGED_HOST
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Dotted Bluesky handles are legal bridge usernames (same shape the
+ * mention-label parsers accept). */
+const BRIDGE_HANDLE_PATTERN = /^[\w-]+(?:\.[\w-]+)*$/;
+
+/** Fediverse handle (`user@host`, no leading `@`) for a Bridgy Fed
+ * bridge URL, else null. Mastodon links bridged mentions at the bridge's
+ * redirect page (`https://bsky.brid.gy/r/https://bsky.app/profile/<handle>`)
+ * with a truncated `@<handle>` label, so the profile-URL shapes never
+ * match — unwrap the embedded bsky.app page to the bridged actor
+ * `<handle>@bsky.brid.gy`. Bare bridge actor URLs (`/@<handle>`,
+ * `/users/<handle>`) resolve the same way. DIDs and unknown bridge
+ * paths return null: unresolvable, never guessed. Pure. */
+export function acctFromBridgeUrl(href: string | null | undefined): string | null {
+  if (!href || !isBridgeUrl(href)) return null;
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+  // The redirect page wraps the canonical Bluesky page URL (usually raw
+  // in the path, possibly percent-encoded): recover the embedded
+  // `bsky.app/profile/<handle>` either way.
+  const raw = `${url.pathname}${url.search}${url.hash}`;
+  const sources = [raw];
+  try {
+    const decoded = decodeURIComponent(raw);
+    if (decoded !== raw) sources.push(decoded);
+  } catch {
+    // Malformed escapes: the raw form is all we try.
+  }
+  for (const source of sources) {
+    const embedded = /bsky\.app\/profile\/([\w-]+(?:\.[\w-]+)*)/i.exec(source);
+    const handle = embedded?.[1];
+    if (handle && BRIDGE_HANDLE_PATTERN.test(handle)) return `${handle}@${BRIDGED_HOST}`;
+  }
+  const segments = url.pathname.split("/").filter((s) => s.length > 0);
+  let username: string | null = null;
+  if (segments.length >= 2 && segments[0] === "users") username = segments[1] ?? null;
+  else if (segments.length >= 1 && segments[0]?.startsWith("@"))
+    username = segments[0].slice(1);
+  if (username && BRIDGE_HANDLE_PATTERN.test(username)) return `${username}@${BRIDGED_HOST}`;
+  return null;
+}
+
 /** True for a bridged-Bluesky account (actor on the bridge, or a bare
  * bsky.app profile URL). Pure. */
 export function isBridgedAccount(account: Pick<Account, "host" | "url" | "uri">): boolean {

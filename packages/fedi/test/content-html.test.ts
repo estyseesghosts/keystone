@@ -451,4 +451,24 @@ describe("live Mastodon field markup (@ctr@mstdn.ca, recorded 2026-10-24)", () =
       },
     ]);
   });
+
+  it("keeps a bridged (Bridgy Fed) mention as an in-app mention, href kept", () => {
+    // Live shape recorded 2026-10-24: Mastodon status 117488106059876736
+    // (@ctr@mstdn.ca) mentions `@foxtails.me@bsky.brid.gy` as a truncated
+    // `@foxtails.me` label on the bridge redirect URL
+    // (`GET /api/v1/statuses/117488106059876736`, no auth). The parser
+    // keeps the anchor verbatim — the truncated label is repaired at tap
+    // time from the href, never here.
+    expect(
+      contentFromHtml(
+        '<p><span class="h-card" translate="no"><a href="https://bsky.brid.gy/r/https://bsky.app/profile/foxtails.me" class="u-url mention">@<span>foxtails.me</span></a></span></p>',
+      ),
+    ).toEqual([
+      {
+        kind: "mention",
+        href: "https://bsky.brid.gy/r/https://bsky.app/profile/foxtails.me",
+        children: [{ kind: "text", text: "@foxtails.me" }],
+      },
+    ]);
+  });
 });

@@ -81,7 +81,10 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
     (`retryPolicy`), preserve Retry-After, dev `[fedi-api]` census.
     Log `state/logs/2026-10-24-retry-429-defense.md`. Hovercards
     tamed (tight anchors, fade, ghost/drift guards). Log
-    `state/logs/2026-10-24-hover-tame.md`. Full suite green.
+    `state/logs/2026-10-24-hover-tame.md`. Triple fix by subagents
+    (hover respawn gate, Bridgy truncation, Misskey matrix) —
+    integrated green. Log `state/logs/2026-10-24-triple-fix.md`.
+    203 suites / 2647 tests green.
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
    user-note/modlog/reset-password; Mastodon account_actions
    warn/suspend/silence + notes; NO delete-account). Single agent,

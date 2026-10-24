@@ -4,6 +4,7 @@
 //
 // Jest port: `describe/it/expect` are globals (no vitest import).
 import {
+  acctFromBridgeUrl,
   parseAcct,
   appendOlder,
   collapseReposts,
@@ -12,6 +13,7 @@ import {
   hasRealDisplayName,
   headNameOf,
   displayNameOf,
+  isBridgeUrl,
   isBridgedAccount,
   isBridgedPost,
   isPureRenote,
@@ -497,5 +499,47 @@ describe("bridged Bluesky actors and posts", () => {
       uri: "https://example.social/notes/1",
     });
     expect(isBridgedPost(p)).toBe(false);
+  });
+});
+
+describe("bridge mention URLs (acctFromBridgeUrl / isBridgeUrl)", () => {
+  // Live shape recorded 2026-10-24: Mastodon status 117488106059876736
+  // (@ctr@mstdn.ca) carries the bridged mention as
+  // `<a href="https://bsky.brid.gy/r/https://bsky.app/profile/foxtails.me"
+  // class="u-url mention">@<span>foxtails.me</span></a>`
+  // (`GET /api/v1/statuses/117488106059876736`, no auth) with
+  // `mentions[].acct` = `foxtails.me@bsky.brid.gy`.
+  const LIVE_REDIRECT = "https://bsky.brid.gy/r/https://bsky.app/profile/foxtails.me";
+
+  it("unwraps the bridge redirect page to the bridged actor", () => {
+    expect(acctFromBridgeUrl(LIVE_REDIRECT)).toBe("foxtails.me@bsky.brid.gy");
+  });
+
+  it("resolves bare bridge actor URLs with dotted handles", () => {
+    expect(acctFromBridgeUrl("https://bsky.brid.gy/@foxtails.me")).toBe(
+      "foxtails.me@bsky.brid.gy",
+    );
+    expect(acctFromBridgeUrl("https://bsky.brid.gy/users/foxtails.me")).toBe(
+      "foxtails.me@bsky.brid.gy",
+    );
+  });
+
+  it("returns null for non-bridge URLs, DIDs, and garbage — never a guess", () => {
+    expect(acctFromBridgeUrl("https://bsky.app/profile/foxtails.me")).toBeNull();
+    expect(acctFromBridgeUrl("https://mstdn.ca/@foxtails.me")).toBeNull();
+    expect(acctFromBridgeUrl("https://bsky.brid.gy/ap/did:plc:abcdef")).toBeNull();
+    expect(acctFromBridgeUrl("https://bsky.brid.gy/r/not-a-page")).toBeNull();
+    expect(acctFromBridgeUrl("javascript:alert(1)")).toBeNull();
+    expect(acctFromBridgeUrl(null)).toBeNull();
+    expect(acctFromBridgeUrl(undefined)).toBeNull();
+  });
+
+  it("isBridgeUrl matches the bridge host only, http(s) only", () => {
+    expect(isBridgeUrl(LIVE_REDIRECT)).toBe(true);
+    expect(isBridgeUrl("https://BSKY.BRID.GY/@foxtails.me")).toBe(true);
+    expect(isBridgeUrl("https://bsky.app/profile/foxtails.me")).toBe(false);
+    expect(isBridgeUrl("https://mstdn.ca/@foxtails.me")).toBe(false);
+    expect(isBridgeUrl("javascript:alert(1)")).toBe(false);
+    expect(isBridgeUrl(null)).toBe(false);
   });
 });

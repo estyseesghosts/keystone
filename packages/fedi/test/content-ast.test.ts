@@ -504,6 +504,31 @@ describe("contentFromFieldValue", () => {
       },
     ]);
   });
+
+  it("rejoins the Misskey-federated hosted rewrite into one matrix node", () => {
+    // Live-recorded 2026-10-24 (`POST https://dvd.chat/api/users/show`
+    // `{"username":"ctr","host":"mstdn.ca"}` → `fields` entry
+    // `{name:"matrix", value:"@JM@mstdn.ca:nope.chat"}`): Misskey
+    // rewrote Mastodon's shredded `<a>@JM</a>:nope.chat` markup to a
+    // hosted `@JM@mstdn.ca` mention with `:nope.chat` dangling. The
+    // injected host is dropped; the matrix chip carries no href, so no
+    // backend lookup can fire for it.
+    expect(contentFromFieldValue("@JM@mstdn.ca:nope.chat")).toEqual([
+      {
+        kind: "matrix",
+        userId: "@JM:nope.chat",
+        children: [{ kind: "text", text: "@JM:nope.chat" }],
+      },
+    ]);
+  });
+
+  it("keeps hosted mentions with non-DNS suffixes as mentions", () => {
+    expect(contentFromFieldValue("call @u@h.social:30 ok")).toEqual([
+      { kind: "text", text: "call " },
+      { kind: "mention", href: null, children: [{ kind: "text", text: "@u@h.social" }] },
+      { kind: "text", text: ":30 ok" },
+    ]);
+  });
 });
 
 describe("collectBareLinkHrefs", () => {
