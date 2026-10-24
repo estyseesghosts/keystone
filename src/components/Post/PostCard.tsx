@@ -26,6 +26,7 @@ import {
   foldTree,
   handleOf,
   hasTranslatableNodes,
+  httpStatusOf,
   isPureRenote,
   originalTagsOf,
   registerSeenNote,
@@ -65,6 +66,7 @@ import {usePostCardHandlers, type PostCardHandlers} from './handlers'
 import {LinkCard, UnfurledLinkCard, firstBareUrl} from './LinkCard'
 import {buildPostMenu, type PostMenuSection} from './menuModel'
 import {decideTranslation, isSameLanguagePost, viewerPrimaryOf} from './translationPolicy'
+import {isTranslateBlocked, recordTranslateOutcome} from './translationBreaker'
 import {Lightbox} from '#/components/Lightbox'
 import {PostMediaGrid} from './PostMediaGrid'
 import {PostPoll} from './PostPoll'
@@ -773,6 +775,10 @@ function PostCardView({
   const bodyTranslatable = useMemo(() => hasTranslatableNodes(fullNodes), [fullNodes])
   useEffect(() => {
     if (!srcSupported || srcFetch === undefined) return
+    // 403 circuit breaker: a session whose endpoint refuses translation
+    // stops auto-fetching — original body, silently, exactly like any
+    // other auto failure. Manual translate never consults this.
+    if (isTranslateBlocked(sessionId)) return
     if (bodyHidden) return
     if (effective.content.plain.trim() === '') return
     // Same-language skip: the post is already in the viewer's language,
@@ -787,12 +793,19 @@ function PostCardView({
     let cancelled = false
     void srcFetch(effective.id, srcLang).then(
       tr => {
+        // Success carries no HTTP status: record null (any non-403
+        // completion resets the 403 streak).
+        recordTranslateOutcome(sessionId, null)
         if (!cancelled) setAutoTranslation(tr)
       },
-      () => {
+      e => {
         // Failure is silent by design: the original body stays, no
         // header, no toast. Keep the mark so a failure never retries
-        // itself into a loop.
+        // itself into a loop. The outcome still feeds the breaker —
+        // `httpStatusOf` reads the real error shape (`ApiError.status`,
+        // mirrored in `params.status`): 403 counts toward the block,
+        // anything else (429/5xx/timeout/unknown) resets the streak.
+        recordTranslateOutcome(sessionId, httpStatusOf(e))
       },
     )
     return () => {
@@ -801,6 +814,7 @@ function PostCardView({
   }, [
     effective.id,
     effective.content.plain,
+    sessionId,
     srcSupported,
     srcLang,
     srcFetch,

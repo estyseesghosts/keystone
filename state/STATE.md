@@ -88,6 +88,9 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
     skips (same-language discard, tag-only skip) + translated tags
     route to originals, both families. Log
     `state/logs/2026-10-24-translation-skips.md`.
+    203 suites / 2647 tests green. Follow-up: per-session 403
+    circuit breaker stops auto-translate bursts. Log
+    `state/logs/2026-10-24-translate-breaker.md`.
     203 suites / 2647 tests green. Follow-up: hovercard late-revive
     replaced with crossing-only rule (anchor-subtree or fade-window
     enters only). Log `state/logs/2026-10-24-hover-revive.md`.

@@ -12,10 +12,16 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
 import {createMemoryStore} from '@keystone/fedi'
+import {ApiError} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {PostCard} from '#/components/Post/index'
 import type {TranslationSource} from '#/components/Post/PostCard'
+import {
+  isTranslateBlocked,
+  recordTranslateOutcome,
+  resetTranslationBreakerForTest,
+} from '#/components/Post/translationBreaker'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import type {TokenVault} from '#/storage'
@@ -84,6 +90,7 @@ function source(
 beforeEach(() => {
   jest.clearAllMocks()
   mockBackendHolder.current = null
+  resetTranslationBreakerForTest()
   fediMock.hasTranslatableNodes.mockReturnValue(true)
   fediMock.originalTagsOf.mockReturnValue([])
 })
@@ -308,6 +315,7 @@ describe('translation live card (Mastodon path)', () => {
       </QueryClientProvider>,
     )
     return {
+      sessionId: session.id,
       done: () => {
         mockBackendHolder.current = null
         client.clear()
@@ -362,5 +370,139 @@ describe('translation live card (Mastodon path)', () => {
     } finally {
       done()
     }
+  })
+
+  it('manual translate is never blocked: a blocked session still translates on demand', async () => {
+    const translate = jest.fn(async () => ({
+      sourceLang: 'es',
+      text: 'Hola traducido',
+    }))
+    const backend = {capabilities: {translation: 'supported'}, translate}
+    const post = makePost({id: 'live-blocked-manual'})
+    const {done, sessionId} = await renderLive(post, backend)
+    try {
+      // Auto fetch fires on mount and renders…
+      expect(
+        await screen.findByTestId('post-translation-live-blocked-manual'),
+      ).toBeTruthy()
+      expect(translate).toHaveBeenCalledTimes(1)
+      // …then the endpoint starts refusing: the session trips the breaker.
+      recordTranslateOutcome(sessionId, 403)
+      recordTranslateOutcome(sessionId, 403)
+      expect(isTranslateBlocked(sessionId)).toBe(true)
+      // The explicit user tap still reaches the server (manual never
+      // consults the breaker), and its result still renders.
+      fireEvent.press(screen.getByTestId('post-menu-live-blocked-manual'))
+      fireEvent.press(
+        screen.getByTestId('post-menu-live-blocked-manual-item-translate'),
+      )
+      await waitFor(() => expect(translate).toHaveBeenCalledTimes(2))
+      expect(
+        screen.getByTestId('post-translation-live-blocked-manual'),
+      ).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
+})
+
+describe('translation 403 circuit breaker (auto path)', () => {
+  const BREAKER_SESSION = 'sess-breaker'
+
+  function forbidden(): Error {
+    // The real rejection shape: `ApiError` with `.status` (the guarded
+    // backend adapts transport errors at its boundary).
+    return new ApiError('Forbidden', 403, 'errors.network.apiError')
+  }
+
+  it('two consecutive auto 403s block further auto fetches for the session', async () => {
+    const fetch: TranslationSource['fetch'] = jest.fn(async () => {
+      throw forbidden()
+    })
+    renderCard(
+      <PostCard
+        post={makePost({id: 'br1'})}
+        sessionId={BREAKER_SESSION}
+        translationSource={source(fetch)}
+      />,
+    )
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+    renderCard(
+      <PostCard
+        post={makePost({id: 'br2'})}
+        sessionId={BREAKER_SESSION}
+        translationSource={source(fetch)}
+      />,
+    )
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    // Both refusals recorded: the session trips the breaker.
+    await waitFor(() => expect(isTranslateBlocked(BREAKER_SESSION)).toBe(true))
+    // A third mount never fetches: original body, silently, no header.
+    renderCard(
+      <PostCard
+        post={makePost({id: 'br3'})}
+        sessionId={BREAKER_SESSION}
+        translationSource={source(fetch)}
+      />,
+    )
+    expect(screen.getByTestId('post-body-br3')).toBeTruthy()
+    // Let any would-be request land, then confirm none did.
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(screen.queryByTestId('post-translation-br3')).toBeNull()
+    expect(screen.queryByTestId('translation-toggle-br3')).toBeNull()
+  })
+
+  it('transient 429 failures never block the auto path', async () => {
+    const fetch: TranslationSource['fetch'] = jest
+      .fn()
+      .mockRejectedValueOnce(new ApiError('Slow down', 429, 'errors.network.apiError'))
+      .mockRejectedValueOnce(new ApiError('Slow down', 429, 'errors.network.apiError'))
+      .mockResolvedValue({sourceLang: 'es', text: 'Hola traducido'})
+    renderCard(
+      <PostCard
+        post={makePost({id: 'br429-1'})}
+        sessionId={BREAKER_SESSION}
+        translationSource={source(fetch)}
+      />,
+    )
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+    renderCard(
+      <PostCard
+        post={makePost({id: 'br429-2'})}
+        sessionId={BREAKER_SESSION}
+        translationSource={source(fetch)}
+      />,
+    )
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    expect(isTranslateBlocked(BREAKER_SESSION)).toBe(false)
+    // The next mount still fetches — and a success renders.
+    renderCard(
+      <PostCard
+        post={makePost({id: 'br429-3'})}
+        sessionId={BREAKER_SESSION}
+        translationSource={source(fetch)}
+      />,
+    )
+    expect(await screen.findByTestId('post-translation-br429-3')).toBeTruthy()
+    expect(fetch).toHaveBeenCalledTimes(3)
+  })
+
+  it('the block is per session: another session still auto-fetches', async () => {
+    const fetch: TranslationSource['fetch'] = jest.fn(async () => {
+      throw forbidden()
+    })
+    recordTranslateOutcome(BREAKER_SESSION, 403)
+    recordTranslateOutcome(BREAKER_SESSION, 403)
+    expect(isTranslateBlocked(BREAKER_SESSION)).toBe(true)
+    renderCard(
+      <PostCard
+        post={makePost({id: 'br-other'})}
+        sessionId="sess-breaker-other"
+        translationSource={source(fetch)}
+      />,
+    )
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+    expect(isTranslateBlocked('sess-breaker-other')).toBe(false)
   })
 })
