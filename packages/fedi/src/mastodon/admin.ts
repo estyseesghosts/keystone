@@ -450,7 +450,9 @@ export async function resolveAdminReport(
 /**
  * `PATCH /:id` — change category/rules (`report_params` permits ONLY
  * `category` + `rule_ids`). Each field rides only when set; unknown
- * categories never reach the wire.
+ * categories never reach the wire. A patch that sets nothing throws
+ * locally — an empty `{}` body is never PATCHed (the server would 422 a
+ * body with no permitted params).
  */
 export async function updateAdminReport(
   client: MastoClient,
@@ -464,6 +466,13 @@ export async function updateAdminReport(
   }
   if (patch.ruleIds !== undefined) {
     body.rule_ids = [...patch.ruleIds];
+  }
+  if (Object.keys(body).length === 0) {
+    throw new FediError(
+      "Nothing to update: set a category or rule ids first.",
+      "errors.shape.emptyReportPatch",
+      { id },
+    );
   }
   try {
     await client.patch(`/api/v1/admin/reports/${encodeURIComponent(id)}`, body);

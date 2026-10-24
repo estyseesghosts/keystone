@@ -436,3 +436,72 @@ describe("per-flavor scope strings (ADR 0005)", () => {
     expect(form.get("scope")).toBe(NOW);
   });
 });
+
+// R1.3 — the umbrella fallback fires on scope-shaped rejections ONLY: a 422
+// (or a body naming the scope) retries once with FALLBACK_SCOPES; 401/403
+// (forbidden registration) and every other failure surface immediately with
+// no second attempt.
+describe("registerApp scope fallback is scope-shaped only", () => {
+  /** Stub fetch; `apps` answers each POST /api/v1/apps in order. */
+  function stubApps(apps: Array<{ status: number; body: unknown }>): string[] {
+    const appCalls: string[] = [];
+    globalThis.fetch = jest.fn((input: unknown) => {
+      const url = String(input);
+      if (url.endsWith("/.well-known/oauth-authorization-server")) {
+        return Promise.resolve(new Response("not found", { status: 404 }));
+      }
+      if (url.endsWith("/api/v1/apps")) {
+        appCalls.push(url);
+        const next = apps[Math.min(appCalls.length - 1, apps.length - 1)]!;
+        return Promise.resolve(
+          new Response(JSON.stringify(next.body), {
+            status: next.status,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+      return Promise.resolve(new Response("not found", { status: 404 }));
+    }) as unknown as typeof fetch;
+    return appCalls;
+  }
+
+  it("a 403 registration surfaces immediately with no fallback attempt", async () => {
+    const store = createMemoryStore();
+    const appCalls = stubApps([{ status: 403, body: { error: "forbidden" } }]);
+    await expect(
+      registerApp({ store, origin: ORIGIN, redirectUri: REDIRECT }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(appCalls).toHaveLength(1);
+  });
+
+  it("a 401 registration surfaces immediately with no fallback attempt", async () => {
+    const store = createMemoryStore();
+    const appCalls = stubApps([{ status: 401, body: { error: "unauthorized" } }]);
+    await expect(
+      registerApp({ store, origin: ORIGIN, redirectUri: REDIRECT }),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(appCalls).toHaveLength(1);
+  });
+
+  it("a 422 scope rejection still falls back to the umbrella scopes", async () => {
+    const store = createMemoryStore();
+    const appCalls = stubApps([
+      { status: 422, body: { error: "Unprocessable Entity" } },
+      { status: 200, body: { client_id: "cid", client_secret: "csec" } },
+    ]);
+    const app = await registerApp({ store, origin: ORIGIN, redirectUri: REDIRECT });
+    expect(appCalls).toHaveLength(2);
+    expect(app.scopes).toBe(FALLBACK_SCOPES);
+  });
+
+  it("a body-indicated scope rejection on a non-422 status still falls back", async () => {
+    const store = createMemoryStore();
+    const appCalls = stubApps([
+      { status: 400, body: { error: "invalid_scope" } },
+      { status: 200, body: { client_id: "cid", client_secret: "csec" } },
+    ]);
+    const app = await registerApp({ store, origin: ORIGIN, redirectUri: REDIRECT });
+    expect(appCalls).toHaveLength(2);
+    expect(app.scopes).toBe(FALLBACK_SCOPES);
+  });
+});

@@ -23,6 +23,7 @@ import {
   clearStoredToken,
   getToken,
   setStoredToken,
+  uploadDriveFile,
   type HomeSpec,
 } from "../src/api/client";
 import {
@@ -499,5 +500,31 @@ describe("family routing", () => {
     await expect(apiCall(fresh, HOME, "i", {})).rejects.toThrow(/Misskey-family/);
     expect(activeBackend(fresh, HOME).family).toBe("mastodon");
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("uploadDriveFile family guard (R1.4)", () => {
+  it("a Mastodon-family active session refuses with UNSUPPORTED_FAMILY before any I/O", async () => {
+    const fresh = createMemoryStore();
+    storeMastodonSession(fresh, "mastodon.example", "mt-secret");
+    const calls = stubFetch(async () => json({ id: "f1" }));
+    const file = new File(["x"], "pic.png", { type: "image/png" });
+    // Same typed refusal apiCall throws — never a Misskey multipart POST
+    // at the Mastodon origin with the token in a body field.
+    await expect(uploadDriveFile(fresh, HOME, file)).rejects.toMatchObject({
+      code: "UNSUPPORTED_FAMILY",
+      status: 404,
+    });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a Misskey-family session POSTs multipart with the token as `i`", async () => {
+    const calls = stubFetch(async () => json({ id: "f1" }));
+    const file = new File(["x"], "pic.png", { type: "image/png" });
+    await expect(uploadDriveFile(store, HOME, file)).resolves.toEqual({ id: "f1" });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(`${HOME_ORIGIN}/api/drive/files/create`);
+    const form = calls[0].init.body as FormData;
+    expect(form.get("i")).toBe("internal-token");
   });
 });

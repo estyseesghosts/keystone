@@ -145,4 +145,26 @@ describe("requestJson error kinds and tolerant parsing", () => {
     // The message names the path, never a token.
     expect(err.path).toBe("/api/meta");
   });
+
+  it("a caller abort propagates the original error when DOMException is missing", async () => {
+    // Hermes/RN may not provide a DOMException global. Evaluating
+    // `err instanceof DOMException` there throws inside the catch block,
+    // converting a caller cancel into a crash. Assignment (not `delete`:
+    // built-in globals can be non-configurable) simulates the gap.
+    const g = globalThis as { DOMException?: unknown };
+    const saved = g.DOMException;
+    try {
+      g.DOMException = undefined;
+      const abortErr = Object.assign(new Error("aborted"), { name: "AbortError" });
+      stubFetch(() => Promise.reject(abortErr));
+      const err = await requestJson(ORIGIN, "/api/meta", {
+        signal: AbortSignal.abort(),
+      }).catch((e) => e);
+      // The original abort error, not a TypeError from `instanceof undefined`.
+      expect(err).toBe(abortErr);
+      expect(err).not.toBeInstanceOf(TypeError);
+    } finally {
+      g.DOMException = saved;
+    }
+  });
 });

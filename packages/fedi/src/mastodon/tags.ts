@@ -26,9 +26,10 @@
 // There is NO tag-mute endpoint on either server. Nothing here invents
 // one.
 
-import { ApiError, FediError } from "../core/errors";
+import { FediError } from "../core/errors";
 import type { QueryValue } from "./client";
 import type { MastoClient } from "./client";
+import { isAbsent } from "./endpoints";
 import type { Continuation } from "./pagination";
 import { nextContinuation, withCursors } from "./pagination";
 import type { FeaturedTag as WireFeaturedTag, Tag as WireTag } from "./wire";
@@ -50,12 +51,11 @@ export interface TagPage<T> {
   end: boolean;
 }
 
-/** 404/405 only: "this server has no such endpoint" (contract §3). Every
- * other failure — auth, rate limit, network — is a real error and is never
- * papered over as absence. */
-function isAbsentEndpoint(err: unknown): boolean {
-  return err instanceof ApiError && (err.status === 404 || err.status === 405);
-}
+/** 404/405 only: "this server has no such endpoint" (contract §3) — the
+ * shared `isAbsent` from `endpoints.ts` (accepts both error classes, so
+ * direct callers with raw `MastoHttpError` get the same version fallback
+ * as backend-guarded calls). Every other failure — auth, rate limit,
+ * network — is a real error and is never papered over as absence. */
 
 function tagPath(name: string, action?: string): string {
   const base = `/api/v1/tags/${encodeURIComponent(name)}`;
@@ -183,7 +183,7 @@ export async function featureTag(client: MastoClient, name: string): Promise<voi
     await client.post(tagPath(name, "feature"));
     return;
   } catch (err) {
-    if (!isAbsentEndpoint(err)) throw err;
+    if (!isAbsent(err)) throw err;
   }
   await client.post("/api/v1/featured_tags", { name });
 }
@@ -201,7 +201,7 @@ export async function unfeatureTag(client: MastoClient, name: string): Promise<v
     await client.post(tagPath(name, "unfeature"));
     return;
   } catch (err) {
-    if (!isAbsentEndpoint(err)) throw err;
+    if (!isAbsent(err)) throw err;
   }
   const rows = await fetchFeaturedTags(client);
   const wanted = name.replace(/^#+/, "").toLowerCase();

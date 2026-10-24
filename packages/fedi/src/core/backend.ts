@@ -902,19 +902,21 @@ export interface InstanceActivityWeek {
 /**
  * Misskey-family hardware snapshot (`admin/server-info`, moderator role +
  * `read:admin:server-info`). Byte counts stay raw numbers — the UI formats
- * them, so no precision is invented here.
+ * them, so no precision is invented here. A null field means the server
+ * did not report it — never zero, which is a real measurement (same rule
+ * as `MisskeyQueueCounts`).
  */
 export interface MisskeyServerInfo {
-  machine: string;
-  os: string;
-  node: string;
-  psql: string;
-  cpu: { model: string; cores: number };
+  machine: string | null;
+  os: string | null;
+  node: string | null;
+  psql: string | null;
+  cpu: { model: string | null; cores: number | null };
   /** Total RAM, bytes. */
-  memTotal: number;
+  memTotal: number | null;
   /** Filesystem total / used, bytes. */
-  fsTotal: number;
-  fsUsed: number;
+  fsTotal: number | null;
+  fsUsed: number | null;
 }
 
 /**

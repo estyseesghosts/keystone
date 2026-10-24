@@ -147,4 +147,21 @@ describe("adaptV2Notification (grouped envelopes)", () => {
     expect(n.actors).toEqual([]);
     expect(n.id).toBe("302");
   });
+
+  it("a flat row without created_at reads null, never a fresh timestamp", () => {
+    // Against the old `new Date().toISOString()` fallback this is a string
+    // stamped "now"; honest absence is null (ADR 0007).
+    const n = adaptV2Notification({ id: "303", type: "follow", account_id: "2" }, new Map());
+    expect(n.createdAt).toBeNull();
+  });
+
+  it("a group row without latest_page_notification_at reads null, never now", () => {
+    const n = adaptV2Notification(
+      { group_key: "mention-y", type: "mention", sample_account_ids: [] },
+      new Map(),
+      new Map(),
+    );
+    expect(n.id).toBe("mention-y");
+    expect(n.createdAt).toBeNull();
+  });
 });

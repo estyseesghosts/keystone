@@ -266,15 +266,30 @@ export function statusLabelFor(status: QuoteAuthorizationStatus | undefined): st
 }
 
 // --- Fallback resolution ----------------------------------------------------
+//
+// Notes already loaded through the visibility-enforcing note API are
+// indexed for reuse before calling `ap/show`. Showing one as a quote
+// card reveals nothing the viewer could not already see — *for the
+// session that loaded it*. R1.2: these maps used to be module-global,
+// keyed by bare URI, so account A resolving a followers-only note via
+// credentialed `ap/show` handed the cached `Post` to account B (a
+// visibility bypass inside the app), and failure-nulls were cached
+// permanently with no retry.
+//
+// The maps now live on a per-backend `QuoteResolver`
+// (`createQuoteResolver(call)` below, one per `createMisskeyBackend`
+// instance). Each backend's resolver consults only notes resolved under
+// its own credentials. Key shape: instance-owned — no
+// `${origin}${accountId}` key string is needed because the resolver
+// object itself is the session scope (backends are memoized per session
+// in the app). Failed lookups suppress retries for
+// QUOTE_LOOKUP_FAILURE_TTL_MS and then refetch; successes settle.
 
-// Notes already loaded through the visibility-enforcing note API in this
-// session, indexed for reuse before calling `ap/show`. Showing one as a
-// quote card reveals nothing the viewer could not already see.
-const seenByUri = new Map<string, Post>();
-const seenById = new Map<string, Post>();
+export const QUOTE_LOOKUP_FAILURE_TTL_MS = 300_000;
 const SEEN_MAX = 500;
+const LOOKUP_MAX = 200;
 
-function evictOldest(map: Map<string, Post>, max: number): void {
+function evictOldest<V>(map: Map<string, V>, max: number): void {
   while (map.size > max) {
     const oldest = map.keys().next();
     if (oldest.done) break;
@@ -282,13 +297,86 @@ function evictOldest(map: Map<string, Post>, max: number): void {
   }
 }
 
-export function registerSeenNote(note: Post): void {
-  if (!note || typeof note.id !== "string") return;
-  seenById.set(note.id, note);
-  if (note.uri) seenByUri.set(note.uri, note);
-  if (note.url && !seenByUri.has(note.url)) seenByUri.set(note.url, note);
-  evictOldest(seenById, SEEN_MAX);
-  evictOldest(seenByUri, SEEN_MAX);
+/** Per-backend (hence per-session) quote fallback state. Create one per
+ * backend instance and never share it across sessions. */
+export interface QuoteResolver {
+  /** Index an already-visible note for fallback reuse under this
+   * session's credentials. */
+  registerSeenNote(note: Post): void;
+  /** Resolve a fallback URI into a Note via the session backend's
+   * `ap/show` endpoint. Only a `Note` result renders a card — a User,
+   * invalid object, failed/inaccessible target, or deleted target resolves
+   * to null. Visibility stays with the server: `ap/show` requires a
+   * credential, so logged-out or unauthorized resolutions fail closed and
+   * the UI keeps the original `RE:` text. */
+  resolveQuoteUri(uri: string): Promise<Post | null>;
+}
+
+export function createQuoteResolver(call: WireCall): QuoteResolver {
+  // Notes already loaded through this session's visibility-enforcing
+  // note API, indexed for reuse before calling `ap/show`.
+  const seenByUri = new Map<string, Post>();
+  const seenById = new Map<string, Post>();
+  // Completed successful lookups, plus in-flight lookups shared across
+  // cards and timeline updates. Failures are NOT stored here: a cached
+  // failure-null would never retry, so a note that becomes visible later
+  // could never resolve. Failures suppress refetch only until
+  // QUOTE_LOOKUP_FAILURE_TTL_MS passes (see `failedAt`).
+  const completedLookups = new Map<string, Post>();
+  const inflightLookups = new Map<string, Promise<Post | null>>();
+  const failedAt = new Map<string, number>();
+
+  function registerSeenNote(note: Post): void {
+    if (!note || typeof note.id !== "string") return;
+    seenById.set(note.id, note);
+    if (note.uri) seenByUri.set(note.uri, note);
+    if (note.url && !seenByUri.has(note.url)) seenByUri.set(note.url, note);
+    evictOldest(seenById, SEEN_MAX);
+    evictOldest(seenByUri, SEEN_MAX);
+  }
+
+  function resolveQuoteUri(uri: string): Promise<Post | null> {
+    const key = uri.trim();
+    const seen = seenByUri.get(key);
+    if (seen) return Promise.resolve(seen);
+    const completed = completedLookups.get(key);
+    if (completed !== undefined) return Promise.resolve(completed);
+    const failed = failedAt.get(key);
+    if (failed !== undefined && Date.now() - failed < QUOTE_LOOKUP_FAILURE_TTL_MS) {
+      return Promise.resolve(null);
+    }
+    const inflight = inflightLookups.get(key);
+    if (inflight) return inflight;
+
+    const task = call<ApShowResponse>("ap/show", { uri: key }).then(
+      (res) => {
+        const raw =
+          res && res.type === "Note" && isNoteLike(res.object)
+            ? (res.object as Note)
+            : null;
+        const note = raw ? adaptNote(raw) : null;
+        if (note) {
+          registerSeenNote(note);
+          completedLookups.set(key, note);
+          evictOldest(completedLookups, LOOKUP_MAX);
+          failedAt.delete(key);
+        } else {
+          failedAt.set(key, Date.now());
+        }
+        inflightLookups.delete(key);
+        return note;
+      },
+      () => {
+        failedAt.set(key, Date.now());
+        inflightLookups.delete(key);
+        return null;
+      },
+    );
+    inflightLookups.set(key, task);
+    return task;
+  }
+
+  return { registerSeenNote, resolveQuoteUri };
 }
 
 function isNoteLike(value: unknown): value is Note {
@@ -302,59 +390,4 @@ function isNoteLike(value: unknown): value is Note {
 interface ApShowResponse {
   type: "User" | "Note";
   object: unknown;
-}
-
-// Completed lookups (successes and failures alike — a cached failure is
-// never retried implicitly, so repeated cards cannot cause retry loops)
-// plus in-flight lookups shared across cards and timeline updates.
-const completedLookups = new Map<string, Post | null>();
-const inflightLookups = new Map<string, Promise<Post | null>>();
-const LOOKUP_MAX = 200;
-
-/** Resolve a fallback URI into a Note via the session backend's
- * `ap/show` endpoint. Only a `Note` result renders a card — a User,
- * invalid object, failed/inaccessible target, or deleted target resolves
- * to null. Visibility stays with the server: `ap/show` requires a
- * credential, so logged-out or unauthorized resolutions fail closed and
- * the UI keeps the original `RE:` text. The transport is an explicit
- * parameter (no global routing facade in this package). */
-export function resolveQuoteUri(call: WireCall, uri: string): Promise<Post | null> {
-  const key = uri.trim();
-  const seen = seenByUri.get(key);
-  if (seen) return Promise.resolve(seen);
-  const completed = completedLookups.get(key);
-  if (completed !== undefined) return Promise.resolve(completed);
-  const inflight = inflightLookups.get(key);
-  if (inflight) return inflight;
-
-  const task = call<ApShowResponse>("ap/show", { uri: key }).then(
-    (res) => {
-      const raw =
-        res && res.type === "Note" && isNoteLike(res.object)
-          ? (res.object as Note)
-          : null;
-      const note = raw ? adaptNote(raw) : null;
-      if (note) registerSeenNote(note);
-      completedLookups.set(key, note);
-      evictLookups();
-      inflightLookups.delete(key);
-      return note;
-    },
-    () => {
-      completedLookups.set(key, null);
-      evictLookups();
-      inflightLookups.delete(key);
-      return null;
-    },
-  );
-  inflightLookups.set(key, task);
-  return task;
-}
-
-function evictLookups(): void {
-  while (completedLookups.size > LOOKUP_MAX) {
-    const oldest = completedLookups.keys().next();
-    if (oldest.done) break;
-    completedLookups.delete(oldest.value);
-  }
 }

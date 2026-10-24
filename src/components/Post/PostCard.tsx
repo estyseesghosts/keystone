@@ -29,7 +29,6 @@ import {
   httpStatusOf,
   isPureRenote,
   originalTagsOf,
-  registerSeenNote,
   safeHttpUrl,
   getQuoteTarget,
   statusLabelFor,
@@ -622,13 +621,12 @@ function PostCardView({
       cancelled = true
     }
   }, [pendingQuoteUri])
-  // Notes rendered here become reuse candidates for Misskey textual
-  // fallbacks (the backend's `ap/show` consults the seen set first).
-  useEffect(() => {
-    registerSeenNote(effective)
-    if (effective.renote) registerSeenNote(effective.renote)
-    if (effective.quote) registerSeenNote(effective.quote)
-  }, [effective])
+  // NOTE (R1.2 repair): rendered notes no longer seed a process-wide
+  // seen set — quote fallback caches are per-backend (one per session),
+  // so account B can never reuse a `Post` resolved under account A's
+  // credentials. The backend self-registers its own `ap/show` successes
+  // into its own cache; re-seeding from rendered cards is R2.4/D3.6 work
+  // (natural home: the `useQuoteTarget` hook).
   // The card's target: the packed quote, or a URI that resolved to a
   // post. Anything else falls through to the resolving indicator or the
   // unavailable fallback below.

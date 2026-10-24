@@ -297,7 +297,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     for (const listener of [...listeners]) listener()
   }
 
-  function revoke(session: Session): Promise<void> {
+  function revoke(session: Session): Promise<boolean> {
     return revokeSessionToken(session, {
       fetchImpl: deps.revokeFetch ?? fetch,
       store: storage,

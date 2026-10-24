@@ -254,7 +254,12 @@ export async function requestJson<T = unknown>(
         message: `Request timed out (${target}): the instance did not answer within ${Math.round(timeoutMs / 1000)}s. Retry.`,
       });
     }
-    if (err instanceof DOMException && err.name === "AbortError") throw err; // caller cancelled
+    // NOTE: never `err instanceof DOMException` here — Hermes/RN may not
+    // provide the global, and evaluating it would throw *inside* this catch
+    // block. A name check covers DOMException and cross-realm aborts alike.
+    const isAbort =
+      typeof err === "object" && err !== null && (err as { name?: unknown }).name === "AbortError";
+    if (isAbort) throw err; // caller cancelled
     throw new HttpError({
       kind: "network",
       code: "errors.network.unreachableBare",

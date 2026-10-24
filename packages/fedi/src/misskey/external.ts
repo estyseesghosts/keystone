@@ -28,10 +28,20 @@
 
 import { KEYSTONE_APP_NAME, KEYSTONE_PERMISSIONS } from "./auth";
 import { ApiError, FediError } from "../core/errors";
+import {
+  getActiveSession,
+  loadSessions,
+  removeSession,
+  revokeSessionToken,
+  saveSession,
+  sessionId,
+  setActiveSessionId,
+  type KeyValueStore,
+  type Session,
+} from "../core/sessions";
 import type { MeDetailed } from "./wire";
 import type { Account } from "../core/models";
 import type { ServerFamily, ServerFlavor } from "../core/detect";
-import type { KeyValueStore } from "../core/sessions";
 import { adaptMe } from "./adapt";
 
 export type ExternalScheme = "https" | "http";
@@ -168,7 +178,12 @@ async function postDirect<T>(url: string, body: Record<string, unknown>): Promis
       signal: ctrl.signal,
     });
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
+    // NOTE: never `err instanceof DOMException` here — Hermes/RN may not
+    // provide the global, and evaluating it would throw *inside* this catch
+    // block. A name check covers DOMException and cross-realm aborts alike.
+    const isAbort =
+      typeof err === "object" && err !== null && (err as { name?: unknown }).name === "AbortError";
+    if (isAbort) {
       throw new FediError(
         `Request timed out (${url}): the instance did not answer within ${DIRECT_TIMEOUT_MS / 1000}s. Retry.`,
         "errors.network.timeoutInstance",
@@ -317,28 +332,45 @@ export async function externalUploadFile<T>(
  * local state always clears regardless, same policy as internal sign-out).
  * Misskey family: `i/revoke-token`; Mastodon family: `POST /oauth/revoke`
  * with the cached app credentials (RFC 7009) — dispatched through
- * `core/sessions.revokeSessionToken`, which owns both shapes. */
+ * `core/sessions.revokeSessionToken`, which owns both shapes.
+ *
+ * Pass the session `store` so the Mastodon branch can find the cached
+ * `client_id` (`keystone_apps`); without it revocation is silently skipped
+ * (the old bug). Returns true when a revocation request was issued, false
+ * when the Mastodon branch skipped for lack of cached app credentials —
+ * the skip is observable, never silent. */
+export interface RevokeExternalOptions {
+  /** App-credential cache (`keystone_apps`); without it Mastodon revocation
+   * is skipped (no request is ever sent without the cached app). */
+  store?: KeyValueStore;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+}
+
 export function revokeExternalToken(
   scheme: ExternalScheme,
   host: string,
   token: string,
   family: ServerFamily = "misskey",
-): Promise<void> {
+  opts: RevokeExternalOptions = {},
+): Promise<boolean> {
   if (family === "mastodon") {
-    return revokeSessionToken({
-      id: "",
-      origin: externalOrigin(scheme, host),
-      family,
-      flavor: "unknown",
-      accountId: "",
-      token,
-      grant: "oauth-pkce",
-      hosting: "third-party",
-    });
+    return revokeSessionToken(
+      {
+        id: "",
+        origin: externalOrigin(scheme, host),
+        family,
+        flavor: "unknown",
+        accountId: "",
+        token,
+        grant: "oauth-pkce",
+        hosting: "third-party",
+      },
+      { store: opts.store, fetchImpl: opts.fetchImpl, timeoutMs: opts.timeoutMs },
+    );
   }
   return externalApiCall<undefined>(scheme, host, token, "i/revoke-token", {})
-    .then(() => undefined)
-    .catch(() => undefined);
+    .then(() => true, () => true);
 }
 
 // --- Local storage (dev-only persistence, same caveat as internal tokens) ---
@@ -348,17 +380,6 @@ export function revokeExternalToken(
 // ${accountId}` like every other session. This module keeps the
 // `ExternalSession` facade shape the auth store and account UI use, and
 // owns the wire->core user adaptation at that boundary.
-
-import {
-  getActiveSession,
-  loadSessions,
-  removeSession,
-  revokeSessionToken,
-  saveSession,
-  sessionId,
-  setActiveSessionId,
-  type Session,
-} from "../core/sessions";
 
 function splitOrigin(origin: string): { scheme: ExternalScheme; host: string } {
   const scheme: ExternalScheme = origin.startsWith("http://") ? "http" : "https";

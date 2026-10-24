@@ -14,13 +14,35 @@
 // proxy here: it would send every remote post address to a third party.
 //
 // The object is trusted only when its `id` equals the requested `uri`.
+//
+// Cache scope (R1.2): this cache is process-wide AND safe to share,
+// because it is public-only — resolution uses `fetch` with
+// `credentials: "omit"`, so no session credential ever travels here and
+// no per-account data is stored. Positive entries (a validated public
+// page URL for an exact AP id) settle; negative entries (unreachable,
+// non-JSON, id-mismatched, or CORS-refused) expire after
+// REMOTE_POST_NEGATIVE_TTL_MS so transient failures become retryable
+// instead of cached forever.
 
 const REQUEST_TIMEOUT_MS = 6000;
 const AP_ACCEPT =
   'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams"';
 
-const resolved = new Map<string, string | null>();
+/** Negatives are transient (network/CORS/server hiccup): retryable after this. */
+export const REMOTE_POST_NEGATIVE_TTL_MS = 5 * 60_000;
+const RESOLVED_MAX = 500;
+
+const resolved = new Map<string, { url: string | null; at: number }>();
 const inflight = new Map<string, Promise<string | null>>();
+
+function remember(uri: string, url: string | null): void {
+  resolved.set(uri, { url, at: Date.now() });
+  while (resolved.size > RESOLVED_MAX) {
+    const oldest = resolved.keys().next();
+    if (oldest.done) break;
+    resolved.delete(oldest.value);
+  }
+}
 
 function httpUrl(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -48,16 +70,32 @@ function pageUrl(value: unknown): string | null {
 }
 
 /** The page URL already resolved for this AP id, or null (not yet known,
- * or the object carries no readable `url`). Synchronous, for click handlers. */
+ * negatively cached but still fresh, or the object carries no readable
+ * `url`). Synchronous, for click handlers. An expired negative also
+ * reads null here — `resolveRemotePostUrl` refetches it. */
 export function cachedRemotePostUrl(uri: string): string | null {
-  return resolved.get(uri) ?? null;
+  const known = resolved.get(uri);
+  if (!known) return null;
+  if (known.url === null && Date.now() - known.at >= REMOTE_POST_NEGATIVE_TTL_MS) {
+    return null;
+  }
+  return known.url;
 }
 
 /** Resolve the page URL for an AP id. Resolves null when the browser cannot
- * read the object (no CORS), it is unreachable, or it has no `url`. Each
- * id is fetched at most once per session. */
+ * read the object (no CORS), it is unreachable, or it has no `url`.
+ * Positive results are kept; negative results are kept only for
+ * REMOTE_POST_NEGATIVE_TTL_MS and then retried. Each id has at most one
+ * fetch in flight. Sends no credentials (see above), so entries carry no
+ * per-account data. */
 export function resolveRemotePostUrl(uri: string): Promise<string | null> {
-  if (resolved.has(uri)) return Promise.resolve(resolved.get(uri) ?? null);
+  const known = resolved.get(uri);
+  if (
+    known &&
+    (known.url !== null || Date.now() - known.at < REMOTE_POST_NEGATIVE_TTL_MS)
+  ) {
+    return Promise.resolve(known.url);
+  }
   const pending = inflight.get(uri);
   if (pending) return pending;
 
@@ -84,7 +122,7 @@ export function resolveRemotePostUrl(uri: string): Promise<string | null> {
       clearTimeout(timer);
     }
   })().then((url) => {
-    resolved.set(uri, url);
+    remember(uri, url);
     inflight.delete(uri);
     return url;
   });

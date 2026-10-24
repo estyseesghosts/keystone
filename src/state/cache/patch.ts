@@ -73,14 +73,22 @@ function patchData(data: unknown, id: string, fn: PostUpdater): unknown {
   const asPost = data as Post
   if (asPost.author && asPost.content) {
     const res = patchPost(asPost, id, fn)
-    return res === null ? data : res
+    // A delete (fn returned null) on a single-post query must not keep
+    // serving the old data: return null so the caller drops the query
+    // (a remount refetches; the shadow's isDeleted covers the UI meanwhile
+    // — see usePostShadow / NoteScreen goBack). Infinite lists drop the
+    // row in the branch above; notification rows keep the row shell.
+    if (res === null) return null
+    return res
   }
   return data
 }
 
 /**
  * Apply `fn` to every cached copy of `postId` in `sessionId`'s queries.
- * Returns the number of queries changed.
+ * Infinite lists drop rows `fn` deletes; single-post queries `fn` deletes
+ * are removed (not left stale) so a remount refetches instead of rendering
+ * a deleted post. Returns the number of queries changed.
  */
 export function patchPostInCaches(
   client: QueryClient,
@@ -95,7 +103,8 @@ export function patchPostInCaches(
     const prev = query.state.data
     const next = patchData(prev, postId, fn)
     if (next !== prev) {
-      client.setQueryData(query.queryKey, next)
+      if (next === null) client.removeQueries({queryKey: query.queryKey, exact: true})
+      else client.setQueryData(query.queryKey, next)
       changed++
     }
   }

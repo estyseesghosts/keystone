@@ -183,6 +183,22 @@ describe("misskey/admin client (read-only)", () => {
     expect(calls).toEqual([{ endpoint: "get-online-users-count", params: {} }]);
   });
 
+  it("fetchServerInfo reads missing machine/os/cpu/mem/fs as null, never 0", async () => {
+    const { call, calls } = stubCall(() => ({}));
+    const info = await fetchServerInfo(call);
+    expect(calls).toEqual([{ endpoint: "admin/server-info", params: {} }]);
+    expect(info).toEqual({
+      machine: null,
+      os: null,
+      node: null,
+      psql: null,
+      cpu: { model: null, cores: null },
+      memTotal: null,
+      fsTotal: null,
+      fsUsed: null,
+    });
+  });
+
   it("a 403 on an admin call is the typed permission error (never a session clear)", async () => {
     const denied = new ApiError("Your app does not have the necessary permissions.", 403, "PERMISSION_DENIED");
     const { call } = stubCall(() => {

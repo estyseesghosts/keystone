@@ -40,7 +40,6 @@ import { normalizeReportOptions } from "../core/backend";
 import { getActiveSessionId, loadSessions, type KeyValueStore } from "../core/sessions";
 import { nextContinuation, prevContinuation, withCursors } from "./pagination";
 import type { Continuation } from "./pagination";
-import { pickQuotedStatus } from "./quoteMarker";
 import type {
   Account as WireAccount,
   Announcement as WireAnnouncement,
@@ -176,11 +175,13 @@ export async function getAccount(
   return adaptAccount(res.data);
 }
 
-function isAbsentEndpoint(err: unknown): boolean {
-  // The backend's guarded client adapts MastoHttpError → ApiError BEFORE
-  // endpoint code runs, so absence arrives as EITHER class (raw for
-  // direct endpoint callers, adapted behind the backend). Both read the
-  // same 404/405 rule — anything else rethrows, never falls back.
+/** 404/405 only: "this server has no such endpoint" (contract §3). Accepts
+ * EITHER error class — the backend's guarded client adapts `MastoHttpError`
+ * → `ApiError` before endpoint code runs, so absence arrives as `ApiError`
+ * behind the backend and as raw `MastoHttpError` for direct endpoint
+ * callers. Anything else (401/403 auth, timeout, 5xx) rethrows, never
+ * falls back. Shared by `tags.ts` and `backend.ts`. */
+export function isAbsent(err: unknown): boolean {
   const status =
     err instanceof MastoHttpError || err instanceof ApiError ? err.status : null;
   return status === 404 || status === 405;
@@ -217,7 +218,7 @@ export async function resolveAccountByHandle(
     }
     return adaptAccount(res.data);
   } catch (err) {
-    if (!isAbsentEndpoint(err)) throw err;
+    if (!isAbsent(err)) throw err;
   }
   const exact = (a: WireAccount): boolean =>
     typeof a.acct === "string" && a.acct.toLowerCase() === acct.toLowerCase();
@@ -229,7 +230,7 @@ export async function resolveAccountByHandle(
     const hit = Array.isArray(res.data) ? res.data.find(exact) : undefined;
     if (hit) return adaptAccount(hit);
   } catch (err) {
-    if (!isAbsentEndpoint(err)) throw err;
+    if (!isAbsent(err)) throw err;
   }
   try {
     const res = await client.get<{ accounts?: WireAccount[] }>("/api/v2/search", {
@@ -241,7 +242,7 @@ export async function resolveAccountByHandle(
     const hit = Array.isArray(res.data?.accounts) ? res.data.accounts.find(exact) : undefined;
     if (hit) return adaptAccount(hit);
   } catch (err) {
-    if (!isAbsentEndpoint(err)) throw err;
+    if (!isAbsent(err)) throw err;
   }
   // No match anywhere: 404 (the profile renders unavailable, never a
   // wrong account) — same status the direct /lookup path always read.
@@ -252,19 +253,6 @@ export async function resolveAccountByHandle(
     undefined,
     { acct },
   );
-}
-
-/** How a profile lookup failure reads on screen (phase3-handoff §2.6):
- * 404/410 → the profile is unavailable; 401/403 → sign in to see it;
- * anything else (timeout, network, 5xx) → a retryable error. Pure. */
-export type AccountLookupFailure = "gone" | "auth" | "error";
-
-export function accountLookupFailure(err: unknown): AccountLookupFailure {
-  if (err instanceof MastoHttpError) {
-    if (err.status === 404 || err.status === 410) return "gone";
-    if (err.status === 401 || err.status === 403) return "auth";
-  }
-  return "error";
 }
 
 /**
@@ -595,56 +583,6 @@ export async function fetchSuggestions(
   return out;
 }
 
-/** A textual `RE:` target that did not resolve is retried after this long
- * (docs/quote-posts.md: never cache a transient 429/403 forever). */
-const QUOTE_MISS_TTL_MS = 90_000;
-
-interface QuoteLookup {
-  promise: Promise<Post | null>;
-  /** Epoch ms of a miss; null while in flight or after a hit. */
-  missedAt: number | null;
-}
-
-const quoteLookups = new Map<string, QuoteLookup>();
-
-/**
- * Resolve a textual `RE:` URL to the post it names (quote-posts.md: "must
- * resolve to a Note before rendering a full card"). `GET /api/v2/search` with
- * `resolve=true`, matched strictly by URI/URL (`pickQuotedStatus`). Every
- * failure — 401/403 (search restricted), 429, network, no exact match —
- * resolves to null, so the caller keeps the raw `RE:` text. Keyed per origin
- * and token, so one account's answer never serves another.
- */
-export function resolveTextualQuote(client: MastoClient, uri: string): Promise<Post | null> {
-  const key = `${client.origin}\n${client.token ?? ""}\n${uri}`;
-  const cached = quoteLookups.get(key);
-  if (cached && (cached.missedAt === null || Date.now() - cached.missedAt < QUOTE_MISS_TTL_MS)) {
-    return cached.promise;
-  }
-  const entry: QuoteLookup = { promise: Promise.resolve(null), missedAt: null };
-  entry.promise = searchQuotedStatus(client, uri).then((found) => {
-    if (found === null) entry.missedAt = Date.now();
-    return found;
-  });
-  quoteLookups.set(key, entry);
-  return entry.promise;
-}
-
-async function searchQuotedStatus(client: MastoClient, uri: string): Promise<Post | null> {
-  try {
-    const res = await client.get<{ statuses?: Status[] }>("/api/v2/search", {
-      q: uri,
-      resolve: true,
-      type: "statuses",
-      limit: 1,
-    });
-    const statuses = Array.isArray(res.data?.statuses) ? res.data.statuses.map(adaptStatus) : [];
-    return pickQuotedStatus(statuses, uri);
-  } catch {
-    return null;
-  }
-}
-
 /** Profile tabs (phase3-handoff §2.6). Posts = top-level posts (no replies,
  * no boosts); All = replies and boosts too; Media = posts with attachments.
  * Featured is not offered: Mastodon's pinned-post list is a separate read
@@ -812,7 +750,14 @@ export async function fetchStatusHistory(
   const res = await client.get<StatusEdit[]>(
     `/api/v1/statuses/${encodeURIComponent(id)}/history`,
   );
-  return Array.isArray(res.data) ? res.data : [];
+  if (!Array.isArray(res.data)) {
+    throw new FediError(
+      "Status history returned an unexpected response shape.",
+      "errors.shape.statusHistory",
+      { id, status: res.status },
+    );
+  }
+  return res.data;
 }
 
 /** `PATCH /api/v1/accounts/update_credentials` as multipart, replacing ONE
@@ -1284,7 +1229,14 @@ export interface WireCustomEmoji {
 /** `GET /api/v1/custom_emojis` (contract §4) — public, no auth. */
 export async function fetchCustomEmojis(client: MastoClient): Promise<WireCustomEmoji[]> {
   const res = await client.get<WireCustomEmoji[]>("/api/v1/custom_emojis");
-  return Array.isArray(res.data) ? res.data : [];
+  if (!Array.isArray(res.data)) {
+    throw new FediError(
+      "Custom emojis returned an unexpected response shape.",
+      "errors.shape.customEmojis",
+      { status: res.status },
+    );
+  }
+  return res.data;
 }
 
 /** `GET /api/v1/media/:id` — the async-upload poll (contract §4: Mastodon

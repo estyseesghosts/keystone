@@ -63,27 +63,24 @@ function recordOf(value: unknown): Record<string, unknown> {
     : {};
 }
 
-/** `admin/server-info` — the hardware snapshot. Required-by-schema
- * strings fall back to "" (unreachable-but-safe); byte counts stay
- * numbers, never formatted strings the UI would reformat into a lie. */
+/** `admin/server-info` — the hardware snapshot. Every field reads null
+ * when the server did not report it ("not reported", never zero — zero
+ * cores / zero bytes is a real measurement), matching `fetchQueueStats`.
+ * Required-by-schema strings are still absent-safe via the same rule. */
 export async function fetchServerInfo(call: WireCall): Promise<MisskeyServerInfo> {
   const raw = await call<AdminServerInfo>("admin/server-info", {});
   const cpu = recordOf(raw.cpu);
   const mem = recordOf(raw.mem);
   const fs = recordOf(raw.fs);
-  const cores = numOrNull(cpu.cores);
-  const memTotal = numOrNull(mem.total);
-  const fsTotal = numOrNull(fs.total);
-  const fsUsed = numOrNull(fs.used);
   return {
-    machine: str(raw.machine),
-    os: str(raw.os),
-    node: str(raw.node),
-    psql: str(raw.psql),
-    cpu: { model: str(cpu.model), cores: cores ?? 0 },
-    memTotal: memTotal ?? 0,
-    fsTotal: fsTotal ?? 0,
-    fsUsed: fsUsed ?? 0,
+    machine: strOrNull(raw.machine),
+    os: strOrNull(raw.os),
+    node: strOrNull(raw.node),
+    psql: strOrNull(raw.psql),
+    cpu: { model: strOrNull(cpu.model), cores: numOrNull(cpu.cores) },
+    memTotal: numOrNull(mem.total),
+    fsTotal: numOrNull(fs.total),
+    fsUsed: numOrNull(fs.used),
   };
 }
 

@@ -19,10 +19,11 @@ export const FAVORITES_PAGE = 20;
 
 export async function listFavorites(
   call: WireCall,
+  limit = FAVORITES_PAGE,
   untilId?: string,
 ): Promise<FavoriteRow[]> {
   return call<FavoriteRow[]>("i/favorites", {
-    limit: FAVORITES_PAGE,
+    limit,
     ...(untilId ? { untilId } : {}),
   });
 }

@@ -1,7 +1,8 @@
 // Renote-mute listing (C18-data), Misskey family. `renote-mute/list`
 // answers packed RenoteMuting rows ({id, createdAt, muteeId, mutee}) —
-// NOT bare users — so each row unwraps to its `mutee` (falling back to
-// the row itself for servers that pack the user directly). Paging is the
+// NOT bare users — so each row unwraps to its `mutee`. Rows without a
+// string-id `mutee` (deleted/gone accounts) are skipped, never adapted
+// from the muting row itself (it has no username). Paging is the
 // standard `untilId` cursor via `pageOf` (the row id is the muting id,
 // which is what `renote-mute/list` pages on).
 
@@ -24,7 +25,11 @@ export async function listRenoteMutes(
     limit,
     ...(untilId ? { untilId } : {}),
   });
-  return pageOf(rows ?? [], limit, (row) =>
-    adaptAccount((row.mutee ?? (row as unknown as UserDetailed)) as UserDetailed),
+  const valid = (rows ?? []).filter((row) => {
+    const mutee = row?.mutee as { id?: unknown } | null | undefined;
+    return !!mutee && typeof mutee.id === "string";
+  });
+  return pageOf(valid, limit, (row) =>
+    adaptAccount(row.mutee as UserDetailed),
   );
 }

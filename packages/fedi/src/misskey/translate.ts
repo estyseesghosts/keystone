@@ -16,13 +16,17 @@
 //   (same text, sourceLang "English" for targetLang "en"). Same-language
 //   suppression is the CLIENT's job (see `translationDiffers`).
 //
-// House patterns followed: module-level completed + in-flight caches keyed
-// by note id (cf. quote lookups in `./quote`), and 404-remembered-per-session
-// (cf. `isUnsupportedError` probing in `./client`).
+// House patterns: per-instance completed + in-flight caches keyed by
+// note id (cf. per-backend quote caches in `./quote`), and
+// 404-remembered-per-instance (cf. `isUnsupportedError` probing in
+// `./client`).
 //
-// Pure-TS rule: the old Solid store became plain maps + an `eventemitter3`
-// change event; the old global active-backend routing became an explicit
-// translator instance per session (`createTranslator`).
+// Pure-TS rule: the old Solid store became instance-owned maps + an
+// `eventemitter3` change event; the old global active-backend routing
+// became an explicit translator instance per session
+// (`createTranslator`). Nothing in this module is shared across
+// sessions: two translator instances never observe each other's cached
+// hits, failure suppressions, or reported outcomes.
 
 import EventEmitter from "eventemitter3";
 import type { ServerFamily } from "../core/detect";
@@ -51,6 +55,8 @@ export interface TranslatorDeps {
   translationSupported?: boolean;
 }
 
+export type TranslationOutcome = "loaded" | "unchanged";
+
 export interface Translator {
   /** True when this session's server offers translation. */
   translatorAvailable(): Promise<boolean>;
@@ -60,10 +66,22 @@ export interface Translator {
    * when translation is unavailable, unsupported, recently failed, or not
    * worth showing — callers always fall back to the original text.
    * Successes settle permanently; failures suppress retries for
-   * FAILURE_TTL_MS so transient errors recover without hammering a
-   * persistently failing endpoint. The toggle only switches between the
-   * cached translation and the original, it never refetches. */
+   * TRANSLATION_FAILURE_TTL_MS so transient errors recover without
+   * hammering a persistently failing endpoint. The toggle only switches
+   * between the cached translation and the original, it never refetches.
+   * The cache is owned by this instance: no other session observes it. */
   requestTranslation(noteId: string, targetLang: string): Promise<TranslateResult | null>;
+  /** "loaded": a translation is shown. "unchanged": the server answered but
+   * the result is not worth showing (same language). Undefined otherwise.
+   * Per-instance: reporting on one translator never surfaces on another. */
+  translationOutcome(noteId: string): TranslationOutcome | undefined;
+  reportTranslationOutcome(noteId: string, outcome: TranslationOutcome): void;
+  /** Read by the display's request memo so a retry refetches. */
+  translationRetryCount(noteId: string): number;
+  /** Clear a remembered failure and make the display refetch. */
+  retryTranslation(noteId: string): void;
+  /** Subscribe to outcome/retry changes. Returns an unsubscribe function. */
+  onTranslationMetaChange(handler: (noteId: string) => void): () => void;
 }
 
 interface MetaProbe {
@@ -75,6 +93,22 @@ export function createTranslator(deps: TranslatorDeps): Translator {
   let capabilityValue =
     family === "mastodon" ? (deps.translationSupported ?? false) : false;
   let capabilityPromise: Promise<boolean> | null = null;
+
+  // Per-instance caches (R1.2): keyed by bare note id, but the maps live
+  // on this translator — two sessions hold two translators and share
+  // nothing. No `${origin}${accountId}` key string is needed because the
+  // instance itself is the session scope.
+  const completed = new Map<string, TranslateResult | null>();
+  const inflight = new Map<string, Promise<TranslateResult | null>>();
+  // Failures are NOT permanent: a transient error (rate limit, translator
+  // hiccup) must not hide a translation for the rest of the session. A
+  // failed noteId simply stops retrying for TRANSLATION_FAILURE_TTL_MS;
+  // remounts after that try again. Only successes, invalid shapes, and
+  // session-wide 404s settle permanently.
+  const failedAt = new Map<string, number>();
+  const outcomes = new Map<string, TranslationOutcome>();
+  const retries = new Map<string, number>();
+  const metaEvents = new EventEmitter();
 
   function translatorAvailable(): Promise<boolean> {
     if (capabilityPromise) return capabilityPromise;
@@ -108,7 +142,7 @@ export function createTranslator(deps: TranslatorDeps): Translator {
     const done = completed.get(noteId);
     if (done !== undefined) return done;
     const failed = failedAt.get(noteId);
-    if (failed !== undefined && Date.now() - failed < FAILURE_TTL_MS) {
+    if (failed !== undefined && Date.now() - failed < TRANSLATION_FAILURE_TTL_MS) {
       return null;
     }
     const pending = inflight.get(noteId);
@@ -152,6 +186,25 @@ export function createTranslator(deps: TranslatorDeps): Translator {
     translatorAvailable,
     isTranslationAvailable: () => capabilityValue,
     requestTranslation,
+    translationOutcome: (noteId: string) => outcomes.get(noteId),
+    reportTranslationOutcome: (noteId: string, outcome: TranslationOutcome) => {
+      if (outcomes.get(noteId) !== outcome) {
+        outcomes.set(noteId, outcome);
+        metaEvents.emit("meta", noteId);
+      }
+    },
+    translationRetryCount: (noteId: string) => retries.get(noteId) ?? 0,
+    retryTranslation: (noteId: string) => {
+      failedAt.delete(noteId);
+      retries.set(noteId, (retries.get(noteId) ?? 0) + 1);
+      metaEvents.emit("meta", noteId);
+    },
+    onTranslationMetaChange: (handler: (noteId: string) => void) => {
+      metaEvents.on("meta", handler);
+      return () => {
+        metaEvents.off("meta", handler);
+      };
+    },
   };
 }
 
@@ -196,17 +249,14 @@ export function translationDiffers(sourceLang: string): boolean {
   return true;
 }
 
-// --- Translation cache -------------------------------------------------------
+// --- Translation cache tuning ------------------------------------------------
+//
+// The maps themselves live on each translator instance (see
+// `createTranslator`); only the tuning constants are module-level.
 
-const completed = new Map<string, TranslateResult | null>();
-const inflight = new Map<string, Promise<TranslateResult | null>>();
-// Failures are NOT permanent: a transient error (rate limit, translator
-// hiccup) must not hide a translation for the rest of the session. A
-// failed noteId simply stops retrying for FAILURE_TTL_MS; remounts after
-// that try again. Only successes, invalid shapes, and session-wide 404s
-// settle permanently.
-const failedAt = new Map<string, number>();
-const FAILURE_TTL_MS = 90_000;
+// Transient failures suppress retries for this long, then the next
+// request tries the wire again.
+export const TRANSLATION_FAILURE_TTL_MS = 90_000;
 const CACHE_MAX = 300;
 
 function evict(map: Map<string, unknown>): void {
@@ -394,49 +444,13 @@ export function decideTranslation(
   return { show: false };
 }
 
-// --- Shared per-note outcome + retry (TranslatableText and NoteMenu) ---------
+// --- Per-note outcome + retry --------------------------------------------------
 //
 // The display component reports what it shows; the post menu reads it to
 // hide "Translate" once a translation is on screen, and asks for a retry
-// after a failure. Both live in plain module maps (shared like before) so
-// either side updates the other without a prop chain; an `eventemitter3`
-// event notifies subscribers of changes.
-
-export type TranslationOutcome = "loaded" | "unchanged";
-
-const outcomes = new Map<string, TranslationOutcome>();
-const retries = new Map<string, number>();
-const metaEvents = new EventEmitter();
-
-/** Subscribe to outcome/retry changes. Returns an unsubscribe function. */
-export function onTranslationMetaChange(handler: (noteId: string) => void): () => void {
-  metaEvents.on("meta", handler);
-  return () => {
-    metaEvents.off("meta", handler);
-  };
-}
-
-/** "loaded": a translation is shown. "unchanged": the server answered but
- * the result is not worth showing (same language). Undefined otherwise. */
-export function translationOutcome(noteId: string): TranslationOutcome | undefined {
-  return outcomes.get(noteId);
-}
-
-export function reportTranslationOutcome(noteId: string, outcome: TranslationOutcome): void {
-  if (outcomes.get(noteId) !== outcome) {
-    outcomes.set(noteId, outcome);
-    metaEvents.emit("meta", noteId);
-  }
-}
-
-/** Read by the display's request memo so a retry refetches. */
-export function translationRetryCount(noteId: string): number {
-  return retries.get(noteId) ?? 0;
-}
-
-/** Clear a remembered failure and make the display refetch. */
-export function retryTranslation(noteId: string): void {
-  failedAt.delete(noteId);
-  retries.set(noteId, (retries.get(noteId) ?? 0) + 1);
-  metaEvents.emit("meta", noteId);
-}
+// after a failure. That bus used to live in module-global maps shared by
+// every session (R1.2: account A's failure suppression silenced account
+// B's retry). It now lives on each translator instance — see the
+// `translationOutcome` / `reportTranslationOutcome` / `translationRetryCount`
+// / `retryTranslation` / `onTranslationMetaChange` methods of `Translator`.
+// `TranslationOutcome` is declared next to that interface.

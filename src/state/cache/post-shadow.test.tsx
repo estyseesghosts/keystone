@@ -319,6 +319,80 @@ describe('post shadow + toggle queue', () => {
     expect(likeKind('misskey', b.capabilities)).toBeNull()
   })
 
+  describe('favourite shadow with null favourite (R1.4)', () => {
+    it('shadow-favourited on a null-favourite post synthesizes a FavouriteState', () => {
+      const post = makePost({favourite: null})
+      store.patch(S1, post.id, {favourited: true, base: {favourited: false}})
+      const merged = applyPostShadow(post, store.get(S1, post.id))
+      // No count invented: the known server count + 1, like withFavourite.
+      expect(merged.favourite).toEqual({count: 6, mine: true})
+      expect(merged.counts.favourites).toBe(6)
+    })
+
+    it('shadow-unfavourited on a null-favourite post invents nothing', () => {
+      const post = makePost({favourite: null})
+      store.patch(S1, post.id, {favourited: false, base: {favourited: false}})
+      const merged = applyPostShadow(post, store.get(S1, post.id))
+      expect(merged.favourite).toBeNull()
+      expect(merged).toBe(post)
+    })
+
+    it('a stale favourite shadow loses to fresh server data', () => {
+      const post = makePost({favourite: {count: 7, mine: true}})
+      store.patch(S1, post.id, {favourited: false, base: {favourited: false}})
+      expect(applyPostShadow(post, store.get(S1, post.id))).toBe(post)
+    })
+
+    it('the favourite tap renders immediately even when favourite is null', async () => {
+      const post = makePost({favourite: null})
+      const b = fakeBackend()
+      await ctl.setFavourite(S1, b, post, true)
+      expect(b.favourite).toHaveBeenCalledWith('p1')
+      expect(applyPostShadow(post, store.get(S1, post.id)).favourite).toEqual({
+        count: 6,
+        mine: true,
+      })
+    })
+  })
+
+  describe('delete settle (R1.4)', () => {
+    it('delete drops the infinite-list row AND removes the single-post query', () => {
+      const qc = new QueryClient()
+      const post = makePost()
+      qc.setQueryData([S1, 'post-feed', 'home'], {
+        pages: [{items: [post], cursor: null, end: true}],
+        pageParams: [null],
+      })
+      qc.setQueryData([S1, 'post', 'p1'], post)
+      qc.setQueryData([S2, 'post', 'p1'], post)
+      const n = patchPostInCaches(qc, S1, 'p1', () => null)
+      expect(n).toBe(2)
+      expect(
+        (qc.getQueryData([S1, 'post-feed', 'home']) as {pages: {items: Post[]}[]}).pages[0].items,
+      ).toEqual([])
+      // Not left stale: a remount refetches instead of rendering the deleted post.
+      expect(qc.getQueryData([S1, 'post', 'p1'])).toBeUndefined()
+      expect(qc.getQueryData([S2, 'post', 'p1'])).toBe(post)
+    })
+
+    it('controller deletePost settles both shapes and keeps the isDeleted shadow', async () => {
+      const qc = new QueryClient()
+      const c = createPostActionController({store, queryClient: qc})
+      const post = makePost()
+      qc.setQueryData([S1, 'post-feed', 'home'], {
+        pages: [{items: [post], cursor: null, end: true}],
+        pageParams: [null],
+      })
+      qc.setQueryData([S1, 'post', 'p1'], post)
+      await c.deletePost(S1, fakeBackend(), post, true)
+      expect(
+        (qc.getQueryData([S1, 'post-feed', 'home']) as {pages: {items: Post[]}[]}).pages[0].items,
+      ).toEqual([])
+      expect(qc.getQueryData([S1, 'post', 'p1'])).toBeUndefined()
+      expect(store.get(S1, post.id)?.isDeleted).toBe(true)
+    })
+  })
+
   describe('multi-session isolation', () => {
     it('shadow, queues and backends are per session', async () => {
       const d = deferred()

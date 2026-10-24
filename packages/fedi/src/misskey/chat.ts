@@ -34,6 +34,7 @@
 // renders "not on this server", never an error wall.
 
 import type { ChatMessage, ChatRoom, ChatRoomMembership } from "../core/backend";
+import { FediError } from "../core/errors";
 import { adaptAccount, adaptDriveFile } from "./adapt";
 import type { WireCall } from "./client";
 import type { DriveFile, UserLite } from "./wire";
@@ -294,7 +295,8 @@ export async function createRoomMessage(
   opts: SendChatMessageOpts,
 ): Promise<ChatMessage> {
   const params = sendParams({ toRoomId: roomId }, opts);
-  if (!params) throw new Error("A chat message needs text or a file.");
+  if (!params)
+    throw new FediError("A chat message needs text or a file.", "errors.chat.messageRequired");
   return adaptChatMessage(await call<PackedChatMessage>("chat/messages/create-to-room", params));
 }
 
@@ -307,7 +309,8 @@ export async function createUserMessage(
   opts: SendChatMessageOpts,
 ): Promise<ChatMessage> {
   const params = sendParams({ toUserId: userId }, opts);
-  if (!params) throw new Error("A chat message needs text or a file.");
+  if (!params)
+    throw new FediError("A chat message needs text or a file.", "errors.chat.messageRequired");
   return adaptChatMessage(await call<PackedChatMessage>("chat/messages/create-to-user", params));
 }
 

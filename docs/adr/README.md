@@ -11,6 +11,7 @@ Load-bearing decisions. Numbered, append-only, never renumbered.
 | [0004](0004-document-picker.md) | Document picker module for import files | 2026-10-22 | accepted |
 | [0005](0005-per-flavor-oauth-scopes.md) | Per-flavor OAuth scope strings (Mastodon triple, Akkoma full) | 2026-10-22 | accepted |
 | [0006](0006-recommendations-feed.md) | Fork recommendations feed (dvd-sharkey port) | 2026-10-24 | accepted |
+| [0007](0007-nullable-notification-created-at.md) | Nullable `Notification.createdAt` (never fake dates) | 2026-10-24 | accepted |
 
 ## When to write one
 

@@ -384,19 +384,21 @@ describe("revoke on logout (best-effort)", () => {
 
   it("no cached app means no request (matching mastodon/oauth.ts)", async () => {
     const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
-    await revokeSessionToken(
-      {
-        id: "https://mastodon.example 7",
-        origin: "https://mastodon.example",
-        family: "mastodon",
-        flavor: "unknown",
-        accountId: "7",
-        token: "masto-token",
-        grant: "oauth-pkce",
-        hosting: "third-party",
-      },
-      { fetchImpl: fetchImpl as unknown as typeof fetch, store },
-    );
+    await expect(
+      revokeSessionToken(
+        {
+          id: "https://mastodon.example 7",
+          origin: "https://mastodon.example",
+          family: "mastodon",
+          flavor: "unknown",
+          accountId: "7",
+          token: "masto-token",
+          grant: "oauth-pkce",
+          hosting: "third-party",
+        },
+        { fetchImpl: fetchImpl as unknown as typeof fetch, store },
+      ),
+    ).resolves.toBe(false); // the skip is observable, never silent
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -404,6 +406,6 @@ describe("revoke on logout (best-effort)", () => {
     const fetchImpl = jest.fn(() => Promise.reject(new Error("offline")));
     await expect(
       revokeSessionToken(internal(), { fetchImpl: fetchImpl as unknown as typeof fetch }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(true); // attempted (and failed) — best-effort, never throws
   });
 });

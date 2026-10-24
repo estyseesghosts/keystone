@@ -331,6 +331,28 @@ async function discoveryPresent(origin: string): Promise<boolean> {
   }
 }
 
+/**
+ * True when an app-registration failure is scope-shaped: the server
+ * rejected the requested scope string (contract §2.1 — stock Mastodon
+ * answers 422 for scopes outside its configured list). Only then is the
+ * umbrella-scope retry honest; 401/403 (registration forbidden) and every
+ * other failure surface immediately instead of burning a second
+ * registration attempt.
+ */
+function isScopeRejection(err: unknown): boolean {
+  if (!(err instanceof MastoHttpError)) return false;
+  if (err.status === 422) return true;
+  const body = err.body;
+  if (body !== null && typeof body === "object") {
+    const record = body as Record<string, unknown>;
+    for (const key of ["error", "error_description"]) {
+      const value = record[key];
+      if (typeof value === "string" && /scope/i.test(value)) return true;
+    }
+  }
+  return false;
+}
+
 function isBodyError(err: unknown, status: number, codes: string[]): boolean {
   if (!(err instanceof MastoHttpError) || err.status !== status) return false;
   const body = err.body;
@@ -390,13 +412,14 @@ export async function registerApp(opts: {
   try {
     registered = await attempt(scopes);
   } catch (err) {
-    // Umbrella fallback only when granular registration itself failed AND
-    // the server advertises no OAuth discovery doc (contract §2.1).
+    // Umbrella fallback only when the granular registration failed on a
+    // SCOPE-shaped rejection (422, or a body naming the scope) AND the
+    // server advertises no OAuth discovery doc (contract §2.1). 401/403
+    // (forbidden registration) and every other failure surface
+    // immediately — never a second attempt.
     const canFallback =
       opts.allowScopeFallback !== false &&
-      err instanceof MastoHttpError &&
-      err.status >= 400 &&
-      err.status < 500 &&
+      isScopeRejection(err) &&
       !(await discoveryPresent(origin));
     if (!canFallback) throw err;
     grantedScopes = FALLBACK_SCOPES;

@@ -245,7 +245,14 @@ describe("Misskey chat sends + read markers", () => {
 
   it("refuses an empty message before any network I/O", async () => {
     const { transport, calls } = stubTransport(() => packedRoomMessage);
-    await expect(createRoomMessage(transport.call, "room1", {})).rejects.toThrow();
+    await expect(createRoomMessage(transport.call, "room1", {})).rejects.toMatchObject({
+      name: "FediError",
+      code: "errors.chat.messageRequired",
+    });
+    await expect(createUserMessage(transport.call, "other1", {})).rejects.toMatchObject({
+      name: "FediError",
+      code: "errors.chat.messageRequired",
+    });
     expect(calls).toHaveLength(0);
   });
 

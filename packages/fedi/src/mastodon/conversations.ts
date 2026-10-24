@@ -14,6 +14,15 @@
 // at the end of the list. A scan miss reads like any other absent row
 // (the typed 404 the backend maps to the honest unavailable state).
 //
+// LIVE-UPDATE CONTRACT (poll-only): the shared WebSocket (`stream.ts`
+// `routeMessage`) carries NO `conversation` branch — Mastodon-family
+// `conversation` frames are not routed to any listener set, and this
+// module exposes no subscription for them. The DM inbox stays correct by
+// paging + refresh (the `end` rule in `fetchConversationsPage`), never by
+// guessing from unrouted frames. If a future slice routes `conversation`
+// events, it must add the listener set AND the app subscription together —
+// half-routing events into a void is worse than polling.
+//
 // Error contract like `endpoints.ts`: these throw the RAW
 // `MastoHttpError` — the backend's guarded client adapts it to the
 // shared `ApiError` at the boundary. Row shape `{id, accounts[],

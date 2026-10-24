@@ -509,6 +509,13 @@ describe("MastodonBackend services and error boundary", () => {
     expect(emojis).toEqual([{ name: "keystone", url: "https://x/keystone.png", category: "test" }]);
   });
 
+  it("a non-array custom emoji body throws a shape error — never an empty list", async () => {
+    const { client } = stubClient({ respond: () => ({ data: { items: [] } }) });
+    await expect(createMastodonBackend(client).customEmojis()).rejects.toMatchObject({
+      code: "errors.shape.customEmojis",
+    });
+  });
+
   it("translate maps the varied response shapes to core Translation", async () => {
     const { client } = stubClient({
       respond: () => ({

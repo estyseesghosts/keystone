@@ -175,8 +175,9 @@ Audit: `results/09` state finding 2; `results/10` D1
 
 ### R1.1 — Misskey wire bugs in `backend.ts` and its direct helpers
 
-Status: not started
-Branch: `repair-r1.1-misskey-wire`
+Status: done (2026-10-24, Wave 1 commit; log `state/logs/2026-10-24-repair-r1.1.md`)
+
+**Merge note.** B11 widened `MisskeyServerInfo` machine/os/cpu/mem/fs to `| null` (`core/backend.ts` + 2-line `AdminInsight.tsx` render); see DECISIONS line 2026-10-24.
 Audit: `results/01` B1, B2, B5, B7, B8, B10, B11, B14
 
 **Goal.** The main Misskey relationship call uses the upstream field name; missing user packs do not throw; bookmarks honor the caller’s limit; empty account refs and empty chat text fail locally with `FediError`; antenna bodies omit nulls; server-info does not invent `0`.
@@ -217,8 +218,7 @@ Audit: `results/01` B1, B2, B5, B7, B8, B10, B11, B14
 
 ### R1.2 — Per-session translate and quote caches
 
-Status: not started
-Branch: `repair-r1.2-session-caches`
+Status: done (2026-10-24, Wave 1 commit; log `state/logs/2026-10-24-repair-r1.2.md`; instance-owned key shape, no ADR per slice prescription)
 Audit: `results/01` B3
 
 **Goal.** Account B cannot read account A’s translation, failure suppression, or a followers-only quote `Post` resolved with A’s credentials.
@@ -254,8 +254,7 @@ Audit: `results/01` B3
 
 ### R1.3 — Mastodon honesty: quotes, dates, predicates, OAuth fallback, admin PATCH, stream gap
 
-Status: not started
-Branch: `repair-r1.3-mastodon-honesty`
+Status: done (2026-10-24, Wave 1 commit; ADR 0007; log `state/logs/2026-10-24-repair-r1.3.md`)
 Audit: `results/02` bugs 1–8; report P1 fabricated timestamps
 
 **Goal.** One quote matcher. Notification dates are never invented. Absence checks accept both error classes. Scope fallback does not retry forbidden registration. Empty admin report PATCH does not hit the server. Conversation stream events are either routed or explicitly documented as poll-only — pick routing if it is a small listener add, otherwise document and stop.
@@ -301,8 +300,7 @@ Audit: `results/02` bugs 1–8; report P1 fabricated timestamps
 
 ### R1.4 — Session plumbing: DOMException, revoke, family guard, shadow, delete
 
-Status: not started
-Branch: `repair-r1.4-session-plumbing`
+Status: done (2026-10-24, Wave 1 commit; log `state/logs/2026-10-24-repair-r1.4.md`; `revokeSessionToken` now `Promise<boolean>`, additive)
 Audit: `results/04` bugs 1–4 and the DOMException note
 
 **Goal.** A missing `DOMException` global cannot crash the timeout catch path. Mastodon external sign-out either revokes or records an explicit skip. `uploadDriveFile` refuses non-Misskey sessions the same way `apiCall` does. Optimistic favourite renders when `favourite` is null. Deleting a post removes or tombstones it in single-post queries, not only in infinite lists.
@@ -878,10 +876,10 @@ Update the status line on the slice **and** this table when a session ends.
 | R0.1 WordField | done | `repair-r0.1-wordfield-reseed` | — |
 | R0.2 RichText hooks | done | `repair-r0.2-richtext-hooks` | — |
 | R0.3 Composer races | done | `repair-r0.3-composer-races` | — |
-| R1.1 Misskey wire | not started | `repair-r1.1-misskey-wire` | — |
-| R1.2 Session caches | not started | `repair-r1.2-session-caches` | R1.1 if both edit `backend.ts` factory |
-| R1.3 Mastodon honesty | not started | `repair-r1.3-mastodon-honesty` | — |
-| R1.4 Session plumbing | not started | `repair-r1.4-session-plumbing` | — |
+| R1.1 Misskey wire | done | `repair-r1.1-misskey-wire` | — |
+| R1.2 Session caches | done | `repair-r1.2-session-caches` | R1.1 merged Wave 1 |
+| R1.3 Mastodon honesty | done | `repair-r1.3-mastodon-honesty` | — |
+| R1.4 Session plumbing | done | `repair-r1.4-session-plumbing` | — |
 | R2.1 Content scanners | not started | `repair-r2.1-content-scanners` | — |
 | R2.2 Exclusive honesty | not started | `repair-r2.2-exclusive-honesty` | R1.1 (`votePoll` in `misskey/backend.ts`) |
 | R2.3 Media / native | not started | `repair-r2.3-media-native` | RichText one-liner waits if R0.2/D3.5 in flight |

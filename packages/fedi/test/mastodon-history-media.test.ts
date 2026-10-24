@@ -155,6 +155,13 @@ describe("edit history — Mastodon /statuses/:id/history", () => {
     });
   });
 
+  it("a non-array 200 body throws a shape error — never an empty 'unedited' read", async () => {
+    const { client } = mastoStub(() => ({ items: [] }));
+    await expect(createMastodonBackend(client).editHistory!("s1")).rejects.toMatchObject({
+      code: "errors.shape.statusHistory",
+    });
+  });
+
   it("has no history method on the Misskey family (no endpoint upstream)", () => {
     const transport: MisskeyTransport = {
       call: <T,>() => Promise.resolve([] as T),

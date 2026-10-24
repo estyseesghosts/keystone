@@ -74,10 +74,10 @@ export function insightKeyLabel(kind: 'measure' | 'dimension', key: string): str
 
 /** Byte counts the Misskey hardware snapshot reports, rendered as
  * GiB/MiB/KiB with one decimal (1024-based, matching the OS tools the
- * numbers come from). Non-finite or negative input reads '—', never a
- * fabricated zero. Pure. */
-export function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return '—'
+ * numbers come from). Null (the server did not report it), non-finite or
+ * negative input reads '—', never a fabricated zero. Pure. */
+export function formatBytes(bytes: number | null): string {
+  if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return '—'
   const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
   let value = bytes
   let unit = 0
@@ -350,7 +350,7 @@ function MisskeyServerInfoSection({
       <Caption color="faint">Node {info.node || '—'}</Caption>
       <Caption color="faint">PostgreSQL {info.psql || '—'}</Caption>
       <Caption color="faint">
-        CPU {info.cpu.model || '—'} × {info.cpu.cores}
+        CPU {info.cpu.model || '—'} × {info.cpu.cores ?? '—'}
       </Caption>
       <Caption color="faint">Memory {formatBytes(info.memTotal)}</Caption>
       <Caption color="faint">

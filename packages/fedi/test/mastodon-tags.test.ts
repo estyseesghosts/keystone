@@ -18,6 +18,8 @@
 
 import { createMastodonBackend } from "../src/mastodon/backend";
 import type { MastoClient, RequestOptions, RequestResult } from "../src/mastodon/client";
+import { MastoHttpError } from "../src/mastodon/client";
+import { featureTag } from "../src/mastodon/tags";
 import { ApiError, FediError } from "../src/core/errors";
 import { isUnsupportedError } from "../src/misskey/client";
 
@@ -253,6 +255,31 @@ describe("P6.1 tags — featured tags (pin/unpin)", () => {
       status: 403,
     });
     expect(calls).toHaveLength(1);
+  });
+
+  it("a direct caller with a RAW MastoHttpError 404 gets the same fallback (shared isAbsent)", async () => {
+    // The bug: the old tags-local predicate accepted ApiError only, so a
+    // raw 404 from a direct (unguarded) call skipped the version fallback
+    // and threw. The shared helper accepts both classes.
+    const raw404 = (_method: string, path: string) => {
+      if (path === "/api/v1/tags/cats/feature") {
+        throw new MastoHttpError({
+          message: "Not Found",
+          status: 404,
+          kind: "http",
+          origin: "https://mastodon.example",
+          method: "POST",
+          path,
+        });
+      }
+      return { data: { id: "ft1", name: "cats" } };
+    };
+    const { client, calls } = stubClient(raw404);
+    await featureTag(client, "cats");
+    expect(calls.map((c) => [c.method, c.path])).toEqual([
+      ["POST", "/api/v1/tags/cats/feature"],
+      ["POST", "/api/v1/featured_tags"],
+    ]);
   });
 
   it("unpins via POST /api/v1/tags/:id/unfeature", async () => {

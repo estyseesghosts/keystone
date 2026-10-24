@@ -314,6 +314,17 @@ describe("P6.3 reports queue — Mastodon detail + mutations", () => {
       opts: undefined,
     });
   });
+
+  it("refuses an empty recategorize patch without any network I/O", async () => {
+    const { client, calls } = stubMasto(() => ({ data: wireReport() }));
+    const err = await updateAdminReport(client, "1", {}).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(FediError);
+    expect((err as FediError).code).toBe("errors.shape.emptyReportPatch");
+    expect(calls).toEqual([]);
+  });
 });
 
 describe("P6.3 reports queue — Mastodon backend wiring", () => {

@@ -175,12 +175,27 @@ export function applyPostShadow(post: Post, shadow: PostShadow | undefined): Pos
     }
   }
 
-  if (
-    shadow.favourited !== undefined &&
-    out.favourite &&
-    out.favourite.mine === (base.favourited ?? out.favourite.mine)
-  ) {
-    out = withFavourite(out, shadow.favourited)
+  if (shadow.favourited !== undefined) {
+    // The server value the shadow was layered on. A null `favourite`
+    // (reactions-family posts) reads as not-favourited.
+    const serverMine = out.favourite?.mine ?? false;
+    if (serverMine === (base.favourited ?? serverMine)) {
+      if (out.favourite) {
+        out = withFavourite(out, shadow.favourited);
+      } else if (shadow.favourited) {
+        // No FavouriteState to merge into: synthesize it from the known
+        // server count (+1, clamped at 0 — the same delta `withFavourite`
+        // applies). No count is invented: the base is `counts.favourites`.
+        const count = Math.max(0, out.counts.favourites + 1);
+        out = {
+          ...out,
+          favourite: {count, mine: true},
+          counts: {...out.counts, favourites: count},
+        };
+      }
+      // `favourited: false` on a null `favourite` is already reflected —
+      // nothing to synthesize, and no control to gate.
+    }
   }
 
   if (shadow.renoted !== undefined) {

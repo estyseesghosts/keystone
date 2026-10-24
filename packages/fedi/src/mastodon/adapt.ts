@@ -672,7 +672,7 @@ export function adaptV2Notification(
     id: String(item.id ?? ""),
     kind,
     rawType: type,
-    createdAt: typeof item.created_at === "string" ? item.created_at : new Date().toISOString(),
+    createdAt: typeof item.created_at === "string" ? item.created_at : null,
     read: null,
     actors,
     post: status,
@@ -730,7 +730,7 @@ function adaptV2Group(
     createdAt:
       typeof group.latest_page_notification_at === "string"
         ? group.latest_page_notification_at
-        : new Date().toISOString(),
+        : null,
     read: null,
     actors,
     post: status,

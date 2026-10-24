@@ -579,18 +579,22 @@ function timeoutSignal(ms: number): AbortSignal | undefined {
  * `POST ${origin}/oauth/revoke` with the cached app credentials (RFC 7009;
  * skipped when no app is cached). Never throws — local state clears
  * regardless of the outcome.
+ *
+ * @returns true when a revocation request was issued, false when the
+ * Mastodon branch skipped for lack of cached app credentials. The skip is
+ * observable (no silent no-op): callers that need to record it check this.
  */
 export async function revokeSessionToken(
   session: Session,
   opts: RevokeOptions = {},
-): Promise<void> {
+): Promise<boolean> {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 8_000;
   try {
     const family = session.family ?? familyOf(session.flavor);
     if (family === "mastodon") {
       const app = cachedAppFor(opts.store, session.origin);
-      if (!app?.client_id) return;
+      if (!app?.client_id) return false;
       const form = new URLSearchParams({ token: session.token, client_id: app.client_id });
       if (app.client_secret) form.set("client_secret", app.client_secret);
       await fetchImpl(`${session.origin}/oauth/revoke`, {
@@ -599,7 +603,7 @@ export async function revokeSessionToken(
         body: form.toString(),
         signal: timeoutSignal(timeoutMs),
       });
-      return;
+      return true;
     }
     await fetchImpl(`${session.origin}/api/i/revoke-token`, {
       method: "POST",
@@ -607,7 +611,9 @@ export async function revokeSessionToken(
       body: JSON.stringify({ i: session.token }),
       signal: timeoutSignal(timeoutMs),
     });
+    return true;
   } catch {
     // Offline, already-revoked, or unsupported endpoint: ignore.
+    return true;
   }
 }

@@ -318,16 +318,22 @@ export function apiCallInternal<T>(
 /** Multipart Drive upload. `drive/files/create` is NOT JSON: the file and
  * the credential ride as FormData fields (`file`, `i`). The runtime sets
  * the multipart boundary — never set Content-Type by hand here. */
-export function uploadDriveFile<T>(
+export async function uploadDriveFile<T>(
   store: KeyValueStore,
   home: HomeSpec,
   file: File,
   opts: { isSensitive?: boolean; comment?: string } = {},
 ): Promise<T> {
+  const active = activeSessionOf(store, home.origin);
+  if (active && (active.family ?? familyOf(active.flavor) ?? "misskey") !== "misskey") {
+    throw new ApiError(
+      "The active session is Mastodon-family; this call is Misskey-family.",
+      404,
+      "UNSUPPORTED_FAMILY",
+    );
+  }
   const session =
-    activeSessionOf(store, home.origin) ??
-    internalSessionOf(store, home.origin) ??
-    placeholderSession(home);
+    active ?? internalSessionOf(store, home.origin) ?? placeholderSession(home);
   return createMisskeyClient(session).upload<T>(file, opts);
 }
 

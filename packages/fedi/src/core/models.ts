@@ -732,7 +732,10 @@ export interface Notification {
   kind: NotificationKind;
   /** The wire type string VERBATIM — display/debug only, never routed on. */
   rawType: string;
-  createdAt: string;
+  /** Server timestamp when sent; null when the server omitted it (Mastodon
+   * v2 grouped rows may carry no per-row date). Null renders dateless and
+   * sorts last — never fabricated as "now" (ADR 0007). */
+  createdAt: string | null;
   /** Pinetree packs `isRead`; Misskey/Sharkey omit it → null = unknown.
    * Never faked. */
   read: boolean | null;

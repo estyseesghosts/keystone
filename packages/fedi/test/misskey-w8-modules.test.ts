@@ -18,7 +18,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { ApiError, FediError } from "../src/core/errors";
-import { createMemoryStore, type KeyValueStore } from "../src/core/sessions";
+import { OAUTH_APPS_KEY, createMemoryStore, type KeyValueStore } from "../src/core/sessions";
 import type { Account } from "../src/core/models";
 import type { WireCall } from "../src/misskey/client";
 import {
@@ -32,6 +32,7 @@ import {
 } from "../src/misskey/auth";
 import {
   buildMiauthUrl,
+  checkExternalSession,
   enrichLegacyExternalUsers,
   externalOrigin,
   getActiveExternal,
@@ -39,6 +40,7 @@ import {
   newExternalSessionId,
   normalizeHost,
   removeExternalSession,
+  revokeExternalToken,
   saveExternalSession,
   setActiveExternalHost,
   updateExternalSessionUser,
@@ -293,6 +295,91 @@ describe("misskey/external (session store)", () => {
   });
 });
 
+describe("misskey/external revoke + DOMException gap (R1.4)", () => {
+  const realFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  function noDomException<T>(run: () => Promise<T>): Promise<T> {
+    // Hermes/RN may not provide a DOMException global. Evaluating
+    // `err instanceof DOMException` there throws inside the catch block.
+    // Assignment (not `delete`: built-in globals can be non-configurable)
+    // simulates the gap; the caller restores in `finally`.
+    const g = globalThis as { DOMException?: unknown };
+    const saved = g.DOMException;
+    g.DOMException = undefined;
+    return run().finally(() => {
+      g.DOMException = saved;
+    });
+  }
+
+  it("a caller abort without a DOMException global is a timeout FediError, not a TypeError", async () => {
+    (globalThis as { fetch: unknown }).fetch = async () => {
+      throw Object.assign(new Error("aborted"), { name: "AbortError" });
+    };
+    const err = await noDomException(() =>
+      checkExternalSession("https", "example.com", "sess"),
+    ).catch((e) => e);
+    // Bare `instanceof DOMException` would throw TypeError here instead.
+    expect(err).toBeInstanceOf(FediError);
+    expect((err as FediError).code).toBe("errors.network.timeoutInstance");
+  });
+
+  it("mastodon revoke POSTs /oauth/revoke with the cached app when the store is threaded", async () => {
+    const store = createMemoryStore();
+    store.setItem(
+      OAUTH_APPS_KEY,
+      JSON.stringify({
+        "https://mastodon.example": { client_id: "cid", client_secret: "csec" },
+      }),
+    );
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, init: init ?? {} });
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+    await expect(
+      revokeExternalToken("https", "mastodon.example", "tok", "mastodon", { store, fetchImpl }),
+    ).resolves.toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("https://mastodon.example/oauth/revoke");
+    const form = new URLSearchParams(String(calls[0].init.body));
+    expect(form.get("token")).toBe("tok");
+    expect(form.get("client_id")).toBe("cid");
+    expect(form.get("client_secret")).toBe("csec");
+  });
+
+  it("mastodon revoke without a cached app is an observable skip (false, no request)", async () => {
+    const store = createMemoryStore();
+    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    await expect(
+      revokeExternalToken("https", "mastodon.example", "tok", "mastodon", {
+        store,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      }),
+    ).resolves.toBe(false);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("misskey revoke POSTs i/revoke-token and never throws", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    (globalThis as { fetch: unknown }).fetch = async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), init: (init ?? {}) as RequestInit });
+      return new Response("{}", { status: 200 });
+    };
+    await expect(revokeExternalToken("https", "example.com", "tok")).resolves.toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("https://example.com/api/i/revoke-token");
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ i: "tok" });
+    (globalThis as { fetch: unknown }).fetch = async () => {
+      throw new Error("offline");
+    };
+    await expect(revokeExternalToken("https", "example.com", "tok")).resolves.toBe(true);
+  });
+});
+
 // --- customEmoji ------------------------------------------------------------
 
 describe("misskey/customEmoji store", () => {
@@ -381,7 +468,7 @@ describe("misskey/favorites + featured", () => {
     const { call, calls } = stubCall((endpoint, params) =>
       endpoint === "i/favorites" ? [{ id: "f1", note: note() }] : undefined,
     );
-    const rows = await listFavorites(call, "cur");
+    const rows = await listFavorites(call, 20, "cur");
     expect(rows).toHaveLength(1);
     expect(calls[0]).toEqual({ endpoint: "i/favorites", params: { limit: 20, untilId: "cur" } });
     await removeFavorite(call, "n1");
@@ -504,6 +591,17 @@ describe("misskey/mutes + followRequests + renoteMutes", () => {
       endpoint: "renote-mute/list",
       params: { limit: 10, untilId: "cur" },
     });
+  });
+
+  it("listRenoteMutes skips rows with no string-id mutee (never adapts the muting row)", async () => {
+    const { call } = stubCall(() => [
+      { id: "m1", mutee: user() },
+      { id: "m2", mutee: null },
+      { id: "m3" },
+    ]);
+    const page = await listRenoteMutes(call, 10);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0].id).toBe(user().id);
   });
 });
 
@@ -790,6 +888,18 @@ describe("MisskeyBackend sub-modules (MK12 indirect)", () => {
     const { id: _omit, ...antParams } = listed[0];
     await backend.antennas!.create(antParams);
     expect(calls[1].endpoint).toBe("antennas/create");
+    // Omit-null: no null userListId, no empty arrays — booleans still
+    // send so an update can flip true → false.
+    expect(calls[1].params).toEqual({
+      name: "ant",
+      src: "all",
+      keywords: [["a", "b"], ["c"]],
+      caseSensitive: false,
+      localOnly: false,
+      excludeBots: true,
+      withReplies: false,
+      withFile: false,
+    });
     await backend.antennas!.update("a1", antParams);
     expect(calls[2].params).toMatchObject({ antennaId: "a1" });
     await backend.antennas!.delete("a1");
@@ -817,6 +927,7 @@ describe("MisskeyBackend sub-modules (MK12 indirect)", () => {
       endpoint === "i/favorites" ? [{ id: "f1", note: note() }] : undefined,
     );
     const page = await backend.bookmarks!.list();
+    expect(calls[0].params).toMatchObject({ limit: 20 });
     expect(page.items[0].post.id).toBe(note().id);
     await backend.bookmarks!.add("n1");
     await backend.bookmarks!.remove("n1");
@@ -824,6 +935,25 @@ describe("MisskeyBackend sub-modules (MK12 indirect)", () => {
       "notes/favorites/create",
       "notes/favorites/delete",
     ]);
+  });
+
+  it("bookmarks list threads the caller limit into i/favorites (no early end, no over-adapt)", async () => {
+    const favorite = (i: number) => ({ id: `f${i}`, note: note() });
+    const { backend, calls } = backendFor((endpoint, params) => {
+      if (endpoint !== "i/favorites") return undefined;
+      const limit = params.limit as number;
+      return Array.from({ length: Math.min(limit, 50) }, (_, i) => favorite(i));
+    });
+    // limit 50: the helper must request 50, so a full 50-row page reads
+    // end:false instead of stalling after a hardcoded 20-row fetch.
+    const wide = await backend.bookmarks!.list({ limit: 50 });
+    expect(calls[0].params).toMatchObject({ limit: 50 });
+    expect(wide.items).toHaveLength(50);
+    expect(wide.end).toBe(false);
+    // limit 5: only 5 rows are requested and adapted, never 20.
+    const narrow = await backend.bookmarks!.list({ limit: 5 });
+    expect(calls[calls.length - 1].params).toMatchObject({ limit: 5 });
+    expect(narrow.items).toHaveLength(5);
   });
 
   it("noteReactions sends the type filter; accountReactions keeps null posts", async () => {
@@ -837,6 +967,18 @@ describe("MisskeyBackend sub-modules (MK12 indirect)", () => {
     expect(reactions.items[0]).toMatchObject({ reaction: "❤", account: { id: user().id } });
     const accountReactions = await backend.accountReactions("u1");
     expect(accountReactions.items[0].post).toBeNull();
+  });
+
+  it("noteReactions skips rows whose packed user is missing (deleted reactors)", async () => {
+    const { backend, calls } = backendFor((endpoint) => {
+      if (endpoint !== "notes/reactions") return undefined;
+      const good = { id: "r1", createdAt: "2026-01-01T00:00:00.000Z", user: user(), type: "❤" };
+      return [good, { id: "r2", createdAt: "2026-01-01T00:00:00.000Z", user: null, type: "👍" }, { id: "r3", createdAt: "2026-01-01T00:00:00.000Z", type: "🎉" }];
+    });
+    const reactions = await backend.noteReactions("n1");
+    expect(calls[0].endpoint).toBe("notes/reactions");
+    expect(reactions.items).toHaveLength(1);
+    expect(reactions.items[0]).toMatchObject({ reaction: "❤", account: { id: user().id } });
   });
 
   it("pin/unpin, muteThread and reportAccount hit their endpoints", async () => {

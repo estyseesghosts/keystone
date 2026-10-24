@@ -113,7 +113,7 @@ import {
   orderAncestors,
 } from "./thread";
 import { createStreamHandle } from "./stream";
-import { resolveQuoteUri } from "./quote";
+import { createQuoteResolver } from "./quote";
 import {
   addNoteToClip,
   createClip,
@@ -264,6 +264,10 @@ export function createMisskeyBackend(
   opts: MisskeyBackendOptions = {},
 ): Backend {
   const call = transport.call.bind(transport);
+  // Per-backend quote fallback cache (R1.2): seen/lookup maps live here,
+  // so a `Post` resolved under this session's credentials is never served
+  // to another session. Backends are memoized per session in the app.
+  const quotes = createQuoteResolver(call);
 
   // Runtime detection (`core/detect.ts`) is the authority: the flavor
   // table is the floor, `opts.evidence` (the session's stored probe
@@ -761,7 +765,7 @@ export function createMisskeyBackend(
     async list(opts = {}) {
       const limit = opts.limit ?? DEFAULT_LIMIT;
       const cursor = decodeCursor(opts.cursor ?? null);
-      const rows = await listFavorites(call, cursor.untilId);
+      const rows = await listFavorites(call, limit, cursor.untilId);
       return pageOf(rows ?? [], limit, (row) => ({
         id: row.id,
         post: adaptNote(row.note),
@@ -919,7 +923,14 @@ export function createMisskeyBackend(
       const rows = await call<
         Array<{ id?: unknown; createdAt?: unknown; user?: unknown; type?: unknown }>
       >("notes/reactions", params);
-      return pageOf(rows ?? [], limit, (row): NoteReactionRow => ({
+      // Deleted/gone reactors arrive without a packed user — skip the row
+      // rather than crashing in `adaptAccount` (same `typeof id` guard as
+      // `chat.ts`; the row carries no usable account).
+      const valid = (rows ?? []).filter((row) => {
+        const user = row?.user as { id?: unknown } | null | undefined;
+        return !!user && typeof user.id === "string";
+      });
+      return pageOf(valid, limit, (row): NoteReactionRow => ({
         id: typeof row.id === "string" ? row.id : "",
         createdAt: typeof row.createdAt === "string" ? row.createdAt : "",
         reaction: typeof row.type === "string" ? row.type : "",
@@ -1027,11 +1038,11 @@ export function createMisskeyBackend(
     },
 
     // Textual `RE:` resolution: the `ap/show` lookup (with its
-    // seen/lookup caches in `misskey/quote`) over this backend's transport —
-    // family-routed here so the UI never picks a resolver by hand
-    // (plan §3 Phase 3 item 4).
+    // per-backend seen/lookup caches in `misskey/quote`) over this
+    // backend's transport — family-routed here so the UI never picks a
+    // resolver by hand (plan §3 Phase 3 item 4).
     resolveQuoteUri(uri: string): Promise<Post | null> {
-      return resolveQuoteUri(call, uri);
+      return quotes.resolveQuoteUri(uri);
     },
 
     async featuredPosts(opts = {}) {
@@ -1056,6 +1067,13 @@ export function createMisskeyBackend(
       if (ref.username) {
         params.username = ref.username;
         if (ref.host) params.host = ref.host;
+      }
+      // An empty ref would POST `{}` and 400 — refuse locally instead.
+      if (params.userId == null && params.username == null) {
+        throw new FediError(
+          "An account lookup needs an id or a username.",
+          "errors.account.refRequired",
+        );
       }
       return adaptAccount(await call<UserDetailed>("users/show", params));
     },
@@ -1101,7 +1119,7 @@ export function createMisskeyBackend(
     },
 
     async relationships(ids) {
-      const rels = await call<UserRelation[]>("users/relation", { userIds: ids });
+      const rels = await call<UserRelation[]>("users/relation", { userId: ids });
       return (rels ?? []).map(adaptUserRelation);
     },
 
@@ -1523,13 +1541,16 @@ function adaptServerDraft(raw: WireServerDraft): ServerDraft {
 }
 
 function antennaBody(params: Omit<Antenna, "id">): Record<string, unknown> {
+  // Omit-but-never-null: Sharkey 400s on null/empty fields, and the
+  // server defaults absent booleans to false. Arrays send only when
+  // non-empty; booleans always send so an update can flip true → false.
   return {
     name: params.name,
     src: params.src,
-    userListId: params.userListId,
-    keywords: params.keywords,
-    excludeKeywords: params.excludeKeywords,
-    users: params.users,
+    ...(params.userListId != null ? { userListId: params.userListId } : {}),
+    ...(params.keywords.length > 0 ? { keywords: params.keywords } : {}),
+    ...(params.excludeKeywords.length > 0 ? { excludeKeywords: params.excludeKeywords } : {}),
+    ...(params.users.length > 0 ? { users: params.users } : {}),
     caseSensitive: params.caseSensitive,
     localOnly: params.localOnly,
     excludeBots: params.excludeBots,

@@ -120,6 +120,7 @@ import {
   getRelationships,
   getStatus,
   getStatusContext,
+  isAbsent,
   markNotificationsRead,
   muteStatusThread,
   reportAccount,
@@ -142,6 +143,7 @@ import {
   markConversationRead,
 } from "./conversations";
 import { createStatus, setEmojiReaction, setStatusToggle } from "./statusActions";
+import { pickQuotedStatus } from "./quoteMarker";
 import { newIdempotencyKey, statusBodyOf } from "./compose";
 import { adaptStatusHistory } from "./adapt";
 import { rebuildThread } from "./thread";
@@ -200,10 +202,9 @@ export function toApiError(err: unknown): unknown {
 
 /** The server has no such endpoint (contract §3: 404/405 mean absent —
  * never silent success, never an auth problem). Used for v2-first with
- * v1-fallback probing: only absence falls back, everything else rethrows. */
-function isAbsentError(err: unknown): boolean {
-  return err instanceof ApiError && (err.status === 404 || err.status === 405);
-}
+ * v1-fallback probing: only absence falls back, everything else rethrows.
+ * The shared `isAbsent` from `endpoints.ts` (accepts both error classes). */
+const isAbsentError = isAbsent;
 
 /** Wrap a client so every call adapts its errors (see `toApiError`). */
 function guarded(client: MastoClient): MastoClient {
@@ -1632,6 +1633,8 @@ async function setBoostVisibility(
 
 // Textual-`RE:` resolution cache (per origin+token, with the miss TTL the
 // quote-posts rules require: a transient 429/403 is never cached forever).
+// The match itself is the ONE matcher (`quoteMarker.pickQuotedStatus`,
+// `urisMatch`-based) — never forked here.
 const QUOTE_MISS_TTL_MS = 90_000;
 const quoteLookups = new Map<string, { promise: Promise<Post | null>; missedAt: number | null }>();
 
@@ -1656,7 +1659,7 @@ async function resolveQuote(client: MastoClient, uri: string): Promise<Post | nu
       const statuses = Array.isArray(res.data?.statuses)
         ? res.data.statuses.map(adaptStatus)
         : [];
-      const found = pickQuoteTarget(statuses, uri);
+      const found = pickQuotedStatus(statuses, uri);
       if (found === null) entry.missedAt = Date.now();
       return found;
     } catch {
@@ -1666,22 +1669,4 @@ async function resolveQuote(client: MastoClient, uri: string): Promise<Post | nu
   })();
   quoteLookups.set(key, entry);
   return entry.promise;
-}
-
-/** The search hit that IS the quoted URI (strict match — a hit for
- * anything else is never rendered as the quote target). Re-exported
- * logic from `quoteMarker.pickQuotedStatus`; inlined here so the backend
- * owns its fetch decisions. */
-function pickQuoteTarget(statuses: readonly Post[], uri: string): Post | null {
-  for (const s of statuses) {
-    if ((s.uri !== null && s.uri === uri) || (s.url !== null && s.url === uri)) return s;
-    try {
-      const want = new URL(uri).href;
-      if (s.uri !== null && new URL(s.uri).href === want) return s;
-      if (s.url !== null && new URL(s.url).href === want) return s;
-    } catch {
-      // Unparsable URIs only match verbatim (above).
-    }
-  }
-  return null;
 }

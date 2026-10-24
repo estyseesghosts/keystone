@@ -254,6 +254,25 @@ describe("MisskeyBackend compose", () => {
 });
 
 describe("MisskeyBackend accounts and social", () => {
+  it("relationships sends singular userId (upstream users/relation shape)", async () => {
+    const { transport, calls } = stubTransport(() => []);
+    await createMisskeyBackend(transport).relationships(["u1", "u2"]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].endpoint).toBe("users/relation");
+    expect(calls[0].params).toEqual({ userId: ["u1", "u2"] });
+    expect(calls[0].params).not.toHaveProperty("userIds");
+  });
+
+  it("account with neither id nor username throws before any I/O", async () => {
+    const { transport, calls } = stubTransport(() => fixture<MeDetailed>("user.json"));
+    const backend = createMisskeyBackend(transport);
+    await expect(backend.account({})).rejects.toMatchObject({
+      name: "FediError",
+      code: "errors.account.refRequired",
+    });
+    expect(calls).toHaveLength(0);
+  });
+
   it("account resolves by id or username+host", async () => {
     const { transport, calls } = stubTransport(() => fixture<MeDetailed>("user.json"));
     const backend = createMisskeyBackend(transport);
