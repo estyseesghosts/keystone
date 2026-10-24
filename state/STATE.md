@@ -84,7 +84,10 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
     `state/logs/2026-10-24-hover-tame.md`. Triple fix by subagents
     (hover respawn gate, Bridgy truncation, Misskey matrix) —
     integrated green. Log `state/logs/2026-10-24-triple-fix.md`.
-    203 suites / 2647 tests green.
+    203 suites / 2647 tests green. Follow-up same day: translation
+    skips (same-language discard, tag-only skip) + translated tags
+    route to originals, both families. Log
+    `state/logs/2026-10-24-translation-skips.md`.
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
    user-note/modlog/reset-password; Mastodon account_actions
    warn/suspend/silence + notes; NO delete-account). Single agent,

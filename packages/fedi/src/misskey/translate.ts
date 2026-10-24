@@ -235,6 +235,15 @@ function isTranslateResult(value: unknown): value is TranslateResult {
 // translated, URLs verbatim). The client cannot scope what the server
 // translates, so it decides instead (a) whether a request is worthwhile at
 // all and (b) whether a returned result is worth showing.
+//
+// Protection is therefore two-sided, never a request parameter:
+// decision-side SKIP — `hasTranslatableText` gates the auto-translate
+// fetch (tag/link/mention/emoji-only posts never fire) and
+// `isSameLanguagePost` (in `src/components/Post/translationPolicy`)
+// discards fetched results already in the viewer's language — plus
+// render-side POST-PROCESS — `contentFromTranslatedText(text,
+// originalTags)` re-anchors translated tags to the originals (see
+// `core/content/ast.ts`).
 
 /** Collect the human prose of a note: every text-bearing node except the
  * structured tokens — mentions, hashtags, bare URLs, whole link nodes

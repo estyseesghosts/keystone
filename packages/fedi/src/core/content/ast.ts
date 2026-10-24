@@ -247,6 +247,40 @@ export function isBlankContent(nodes: readonly ContentNode[]): boolean {
   return true;
 }
 
+/** True when the tree carries human prose worth translating: at least one
+ * unicode letter in a `text` node outside the structured tokens —
+ * mention / hashtag / link / matrix subtrees, invisible text, emoji, and
+ * code never count. Only the transparent formatting containers
+ * (bold/italic/strike/quote/fn/heading) are descended into. The HTML-tree
+ * analog of `hasTranslatableText` (MFM) in `misskey/translate`: the
+ * auto-translate fetch gate consults one of them (never the raw text, so
+ * a tag/link/mention/emoji-only post never fires a request). Pure.
+ *
+ * Deliberate delta from the MFM twin: MFM counts code/math/search text
+ * as prose (the identical-output rule suppresses those results anyway);
+ * here code is opaque and excluded — a code-only HTML post has no
+ * translatable prose to show. */
+export function hasTranslatableNodes(nodes: readonly ContentNode[]): boolean {
+  for (const node of nodes) {
+    switch (node.kind) {
+      case "text":
+        if (/\p{L}/u.test(node.text)) return true;
+        break;
+      case "bold":
+      case "italic":
+      case "strike":
+      case "quote":
+      case "fn":
+      case "heading":
+        if (hasTranslatableNodes(node.children)) return true;
+        break;
+      default:
+        break;
+    }
+  }
+  return false;
+}
+
 // --- URL policy (ported from the old DOM-based sanitizer; pure) --------------
 
 const SAFE_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
@@ -335,10 +369,26 @@ export function bareLinkLabel(node: ContentNode): string | null {
 // mentions and bare URLs would render dead — and in v1 they are live.
 // Scan them back out: `@user` / `@user@host` (same classes `parseAcct`
 // accepts, tap-time resolution stays authoritative) and http(s) URLs.
-// Newlines survive as `br`, like every other path. Hashtags stay text:
-// a translated tag is not a routable tag — markdown hashtag links and
-// bare hashtag URLs collapse to plain `#tag` text instead of rendering
-// a chip that shows the author's instance hashtag URL. Pure.
+// Newlines survive as `br`, like every other path.
+//
+// Core finding: Misskey-family translation is server-side BY NOTE ID
+// (`POST /api/notes/translate {noteId, targetLang}` — see
+// `misskey/translate.ts`): the client cannot scope WHAT the server
+// translates, so structured-token protection is decision-side (skip the
+// request via `hasTranslatableText` / `hasTranslatableNodes`) +
+// render-side (this post-process). Hashtags arrive translated, and a
+// translated tag is not a routable tag — so without `originalTags` the
+// hashtag constructs below collapse to plain `#tag` text instead of
+// rendering a chip that shows the author's instance hashtag URL.
+//
+// With `originalTags`: when its length equals the number of hashtag
+// constructs in the translated text, each construct emits a real
+// clickable `hashtag` node `{tag: original[i], href: null, children:
+// [text #translated-as-written]}` paired POSITIONALLY — the tap routes
+// to the ORIGINAL tag (e.g. #fotografia), never the translated
+// #photography, while the label stays verbatim as translated. Count
+// mismatch (or absent) keeps the plain-text behavior exactly.
+// Mentions/links stay as-is: translators preserve handles/URLs.
 const TRANSLATED_TOKEN_PATTERN =
   /(\[#[^\s#\]]{1,128}\]\([^)\s]+\))|((?:^|[\s>(])@[A-Za-z0-9._=\-/+]+:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?::\d+)?)|(^|[\s>(])@([\w-]+(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
 
@@ -403,10 +453,24 @@ export function validTranslatedHandle(handle: string): { username: string; host:
   return { username, host: host ?? null };
 }
 
-/** Plain translated text → content nodes with live mentions and links. */
-export function contentFromTranslatedText(text: string | null | undefined): ContentNode[] {
+/** Plain translated text → content nodes with live mentions and links.
+ * When `originalTags` is provided AND its length equals the number of
+ * hashtag constructs in the translated text, hashtag constructs become
+ * clickable `hashtag` nodes paired positionally to the ORIGINAL tags
+ * (tap routes to the original tag; the label stays verbatim as
+ * translated). Count mismatch or absent `originalTags` keeps the
+ * long-standing plain-text behavior exactly. Pure. */
+export function contentFromTranslatedText(
+  text: string | null | undefined,
+  originalTags?: string[],
+): ContentNode[] {
   if (!text) return [];
   const out: ContentNode[] = [];
+  // Hashtag slots in document order: index into `out` + the translated
+  // label as written. Filled with plain text during the scan, rewritten
+  // to hashtag nodes afterwards only when the counts line up — a single
+  // scan, never two divergent ones.
+  const tagSlots: { index: number; label: string }[] = [];
   const pushText = (s: string): void => {
     if (s.length > 0) out.push(t(s));
   };
@@ -422,6 +486,7 @@ export function contentFromTranslatedText(text: string | null | undefined): Cont
       if (match[1] !== undefined) {
         pushText(line.slice(last, match.index));
         const tag = translatedHashtagOf(full);
+        if (tag !== null) tagSlots.push({ index: out.length, label: tag });
         pushText(tag ?? full);
         last = match.index + full.length;
         continue;
@@ -460,6 +525,7 @@ export function contentFromTranslatedText(text: string | null | undefined): Cont
         // A bare hashtag URL is its tag as plain text, not a link.
         const tag = translatedHashtagOf(token);
         if (tag !== null) {
+          tagSlots.push({ index: out.length, label: tag });
           out.push(t(tag));
           pushText(trail);
           last = match.index + full.length;
@@ -478,6 +544,30 @@ export function contentFromTranslatedText(text: string | null | undefined): Cont
     }
     pushText(line.slice(last));
   }
+  // Render-side post-process (see the section comment): the server
+  // translated by id, so its tags are translations — re-anchor them to
+  // the ORIGINAL tags positionally. Strict count equality, else the
+  // plain-text nodes above stand exactly as before.
+  if (originalTags !== undefined && originalTags.length === tagSlots.length) {
+    tagSlots.forEach((slot, i) => {
+      out[slot.index] = hashtag(originalTags[i] as string, null, [t(slot.label)]);
+    });
+  }
+  return out;
+}
+
+/** Hashtag `tag`s of a tree in document order (nested included): the
+ * `originalTags` argument the call site passes to
+ * `contentFromTranslatedText` for a translated body. Pure. */
+export function originalTagsOf(nodes: readonly ContentNode[]): string[] {
+  const out: string[] = [];
+  const walk = (list: readonly ContentNode[]): void => {
+    for (const node of list) {
+      if (node.kind === "hashtag") out.push(node.tag);
+      if ("children" in node) walk(node.children);
+    }
+  };
+  walk(nodes);
   return out;
 }
 

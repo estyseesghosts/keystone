@@ -22,6 +22,15 @@ describe("gate: structured tokens never count as translatable", () => {
   it("url-only", () => expect(hasTranslatableText("https://dvd.chat/@jm")).toBe(false));
   it("mention-only", () => expect(hasTranslatableText("@alice")).toBe(false));
   it("mention+url", () => expect(hasTranslatableText("@alice https://x.y/z")).toBe(false));
+  it("tag+mention+url+emoji combo", () =>
+    expect(hasTranslatableText("@alice #tag https://x.y/z 😂")).toBe(false));
+  it("labeled-link-only", () =>
+    expect(hasTranslatableText("[click here](https://a.b/x)")).toBe(false));
+  // Code counts as prose here (the identical-output rule suppresses the
+  // result later) — a deliberate delta from `hasTranslatableNodes`, where
+  // code is opaque and excluded.
+  it("code-only counts as prose", () =>
+    expect(hasTranslatableText("`const x = 1`")).toBe(true));
   it("numbers-only", () => expect(hasTranslatableText("2026-10-16")).toBe(false));
   it("null", () => expect(hasTranslatableText(null)).toBe(false));
   it("empty", () => expect(hasTranslatableText("")).toBe(false));

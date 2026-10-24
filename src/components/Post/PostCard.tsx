@@ -25,7 +25,9 @@ import {
   findTextualQuoteMarker,
   foldTree,
   handleOf,
+  hasTranslatableNodes,
   isPureRenote,
+  originalTagsOf,
   registerSeenNote,
   safeHttpUrl,
   getQuoteTarget,
@@ -62,7 +64,7 @@ import {postBodyNodes, postEmojis, postTagBubble} from './body'
 import {usePostCardHandlers, type PostCardHandlers} from './handlers'
 import {LinkCard, UnfurledLinkCard, firstBareUrl} from './LinkCard'
 import {buildPostMenu, type PostMenuSection} from './menuModel'
-import {decideTranslation, viewerPrimaryOf} from './translationPolicy'
+import {decideTranslation, isSameLanguagePost, viewerPrimaryOf} from './translationPolicy'
 import {Lightbox} from '#/components/Lightbox'
 import {PostMediaGrid} from './PostMediaGrid'
 import {PostPoll} from './PostPoll'
@@ -292,6 +294,10 @@ export type TranslationSource = {
   /** Viewer language (BCP47 primary subtag); the server derives the source. */
   targetLang: string
   fetch: (id: string, targetLang: string) => Promise<Translation>
+  /** Known post source language (Mastodon wire `language`), when the
+   * injector knows it. Omitted/unknown never skips: an unknown language
+   * fetches rather than hiding a translation the viewer needs. */
+  sourceLang?: string | null
 }
 
 type LiveBits = {
@@ -420,6 +426,10 @@ function LivePostCard(props: PostCardProps) {
       open: url => void Linking.openURL(url).catch(toastError),
       openBridgedPost: p => openPostDetail(p.id),
       openBridgedProfile: accountId => openAuthorProfile(accountId),
+      // Manual translate: always sent on demand, never gated on
+      // translatability or source language — the user explicitly asked
+      // (the render discard below still drops a same-language result).
+      // Server-side and unscoped, like every translate call.
       translate: async () => {
         if (!backend) return
         try {
@@ -733,11 +743,13 @@ function PostCardView({
   // Auto-translate (v1): on mount, when the capability is supported and
   // the post has text, fetch once and render the translation INSTEAD of
   // the body with a `Translated from XX` header above it. Unsupported
-  // capability, empty text, or fetch failure = original body, no header,
-  // silently. The `Post` model carries no post-language metadata, so
-  // there is nothing honest to match-skip against — the viewer's
-  // `targetLang` is the only gate besides capability and non-empty text.
-  // The manual menu row writes `live.translation`, which wins over this.
+  // capability, empty text, a known same-language source, a
+  // tag/link-only body, or fetch failure = original body, no header,
+  // silently. Skips matter because the endpoint is server-side and
+  // UNSCOPED (the credential rides the request — tokens can't be excluded
+  // request-side), so a skipped fetch is the only saving. The manual menu
+  // row writes `live.translation`, which wins over this; both results
+  // share the render discard below.
   const [autoTranslation, setAutoTranslation] = useState<Translation | null>(null)
   const [showOriginal, setShowOriginal] = useState(false)
   // Post ids already requested: one request per post, no refetch loops
@@ -752,10 +764,24 @@ function PostCardView({
   const srcSupported = translationSource?.supported ?? false
   const srcLang = translationSource?.targetLang ?? 'en'
   const srcFetch = translationSource?.fetch
+  // The injector's known post source language, when it has one (the
+  // `Post` model itself carries no language metadata — Mastodon's wire
+  // `language` never crosses the adapter — so live cards leave this
+  // unknown and rely on the render discard instead).
+  const srcKnownLang = translationSource?.sourceLang ?? null
+  // Parsed-body translatability for the tag/link-only skip below.
+  const bodyTranslatable = useMemo(() => hasTranslatableNodes(fullNodes), [fullNodes])
   useEffect(() => {
     if (!srcSupported || srcFetch === undefined) return
     if (bodyHidden) return
     if (effective.content.plain.trim() === '') return
+    // Same-language skip: the post is already in the viewer's language,
+    // so the server would echo it back — over an unscoped request (see
+    // above), so don't send it. Unknown source language always fetches.
+    if (srcKnownLang != null && isSameLanguagePost(srcKnownLang, srcLang)) return
+    // Tag/link-only skip: no prose to translate into (same unscoped-cost
+    // note). Manual translate stays available on demand.
+    if (!bodyTranslatable) return
     if (requestedFor.current === effective.id) return
     requestedFor.current = effective.id
     let cancelled = false
@@ -772,16 +798,32 @@ function PostCardView({
     return () => {
       cancelled = true
     }
-  }, [effective.id, effective.content.plain, srcSupported, srcLang, srcFetch, bodyHidden])
+  }, [
+    effective.id,
+    effective.content.plain,
+    srcSupported,
+    srcLang,
+    srcFetch,
+    srcKnownLang,
+    bodyTranslatable,
+    bodyHidden,
+  ])
   const rawTranslation = live?.translation ?? autoTranslation
   // v1 display policy: a same-text "translation" (the server echoes the
   // original for same-language posts) never renders — no header, no swap.
-  // The check runs on the merged value so manual + auto share one rule.
+  // Same-language discard on top: a fetched result whose detected source
+  // IS the viewer's language never renders either (the original shows
+  // instead — never the redundant translation). The null-label escape is
+  // decideTranslation's foreign-script misfire path (the text genuinely
+  // changed, so it is NOT redundant) and still shows. Both checks run on
+  // the merged value so manual + auto share one rule.
   const decided = rawTranslation
     ? decideTranslation(effective.content.plain, rawTranslation, srcLang)
     : null
+  const sameLanguageResult =
+    rawTranslation !== null && isSameLanguagePost(rawTranslation.sourceLang, srcLang)
   const shownTranslation =
-    rawTranslation && decided?.show === true
+    rawTranslation && decided?.show === true && !(sameLanguageResult && decided.label !== null)
       ? {sourceLang: decided.label, text: rawTranslation.text}
       : null
   // The translated body replaces the original; the header above it
@@ -790,10 +832,16 @@ function PostCardView({
   const showingTranslation = !bodyHidden && shownTranslation !== null && !showOriginal
   // Translated bodies parse back into nodes (mentions/links stay live,
   // newlines survive) — the ONLY difference from the original is the
-  // text content, never the chrome around it.
+  // text content, never the chrome around it. Translated hashtags route
+  // to the ORIGINAL tags via `originalTagsOf(fullNodes)` (unfolded nodes:
+  // folding is a view transform, never the tag source).
+  const originalTags = useMemo(() => originalTagsOf(fullNodes), [fullNodes])
   const translatedNodes = useMemo(
-    () => (shownTranslation ? contentFromTranslatedText(shownTranslation.text) : null),
-    [shownTranslation?.text],
+    () =>
+      shownTranslation
+        ? contentFromTranslatedText(shownTranslation.text, originalTags)
+        : null,
+    [shownTranslation?.text, originalTags],
   )
 
   // Warm the remote-page cache for federated posts (MK17): by the

@@ -67,6 +67,25 @@ export function translationDiffers(sourceLang: string | null, viewerPrimary: str
   return true
 }
 
+/** True when a fetched translation's `sourceLang` is already the viewer's
+ * language — a same-language result the server still returns (Misskey
+ * servers echo the text with e.g. sourceLang "English" for targetLang
+ * "en"). Case-insensitive primary-subtag compare (`en-US` vs `en`
+ * matches); the `translationDiffers` English-display-name rule
+ * ("English" vs `en`) applies through reuse below. Null/empty
+ * sourceLang is NOT same-language (false — proceed as today: unknown
+ * source shows rather than hides). The render-side discard: callers
+ * render the original when this is true. */
+export function isSameLanguagePost(sourceLang: string | null, viewerPrimary: string): boolean {
+  if (sourceLang == null) return false
+  const src = sourceLang.trim()
+  if (!src) return false
+  const viewer = viewerPrimary.trim().split(/[-_]/)[0]?.toLowerCase() ?? ''
+  if (!viewer) return false
+  if ((src.split(/[-_]/)[0]?.toLowerCase() ?? '') === viewer) return true
+  return !translationDiffers(sourceLang, viewerPrimary)
+}
+
 /** Display policy for one fetched result against the displayed original.
  * - Identical output (normalized) never shows: misdetections like an
  *   English post labeled "German" with byte-equal text stay silent.

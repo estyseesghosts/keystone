@@ -1,6 +1,7 @@
 import {
   decideTranslation,
   hasForeignScript,
+  isSameLanguagePost,
   normalizeForCompare,
   translationDiffers,
   viewerPrimaryOf,
@@ -35,6 +36,30 @@ describe('translationDiffers', () => {
   })
   it('null sourceLang shows rather than hides', () => {
     expect(translationDiffers(null, 'en')).toBe(true)
+  })
+})
+
+describe('isSameLanguagePost', () => {
+  it('matches primary subtags case-insensitively', () => {
+    expect(isSameLanguagePost('en', 'en')).toBe(true)
+    expect(isSameLanguagePost('EN', 'en')).toBe(true)
+    expect(isSameLanguagePost('en-US', 'en')).toBe(true)
+    expect(isSameLanguagePost('en_US', 'en')).toBe(true)
+    expect(isSameLanguagePost('pt-BR', 'pt')).toBe(true)
+  })
+  it('matches English display names through translationDiffers', () => {
+    expect(isSameLanguagePost('English', 'en')).toBe(true)
+    expect(isSameLanguagePost('Chinese', 'zh')).toBe(true)
+  })
+  it('rejects other languages', () => {
+    expect(isSameLanguagePost('ja', 'en')).toBe(false)
+    expect(isSameLanguagePost('German', 'en')).toBe(false)
+    expect(isSameLanguagePost('Japanese', 'en')).toBe(false)
+  })
+  it('null/empty sourceLang proceeds as today (false)', () => {
+    expect(isSameLanguagePost(null, 'en')).toBe(false)
+    expect(isSameLanguagePost('', 'en')).toBe(false)
+    expect(isSameLanguagePost('   ', 'en')).toBe(false)
   })
 })
 

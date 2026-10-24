@@ -9,10 +9,14 @@ import {
   fnNode,
   hashtag,
   hashtagTagOf,
+  hasTranslatableNodes,
   hasUnsafeUrlChars,
+  heading,
+  invisible,
   isBlankContent,
   italic,
   link,
+  matrix,
   mention,
   bareLinkLabel,
   collectBareLinkHrefs,
@@ -20,6 +24,7 @@ import {
   mentionAccountIdOf,
   mentionLabelOf,
   matrixLabelOf,
+  originalTagsOf,
   parseMatrixUserId,
   plainTextOf,
   quoteNode,
@@ -360,6 +365,111 @@ describe("translated text nodes", () => {
       href: null,
       children: [{ kind: "text", text: "@3" }],
     });
+  });
+
+  it("pairs translated tags to the originals positionally, labels verbatim", () => {
+    expect(
+      contentFromTranslatedText(
+        "Loved it https://masto.br/tags/photography and [#nature](https://masto.br/tags/nature) ok",
+        ["fotografia", "natura"],
+      ),
+    ).toEqual([
+      { kind: "text", text: "Loved it " },
+      {
+        kind: "hashtag",
+        tag: "fotografia",
+        href: null,
+        children: [{ kind: "text", text: "#photography" }],
+      },
+      { kind: "text", text: " and " },
+      {
+        kind: "hashtag",
+        tag: "natura",
+        href: null,
+        children: [{ kind: "text", text: "#nature" }],
+      },
+      { kind: "text", text: " ok" },
+    ]);
+  });
+
+  it("keeps plain-text tags on count mismatch or absent originals", () => {
+    const plain = [
+      { kind: "text", text: "Loved it " },
+      { kind: "text", text: "#photography" },
+      { kind: "text", text: " and " },
+      { kind: "text", text: "#natura" },
+      { kind: "text", text: " ok" },
+    ];
+    const text =
+      "Loved it https://masto.br/tags/photography and [#natura](https://masto.br/tags/natura) ok";
+    expect(contentFromTranslatedText(text, ["fotografia"])).toEqual(plain);
+    expect(contentFromTranslatedText(text, ["a", "b", "c"])).toEqual(plain);
+    expect(contentFromTranslatedText(text)).toEqual(plain);
+    expect(contentFromTranslatedText(text, undefined)).toEqual(plain);
+  });
+
+  it("leaves mentions and links alone when original tags are passed", () => {
+    expect(
+      contentFromTranslatedText("hi @u@example.social, see https://a.b/x", []),
+    ).toEqual([
+      { kind: "text", text: "hi " },
+      { kind: "mention", href: null, children: [{ kind: "text", text: "@u@example.social" }] },
+      { kind: "text", text: ", see " },
+      { kind: "link", href: "https://a.b/x", children: [{ kind: "text", text: "https://a.b/x" }] },
+    ]);
+  });
+});
+
+describe("originalTagsOf", () => {
+  it("returns hashtag tags in document order, nested included", () => {
+    expect(
+      originalTagsOf([
+        t("a "),
+        hashtag("fotografia", null, [t("#fotografia")]),
+        bold([hashtag("natura", null, [t("#natura")])]),
+        link("https://a.b/x", [t("x")]),
+      ]),
+    ).toEqual(["fotografia", "natura"]);
+  });
+  it("empty when no hashtags", () => {
+    expect(originalTagsOf([t("hi"), mention(null, [t("@u")])])).toEqual([]);
+    expect(originalTagsOf([])).toEqual([]);
+  });
+});
+
+describe("hasTranslatableNodes", () => {
+  it("tag/link/mention-only trees never translate", () => {
+    expect(hasTranslatableNodes([hashtag("foo", null, [t("#foo")])])).toBe(false);
+    expect(hasTranslatableNodes([hashtag("a", null, [t("#a")]), t(" "), hashtag("b", null, [t("#b")])])).toBe(false);
+    expect(hasTranslatableNodes([link("https://a.b/x", [t("https://a.b/x")])])).toBe(false);
+    expect(hasTranslatableNodes([link("https://a.b/x", [t("click here")])])).toBe(false);
+    expect(hasTranslatableNodes([mention(null, [t("@u@example.social")])])).toBe(false);
+    expect(
+      hasTranslatableNodes([mention(null, [t("@u")]), t(" "), link("https://a.b", [t("x")])]),
+    ).toBe(false);
+  });
+  it("emoji/invisible/code/matrix-only trees never translate", () => {
+    expect(hasTranslatableNodes([unicodeEmoji("😂")])).toBe(false);
+    expect(hasTranslatableNodes([customEmoji("blob", null, null)])).toBe(false);
+    expect(hasTranslatableNodes([invisible("https://a.b/hidden-part")])).toBe(false);
+    expect(hasTranslatableNodes([codeNode("const x = 1")])).toBe(false);
+    expect(hasTranslatableNodes([codeBlock(null, "print('hi')")])).toBe(false);
+    expect(
+      hasTranslatableNodes([matrix("@jm:nope.chat", [t("@jm:nope.chat")])]),
+    ).toBe(false);
+  });
+  it("finds prose, including inside formatting containers", () => {
+    expect(hasTranslatableNodes([t("hello")])).toBe(true);
+    expect(hasTranslatableNodes([bold([t("hello")])])).toBe(true);
+    expect(hasTranslatableNodes([italic([t("héllo")])])).toBe(true);
+    expect(hasTranslatableNodes([quoteNode([t("hello")])])).toBe(true);
+    expect(hasTranslatableNodes([heading(2, [t("hello")])])).toBe(true);
+    expect(hasTranslatableNodes([hashtag("foo", null, [t("#foo")]), t(" wow")])).toBe(true);
+  });
+  it("blank and letterless trees never translate", () => {
+    expect(hasTranslatableNodes([])).toBe(false);
+    expect(hasTranslatableNodes([t("   "), br()])).toBe(false);
+    expect(hasTranslatableNodes([t("2026-10-16 …")])).toBe(false);
   });
 });
 
