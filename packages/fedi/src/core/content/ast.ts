@@ -624,6 +624,67 @@ export function splitMatrixMatch(full: string): { lead: string; id: string; trai
   return { lead, id, trail: full.slice(lead.length + raw.length) };
 }
 
+/** A bare local mention label (`@name`, no host), else null. Both
+ * parsers emit Matrix IDs as exactly this plus trailing `:server`
+ * text (mfm-js splits them; Mastodon's autolinker links only the
+ * `@name` half as a hallucinated local mention). */
+function bareLocalMentionLabel(node: ContentNode): string | null {
+  if (node.kind !== "mention" || node.children.length !== 1) return null;
+  const only = node.children[0];
+  if (!only || only.kind !== "text") return null;
+  return /^@[\w-]+$/.test(only.text) ? only.text : null;
+}
+
+const MATRIX_SUFFIX_PATTERN = /^:([A-Za-z0-9.-]+(?::\d+)?)/;
+
+/** Transparent containers a merge may recurse into (labels already
+ * decided inside link / mention / hashtag / code are never
+ * rewritten). */
+const MATRIX_MERGE_CONTAINERS: ReadonlySet<ContentNode["kind"]> = new Set([
+  "bold",
+  "italic",
+  "strike",
+  "fn",
+  "quote",
+  "heading",
+]);
+
+/** Rejoin Matrix IDs the parsers split into a bare local mention plus
+ * trailing `:server` text (`@JM` + `:nope.chat` → one matrix node,
+ * Mastodon's hallucinated profile URL dropped with it). Only merges
+ * when the suffix is DNS-shaped (a dot, optional `:port`) with no
+ * space — `@user: hello` prose and `@3:30` timestamps never qualify.
+ * Uniform across both parsers: the same keystrokes mean the same ID
+ * on every family. Pure. */
+export function mergeMatrixMentions(nodes: ContentNode[]): ContentNode[] {
+  const out: ContentNode[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    if (MATRIX_MERGE_CONTAINERS.has(node.kind) && "children" in node) {
+      out.push({ ...node, children: mergeMatrixMentions(node.children) } as ContentNode);
+      continue;
+    }
+    const local = bareLocalMentionLabel(node);
+    const next = i + 1 < nodes.length ? nodes[i + 1] : undefined;
+    if (local !== null && next && next.kind === "text") {
+      const suffix = MATRIX_SUFFIX_PATTERN.exec(next.text);
+      if (suffix) {
+        const server = stripTokenPunctuation(suffix[1]);
+        const id = parseMatrixUserId(`${local}:${server}`);
+        if (id !== null) {
+          out.push(matrix(id, [t(id)]));
+          const rest = next.text.slice(1 + server.length);
+          if (rest.length > 0) out.push(t(rest));
+          i++;
+          continue;
+        }
+      }
+    }
+    out.push(node);
+  }
+  return out;
+}
+
 // --- Remote custom-emoji codes (`:name@host:`) --------------------------
 //
 // Moved here from `api/emoji` so the MFM parser (core) can split them

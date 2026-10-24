@@ -420,3 +420,35 @@ describe("mention-labelled anchors (in-app chips)", () => {
     ]);
   });
 });
+
+describe("live Mastodon field markup (@ctr@mstdn.ca, recorded 2026-10-24)", () => {
+  it("keeps a real h-card mention as an in-app mention", () => {
+    expect(
+      contentFromHtml(
+        '<span class="h-card" translate="no"><a href="https://mastodon.social/@disectamembra" class="u-url mention">@<span>disectamembra@mastodon.social</span></a></span>',
+      ),
+    ).toEqual([
+      {
+        kind: "mention",
+        href: "https://mastodon.social/@disectamembra",
+        children: [{ kind: "text", text: "@disectamembra@mastodon.social" }],
+      },
+    ]);
+  });
+
+  it("rejoins Mastodon's shredded Matrix ID, dropping the hallucinated mention", () => {
+    // The user wrote `@JM:nope.chat`; the server linked `@JM` as a
+    // bogus mstdn.ca mention and left `:nope.chat` dangling.
+    expect(
+      contentFromHtml(
+        '<span class="h-card" translate="no"><a href="https://mstdn.ca/@JM" class="u-url mention">@<span>JM</span></a></span>:nope.chat',
+      ),
+    ).toEqual([
+      {
+        kind: "matrix",
+        userId: "@JM:nope.chat",
+        children: [{ kind: "text", text: "@JM:nope.chat" }],
+      },
+    ]);
+  });
+});

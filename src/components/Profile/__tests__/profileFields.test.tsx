@@ -268,6 +268,31 @@ describe('ProfileHeader fields (C14)', () => {
     expect(screen.getByText('[m] jm:nope.chat')).toBeTruthy()
     expect(screen.queryByTestId('richtext-mention-chip')).toBeNull()
   })
+
+  it('rejoins Mastodon-shredded Matrix IDs from live field markup', () => {
+    // Live-recorded 2026-10-24 (@ctr@mstdn.ca `matrix` field): the user
+    // wrote `@JM:nope.chat`; the server linked `@JM` as a bogus local
+    // mention and left `:nope.chat` dangling.
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          fields: [
+            {
+              name: 'matrix',
+              value:
+                '<span class="h-card" translate="no"><a href="https://mstdn.ca/@JM" class="u-url mention">@<span>JM</span></a></span>:nope.chat',
+              verifiedAt: null,
+            },
+          ],
+        })}
+        isSelf={false}
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('richtext-matrix-chip')).toBeTruthy()
+    expect(screen.getByText('[m] JM:nope.chat')).toBeTruthy()
+    expect(screen.queryByTestId('richtext-mention-chip')).toBeNull()
+  })
 })
 
 describe('AccountReactionsBlock (C14)', () => {

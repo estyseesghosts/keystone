@@ -34,6 +34,7 @@ import {
   matrixLabelOf,
   mention,
   mentionLabelOf,
+  mergeMatrixMentions,
   quoteNode,
   safeHttpUrl,
   safeUrl,
@@ -460,5 +461,8 @@ export function contentFromHtml(html: string | null | undefined): ContentNode[] 
   // No trailing paragraph break: the last block's separator is structure,
   // not content.
   while (out.length > 0 && out[out.length - 1].kind === "br") out.pop();
-  return out;
+  // Mastodon's autolinker shreds Matrix IDs (links `@name` as a
+  // hallucinated local mention, leaves `:server` dangling): rejoin them
+  // here, same rule as the MFM path.
+  return mergeMatrixMentions(out);
 }

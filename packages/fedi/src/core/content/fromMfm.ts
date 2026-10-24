@@ -29,8 +29,7 @@ import {
   mentionLabelOf,
   matrix,
   matrixLabelOf,
-  parseMatrixUserId,
-  stripTokenPunctuation,
+  mergeMatrixMentions,
   quoteNode,
   safeUrl,
   splitRemoteEmojiCodes,
@@ -212,58 +211,6 @@ function splitRemoteCodes(nodes: readonly ContentNode[]): ContentNode[] {
     if ("children" in node) {
       out.push({ ...node, children: splitRemoteCodes(node.children) } as ContentNode);
       continue;
-    }
-    out.push(node);
-  }
-  return out;
-}
-
-/** A bare local mention label (`@name`, no host), else null. mfm-js
- * emits Matrix IDs as exactly this plus trailing `:server` text. */
-function bareLocalMentionLabel(node: ContentNode): string | null {
-  if (node.kind !== "mention" || node.children.length !== 1) return null;
-  const only = node.children[0];
-  if (!only || only.kind !== "text") return null;
-  return /^@[\w-]+$/.test(only.text) ? only.text : null;
-}
-
-const MATRIX_SUFFIX_PATTERN = /^:([A-Za-z0-9.-]+(?::\d+)?)/;
-
-/** Rejoin Matrix IDs mfm-js splits into a local mention plus trailing
- * `:server` text (`@jm:nope.chat` → one matrix node). Only merges when
- * the suffix is DNS-shaped (a dot, optional `:port`) with no space —
- * `@user: hello` and `@3:30` timestamps never qualify. Transparent
- * containers recurse; link / mention / hashtag / code labels are never
- * rewritten. Pure. */
-function mergeMatrixMentions(nodes: ContentNode[]): ContentNode[] {
-  const out: ContentNode[] = [];
-  for (let i = 0; i < nodes.length; i++) {
-    const node = nodes[i];
-    if (
-      node.kind === "bold" ||
-      node.kind === "italic" ||
-      node.kind === "strike" ||
-      node.kind === "fn" ||
-      node.kind === "quote"
-    ) {
-      out.push({ ...node, children: mergeMatrixMentions(node.children) } as ContentNode);
-      continue;
-    }
-    const local = bareLocalMentionLabel(node);
-    const next = i + 1 < nodes.length ? nodes[i + 1] : undefined;
-    if (local !== null && next && next.kind === "text") {
-      const suffix = MATRIX_SUFFIX_PATTERN.exec(next.text);
-      if (suffix) {
-        const server = stripTokenPunctuation(suffix[1]);
-        const id = parseMatrixUserId(`${local}:${server}`);
-        if (id !== null) {
-          out.push(matrix(id, [t(id)]));
-          const rest = next.text.slice(1 + server.length);
-          if (rest.length > 0) out.push(t(rest));
-          i++;
-          continue;
-        }
-      }
     }
     out.push(node);
   }

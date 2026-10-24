@@ -70,6 +70,10 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
     2582 tests green. Follow-up same day: Matrix `@l:s` chips +
     hovercard (never mentions, never navigate). Log
     `state/logs/2026-10-24-matrix-chips.md`. 199 suites / 2599
+    tests green. Follow-up same day: live @ctr@mstdn.ca showed
+    Mastodon shredding Matrix IDs into bogus mentions — shared
+    rejoin pass in both parsers. Log
+    `state/logs/2026-10-24-matrix-shredded.md`. 199 suites / 2602
     tests green.
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
    user-note/modlog/reset-password; Mastodon account_actions
