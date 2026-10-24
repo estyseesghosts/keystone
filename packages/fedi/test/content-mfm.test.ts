@@ -249,3 +249,37 @@ describe("mention-labelled links (in-app chips)", () => {
     expect(contentFromMfm("[contact @u@h.social](https://h.social/@u)")[0].kind).toBe("link");
   });
 });
+
+describe("Matrix IDs (never local mentions)", () => {
+  it("rejoins the mfm-js mention/text split into one matrix node", () => {
+    expect(contentFromMfm("contact @jm:nope.chat hi")).toEqual([
+      { kind: "text", text: "contact " },
+      {
+        kind: "matrix",
+        userId: "@jm:nope.chat",
+        children: [{ kind: "text", text: "@jm:nope.chat" }],
+      },
+      { kind: "text", text: " hi" },
+    ]);
+  });
+
+  it("leaves non-DNS colons alone (prose, timestamps)", () => {
+    expect(contentFromMfm("contact @u: hello")).toEqual([
+      { kind: "text", text: "contact " },
+      { kind: "mention", href: null, children: [{ kind: "text", text: "@u" }] },
+      { kind: "text", text: ": hello" },
+    ]);
+    const nodes = contentFromMfm("call me @3:30");
+    expect(nodes.some(n => n.kind === "matrix")).toBe(false);
+  });
+
+  it("normalizes matrix-labelled markdown links, dropping the web URL", () => {
+    expect(contentFromMfm("[@jm:nope.chat](https://x.example/chat)")).toEqual([
+      {
+        kind: "matrix",
+        userId: "@jm:nope.chat",
+        children: [{ kind: "text", text: "@jm:nope.chat" }],
+      },
+    ]);
+  });
+});

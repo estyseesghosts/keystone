@@ -29,6 +29,7 @@ export type ContentNode =
   | { kind: "link"; href: string; children: ContentNode[] }
   | { kind: "mention"; href: string | null; children: ContentNode[] }
   | { kind: "hashtag"; tag: string; href: string | null; children: ContentNode[] }
+  | { kind: "matrix"; userId: string; children: ContentNode[] }
   | { kind: "customEmoji"; name: string; host: string | null; src: string | null }
   | { kind: "unicodeEmoji"; emoji: string }
   | { kind: "bold"; children: ContentNode[] }
@@ -82,6 +83,14 @@ export function mention(href: string | null, children: ContentNode[]): ContentNo
 /** A hashtag anchor. `tag` is the resolved internal tag (data-tag or href tail). */
 export function hashtag(tag: string, href: string | null, children: ContentNode[]): ContentNode {
   return { kind: "hashtag", tag, href, children };
+}
+
+/** A Matrix user ID (`@local:server`, colon — never a webfinger
+ * handle). `userId` is the canonical ID; children carry the exact
+ * written text. Renderers chip it (never a profile link, never a
+ * browser); taps explain + copy, never navigate. */
+export function matrix(userId: string, children: ContentNode[]): ContentNode {
+  return { kind: "matrix", userId, children };
 }
 
 /** A custom emoji. `src` is null when no packed source knew the code —
@@ -331,7 +340,7 @@ export function bareLinkLabel(node: ContentNode): string | null {
 // bare hashtag URLs collapse to plain `#tag` text instead of rendering
 // a chip that shows the author's instance hashtag URL. Pure.
 const TRANSLATED_TOKEN_PATTERN =
-  /(\[#[^\s#\]]{1,128}\]\([^)\s]+\))|(^|[\s>(])@([\w-]+(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
+  /(\[#[^\s#\]]{1,128}\]\([^)\s]+\))|((?:^|[\s>(])@[A-Za-z0-9._=\-/+]+:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?::\d+)?)|(^|[\s>(])@([\w-]+(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
 
 /** Plain `#tag` text for a translated hashtag construct, else null:
 // markdown `[#tag](url)`, or a bare hashtag URL (`/tags/<tag>`,
@@ -417,7 +426,23 @@ export function contentFromTranslatedText(text: string | null | undefined): Cont
         last = match.index + full.length;
         continue;
       }
-      const lead = match[2] ?? "";
+      // A Matrix ID is colonial, never a webfinger mention: the matrix
+      // alternative wins the position, so `@local` can never match here
+      // with `:server` trailing.
+      if (match[2] !== undefined) {
+        const split = splitMatrixMatch(full);
+        if (split !== null) {
+          pushText(line.slice(last, match.index) + split.lead);
+          out.push(matrix(split.id, [t(split.id)]));
+          pushText(split.trail);
+          last = match.index + full.length;
+          continue;
+        }
+        pushText(line.slice(last, match.index) + full);
+        last = match.index + full.length;
+        continue;
+      }
+      const lead = match[3] ?? "";
       const token = stripTokenPunctuation(full.slice(lead.length));
       const trail = full.slice(lead.length + token.length);
       pushText(line.slice(last, match.index) + lead);
@@ -539,17 +564,64 @@ export function hashtagLabelOf(children: readonly ContentNode[]): string | null 
  * (`[@user@host](url)` markdown, a bare `@user` anchor) — or null. The
  * mention analog of `hashtagLabelOf`: the label routes in-app (taps
  * resolve the handle first and never open the href blindly), so callers
- * render a mention chip instead of an external link. Anything richer
- * than a lone handle stays a link. Pure.
+ * render a mention chip instead of an external link. Matrix IDs
+ * (`@local:server`, colon) are explicitly rejected here — they are
+ * never webfinger handles. Anything richer than a lone handle stays a
+ * link. Pure.
  */
 export function mentionLabelOf(children: readonly ContentNode[]): string | null {
   if (children.length !== 1) return null;
   const only = children[0];
   const label = only.kind === "text" ? only.text.trim() : null;
   if (label === null || !label.startsWith("@")) return null;
+  if (label.includes(":")) return null;
   const ref = validTranslatedHandle(label.slice(1));
   if (ref === null) return null;
   return `@${ref.username}${ref.host ? `@${ref.host}` : ""}`;
+}
+
+// --- Matrix user IDs (`@local:server`) ---------------------------------------
+// A Matrix ID is colonial, not webfinger: `@handle:domain` must never
+// parse as a local `@handle` mention with `:domain` trailing text. The
+// scanners below match the matrix shape FIRST at every `@` position;
+// `parseMatrixUserId` is the single validity gate (scanners are
+// intentionally looser; the gate decides).
+
+const MATRIX_LOCALPART = "[A-Za-z0-9._=\\-/+]";
+const MATRIX_SERVER = "[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+(?::\\d+)?";
+const MATRIX_USERID_PATTERN = new RegExp(`^@(${MATRIX_LOCALPART}+):(${MATRIX_SERVER})$`);
+
+/** Canonical `@local:server` for an exact-shape Matrix ID, else null.
+ * The server must be DNS-shaped (a dot) with an optional `:port`;
+ * bare `@local`, webfinger `@local@host`, and dot-less servers all
+ * fail. Case is preserved verbatim (IDs are case-sensitive). Pure. */
+export function parseMatrixUserId(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  const match = MATRIX_USERID_PATTERN.exec(raw);
+  if (!match) return null;
+  return `@${match[1]}:${match[2]}`;
+}
+
+/** Canonical Matrix ID for a lone-handle link label, else null — the
+ * matrix analog of `mentionLabelOf` / `hashtagLabelOf`. Pure. */
+export function matrixLabelOf(children: readonly ContentNode[]): string | null {
+  if (children.length !== 1) return null;
+  const only = children[0];
+  const label = only.kind === "text" ? only.text.trim() : null;
+  if (label === null) return null;
+  return parseMatrixUserId(label);
+}
+
+/** Split a scanned matrix match (lead char + candidate ID) into its
+ * parts: the lead to re-emit, the canonical ID, and the trailing
+ * punctuation to re-emit. Null when the candidate is not a valid ID
+ * (unreachable for pattern hits, but cheap insurance). Pure. */
+export function splitMatrixMatch(full: string): { lead: string; id: string; trail: string } | null {
+  const lead = full.startsWith("@") ? "" : full.slice(0, 1);
+  const raw = stripTokenPunctuation(full.slice(lead.length));
+  const id = parseMatrixUserId(raw);
+  if (id === null) return null;
+  return { lead, id, trail: full.slice(lead.length + raw.length) };
 }
 
 // --- Remote custom-emoji codes (`:name@host:`) --------------------------

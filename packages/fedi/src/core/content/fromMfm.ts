@@ -27,6 +27,10 @@ import {
   link,
   mention,
   mentionLabelOf,
+  matrix,
+  matrixLabelOf,
+  parseMatrixUserId,
+  stripTokenPunctuation,
   quoteNode,
   safeUrl,
   splitRemoteEmojiCodes,
@@ -131,6 +135,10 @@ export function convertNode(node: MfmNode): ContentNode[] {
       // is dropped and no link node survives to embed, chip, or unfurl.
       const tag = hashtagLabelOf(children);
       if (tag !== null) return [hashtag(tag, null, [t(`#${tag}`)])];
+      // A Matrix-ID label is the Matrix user (href dropped — the chip
+      // never navigates).
+      const mx = matrixLabelOf(children);
+      if (mx !== null) return [matrix(mx, [t(mx)])];
       // A link labelled exactly one handle is the mention: the label
       // routes in-app as a chip (same rule as the HTML parser). The
       // href is kept for remote resolution of bare `@user` labels.
@@ -178,9 +186,10 @@ export function contentFromMfm(source: string | null | undefined): ContentNode[]
     return [t(text)];
   }
   const out = splitRemoteCodes(nodes.flatMap(convertNode));
-  while (out.length > 0 && out[0].kind === "br") out.shift();
-  while (out.length > 0 && out[out.length - 1].kind === "br") out.pop();
-  return out;
+  const merged = mergeMatrixMentions(out);
+  while (merged.length > 0 && merged[0].kind === "br") merged.shift();
+  while (merged.length > 0 && merged[merged.length - 1].kind === "br") merged.pop();
+  return merged;
 }
 
 /** Split remote `:name@host:` codes out of text runs (F11). mfm-js
@@ -203,6 +212,58 @@ function splitRemoteCodes(nodes: readonly ContentNode[]): ContentNode[] {
     if ("children" in node) {
       out.push({ ...node, children: splitRemoteCodes(node.children) } as ContentNode);
       continue;
+    }
+    out.push(node);
+  }
+  return out;
+}
+
+/** A bare local mention label (`@name`, no host), else null. mfm-js
+ * emits Matrix IDs as exactly this plus trailing `:server` text. */
+function bareLocalMentionLabel(node: ContentNode): string | null {
+  if (node.kind !== "mention" || node.children.length !== 1) return null;
+  const only = node.children[0];
+  if (!only || only.kind !== "text") return null;
+  return /^@[\w-]+$/.test(only.text) ? only.text : null;
+}
+
+const MATRIX_SUFFIX_PATTERN = /^:([A-Za-z0-9.-]+(?::\d+)?)/;
+
+/** Rejoin Matrix IDs mfm-js splits into a local mention plus trailing
+ * `:server` text (`@jm:nope.chat` → one matrix node). Only merges when
+ * the suffix is DNS-shaped (a dot, optional `:port`) with no space —
+ * `@user: hello` and `@3:30` timestamps never qualify. Transparent
+ * containers recurse; link / mention / hashtag / code labels are never
+ * rewritten. Pure. */
+function mergeMatrixMentions(nodes: ContentNode[]): ContentNode[] {
+  const out: ContentNode[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    if (
+      node.kind === "bold" ||
+      node.kind === "italic" ||
+      node.kind === "strike" ||
+      node.kind === "fn" ||
+      node.kind === "quote"
+    ) {
+      out.push({ ...node, children: mergeMatrixMentions(node.children) } as ContentNode);
+      continue;
+    }
+    const local = bareLocalMentionLabel(node);
+    const next = i + 1 < nodes.length ? nodes[i + 1] : undefined;
+    if (local !== null && next && next.kind === "text") {
+      const suffix = MATRIX_SUFFIX_PATTERN.exec(next.text);
+      if (suffix) {
+        const server = stripTokenPunctuation(suffix[1]);
+        const id = parseMatrixUserId(`${local}:${server}`);
+        if (id !== null) {
+          out.push(matrix(id, [t(id)]));
+          const rest = next.text.slice(1 + server.length);
+          if (rest.length > 0) out.push(t(rest));
+          i++;
+          continue;
+        }
+      }
     }
     out.push(node);
   }

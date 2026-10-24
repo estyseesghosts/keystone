@@ -409,4 +409,14 @@ describe("mention-labelled anchors (in-app chips)", () => {
       },
     ]);
   });
+
+  it("matrix-labelled anchors become matrix nodes, href dropped", () => {
+    expect(contentFromHtml('<p><a href="https://x.example/chat">@jm:nope.chat</a></p>')).toEqual([
+      {
+        kind: "matrix",
+        userId: "@jm:nope.chat",
+        children: [{ kind: "text", text: "@jm:nope.chat" }],
+      },
+    ]);
+  });
 });

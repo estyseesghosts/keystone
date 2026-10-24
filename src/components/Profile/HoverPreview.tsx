@@ -169,8 +169,11 @@ function webPortal(children: ReactNode, host: Element): ReactNode {
  * anchor underneath keeps its hover), the card box (the only
  * pointer-events:auto node, carrying the explicit font stack), and
  * dismiss-on-Escape/scroll/resize with mount-settle grace. Content stays
- * React Native primitives — only the layer shell is raw DOM. */
-function HoverLayer({
+ * React Native primitives — only the layer shell is raw DOM.
+ *
+ * Exported for non-profile hovercards (Matrix IDs): same layer, custom
+ * card content. */
+export function HoverLayer({
   pos,
   cardRef,
   onEnterCard,

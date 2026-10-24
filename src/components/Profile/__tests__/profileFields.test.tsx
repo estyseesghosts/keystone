@@ -253,6 +253,21 @@ describe('ProfileHeader fields (C14)', () => {
     expect(screen.getByText('#photo')).toBeTruthy()
     expect(screen.queryByTestId('richtext-link-chip')).toBeNull()
   })
+
+  it('chips Matrix IDs in fields, never as local mentions', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          fields: [{name: 'chat', value: 'chat: @jm:nope.chat', verifiedAt: null}],
+        })}
+        isSelf={false}
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('richtext-matrix-chip')).toBeTruthy()
+    expect(screen.getByText('[m] jm:nope.chat')).toBeTruthy()
+    expect(screen.queryByTestId('richtext-mention-chip')).toBeNull()
+  })
 })
 
 describe('AccountReactionsBlock (C14)', () => {

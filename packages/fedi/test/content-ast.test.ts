@@ -19,6 +19,8 @@ import {
   contentFromTranslatedText,
   mentionAccountIdOf,
   mentionLabelOf,
+  matrixLabelOf,
+  parseMatrixUserId,
   plainTextOf,
   quoteNode,
   safeHttpUrl,
@@ -337,6 +339,28 @@ describe("translated text nodes", () => {
       { kind: "text", text: " ok" },
     ]);
   });
+
+  it("chips Matrix IDs instead of misreading a local mention", () => {
+    expect(contentFromTranslatedText("chat @jm:nope.chat ok")).toEqual([
+      { kind: "text", text: "chat " },
+      {
+        kind: "matrix",
+        userId: "@jm:nope.chat",
+        children: [{ kind: "text", text: "@jm:nope.chat" }],
+      },
+      { kind: "text", text: " ok" },
+    ]);
+  });
+
+  it("leaves timestamps and dot-less colons alone (no matrix, old reads)", () => {
+    const nodes = contentFromTranslatedText("call me @3:30");
+    expect(nodes.some(n => n.kind === "matrix")).toBe(false);
+    expect(nodes).toContainEqual({
+      kind: "mention",
+      href: null,
+      children: [{ kind: "text", text: "@3" }],
+    });
+  });
 });
 
 describe("translatedHashtagOf", () => {
@@ -370,12 +394,37 @@ describe("mentionLabelOf", () => {
     expect(mentionLabelOf([t("  @u  ")])).toBe("@u");
   });
 
-  it("rejects display names, emails, and richer labels", () => {
+  it("rejects display names, emails, matrix IDs, and richer labels", () => {
     expect(mentionLabelOf([t("Laura")])).toBeNull();
     expect(mentionLabelOf([t("me@example.com")])).toBeNull();
+    expect(mentionLabelOf([t("@jm:nope.chat")])).toBeNull();
     expect(mentionLabelOf([t("contact @u@h.social")])).toBeNull();
     expect(mentionLabelOf([t("@u@")])).toBeNull();
     expect(mentionLabelOf([t("@u"), t("x")])).toBeNull();
+  });
+});
+
+describe("parseMatrixUserId", () => {
+  it("accepts canonical IDs, ports, and case verbatim", () => {
+    expect(parseMatrixUserId("@jm:nope.chat")).toBe("@jm:nope.chat");
+    expect(parseMatrixUserId("@u:example.com:8448")).toBe("@u:example.com:8448");
+    expect(parseMatrixUserId("@JM:Nope.Chat")).toBe("@JM:Nope.Chat");
+  });
+
+  it("rejects webfinger handles, bare handles, and dot-less servers", () => {
+    expect(parseMatrixUserId("@u@h.social")).toBeNull();
+    expect(parseMatrixUserId("@u")).toBeNull();
+    expect(parseMatrixUserId("@u:")).toBeNull();
+    expect(parseMatrixUserId("@u:localhost")).toBeNull();
+    expect(parseMatrixUserId("@u:12:30")).toBeNull();
+    expect(parseMatrixUserId("jm:nope.chat")).toBeNull();
+    expect(parseMatrixUserId(null)).toBeNull();
+  });
+
+  it("reads lone matrix labels", () => {
+    expect(matrixLabelOf([t("@jm:nope.chat")])).toBe("@jm:nope.chat");
+    expect(matrixLabelOf([t("@u")])).toBeNull();
+    expect(matrixLabelOf([t("see @jm:nope.chat")])).toBeNull();
   });
 });
 
@@ -432,6 +481,28 @@ describe("contentFromFieldValue", () => {
     expect(contentFromFieldValue("")).toEqual([]);
     expect(contentFromFieldValue(null)).toEqual([]);
     expect(contentFromFieldValue("a\nb")).toEqual([{ kind: "text", text: "a\nb" }]);
+  });
+
+  it("chips bare Matrix IDs, never as local mentions", () => {
+    expect(contentFromFieldValue("chat @jm:nope.chat ok")).toEqual([
+      { kind: "text", text: "chat " },
+      {
+        kind: "matrix",
+        userId: "@jm:nope.chat",
+        children: [{ kind: "text", text: "@jm:nope.chat" }],
+      },
+      { kind: "text", text: " ok" },
+    ]);
+  });
+
+  it("normalizes matrix-labelled markdown, dropping the web URL", () => {
+    expect(contentFromFieldValue("[@jm:nope.chat](https://x.example/chat)")).toEqual([
+      {
+        kind: "matrix",
+        userId: "@jm:nope.chat",
+        children: [{ kind: "text", text: "@jm:nope.chat" }],
+      },
+    ]);
   });
 });
 

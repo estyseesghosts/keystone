@@ -30,6 +30,8 @@ import {
   isBlankContent,
   italic,
   link,
+  matrix,
+  matrixLabelOf,
   mention,
   mentionLabelOf,
   quoteNode,
@@ -298,6 +300,13 @@ function convertAnchor(node: DomNode, out: ContentNode[]): void {
   const redirectTag = hashtagLabelOf(inner);
   if (redirectTag !== null) {
     out.push(hashtag(redirectTag, null, [t(`#${redirectTag}`)]));
+    return;
+  }
+  // A Matrix-ID label is the Matrix user (href dropped — the chip
+  // never navigates, so no URL survives to embed or unfurl).
+  const redirectMatrix = matrixLabelOf(inner);
+  if (redirectMatrix !== null) {
+    out.push(matrix(redirectMatrix, [t(redirectMatrix)]));
     return;
   }
   // A link labelled exactly one handle is the mention (the

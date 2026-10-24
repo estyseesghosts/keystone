@@ -8,6 +8,7 @@ import {
   heading,
   invisible,
   isBlankContent,
+  matrix,
   plainTextOf,
   pruneTagBlocks,
   t,
@@ -57,6 +58,27 @@ describe("fold with structural markers", () => {
     const folded = foldTree([heading(1, [t("x".repeat(800))])]);
     expect(folded.folded).toBe(true);
     expect(textOf(folded.nodes).endsWith("…")).toBe(true);
+  });
+
+  it("reads matrix children as text, never blank", () => {
+    const nodes: ContentNode[] = [matrix("@jm:nope.chat", [t("@jm:nope.chat")])];
+    expect(textOf(nodes)).toBe("@jm:nope.chat");
+    expect(plainTextOf(nodes)).toBe("@jm:nope.chat");
+    expect(isBlankContent(nodes)).toBe(false);
+  });
+
+  it("never cuts or extends inside a matrix node when folding", () => {
+    const id = "@jm:nope.chat";
+    const mx = matrix(id, [t(id)]);
+    // Past the remaining budget the matrix drops whole — its label is
+    // never cut and no ellipsis extends inside it.
+    const dropped = foldTree([t("x".repeat(740)), mx]);
+    expect(dropped.folded).toBe(true);
+    expect(dropped.nodes).toEqual([t(`${"x".repeat(740)}…`)]);
+    // Within budget it passes through intact.
+    const kept = foldTree([mx, t("x".repeat(800))]);
+    expect(kept.folded).toBe(true);
+    expect(kept.nodes[0]).toEqual(mx);
   });
 });
 

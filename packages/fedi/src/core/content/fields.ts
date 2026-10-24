@@ -15,9 +15,12 @@ import {
   hashtag,
   hashtagLabelOf,
   link,
+  matrix,
+  matrixLabelOf,
   mention,
   mentionLabelOf,
   safeUrl,
+  splitMatrixMatch,
   stripTokenPunctuation,
   t,
   validTranslatedHandle,
@@ -26,7 +29,8 @@ import {
 import { contentFromHtml } from "./fromHtml";
 
 const FIELD_MARKDOWN_PATTERN = /\[([^\[\]\n]+)\]\(([^)\s]+)\)/g;
-const FIELD_TOKEN_PATTERN = /(^|[\s>(])@([\w-]+(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
+const FIELD_TOKEN_PATTERN =
+  /((?:^|[\s>(])@[A-Za-z0-9._=\-/+]+:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?::\d+)?)|(^|[\s>(])@([\w-]+(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
 
 /** Text runs that must not be re-scanned (their labels already
  * decided): links, mentions, hashtags, and opaque code. */
@@ -56,7 +60,22 @@ function scanFieldSegment(seg: string, out: ContentNode[]): void {
   let match: RegExpExecArray | null;
   while ((match = FIELD_TOKEN_PATTERN.exec(seg)) !== null) {
     const full = match[0];
-    const lead = match[1] ?? "";
+    // Matrix IDs first: `@local:server` must never read as a local
+    // `@local` mention with trailing text.
+    if (match[1] !== undefined) {
+      const split = splitMatrixMatch(full);
+      if (split !== null) {
+        pushFieldText(out, seg.slice(last, match.index) + split.lead);
+        out.push(matrix(split.id, [t(split.id)]));
+        pushFieldText(out, split.trail);
+        last = match.index + full.length;
+        continue;
+      }
+      pushFieldText(out, seg.slice(last, match.index) + full);
+      last = match.index + full.length;
+      continue;
+    }
+    const lead = match[2] ?? "";
     const token = stripTokenPunctuation(full.slice(lead.length));
     const trail = full.slice(lead.length + token.length);
     pushFieldText(out, seg.slice(last, match.index) + lead);
@@ -92,21 +111,28 @@ function expandFieldText(text: string, out: ContentNode[]): void {
     scanFieldSegment(text.slice(last, match.index), out);
     const label = match[1];
     const rawHref = match[2];
-    const handle = mentionLabelOf([t(label)]);
-    if (handle !== null) {
-      // The href is kept: a bare `@user` label still needs the profile
-      // URL to resolve remotely (a null href resolves locally only).
-      // Taps resolve the label first, so a mismatched URL can never
-      // hijack the chip into a browser.
-      out.push(mention(safeUrl(rawHref), [t(handle)]));
+    // A Matrix-ID label is the Matrix user, href dropped (a web URL is
+    // meaningless for Matrix and the chip never navigates).
+    const mx = matrixLabelOf([t(label)]);
+    if (mx !== null) {
+      out.push(matrix(mx, [t(mx)]));
     } else {
-      const tag = hashtagLabelOf([t(label)]);
-      if (tag !== null) {
-        out.push(hashtag(tag, null, [t(`#${tag}`)]));
+      const handle = mentionLabelOf([t(label)]);
+      if (handle !== null) {
+        // The href is kept: a bare `@user` label still needs the profile
+        // URL to resolve remotely (a null href resolves locally only).
+        // Taps resolve the label first, so a mismatched URL can never
+        // hijack the chip into a browser.
+        out.push(mention(safeUrl(rawHref), [t(handle)]));
       } else {
-        const href = safeUrl(rawHref);
-        if (href !== null && /^https?:\/\//.test(href)) out.push(link(href, [t(label)]));
-        else pushFieldText(out, match[0]);
+        const tag = hashtagLabelOf([t(label)]);
+        if (tag !== null) {
+          out.push(hashtag(tag, null, [t(`#${tag}`)]));
+        } else {
+          const href = safeUrl(rawHref);
+          if (href !== null && /^https?:\/\//.test(href)) out.push(link(href, [t(label)]));
+          else pushFieldText(out, match[0]);
+        }
       }
     }
     last = match.index + match[0].length;

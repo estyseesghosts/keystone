@@ -155,6 +155,7 @@ function isAtomic(node: ContentNode): boolean {
     case "bullet":
     case "invisible":
     case "hashtag":
+    case "matrix":
       return true;
     default:
       return false;
@@ -260,6 +261,7 @@ function ellipsize(nodes: readonly ContentNode[]): ContentNode[] {
     last.kind !== "link" &&
     last.kind !== "mention" &&
     last.kind !== "hashtag" &&
+    last.kind !== "matrix" &&
     last.kind !== "customEmoji" &&
     last.kind !== "unicodeEmoji" &&
     last.kind !== "br" &&
