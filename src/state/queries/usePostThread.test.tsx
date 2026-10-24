@@ -145,4 +145,14 @@ describe('useThreadRepliesQuery', () => {
     )
     await waitFor(() => expect(result.current.isError).toBe(true))
   })
+
+  it('stays disabled on an empty parent id — no junk fetch before the thread resolves (R2.4)', async () => {
+    const b = fakeBackend()
+    const {result} = renderHook(
+      () => useThreadRepliesQuery(SESSION_A, '', {backend: b as unknown as Backend}),
+      {wrapper: wrapper()},
+    )
+    expect(result.current.fetchStatus).toBe('idle')
+    expect(b.threadReplies).not.toHaveBeenCalled()
+  })
 })

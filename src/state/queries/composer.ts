@@ -123,6 +123,22 @@ export type CreatePostResult =
   | {kind: 'posted'; post: Post}
   | {kind: 'scheduled'; scheduled: ScheduledNote}
 
+/** Client-side attachment bound (R2.3): files over this size are refused
+ * with an honest error before staging or uploading — never read into the
+ * Hermes heap. The server may accept larger files; this bound is about not
+ * OOMing the client on `fetch(uri) → blob → File`, not about the server's
+ * limit. Video is never silently recompressed: over-cap video is refused,
+ * not downscaled. */
+export const MAX_MEDIA_BYTES = 10 * 1024 * 1024
+
+/** Honest refusal text for an over-cap attachment, or null when it fits.
+ * Unknown sizes (non-finite, zero) pass — the server stays the verdict.
+ * Pure. */
+export function attachmentSizeError(name: string, size: number): string | null {
+  if (!Number.isFinite(size) || size <= MAX_MEDIA_BYTES) return null
+  return `"${name}" is too large to attach (over 10 MB).`
+}
+
 /** The create call, separated from React for tests. */
 export async function submitPost(
   backend: Backend,
@@ -244,6 +260,14 @@ export async function uploadAll(
       failed = true
       continue
     }
+    // Client bound (R2.3): an over-cap File never reaches the transport —
+    // the failure stays on its item for the user to remove, like any error.
+    const tooBig = attachmentSizeError(item.name, file.size)
+    if (tooBig) {
+      onUpdate(item.key, {status: 'error', error: tooBig})
+      failed = true
+      continue
+    }
     onUpdate(item.key, {status: 'uploading', error: null})
     try {
       const {id} = await uploadOne(backend, file, {
@@ -280,11 +304,23 @@ export function useUploads(backend: Backend | null, target: UploadTarget = {}) {
   }, [])
 
   const add = useCallback(
-    (picked: UploadableFile[]) => {
-      const created = picked.map((p, i) => ({
-        key: `u${Date.now().toString(36)}${i}${Math.random().toString(36).slice(2, 5)}`,
-        p,
-      }))
+    (picked: UploadableFile[]): string[] => {
+      // Client bound (R2.3): over-cap Files are refused before staging —
+      // they never enter `files`, so `ensureUploaded` cannot send them.
+      // Returns the refused names for the caller to report honestly.
+      const refused: string[] = []
+      const created: Array<{key: string; p: UploadableFile}> = []
+      for (const [i, p] of picked.entries()) {
+        const tooBig = attachmentSizeError(p.name, p.file.size)
+        if (tooBig) {
+          refused.push(p.name)
+          continue
+        }
+        created.push({
+          key: `u${Date.now().toString(36)}${i}${Math.random().toString(36).slice(2, 5)}`,
+          p,
+        })
+      }
       for (const {key, p} of created) files.set(key, p.file)
       setItems(cur => [
         ...cur,
@@ -301,6 +337,7 @@ export function useUploads(backend: Backend | null, target: UploadTarget = {}) {
           }),
         ),
       ])
+      return refused
     },
     [files],
   )

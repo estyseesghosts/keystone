@@ -5,7 +5,7 @@
 // it to `backend.votePoll`); without it the poll renders read-only.
 // Failures render an honest inline error with a retry — never a toast
 // and a stuck spinner.
-import {useState} from 'react'
+import {useEffect, useRef, useState} from 'react'
 import {StyleSheet, View} from 'react-native'
 
 import {msg} from '@lingui/macro'
@@ -51,6 +51,21 @@ function PollBar({ratio}: {ratio: number}) {
   )
 }
 
+/** Choices a failed multi-choice vote already recorded: the Misskey
+ * backend throws `errors.poll.partialVote` with `{recorded, total}`, so a
+ * retry can send only the rest instead of blindly resending recorded
+ * votes. Unknown errors record nothing — retry resends all (correct for
+ * atomic endpoints like Mastodon's single-POST vote). Pure. */
+function partialRecordedOf(err: unknown): number[] {
+  if (typeof err === 'object' && err !== null) {
+    const coded = err as {code?: unknown; params?: unknown}
+    if (coded.code !== 'errors.poll.partialVote') return []
+    const recorded = (coded.params as {recorded?: unknown} | undefined)?.recorded
+    if (Array.isArray(recorded)) return recorded.filter((c): c is number => typeof c === 'number')
+  }
+  return []
+}
+
 export function PostPoll({
   poll,
   onVote,
@@ -68,10 +83,29 @@ export function PostPoll({
     poll.options.flatMap((o, i) => (o.voted ? [i] : [])),
   )
   const [voted, setVoted] = useState(alreadyVoted)
+  // Choices the server confirmed before a partial failure. A retry sends
+  // only `selected` minus these — never a blind resend of recorded votes.
+  const [recorded, setRecorded] = useState<number[]>([])
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
   const closed = poll.expired
   const locked = voted || closed || !onVote
+
+  // Resync when the server's voted flags change (vote recorded elsewhere,
+  // refetch after voting, poll closed remotely). The signature guard keeps
+  // local unsubmitted picks across pure count updates — only a flags
+  // change resets the selection. The `useState` initializers above are the
+  // first render only; this effect is the resync source.
+  const votedSigRef = useRef<string | null>(null)
+  useEffect(() => {
+    const sig = poll.options.map(o => (o.voted ? '1' : '0')).join(',')
+    if (votedSigRef.current === sig) return
+    votedSigRef.current = sig
+    setSelected(poll.options.flatMap((o, i) => (o.voted ? [i] : [])))
+    setVoted(poll.options.some(o => o.voted))
+  }, [poll.options])
+
+  const pending = selected.filter(c => !recorded.includes(c))
 
   const total = poll.votesCount
   const toggle = (i: number) => {
@@ -87,17 +121,20 @@ export function PostPoll({
   }
 
   const submit = async () => {
-    if (!onVote || voted || closed || busy || selected.length === 0) return
+    if (!onVote || voted || closed || busy || pending.length === 0) return
     setBusy(true)
     setFailed(false)
     try {
-      await onVote([...selected].sort((a, b) => a - b))
+      await onVote([...pending].sort((a, b) => a - b))
       setVoted(true)
+      setRecorded([])
     } catch (e) {
       // Friendly line in the UI; the raw reason goes to the console
       // for diagnosis (never a stuck spinner, never a raw dump).
       console.error('[PostPoll] vote failed', e)
       setFailed(true)
+      const round = partialRecordedOf(e)
+      if (round.length > 0) setRecorded(prev => [...prev, ...round.filter(c => !prev.includes(c))])
     } finally {
       setBusy(false)
     }
@@ -144,15 +181,24 @@ export function PostPoll({
           {foot.join(' · ')}
         </Caption>
       )}
-      {failed && <Body testID="poll-error">{i18n._(msg`Couldn't submit your vote. Try again.`)}</Body>}
+      {failed && recorded.length === 0 && (
+        <Body testID="poll-error">{i18n._(msg`Couldn't submit your vote. Try again.`)}</Body>
+      )}
+      {failed && recorded.length > 0 && (
+        <Body testID="poll-error">
+          {i18n._(
+            msg`Recorded ${recorded.length} of ${selected.length} choices. Retry sends only the rest.`,
+          )}
+        </Body>
+      )}
       {!locked && (
         <Pressable
           testID="poll-vote"
           onPress={() => void submit()}
-          disabled={busy || selected.length === 0}
+          disabled={busy || pending.length === 0}
           accessibilityRole="button"
           accessibilityLabel={busy ? i18n._(msg`Submitting vote…`) : i18n._(msg`Vote`)}
-          accessibilityState={{disabled: busy || selected.length === 0}}>
+          accessibilityState={{disabled: busy || pending.length === 0}}>
           <Body>{busy ? i18n._(msg`Submitting…`) : i18n._(msg`Vote`)}</Body>
         </Pressable>
       )}

@@ -167,6 +167,10 @@ export function UserHoverCardView({
   // stays `{notes} notes · …` — the same id the catalogs were seeded with.
   const stats = t`${notes} notes · ${following} following · ${followers} followers`
   const bannerUri = safeHttpUrl(account.headerUrl)
+  // Avatar rides the same gate as the banner: server strings are never
+  // trusted as image sources (background is already gated in the
+  // adapter; the avatar was the remaining raw read).
+  const avatarUri = safeHttpUrl(account.avatarUrl)
   const bioNodes = useMemo(
     () =>
       account.bio.mfm
@@ -226,9 +230,9 @@ export function UserHoverCardView({
       <View style={styles.body}>
         <View style={styles.avatarRow}>
           <View style={styles.avatarOverlap}>
-            {account.avatarUrl ? (
+            {avatarUri ? (
               <Image
-                source={{uri: account.avatarUrl}}
+                source={{uri: avatarUri}}
                 style={styles.avatar}
                 accessibilityLabel={name}
                 testID={testID ? `${testID}-avatar` : undefined}

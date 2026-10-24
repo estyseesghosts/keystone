@@ -145,7 +145,7 @@ describe('Clips screen', () => {
     }
   })
 
-  it('renames a clip inline', async () => {
+  it('renames a clip inline (privacy flag rides along)', async () => {
     const backend = fullBackend()
     const {done} = await setup({backend})
     try {
@@ -153,8 +153,26 @@ describe('Clips screen', () => {
       fireEvent.press(screen.getByTestId('clips-rename-c1'))
       fireEvent.changeText(screen.getByTestId('clips-rename-input-c1'), 'Play')
       fireEvent.press(screen.getByTestId('clips-rename-save-c1'))
-      await waitFor(() => expect(backend.clips.update).toHaveBeenCalledWith('c1', {name: 'Play'}))
+      await waitFor(() =>
+        expect(backend.clips.update).toHaveBeenCalledWith('c1', {name: 'Play', isPublic: false}),
+      )
       expect(await screen.findByText('Play')).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
+
+  it('sends isPublic through updateClip from the existing editor', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('Fun')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('clips-rename-c1'))
+      fireEvent.press(screen.getByTestId('clips-rename-public-c1'))
+      fireEvent.press(screen.getByTestId('clips-rename-save-c1'))
+      await waitFor(() =>
+        expect(backend.clips.update).toHaveBeenCalledWith('c1', {name: 'Fun', isPublic: true}),
+      )
     } finally {
       done()
     }

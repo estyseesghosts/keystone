@@ -220,6 +220,12 @@ describe("hashtagTagOf", () => {
     );
   });
 
+  it("accepts a non-ASCII Akkoma data-tag on the fast path", () => {
+    expect(
+      hashtagTagOf({ class: "hashtag", href: "https://a.b/tag/x", "data-tag": "presentação" }),
+    ).toBe("presentação");
+  });
+
   it("reads Mastodon /tags/ tail, decoding percent-encoding", () => {
     expect(hashtagTagOf({ class: "mention hashtag", href: "https://a.b/tags/keystone" })).toBe(
       "keystone",
@@ -283,6 +289,18 @@ describe("translated text nodes", () => {
       { kind: "mention", href: null, children: [{ kind: "text", text: "@u@example.social" }] },
       { kind: "text", text: ", see " },
       { kind: "link", href: "https://a.b/x", children: [{ kind: "text", text: "https://a.b/x" }] },
+    ]);
+  });
+
+  it("keeps dotted bridged handles whole (no shredding at the first dot)", () => {
+    expect(contentFromTranslatedText("hi @foxtails.me@bsky.brid.gy ok")).toEqual([
+      { kind: "text", text: "hi " },
+      {
+        kind: "mention",
+        href: null,
+        children: [{ kind: "text", text: "@foxtails.me@bsky.brid.gy" }],
+      },
+      { kind: "text", text: " ok" },
     ]);
   });
 
@@ -565,6 +583,18 @@ describe("contentFromFieldValue", () => {
       { kind: "mention", href: null, children: [{ kind: "text", text: "@u@h.social" }] },
       { kind: "text", text: ", see " },
       { kind: "link", href: "https://a.b/x", children: [{ kind: "text", text: "https://a.b/x" }] },
+    ]);
+  });
+
+  it("keeps dotted bridged handles whole (no shredding at the first dot)", () => {
+    expect(contentFromFieldValue("hi @foxtails.me@bsky.brid.gy ok")).toEqual([
+      { kind: "text", text: "hi " },
+      {
+        kind: "mention",
+        href: null,
+        children: [{ kind: "text", text: "@foxtails.me@bsky.brid.gy" }],
+      },
+      { kind: "text", text: " ok" },
     ]);
   });
 

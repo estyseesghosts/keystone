@@ -196,4 +196,27 @@ describe('Conversation screen', () => {
       done()
     }
   })
+
+  it('captions an incomplete history instead of inventing messages', async () => {
+    const backend = fullBackend({}, {thread: jest.fn(async () => ({ancestors: [], incomplete: true}))})
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('latest reply')).toBeTruthy()
+      expect(screen.getByTestId('conversation-incomplete')).toBeTruthy()
+      expect(screen.getByText('Some messages may be missing.')).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
+
+  it('shows no incomplete caption on a complete history', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('latest reply')).toBeTruthy()
+      expect(screen.queryByTestId('conversation-incomplete')).toBeNull()
+    } finally {
+      done()
+    }
+  })
 })

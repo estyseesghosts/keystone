@@ -203,6 +203,46 @@ describe('ExploreScreen', () => {
     expect(news).toHaveBeenLastCalledWith({limit: 10, cursor: 'c1'})
   })
 
+  it('a load-more failure keeps the list and offers a footer retry', async () => {
+    const news = jest
+      .fn()
+      .mockResolvedValueOnce({
+        items: [
+          {url: 'https://n.example/1', title: 'Big news', description: null, providerName: 'N', image: null},
+        ],
+        cursor: 'c1',
+        end: false,
+      })
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce({
+        items: [
+          {url: 'https://n.example/2', title: 'More news', description: null, providerName: 'N', image: null},
+        ],
+        cursor: null,
+        end: true,
+      })
+    const backend = baseBackend({
+      explore: {
+        posts: jest.fn(async () => ({items: [], cursor: null, end: true})),
+        news,
+      },
+    })
+    setup({backend, params: {tab: 'news'}})
+    expect(await screen.findByText('Big news')).toBeTruthy()
+    const list = screen.getByTestId('explore-news')
+    ;(list.props as {onEndReached: () => void}).onEndReached()
+    // The list is never cleared: the failure surfaces as a footer retry.
+    expect(await screen.findByTestId('explore-news-more-retry')).toBeTruthy()
+    expect(screen.getByText('Big news')).toBeTruthy()
+    expect(screen.queryByTestId('explore-news-retry')).toBeNull()
+    // Retry re-fires loadMore with the same cursor and appends.
+    fireEvent.press(screen.getByTestId('explore-news-more-retry'))
+    expect(await screen.findByText('More news')).toBeTruthy()
+    expect(news).toHaveBeenLastCalledWith({limit: 10, cursor: 'c1'})
+    expect(screen.getByText('Big news')).toBeTruthy()
+    expect(screen.queryByTestId('explore-news-more-retry')).toBeNull()
+  })
+
   it('news tab renders trending links with photos and separators', async () => {
     const backend = baseBackend({
       explore: {

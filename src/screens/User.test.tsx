@@ -1,7 +1,7 @@
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {fireEvent, render, screen} from '@testing-library/react-native'
+import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
 import {createMemoryStore, type Backend} from '@keystone/fedi'
 import {ApiError} from '@keystone/fedi'
@@ -26,8 +26,10 @@ const memVault = (): TokenVault => ({
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({navigate: jest.fn()}),
-  useRoute: () => ({params: {id: 'alice'}}),
+  useRoute: () => ({params: mockRouteParams.current}),
 }))
+
+const mockRouteParams: {current: {id: string} | undefined} = {current: {id: 'alice'}}
 
 const mockBackends = new Map<string, unknown>()
 jest.mock('@keystone/fedi', () => ({
@@ -171,5 +173,64 @@ describe('UserScreen scroll layout (bio scrolls, tabs stick, no reactions)', () 
 
     expect(await screen.findByText('Could not load this profile.')).toBeTruthy()
     expect(screen.queryByTestId('profile-rate-limited')).toBeNull()
+  })
+
+  it('resets to the posts tab when navigating to another profile (R2.4)', async () => {
+    mockRouteParams.current = {id: 'alice'}
+    const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: HOME_ORIGIN})
+    const added = await store.add({
+      origin: 'https://a.example',
+      family: 'misskey',
+      flavor: 'misskey',
+      accountId: 'carol',
+      token: 'token-a',
+      grant: 'password',
+      hosting: 'third-party',
+    })
+    const backend = {
+      capabilities: {},
+      account: jest.fn(async ({id}: {id: string}) =>
+        makeAccount({id, username: id, acct: id, displayName: id[0].toUpperCase() + id.slice(1), name: id}),
+      ),
+      relationships: jest.fn(async () => []),
+      accountPosts: jest.fn(async () => ({items: [], cursor: null, end: true})),
+      accountReactions: jest.fn(async () => ({items: [], cursor: null, end: true})),
+    } as unknown as Backend
+    mockBackends.set(added.id, backend)
+    i18n.load('en', {})
+    i18n.activate('en')
+    const qc = new QueryClient()
+    const ui = () => (
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <QueryClientProvider client={qc}>
+            <SessionProvider store={store} homeOrigin={HOME_ORIGIN}>
+              <UserScreen />
+            </SessionProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
+      </I18nProvider>
+    )
+    const tree = render(ui())
+    expect(await screen.findByTestId('profile-body')).toBeTruthy()
+    // Leave posts for a tab the next profile may hide, then navigate:
+    // the same mounted screen must start the new profile on posts.
+    // (The tabs mount with the feed, past the skeleton; switching tabs
+    // refetches the feed, so the tabs briefly unmount — wait through it.)
+    expect(await screen.findByTestId('profile-tab-media', {}, {timeout: 10000})).toBeTruthy()
+    fireEvent.press(screen.getByTestId('profile-tab-media'))
+    await waitFor(() => {
+      expect(screen.getByTestId('profile-tab-media').props.accessibilityState.selected).toBe(true)
+    })
+    mockRouteParams.current = {id: 'bob'}
+    // A fresh element forces the mounted tree to re-render and re-read
+    // the route (same instance, new target — the User(A)→User(B) path).
+    tree.rerender(ui())
+    expect(await screen.findByText('Bob', {}, {timeout: 10000})).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByTestId('profile-tab-posts').props.accessibilityState.selected).toBe(true)
+    })
+    tree.unmount()
+    mockRouteParams.current = {id: 'alice'}
   })
 })

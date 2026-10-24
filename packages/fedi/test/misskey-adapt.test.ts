@@ -228,6 +228,31 @@ describe("adaptAccount / adaptMe (all three flavors)", () => {
     expect(adaptAccount({...bare, backgroundUrl: ""}).backgroundUrl).toBeNull();
   });
 
+  it("rejects non-http(s) background urls at the adapter (R2.4)", () => {
+    const user = fixture<UserDetailed>("misskey", "user.json");
+    const bare = {...user, backgroundUrl: undefined, background: undefined};
+    expect(
+      adaptAccount({...bare, backgroundUrl: "javascript:alert(1)"}).backgroundUrl,
+    ).toBeNull();
+    expect(
+      adaptAccount({...bare, backgroundUrl: "//evil.example/bg.png"}).backgroundUrl,
+    ).toBeNull();
+    expect(
+      adaptAccount({...bare, background: {url: "data:image/png;base64,xx"}}).backgroundUrl,
+    ).toBeNull();
+  });
+
+  it("passes an https background url through (R2.4)", () => {
+    const user = fixture<UserDetailed>("misskey", "user.json");
+    const bare = {...user, backgroundUrl: undefined, background: undefined};
+    expect(
+      adaptAccount({...bare, backgroundUrl: "https://example.test/bg.png"}).backgroundUrl,
+    ).toBe("https://example.test/bg.png");
+    expect(
+      adaptAccount({...bare, background: {url: "http://example.test/bg2.png"}}).backgroundUrl,
+    ).toBe("http://example.test/bg2.png");
+  });
+
   it("adaptMe carries the raw i bag in ext.me for the profile editor", () => {
     const me = fixture<MeDetailed>("misskey", "user.json");
     const account = adaptMe(me);

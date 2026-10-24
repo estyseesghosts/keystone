@@ -31,7 +31,7 @@ import { contentFromHtml } from "./fromHtml";
 
 const FIELD_MARKDOWN_PATTERN = /\[([^\[\]\n]+)\]\(([^)\s]+)\)/g;
 const FIELD_TOKEN_PATTERN =
-  /((?:^|[\s>(])@[A-Za-z0-9._=\-/+]+:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?::\d+)?)|(^|[\s>(])@([\w-]+(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
+  /((?:^|[\s>(])@[A-Za-z0-9._=\-/+]+:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?::\d+)?)|(^|[\s>(])@([\w-]+(?:\.[\w-]+)*(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
 
 /** Text runs that must not be re-scanned (their labels already
  * decided): links, mentions, hashtags, and opaque code. */

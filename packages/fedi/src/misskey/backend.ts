@@ -1032,8 +1032,32 @@ export function createMisskeyBackend(
     },
 
     async votePoll(id, choices) {
+      // One POST per choice: the endpoint takes a single `choice`, so a
+      // multi-choice vote is N writes, never one atomic write. Stop at the
+      // first failure and report how many choices were already recorded
+      // (`errors.poll.partialVote` with `{recorded, total, cause}`) so the
+      // UI can say so and retry only the rest — never a blind resend, and
+      // never a claim of atomicity. Single-choice stays one POST. Live
+      // duplicate behavior (re-sending a recorded choice) is not verified:
+      // the UI retries only unrecorded choices. The partial code is handled
+      // inline by `PostPoll` and never surfaces as a toast, so it stays out
+      // of `localeErrors`.
+      const recorded: number[] = [];
       for (const choice of choices) {
-        await call<undefined>("notes/polls/vote", { noteId: id, choice });
+        try {
+          await call<undefined>("notes/polls/vote", { noteId: id, choice });
+        } catch (err) {
+          throw new FediError(
+            `Recorded ${recorded.length} of ${choices.length} choices before the vote failed.`,
+            "errors.poll.partialVote",
+            {
+              recorded,
+              total: choices.length,
+              cause: err instanceof Error ? err.message : String(err),
+            },
+          );
+        }
+        recorded.push(choice);
       }
     },
 

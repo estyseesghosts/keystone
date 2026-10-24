@@ -390,7 +390,7 @@ export function bareLinkLabel(node: ContentNode): string | null {
 // mismatch (or absent) keeps the plain-text behavior exactly.
 // Mentions/links stay as-is: translators preserve handles/URLs.
 const TRANSLATED_TOKEN_PATTERN =
-  /(\[#[^\s#\]]{1,128}\]\([^)\s]+\))|((?:^|[\s>(])@[A-Za-z0-9._=\-/+]+:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?::\d+)?)|(^|[\s>(])@([\w-]+(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
+  /(\[#[^\s#\]]{1,128}\]\([^)\s]+\))|((?:^|[\s>(])@[A-Za-z0-9._=\-/+]+:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?::\d+)?)|(^|[\s>(])@([\w-]+(?:\.[\w-]+)*(?:@[\w.-]+)?)|(https?:\/\/[^\s<]+)/g;
 
 /** Plain `#tag` text for a translated hashtag construct, else null:
 // markdown `[#tag](url)`, or a bare hashtag URL (`/tags/<tag>`,
@@ -618,7 +618,7 @@ export function mentionAccountIdOf(
  */
 export function hashtagTagOf(attrs: Readonly<Record<string, string>>): string | null {
   const dataTag = attrs["data-tag"];
-  if (dataTag && /^[\w-]{1,64}$/.test(dataTag)) return dataTag;
+  if (dataTag && /^[^\s/#?]{1,64}$/.test(dataTag)) return dataTag;
   if (!(attrs.class ?? "").split(/\s+/).includes("hashtag")) return null;
   const href = attrs.href ?? "";
   let tail: string;

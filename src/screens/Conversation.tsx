@@ -51,6 +51,7 @@ export function ConversationScreen() {
   const route = useRoute()
   const id = (route.params as {id?: string} | undefined)?.id ?? null
   const [ancestors, setAncestors] = useState<Post[] | null>(null)
+  const [incomplete, setIncomplete] = useState(false)
   const [threadError, setThreadError] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -70,13 +71,17 @@ export function ConversationScreen() {
   useEffect(() => {
     let live = true
     setAncestors(null)
+    setIncomplete(false)
     setThreadError(false)
     const post = thread.data?.lastPost ?? null
     if (!backend || !post) return
     void backend
       .thread(post)
       .then(res => {
-        if (live) setAncestors(res.ancestors)
+        if (live) {
+          setAncestors(res.ancestors)
+          setIncomplete(res.incomplete === true)
+        }
       })
       .catch(() => {
         if (live) setThreadError(true)
@@ -92,9 +97,11 @@ export function ConversationScreen() {
     if (!conversation || !conversation.unread || !id) return
     if (markedRef.current === id) return
     markedRef.current = id
-    void markRead.mutateAsync(id).catch(() => {
+    void markRead.mutateAsync(id).catch((err: unknown) => {
       // A failed mark-read never blocks the thread; the unread flag simply
-      // refetches as unread. No error wall for a best-effort write.
+      // refetches as unread. No error wall for a best-effort write — but
+      // the failure is logged so a stuck badge is diagnosable.
+      console.warn('[Conversation] mark-read failed', err)
     })
     // Mark-read is a fire-once effect per thread, not a render input;
     // `markRead` is the stable mutation object from the hook.
@@ -155,6 +162,13 @@ export function ConversationScreen() {
           data={lastPost ? [...(ancestors ?? []), lastPost] : []}
           keyExtractor={item => item.id}
           renderItem={({item}) => <ThreadPost post={item} />}
+          ListHeaderComponent={
+            incomplete && !threadError ? (
+              <View style={[atoms.centered, atoms.px_md, atoms.py_sm]} testID="conversation-incomplete">
+                <Caption color="faint">Some messages may be missing.</Caption>
+              </View>
+            ) : null
+          }
           refreshControl={
             <RefreshControl
               refreshing={thread.isFetching && !thread.isPending}

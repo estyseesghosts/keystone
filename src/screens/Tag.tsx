@@ -29,6 +29,7 @@ import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
 import {titleForRoute, type RootParamList} from '#/routes'
 import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
+import {safeDescriptorArg} from './explore/safeDescriptor'
 
 /** Why the action block is unavailable — a stable English reason shown
  * both as a caption and on the disabled controls' accessibility label. */
@@ -181,7 +182,9 @@ function TagActions({backend, tag}: {backend: Backend; tag: string}) {
 
 export function TagScreen() {
   const route = useRoute<RouteProp<RootParamList, 'Tag'>>()
-  const tag = (route.params?.tag ?? '').replace(/^#+/, '')
+  // `|` is the descriptor segment separator — never content. The shared
+  // sanitizer keeps `tag|<tag>` to one segment (Explore's rule).
+  const tag = safeDescriptorArg((route.params?.tag ?? '').replace(/^#+/, ''))
   const {session, backend} = useActiveBackend()
   const title = titleForRoute('Tag', {tag: route.params?.tag})
   if (!session || !backend) {

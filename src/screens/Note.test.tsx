@@ -162,6 +162,25 @@ describe('NoteScreen', () => {
     expect(screen.queryByText('ancestor post')).toBeNull()
   })
 
+  it('names server rate limiting honestly, like the profile screen (R2.4)', async () => {
+    const {ApiError} = await import('@keystone/fedi')
+    setup(fakeBackend({post: jest.fn(async () => { throw new ApiError('Too many requests.', 429, 'errors.network.apiError') })}))
+    await waitFor(() => expect(screen.getByTestId('thread-rate-limited')).toBeTruthy())
+    expect(screen.getByText(/throttling requests/)).toBeTruthy()
+    expect(screen.queryByText(/deleted, private/)).toBeNull()
+    // Retry still re-fetches the thread.
+    fireEvent.press(screen.getByTestId('thread-retry'))
+    await waitFor(() => expect(screen.getByTestId('thread-retry')).toBeTruthy())
+  })
+
+  it('keys root reply rows by session, like every other feed list (R2.4)', async () => {
+    setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    const list = screen.UNSAFE_getByType(FlatList)
+    const keyExtractor = list.props.keyExtractor as (item: {id: string}) => string
+    expect(keyExtractor({id: 'r1'})).toBe('note-test-session:r1')
+  })
+
   it('failed replies keep the focused post with a retry, not fake replies', async () => {
     setup(
       fakeBackend({threadReplies: jest.fn(async () => { throw new Error('nope') })}),

@@ -2,7 +2,7 @@
 // from the old DOM sanitizer, and the quoteMarker/presentation reunion
 // running over parser output.
 import { contentFromHtml, shortcodeOf } from "../src/core/content/fromHtml";
-import { bold, br, isBlankContent, plainTextOf, t, textOf, type ContentNode } from "../src/core/content/ast";
+import { bold, br, collectBareLinkHrefs, isBlankContent, plainTextOf, t, textOf, type ContentNode } from "../src/core/content/ast";
 import {
   findTextualQuoteMarker,
   stripQuoteMarker,
@@ -295,6 +295,13 @@ describe("MD4 remainder (WS-B): invisible spans, bullets, headings", () => {
         ],
       },
     ]);
+  });
+
+  it("a server-shortened link (visible text + invisible remainder) is bare", () => {
+    const nodes = contentFromHtml(
+      '<p><a href="https://example.social/very/long">https://example.social/<span class="invisible">very/long</span></a></p>',
+    );
+    expect(collectBareLinkHrefs(nodes)).toEqual(["https://example.social/very/long"]);
   });
 
   it("span.mchip content renders inline (never dropped, never a block)", () => {

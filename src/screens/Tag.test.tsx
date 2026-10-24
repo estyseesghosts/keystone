@@ -100,6 +100,26 @@ describe('TagScreen', () => {
     setup({backend: {family: 'misskey', capabilities: {}}, tag: '#'})
     expect(screen.getByText('This tag is empty.')).toBeTruthy()
   })
+
+  it('sanitizes pipes out of the tag descriptor (R2.4)', async () => {
+    const searchTags = jest.fn(async () => ({items: [], cursor: null, end: true}))
+    const backend = {
+      family: 'misskey',
+      capabilities: {},
+      me: jest.fn(async () => makeAccount({id: 'a1'})),
+      mutes: jest.fn(async () => ({items: [], cursor: null, end: true})),
+      blocks: jest.fn(async () => ({items: [], cursor: null, end: true})),
+      search: {
+        tags: searchTags,
+        posts: jest.fn(async () => ({items: [], cursor: null, end: true})),
+        accounts: jest.fn(async () => ({items: [], cursor: null, end: true})),
+      },
+    }
+    setup({backend, tag: 'a|b'})
+    // One `tag|…` segment, never a multi-segment descriptor.
+    await waitFor(() => expect(searchTags).toHaveBeenCalledWith('a b', expect.anything()))
+    expect(screen.getByTestId('tag-feed')).toBeTruthy()
+  })
 })
 
 // Clickstone §1.4: the tag action block. Follow/Unfollow mirrors the

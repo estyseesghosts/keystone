@@ -52,6 +52,7 @@ import {
   plainFromMfm,
   visibilityOf,
 } from "../core/models";
+import { safeHttpUrl } from "../core/content/ast";
 import type {
   FollowRequest as CoreFollowRequest,
   DriveFolder as CoreDriveFolder,
@@ -145,15 +146,17 @@ function bioContent(description: string | null | undefined): Content {
 }
 
 /** Profile-page background URL: `backgroundUrl` wins, else the packed
- * `background` file's `url`. Anything else (absent, null, empty, wrong
- * shape) is null — never the banner, never invented. */
+ * `background` file's `url`. Only http(s) survives (`safeHttpUrl`) —
+ * anything else (absent, null, empty, wrong shape, untrusted scheme) is
+ * null, so every render site is covered without a second gate. Never the
+ * banner, never invented. */
 function backgroundUrlOf(user: Partial<UserDetailed>): string | null {
   const raw = user.backgroundUrl;
-  if (typeof raw === "string" && raw.length > 0) return raw;
+  if (typeof raw === "string" && raw.length > 0) return safeHttpUrl(raw);
   const bg = user.background;
   if (typeof bg === "object" && bg !== null) {
     const url = (bg as { url?: unknown }).url;
-    if (typeof url === "string" && url.length > 0) return url;
+    if (typeof url === "string" && url.length > 0) return safeHttpUrl(url);
   }
   return null;
 }

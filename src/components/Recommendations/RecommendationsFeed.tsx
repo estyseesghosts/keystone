@@ -12,6 +12,7 @@ import {useRecommendationDwell, RECOMMENDATION_VIEWABILITY_CONFIG} from '#/lib/r
 import {useLocale} from '#/locale/i18n'
 import {collapseReposts, computeFeedThreadLinks, isUnsupportedError, type Backend} from '@keystone/fedi'
 import {feedItems, usePostFeedQuery} from '#/state/queries'
+import {useBackendForSessionId} from '#/screens/HomeFeed'
 import {recommendationFeedParams, useRecommendationSettings} from '#/state/queries/recommendations'
 import {filterModerated, filterSoftMuted, useModerationRules, useSoftMutedIds} from '#/state/queries'
 
@@ -32,12 +33,17 @@ export const RecommendationsFeed = forwardRef<
   const theme = useTheme()
   const locale = useLocale()
   const {settings} = useRecommendationSettings(sessionId)
+  // Same resolution as FeedView: the injected prop wins (tests,
+  // per-column accounts); otherwise the session's own backend, so
+  // capabilities and dwell never see a null-backend fallback.
+  const storeBackend = useBackendForSessionId(sessionId)
+  const resolved = backend !== undefined ? backend : storeBackend
   const rec = useMemo(
     () => recommendationFeedParams(locale, settings),
     [locale, settings],
   )
   const feed = usePostFeedQuery(sessionId, 'recommendations', {
-    ...(backend ? {backend} : {}),
+    ...(resolved ? {backend: resolved} : {}),
     limit: 10,
     rec,
   })
@@ -52,7 +58,7 @@ export const RecommendationsFeed = forwardRef<
   const links = useMemo(() => computeFeedThreadLinks(visibleItems), [visibleItems])
   const {threadLinks} = useThreadLinks(links)
   const listRef = useRef<FlatList<(typeof visibleItems)[number]>>(null)
-  const {onViewableItemsChanged, flush} = useRecommendationDwell(sessionId, backend ?? null)
+  const {onViewableItemsChanged, flush} = useRecommendationDwell(sessionId, resolved ?? null)
 
   useImperativeHandle(ref, () => ({
     reload: () => {
@@ -123,7 +129,7 @@ export const RecommendationsFeed = forwardRef<
           <ThreadRow
             post={item}
             sessionId={sessionId}
-            capabilities={backend?.capabilities ?? null}
+            capabilities={resolved?.capabilities ?? null}
             renoters={collapsed.renotersByRep.get(item.id)}
             connectedAbove={threadLinks.connectedAbove[index] ?? false}
             connectedBelow={threadLinks.connectedBelow[index] ?? false}

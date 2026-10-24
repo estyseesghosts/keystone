@@ -21,7 +21,7 @@ import {createEmojiRecentsStore} from '#/components/EmojiPicker/recents'
 import {CompactComposer} from '#/components/Composer/CompactComposer'
 import {Composer} from '#/components/Composer/Composer'
 
-jest.mock('#/components/Composer/pickMedia', () => ({pickMedia: jest.fn(async () => [])}))
+jest.mock('#/components/Composer/pickMedia', () => ({pickMedia: jest.fn(async () => ({kind: 'cancelled'}))}))
 jest.mock('#/screens/HomeFeed', () => ({useBackendForSessionId: () => null}))
 jest.mock('@keystone/fedi', () => ({
   ...jest.requireActual('@keystone/fedi'),

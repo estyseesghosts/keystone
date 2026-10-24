@@ -354,6 +354,12 @@ export function takeMisskeyPending(
 
 export interface MisskeyMiAuthStart extends MisskeyMiAuthPending {
   url: string
+  /** The browser session's result URL when the opener captures the
+   * redirect in-session (iOS `openAuthSessionAsync`); null when the OS
+   * relaunches the app with the redirect instead (Android), on web
+   * same-tab navigation, or when the opener reports nothing. Only a
+   * string is ever a completion URL. */
+  callbackUrl: string | null
 }
 
 /**
@@ -374,8 +380,13 @@ export async function startMisskeyMiAuth(opts: {
   const pending: MisskeyMiAuthPending = {scheme, host, session, createdAt: Date.now()}
   saveMisskeyPending(opts.pendingStore, pending)
   const url = buildMiauthUrl(scheme, host, session, opts.redirectUri)
-  await opts.openBrowser(url)
-  return {...pending, url}
+  const opened: unknown = await opts.openBrowser(url)
+  // H3: thread the opener's return URL through. iOS `openAuthSessionAsync`
+  // reports the consumed redirect as its result; every other opener yields
+  // nothing useful (Android relaunch, web navigation, dismissal) — those
+  // stay null and the caller falls back to polling.
+  const callbackUrl = typeof opened === 'string' ? opened : null
+  return {...pending, url, callbackUrl}
 }
 
 function sleep(ms: number): Promise<void> {

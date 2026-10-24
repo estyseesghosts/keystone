@@ -489,8 +489,28 @@ export function useComposerController({
 
   const addMedia = async () => {
     try {
-      const picked = await pickMedia({limit: limits.maxMedia - uploads.items.length})
-      if (picked.length > 0) uploads.add(picked)
+      const result = await pickMedia({limit: limits.maxMedia - uploads.items.length})
+      // Denied is shown, never a silent cancel (R2.3).
+      if (result.kind === 'denied') {
+        setError(
+          result.canAskAgain
+            ? i18n._(msg`Media library access was denied. Allow access to attach photos or videos.`)
+            : i18n._(
+                msg`Media library access was denied. Enable it in the system settings to attach photos or videos.`,
+              ),
+        )
+        return
+      }
+      if (result.kind === 'cancelled') return
+      // Over-cap files never stage: the picker pre-filters by asset size
+      // and `uploads.add` re-checks by File size — report both honestly.
+      const refused = uploads.add(result.files)
+      const tooLarge = [...result.rejected, ...refused]
+      if (tooLarge.length === 1) {
+        setError(i18n._(msg`"${tooLarge[0]}" is too large to attach (over 10 MB).`))
+      } else if (tooLarge.length > 1) {
+        setError(i18n._(msg`${tooLarge.length} files were too large to attach (over 10 MB).`))
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not open the media picker.')
     }

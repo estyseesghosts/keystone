@@ -251,6 +251,25 @@ describe("MisskeyBackend compose", () => {
       { noteId: "x", choice: 2 },
     ]);
   });
+
+  it("votePoll stops at the first failure and reports what was recorded", async () => {
+    const { transport, calls } = stubTransport((endpoint, params) => {
+      if (endpoint === "notes/polls/vote" && (params as { choice: number }).choice === 1) {
+        throw new ApiError("boom", 500);
+      }
+      return undefined;
+    });
+    await expect(createMisskeyBackend(transport).votePoll("x", [0, 1, 2])).rejects.toMatchObject({
+      name: "FediError",
+      code: "errors.poll.partialVote",
+      params: { recorded: [0], total: 3 },
+    });
+    // The third choice never fires: stop, never blind-continue.
+    expect(calls.map((c) => c.params)).toEqual([
+      { noteId: "x", choice: 0 },
+      { noteId: "x", choice: 1 },
+    ]);
+  });
 });
 
 describe("MisskeyBackend accounts and social", () => {

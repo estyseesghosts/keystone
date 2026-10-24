@@ -95,6 +95,14 @@ describe('firstBareUrl (E9 trigger)', () => {
     expect(firstBareUrl(nodes)).toBeNull()
   })
 
+  it('finds a Mastodon server-shortened bare link (visible text + invisible remainder)', () => {
+    const href = 'https://example.social/very/long'
+    const nodes = contentFromHtml(
+      `<p><a href="${href}">https://example.social/<span class="invisible">very/long</span></a></p>`,
+    )
+    expect(firstBareUrl(nodes)).toBe(href)
+  })
+
   it('skips quote-covered URIs', () => {
     expect(firstBareUrl(mfmNodes(`see ${URL} ok`), [URL])).toBeNull()
   })

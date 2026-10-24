@@ -1,22 +1,26 @@
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {renderHook, waitFor} from '@testing-library/react-native'
+import {act, renderHook, waitFor} from '@testing-library/react-native'
 import React from 'react'
 
 import type {Backend, Post, ScheduledNote, ServerDraft, Session} from '@keystone/fedi'
 
 import {feedQueryKey} from './keys'
 import {
+  MAX_MEDIA_BYTES,
+  attachmentSizeError,
   insertCreatedPost,
   scheduledPostsKey,
   serverDraftsKey,
   submitPost,
   uploadAll,
+  uploadOne,
   useCancelScheduled,
   useDeleteServerDraft,
   useEditPost,
   useSaveServerDraft,
   useScheduledPosts,
   useServerDrafts,
+  useUploads,
   type UploadItem,
 } from './composer'
 
@@ -161,6 +165,57 @@ describe('uploadAll', () => {
     // never sends a false field (Sharkey rejects unknown/empty shape).
     expect(uploadMedia.mock.calls[0][1]).toEqual({comment: 'a cat', isSensitive: true})
     expect(uploadMedia.mock.calls[1][1]).toEqual({comment: 'b cat'})
+  })
+
+  it('refuses an over-cap File before upload starts (never calls upload)', async () => {
+    const uploadMedia = jest.fn().mockResolvedValue({id: 'm-new'})
+    const big = {size: MAX_MEDIA_BYTES + 1, name: 'big.png'} as unknown as File
+    const files = new Map([['a', big]])
+    const patches: Record<string, Partial<UploadItem>> = {}
+    const ids = await uploadAll(
+      {uploadMedia} as unknown as Backend,
+      [item('a')],
+      files,
+      (k, p) => (patches[k] = {...patches[k], ...p}),
+    )
+    // Honest error on the item, no transport touched.
+    expect(ids).toBeNull()
+    expect(uploadMedia).not.toHaveBeenCalled()
+    expect(patches.a).toMatchObject({status: 'error'})
+    expect(patches.a.error).toMatch(/too large/)
+  })
+
+  it('uploadOne passes small files straight through', async () => {
+    const uploadMedia = jest.fn().mockResolvedValue({id: 'm-1'})
+    await uploadOne({uploadMedia} as unknown as Backend, new File(['x'], 'ok.png'))
+    expect(uploadMedia).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('attachmentSizeError', () => {
+  it('null under/at the cap, honest message over, server decides unknown sizes', () => {
+    expect(attachmentSizeError('a.png', 100)).toBeNull()
+    expect(attachmentSizeError('a.png', MAX_MEDIA_BYTES)).toBeNull()
+    expect(attachmentSizeError('big.png', MAX_MEDIA_BYTES + 1)).toMatch(/too large/)
+    expect(attachmentSizeError('mystery.png', 0)).toBeNull()
+    expect(attachmentSizeError('mystery.png', NaN)).toBeNull()
+  })
+})
+
+describe('useUploads size guard', () => {
+  it('refuses over-cap Files before staging and reports their names', () => {
+    const {result} = renderHook(() => useUploads(null))
+    const ok = new File(['x'], 'ok.png')
+    const big = {size: MAX_MEDIA_BYTES + 1, name: 'big.png'} as unknown as File
+    let refused: string[] = []
+    act(() => {
+      refused = result.current.add([
+        {file: ok, name: 'ok.png', previewUri: null},
+        {file: big, name: 'big.png', previewUri: null},
+      ])
+    })
+    expect(refused).toEqual(['big.png'])
+    expect(result.current.items.map(i => i.name)).toEqual(['ok.png'])
   })
 })
 

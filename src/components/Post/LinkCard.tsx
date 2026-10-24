@@ -17,6 +17,7 @@ import {msg} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
 
 import {
+  bareLinkLabel,
   fetchLinkPreview,
   safeHttpUrl,
   urisMatch,
@@ -100,8 +101,10 @@ export function LinkCard({card, testID}: {card: LinkCardModel; testID?: string})
 }
 
 /** First bare URL in rendered body nodes (v1 `NoteBody.cardUrls` parity,
-// minus profile cards): a `link` whose only child is its own href text.
-// Quote-covered URIs never qualify — the quote card already covers them.
+minus profile cards): a `link` the shared chip rule (`bareLinkLabel`)
+// calls bare — visible text IS the href, or the server-shortened
+// visible-text-plus-`invisible` shape. Quote-covered URIs never
+// qualify — the quote card already covers them.
 // Pure; the PostCard trigger is its only caller. */
 export function firstBareUrl(
   nodes: readonly ContentNode[],
@@ -113,10 +116,7 @@ export function firstBareUrl(
     for (const node of list) {
       if (found !== null) return
       if (node.kind === 'link') {
-        const bare =
-          node.children.length === 1 &&
-          node.children[0].kind === 'text' &&
-          node.children[0].text === node.href
+        const bare = bareLinkLabel(node) !== null
         if (
           bare &&
           safeHttpUrl(node.href) !== null &&

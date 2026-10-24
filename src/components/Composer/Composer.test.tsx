@@ -17,7 +17,7 @@ import {pickMedia} from './pickMedia'
 i18n.load('en', {})
 i18n.activate('en')
 
-jest.mock('./pickMedia', () => ({pickMedia: jest.fn(async () => [])}))
+jest.mock('./pickMedia', () => ({pickMedia: jest.fn(async () => ({kind: 'cancelled'}))}))
 jest.mock('@keystone/fedi', () => ({
   ...jest.requireActual('@keystone/fedi'),
   fetchComposeLimits: jest.fn(async () => ({maxChars: 20, maxMedia: 4, maxPollOptions: 4})),
@@ -78,7 +78,7 @@ describe('Composer', () => {
     // Keep the default empty picker; a test that needs an attachment
     // queues one with `mockResolvedValueOnce`.
     pickMediaMock.mockReset()
-    pickMediaMock.mockImplementation(async () => [])
+    pickMediaMock.mockImplementation(async () => ({kind: 'cancelled'}))
   })
 
   it('hides unsupported controls and counts against the server limit', async () => {
@@ -364,7 +364,7 @@ describe('Composer', () => {
   })
 
   it('marks one attachment sensitive at upload on the Misskey family', async () => {
-    pickMediaMock.mockResolvedValueOnce([attachment()])
+    pickMediaMock.mockResolvedValueOnce({kind: 'picked', files: [attachment()], rejected: []})
     const {backend} = setup('sharkey')
     fireEvent.press(screen.getByTestId('composer-media-add'))
     const toggle = await screen.findByTestId(/^composer-upload-sensitive-/)
@@ -379,7 +379,7 @@ describe('Composer', () => {
   })
 
   it('disables attach-time sensitivity on Mastodon with a reason and never sends it', async () => {
-    pickMediaMock.mockResolvedValueOnce([attachment()])
+    pickMediaMock.mockResolvedValueOnce({kind: 'picked', files: [attachment()], rejected: []})
     const {backend} = setup('mastodon')
     fireEvent.press(screen.getByTestId('composer-media-add'))
     const toggle = await screen.findByTestId(/^composer-upload-sensitive-/)
@@ -391,6 +391,31 @@ describe('Composer', () => {
     fireEvent.press(screen.getByTestId('composer-submit'))
     await waitFor(() => expect(backend.uploadMedia).toHaveBeenCalledTimes(1))
     expect(backend.uploadMedia).toHaveBeenCalledWith(expect.any(File), {})
+  })
+
+  it('shows denied access instead of a silent cancel', async () => {
+    pickMediaMock.mockResolvedValueOnce({kind: 'denied', canAskAgain: true})
+    setup('sharkey')
+    fireEvent.press(screen.getByTestId('composer-media-add'))
+    expect(await screen.findByTestId('composer-error')).toHaveTextContent(/Media library access was denied/)
+    expect(screen.queryByTestId(/^composer-upload-/)).toBeNull()
+  })
+
+  it('refuses an over-cap pick with an honest error and stages nothing', async () => {
+    pickMediaMock.mockResolvedValueOnce({kind: 'picked', files: [], rejected: ['huge.mp4']})
+    setup('sharkey')
+    fireEvent.press(screen.getByTestId('composer-media-add'))
+    expect(await screen.findByTestId('composer-error')).toHaveTextContent(/too large/)
+    expect(screen.queryByTestId(/^composer-upload-/)).toBeNull()
+  })
+
+  it('stays silent on picker cancel (no error, nothing staged)', async () => {
+    pickMediaMock.mockResolvedValueOnce({kind: 'cancelled'})
+    setup('sharkey')
+    fireEvent.press(screen.getByTestId('composer-media-add'))
+    await waitFor(() => expect(pickMediaMock).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId('composer-error')).toBeNull()
+    expect(screen.queryByTestId(/^composer-upload-/)).toBeNull()
   })
 
   it.each(['light', 'dark'] as ThemeName[])(

@@ -21,7 +21,7 @@ import {makeMedia, makePost} from '#/components/__tests__/fixtures'
 
 import {DriveScreen} from './Drive'
 
-const mockPickMedia = jest.fn(async (_opts: {limit: number}): Promise<any[]> => [])
+const mockPickMedia = jest.fn(async (_opts: {limit: number}): Promise<any> => ({kind: 'cancelled'}))
 
 jest.mock('#/components/Composer/pickMedia', () => ({
   pickMedia: (opts: {limit: number}) => mockPickMedia(opts),
@@ -144,7 +144,7 @@ const backendWithFolders = () => ({
 describe('Drive screen', () => {
   beforeEach(() => {
     mockPickMedia.mockReset()
-    mockPickMedia.mockResolvedValue([])
+    mockPickMedia.mockResolvedValue({kind: 'cancelled'})
   })
 
   it('asks to sign in when signed out', async () => {
@@ -217,6 +217,30 @@ describe('Drive screen', () => {
     }
   })
 
+  it('fires one deleteFile on a double-tapped confirm (busy guard)', async () => {
+    let resolveDelete!: () => void
+    const backend: any = backendWithoutFolders()
+    backend.drive.deleteFile = jest.fn(
+      () =>
+        new Promise<void>(res => {
+          resolveDelete = res
+        }),
+    )
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('photo')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('drive-file-delete-f1'))
+      fireEvent.press(screen.getByTestId('drive-file-delete-confirm-f1'))
+      fireEvent.press(screen.getByTestId('drive-file-delete-confirm-f1'))
+      expect(backend.drive.deleteFile).toHaveBeenCalledTimes(1)
+      resolveDelete()
+      await waitFor(() => expect(screen.queryByText('photo')).toBeNull())
+      expect(backend.drive.deleteFile).toHaveBeenCalledTimes(1)
+    } finally {
+      done()
+    }
+  })
+
   it('lists folders with create and delete when supported', async () => {
     const backend: any = backendWithFolders()
     const {done} = await setup({backend})
@@ -278,13 +302,17 @@ describe('Drive screen', () => {
 
   it('uploads a picked file into the selected folder and refreshes the list', async () => {
     const backend: any = backendWithFolders()
-    mockPickMedia.mockResolvedValueOnce([
-      {
-        file: {name: 'cat.png'} as unknown as File,
-        name: 'cat.png',
-        previewUri: null,
-      },
-    ])
+    mockPickMedia.mockResolvedValueOnce({
+      kind: 'picked',
+      rejected: [],
+      files: [
+        {
+          file: {name: 'cat.png'} as unknown as File,
+          name: 'cat.png',
+          previewUri: null,
+        },
+      ],
+    })
     const {done} = await setup({backend})
     try {
       expect(await screen.findByText('photo')).toBeTruthy()
@@ -323,13 +351,17 @@ describe('Drive screen', () => {
 
   it('uploads to the root without inventing a folder field', async () => {
     const backend: any = backendWithFolders()
-    mockPickMedia.mockResolvedValueOnce([
-      {
-        file: {name: 'root.png'} as unknown as File,
-        name: 'root.png',
-        previewUri: null,
-      },
-    ])
+    mockPickMedia.mockResolvedValueOnce({
+      kind: 'picked',
+      rejected: [],
+      files: [
+        {
+          file: {name: 'root.png'} as unknown as File,
+          name: 'root.png',
+          previewUri: null,
+        },
+      ],
+    })
     const {done} = await setup({backend})
     try {
       expect(await screen.findByText('photo')).toBeTruthy()
@@ -349,13 +381,17 @@ describe('Drive screen', () => {
     backend.uploadMedia = jest.fn(async () => {
       throw new Error('Quota exceeded.')
     })
-    mockPickMedia.mockResolvedValueOnce([
-      {
-        file: {name: 'big.png'} as unknown as File,
-        name: 'big.png',
-        previewUri: null,
-      },
-    ])
+    mockPickMedia.mockResolvedValueOnce({
+      kind: 'picked',
+      rejected: [],
+      files: [
+        {
+          file: {name: 'big.png'} as unknown as File,
+          name: 'big.png',
+          previewUri: null,
+        },
+      ],
+    })
     const {done} = await setup({backend})
     try {
       expect(await screen.findByText('photo')).toBeTruthy()

@@ -7,13 +7,15 @@
 //   session-scoped keys); fetching marks read server-side, so there is no
 //   mark-read control here.
 // - Sending is text-only this slice (the wire `fileId` stays available
-//   for a follow-up; the box never pretends to attach files).
+//   for a follow-up; the box never pretends to attach files). Receiving
+//   renders the attachment (name + open/download via the packed file URL);
+//   a text-null message is never an empty author line.
 // - Delete is offered only on the viewer's own messages (two-step
 //   confirmed, server-side; the row disappears through invalidation +
 //   refetch, never a local prune).
 
 import {useState} from 'react'
-import {FlatList, RefreshControl, TextInput, View} from 'react-native'
+import {FlatList, Linking, RefreshControl, TextInput, View} from 'react-native'
 import type {InfiniteData} from '@tanstack/react-query'
 
 import type {ChatMessage, Page} from '@keystone/fedi'
@@ -22,6 +24,7 @@ import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {Pressable} from '#/components/Pressable'
 
 /** Author line: packed name, else handle, else a stable id suffix — never
  * an invented name. Pure. */
@@ -32,6 +35,43 @@ export function chatMessageAuthor(message: ChatMessage): string {
     return `@${account.acct}`
   }
   return `…${message.fromAccountId.slice(-6)}`
+}
+
+/** Attachment row: the packed Drive file when the server sent one
+ * (name + open via its URL), a `fileId`-only caption when the pack left
+ * the file off, and null when the message carries no file. Pure. */
+function ChatAttachment({message}: {message: ChatMessage}) {
+  const file = message.file
+  if (file) {
+    const label = file.name && file.name.length > 0 ? file.name : 'Attachment'
+    return (
+      <View testID={`chat-attachment-${message.id}`}>
+        {file.url ? (
+          <Pressable
+            onPress={() => void Linking.openURL(file.url as string).catch(() => {})}
+            accessibilityRole="link"
+            accessibilityLabel={`Open attachment ${label}`}
+            testID={`chat-attachment-open-${message.id}`}>
+            <Body>{label}</Body>
+            <Caption color="faint">{`${file.mimeType} · Open attachment`}</Caption>
+          </Pressable>
+        ) : (
+          <>
+            <Body>{label}</Body>
+            <Caption color="faint">Attachment is still processing.</Caption>
+          </>
+        )}
+      </View>
+    )
+  }
+  if (message.fileId) {
+    return (
+      <View testID={`chat-attachment-${message.id}`}>
+        <Caption color="faint">Attachment (not loaded).</Caption>
+      </View>
+    )
+  }
+  return null
 }
 
 function ChatMessageRow({
@@ -50,6 +90,10 @@ function ChatMessageRow({
     <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]} testID={`chat-message-${message.id}`}>
       <Caption color="faint">{chatMessageAuthor(message)}</Caption>
       {message.text ? <Body>{message.text}</Body> : null}
+      <ChatAttachment message={message} />
+      {!message.text && !message.file && !message.fileId ? (
+        <Caption color="faint">(empty message)</Caption>
+      ) : null}
       {mine ? (
         <View style={[atoms.row, atoms.gap_sm]}>
           <View style={{flex: 1}} />

@@ -1,6 +1,8 @@
 // MFM → AST tests (slice 2.4): full node coverage, `fn` degradation,
 // newline/paragraph breaks, empty and unparseable input.
 import { contentFromMfm, convertNode } from "../src/core/content/fromMfm";
+import { textOf } from "../src/core/content/ast";
+import { plainFromMfm } from "../src/core/models";
 import { parse } from "mfm-js";
 describe("inline formatting", () => {
   it("bold/italic/strike keep children", () => {
@@ -295,5 +297,21 @@ describe("Matrix IDs (never local mentions)", () => {
         children: [{ kind: "text", text: "@jm:nope.chat" }],
       },
     ]);
+  });
+});
+
+describe("plain projection parity (R2.1)", () => {
+  it("keeps dotted bridged handles whole in plainFromMfm", () => {
+    expect(plainFromMfm("@foxtails.me@bsky.brid.gy hi")).toBe("foxtails.me@bsky.brid.gy hi");
+  });
+
+  it("strips non-ASCII hashtags in plainFromMfm", () => {
+    expect(plainFromMfm("#über hi")).toBe("über hi");
+  });
+
+  it("plainFromMfm agrees with textOf(contentFromMfm(x)) on the handle and the tag", () => {
+    const x = "@foxtails.me@bsky.brid.gy #über";
+    expect(textOf(contentFromMfm(x))).toBe("@foxtails.me@bsky.brid.gy #über");
+    expect(plainFromMfm(x)).toBe("foxtails.me@bsky.brid.gy über");
   });
 });

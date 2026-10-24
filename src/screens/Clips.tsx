@@ -1,5 +1,6 @@
 // Clips index (`/clips`, v1 `Clips` parity): the viewer's clips, create
-// (name + public flag), rename (inline), and delete (two-tap confirm).
+// (name + public flag), rename + privacy toggle (inline), and delete
+// (two-tap confirm).
 // Tapping a row navigates to `Clip` with `{id}`. Gated on
 // `backend.clips`; every `ClipsApi` member is required, so the controls
 // are never disabled by capability — only by empty input or busy state.
@@ -82,7 +83,7 @@ function ClipRow({
   onAdd,
 }: {
   clip: ClipSummary
-  onRename: (name: string) => Promise<void>
+  onRename: (name: string, isPublic: boolean) => Promise<void>
   onDelete: () => Promise<void>
   pendingDelete: boolean
   onArmDelete: () => void
@@ -93,6 +94,7 @@ function ClipRow({
   onAdd?: () => Promise<void>
 }) {
   const [draft, setDraft] = useState(clip.name)
+  const [pub, setPub] = useState(clip.isPublic ?? false)
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -103,7 +105,7 @@ function ClipRow({
     setBusy(true)
     setError(null)
     try {
-      await onRename(trimmed)
+      await onRename(trimmed, pub)
       setEditing(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not rename the clip.')
@@ -136,6 +138,13 @@ function ClipRow({
             error={error ?? undefined}
             testID={`clips-rename-input-${clip.id}`}
           />
+          <Button
+            label={pub ? 'Public: on' : 'Public: off'}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => setPub(v => !v)}
+            testID={`clips-rename-public-${clip.id}`}
+          />
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
               label={busy ? 'Saving…' : 'Save'}
@@ -162,7 +171,11 @@ function ClipRow({
             label="Rename"
             variant="secondary"
             disabled={busy}
-            onPress={() => setEditing(true)}
+            onPress={() => {
+              setDraft(clip.name)
+              setPub(clip.isPublic ?? false)
+              setEditing(true)
+            }}
             testID={`clips-rename-${clip.id}`}
           />
         </View>
@@ -318,11 +331,11 @@ export function ClipsScreen() {
           renderItem={({item}) => (
             <ClipRow
               clip={item}
-              onRename={async name => {
+              onRename={async (name, isPublic) => {
                 if (!backend.clips) return
                 setActionError(null)
                 try {
-                  const updated = await backend.clips.update(item.id, {name})
+                  const updated = await backend.clips.update(item.id, {name, isPublic})
                   setClips(prev => (prev ?? []).map(c => (c.id === item.id ? updated : c)))
                 } catch (err) {
                   setActionError(err instanceof Error ? err.message : 'Could not rename the clip.')

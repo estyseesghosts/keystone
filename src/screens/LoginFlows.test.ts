@@ -357,8 +357,34 @@ describe('misskey MiAuth browser sign-in', () => {
       host: 'a.example',
       session: started.session,
     })
+    // A void opener threads through as a null callback URL.
+    expect(started.callbackUrl).toBeNull()
     // Replaying the same session finds nothing.
     expect(takeMisskeyPending(store, started.session)).toBeNull()
+  })
+
+  it('threads the opener result URL through as callbackUrl (iOS inline path)', async () => {
+    const store: KeyValueStore = createMemoryStore()
+    const started = await startMisskeyMiAuth({
+      pendingStore: store,
+      origin: ORIGIN_A,
+      redirectUri: 'https://app.example/auth/callback',
+      openBrowser: async () => 'keystone://auth/callback?session=abc',
+    })
+    expect(started.callbackUrl).toBe('keystone://auth/callback?session=abc')
+  })
+
+  it('maps a non-string opener result to null (Android relaunch / web)', async () => {
+    const store: KeyValueStore = createMemoryStore()
+    for (const returned of [null, undefined, 42, {type: 'dismiss'}]) {
+      const started = await startMisskeyMiAuth({
+        pendingStore: store,
+        origin: ORIGIN_A,
+        redirectUri: 'https://app.example/auth/callback',
+        openBrowser: async () => returned,
+      })
+      expect(started.callbackUrl).toBeNull()
+    }
   })
 
   it('polls the check endpoint, then verifies the issued token before returning', async () => {

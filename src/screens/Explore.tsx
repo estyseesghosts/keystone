@@ -51,14 +51,11 @@ import {i18n} from '#/locale/i18n'
 import {applySuggestion, suggestTrigger} from '#/components/Explore/suggest'
 import {exploreTabFromParam, type ExploreTab, type RootParamList} from '#/routes'
 import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
+import {safeDescriptorArg} from './explore/safeDescriptor'
+import {mergeNewsLinks} from './explore/news'
 
 const SUGGEST_LIMIT = 8
 const SUGGEST_DEBOUNCE_MS = 250
-
-/** `|` is the descriptor segment separator — never content. */
-function safeDescriptorArg(value: string): string {
-  return value.replace(/\|/g, ' ').trim()
-}
 
 function stripTagPrefix(query: string): string {
   return query.replace(/^#+/, '').trim()
@@ -549,10 +546,16 @@ function NewsTab({backend}: {backend: Backend}) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [attempt, setAttempt] = useState(0)
+  // `loading` state commits a render late, so two rapid `onEndReached`
+  // fires could share one stale `links` snapshot — the ref closes that
+  // gap, and the functional updater below dedupes against the freshest
+  // list either way.
+  const loadingRef = useRef(false)
   useEffect(() => {
     if (!backend.explore?.news) return
     const news = backend.explore.news
     let cancelled = false
+    loadingRef.current = true
     setLoading(true)
     setError(null)
     void news({limit: 10})
@@ -566,7 +569,10 @@ function NewsTab({backend}: {backend: Backend}) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load news.')
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          loadingRef.current = false
+          setLoading(false)
+        }
       })
     return () => {
       cancelled = true
@@ -599,19 +605,23 @@ function NewsTab({backend}: {backend: Backend}) {
   }
   const loadMore = () => {
     const news = backend.explore?.news
-    if (!news || loading || end || cursor == null) return
+    if (!news || loadingRef.current || end || cursor == null) return
+    loadingRef.current = true
     setLoading(true)
+    setError(null)
     void news({limit: 10, cursor: cursor as never})
       .then(page => {
-        const seen = new Set(links.map(l => l.url))
-        setLinks(prev => [...prev, ...page.items.filter(l => !seen.has(l.url))])
+        setLinks(prev => mergeNewsLinks(prev, page.items))
         setCursor(page.cursor)
         setEnd(page.end)
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Could not load more news.')
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        loadingRef.current = false
+        setLoading(false)
+      })
   }
   return (
     <FlatList
@@ -622,9 +632,27 @@ function NewsTab({backend}: {backend: Backend}) {
       renderItem={({item}) => <NewsCard link={item} />}
       // Infinite scroll with early prefetch: the next page starts loading
       // well before the bottom edge, so the button-less list never stalls.
-      // `loadMore` is already guarded (loading/end/cursor), never a dupe.
+      // `loadMore` is already guarded (in-flight/end/cursor), never a dupe.
       onEndReached={() => void loadMore()}
       onEndReachedThreshold={2}
+      ListFooterComponent={
+        // A load-more failure with items on screen keeps the list and
+        // offers a retry — never a silent swallow, never a cleared list.
+        error ? (
+          <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
+            <Caption color="faint">{error}</Caption>
+            <Button
+              label={i18n._(msg`Retry`)}
+              variant="secondary"
+              onPress={() => {
+                setError(null)
+                loadMore()
+              }}
+              testID="explore-news-more-retry"
+            />
+          </View>
+        ) : null
+      }
     />
   )
 }

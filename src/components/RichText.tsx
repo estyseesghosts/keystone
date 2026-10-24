@@ -707,9 +707,7 @@ function MatrixChip({
           : i18n._(msg`Matrix handle: ${userId}. Tap to copy.`)
       }
       testID="richtext-matrix-chip"
-      onPress={() => {
-        if (Platform.OS !== 'web') void copy()
-      }}>
+      onPress={() => void copy()}>
       <Text style={{fontSize: ctx.size, color: ctx.textColor}} numberOfLines={1}>
         {`[m] ${short}`}
       </Text>

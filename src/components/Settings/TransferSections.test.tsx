@@ -20,9 +20,12 @@ import {SessionProvider} from '#/state/session/SessionProvider'
 import {ThemeProvider} from '#/alf/index'
 
 import {ExportSection, ImportSection} from './TransferSections'
-import {pickTransferFile} from '#/lib/documentPicker'
+import {MAX_TRANSFER_FILE_BYTES, pickTransferFile} from '#/lib/documentPicker'
 
-jest.mock('#/lib/documentPicker', () => ({pickTransferFile: jest.fn()}))
+jest.mock('#/lib/documentPicker', () => ({
+  ...jest.requireActual('#/lib/documentPicker'),
+  pickTransferFile: jest.fn(),
+}))
 
 const pickMock = pickTransferFile as jest.MockedFunction<typeof pickTransferFile>
 
@@ -242,6 +245,24 @@ describe('TransferSections import flow (upload-then-{fileId})', () => {
       await waitFor(() => expect(pickMock).toHaveBeenCalled())
       expect(backend.transfer.importFile).not.toHaveBeenCalled()
       expect(screen.queryByTestId('transfer-import-error-following')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('refuses an over-cap file before upload (no backend call)', async () => {
+    const backend = transferBackend()
+    // Size-only stand-in: the row reads `.size` and refuses before the
+    // Drive upload, so no real bytes are needed.
+    const big = {name: 'huge.csv', size: MAX_TRANSFER_FILE_BYTES + 1} as unknown as File
+    const {tree, done} = await setup({backend})
+    pickMock.mockResolvedValueOnce({file: big, name: 'huge.csv'})
+    try {
+      render(tree('import'))
+      fireEvent.press(await screen.findByTestId('transfer-import-pick-following'))
+      expect(await screen.findByTestId('transfer-import-error-following')).toBeTruthy()
+      expect(screen.getByText(/too large/)).toBeTruthy()
+      expect(backend.transfer.importFile).not.toHaveBeenCalled()
     } finally {
       done()
     }

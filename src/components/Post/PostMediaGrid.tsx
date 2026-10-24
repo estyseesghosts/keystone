@@ -217,20 +217,27 @@ function Still({item, single, index, onOpen, bleed}: {item: Media; single: boole
 /** gifv as a muted autoplay loop (v1 shows gifv as an `<img>`; RN has no
  * reliable animated-img, and the Lightbox already loops gifv — the loop
  * matches the behavior). Tapping opens the Lightbox. */
-function GifvTile({item, single, index, onOpen, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; bleed?: boolean}) {
+function GifvTile({item, single, index, onOpen, active, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; active: boolean; bleed?: boolean}) {
   const url = safeHttpUrl(item.url)
   if (url === null) {
     return <Placeholder label="Video unavailable" reason="The server sent no video URL." testID={`media-missing-${item.id}`} />
   }
-  return <LoopTile item={item} single={single} index={index} onOpen={onOpen} url={url} bleed={bleed} />
+  return <LoopTile item={item} single={single} index={index} onOpen={onOpen} url={url} active={active} bleed={bleed} />
 }
 
-function LoopTile({item, single, index, onOpen, url, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; url: string; bleed?: boolean}) {
+function LoopTile({item, single, index, onOpen, url, active, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; url: string; active: boolean; bleed?: boolean}) {
   const player = useVideoPlayer(url, p => {
     p.loop = true
     p.muted = true
-    p.play()
   })
+  // Viewability gate (R2.3): only the active tile plays. Every mounted
+  // gifv autoplaying on init meant N simultaneous decodes for off-screen
+  // strip tiles. Full feed-level viewability wiring is a follow-up; until
+  // then the grid plays at most its first visible tile.
+  useEffect(() => {
+    if (active) player.play()
+    else player.pause()
+  }, [player, active])
   // Singles crop only outside shapes (no measured path for video — meta
   // only); in-range loops fit like stills, strip keeps cover.
   const crop = single && isOutOfRange(metaAspect(item) ?? SINGLE_AR)
@@ -372,7 +379,7 @@ function SensitiveTile({
   )
 }
 
-export function PostMediaGrid({media, onOpen, testID, bleed}: {media: Media[]; onOpen?: (index: number) => void; testID?: string; bleed?: boolean}) {
+export function PostMediaGrid({media, onOpen, testID, bleed, autoplayIndex = 0}: {media: Media[]; onOpen?: (index: number) => void; testID?: string; bleed?: boolean; autoplayIndex?: number | null}) {
   // Per-tile reveal, keyed by index: revealing one sensitive attachment
   // leaves every other hidden tile behind its own gate (v1 `NoteBody`).
   const [revealed, setRevealed] = useState<ReadonlySet<number>>(() => new Set())
@@ -405,11 +412,15 @@ export function PostMediaGrid({media, onOpen, testID, bleed}: {media: Media[]; o
       return <SensitiveTile key={item.id} item={item} index={i} onReveal={reveal} />
     }
     const single = media.length === 1
+    // Viewability gate (R2.3): only the autoplay tile's gifv runs — one
+    // decode at a time until feed-level viewability wiring lands (`null`
+    // pauses every tile). Singles always run (index 0 is the default).
+    const gifvActive = (i: number) => autoplayIndex !== null && i === autoplayIndex
     switch (item.kind) {
       case 'image':
         return <Still key={item.id} item={item} single={single} index={i} onOpen={onOpen} bleed={bleed} />
       case 'gifv':
-        return <GifvTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} bleed={bleed} />
+        return <GifvTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} active={gifvActive(i)} bleed={bleed} />
       case 'video':
         return <VideoTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} bleed={bleed} />
       case 'audio':

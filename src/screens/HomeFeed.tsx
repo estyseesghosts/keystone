@@ -23,6 +23,7 @@ import {
   collapseReposts,
   computeFeedThreadLinks,
   isUnsupportedError,
+  ApiError,
   type Backend,
   type FeedDescriptor,
   type Post,
@@ -298,13 +299,16 @@ export function FeedView({  sessionId,
   const hasData = feed.data != null && feed.data.pages.some(p => p.items.length > 0)
   if (feed.isError && !hasData) {
     const unavailable = isUnsupportedError(feed.error)
+    const rateLimited = feed.error instanceof ApiError && feed.error.status === 429
     return (
       <View testID={testID} style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-        <Body>{unavailable ? i18n._(msg`Not on this server.`) : i18n._(msg`Could not load this feed.`)}</Body>
+        <Body>{unavailable ? i18n._(msg`Not on this server.`) : rateLimited ? i18n._(msg`Rate limited by the server.`) : i18n._(msg`Could not load this feed.`)}</Body>
         <Caption color="faint">
           {unavailable
             ? i18n._(msg`This server has no equivalent for this timeline.`)
-            : i18n._(msg`Check your connection and try again.`)}
+            : rateLimited
+              ? i18n._(msg`The server is throttling requests right now. Wait a moment, then try again.`)
+              : i18n._(msg`Check your connection and try again.`)}
         </Caption>
         <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={() => void feed.refetch()} testID="feed-retry" />
       </View>

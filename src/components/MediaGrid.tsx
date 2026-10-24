@@ -1,3 +1,9 @@
+// LEGACY (R2.3): the live feed grid is `Post/PostMediaGrid` (natural
+// sizing per `docs/image-sizing.md`, per-tile sensitive reveal). This
+// fixed-16/9 grid has no screen importer and is no longer exported from
+// the components barrel — kept only because `mediaAlt` (shared with
+// `Lightbox`) and the existing media tests still reference this module.
+// Do not add new importers; new tiles go in `PostMediaGrid`.
 import {useState} from 'react'
 import {Image} from 'expo-image'
 import {useVideoPlayer, VideoView} from 'expo-video'

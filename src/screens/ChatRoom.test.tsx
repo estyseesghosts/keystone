@@ -187,4 +187,38 @@ describe('ChatRoom screen', () => {
       done()
     }
   })
+
+  it('renders a file-only message as a named attachment, never a blank author line', async () => {
+    const fileOnly = {
+      ...message('msg3', 'bob', undefined),
+      text: null,
+      fileId: 'f1',
+      file: {
+        id: 'f1',
+        kind: 'image',
+        mimeType: 'image/png',
+        url: 'https://mk.example/files/f1',
+        name: 'photo.png',
+      },
+    }
+    const empty = {...message('msg4', 'bob', undefined), text: null, fileId: null, file: null}
+    const backend = fullBackend({
+      roomMessages: jest.fn(async () => ({
+        items: [fileOnly, empty],
+        cursor: null,
+        end: true,
+      })),
+    })
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('photo.png')).toBeTruthy()
+      expect(screen.getByTestId('chat-attachment-msg3')).toBeTruthy()
+      expect(screen.getByTestId('chat-attachment-open-msg3')).toBeTruthy()
+      // Neither row is a bare author line: the file row shows the name,
+      // the content-less row says so.
+      expect(screen.getByText('(empty message)')).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
 })

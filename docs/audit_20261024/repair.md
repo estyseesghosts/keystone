@@ -342,8 +342,7 @@ Audit: `results/04` bugs 1–4 and the DOMException note
 
 ### R2.1 — Content scanners and bare-link unfurl
 
-Status: not started
-Branch: `repair-r2.1-content-scanners`
+Status: done (2026-10-24, Wave 2 commit; log `state/logs/2026-10-24-repair-r2.1.md`)
 Audit: `results/03` B1, B2, B3, B4
 
 **Goal.** Dotted bridged handles survive translated-text, field, and `plainFromMfm` scans. Mastodon server-shortened links (text + invisible children) count as bare links for unfurl. Non-ASCII `data-tag` is accepted on the fast path.
@@ -380,8 +379,7 @@ Audit: `results/03` B1, B2, B3, B4
 
 ### R2.2 — Exclusive-feature honesty
 
-Status: not started
-Branch: `repair-r2.2-exclusive-honesty`
+Status: done (2026-10-24, Wave 2 commit; log `state/logs/2026-10-24-repair-r2.2.md`; antenna deferral in DECISIONS)
 Audit: `results/06` bugs 1, 2, 3, 5, 6, 9; `results/05` B9 (same PostPoll bug)
 
 **Goal.** File-only chat messages show the file. Multi-choice Misskey votes do not silently half-apply. Poll UI resyncs when props change. Clip privacy is editable after create. Conversation history says when it is incomplete. Drive delete cannot double-fire.
@@ -421,8 +419,7 @@ Audit: `results/06` bugs 1, 2, 3, 5, 6, 9; `results/05` B9 (same PostPoll bug)
 
 ### R2.3 — Media bounds, visible video, SDK pin decision
 
-Status: not started
-Branch: `repair-r2.3-media-native`
+Status: done (2026-10-24, Wave 2 commit; ADR 0008 SDK pin option (a); log `state/logs/2026-10-24-repair-r2.3.md`; native bundle `not verified`)
 Audit: `results/10` F1, M1, M2, M3, M4, D2, D7, H3
 
 **Goal.** Picker and import cannot silently OOM or skip a denied permission. Off-screen video does not all play. SDK override vs SDK 57 is an explicit decision, not an accident. Dead `MediaGrid` cannot be mistaken for the live grid.
@@ -467,8 +464,7 @@ Audit: `results/10` F1, M1, M2, M3, M4, D2, D7, H3
 
 ### R2.4 — Surface honesty (feeds, profile, explore, note)
 
-Status: not started
-Branch: `repair-r2.4-surface-honesty`
+Status: done (2026-10-24, Wave 2 commit; log `state/logs/2026-10-24-repair-r2.4.md`)
 Audit: `results/05` B1–B5, B7, B8; `results/05` Q5; `results/09` Note keyExtractor / empty parent id
 
 **Goal.** Deck columns resolve emoji with the column’s session. 429 is not “deleted”. Profile tabs reset per profile. News load-more does not duplicate or swallow errors. Tag descriptors cannot inject `|`. Background images are http(s) only. Recommendations use the session backend’s capabilities. Note list keys include `sessionId`.
@@ -880,10 +876,10 @@ Update the status line on the slice **and** this table when a session ends.
 | R1.2 Session caches | done | `repair-r1.2-session-caches` | R1.1 merged Wave 1 |
 | R1.3 Mastodon honesty | done | `repair-r1.3-mastodon-honesty` | — |
 | R1.4 Session plumbing | done | `repair-r1.4-session-plumbing` | — |
-| R2.1 Content scanners | not started | `repair-r2.1-content-scanners` | — |
-| R2.2 Exclusive honesty | not started | `repair-r2.2-exclusive-honesty` | R1.1 (`votePoll` in `misskey/backend.ts`) |
-| R2.3 Media / native | not started | `repair-r2.3-media-native` | RichText one-liner waits if R0.2/D3.5 in flight |
-| R2.4 Surface honesty | not started | `repair-r2.4-surface-honesty` | — |
+| R2.1 Content scanners | done | `repair-r2.1-content-scanners` | — |
+| R2.2 Exclusive honesty | done | `repair-r2.2-exclusive-honesty` | R1.1 merged Wave 1 |
+| R2.3 Media / native | done | `repair-r2.3-media-native` | RichText free (R0.2 merged) |
+| R2.4 Surface honesty | done | `repair-r2.4-surface-honesty` | — |
 | D3.1 Misskey backend split | not started | `repair-d3.1-misskey-backend-split` | R1.1, R1.2 |
 | D3.2 Core type split | not started | `repair-d3.2-core-backend-types` | R1.3 |
 | D3.3 Mastodon helper split | not started | `repair-d3.3-mastodon-helpers` | R1.3 |

@@ -1,5 +1,5 @@
 // F8: poll render + vote states.
-import {fireEvent, render, screen} from '@testing-library/react-native'
+import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {I18nProvider} from '@lingui/react'
 import {i18n} from '@lingui/core'
 
@@ -80,6 +80,67 @@ describe('PostPoll (F8)', () => {
     renderPoll(<PostPoll poll={poll({multiple: true, expired: true})} onVote={jest.fn()} testID="poll" />)
     expect(screen.queryByTestId('poll-vote')).toBeNull()
     expect(screen.getByTestId('poll-meta')).toBeTruthy()
+  })
+
+  it('resyncs when the server voted flags change after mount', () => {
+    const {rerender} = renderPoll(<PostPoll poll={poll()} onVote={jest.fn()} testID="poll" />)
+    expect(screen.queryByTestId('poll-vote')).toBeTruthy()
+    expect(screen.queryByText('✓ Alpha')).toBeNull()
+    rerender(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <PostPoll
+            poll={poll({options: [
+              {text: 'Alpha', votesCount: 8, voted: true},
+              {text: 'Beta', votesCount: 3, voted: false},
+            ]})}
+            onVote={jest.fn()}
+            testID="poll"
+          />
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    // Server flags win: the vote locks and the checkmark follows the prop.
+    expect(screen.getByText('✓ Alpha')).toBeTruthy()
+    expect(screen.queryByTestId('poll-vote')).toBeNull()
+  })
+
+  it('keeps local picks across pure count updates', () => {
+    const {rerender} = renderPoll(<PostPoll poll={poll()} onVote={jest.fn()} testID="poll" />)
+    fireEvent.press(screen.getByTestId('poll-option-1'))
+    rerender(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <PostPoll
+            poll={poll({votesCount: 11, options: [
+              {text: 'Alpha', votesCount: 7, voted: false},
+              {text: 'Beta', votesCount: 4, voted: false},
+            ]})}
+            onVote={jest.fn()}
+            testID="poll"
+          />
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    // Still unlocked with the local pick intact — only a flags change resyncs.
+    expect(screen.getByTestId('poll-vote')).toBeTruthy()
+  })
+
+  it('reports partial progress and retries only the rest', async () => {
+    const partial = Object.assign(new Error('boom'), {
+      code: 'errors.poll.partialVote',
+      params: {recorded: [0], total: 2},
+    })
+    const onVote = jest.fn().mockRejectedValueOnce(partial).mockResolvedValue(undefined)
+    renderPoll(<PostPoll poll={poll({multiple: true})} onVote={onVote} testID="poll" />)
+    fireEvent.press(screen.getByTestId('poll-option-0'))
+    fireEvent.press(screen.getByTestId('poll-option-1'))
+    fireEvent.press(screen.getByTestId('poll-vote'))
+    expect(onVote).toHaveBeenCalledWith([0, 1])
+    await screen.findByText('Recorded 1 of 2 choices. Retry sends only the rest.')
+    fireEvent.press(screen.getByTestId('poll-vote'))
+    await waitFor(() => expect(onVote).toHaveBeenCalledWith([1]))
+    await screen.findByText('✓ Beta')
   })
 })
 

@@ -62,9 +62,9 @@ export function plainFromMfm(mfm: string | null | undefined): string {
     // mentions @user / @user@host -> user / user@host (mfm-js packs the
     // leading @ into acct; the renderer shows it verbatim — 2026-10-16).
     // Only at a word boundary: `name@host` inside an emoji code stays.
-    .replace(/(^|\s)@([\w-]+(?:@[\w.-]+)?)/g, "$1$2")
+    .replace(/(^|\s)@([\w-]+(?:\.[\w-]+)*(?:@[\w.-]+)?)/g, "$1$2")
     // hashtags keep their text.
-    .replace(/#([\w-]+)/g, "$1")
+    .replace(/#([^\s#]{1,128})/g, "$1")
     // [label](url) -> label
     .replace(/\[([^\]]*)\]\(([^)]*)\)/g, "$1")
     // bare <url> -> url

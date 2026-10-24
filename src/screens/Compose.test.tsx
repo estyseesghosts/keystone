@@ -18,7 +18,7 @@ import {clearRedraftSeeds, putRedraftSeed} from '#/lib/redraft'
 
 import {ComposeScreen} from './Compose'
 
-jest.mock('../components/Composer/pickMedia', () => ({pickMedia: jest.fn(async () => [])}))
+jest.mock('../components/Composer/pickMedia', () => ({pickMedia: jest.fn(async () => ({kind: 'cancelled'}))}))
 jest.mock('#/components/EmojiPicker', () => ({EmojiPicker: () => null}))
 
 const mockGoBack = jest.fn()

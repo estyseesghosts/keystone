@@ -5,9 +5,10 @@ allowBuilds:
   'esbuild': true
 overrides:
   '@react-native/babel-preset': '0.86.3'
-  'react-native-reanimated': '4.7.1'
-  'react-native-worklets': '0.13.0'
-  'react-native-screens': '4.30.0'
+# R2.3 (ADR 0008): the reanimated/worklets/screens version overrides are
+# gone on purpose — `package.json` already declares the SDK 57 pins and
+# `src/` imports none of those APIs directly, so the SDK-tested matrix
+# wins over the Bluesky mirror. Re-pin only with crash evidence.
 # No patchedDependencies carried over: Bluesky's patches target their
 # native modules, Sentry and EAS setup, none of which we vendor (see
 # docs/DECISIONS.md). Re-evaluate per slice if a patch-worthy issue appears.

@@ -19,7 +19,7 @@ import {
 import {atoms} from '#/alf/atoms'
 import {Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {pickTransferFile} from '#/lib/documentPicker'
+import {pickTransferFile, transferSizeError} from '#/lib/documentPicker'
 import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useActiveSession} from '#/state/session/SessionProvider'
@@ -136,6 +136,14 @@ function ImportRow({
     }
     // Picker cancel: a silent no-op — never an error, never a backend call.
     if (!picked) {
+      setPhase('idle')
+      return
+    }
+    // Client bound (R2.3): the picker itself refuses over-cap files, but
+    // re-check here so an over-cap File never reaches the Drive upload.
+    const tooBig = transferSizeError(picked.name, picked.file.size)
+    if (tooBig) {
+      setError(tooBig)
       setPhase('idle')
       return
     }

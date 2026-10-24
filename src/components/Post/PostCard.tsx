@@ -1131,6 +1131,7 @@ function PostCardView({
             quote={visibleQuote}
             unavailable={false}
             status={quoteStatus}
+            sessionId={sessionId}
             emojiStyle={emojiStyle}
             onPress={openQuoted}
             onOpenMedia={(items, index) => setLightbox({items, index})}
@@ -1148,6 +1149,7 @@ function PostCardView({
               quote={null}
               unavailable
               status={quoteStatus}
+              sessionId={sessionId}
               emojiStyle={emojiStyle}
               onMentionPress={handleMentionPress}
               onHashtagPress={handleHashtagPress}
@@ -1180,6 +1182,8 @@ function PostCardView({
         <ReactionChips
           reactions={effective.reactions}
           capabilities={capabilities}
+          sessionId={sessionId}
+          authorHost={effective.author.host}
           pendingKeys={live?.actions.shadowed.pendingEmojiKeys}
           likeEmoji={likeEmoji}
           onToggle={

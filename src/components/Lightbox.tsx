@@ -1,5 +1,6 @@
 import {Image} from 'expo-image'
 import {useVideoPlayer, VideoView} from 'expo-video'
+import {useEffect} from 'react'
 import {Modal, ScrollView, StyleSheet, View, useWindowDimensions} from 'react-native'
 import type {ComponentProps} from 'react'
 import {safeHttpUrl, type Media} from '@keystone/fedi'
@@ -26,13 +27,13 @@ export type LightboxProps = {
   testID?: string
 }
 
-function LightboxFrame({item, index, width}: {item: Media; index: number; width: number}) {
+function LightboxFrame({item, index, width, active}: {item: Media; index: number; width: number; active: boolean}) {
   const alt = mediaAlt(item, index)
   // Server strings are never trusted as player/image sources (F4):
   // anything but http(s) renders the alt caption only, never a fetch.
   const safeUrl = safeHttpUrl(item.url)
   if ((item.kind === 'video' || item.kind === 'gifv') && safeUrl) {
-    return <LightboxVideo item={item} index={index} width={width} url={safeUrl} />
+    return <LightboxVideo item={item} index={index} width={width} url={safeUrl} active={active} />
   }
   if (item.kind === 'image' && safeUrl) {
     return (
@@ -52,11 +53,17 @@ function LightboxFrame({item, index, width}: {item: Media; index: number; width:
   )
 }
 
-function LightboxVideo({item, index, width, url}: {item: Media; index: number; width: number; url: string}) {
+function LightboxVideo({item, index, width, url, active}: {item: Media; index: number; width: number; url: string; active: boolean}) {
   const player = useVideoPlayer(url, player => {
     player.loop = item.kind === 'gifv'
-    player.play()
   })
+  // Pager-driven playback (R2.3): only the focused frame plays. Every
+  // frame mounting its own player and playing on init meant opening a
+  // 4-video Lightbox started 4 audio tracks at once.
+  useEffect(() => {
+    if (active) player.play()
+    else player.pause()
+  }, [player, active])
   return (
     <VideoView
       player={player as unknown as ViewPlayer}
@@ -109,6 +116,9 @@ export function Lightbox({media, index, onIndexChange, onClose, testID}: Lightbo
   const insets = useOptionalSafeAreaInsets()
   // Reduced motion (P9): no fade transition into the viewer.
   const reduceMotion = useReducedMotionSetting()
+  // Focused frame (R2.3): the `index` prop names it — only this frame's
+  // player runs. Every caller owns `index` state and echoes
+  // `onIndexChange`, so the prop is the single source of focus.
   if (media.length === 0) return null
   const safe = Math.min(Math.max(index, 0), media.length - 1)
   const current = media[safe]
@@ -128,11 +138,14 @@ export function Lightbox({media, index, onIndexChange, onClose, testID}: Lightbo
           showsHorizontalScrollIndicator={false}
           style={styles.pager}
           onMomentumScrollEnd={e => {
-            const next = Math.round(e.nativeEvent.contentOffset.x / width)
+            const next = Math.min(
+              Math.max(Math.round(e.nativeEvent.contentOffset.x / width), 0),
+              media.length - 1,
+            )
             if (next !== safe) onIndexChange?.(next)
           }}>
           {media.map((item, i) => (
-            <LightboxFrame key={item.id} item={item} index={i} width={width} />
+            <LightboxFrame key={item.id} item={item} index={i} width={width} active={i === safe} />
           ))}
         </ScrollView>
         <View

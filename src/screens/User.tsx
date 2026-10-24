@@ -68,6 +68,11 @@ export function UserScreen() {
   const targetId = resolvedId ?? (routeAcct ? null : (session?.accountId ?? null))
   const resolving = routeId == null && routeAcct != null && resolvedId == null && !resolveError
   const [tab, setTab] = useState<ProfileFeedTab>('posts')
+  // A new profile starts on its own posts tab — never the previous
+  // profile's tab (which this profile may hide).
+  useEffect(() => {
+    setTab('posts')
+  }, [targetId])
   const [account, setAccount] = useState<Account | null>(null)
   const [relationship, setRelationship] = useState<Relationship | null>(null)
   const [loading, setLoading] = useState(true)

@@ -310,6 +310,11 @@ function FileRow({
   const [draft, setDraft] = useState(file.name)
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Delete-confirm busy guard: the confirm fires one async `onDelete` and
+  // disables itself until the promise settles, so a double-tap cannot fire
+  // two `deleteFile` calls. `busy` belongs to the rename flow; delete gets
+  // its own flag.
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const save = async () => {
@@ -400,16 +405,20 @@ function FileRow({
           <Caption color="faint">Delete “{file.name}”? This cannot be undone.</Caption>
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label="Confirm delete"
+              label={deleting ? 'Deleting…' : 'Confirm delete'}
               variant="secondary"
-              disabled={busy}
-              onPress={() => void onDelete()}
+              disabled={busy || deleting}
+              onPress={() => {
+                if (deleting) return
+                setDeleting(true)
+                void onDelete().finally(() => setDeleting(false))
+              }}
               testID={`drive-file-delete-confirm-${file.id}`}
             />
             <Button
               label="Keep"
               variant="secondary"
-              disabled={busy}
+              disabled={busy || deleting}
               onPress={onCancelDelete}
               testID={`drive-file-delete-cancel-${file.id}`}
             />
@@ -739,8 +748,22 @@ export function DriveScreen() {
     setUploadError(null)
     setUploadSuccess(null)
     try {
-      const picked = await pickMedia({limit: 1})
-      if (picked.length > 0) setStaged(picked[0])
+      const result = await pickMedia({limit: 1})
+      // Typed outcome (R2.3): denied is shown, never a silent cancel.
+      if (result.kind === 'denied') {
+        setUploadError(
+          result.canAskAgain
+            ? 'Media library access was denied. Allow access to pick a file.'
+            : 'Media library access was denied. Enable it in the system settings to pick a file.',
+        )
+        return
+      }
+      if (result.kind === 'cancelled') return
+      if (result.rejected.length > 0) {
+        setUploadError(`"${result.rejected[0]}" is too large to upload (over 10 MB).`)
+        return
+      }
+      if (result.files.length > 0) setStaged(result.files[0])
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Could not open the file picker.')
     }

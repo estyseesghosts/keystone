@@ -46,6 +46,7 @@ import {
   pollMisskeyApproval,
   startMastodonOAuth,
   startMisskeyMiAuth,
+  takeMisskeyPending,
   webCallbackUri,
   type MisskeyMiAuthPending,
 } from './LoginFlows'
@@ -414,18 +415,38 @@ export function LoginScreen() {
     setBusy(true)
     setError(null)
     try {
-      const active = pending ?? (await startMisskeyMiAuth({
-        pendingStore: appStorage(),
-        origin: detection.origin,
-        redirectUri: redirectUriFor(),
-        openBrowser,
-      }))
+      // A resumed `pending` never captured an opener result URL — only a
+      // fresh start has one (H3), so the two cases stay separate instead
+      // of an `in` check on the union.
+      let active: MisskeyMiAuthPending
+      let callbackUrl: string | null = null
+      if (pending !== null) {
+        active = pending
+      } else {
+        const started = await startMisskeyMiAuth({
+          pendingStore: appStorage(),
+          origin: detection.origin,
+          redirectUri: redirectUriFor(),
+          openBrowser,
+        })
+        active = started
+        callbackUrl = started.callbackUrl
+      }
       setMiauth(active)
       // Same-tab web navigation unloads this page (the callback completes
       // it); otherwise poll here for the approval.
       if (Platform.OS === 'web') {
         setMiauthStatus('Approve on your server, then continue there.')
         return
+      }
+      // iOS inline completion (H3): `openAuthSessionAsync` consumed the
+      // redirect in-session, so the AuthCallback deep link never fires —
+      // complete here from the session's result URL, like
+      // `finishOAuthCallbackUrl` above. A null/callback-less result falls
+      // through to polling (Android relaunch, dismissed session); polling
+      // stays the fallback either way.
+      if (Platform.OS === 'ios' && callbackUrl) {
+        if (await finishMiAuthCallbackUrl(callbackUrl)) return
       }
       setMiauthStatus('Waiting for approval on your server…')
       const done = await pollMisskeyApproval({
@@ -449,6 +470,51 @@ export function LoginScreen() {
     } finally {
       setBusy(false)
       setMiauthStatus(null)
+    }
+  }
+
+  /** iOS inline MiAuth completion (H3, parity with `finishOAuthCallbackUrl`
+   * below): `openAuthSessionAsync` consumes the `keystone://…?session=`
+   * redirect in-session and never re-opens the app, so the AuthCallback
+   * deep link never fires — take the pending row and verify here instead.
+   * Returns true when the flow is complete or definitively failed; false
+   * when the URL carries no session and the caller should fall back to
+   * polling. */
+  const finishMiAuthCallbackUrl = async (href: string): Promise<boolean> => {
+    const params = parseCallbackParams(href)
+    if (params.error) {
+      setError('The sign-in was cancelled or denied.')
+      return true
+    }
+    if (!params.session) return false
+    // Take-once (same replay guard as AuthCallback): a consumed row means
+    // the link path owns this session — polling the live `active` session
+    // below still covers the wait.
+    const taken = takeMisskeyPending(appStorage(), params.session)
+    if (!taken || !detection) return false
+    try {
+      // Just approved — the check lands immediately; a few retries cover
+      // the slow-approve race (same shape as AuthCallback).
+      const done = await pollMisskeyApproval({
+        scheme: taken.scheme,
+        host: taken.host,
+        session: taken.session,
+        attempts: 5,
+      })
+      await finish({
+        origin: done.origin,
+        family: 'misskey',
+        flavor: detection.flavor,
+        token: done.token,
+        account: done.account,
+        grant: 'miauth',
+        hosting: 'third-party',
+        evidence: detection.evidence,
+      })
+      return true
+    } catch (err) {
+      fail(err)
+      return true
     }
   }
 

@@ -25,6 +25,7 @@ import {
   displayNameOf,
   handleOf,
   isUnsupportedError,
+  ApiError,
   type Account,
   type Backend,
   type ClipSummary,
@@ -484,8 +485,17 @@ export function NoteScreen() {
         <SkeletonList variant="post" testID="thread-loading" />
       ) : thread.isError || !focused ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load this thread.</Body>
-          <Caption color="faint">It may be deleted, private, or on an unreachable server.</Caption>
+          {thread.error instanceof ApiError && thread.error.status === 429 ? (
+            <>
+              <Body testID="thread-rate-limited">Rate limited by the server.</Body>
+              <Caption color="faint">The server is throttling requests right now. Wait a moment, then try again.</Caption>
+            </>
+          ) : (
+            <>
+              <Body>Could not load this thread.</Body>
+              <Caption color="faint">It may be deleted, private, or on an unreachable server.</Caption>
+            </>
+          )}
           <Button
             label="Retry"
             variant="secondary"
@@ -498,7 +508,7 @@ export function NoteScreen() {
           style={atoms.flex1}
           testID="thread-body"
           data={tab === 'replies' ? rootItems : []}
-          keyExtractor={item => item.id}
+          keyExtractor={item => `${sessionId}:${item.id}`}
           renderItem={({item}) => <RootReplyRow sessionId={sessionId} backend={backend} child={item} />}
           ListHeaderComponent={
             <>

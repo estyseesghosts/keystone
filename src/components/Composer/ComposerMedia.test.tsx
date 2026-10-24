@@ -13,7 +13,7 @@ import {ThemeProvider} from '#/alf/index'
 import {makeMedia, makePost} from '../__tests__/fixtures'
 import {Composer, type ComposerProps} from './Composer'
 
-jest.mock('./pickMedia', () => ({pickMedia: jest.fn(async () => [])}))
+jest.mock('./pickMedia', () => ({pickMedia: jest.fn(async () => ({kind: 'cancelled'}))}))
 jest.mock('@keystone/fedi', () => ({
   ...jest.requireActual('@keystone/fedi'),
   fetchComposeLimits: jest.fn(async () => ({maxChars: 500, maxMedia: 4, maxPollOptions: 4})),
