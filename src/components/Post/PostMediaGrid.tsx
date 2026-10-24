@@ -1,7 +1,9 @@
-// Post media (Keystone v1 layout + behavior): a lone attachment renders
-// fit-width (full column width, max height 320, radius 6, hairline
-// border); two or more render as a horizontal snap strip of 220px-tall
-// items. Sensitive media stays behind an explicit reveal.
+// Post media (X-style natural sizing per docs/image-sizing.md): a lone
+// attachment renders fit-width at its natural aspect ratio, clamped to
+// the 2:1-landscape … 3:4-portrait display range — in-range images show
+// in full, only outside shapes crop to the clamped box. Two or more
+// render as a horizontal snap strip of 220px-tall items (unchanged).
+// Sensitive media stays behind an explicit reveal.
 //
 // Kind branches (v1 `NoteBody` parity): image/gifv stills, video with
 // native controls, gifv as a muted autoplay loop (RN has no reliable
@@ -32,11 +34,22 @@ type ViewPlayer = ComponentProps<typeof VideoView>['player']
 const SINGLE_AR = 16 / 10
 const STRIP_AR = 4 / 3
 const STRIP_H = 220
-const MAX_H = 320
+
+/** Display ratio range (docs/image-sizing.md): full-width natural aspect
+ * for everything between 2:1 landscape and 3:4 portrait. */
+export const MAX_DISPLAY_AR = 2 / 1
+export const MIN_DISPLAY_AR = 3 / 4
+
+/** Clamp a natural aspect ratio into the display range. Non-finite and
+ * non-positive inputs read as the neutral landscape default. Pure. */
+export function displayAspect(ar: number): number {
+  if (!Number.isFinite(ar) || ar <= 0) return SINGLE_AR
+  return Math.min(MAX_DISPLAY_AR, Math.max(MIN_DISPLAY_AR, ar))
+}
 
 const styles = StyleSheet.create({
   wrap: {marginTop: 8},
-  single: {width: '100%', maxHeight: MAX_H, borderRadius: 6, borderWidth: 1, overflow: 'hidden'},
+  single: {width: '100%', borderRadius: 6, borderWidth: 1, overflow: 'hidden'},
   image: {width: '100%', height: '100%'},
   strip: {flexDirection: 'row', gap: 8},
   stripItem: {height: STRIP_H, borderRadius: 6, borderWidth: 1, overflow: 'hidden'},
@@ -72,8 +85,10 @@ function metaAspect(item: Media): number | null {
 }
 
 export function tileAspect(item: Media, single: boolean): number {
-  const ar = metaAspect(item) ?? (single ? SINGLE_AR : STRIP_AR)
-  return ar
+  if (!single) return metaAspect(item) ?? STRIP_AR
+  // Singles show the natural ratio clamped to the display range: in-range
+  // images render in full, only outside shapes crop to the clamped box.
+  return displayAspect(metaAspect(item) ?? SINGLE_AR)
 }
 
 function TileFrame({
@@ -142,7 +157,9 @@ function Still({item, single, index, onOpen}: {item: Media; single: boolean; ind
   if (full === null || preview === null || failed) {
     return <Placeholder label="Image unavailable" reason="The server sent no image URL." testID={`media-missing-${item.id}`} />
   }
-  const ar = measured ?? tileAspect(item, single)
+  // Singles clamp the measured-or-meta ratio to the display range (full
+  // image in range, crop outside); the strip keeps its own layout.
+  const ar = single ? displayAspect(measured ?? metaAspect(item) ?? SINGLE_AR) : tileAspect(item, single)
   return (
     <TileFrame item={item} single={single} index={index} aspect={ar} onOpen={onOpen} label={mediaLabel(item)}>
       <Image

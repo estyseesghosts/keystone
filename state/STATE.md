@@ -38,11 +38,11 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
-0. Composer outline-style none on `main` 2026-10-24 (unpushed):
-   width-only + transparent survived in production, so the style itself
-   goes (`NO_OUTLINE`, RNW-verified). Log
-   `state/logs/2026-10-24-composer-outline-none.md`. 196 suites /
-   2484 tests green. Owner confirms visually.
+0. X-style post image sizing on `main` 2026-10-24 (unpushed):
+   singles render full-width natural AR clamped 2:1 … 3:4 (crop only
+   outside); 320px cap removed; all post surfaces via PostMediaGrid.
+   Log `state/logs/2026-10-24-image-sizing.md`. 197 suites /
+   2494 tests green. Owner confirms visually.
 0b. Recommendations feed (dvd-sharkey fork port) on `main` 2026-10-24
    (unpushed): `recommendations` descriptor + Backend module
    (offset-paged, probe-detected), Home tab bar above the composer,
