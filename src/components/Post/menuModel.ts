@@ -14,7 +14,7 @@ import {t} from '@lingui/macro'
 import '#/locale/i18n'
 
 import type {Capabilities, ReportCategory, ServerFamily, ServerFlavor, Post} from '@keystone/fedi'
-import {cachedRemotePostUrl, REDRAFT_WARNING, safeHttpUrl} from '@keystone/fedi'
+import {cachedRemotePostUrl, isBridgedAccount, isBridgedPost, REDRAFT_WARNING, safeHttpUrl} from '@keystone/fedi'
 
 import type {ActionGate} from '#/state/cache'
 import {messagingUnavailableReason} from '#/lib/messaging'
@@ -115,6 +115,12 @@ export interface PostMenuInput {
     copy: (text: string) => void | Promise<void>
     share: (url: string, text: string) => void | Promise<void>
     open: (url: string) => void
+    /** Open a bridged post in-app (Note screen) instead of the browser.
+     * Absent keeps the browser row — never an inert control. */
+    openBridgedPost?: (post: Post) => void
+    /** Open a bridged author's profile in-app instead of the browser.
+     * Absent keeps the browser row. */
+    openBridgedProfile?: (accountId: string) => void
     translate: () => void | Promise<void>
     muteThread: () => void | Promise<void>
     togglePin: () => void | Promise<void>
@@ -210,9 +216,19 @@ export function buildUserSubmenu(input: PostMenuInput): PostMenuSection[] {
       ? {key, label: active ? activeLabel : label, run: fn, ...(key === 'block' && !active ? {confirm: {title: t`Block ${handle}?`, action: t`Block`}} : {})}
       : {key, label, disabled: true, reason: t`Account relations are not connected to this view yet.`}
   const remoteUrl = safeHttpUrl(author.url)
+  // Bridged Bluesky actors open in-app (User screen): their canonical
+  // page is bsky.app, which Keystone must never link out to.
   const remoteUser: PostMenuItem[] =
     author.host !== null && remoteUrl
-      ? [{key: 'view-remote-user', label: t`View on remote instance`, run: () => handlers.open(remoteUrl)}]
+      ? isBridgedAccount(author) && handlers.openBridgedProfile
+        ? [
+            {
+              key: 'open-in-app-user',
+              label: t`Open in Keystone`,
+              run: () => handlers.openBridgedProfile!(author.id),
+            },
+          ]
+        : [{key: 'view-remote-user', label: t`View on remote instance`, run: () => handlers.open(remoteUrl)}]
       : []
   return [
     [
@@ -292,13 +308,24 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
   ]
   // Remote posts open best at their human page (`url`), not the raw AP
   // id (`uri`): the resolver cache holds the warmed page URL, falling
-  // back to the raw id until (or when) it resolves (MK17).
+  // back to the raw id until (or when) it resolves (MK17). Bridged
+  // Bluesky posts are the exception: Keystone already holds the object,
+  // so they open in-app and never link out to bsky.app — and the raw AP
+  // id is not worth copying, so the remote-link row goes with it.
   const remote = uri && uri !== link ? (cachedRemotePostUrl(uri) ?? uri) : null
   if (remote) {
-    group1.push(
-      copyRow(input, 'copy-remote-link', t`Copy remote link`, remote),
-      {key: 'view-remote', label: t`View on remote instance`, run: () => handlers.open(remote)},
-    )
+    if (isBridgedPost(post) && handlers.openBridgedPost) {
+      group1.push({
+        key: 'open-in-app',
+        label: t`Open in Keystone`,
+        run: () => handlers.openBridgedPost!(post),
+      })
+    } else {
+      group1.push(
+        copyRow(input, 'copy-remote-link', t`Copy remote link`, remote),
+        {key: 'view-remote', label: t`View on remote instance`, run: () => handlers.open(remote)},
+      )
+    }
   }
   group1.push(
     link

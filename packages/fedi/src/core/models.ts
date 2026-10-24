@@ -862,6 +862,36 @@ export function parseAcct(
   return {username, host: host ?? null};
 }
 
+/** The Bridgy Fed bridge host: actors here are Bluesky users, and their
+ * canonical pages are bsky.app URLs. Keystone holds the AP objects, so
+ * bridged content always opens in-app — never the browser. */
+export const BRIDGED_HOST = "bsky.brid.gy";
+export const BRIDGED_PAGE_HOST = "bsky.app";
+
+function hostOfUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/** True for a bridged-Bluesky account (actor on the bridge, or a bare
+ * bsky.app profile URL). Pure. */
+export function isBridgedAccount(account: Pick<Account, "host" | "url" | "uri">): boolean {
+  if (account.host === BRIDGED_HOST) return true;
+  return hostOfUrl(account.url) === BRIDGED_PAGE_HOST;
+}
+
+/** True for a bridged-Bluesky post: the author is bridged, or the
+ * post's own canonical page is a bsky.app URL. Either way the object
+ * is already in Keystone — open it here, never the browser. Pure. */
+export function isBridgedPost(post: Pick<Post, "author" | "url" | "uri">): boolean {
+  if (post.author.host === BRIDGED_HOST) return true;
+  return hostOfUrl(post.url) === BRIDGED_PAGE_HOST || hostOfUrl(post.uri) === BRIDGED_PAGE_HOST;
+}
+
 /** True when the profile carries a real display name — not empty, and not
  * just the username/handle echoed back (`pndc`, `@pndc`,
  * `@pndc@host` all count as absent). Pure. */

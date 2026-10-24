@@ -12,6 +12,8 @@ import {
   hasRealDisplayName,
   headNameOf,
   displayNameOf,
+  isBridgedAccount,
+  isBridgedPost,
   isPureRenote,
   mfmContent,
   plainFromMfm,
@@ -454,5 +456,45 @@ describe("withFavourite", () => {
     expect(on.reactions).toBe(base.reactions); // favourites ≠ reactions
     const misskey = post("f4", { favourite: null });
     expect(withFavourite(misskey, true)).toBe(misskey);
+  });
+});
+
+describe("bridged Bluesky actors and posts", () => {
+  it("flags bridge-hosted actors", () => {
+    expect(isBridgedAccount(account("a", {host: "bsky.brid.gy"}))).toBe(true);
+  });
+
+  it("flags bare bsky.app profile URLs", () => {
+    expect(isBridgedAccount(account("a", {url: "https://bsky.app/profile/alice"}))).toBe(true);
+  });
+
+  it("leaves normal local and remote accounts alone", () => {
+    expect(isBridgedAccount(account("a"))).toBe(false);
+    expect(
+      isBridgedAccount(account("a", {host: "example.social", url: "https://example.social/@a"})),
+    ).toBe(false);
+  });
+
+  it("flags posts by bridged authors", () => {
+    const p = post("p1", {author: account("a", {host: "bsky.brid.gy"})});
+    expect(isBridgedPost(p)).toBe(true);
+  });
+
+  it("flags posts whose canonical page is bsky.app", () => {
+    const p = post("p1", {
+      author: account("a", {host: "example.social"}),
+      url: "https://bsky.app/profile/alice/post/xyz",
+    });
+    expect(isBridgedPost(p)).toBe(true);
+  });
+
+  it("leaves normal local and remote posts alone", () => {
+    expect(isBridgedPost(post("p1"))).toBe(false);
+    const p = post("p1", {
+      author: account("a", {host: "example.social"}),
+      url: "https://example.social/notes/1",
+      uri: "https://example.social/notes/1",
+    });
+    expect(isBridgedPost(p)).toBe(false);
   });
 });

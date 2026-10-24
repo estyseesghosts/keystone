@@ -452,6 +452,23 @@ export function hashtagTagOf(attrs: Readonly<Record<string, string>>): string | 
   return /^[^\s/#?]{1,128}$/.test(tail) ? tail : null;
 }
 
+/**
+ * The tag when a link's ENTIRE visible label is one hashtag
+ * (`[#tag](url)` markdown, pixelfed-style `?q=` redirect links) — or
+ * null. A hashtag must never carry a redirect link (phishing surface),
+ * so callers drop the href entirely and render a plain hashtag: no
+ * embed, no chip, no browser. Anything richer than a lone `#tag`
+ * label stays a link. Pure.
+ */
+export function hashtagLabelOf(children: readonly ContentNode[]): string | null {
+  if (children.length !== 1) return null;
+  const only = children[0];
+  const label = only.kind === "text" ? only.text.trim() : null;
+  if (label === null) return null;
+  const match = /^#([^\s#]{1,128})$/.exec(label);
+  return match ? (match[1] as string) : null;
+}
+
 // --- Remote custom-emoji codes (`:name@host:`) --------------------------
 //
 // Moved here from `api/emoji` so the MFM parser (core) can split them

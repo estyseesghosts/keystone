@@ -87,6 +87,19 @@ describe("parseLeadingQuote — prefix", () => {
   it("prefix trailing punct", () =>
     expect(parseLeadingQuote("RE: https://x.y/z.\nbody")?.uri).toBe("https://x.y/z"));
   it("prefix null", () => expect(parseLeadingQuote(null)).toBeNull());
+  it("prefix tolerates leading blank lines, swallowing them", () => {
+    const text = "\n\nRE: https://x.y/z\nbody";
+    const p = parseLeadingQuote(text);
+    expect(p?.uri).toBe("https://x.y/z");
+    expect(p?.start).toBe(0);
+    expect(p?.end).toBe("\n\nRE: https://x.y/z\n".length);
+    expect(p?.position).toBe("prefix");
+  });
+  it("prefix swallows CRLF blank lines too", () => {
+    const p = parseLeadingQuote("\r\nRE: https://x.y/z\r\nbody");
+    expect(p?.uri).toBe("https://x.y/z");
+    expect(p?.start).toBe(0);
+  });
 });
 
 describe("parseTextualQuotes — wrapper", () => {

@@ -22,6 +22,7 @@ import {
   customEmoji,
   fnNode,
   hashtag,
+  hashtagLabelOf,
   italic,
   link,
   mention,
@@ -124,6 +125,11 @@ export function convertNode(node: MfmNode): ContentNode[] {
     case "link": {
       const href = safeHref(node.props.url);
       const children = childrenOf(node);
+      // A link labelled exactly one hashtag is the hashtag: redirect
+      // links on tags are never honored (phishing surface), so the href
+      // is dropped and no link node survives to embed, chip, or unfurl.
+      const tag = hashtagLabelOf(children);
+      if (tag !== null) return [hashtag(tag, null, [t(`#${tag}`)])];
       if (href === null) return children.length > 0 ? children : [t(node.props.url)];
       return [link(href, children.length > 0 ? children : [t(node.props.url)])];
     }

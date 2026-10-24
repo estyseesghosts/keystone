@@ -96,9 +96,10 @@ const RE_SUFFIX_PATTERN = /(?:^|\s)RE:[ \t]*(\S+)[ \t]*$/;
 /** Match a leading `RE: <URL>` marker: the text opens with `RE:`
  * (case-sensitive) followed by exactly one absolute URL on that line.
  * Same narrow rules as the suffix (trailing punctuation trimmed,
- * credentials/non-web/relative rejected); `RE: <url> plus commentary on
- * the same line` never matches — one URL per marker line. */
-const RE_PREFIX_PATTERN = /^RE:[ \t]*(\S+)[ \t]*(?:\r?\n|$)/;
+ * credentials/non-web/relative rejected); blank lines before the marker
+ * are tolerated and swallowed. `RE: <url> plus commentary on the same
+ * line` never matches — one URL per marker line. */
+const RE_PREFIX_PATTERN = /^[ \t\r\n]*RE:[ \t]*(\S+)[ \t]*(?:\r?\n|$)/;
 
 function toSuffixMatch(text: string, match: RegExpExecArray): TextualQuoteMatch | null {
   const uri = cleanQuoteUrl(match[1]);

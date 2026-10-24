@@ -38,12 +38,12 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
-0. X-style replies + quotes on `main` 2026-10-24 (unpushed): real
-   reply/quote previews in both composers; timeline quote cards gain
-   avatars, timestamps, one flat nested level, compact video rows,
-   edge-to-edge quoted media. Log
-   `state/logs/2026-10-24-quotes-composer.md`. 197 suites / 2507 tests
-   green. Owner confirms visually.
+0. Quote review + hashtag strip + bridged in-app on `main` 2026-10-24
+   (unpushed): markdown/redirect hashtag links always become plain
+   hashtags (anti-phishing); RE prefix tolerates leading blanks;
+   bridged posts/profiles open in-app, never the browser. Log
+   `state/logs/2026-10-24-quote-strip-bridged.md`. 197 suites /
+   2529 tests green. Owner confirms visually.
 0b. Recommendations feed (dvd-sharkey fork port) on `main` 2026-10-24
    (unpushed): `recommendations` descriptor + Backend module
    (offset-paged, probe-detected), Home tab bar above the composer,

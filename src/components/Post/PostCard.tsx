@@ -409,6 +409,8 @@ function LivePostCard(props: PostCardProps) {
         }
       },
       open: url => void Linking.openURL(url).catch(toastError),
+      openBridgedPost: p => openPostDetail(p.id),
+      openBridgedProfile: accountId => openAuthorProfile(accountId),
       translate: async () => {
         if (!backend) return
         try {

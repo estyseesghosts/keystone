@@ -104,6 +104,42 @@ describe('postBodyNodes quote-marker stripping (F7)', () => {
     expect(postBodyNodes(post)).toEqual([])
   })
 
+  it('truncates the suffix marker, its link, and surrounding newlines', () => {
+    const post = adaptNote(
+      wire({
+        id: 'q4',
+        text: 'look at this\n\nRE: https://remote.example/notes/1\n\n',
+        renoteId: 'r4',
+        renote: wire({id: 'r4', text: 'original', uri: 'https://remote.example/notes/1'}),
+      }),
+    )
+    expect(textOf(postBodyNodes(post))).toBe('look at this')
+  })
+
+  it('truncates a leading marker and the newlines after it', () => {
+    const post = adaptNote(
+      wire({
+        id: 'q5',
+        text: 'RE: https://remote.example/notes/1\n\nlook at this',
+        renoteId: 'r5',
+        renote: wire({id: 'r5', text: 'original', uri: 'https://remote.example/notes/1'}),
+      }),
+    )
+    expect(textOf(postBodyNodes(post))).toBe('look at this')
+  })
+
+  it('truncates a leading marker behind blank lines', () => {
+    const post = adaptNote(
+      wire({
+        id: 'q6',
+        text: '\n\nRE: https://remote.example/notes/1\nbody here',
+        renoteId: 'r6',
+        renote: wire({id: 'r6', text: 'original', uri: 'https://remote.example/notes/1'}),
+      }),
+    )
+    expect(textOf(postBodyNodes(post))).toBe('body here')
+  })
+
   it('strips the Mastodon HTML marker duplicating the structured quote', () => {
     const quoted = adaptNote(wire({id: 'm1', text: 'quoted'}))
     const post: Post = {

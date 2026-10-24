@@ -367,3 +367,24 @@ describe("inter-block whitespace (pretty-printed HTML)", () => {
     ]);
   });
 });
+
+describe("hashtag redirect links (phishing surface)", () => {
+  it("unclassed hashtag-labelled anchors become plain hashtags", () => {
+    expect(contentFromHtml('<p><a href="https://pixelfed.social/?q=photo">#photo</a></p>')).toEqual([
+      { kind: "hashtag", tag: "photo", href: null, children: [{ kind: "text", text: "#photo" }] },
+    ]);
+  });
+
+  it("richer labels stay links", () => {
+    expect(contentFromHtml('<p><a href="https://a.b/c">#photo <b>x</b></a></p>')).toEqual([
+      {
+        kind: "link",
+        href: "https://a.b/c",
+        children: [
+          { kind: "text", text: "#photo " },
+          { kind: "bold", children: [{ kind: "text", text: "x" }] },
+        ],
+      },
+    ]);
+  });
+});

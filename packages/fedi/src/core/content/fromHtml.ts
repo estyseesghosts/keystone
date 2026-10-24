@@ -23,6 +23,7 @@ import {
   customEmoji,
   fnNode,
   hashtag,
+  hashtagLabelOf,
   hashtagTagOf,
   heading,
   invisible,
@@ -289,6 +290,14 @@ function convertAnchor(node: DomNode, out: ContentNode[]): void {
       out.push(hashtag(tag, href, inner.length > 0 ? inner : [t(`#${tag}`)]));
       return;
     }
+  }
+  // A link labelled exactly one hashtag is the hashtag (pixelfed-style
+  // redirect links): same phishing rule as MFM — the href dies here, so
+  // no embed, no chip, no browser. Anything richer stays a link.
+  const redirectTag = hashtagLabelOf(inner);
+  if (redirectTag !== null) {
+    out.push(hashtag(redirectTag, null, [t(`#${redirectTag}`)]));
+    return;
   }
   out.push(link(href, inner));
 }

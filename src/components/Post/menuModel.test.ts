@@ -1,7 +1,7 @@
 // F4: model URLs are gated — unsafe schemes never reach copy/share/open.
 import {buildPostMenu, buildUserSubmenu, flatten, postLink} from '#/components/Post/menuModel'
 
-import {makePost} from '../__tests__/fixtures'
+import {makeAccount, makePost} from '../__tests__/fixtures'
 
 describe('postLink (F4)', () => {
   it('prefers the server url when it is http(s)', () => {
@@ -486,5 +486,102 @@ describe('delete-and-redraft row (clickstone §1.7)', () => {
       },
     } as never
     expect(flatten(buildPostMenu(input)).find(i => i.key === 'redraft')).toBeUndefined()
+  })
+})
+
+describe('bridged Bluesky posts stay in-app', () => {
+  function bridgedInput(over: Record<string, unknown> = {}, wired = true) {
+    const post = makePost({
+      url: 'https://bsky.app/profile/alice/post/xyz',
+      uri: 'https://bsky.brid.gy/ap/notes/1',
+      author: makeAccount({
+        id: 'u9',
+        username: 'alice.bsky.social',
+        acct: 'alice.bsky.social@bsky.brid.gy',
+        host: 'bsky.brid.gy',
+        displayName: 'alice',
+        url: 'https://bsky.app/profile/alice',
+      }),
+      ...over,
+    })
+    const open = jest.fn()
+    const openBridgedPost = jest.fn()
+    const openBridgedProfile = jest.fn()
+    const input = {
+      family: 'misskey',
+      capabilities: null,
+      post,
+      origin: 'https://m.example',
+      isOwn: false,
+      copyAvailable: true,
+      bookmark: {gate: {enabled: false, reason: 'x'}, value: false, set: jest.fn()},
+      del: {gate: {enabled: false, reason: 'x'}, run: jest.fn()},
+      handlers: {
+        copy: jest.fn(),
+        share: jest.fn(),
+        open,
+        ...(wired ? {openBridgedPost, openBridgedProfile} : {}),
+        translate: jest.fn(),
+        muteThread: jest.fn(),
+        togglePin: jest.fn(),
+      },
+    } as never
+    return {input, open, openBridgedPost, openBridgedProfile, post}
+  }
+
+  it('routes the bridged post row in-app, with no browser or remote-link rows', () => {
+    const {input, open, openBridgedPost, post} = bridgedInput()
+    const keys = flatten(buildPostMenu(input)).map(i => i.key)
+    expect(keys).toContain('open-in-app')
+    expect(keys).not.toContain('view-remote')
+    expect(keys).not.toContain('copy-remote-link')
+    const row = flatten(buildPostMenu(input)).find(i => i.key === 'open-in-app')!
+    void row.run!()
+    expect(openBridgedPost).toHaveBeenCalledWith(post)
+    expect(open).not.toHaveBeenCalled()
+  })
+
+  it('routes the bridged author row to the in-app profile', () => {
+    const {input, openBridgedProfile} = bridgedInput()
+    const row = flatten(buildUserSubmenu(input)).find(i => i.key === 'open-in-app-user')!
+    expect(row).toBeDefined()
+    expect(flatten(buildUserSubmenu(input)).find(i => i.key === 'view-remote-user')).toBeUndefined()
+    void row.run!()
+    expect(openBridgedProfile).toHaveBeenCalledWith('u9')
+  })
+
+  it('detects bridged posts by bsky.app page URL alone', () => {
+    const {input} = bridgedInput({
+      author: makeAccount({id: 'u1', host: 'example.social'}),
+      url: 'https://bsky.app/profile/bob/post/abc',
+      uri: 'https://example.social/notes/9',
+    })
+    const keys = flatten(buildPostMenu(input)).map(i => i.key)
+    expect(keys).toContain('open-in-app')
+    expect(keys).not.toContain('view-remote')
+  })
+
+  it('falls back to browser rows when the in-app handlers are absent', () => {
+    const {input, open} = bridgedInput({}, false)
+    const keys = flatten(buildPostMenu(input)).map(i => i.key)
+    expect(keys).toContain('view-remote')
+    expect(keys).not.toContain('open-in-app')
+    const row = flatten(buildPostMenu(input)).find(i => i.key === 'view-remote')!
+    void row.run!()
+    expect(open).toHaveBeenCalled()
+    const userKeys = flatten(buildUserSubmenu(input)).map(i => i.key)
+    expect(userKeys).toContain('view-remote-user')
+    expect(userKeys).not.toContain('open-in-app-user')
+  })
+
+  it('leaves normal remote posts on the browser rows', () => {
+    const post = makePost({
+      url: 'https://remote.example/@u/1',
+      uri: 'https://remote.example/ap/notes/1',
+    })
+    const {input} = bridgedInput({url: post.url, uri: post.uri, author: post.author})
+    const keys = flatten(buildPostMenu(input)).map(i => i.key)
+    expect(keys).toContain('view-remote')
+    expect(keys).not.toContain('open-in-app')
   })
 })

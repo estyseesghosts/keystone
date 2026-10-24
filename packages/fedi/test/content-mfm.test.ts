@@ -189,3 +189,41 @@ describe("split text nodes keep boundary breaks", () => {
     ]);
   });
 });
+
+describe("hashtag redirect links (phishing surface)", () => {
+  it("strips a markdown hashtag link to a plain hashtag", () => {
+    expect(contentFromMfm("[#photo](https://pixelfed.social/?q=photo)")).toEqual([
+      { kind: "hashtag", tag: "photo", href: null, children: [{ kind: "text", text: "#photo" }] },
+    ]);
+  });
+
+  it("strips inline hashtag links, keeping surrounding text", () => {
+    expect(contentFromMfm("see [#photo](https://pixelfed.social/?q=photo) ok")).toEqual([
+      { kind: "text", text: "see " },
+      { kind: "hashtag", tag: "photo", href: null, children: [{ kind: "text", text: "#photo" }] },
+      { kind: "text", text: " ok" },
+    ]);
+  });
+
+  it("unsafe hrefs never become links (literal text, no navigation)", () => {
+    const nodes = contentFromMfm("[#photo](javascript:alert(1))");
+    expect(nodes.some(n => n.kind === "link")).toBe(false);
+  });
+
+  it("keeps non-hashtag and multi-token labels as links", () => {
+    expect(contentFromMfm("[click here](https://example.com/x)")).toEqual([
+      {
+        kind: "link",
+        href: "https://example.com/x",
+        children: [{ kind: "text", text: "click here" }],
+      },
+    ]);
+    expect(contentFromMfm("[#two words](https://example.com/x)")).toEqual([
+      {
+        kind: "link",
+        href: "https://example.com/x",
+        children: [{ kind: "text", text: "#two words" }],
+      },
+    ]);
+  });
+});
