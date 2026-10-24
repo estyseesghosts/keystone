@@ -21,7 +21,8 @@ import {
 import {useTheme} from '#/alf/index'
 import {useShellLayout} from '#/alf/breakpoints'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
-import {Body, Caption} from '#/alf/typography'
+import {Body, Caption, Heading} from '#/alf/typography'
+import {formatCompactCount, formatCount, useLocale} from '#/locale/i18n'
 import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
@@ -40,7 +41,49 @@ export function FollowStateCaption({relationship}: {relationship: Relationship |
   return <Caption color="faint">{parts.join(' ')}</Caption>
 }
 
-function StatsLine({
+function StatCard({
+  testID,
+  value,
+  label,
+  onPress,
+  accessibilityLabel,
+}: {
+  testID?: string
+  value: string
+  label: string
+  onPress?: () => void
+  accessibilityLabel?: string
+}) {
+  const theme = useTheme()
+  const cardStyle = [styles.statCard, {backgroundColor: theme.palette.bgSoft}]
+  const inner = (
+    <>
+      <Heading style={styles.statText}>{value}</Heading>
+      <Caption color="faint" style={styles.statText}>
+        {label}
+      </Caption>
+    </>
+  )
+  if (!onPress) {
+    return (
+      <View testID={testID} style={cardStyle}>
+        {inner}
+      </View>
+    )
+  }
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="link"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={cardStyle}>
+      {inner}
+    </Pressable>
+  )
+}
+
+function StatsCards({
   account,
   isSelf,
   onPressFollowers,
@@ -51,55 +94,71 @@ function StatsLine({
   onPressFollowers?: () => void
   onPressFollowing?: () => void
 }) {
-  const posts = `${account.statusesCount} posts`
-  if (account.ffVisibility === 'private' && !isSelf) {
-    return (
-      <Caption color="faint" testID="profile-stats">
-        {posts} · Following and followers are hidden.
-      </Caption>
-    )
-  }
-  if (account.ffVisibility === 'followers' && !isSelf && !account.isFollowing) {
-    return (
-      <Caption color="faint" testID="profile-stats">
-        {posts} · Following and followers are visible to followers.
-      </Caption>
-    )
-  }
-  if (!onPressFollowers && !onPressFollowing) {
-    return (
-      <Caption color="faint" testID="profile-stats">
-        {posts} · {account.followingCount} following · {account.followersCount} followers
-      </Caption>
-    )
-  }
+  const locale = useLocale()
+  // Same gates as the old one-line stats: hidden counts stay hidden —
+  // the posts card renders alone with the honest caption, never a
+  // placeholder card. Numbers show compact; accessibility labels keep
+  // the exact digits.
+  const hiddenCounts =
+    (account.ffVisibility === 'private' && !isSelf) ||
+    (account.ffVisibility === 'followers' && !isSelf && !account.isFollowing)
+  const postsExact = formatCount(locale, account.statusesCount)
+  const followingExact = formatCount(locale, account.followingCount)
+  const followersExact = formatCount(locale, account.followersCount)
   return (
-    <View testID="profile-stats" style={styles.statsRow}>
-      <Caption color="faint">{posts} · </Caption>
-      {onPressFollowing ? (
-        <Pressable
-          testID="profile-following-link"
-          accessibilityRole="link"
-          accessibilityLabel={`${account.followingCount} following. Open following list.`}
-          onPress={onPressFollowing}>
-          <Caption color="faint">{`${account.followingCount} following`}</Caption>
-        </Pressable>
-      ) : (
-        <Caption color="faint">{`${account.followingCount} following`}</Caption>
-      )}
-      <Caption color="faint"> · </Caption>
-      {onPressFollowers ? (
-        <Pressable
-          testID="profile-followers-link"
-          accessibilityRole="link"
-          accessibilityLabel={`${account.followersCount} followers. Open followers list.`}
-          onPress={onPressFollowers}>
-          <Caption color="faint">{`${account.followersCount} followers`}</Caption>
-        </Pressable>
-      ) : (
-        <Caption color="faint">{`${account.followersCount} followers`}</Caption>
-      )}
-    </View>
+    <>
+      <View testID="profile-stats" style={styles.statsRow}>
+        <StatCard
+          testID="profile-stat-posts"
+          value={formatCompactCount(locale, account.statusesCount)}
+          label="posts"
+        />
+        {!hiddenCounts ? (
+          onPressFollowing ? (
+            <StatCard
+              testID="profile-following-link"
+              value={formatCompactCount(locale, account.followingCount)}
+              label="following"
+              onPress={onPressFollowing}
+              accessibilityLabel={`${followingExact} following. Open following list.`}
+            />
+          ) : (
+            <StatCard
+              testID="profile-stat-following"
+              value={formatCompactCount(locale, account.followingCount)}
+              label="following"
+            />
+          )
+        ) : null}
+        {!hiddenCounts ? (
+          onPressFollowers ? (
+            <StatCard
+              testID="profile-followers-link"
+              value={formatCompactCount(locale, account.followersCount)}
+              label="followers"
+              onPress={onPressFollowers}
+              accessibilityLabel={`${followersExact} followers. Open followers list.`}
+            />
+          ) : (
+            <StatCard
+              testID="profile-stat-followers"
+              value={formatCompactCount(locale, account.followersCount)}
+              label="followers"
+            />
+          )
+        ) : null}
+      </View>
+      {account.ffVisibility === 'private' && !isSelf ? (
+        <Caption color="faint">
+          {postsExact} posts · Following and followers are hidden.
+        </Caption>
+      ) : null}
+      {account.ffVisibility === 'followers' && !isSelf && !account.isFollowing ? (
+        <Caption color="faint">
+          {postsExact} posts · Following and followers are visible to followers.
+        </Caption>
+      ) : null}
+    </>
   )
 }
 
@@ -208,6 +267,17 @@ export function ProfileHeader({
       ))}
     </View>
   ) : null
+  // Stat cards ride with the bio: under it in the bio column/cell,
+  // or after the fields when there is no bio to attach to.
+  const stats = (
+    <StatsCards
+      account={account}
+      isSelf={isSelf}
+      onPressFollowers={onPressFollowers}
+      onPressFollowing={onPressFollowing}
+    />
+  )
+  const statsAfterFields = !hasBio ? stats : null
   return (
     <View testID="profile-header" style={{backgroundColor: theme.palette.bg}}>
       {account.backgroundUrl && !bgFailed ? (
@@ -263,29 +333,36 @@ export function ProfileHeader({
         </View>
         {detail === 'split' ? (
           <View testID="profile-detail-split" style={styles.splitRow}>
-            <View style={styles.splitCell}>{bioCard}</View>
+            <View style={styles.splitCell}>
+              {bioCard}
+              {stats}
+            </View>
             <View style={styles.splitCell}>{fieldsList}</View>
           </View>
         ) : detail === 'center-bio' ? (
           <View testID="profile-detail-center-bio" style={styles.centerRow}>
-            <View style={styles.centerCell}>{bioCard}</View>
+            <View style={styles.centerCell}>
+              {bioCard}
+              {stats}
+            </View>
           </View>
         ) : detail === 'center-fields' ? (
-          <View testID="profile-detail-center-fields" style={styles.centerRow}>
-            <View style={styles.centerCell}>{fieldsList}</View>
-          </View>
+          <>
+            <View testID="profile-detail-center-fields" style={styles.centerRow}>
+              <View style={styles.centerCell}>{fieldsList}</View>
+            </View>
+            {statsAfterFields}
+          </>
         ) : detail === 'stack' ? (
           <View testID="profile-detail-stack" style={styles.stack}>
             {bioCard}
+            {hasBio ? stats : null}
             {fieldsList}
+            {statsAfterFields}
           </View>
-        ) : null}
-        <StatsLine
-          account={account}
-          isSelf={isSelf}
-          onPressFollowers={onPressFollowers}
-          onPressFollowing={onPressFollowing}
-        />
+        ) : (
+          statsAfterFields
+        )}
         <FollowStateCaption relationship={relationship} />
       </View>
     </View>
@@ -323,8 +400,21 @@ const styles = StyleSheet.create({
   fields: {gap: space.sm},
   stack: {width: '100%', gap: space.sm},
   splitRow: {width: '100%', flexDirection: 'row', gap: space.md, alignItems: 'flex-start'},
-  splitCell: {flex: 1},
+  // Cells stack their content (bio card, then stat cards) with the
+  // same rhythm as the stacked layout.
+  splitCell: {flex: 1, gap: space.sm},
   centerRow: {width: '100%', flexDirection: 'row', justifyContent: 'center'},
-  centerCell: {width: '50%'},
-  statsRow: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center'},
+  centerCell: {width: '50%', gap: space.sm},
+  // Stat cards: three equal cards in a row, same surface as the bio and
+  // field cards, number over label, centered like the diagram.
+  statsRow: {width: '100%', flexDirection: 'row', gap: space.sm},
+  statCard: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    borderRadius: radius.lg,
+    padding: space.md,
+    gap: space.xs,
+  },
+  statText: {textAlign: 'center'},
 })

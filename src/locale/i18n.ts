@@ -166,4 +166,18 @@ export function formatCount(locale: LocaleCode, n: number): string {
   }
 }
 
+/** Locale-aware compact counter (`5.5K`); raw numerals on any failure.
+ * Pure. Used where a numeral shares a card with its label and exact
+ * digits would not fit — accessibility labels keep `formatCount`. */
+export function formatCompactCount(locale: LocaleCode, n: number): string {
+  try {
+    return new Intl.NumberFormat(localeTag(locale), {
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(n)
+  } catch {
+    return String(n)
+  }
+}
+
 export {i18n}

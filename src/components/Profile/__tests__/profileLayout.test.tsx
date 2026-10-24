@@ -4,7 +4,7 @@
 // (desktop rail/full — both are `!== 'mobile'`).
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
-import {render, screen, act, within} from '@testing-library/react-native'
+import {render, screen, act, within, fireEvent} from '@testing-library/react-native'
 import {View} from 'react-native'
 
 import type {Account} from '@keystone/fedi'
@@ -168,6 +168,62 @@ describe('ProfileHeader identity row', () => {
     renderWithProviders(header(account({bio: {plain: ''}})))
     expect(screen.queryByTestId('profile-identity-actions')).toBeNull()
     expect(screen.getByTestId('profile-name')).toBeTruthy()
+  })
+})
+
+describe('ProfileHeader stat cards', () => {
+  const counted = (overrides: Partial<Account> = {}) =>
+    account({
+      bio: {plain: ''},
+      statusesCount: 5525,
+      followingCount: 851,
+      followersCount: 11055,
+      ...overrides,
+    })
+
+  it('renders three cards with compact numbers over labels', () => {
+    widthHolder.width = 390
+    renderWithProviders(header(counted()))
+    expect(screen.getByTestId('profile-stats')).toBeTruthy()
+    expect(screen.getByTestId('profile-stat-posts')).toHaveTextContent('5.5Kposts')
+    expect(screen.getByTestId('profile-stat-following')).toHaveTextContent('851following')
+    expect(screen.getByTestId('profile-stat-followers')).toHaveTextContent('11.1Kfollowers')
+  })
+
+  it('following/followers cards open the lists when handlers are supplied', () => {
+    widthHolder.width = 390
+    const onPressFollowing = jest.fn()
+    const onPressFollowers = jest.fn()
+    renderWithProviders(
+      <ProfileHeader
+        account={counted()}
+        isSelf={false}
+        relationship={null}
+        onPressFollowing={onPressFollowing}
+        onPressFollowers={onPressFollowers}
+      />,
+    )
+    fireEvent.press(screen.getByTestId('profile-following-link'))
+    expect(onPressFollowing).toHaveBeenCalledTimes(1)
+    fireEvent.press(screen.getByTestId('profile-followers-link'))
+    expect(onPressFollowers).toHaveBeenCalledTimes(1)
+  })
+
+  it('hidden counts render the posts card plus the honest caption, never placeholders', () => {
+    widthHolder.width = 390
+    renderWithProviders(
+      <ProfileHeader
+        account={counted({ffVisibility: 'private'})}
+        isSelf={false}
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('profile-stat-posts')).toHaveTextContent('5.5Kposts')
+    expect(screen.queryByTestId('profile-stat-following')).toBeNull()
+    expect(screen.queryByTestId('profile-stat-followers')).toBeNull()
+    expect(screen.queryByTestId('profile-following-link')).toBeNull()
+    expect(screen.queryByTestId('profile-followers-link')).toBeNull()
+    expect(screen.getByText(/Following and followers are hidden/)).toBeTruthy()
   })
 })
 
