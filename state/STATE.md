@@ -77,7 +77,11 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
     tests green. Follow-up same day: 429s rendered as deleted
     profiles — User screen now names throttling + Retry. Log
     `state/logs/2026-10-24-profile-rate-limit.md`. 199 suites / 2604
-    tests green.
+    tests green. Follow-up same day: stop retry-amplifying 429s
+    (`retryPolicy`), preserve Retry-After, dev `[fedi-api]` census.
+    Log `state/logs/2026-10-24-retry-429-defense.md`. Hovercards
+    tamed (tight anchors, fade, ghost/drift guards). Log
+    `state/logs/2026-10-24-hover-tame.md`. Full suite green.
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
    user-note/modlog/reset-password; Mastodon account_actions
    warn/suspend/silence + notes; NO delete-account). Single agent,

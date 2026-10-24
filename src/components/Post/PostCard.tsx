@@ -7,7 +7,7 @@
 // `unsupported`. Never wired, never inert, never faked.
 
 import {useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore} from 'react'
-import {Image, Linking, Platform, Share, StyleSheet, View} from 'react-native'
+import {Image, Linking, Platform, Share, StyleSheet, View, type StyleProp, type ViewStyle} from 'react-native'
 
 import {QueryClientContext} from '@tanstack/react-query'
 
@@ -91,6 +91,11 @@ const styles = StyleSheet.create({
   // Display name over handle, always (collapsed single-line case is
   // handled by omitting the handle, not by this style).
   headerNamePress: {flexShrink: 1, minWidth: 0},
+  // Hover anchors hug the presses they wrap (the zone is exactly this
+  // box): the name anchor shrinks like the name, the handle anchor
+  // self-starts like the handle — never full-width.
+  headerNameHover: {flexShrink: 1, minWidth: 0},
+  headerHandleHover: {alignSelf: 'flex-start', flexShrink: 1, minWidth: 0, maxWidth: '100%'},
   headerHandlePress: {alignSelf: 'flex-start', flexShrink: 1, minWidth: 0, maxWidth: '100%'},
   headerName: {flexShrink: 1, maxWidth: 220, fontWeight: '700'},
   // Time text top-aligns with the name line: name runs 15/20, captions
@@ -155,6 +160,7 @@ function HoverAuthor({
   onOpenProfile,
   children,
   testID,
+  style,
 }: {
   account: Account
   sessionId: string
@@ -162,6 +168,8 @@ function HoverAuthor({
   onOpenProfile: () => void
   children: React.ReactNode
   testID?: string
+  /** Anchor layout: the hover zone is exactly this box. */
+  style?: StyleProp<ViewStyle>
 }) {
   if (Platform.OS !== 'web') return <>{children}</>
   return (
@@ -170,7 +178,8 @@ function HoverAuthor({
       sessionId={sessionId}
       backend={backend}
       onOpenProfile={onOpenProfile}
-      testID={testID}>
+      testID={testID}
+      style={style}>
       {children}
     </HoverPreview>
   )
@@ -864,18 +873,20 @@ function PostCardView({
         <Avatar post={effective} sessionId={sessionId} backend={backend} />
         <View style={styles.main}>
           <View style={styles.header}>
-          <HoverAuthor
-            account={effective.author}
-            sessionId={sessionId}
-            backend={backend}
-            onOpenProfile={() => openAuthorProfile(effective.author.id)}
-            testID={`author-hover-name-${effective.author.id}`}>
-            {/* Single hover zone, two tap targets: the time sits in the
-              name row (bound to the display-name width, never the
-              handle's), the handle lives on its own row below. */}
+            {/* Hover zones hug the interactive content only: the name
+              and the handle each arm the card, the time and the tag
+              bubble never do — a wide zone here covered hashtags with
+              profile cards. */}
             <View style={styles.headerCol}>
               <View style={styles.nameRow}>
-                <Pressable
+                <HoverAuthor
+                  account={effective.author}
+                  sessionId={sessionId}
+                  backend={backend}
+                  onOpenProfile={() => openAuthorProfile(effective.author.id)}
+                  testID={`author-hover-name-${effective.author.id}`}
+                  style={styles.headerNameHover}>
+                  <Pressable
                   testID={`author-press-${effective.author.id}`}
                   onPress={() => openAuthorProfile(effective.author.id)}
                   accessibilityRole="link"
@@ -893,6 +904,7 @@ function PostCardView({
                     testID={`author-name-${effective.author.id}`}
                   />
                 </Pressable>
+                </HoverAuthor>
                 <Pressable
                   testID={`post-time-${effective.id}`}
                   onPress={() => openPostDetail(effective.id)}
@@ -913,19 +925,26 @@ function PostCardView({
                 ) : null}
               </View>
               {shouldCollapseName(effective.author) ? null : (
-                <Pressable
-                  testID={`author-handle-${effective.author.id}`}
-                  onPress={() => openAuthorProfile(effective.author.id)}
-                  accessibilityRole="link"
-                  accessibilityLabel={i18n._(msg`Open profile of ${displayNameOf(effective.author)}`)}
-                  style={styles.headerHandlePress}>
-                  <Caption color="muted" numberOfLines={1}>
-                    {handleOf(effective.author)}
-                  </Caption>
-                </Pressable>
+                <HoverAuthor
+                  account={effective.author}
+                  sessionId={sessionId}
+                  backend={backend}
+                  onOpenProfile={() => openAuthorProfile(effective.author.id)}
+                  testID={`author-hover-handle-${effective.author.id}`}
+                  style={styles.headerHandleHover}>
+                  <Pressable
+                    testID={`author-handle-${effective.author.id}`}
+                    onPress={() => openAuthorProfile(effective.author.id)}
+                    accessibilityRole="link"
+                    accessibilityLabel={i18n._(msg`Open profile of ${displayNameOf(effective.author)}`)}
+                    style={styles.headerHandlePress}>
+                    <Caption color="muted" numberOfLines={1}>
+                      {handleOf(effective.author)}
+                    </Caption>
+                  </Pressable>
+                </HoverAuthor>
               )}
             </View>
-          </HoverAuthor>
         </View>
         {cw !== null && (
           <View style={[styles.cwBox, {backgroundColor: theme.palette.bg, borderColor: theme.palette.borderStrong}]} testID={`cw-${post.id}`}>

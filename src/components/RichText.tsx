@@ -41,7 +41,7 @@ import {Body} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {CustomEmojiGlyph, UnicodeEmoji} from '#/components/EmojiImage'
 import {ProfileIcon} from '#/components/icons'
-import {HoverLayer, cardPosition, leaveTargetStaysInside} from '#/components/Profile/HoverPreview'
+import {HoverLayer, HOVER_CLOSE_DELAY_MS, HOVER_FADE_LEAD_MS, cardPosition, ensurePointerTracking, leaveTargetStaysInside, pointerRecentlyMoved} from '#/components/Profile/HoverPreview'
 import {canCopy, copyText} from '#/lib/clipboard'
 import {showToast} from '#/lib/toast'
 import {Pressable} from '#/components/Pressable'
@@ -524,7 +524,6 @@ const matrixCardStyles = StyleSheet.create({
 })
 
 const MATRIX_OPEN_DELAY_MS = 400
-const MATRIX_CLOSE_DELAY_MS = 400
 
 type MatrixCardPos = {top?: number; bottom?: number; left?: number; right?: number}
 
@@ -554,18 +553,36 @@ function MatrixHover({
   children: React.ReactNode
 }) {
   const [show, setShow] = useState(false)
+  const [faded, setFaded] = useState(false)
   const [pos, setPos] = useState<MatrixCardPos | null>(null)
   const anchor = useRef<ViewType | null>(null)
   const cardEl = useRef<HTMLElement | null>(null)
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
     () => () => {
       if (openTimer.current !== null) clearTimeout(openTimer.current)
+      if (fadeTimer.current !== null) clearTimeout(fadeTimer.current)
       if (closeTimer.current !== null) clearTimeout(closeTimer.current)
     },
     [],
   )
+  useEffect(() => {
+    ensurePointerTracking()
+  }, [])
+  // All timers scheduled from pointer events, never chained (same rule
+  // as HoverPreview).
+  const clearOpenPair = () => {
+    if (openTimer.current !== null) {
+      clearTimeout(openTimer.current)
+      openTimer.current = null
+    }
+    if (fadeTimer.current !== null) {
+      clearTimeout(fadeTimer.current)
+      fadeTimer.current = null
+    }
+  }
   const cancelClose = () => {
     if (closeTimer.current !== null) {
       clearTimeout(closeTimer.current)
@@ -574,35 +591,45 @@ function MatrixHover({
   }
   const scheduleClose = () => {
     cancelClose()
-    closeTimer.current = setTimeout(() => setShow(false), MATRIX_CLOSE_DELAY_MS)
+    closeTimer.current = setTimeout(() => setShow(false), HOVER_CLOSE_DELAY_MS)
+  }
+  const handleEnter = () => {
+    // Layout-shift ghost: without recent pointer movement this arrival
+    // isn't the user — ignore it, or closed cards reopen by themselves.
+    if (!pointerRecentlyMoved()) return
+    cancelClose()
+    if (show) {
+      setFaded(true)
+      return
+    }
+    clearOpenPair()
+    const el = anchor.current as unknown as {getBoundingClientRect?: () => DOMRect} | null
+    const rect = el?.getBoundingClientRect?.()
+    const viewport = matrixViewportSize()
+    if (rect && viewport) {
+      setPos(
+        cardPosition(
+          {top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right},
+          viewport,
+        ).pos,
+      )
+    }
+    openTimer.current = setTimeout(() => setShow(true), MATRIX_OPEN_DELAY_MS)
+    fadeTimer.current = setTimeout(() => setFaded(true), MATRIX_OPEN_DELAY_MS + HOVER_FADE_LEAD_MS)
+  }
+  const handleLeave = () => {
+    setFaded(false)
+    clearOpenPair()
+    if (show) scheduleClose()
   }
   // This RN Web version drops `onHoverIn`/`onHoverOut` on plain Views
   // (only Pressable wires them) — but it DOES forward `onMouseEnter`/
   // `onMouseLeave`, so the anchor uses those (same as HoverPreview).
   const hoverHandlers = {
-    onMouseEnter: () => {
-      cancelClose()
-      if (openTimer.current !== null) clearTimeout(openTimer.current)
-      const el = anchor.current as unknown as {getBoundingClientRect?: () => DOMRect} | null
-      const rect = el?.getBoundingClientRect?.()
-      const viewport = matrixViewportSize()
-      if (rect && viewport) {
-        setPos(
-          cardPosition(
-            {top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right},
-            viewport,
-          ).pos,
-        )
-      }
-      openTimer.current = setTimeout(() => setShow(true), MATRIX_OPEN_DELAY_MS)
-    },
+    onMouseEnter: handleEnter,
     onMouseLeave: (e?: {relatedTarget?: unknown}) => {
       if (leaveTargetStaysInside([anchor.current, cardEl.current], e?.relatedTarget)) return
-      if (openTimer.current !== null) {
-        clearTimeout(openTimer.current)
-        openTimer.current = null
-      }
-      scheduleClose()
+      handleLeave()
     },
   }
   return (
@@ -614,10 +641,15 @@ function MatrixHover({
         <HoverLayer
           pos={pos}
           cardRef={cardEl}
-          onEnterCard={cancelClose}
+          anchorRef={anchor}
+          fade={faded}
+          onEnterCard={() => {
+            cancelClose()
+            setFaded(true)
+          }}
           onLeaveCard={e => {
             if (leaveTargetStaysInside([anchor.current, cardEl.current], e?.relatedTarget)) return
-            scheduleClose()
+            handleLeave()
           }}
           onDismiss={() => setShow(false)}>
           <MatrixHovercard userId={userId} />

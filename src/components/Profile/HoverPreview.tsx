@@ -24,7 +24,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
-import {Platform, View, type View as ViewType} from 'react-native'
+import {Platform, StyleSheet, View, type View as ViewType, type ViewStyle, type StyleProp} from 'react-native'
 
 import type {Account, Backend} from '@keystone/fedi'
 
@@ -41,6 +41,58 @@ const HOVER_GAP = 6
 const HOVER_EDGE = 8
 const OPEN_DELAY_MS = 400
 const CLOSE_DELAY_MS = 400
+/** Fade duration for card appear/disappear (opacity transition on the
+ * card box — shared by profile and Matrix hovercards). */
+export const HOVER_FADE_MS = 150
+/** Lead after mount before fading in (lets the transparent mount paint
+ * first so the transition animates instead of appearing). */
+export const HOVER_FADE_LEAD_MS = 20
+/** Unmount delay after a leave: the close grace plus the fade-out, as
+ * one event-scheduled timer (no chained timers). */
+export const HOVER_CLOSE_DELAY_MS = CLOSE_DELAY_MS + HOVER_FADE_MS
+/** How far the anchor may drift (streaming inserts, image loads)
+ * before the card is stale and dismisses. */
+const ANCHOR_MOVE_PX = 8
+const ANCHOR_POLL_MS = 500
+/** A hover arrival counts as genuine only with pointer movement this
+ * recent: layout shifts slide anchors under a stationary pointer and
+ * browsers fire a real `mouseEnter` for it, which would reopen just-
+ * closed cards by itself. */
+const POINTER_FRESH_MS = 1000
+
+// Last real pointer movement (web only). One shared timestamp: the
+// listener registration is idempotent (identical type/fn/capture
+// registers once), so every hover owner just ensures it on mount.
+let lastPointerMoveAt = 0
+let pointerTrackingOn = false
+
+/** Attach the shared pointer-movement tracker (web only, idempotent).
+ * Call from hover-owner mount. No-ops where there is no window or no
+ * listener API (native, DOM-less renderers) — there every enter is
+ * allowed. */
+export function ensurePointerTracking(): void {
+  if (pointerTrackingOn || typeof window === 'undefined') return
+  const add = (window as unknown as {addEventListener?: unknown}).addEventListener
+  if (typeof add !== 'function') return
+  pointerTrackingOn = true
+  ;(window as unknown as {addEventListener: (t: string, fn: () => void, o?: object) => void}).addEventListener(
+    'mousemove',
+    () => {
+      lastPointerMoveAt = Date.now()
+    },
+    {passive: true, capture: true},
+  )
+}
+
+/** True when the pointer moved recently — i.e. a hover arrival is the
+ * user arriving, not a layout shift sliding an anchor underneath a
+ * stationary pointer. Always true where movement is unmeasurable
+ * (native, DOM-less tests): nothing to gate on there. Pure modulo the
+ * shared timestamp. */
+export function pointerRecentlyMoved(now: number = Date.now()): boolean {
+  if (typeof window === 'undefined' || !pointerTrackingOn) return true
+  return now - lastPointerMoveAt <= POINTER_FRESH_MS
+}
 // Scrolls/resizes in this window after open are treated as mount/layout
 // settle (images loading, streamer banners) rather than a real user
 // scroll — the card survives them.
@@ -156,6 +208,18 @@ export function leaveTargetStaysInside(hosts: ReadonlyArray<unknown>, target: un
   )
 }
 
+/** True when the anchor drifted out from under the pointer (streaming
+ * inserts, late image loads): the open card points at stale
+ * coordinates and must dismiss. Pure — pinned by unit tests. */
+export function anchorMoved(
+  baseline: {top: number; left: number} | null,
+  rect: {top: number; left: number},
+  px = ANCHOR_MOVE_PX,
+): boolean {
+  if (!baseline) return false
+  return Math.abs(rect.top - baseline.top) > px || Math.abs(rect.left - baseline.left) > px
+}
+
 // react-dom is web-only: resolved lazily so native bundles never
 // evaluate it (this call is the only runtime path, and it only runs
 // where `document` exists — i.e. inside `HoverLayer` on web).
@@ -176,6 +240,8 @@ function webPortal(children: ReactNode, host: Element): ReactNode {
 export function HoverLayer({
   pos,
   cardRef,
+  anchorRef,
+  fade,
   onEnterCard,
   onLeaveCard,
   onDismiss,
@@ -183,6 +249,13 @@ export function HoverLayer({
 }: {
   pos: CardPos | null
   cardRef: RefObject<HTMLElement | null>
+  /** Anchor for move-dismissal: feed inserts can shift the anchor out
+   * from under a stationary pointer (no mouse events fire), leaving
+   * the card stuck at stale coordinates. Omit where unmeasurable. */
+  anchorRef?: RefObject<ViewType | null>
+  /** Opacity state from `useHoverFade` (mounts transparent, eases in;
+   * eases out before the owner unmounts). */
+  fade: boolean
   onEnterCard: () => void
   onLeaveCard: (e?: {relatedTarget?: unknown}) => void
   onDismiss: () => void
@@ -219,6 +292,31 @@ export function HoverLayer({
   useEffect(() => {
     if (host) openedAt.current = Date.now()
   }, [host])
+  // Anchor-drift dismissal: layout shifts without scroll (streaming
+  // inserts, late media) move the anchor without firing mouse events,
+  // which strands the card. Polls the anchor box on a slow cadence and
+  // dismisses past a small drift. Settle-guarded like scroll (mount and
+  // image-load shifts are not departures); skipped entirely where
+  // there is no window to measure in.
+  const baseline = useRef<{top: number; left: number} | null>(null)
+  useEffect(() => {
+    if (!anchorRef || typeof window === 'undefined') return
+    const id = setInterval(() => {
+      const el = anchorRef.current as unknown as {getBoundingClientRect?: () => DOMRect} | null
+      const rect = el?.getBoundingClientRect?.()
+      if (!rect) return
+      if (Date.now() - openedAt.current < SCROLL_SETTLE_MS) {
+        baseline.current = null
+        return
+      }
+      if (!baseline.current) {
+        baseline.current = {top: rect.top, left: rect.left}
+        return
+      }
+      if (anchorMoved(baseline.current, rect)) onDismiss()
+    }, ANCHOR_POLL_MS)
+    return () => clearInterval(id)
+  }, [anchorRef, host, onDismiss])
   useEffect(() => {
     if (!host || typeof window === 'undefined') return
     const events = windowEvents()
@@ -277,6 +375,8 @@ export function HoverLayer({
             width: HOVER_CARD_WIDTH,
             pointerEvents: 'auto',
             fontFamily: HOVER_CARD_FONT_FAMILY,
+            opacity: fade ? 1 : 0,
+            transition: `opacity ${HOVER_FADE_MS}ms ease`,
           }}
           onMouseEnter={onEnterCard}
           onMouseLeave={onLeaveCard}>
@@ -286,6 +386,10 @@ export function HoverLayer({
     }
     return null
   }
+  const fadeStyle: CSSProperties = {
+    opacity: fade ? 1 : 0,
+    transition: `opacity ${HOVER_FADE_MS}ms ease`,
+  }
   const style: CSSProperties = fix
     ? {
         position: 'absolute',
@@ -294,6 +398,7 @@ export function HoverLayer({
         width: HOVER_CARD_WIDTH,
         pointerEvents: 'auto',
         fontFamily: HOVER_CARD_FONT_FAMILY,
+        ...fadeStyle,
       }
     : {
         position: 'absolute',
@@ -304,6 +409,7 @@ export function HoverLayer({
         width: HOVER_CARD_WIDTH,
         pointerEvents: 'auto',
         fontFamily: HOVER_CARD_FONT_FAMILY,
+        ...fadeStyle,
       }
   return webPortal(
     <div
@@ -327,6 +433,7 @@ export function HoverPreview({
   onOpenProfile,
   children,
   testID,
+  style,
 }: {
   account: Account | null
   sessionId: string
@@ -337,20 +444,30 @@ export function HoverPreview({
   onOpenProfile?: () => void
   children: ReactNode
   testID?: string
+  /** Anchor layout: the hover zone is exactly this box, so callers
+   * shrink it to the interactive content (a full-width anchor opens
+   * the card from empty space beside the content). */
+  style?: StyleProp<ViewStyle>
 }) {
   const [show, setShow] = useState(false)
+  const [faded, setFaded] = useState(false)
   const [pos, setPos] = useState<CardPos | null>(null)
   const anchor = useRef<ViewType | null>(null)
   const cardEl = useRef<HTMLElement | null>(null)
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(
     () => () => {
       if (openTimer.current !== null) clearTimeout(openTimer.current)
+      if (fadeTimer.current !== null) clearTimeout(fadeTimer.current)
       if (closeTimer.current !== null) clearTimeout(closeTimer.current)
     },
     [],
   )
+  useEffect(() => {
+    ensurePointerTracking()
+  }, [])
   // `relatedTarget` is where the pointer went. A leave whose target
   // is still inside the anchor-or-card subtree is a layout-shift ghost
   // (images loading, streamer banners moving boxes under a stationary
@@ -359,6 +476,19 @@ export function HoverPreview({
   const leaveStaysInside = (e: {relatedTarget?: unknown} | undefined): boolean =>
     leaveTargetStaysInside([anchor.current, cardEl.current], e?.relatedTarget)
   if (Platform.OS !== 'web') return <>{children}</>
+  // Every timer below is scheduled from a pointer event, never from
+  // another timer: each fires in any covering time advance (no chained
+  // timers that single-chunk advancement can strand).
+  const clearOpenPair = () => {
+    if (openTimer.current !== null) {
+      clearTimeout(openTimer.current)
+      openTimer.current = null
+    }
+    if (fadeTimer.current !== null) {
+      clearTimeout(fadeTimer.current)
+      fadeTimer.current = null
+    }
+  }
   const cancelClose = () => {
     if (closeTimer.current !== null) {
       clearTimeout(closeTimer.current)
@@ -367,7 +497,41 @@ export function HoverPreview({
   }
   const scheduleClose = () => {
     cancelClose()
-    closeTimer.current = setTimeout(() => setShow(false), CLOSE_DELAY_MS)
+    closeTimer.current = setTimeout(() => setShow(false), HOVER_CLOSE_DELAY_MS)
+  }
+  const handleEnter = () => {
+    // Layout-shift ghost (streaming inserts / image loads sliding the
+    // anchor under a stationary pointer): without recent pointer
+    // movement this arrival isn't the user — ignore it, or closed
+    // cards reopen by themselves.
+    if (!pointerRecentlyMoved()) return
+    cancelClose()
+    // Still mounted (mid-fade or open): fade back in, no reopen delay.
+    if (show) {
+      setFaded(true)
+      return
+    }
+    clearOpenPair()
+    const el = anchor.current as unknown as {getBoundingClientRect?: () => DOMRect} | null
+    const rect = el?.getBoundingClientRect?.()
+    const viewport = viewportSize()
+    if (rect && viewport) {
+      setPos(
+        cardPosition(
+          {top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right},
+          viewport,
+        ).pos,
+      )
+    }
+    openTimer.current = setTimeout(() => setShow(true), OPEN_DELAY_MS)
+    fadeTimer.current = setTimeout(() => setFaded(true), OPEN_DELAY_MS + HOVER_FADE_LEAD_MS)
+  }
+  const handleLeave = () => {
+    // Fade starts at once; the unmount follows after the grace window
+    // (re-entering cancels it and fades back in).
+    setFaded(false)
+    clearOpenPair()
+    if (show) scheduleClose()
   }
   // This RN Web version drops `onHoverIn`/`onHoverOut` on plain Views
   // (only Pressable wires them) — but it DOES forward `onMouseEnter`/
@@ -377,31 +541,10 @@ export function HoverPreview({
     onMouseEnter?: (e?: {relatedTarget?: unknown}) => void
     onMouseLeave?: (e?: {relatedTarget?: unknown}) => void
   } = {
-    onMouseEnter: () => {
-      cancelClose()
-      if (openTimer.current !== null) clearTimeout(openTimer.current)
-      const el = anchor.current as unknown as {getBoundingClientRect?: () => DOMRect} | null
-      const rect = el?.getBoundingClientRect?.()
-      const viewport = viewportSize()
-      if (rect && viewport) {
-        setPos(
-          cardPosition(
-            {top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right},
-            viewport,
-          ).pos,
-        )
-      }
-      openTimer.current = setTimeout(() => {
-        setShow(true)
-      }, OPEN_DELAY_MS)
-    },
+    onMouseEnter: handleEnter,
     onMouseLeave: e => {
       if (leaveStaysInside(e)) return
-      if (openTimer.current !== null) {
-        clearTimeout(openTimer.current)
-        openTimer.current = null
-      }
-      scheduleClose()
+      handleLeave()
     },
   }
   // The card keeps itself alive while hovered (moving from the anchor
@@ -412,21 +555,30 @@ export function HoverPreview({
     onMouseEnter?: () => void
     onMouseLeave?: (e?: {relatedTarget?: unknown}) => void
   } = {
-    onMouseEnter: cancelClose,
+    onMouseEnter: () => {
+      cancelClose()
+      setFaded(true)
+    },
     onMouseLeave: e => {
       if (leaveStaysInside(e)) return
-      scheduleClose()
+      handleLeave()
     },
   }
   return (
     <>
-      <View ref={anchor} testID={testID ? `${testID}-anchor` : undefined} {...hoverHandlers}>
+      <View
+        ref={anchor}
+        testID={testID ? `${testID}-anchor` : undefined}
+        style={style}
+        {...hoverHandlers}>
         {children}
       </View>
       {show && account ? (
         <HoverLayer
           pos={pos}
           cardRef={cardEl}
+          anchorRef={anchor}
+          fade={faded}
           onEnterCard={cardHandlers.onMouseEnter!}
           onLeaveCard={cardHandlers.onMouseLeave!}
           onDismiss={() => setShow(false)}>

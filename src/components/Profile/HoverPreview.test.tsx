@@ -1,6 +1,7 @@
-// HoverPreview behavior: hover opens the card after a delay, hover-out
-// closes it after a grace period, and the card renders through the
-// Modal layer (never clipped by feed scroll containers).
+// HoverPreview behavior: hover opens the card after a delay (fading
+// in), hover-out closes it after a grace period plus the fade-out,
+// and the card renders through the click-through HoverLayer (never
+// clipped by feed scroll containers, never a Modal capture).
 
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
@@ -16,7 +17,7 @@ import {i18n} from '#/locale/i18n'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
-import {HoverPreview, clampToViewport, leaveTargetStaysInside} from './HoverPreview'
+import {HoverPreview, anchorMoved, clampToViewport, leaveTargetStaysInside} from './HoverPreview'
 
 jest.mock('react-dom', () => ({
   createPortal: (children: unknown) => children,
@@ -105,6 +106,11 @@ describe('HoverPreview', () => {
       act(() => {
         jest.advanceTimersByTime(1)
       })
+      // Grace period over: fading out, still mounted for 150ms.
+      expect(screen.getByTestId('hover-prev')).toBeTruthy()
+      act(() => {
+        jest.advanceTimersByTime(150)
+      })
       expect(screen.queryByTestId('hover-prev')).toBeNull()
     } finally {
       done()
@@ -125,8 +131,10 @@ describe('HoverPreview', () => {
       // pure `leaveTargetStaysInside` tests below; here the bare leave
       // still closes after the grace period.)
       fireEvent(anchor, 'mouseLeave')
+      // Single-chunk close: one event-scheduled timer covers grace +
+      // fade, so no chained timer can strand the card.
       act(() => {
-        jest.advanceTimersByTime(399)
+        jest.advanceTimersByTime(549)
       })
       expect(screen.getByTestId('hover-prev')).toBeTruthy()
       act(() => {
@@ -177,5 +185,109 @@ describe('leaveTargetStaysInside', () => {
     expect(leaveTargetStaysInside([host], undefined)).toBe(false)
     expect(leaveTargetStaysInside([null, undefined], inner)).toBe(false)
     expect(leaveTargetStaysInside([], inner)).toBe(false)
+  })
+})
+
+describe('anchorMoved', () => {
+  it('ignores jitter at or under the threshold, fires past it', () => {
+    const baseline = {top: 100, left: 200}
+    expect(anchorMoved(null, {top: 500, left: 500})).toBe(false)
+    expect(anchorMoved(baseline, {top: 100, left: 200})).toBe(false)
+    expect(anchorMoved(baseline, {top: 108, left: 200})).toBe(false)
+    expect(anchorMoved(baseline, {top: 100, left: 192})).toBe(false)
+    expect(anchorMoved(baseline, {top: 109, left: 200})).toBe(true)
+    expect(anchorMoved(baseline, {top: 100, left: 209})).toBe(true)
+  })
+})
+
+describe('layout-shift ghosts', () => {
+  // Minimal window: the movement-listener registry plus viewport
+  // metrics. `document` stays undefined (inline card path).
+  function fakeWindow() {
+    const listeners = new Map<string, Array<() => void>>()
+    return {
+      innerWidth: 1280,
+      innerHeight: 800,
+      addEventListener: (type: string, fn: () => void) => {
+        const list = listeners.get(type) ?? []
+        list.push(fn)
+        listeners.set(type, list)
+      },
+      removeEventListener: jest.fn(),
+      dispatch: (type: string) => {
+        listeners.get(type)?.forEach(fn => fn())
+      },
+    }
+  }
+
+  function setupGhost() {
+    const store = createSessionStore({
+      storage: createMemoryStore(),
+      vault: memVault(),
+      homeOrigin: 'https://app.example',
+    })
+    const restoreOs = jest.replaceProperty(Platform, 'OS', 'web')
+    jest.useFakeTimers()
+    const rendered = render(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <QueryClientProvider client={new QueryClient()}>
+            <SessionProvider store={store} homeOrigin="https://app.example">
+              <HoverPreview account={account} sessionId="s1" testID="hover-prev">
+                <></>
+              </HoverPreview>
+            </SessionProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    return {
+      done: () => {
+        // Unmount while the fake window is still up (TanStack's
+        // cleanup touches window), then restore timers + globals.
+        rendered.unmount()
+        restoreOs.restore()
+        jest.useRealTimers()
+      },
+    }
+  }
+
+  it('ignores enters with a stale pointer, opens after real movement', () => {
+    const win = fakeWindow()
+    const prevWindow = (globalThis as Record<string, unknown>).window
+    ;(globalThis as Record<string, unknown>).window = win
+    const {done} = setupGhost()
+    try {
+      const anchor = screen.getByTestId('hover-prev-anchor')
+      // No movement ever (and time forced past the freshness window):
+      // a layout shift sliding this anchor under a stationary pointer
+      // must not arm the card.
+      act(() => {
+        jest.advanceTimersByTime(1500)
+      })
+      fireEvent(anchor, 'mouseEnter')
+      act(() => {
+        jest.advanceTimersByTime(1000)
+      })
+      expect(screen.queryByTestId('hover-prev')).toBeNull()
+      // Genuine arrival (movement first): opens after the delay.
+      act(() => {
+        win.dispatch('mousemove')
+      })
+      fireEvent(anchor, 'mouseEnter')
+      act(() => {
+        jest.advanceTimersByTime(400)
+      })
+      expect(screen.getByTestId('hover-prev')).toBeTruthy()
+    } finally {
+      done()
+      // Fresh movement timestamp under real timers (later tests in this
+      // file share the module's tracker state), then restore the env's
+      // own window stub — TanStack's unmount cleanup needs the global.
+      act(() => {
+        win.dispatch('mousemove')
+      })
+      ;(globalThis as Record<string, unknown>).window = prevWindow
+    }
   })
 })
