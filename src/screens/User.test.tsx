@@ -4,6 +4,7 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen} from '@testing-library/react-native'
 
 import {createMemoryStore, type Backend} from '@keystone/fedi'
+import {ApiError} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import type {TokenVault} from '#/storage'
@@ -105,5 +106,70 @@ describe('UserScreen scroll layout (bio scrolls, tabs stick, no reactions)', () 
     expect(accountReactions).not.toHaveBeenCalled()
     // Self actions survive the move into the header.
     expect(screen.getByTestId('profile-edit')).toBeTruthy()
+  })
+
+  it('names server rate limiting honestly, and retry recovers', async () => {
+    const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: HOME_ORIGIN})
+    const added = await store.add({
+      origin: 'https://a.example',
+      family: 'misskey',
+      flavor: 'misskey',
+      accountId: 'alice',
+      token: 'token-a',
+      grant: 'password',
+      hosting: 'third-party',
+    })
+    const limit = new ApiError('Too many requests.', 429, 'errors.network.apiError')
+    const account = jest
+      .fn()
+      .mockRejectedValueOnce(limit)
+      .mockResolvedValue(
+        makeAccount({id: 'alice', username: 'alice', acct: 'alice', displayName: 'Alice', name: 'Alice'}),
+      )
+    const backend = {
+      capabilities: {},
+      account,
+      relationships: jest.fn(async () => []),
+      accountPosts: jest.fn(async () => ({items: [], cursor: null, end: true})),
+      accountReactions: jest.fn(async () => ({items: [], cursor: null, end: true})),
+    } as unknown as Backend
+    mockBackends.set(added.id, backend)
+    renderWithProviders(<UserScreen />, store)
+
+    // A 429 is throttling, never "deleted, suspended, or unreachable".
+    expect(await screen.findByTestId('profile-rate-limited')).toBeTruthy()
+    expect(screen.getByText(/throttling requests/)).toBeTruthy()
+    expect(screen.queryByText(/deleted, suspended/)).toBeNull()
+    // Retry re-fetches and the profile lands.
+    fireEvent.press(screen.getByTestId('profile-retry'))
+    expect(await screen.findByTestId('profile-header')).toBeTruthy()
+    expect(account).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the generic copy for non-rate-limit failures', async () => {
+    const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: HOME_ORIGIN})
+    const added = await store.add({
+      origin: 'https://a.example',
+      family: 'misskey',
+      flavor: 'misskey',
+      accountId: 'alice',
+      token: 'token-a',
+      grant: 'password',
+      hosting: 'third-party',
+    })
+    const backend = {
+      capabilities: {},
+      account: jest.fn(async () => {
+        throw new ApiError('Not found.', 404, 'errors.shape.noAccountFound')
+      }),
+      relationships: jest.fn(async () => []),
+      accountPosts: jest.fn(async () => ({items: [], cursor: null, end: true})),
+      accountReactions: jest.fn(async () => ({items: [], cursor: null, end: true})),
+    } as unknown as Backend
+    mockBackends.set(added.id, backend)
+    renderWithProviders(<UserScreen />, store)
+
+    expect(await screen.findByText('Could not load this profile.')).toBeTruthy()
+    expect(screen.queryByTestId('profile-rate-limited')).toBeNull()
   })
 })

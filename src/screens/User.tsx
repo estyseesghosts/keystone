@@ -5,7 +5,7 @@ import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@rea
 import {msg} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
 
-import {type Account, type Relationship, parseAcct} from '@keystone/fedi'
+import {type Account, type Relationship, ApiError, parseAcct} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
@@ -137,8 +137,21 @@ export function UserScreen() {
         <SkeletonList variant="account" testID="profile-loading" />
       ) : resolveError || error || !account ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>{i18n._(msg`Could not load this profile.`)}</Body>
-          <Caption color="faint">{i18n._(msg`It may be deleted, suspended, or unreachable.`)}</Caption>
+          {error instanceof ApiError && error.status === 429 ? (
+            <>
+              <Body testID="profile-rate-limited">
+                {i18n._(msg`Rate limited by the server.`)}
+              </Body>
+              <Caption color="faint">
+                {i18n._(msg`The server is throttling requests right now. Wait a moment, then try again.`)}
+              </Caption>
+            </>
+          ) : (
+            <>
+              <Body>{i18n._(msg`Could not load this profile.`)}</Body>
+              <Caption color="faint">{i18n._(msg`It may be deleted, suspended, or unreachable.`)}</Caption>
+            </>
+          )}
           <Button
             label={i18n._(msg`Retry`)}
             variant="secondary"

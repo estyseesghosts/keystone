@@ -74,6 +74,9 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
     Mastodon shredding Matrix IDs into bogus mentions — shared
     rejoin pass in both parsers. Log
     `state/logs/2026-10-24-matrix-shredded.md`. 199 suites / 2602
+    tests green. Follow-up same day: 429s rendered as deleted
+    profiles — User screen now names throttling + Retry. Log
+    `state/logs/2026-10-24-profile-rate-limit.md`. 199 suites / 2604
     tests green.
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/
    user-note/modlog/reset-password; Mastodon account_actions
