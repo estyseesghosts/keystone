@@ -203,7 +203,7 @@ export function CompactComposer(props: ComposerProps) {
             value={c.state.text}
             onChangeText={text => {
               c.patch({text})
-              autogrow.remeasure()
+              autogrow.remeasure(text)
             }}
             onSelectionChange={e => c.setCaret(e.nativeEvent.selection.end)}
             placeholder={c.state.replyTo ? i18n._(msg`Write your reply`) : i18n._(msg`What's happening?`)}

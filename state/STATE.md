@@ -38,12 +38,11 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
-0. Composer web fixes on `main` 2026-10-24 (unpushed): transparent
-   outline color kills the desktop focus ring where width-only failed;
-   autogrow `remeasure` makes the box contract on delete (web
-   scrollHeight sticks to the old box). Log
-   `state/logs/2026-10-24-composer-ring-shrink.md`. 196 suites /
-   2483 tests green. Owner confirms visually.
+0. Composer chrome-free + shrink guards on `main` 2026-10-24
+   (unpushed): modal input border removed (inline already borderless);
+   `remeasure(text)` skips no-op reflows (growth / no explicit height).
+   Log `state/logs/2026-10-24-composer-own-outline.md`. 196 suites /
+   2484 tests green. Owner confirms visually.
 0b. Recommendations feed (dvd-sharkey fork port) on `main` 2026-10-24
    (unpushed): `recommendations` descriptor + Backend module
    (offset-paged, probe-detected), Home tab bar above the composer,

@@ -491,8 +491,6 @@ export function useComposerController({
     root: {padding: space.lg, gap: space.md},
     input: {
       minHeight: 120,
-      borderWidth: 1,
-      borderColor: theme.palette.edge,
       borderRadius: radius.md,
       padding: space.md,
       color: theme.palette.text,
@@ -500,8 +498,9 @@ export function useComposerController({
       // P1: the compose box is prose — it scales with the text setting.
       fontSize: typeSize.body * theme.fontScaleMultiplier,
       textAlignVertical: 'top',
-      // No browser focus ring on the bordered box either
-      // (width 0 + transparent color — see CompactComposer).
+      // No browser focus ring and no box of our own either: chrome-free
+      // prose like the inline composer (width 0 + transparent color —
+      // see CompactComposer).
       outlineColor: 'transparent',
       outlineWidth: 0,
     },
@@ -596,7 +595,7 @@ export function Composer(props: ComposerProps) {
         value={state.text}
         onChangeText={text => {
           patch({text})
-          autogrow.remeasure()
+          autogrow.remeasure(text)
         }}
         onSelectionChange={e => setCaret(e.nativeEvent.selection.end)}
         placeholder={replyTo ? i18n._(msg`Write your reply`) : i18n._(msg`What's happening?`)}

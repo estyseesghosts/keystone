@@ -40,6 +40,7 @@ function asWebNode(ref: unknown): WebMeasurableNode | null {
 export function useAutogrowInput(minHeight: number, maxHeight: number) {
   const [height, setHeight] = useState<number | null>(null)
   const inputRef = useRef<TextInput | null>(null)
+  const prevLenRef = useRef<number | null>(null)
   const clamp = useCallback(
     (h: number) => setHeight(Math.min(maxHeight, Math.max(minHeight, Math.ceil(h)))),
     [minHeight, maxHeight],
@@ -50,14 +51,25 @@ export function useAutogrowInput(minHeight: number, maxHeight: number) {
     },
     [clamp],
   )
-  const remeasure = useCallback(() => {
-    const node = asWebNode(inputRef.current)
-    if (!node) return
-    node.style.height = 'auto'
-    const h = node.scrollHeight
-    node.style.height = ''
-    clamp(h)
-  }, [clamp])
+  const remeasure = useCallback(
+    (text: string) => {
+      const prevLen = prevLenRef.current
+      prevLenRef.current = text.length
+      // Growth is covered by `onContentSizeChange`; an explicit height is
+      // only ever too TALL after deletions/replacements, so skip the
+      // synchronous reflow when the text strictly grew or no explicit
+      // height is set (unconstrained box — the event sees truth).
+      if (height === null) return
+      if (prevLen !== null && text.length > prevLen) return
+      const node = asWebNode(inputRef.current)
+      if (!node) return
+      node.style.height = 'auto'
+      const h = node.scrollHeight
+      node.style.height = ''
+      clamp(h)
+    },
+    [clamp, height],
+  )
   return {height, onContentSizeChange, inputRef, remeasure}
 }
 

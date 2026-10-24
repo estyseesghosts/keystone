@@ -35,7 +35,7 @@ describe('useAutogrowInput', () => {
     const node = webNode(90)
     act(() => {
       ;(result.current.inputRef as {current: unknown}).current = node
-      result.current.remeasure()
+      result.current.remeasure('shorter')
     })
     // iOS test env: no DOM node read, height untouched.
     expect(result.current.height).toBe(200)
@@ -55,25 +55,55 @@ describe('useAutogrowInput', () => {
       const node = webNode(90)
       act(() => {
         ;(result.current.inputRef as {current: unknown}).current = node
-        result.current.remeasure()
+        result.current.remeasure('short')
       })
       expect(result.current.height).toBe(90)
       // Inline height is restored (React state stays the source of truth).
       expect(node.style.height).toBe('')
+      // Growth is the event's job: strictly longer text skips the
+      // synchronous reflow entirely (node untouched, height kept).
+      const grown = webNode(50)
+      act(() => {
+        ;(result.current.inputRef as {current: unknown}).current = grown
+        result.current.remeasure('short but a little longer than before!!')
+      })
+      expect(result.current.height).toBe(90)
+      expect(grown.style.height).toBe('')
       // Empty box clamps back to the floor.
       const empty = webNode(0)
       act(() => {
         ;(result.current.inputRef as {current: unknown}).current = empty
-        result.current.remeasure()
+        result.current.remeasure('')
       })
       expect(result.current.height).toBe(72)
-      // Ceiling still holds on the way up.
+      // Ceiling still holds (a first measure always runs, even long).
+      const {result: tallHook} = renderHook(() => useAutogrowInput(72, 320))
+      act(() => tallHook.current.onContentSizeChange(sizeEvent(200)))
+      expect(tallHook.current.height).toBe(200)
       const tall = webNode(900)
       act(() => {
-        ;(result.current.inputRef as {current: unknown}).current = tall
-        result.current.remeasure()
+        ;(tallHook.current.inputRef as {current: unknown}).current = tall
+        tallHook.current.remeasure('x'.repeat(900))
       })
-      expect(result.current.height).toBe(320)
+      expect(tallHook.current.height).toBe(320)
+    } finally {
+      ;(Platform as {OS: string}).OS = prevOS
+    }
+  })
+
+  it('skips the reflow when no explicit height is set', () => {
+    const prevOS = Platform.OS
+    ;(Platform as {OS: string}).OS = 'web'
+    try {
+      const {result} = renderHook(() => useAutogrowInput(72, 320))
+      const node = webNode(200)
+      act(() => {
+        ;(result.current.inputRef as {current: unknown}).current = node
+        result.current.remeasure('hello')
+      })
+      // Resting box: unconstrained already, the event sees truth.
+      expect(result.current.height).toBeNull()
+      expect(node.style.height).toBe('')
     } finally {
       ;(Platform as {OS: string}).OS = prevOS
     }
@@ -86,7 +116,7 @@ describe('useAutogrowInput', () => {
       const {result} = renderHook(() => useAutogrowInput(72, 320))
       act(() => {
         ;(result.current.inputRef as {current: unknown}).current = {style: {}, scrollHeight: 'big'}
-        result.current.remeasure()
+        result.current.remeasure('x')
       })
       expect(result.current.height).toBeNull()
     } finally {
