@@ -209,11 +209,10 @@ export function leaveTargetStaysInside(hosts: ReadonlyArray<unknown>, target: un
 }
 
 /** True when a card-enter may revive a closing card: only inside the
- * close-grace window after the last genuine anchor-or-card leave. A
- * real anchor→card gap crossing always lands inside the grace; a
- * pointer wandering back over the dying card's screen area later must
- * not resurrect it — the scheduled unmount proceeds. Null (no
- * departure recorded yet) always revives. Pure. */
+ * given grace window after the last genuine anchor-or-card leave. Null
+ * (no departure recorded yet) always revives. Pure. Callers pass the
+ * window that fits the crossing they accept (the fade length for fast
+ * gap crossings); the default is the full close grace. */
 export function shouldReviveCard(
   leaveAt: number | null,
   now: number = Date.now(),
@@ -221,6 +220,26 @@ export function shouldReviveCard(
 ): boolean {
   if (leaveAt === null) return true
   return now - leaveAt <= graceMs
+}
+
+/** Card-enter revive rule (crossing-only): true IFF (a) the enter's
+ * `relatedTarget` is inside the anchor subtree — a certain direct
+ * anchor→card crossing (its anchor-leave was skipped as stays-inside,
+ * so no timestamp exists) — or (b) the enter lands within the fade
+ * window after the last genuine leave (a fast gap crossing while the
+ * card is still visibly fading). Anything later is a revisit of a
+ * corpse: the caller must cancel nothing, refade nothing, and let the
+ * scheduled unmount proceed. Pure — pinned by unit tests. */
+export function shouldReviveOnCardEnter(
+  anchor: unknown,
+  relatedTarget: unknown,
+  leaveAt: number | null,
+  now: number = Date.now(),
+): boolean {
+  return (
+    leaveTargetStaysInside([anchor], relatedTarget) ||
+    shouldReviveCard(leaveAt, now, HOVER_FADE_MS)
+  )
 }
 
 /** True when the anchor drifted out from under the pointer (streaming
@@ -271,7 +290,7 @@ export function HoverLayer({
   /** Opacity state from `useHoverFade` (mounts transparent, eases in;
    * eases out before the owner unmounts). */
   fade: boolean
-  onEnterCard: () => void
+  onEnterCard: (e?: {relatedTarget?: unknown}) => void
   onLeaveCard: (e?: {relatedTarget?: unknown}) => void
   onDismiss: () => void
   children: ReactNode
@@ -571,15 +590,17 @@ export function HoverPreview({
   // The layer is click-through, so the anchor keeps its own hover
   // state underneath while the card is open.
   const cardHandlers: {
-    onMouseEnter?: () => void
+    onMouseEnter?: (e?: {relatedTarget?: unknown}) => void
     onMouseLeave?: (e?: {relatedTarget?: unknown}) => void
   } = {
-    onMouseEnter: () => {
-      // A closing card revives only for a genuine anchor→card gap
-      // crossing (inside the close grace). A pointer drifting back over
-      // the dying card's area later must not resurrect it — the
-      // scheduled unmount proceeds.
-      if (!shouldReviveCard(leaveAt.current, Date.now())) return
+    onMouseEnter: e => {
+      // Crossing-only revive (`shouldReviveOnCardEnter`): certain
+      // anchor→card crossings and fast gap crossings while the card
+      // still fades resurrect it; a later revisit of the corpse is
+      // ignored — no close cancel, no refade, the scheduled unmount
+      // proceeds. Slow crossers recover with one anchor wiggle (anchor
+      // re-enter refades instantly).
+      if (!shouldReviveOnCardEnter(anchor.current, e?.relatedTarget, leaveAt.current)) return
       cancelClose()
       setFaded(true)
     },

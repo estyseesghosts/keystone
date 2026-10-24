@@ -41,7 +41,7 @@ import {Body} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {CustomEmojiGlyph, UnicodeEmoji} from '#/components/EmojiImage'
 import {ProfileIcon} from '#/components/icons'
-import {HoverLayer, HOVER_CLOSE_DELAY_MS, HOVER_FADE_LEAD_MS, cardPosition, ensurePointerTracking, leaveTargetStaysInside, pointerRecentlyMoved, shouldReviveCard} from '#/components/Profile/HoverPreview'
+import {HoverLayer, HOVER_CLOSE_DELAY_MS, HOVER_FADE_LEAD_MS, cardPosition, ensurePointerTracking, leaveTargetStaysInside, pointerRecentlyMoved, shouldReviveOnCardEnter} from '#/components/Profile/HoverPreview'
 import {canCopy, copyText} from '#/lib/clipboard'
 import {showToast} from '#/lib/toast'
 import {Pressable} from '#/components/Pressable'
@@ -662,10 +662,12 @@ function MatrixHover({
           cardRef={cardEl}
           anchorRef={anchor}
           fade={faded}
-          onEnterCard={() => {
-            // Same revive gate as HoverPreview: only a gap crossing
-            // inside the close grace resurrects a closing card.
-            if (!shouldReviveCard(leaveAt.current, Date.now())) return
+          onEnterCard={(e?: {relatedTarget?: unknown}) => {
+            // Same crossing-only revive as HoverPreview: certain
+            // anchor→card crossings and fast gap crossings while the
+            // card still fades resurrect it; a later revisit of the
+            // corpse is ignored and the scheduled unmount proceeds.
+            if (!shouldReviveOnCardEnter(anchor.current, e?.relatedTarget, leaveAt.current)) return
             cancelClose()
             setFaded(true)
           }}

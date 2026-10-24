@@ -17,7 +17,7 @@ import {i18n} from '#/locale/i18n'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
-import {HoverPreview, anchorMoved, clampToViewport, leaveTargetStaysInside, shouldReviveCard} from './HoverPreview'
+import {HoverPreview, anchorMoved, clampToViewport, leaveTargetStaysInside, shouldReviveCard, shouldReviveOnCardEnter} from './HoverPreview'
 
 jest.mock('react-dom', () => ({
   createPortal: (children: unknown) => children,
@@ -176,7 +176,7 @@ describe('HoverPreview', () => {
     }
   })
 
-  it('revives the card on a card-enter inside the grace window', () => {
+  it('revives the card on a card-enter inside the fade window', () => {
     const {done} = setup()
     try {
       const anchor = screen.getByTestId('hover-prev-anchor')
@@ -188,9 +188,10 @@ describe('HoverPreview', () => {
       const card = screen.UNSAFE_getByProps({'data-hovercard-card': 'true'})
       fireEvent(anchor, 'mouseLeave')
       act(() => {
-        jest.advanceTimersByTime(200)
+        jest.advanceTimersByTime(100)
       })
-      // Genuine anchor→card gap crossing: cancels the close.
+      // Fast anchor→card gap crossing while the card still fades: cancels
+      // the close.
       fireEvent(card, 'mouseEnter')
       act(() => {
         // Past the original unmount point — still alive for clicks.
@@ -201,6 +202,34 @@ describe('HoverPreview', () => {
       fireEvent(card, 'mouseLeave')
       act(() => {
         jest.advanceTimersByTime(550)
+      })
+      expect(screen.queryByTestId('hover-prev')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('ignores a card-enter from outside past the fade window (corpse revisit)', () => {
+    const {done} = setup()
+    try {
+      const anchor = screen.getByTestId('hover-prev-anchor')
+      fireEvent(anchor, 'mouseEnter')
+      act(() => {
+        jest.advanceTimersByTime(420)
+      })
+      expect(screen.getByTestId('hover-prev')).toBeTruthy()
+      const card = screen.UNSAFE_getByProps({'data-hovercard-card': 'true'})
+      fireEvent(anchor, 'mouseLeave')
+      act(() => {
+        // Past the 150ms fade window but before the 550ms unmount.
+        jest.advanceTimersByTime(300)
+      })
+      expect(screen.queryByTestId('hover-prev')).toBeTruthy()
+      // Revisit of the corpse from outside the anchor subtree: ignored,
+      // so the scheduled unmount proceeds.
+      fireEvent(card, 'mouseEnter', {relatedTarget: {outside: true}})
+      act(() => {
+        jest.advanceTimersByTime(500)
       })
       expect(screen.queryByTestId('hover-prev')).toBeNull()
     } finally {
@@ -220,6 +249,35 @@ describe('shouldReviveCard', () => {
     expect(shouldReviveCard(1000, 1401)).toBe(false)
     expect(shouldReviveCard(1000, 2000)).toBe(false)
     expect(shouldReviveCard(1000, 1500, 600)).toBe(true)
+  })
+})
+
+describe('shouldReviveOnCardEnter', () => {
+  // Branch (a) is pinned here, not at component level: under the test
+  // renderer a host View ref is an opaque mock object, so no test-side
+  // relatedTarget can ever satisfy the anchor-subtree check (verified by
+  // probe) — production DOM refs satisfy it via identity/`contains`.
+  const inner = {}
+  const anchor = {contains: (n: object) => n === inner}
+  it('revives for a relatedTarget from the anchor subtree at any age', () => {
+    // Certain direct crossing by identity: the anchor-leave was skipped
+    // as stays-inside, so no timestamp exists — yet it still revives.
+    expect(shouldReviveOnCardEnter(anchor, anchor, null, 5000)).toBe(true)
+    // Certain direct crossing far past the fade window, with a stale
+    // leave stamp from an earlier departure: still a crossing, revives.
+    expect(shouldReviveOnCardEnter(anchor, anchor, 1000, 5000)).toBe(true)
+    // Certain direct crossing via DOM contains.
+    expect(shouldReviveOnCardEnter(anchor, inner, 1000, 5000)).toBe(true)
+  })
+  it('revives for a fast gap crossing inside the fade window', () => {
+    expect(shouldReviveOnCardEnter(anchor, {outside: true}, 1000, 1100)).toBe(true)
+    expect(shouldReviveOnCardEnter(anchor, undefined, 1000, 1150)).toBe(true)
+    expect(shouldReviveOnCardEnter(anchor, null, null, 9999)).toBe(true)
+  })
+  it('ignores a corpse revisit past the fade window', () => {
+    expect(shouldReviveOnCardEnter(anchor, {outside: true}, 1000, 1151)).toBe(false)
+    expect(shouldReviveOnCardEnter(anchor, undefined, 1000, 2000)).toBe(false)
+    expect(shouldReviveOnCardEnter(anchor, null, 1000, 2000)).toBe(false)
   })
 })
 
