@@ -38,10 +38,10 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
-0. Composer chrome-free + shrink guards on `main` 2026-10-24
-   (unpushed): modal input border removed (inline already borderless);
-   `remeasure(text)` skips no-op reflows (growth / no explicit height).
-   Log `state/logs/2026-10-24-composer-own-outline.md`. 196 suites /
+0. Composer outline-style none on `main` 2026-10-24 (unpushed):
+   width-only + transparent survived in production, so the style itself
+   goes (`NO_OUTLINE`, RNW-verified). Log
+   `state/logs/2026-10-24-composer-outline-none.md`. 196 suites /
    2484 tests green. Owner confirms visually.
 0b. Recommendations feed (dvd-sharkey fork port) on `main` 2026-10-24
    (unpushed): `recommendations` descriptor + Backend module

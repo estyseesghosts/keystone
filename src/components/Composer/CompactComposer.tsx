@@ -42,6 +42,7 @@ import {Pressable} from '#/components/Pressable'
 
 import {useComposerController, type ComposerProps} from './Composer'
 import {useAutogrowInput, autogrowStyle} from './useAutogrowInput'
+import {NO_OUTLINE} from './noOutline'
 import {
   CwSection,
   PollSection,
@@ -219,6 +220,7 @@ export function CompactComposer(props: ComposerProps) {
                 lineHeight: 21 * theme.fontScaleMultiplier,
               },
               autogrowStyle(autogrow.height),
+              NO_OUTLINE,
             ]}
             onContentSizeChange={autogrow.onContentSizeChange}
           />
@@ -507,14 +509,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     textAlignVertical: 'top',
-    // No browser focus ring on the chrome-free box. `outlineStyle: none`
-    // (not just width 0): the spec-strong suppression — width-only does
-    // not kill every UA's ring (Safari keeps painting `auto`), so the
-    // color goes transparent too — invisible whatever style is insisted on.
-    // (`outlineStyle: 'none'` would read stronger, but RN's TextStyle
-    // omits it; transparent is type-clean and equally final.)
-    outlineColor: 'transparent',
+    // No focus ring ever: width-only + transparent color do not kill every
+    // UA's `auto`-style ring, so the style itself goes (see noOutline).
     outlineWidth: 0,
+    outlineColor: 'transparent',
   },
   context: {
     borderWidth: 1,

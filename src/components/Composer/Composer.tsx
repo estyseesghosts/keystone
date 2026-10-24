@@ -45,6 +45,7 @@ import {
 
 import {useSuggestions, type Suggestion} from './Autocomplete'
 import {useAutogrowInput, autogrowStyle} from './useAutogrowInput'
+import {NO_OUTLINE} from './noOutline'
 import {Chip} from './Chip'
 import {
   CwSection,
@@ -498,9 +499,8 @@ export function useComposerController({
       // P1: the compose box is prose — it scales with the text setting.
       fontSize: typeSize.body * theme.fontScaleMultiplier,
       textAlignVertical: 'top',
-      // No browser focus ring and no box of our own either: chrome-free
-      // prose like the inline composer (width 0 + transparent color —
-      // see CompactComposer).
+      // No focus ring ever and no box of our own either: chrome-free
+      // prose like the inline composer (style kill — see noOutline).
       outlineColor: 'transparent',
       outlineWidth: 0,
     },
@@ -602,7 +602,7 @@ export function Composer(props: ComposerProps) {
         placeholderTextColor={theme.palette.faint}
         accessibilityLabel={i18n._(msg`Post text`)}
         ref={autogrow.inputRef}
-        style={[styles.input, autogrowStyle(autogrow.height)]}
+        style={[styles.input, autogrowStyle(autogrow.height), NO_OUTLINE]}
         onContentSizeChange={autogrow.onContentSizeChange}
       />
       <SuggestEmojiSection c={controller} />
