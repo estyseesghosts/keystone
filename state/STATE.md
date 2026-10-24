@@ -38,10 +38,13 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
-0. Composer freeze fixed on `main` 2026-10-24 (unpushed): event
-   owns growth again, unconditional remeasure keeps shrink — one writer
-   per direction. Log `state/logs/2026-10-24-composer-freeze-fix.md`.
-   197 suites / 2529 tests green. Owner confirms visually.
+0. Composer autogrow FIXED on `main` 2026-10-24 (unpushed): root
+   cause was `remeasure` clearing `style.height` and waiting on a
+   React re-render that bails out when the value is identical — DOM
+   stayed at resting size while state measured correctly. Fix writes
+   the clamped height back synchronously; debug probes removed.
+   Log `state/logs/2026-10-24-composer-autogrow-fix.md`.
+   197 suites / 2530 tests green. Owner live-verified visually.
 0b. Recommendations feed (dvd-sharkey fork port) on `main` 2026-10-24
    (unpushed): `recommendations` descriptor + Backend module
    (offset-paged, probe-detected), Home tab bar above the composer,

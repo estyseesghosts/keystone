@@ -67,7 +67,10 @@ describe('useAutogrowInput', () => {
       })
       hook.rerender({text: 'hi there, much longer now'})
       expect(hook.result.current.height).toBe(200)
-      expect(grown.style.height).toBe('')
+      // The node keeps the measured height synchronously: a repeat
+      // measure with the same value bails out of state but must not
+      // leave the DOM cleared (the frozen-box regression).
+      expect(grown.style.height).toBe('200px')
       // Deleting measures down — no stuck tall box, no snap.
       const shrunk = webNode(80)
       act(() => {
@@ -75,6 +78,32 @@ describe('useAutogrowInput', () => {
       })
       hook.rerender({text: 'hi'})
       expect(hook.result.current.height).toBe(80)
+      expect(shrunk.style.height).toBe('80px')
+    })
+  })
+
+  it('leaves the DOM at the measured height when state bails out (no frozen box)', () => {
+    withWebOs(() => {
+      const hook = renderHook(({text}: {text: string}) => useAutogrowInput(72, 320, text), {
+        initialProps: {text: 'x'},
+      })
+      const node = webNode(150)
+      act(() => {
+        ;(hook.result.current.inputRef as {current: unknown}).current = node
+      })
+      hook.rerender({text: 'y'})
+      expect(hook.result.current.height).toBe(150)
+      expect(node.style.height).toBe('150px')
+      // Same content, new text key: the effect remeasures, state bails
+      // out as identical, but the DOM must still show the measured box.
+      hook.rerender({text: 'y!'})
+      expect(node.style.height).toBe('150px')
+      // And the pre-paint path is equally non-destructive on repeats.
+      act(() => {
+        hook.result.current.remeasure()
+      })
+      expect(node.style.height).toBe('150px')
+      expect(hook.result.current.height).toBe(150)
     })
   })
 

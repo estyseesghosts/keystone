@@ -3,7 +3,7 @@
 // field scrolls internally).
 //
 // Two cooperating paths, each owning one direction — they never fight
-// because they never disagree about the steady state:
+// because they converge on the same clamped value:
 // - growth: `onContentSizeChange`. On web this only fires when content
 //   outgrows the box, which is exactly the growth case, so the event is
 //   authoritative there (and the sole path on native, where content
@@ -19,6 +19,14 @@
 // (covers drafts, restores, and suggestion picks, which bypass the text
 // handler). Values round up and clamp; identical heights bail out in
 // state, so there is no layout loop.
+//
+// The imperative restore matters: `remeasure` MUST write the measured
+// height back onto the DOM node synchronously (`style.height = Npx`)
+// instead of clearing it and waiting for React. When the measured value
+// equals current state, React bails out of the re-render — a cleared
+// node would then stay cleared (resting size) even though the state is
+// correct, and the box would look frozen while every measurement reads
+// correctly. Writing the DOM first makes the no-op re-render harmless.
 
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {
@@ -47,10 +55,11 @@ function asWebNode(ref: unknown): WebMeasurableNode | null {
 export function useAutogrowInput(minHeight: number, maxHeight: number, text: string) {
   const [height, setHeight] = useState<number | null>(null)
   const inputRef = useRef<TextInput | null>(null)
-  const clamp = useCallback(
-    (h: number) => setHeight(Math.min(maxHeight, Math.max(minHeight, Math.ceil(h)))),
+  const clampValue = useCallback(
+    (h: number) => Math.min(maxHeight, Math.max(minHeight, Math.ceil(h))),
     [minHeight, maxHeight],
   )
+  const clamp = useCallback((h: number) => setHeight(clampValue(h)), [clampValue])
   const onContentSizeChange = useCallback(
     (e: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
       // Growth lives here on every platform: the event fires exactly
@@ -64,13 +73,17 @@ export function useAutogrowInput(minHeight: number, maxHeight: number, text: str
     const node = asWebNode(inputRef.current)
     if (!node) return
     node.style.height = 'auto'
-    const h = node.scrollHeight
-    node.style.height = ''
-    clamp(h)
-  }, [clamp])
+    const next = clampValue(node.scrollHeight)
+    // Synchronous restore: the DOM is correct even when the state update
+    // below bails out as identical (the frozen-box bug — the node must
+    // never be left cleared waiting on a re-render that never comes).
+    node.style.height = `${next}px`
+    setHeight(next)
+  }, [clampValue])
   // Post-commit measure for every text change: covers typing (same
-  // value the pre-paint call already set — a no-op) and programmatic
-  // changes that bypass the text handler (drafts, restores, picks).
+  // value the pre-paint call already set — a DOM no-op and a state
+  // bail-out) and programmatic changes that bypass the text handler
+  // (drafts, restores, picks).
   useEffect(() => {
     remeasure()
   }, [text, remeasure])
