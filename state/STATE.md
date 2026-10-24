@@ -38,12 +38,18 @@ fail-closed prober (iOS white-screen fix), iOS-inline OAuth completion
 
 ## Next 3 steps
 
-0. Recommendations feed (dvd-sharkey fork port) landed on `main`
-   2026-10-24 (unpushed): `recommendations` descriptor + Backend module
+0. Composer web fixes on `main` 2026-10-24 (unpushed): transparent
+   outline color kills the desktop focus ring where width-only failed;
+   autogrow `remeasure` makes the box contract on delete (web
+   scrollHeight sticks to the old box). Log
+   `state/logs/2026-10-24-composer-ring-shrink.md`. 196 suites /
+   2483 tests green. Owner confirms visually.
+0b. Recommendations feed (dvd-sharkey fork port) on `main` 2026-10-24
+   (unpushed): `recommendations` descriptor + Backend module
    (offset-paged, probe-detected), Home tab bar above the composer,
    overlay settings with save-or-discard, per-note Why/Not-interested.
    ADR 0006. Log `state/logs/2026-10-24-recommendations-feed.md`.
-   196 suites / 2480 tests green. Owner live-tests externally.
+   Owner live-tests externally.
    P6.4 sidebar reshuffle also on `main` (`2e4b55b`; hovercard portal
    `416d39e`). Only `main` remains locally (unpushed).
 1. Wave 3.3: user moderation (Misskey show-users/suspend/unsuspend/

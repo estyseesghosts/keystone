@@ -500,7 +500,9 @@ export function useComposerController({
       // P1: the compose box is prose — it scales with the text setting.
       fontSize: typeSize.body * theme.fontScaleMultiplier,
       textAlignVertical: 'top',
-      // No OS/browser focus ring on the bordered box either.
+      // No browser focus ring on the bordered box either
+      // (width 0 + transparent color — see CompactComposer).
+      outlineColor: 'transparent',
       outlineWidth: 0,
     },
     row: {flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center'},
@@ -592,11 +594,15 @@ export function Composer(props: ComposerProps) {
         testID="composer-text"
         multiline
         value={state.text}
-        onChangeText={text => patch({text})}
+        onChangeText={text => {
+          patch({text})
+          autogrow.remeasure()
+        }}
         onSelectionChange={e => setCaret(e.nativeEvent.selection.end)}
         placeholder={replyTo ? i18n._(msg`Write your reply`) : i18n._(msg`What's happening?`)}
         placeholderTextColor={theme.palette.faint}
         accessibilityLabel={i18n._(msg`Post text`)}
+        ref={autogrow.inputRef}
         style={[styles.input, autogrowStyle(autogrow.height)]}
         onContentSizeChange={autogrow.onContentSizeChange}
       />

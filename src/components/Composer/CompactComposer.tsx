@@ -201,11 +201,15 @@ export function CompactComposer(props: ComposerProps) {
             testID="composer-text"
             multiline
             value={c.state.text}
-            onChangeText={text => c.patch({text})}
+            onChangeText={text => {
+              c.patch({text})
+              autogrow.remeasure()
+            }}
             onSelectionChange={e => c.setCaret(e.nativeEvent.selection.end)}
             placeholder={c.state.replyTo ? i18n._(msg`Write your reply`) : i18n._(msg`What's happening?`)}
             placeholderTextColor={theme.palette.faint}
             accessibilityLabel={i18n._(msg`Post text`)}
+            ref={autogrow.inputRef}
             // P1: the compose box is prose — it scales with the text setting.
             style={[
               styles.input,
@@ -503,7 +507,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     textAlignVertical: 'top',
-    // No OS/browser focus ring on the chrome-free box.
+    // No browser focus ring on the chrome-free box. `outlineStyle: none`
+    // (not just width 0): the spec-strong suppression — width-only does
+    // not kill every UA's ring (Safari keeps painting `auto`), so the
+    // color goes transparent too — invisible whatever style is insisted on.
+    // (`outlineStyle: 'none'` would read stronger, but RN's TextStyle
+    // omits it; transparent is type-clean and equally final.)
+    outlineColor: 'transparent',
     outlineWidth: 0,
   },
   context: {
