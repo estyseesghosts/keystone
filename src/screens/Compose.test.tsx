@@ -5,6 +5,8 @@
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {Keyboard, KeyboardAvoidingView, StyleSheet} from 'react-native'
+import {I18nProvider} from '@lingui/react'
+import {i18n} from '@lingui/core'
 
 import {buildCapabilities, createMemoryStore} from '@keystone/fedi'
 
@@ -18,10 +20,17 @@ import {clearRedraftSeeds, putRedraftSeed} from '#/lib/redraft'
 
 import {ComposeScreen} from './Compose'
 
+i18n.load('en', {})
+i18n.activate('en')
+
 jest.mock('../components/Composer/pickMedia', () => ({pickMedia: jest.fn(async () => ({kind: 'cancelled'}))}))
 jest.mock('#/components/EmojiPicker', () => ({EmojiPicker: () => null}))
 
 const mockGoBack = jest.fn()
+const mockAddListener = jest.fn((_event: string, _cb: (e: {preventDefault: () => void}) => void) => jest.fn())
+// Stable across renders (mirrors the real navigation object — a fresh
+// identity per render would re-run `beforeRemove` subscriptions).
+const mockNav = {canGoBack: () => true, goBack: mockGoBack, dispatch: jest.fn(), addListener: mockAddListener}
 // Mutable route params: the redraft test below opens the sheet through the
 // `redraftId` param, every other test uses the plain composer.
 const mockRouteParams: {current: Record<string, unknown>} = {current: {}}
@@ -29,7 +38,7 @@ const mockRouteParams: {current: Record<string, unknown>} = {current: {}}
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   useRoute: () => ({params: mockRouteParams.current}),
-  useNavigation: () => ({canGoBack: () => true, goBack: mockGoBack, dispatch: jest.fn()}),
+  useNavigation: () => mockNav,
 }))
 
 jest.mock('#/alf/breakpoints', () => ({
@@ -97,11 +106,13 @@ async function setup(opts: {expectComposer?: boolean} = {}) {
     }) as never)
   const tree = render(
     <ThemeProvider theme="light">
-      <QueryClientProvider client={new QueryClient({defaultOptions: {queries: {retry: false}}})}>
-        <SessionProvider store={sessionStore} homeOrigin={HOME_ORIGIN}>
-          <ComposeScreen />
-        </SessionProvider>
-      </QueryClientProvider>
+      <I18nProvider i18n={i18n}>
+        <QueryClientProvider client={new QueryClient({defaultOptions: {queries: {retry: false}}})}>
+          <SessionProvider store={sessionStore} homeOrigin={HOME_ORIGIN}>
+            <ComposeScreen />
+          </SessionProvider>
+        </QueryClientProvider>
+      </I18nProvider>
     </ThemeProvider>,
   )
   if (opts.expectComposer !== false) {
@@ -120,8 +131,13 @@ async function setup(opts: {expectComposer?: boolean} = {}) {
 }
 
 describe('ComposeScreen sheet', () => {
+  // Full-mount sheet setup (session store + queries) runs 2-4s on a loaded
+  // box; give it the same 20s budget as the postquote-emoji tests rather
+  // than a 5s default that flakes under full-suite load.
+  jest.setTimeout(20000)
   beforeEach(() => {
     mockGoBack.mockClear()
+    mockAddListener.mockClear()
     mockRouteParams.current = {}
     clearRedraftSeeds()
   })
@@ -206,7 +222,100 @@ describe('ComposeScreen sheet', () => {
   })
 })
 
+describe('ComposeScreen close guard (slice 2)', () => {
+  // Same loaded-box budget as the sheet block above (full-mount setup).
+  jest.setTimeout(20000)
+  beforeEach(() => {
+    mockGoBack.mockClear()
+    mockAddListener.mockClear()
+    mockRouteParams.current = {}
+    clearRedraftSeeds()
+  })
+
+  function beforeRemoveListener(): (e: {preventDefault: () => void}) => void {
+    const calls = mockAddListener.mock.calls.filter(c => c[0] === 'beforeRemove')
+    expect(calls).toHaveLength(1)
+    return calls[0][1]
+  }
+
+  it('dirty backdrop routes through the guard; Save closes', async () => {
+    const {done} = await setup()
+    try {
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+      fireEvent.press(screen.getByTestId('compose-backdrop'))
+      expect(mockGoBack).not.toHaveBeenCalled()
+      expect(screen.getByTestId('composer-close-confirm')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('composer-close-save'))
+      expect(mockGoBack).toHaveBeenCalledTimes(1)
+      expect(screen.queryByTestId('composer-close-confirm')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('dirty Cancel then Discard closes without a second confirm', async () => {
+    const {done} = await setup()
+    try {
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+      fireEvent.press(screen.getByTestId('composer-cancel'))
+      expect(screen.getByTestId('composer-close-confirm')).toBeTruthy()
+      expect(mockGoBack).not.toHaveBeenCalled()
+      fireEvent.press(screen.getByTestId('composer-close-discard'))
+      expect(mockGoBack).toHaveBeenCalledTimes(1)
+    } finally {
+      done()
+    }
+  })
+
+  it('Keep writing dismisses the sheet with state intact', async () => {
+    const {done} = await setup()
+    try {
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+      fireEvent.press(screen.getByTestId('compose-backdrop'))
+      expect(screen.getByTestId('composer-close-confirm')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('composer-close-keep'))
+      expect(screen.queryByTestId('composer-close-confirm')).toBeNull()
+      expect(mockGoBack).not.toHaveBeenCalled()
+      expect(screen.getByTestId('composer-text').props.value).toBe('hello')
+    } finally {
+      done()
+    }
+  })
+
+  it('back nav with a dirty draft is blocked and shows the guard', async () => {
+    const {done} = await setup()
+    try {
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+      const preventDefault = jest.fn()
+      // The nav listener fires outside a press event, so state updates need
+      // an explicit act flush before asserting on the sheet.
+      act(() => {
+        beforeRemoveListener()({preventDefault})
+      })
+      expect(preventDefault).toHaveBeenCalledTimes(1)
+      expect(screen.getByTestId('composer-close-confirm')).toBeTruthy()
+      expect(mockGoBack).not.toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+
+  it('back nav with a clean draft proceeds untouched', async () => {
+    const {done} = await setup()
+    try {
+      const preventDefault = jest.fn()
+      beforeRemoveListener()({preventDefault})
+      expect(preventDefault).not.toHaveBeenCalled()
+      expect(screen.queryByTestId('composer-close-confirm')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+})
+
 describe('ComposeScreen delete-and-redraft handoff', () => {
+  // Same loaded-box budget (full-mount setup).
+  jest.setTimeout(20000)
   it('opens seeded from the handoff the delete flow left behind', async () => {
     mockRouteParams.current = {redraftId: 'p9'}
     putRedraftSeed('p9', {text: 'redrafted text', cw: '', cwEnabled: false, media: []})

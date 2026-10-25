@@ -52,6 +52,7 @@ import {useSuggestions, type Suggestion} from './Autocomplete'
 import {useAutogrowInput, autogrowStyle} from './useAutogrowInput'
 import {NO_OUTLINE} from './noOutline'
 import {Chip} from './Chip'
+import {CloseConfirmDialog} from './CloseConfirmDialog'
 import {
   CwSection,
   DraftsSection,
@@ -144,6 +145,39 @@ function stateFromDraft(d: LocalDraft): Partial<ComposeState> {
     noQuote: d.noQuote,
     scheduledAt: d.scheduledAt,
   }
+}
+
+// Draft snapshot (composer slice 2): the row shape autosave persists and
+// Save-and-close writes — one shape, one place. `hadMedia` is presence
+// only; the files/ids themselves are never stored.
+function snapshotDraft(id: string, state: ComposeState, hadMedia: boolean): LocalDraft {
+  return {
+    id,
+    updatedAt: Date.now(),
+    text: state.text,
+    cw: state.cw,
+    cwEnabled: state.cwEnabled,
+    visibilityRaw: state.visibilityRaw,
+    visibleUserIds: state.visibleUserIds,
+    localOnly: state.localOnly,
+    replyToId: state.replyTo?.id ?? null,
+    quoteId: state.quote?.id ?? null,
+    pollChoices: state.poll?.choices ?? null,
+    pollMultiple: state.poll?.multiple ?? false,
+    pollHideTotals: state.poll?.hideTotals ?? false,
+    pollDurationSeconds: state.poll?.durationSeconds ?? 86400,
+    reactionAcceptance: state.reactionAcceptance,
+    noQuote: state.noQuote,
+    scheduledAt: state.scheduledAt,
+    hadMedia,
+  }
+}
+
+/** Handle an owning sheet calls to route backdrop/back-nav exits through
+ * the same dirty guard as the composer's Cancel button (slice 2). */
+export interface CloseGuardHandle {
+  requestClose: () => void
+  isDirty: () => boolean
 }
 
 // Composer layout geometry (module scope): space/radius constants never
@@ -293,27 +327,7 @@ export function useComposerController({
   useEffect(() => {
     if (postedRef.current) return
     const timer = setTimeout(() => {
-      const draft = {
-        id,
-        updatedAt: Date.now(),
-        text: state.text,
-        cw: state.cw,
-        cwEnabled: state.cwEnabled,
-        visibilityRaw: state.visibilityRaw,
-        visibleUserIds: state.visibleUserIds,
-        localOnly: state.localOnly,
-        replyToId: state.replyTo?.id ?? null,
-        quoteId: state.quote?.id ?? null,
-        pollChoices: state.poll?.choices ?? null,
-        pollMultiple: state.poll?.multiple ?? false,
-        pollHideTotals: state.poll?.hideTotals ?? false,
-        pollDurationSeconds: state.poll?.durationSeconds ?? 86400,
-        reactionAcceptance: state.reactionAcceptance,
-        noQuote: state.noQuote,
-        scheduledAt: state.scheduledAt,
-        // Presence only — the files/ids themselves are never stored.
-        hadMedia: state.media.length > 0 || uploads.items.length > 0,
-      }
+      const draft = snapshotDraft(id, state, state.media.length > 0 || uploads.items.length > 0)
       saveDraft(store, session.id, draft)
       if (isDraftEmpty(draft)) clearOpenDraftId(store, session.id)
       else setOpenDraftId(store, session.id, id)
@@ -594,6 +608,68 @@ export function useComposerController({
     }
   }
 
+  // Close guard (slice 2): every exit — Cancel button, sheet backdrop,
+  // back navigation — routes through `requestClose`. Clean closes silently;
+  // a dirty draft shows the Save / Discard / Keep-writing sheet instead.
+  const [confirmingClose, setConfirmingClose] = useState(false)
+
+  // Dirty reads LIVE state, never the last autosaved row: a user who typed
+  // 3 chars 100ms ago and instantly taps out is still dirty. The field
+  // check is the existing `isDraftEmpty` semantics (text/CW/poll/visible
+  // recipients). Staged attachments alone also count as dirty — even
+  // though `isDraftEmpty` ignores media (media ids are never stored, so
+  // `saveDraft` drops text-empty rows), closing would silently lose
+  // uploads-in-progress, so the guard still asks.
+  const isCloseDirty = useCallback((): boolean => {
+    if (state.media.length > 0 || uploads.items.length > 0) return true
+    return !isDraftEmpty({
+      text: state.text,
+      cw: state.cw,
+      pollChoices: state.poll?.choices ?? null,
+      visibleUserIds: state.visibleUserIds,
+    })
+  }, [state, uploads.items])
+
+  const requestClose = useCallback(() => {
+    if (!onClose) return
+    if (isCloseDirty()) setConfirmingClose(true)
+    else onClose()
+  }, [isCloseDirty, onClose])
+
+  const saveAndClose = useCallback(() => {
+    // Local-only through the existing `saveDraft` path — slice 3 upgrades
+    // the destination to the smart default; server drafts are untouched.
+    // `saveDraft` drops text-empty rows per `isDraftEmpty`, so a
+    // media-only Save keeps the pointer cleared but persists nothing:
+    // pre-existing store semantics, out of scope here.
+    saveDraft(
+      store,
+      session.id,
+      snapshotDraft(id, state, state.media.length > 0 || uploads.items.length > 0),
+    )
+    clearOpenDraftId(store, session.id)
+    // Suppress a pending autosave tick: it would re-save this state and
+    // re-set the pointer just cleared above.
+    postedRef.current = true
+    setConfirmingClose(false)
+    onClose?.()
+  }, [store, session.id, id, state, uploads.items])
+
+  const discardAndClose = useCallback(() => {
+    // The sheet itself is the discard confirm — no second confirm.
+    deleteDraft(store, session.id, id)
+    clearOpenDraftId(store, session.id)
+    // Same pending-autosave suppression as `saveAndClose`: the deleted
+    // row must not resurrect from a tick already queued.
+    postedRef.current = true
+    setConfirmingClose(false)
+    onClose?.()
+  }, [store, session.id, id, onClose])
+
+  const keepWriting = useCallback(() => {
+    setConfirmingClose(false)
+  }, [])
+
   // Theme-dependent values join the hoisted layout here (memoized on
   // the theme, so a keystroke never rebuilds the object identity that
   // fans out as `c.styles` to every section).
@@ -634,6 +710,7 @@ export function useComposerController({
     pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
     submit, addMedia, styles, restore, drafts, setSeededAlt, removeSeeded,
+    confirmingClose, isCloseDirty, requestClose, saveAndClose, discardAndClose, keepWriting,
     session, backend, store, replyTo, quote, draftId, editing, redraftSeed, onClose, onPosted,
   }
 }
@@ -647,6 +724,7 @@ export function Composer(props: ComposerProps) {
     notice, pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
     submit, addMedia, styles, restore, drafts,
+    confirmingClose, saveAndClose, discardAndClose, keepWriting, requestClose,
     session, backend, store, draftId, editing, onClose,
   } = controller
   // Reply/quote context reads STATE, not props: restoring a draft re-attaches
@@ -661,7 +739,7 @@ export function Composer(props: ComposerProps) {
     <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
       <View style={styles.spread}>
         {onClose ? (
-          <Button label={i18n._(msg`Cancel`)} variant="secondary" onPress={onClose} testID="composer-cancel" />
+          <Button label={i18n._(msg`Cancel`)} variant="secondary" onPress={requestClose} testID="composer-cancel" />
         ) : null}
         <Button
           label={editing ? i18n._(msg`Save`) : state.scheduledAt && gates.schedule.enabled ? i18n._(msg`Schedule`) : i18n._(msg`Post`)}
@@ -723,6 +801,9 @@ export function Composer(props: ComposerProps) {
         <Body testID="composer-notice">
           {notice}
         </Body>
+      ) : null}
+      {confirmingClose ? (
+        <CloseConfirmDialog onSave={saveAndClose} onDiscard={discardAndClose} onKeep={keepWriting} />
       ) : null}
 
       <Caption color="muted">{i18n._(msg`Audience`)}</Caption>

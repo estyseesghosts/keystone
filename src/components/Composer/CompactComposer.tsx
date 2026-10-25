@@ -1,4 +1,4 @@
-import {useRef, useState} from 'react'
+import {useImperativeHandle, useRef, useState} from 'react'
 import {
   Image,
   Keyboard,
@@ -40,7 +40,7 @@ import {
 } from '#/components/Popup'
 import {Pressable} from '#/components/Pressable'
 
-import {useComposerController, type ComposerProps} from './Composer'
+import {useComposerController, type CloseGuardHandle, type ComposerProps} from './Composer'
 import {useAutogrowInput, autogrowStyle} from './useAutogrowInput'
 import {NO_OUTLINE} from './noOutline'
 import {
@@ -57,6 +57,7 @@ import {
 } from './ComposerSections'
 import {SuggestionList} from './Autocomplete'
 import {EmojiPicker} from '#/components/EmojiPicker'
+import {CloseConfirmDialog} from './CloseConfirmDialog'
 import {deleteDraft} from '#/storage/drafts'
 import {i18n} from '#/locale/i18n'
 
@@ -143,11 +144,19 @@ export interface CompactComposerProps extends ComposerProps {
    * for the keyboard (the compose sheet owns its KAV + maxHeight/inset).
    * Standalone use (Home inline composer) keeps the default. */
   disableKeyboardAvoidance?: boolean
+  /** Lets an owning sheet route backdrop/back-nav exits through the same
+   * dirty guard as the Cancel button (composer slice 2). */
+  closeGuardRef?: React.Ref<CloseGuardHandle>
 }
 
 export function CompactComposer(props: CompactComposerProps) {
-  const {disableKeyboardAvoidance = false, ...rest} = props
+  const {disableKeyboardAvoidance = false, closeGuardRef, ...rest} = props
   const c = useComposerController(rest)
+  useImperativeHandle(
+    closeGuardRef,
+    () => ({requestClose: c.requestClose, isDirty: c.isCloseDirty}),
+    [c.requestClose, c.isCloseDirty],
+  )
   const theme = useTheme()
   const muted = theme.palette.muted
   const [audienceOpen, setAudienceOpen] = useState(false)
@@ -190,7 +199,7 @@ export function CompactComposer(props: CompactComposerProps) {
           this header button is only a dismiss escape hatch until then. */}
       {c.onClose ? (
         <View style={styles.closeRow}>
-          <Button label={i18n._(msg`Cancel`)} variant="secondary" onPress={c.onClose} testID="composer-cancel" />
+          <Button label={i18n._(msg`Cancel`)} variant="secondary" onPress={c.requestClose} testID="composer-cancel" />
         </View>
       ) : null}
       <ReplyPreviewSection c={c} />
@@ -499,6 +508,9 @@ export function CompactComposer(props: CompactComposerProps) {
         </Body>
       ) : null}
       {c.notice ? <Body testID="composer-notice">{c.notice}</Body> : null}
+      {c.confirmingClose ? (
+        <CloseConfirmDialog onSave={c.saveAndClose} onDiscard={c.discardAndClose} onKeep={c.keepWriting} />
+      ) : null}
     </>
   )
   if (disableKeyboardAvoidance) {

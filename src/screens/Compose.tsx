@@ -33,6 +33,7 @@ import {takeRedraftSeed, type RedraftSeed} from '#/lib/redraft'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {appStorage} from '#/storage'
+import type {CloseGuardHandle} from '#/components/Composer/Composer'
 
 // Compose route (slice 4.3): floating overlay over the current screen
 // (v1 `.postbox-overlay`): dimmed backdrop (tap = close) + centered card.
@@ -84,16 +85,45 @@ export function ComposeScreen() {
   // desktop card is untouched (insets read 0 on web anyway).
   const insets = useOptionalSafeAreaInsets()
 
-  const close = () => {
+  const closeGuardRef = useRef<CloseGuardHandle | null>(null)
+  // Lets the close the guard approved go through: Save/Discard leave live
+  // composer state dirty, so without this the navigating goBack below would
+  // re-trigger the `beforeRemove` guard forever.
+  const dismissedRef = useRef(false)
+  const forceClose = () => {
+    dismissedRef.current = true
     if (nav.canGoBack()) nav.goBack()
     else nav.dispatch(CommonActions.reset({index: 0, routes: [{name: 'Main'}]}))
   }
+  // Slice 2: every exit with a live composer routes through the dirty
+  // guard (backdrop, Cancel, back nav). States without a composer
+  // (signed-out/failed/loading) hold no guard and close directly.
+  const requestGuardedClose = () => {
+    const guard = closeGuardRef.current
+    if (guard) guard.requestClose()
+    else forceClose()
+  }
+
+  // Slice 2: hardware back / nav goBack with a dirty draft is the same exit
+  // as a backdrop tap — block it and show the guard sheet instead. Clean
+  // (or guard-less) backs proceed untouched.
+  useEffect(() => {
+    const sub = nav.addListener('beforeRemove', e => {
+      if (dismissedRef.current) return
+      const guard = closeGuardRef.current
+      if (guard && guard.isDirty()) {
+        e.preventDefault()
+        guard.requestClose()
+      }
+    })
+    return sub
+  }, [nav])
 
   const shell = (content: React.ReactNode) => (
     <View style={styles.overlay} testID="compose-overlay">
       <Pressable
         style={styles.backdrop}
-        onPress={close}
+        onPress={requestGuardedClose}
         accessibilityRole="button"
         accessibilityLabel="Close composer"
         testID="compose-backdrop"
@@ -154,7 +184,7 @@ export function ComposeScreen() {
     return shell(
       <View style={[atoms.centered, atoms.p_md, atoms.gap_md]}>
         <Body>Sign in to post.</Body>
-        <Button label="Close" variant="secondary" onPress={close} />
+        <Button label="Close" variant="secondary" onPress={forceClose} />
       </View>,
     )
   }
@@ -162,7 +192,7 @@ export function ComposeScreen() {
     return shell(
       <View style={[atoms.centered, atoms.p_md, atoms.gap_md]}>
         <Body>{failed}</Body>
-        <Button label="Close" variant="secondary" onPress={close} />
+        <Button label="Close" variant="secondary" onPress={forceClose} />
       </View>,
     )
   }
@@ -170,7 +200,7 @@ export function ComposeScreen() {
     return shell(
       <View style={[atoms.centered, atoms.p_md, atoms.gap_md]}>
         <Body>There is nothing to redraft here.</Body>
-        <Button label="Close" variant="secondary" onPress={close} />
+        <Button label="Close" variant="secondary" onPress={forceClose} />
       </View>,
     )
   }
@@ -197,7 +227,8 @@ export function ComposeScreen() {
       editing={targets.editing}
       redraftSeed={redraftSeed}
       draftId={draftId ?? null}
-      onClose={close}
+      onClose={forceClose}
+      closeGuardRef={closeGuardRef}
     />,
   )
 }

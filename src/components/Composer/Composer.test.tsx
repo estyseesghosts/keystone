@@ -690,3 +690,90 @@ describe('open-draft pointer (slice 1)', () => {
     expect(screen.getByTestId('composer-text').props.value).toBe('from explicit')
   })
 })
+
+describe('close guard (slice 2)', () => {
+  const sid = 'https://s.example me'
+
+  beforeEach(() => {
+    pickMediaMock.mockReset()
+    pickMediaMock.mockImplementation(async () => ({kind: 'cancelled'}))
+  })
+
+  it('clean close calls onClose with no sheet', () => {
+    const {onClose} = setup('sharkey')
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('composer-close-confirm')).toBeNull()
+  })
+
+  it('dirty Cancel shows the sheet and does not close', () => {
+    const {onClose} = setup('sharkey')
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    expect(screen.getByTestId('composer-close-confirm')).toBeTruthy()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('Save writes the row, clears the pointer, and closes', () => {
+    jest.useFakeTimers()
+    try {
+      const {store, s, onClose} = setup('sharkey')
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'keep me')
+      jest.advanceTimersByTime(500)
+      expect(getOpenDraftId(store, s.id)).not.toBeNull()
+      fireEvent.press(screen.getByTestId('composer-cancel'))
+      fireEvent.press(screen.getByTestId('composer-close-save'))
+      expect(onClose).toHaveBeenCalledTimes(1)
+      expect(listDrafts(store, s.id).map(d => d.text)).toEqual(['keep me'])
+      expect(getOpenDraftId(store, s.id)).toBeNull()
+      expect(screen.queryByTestId('composer-close-confirm')).toBeNull()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('Discard deletes the row, clears the pointer, and closes', () => {
+    jest.useFakeTimers()
+    try {
+      const {store, s, onClose} = setup('sharkey')
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'keep me')
+      jest.advanceTimersByTime(500)
+      expect(getOpenDraftId(store, s.id)).not.toBeNull()
+      fireEvent.press(screen.getByTestId('composer-cancel'))
+      fireEvent.press(screen.getByTestId('composer-close-discard'))
+      expect(onClose).toHaveBeenCalledTimes(1)
+      expect(listDrafts(store, s.id)).toEqual([])
+      expect(getOpenDraftId(store, s.id)).toBeNull()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('Keep writing dismisses the sheet with state intact', () => {
+    const {onClose} = setup('sharkey')
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    expect(screen.getByTestId('composer-close-confirm')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('composer-close-keep'))
+    expect(screen.queryByTestId('composer-close-confirm')).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByTestId('composer-text').props.value).toBe('hello')
+  })
+
+  it('staged attachments alone count as dirty (uploads-in-progress would be lost)', async () => {
+    pickMediaMock.mockResolvedValueOnce({kind: 'picked', files: [attachment()], rejected: []})
+    const {store, s, onClose} = setup('sharkey')
+    fireEvent.press(screen.getByTestId('composer-media-add'))
+    // The staged row renders several `composer-upload-*` nodes (container,
+    // alt, sensitivity) — wait on the unique per-upload sensitivity toggle.
+    await screen.findByTestId(/^composer-upload-sensitive-/)
+    expect(screen.getByTestId('composer-text').props.value).toBe('')
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    expect(screen.getByTestId('composer-close-confirm')).toBeTruthy()
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.press(screen.getByTestId('composer-close-discard'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(listDrafts(store, s.id)).toEqual([])
+    expect(getOpenDraftId(store, s.id)).toBeNull()
+  })
+})
