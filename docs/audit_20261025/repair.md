@@ -1118,8 +1118,8 @@ new shape) and ships a fixture; X5.6 gets real fixtures from the owner.
 
 ## X5.1 - Wrapper-row account lists
 
-Status: not started
-Branch: `repair25-x5.1-wrapper-rows`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x5.1.md`; 261 suites / 3642 tests green at Wave-5 commit)
+Branch: `repair25-x5.1-wrapper-rows` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: misskey M1
 
 **Steps.**
@@ -1136,8 +1136,8 @@ Audit: misskey M1
 
 ## X5.2 - Search paging, end detection, guards
 
-Status: not started
-Branch: `repair25-x5.2-misskey-paging`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x5.2.md`; 263 suites / 3665 tests green at Wave-5 commit; shares adapt.ts + manifest.json with X5.3, both hunks ride in this commit)
+Branch: `repair25-x5.2-misskey-paging` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: misskey M2, M10, M15; networking L6 (Misskey half)
 
 **Steps.**
@@ -1153,8 +1153,8 @@ Audit: misskey M2, M10, M15; networking L6 (Misskey half)
 
 ## X5.3 - Reaction emoji URL lookup
 
-Status: not started
-Branch: `repair25-x5.3-reaction-emoji`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x5.3.md`; 263 suites / 3665 tests green at Wave-5 commit; core/emoji lookup + bare fixtures; adapt.ts + manifest rode in X5.2's commit)
+Branch: `repair25-x5.3-reaction-emoji` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: misskey M3
 
 **Steps.**
