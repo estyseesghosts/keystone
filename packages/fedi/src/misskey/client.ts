@@ -30,6 +30,7 @@
 import {
   defaultFetchImpl,
   HttpError,
+  isRedirectStatus,
   requestJson,
   resolveSameOriginUrl,
   type FetchImpl,
@@ -129,6 +130,15 @@ function translateError(
 ): never {
   if (err instanceof HttpError) {
     if (err.kind === "cross-origin") throw err; // typed refusal — keep it
+    if (err.kind === "redirect") {
+      // A 3xx with the `i` credential in the body must never be followed
+      // (repair X2.2 step 1): surface the typed refusal, never a probe.
+      throw new FediError(
+        `Server redirected the request (HTTP ${err.status}); refusing to follow with credentials.`,
+        "errors.network.redirect",
+        { status: err.status },
+      );
+    }
     if (err.kind === "timeout") {
       const seconds = Math.round(ctx.timeoutMs / 1000);
       if (ctx.session.hosting === "third-party") {
@@ -244,8 +254,10 @@ export function createMisskeyClient(
     async upload<T>(file: File, uploadOpts: UploadOptions = {}): Promise<T> {
       // `drive/files/create` is multipart FormData (file + credential as
       // fields) — the fetch implementation sets the multipart boundary,
-      // never by hand. No deadline here, matching the pre-Phase-1 upload
-      // path exactly.
+      // never by hand. The deadline covers headers AND the body read
+      // (repair X2.2 step 3): the timer is cleared only after `text()`
+      // settles, and a 3xx is refused before any second request — the
+      // `i` field must never be re-posted elsewhere.
       const path = endpointPath(session.origin, "drive/files/create");
       const form = new FormData();
       if (authStyleFor(session.flavor) === "body-i" && session.token) {
@@ -266,14 +278,50 @@ export function createMisskeyClient(
       if (uploadOpts.force !== undefined) form.append("force", String(uploadOpts.force));
 
       let response: Response;
+      let raw: string;
+      const uploadCtrl = new AbortController();
+      let uploadTimedOut = false;
+      const uploadTimer = setTimeout(() => {
+        uploadTimedOut = true;
+        uploadCtrl.abort();
+      }, timeoutMs);
       try {
         response = await (opts.fetchImpl ?? defaultFetchImpl)(`${session.origin}${path}`, {
           method: "POST",
           credentials: "omit",
+          // Never follow a 3xx with the `i` field (repair X2.2 step 1).
+          redirect: "manual",
           body: form,
           headers: authHeaders(session),
+          signal: uploadCtrl.signal,
         });
+        if (isRedirectStatus(response.status)) {
+          throw new FediError(
+            `Server redirected the request (HTTP ${response.status}); refusing to follow with credentials.`,
+            "errors.network.redirect",
+            { status: response.status },
+          );
+        }
+        // 204 / empty-body tolerance + envelope errors, exactly as before —
+        // the body read stays inside the deadline (see above).
+        raw = response.status === 204 ? "" : await response.text();
       } catch (err) {
+        if (err instanceof FediError && err.code === "errors.network.redirect") throw err;
+        if (uploadTimedOut) {
+          const seconds = Math.round(timeoutMs / 1000);
+          if (session.hosting === "third-party") {
+            throw new FediError(
+              `Request timed out (${session.origin}${path}): the instance did not answer within ${seconds}s. Retry.`,
+              "errors.network.timeoutInstance",
+              { target: `${session.origin}${path}`, n: seconds },
+            );
+          }
+          throw new FediError(
+            `Request timed out (drive/files/create): the server did not answer within ${seconds}s. Retry, or check the dev-server terminal.`,
+            "errors.network.timeoutServer",
+            { target: "drive/files/create", n: seconds },
+          );
+        }
         const reason = err instanceof Error ? err.message : "network error";
         if (session.hosting === "third-party") {
           throw new FediError(
@@ -287,9 +335,9 @@ export function createMisskeyClient(
           "errors.network.unreachableServer",
           { reason },
         );
+      } finally {
+        clearTimeout(uploadTimer);
       }
-      // 204 / empty-body tolerance + envelope errors, exactly as before.
-      const raw = response.status === 204 ? "" : await response.text();
       let payload: unknown;
       if (raw) {
         try {

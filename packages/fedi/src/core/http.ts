@@ -28,6 +28,7 @@ export type HttpErrorKind =
   | "timeout" // our deadline elapsed — retryable, NOT "unsupported"
   | "network" // could not reach the origin at all
   | "invalid-json" // 2xx with a body that is not JSON
+  | "redirect" // refused to follow a 3xx with a credential (manual only)
   | "cross-origin"; // refused to send the request to another origin
 
 export const DEFAULT_HTTP_TIMEOUT_MS = 30_000;
@@ -132,8 +133,95 @@ export function normalizeOrigin(input: string): string {
       "errors.validation.hostInvalid",
     );
   }
+  // Cleartext is local-targets-only (repair X2.2 step 6): `https:` always
+  // passes; `http:` for a public host throws `errors.origin.insecure`
+  // (except under the `__DEV__` rig hatch inside `rejectNonLocalHttp`).
+  rejectNonLocalHttp(url);
   // URL.origin canonicalizes scheme/host case and default ports.
   return url.origin;
+}
+
+/** True for a 3xx the transport must never follow with a credential. */
+export function isRedirectStatus(status: number): boolean {
+  return Number.isInteger(status) && status >= 300 && status < 400;
+}
+
+// --- Local-http policy (repair X2.2 step 6) ----------------------------------
+//
+// `http:` origins are accepted ONLY for local targets: `localhost` /
+// `*.localhost`, loopback (127/8, ::1), RFC1918 (10/8, 172.16/12,
+// 192.168/16), link-local (169.254/16, fe80::/10), `*.local`, and the
+// Android emulator host alias `10.0.2.2`. Anything else over cleartext
+// is rejected with `FediError('errors.origin.insecure')`.
+//
+// Fail-closed on encodings: only plain dotted-decimal IPv4 is recognized
+// as local here. Hex/octal/decimal-single-int forms of a loopback address
+// are NOT recognized — they are rejected (safe: a rig can use the plain
+// form). DNS names that merely resolve to private addresses cannot be
+// detected here (no resolver access) and are rejected unless allow-listed
+// by name above — also fail-closed.
+
+function isLoopbackOrPrivateIPv4(host: string): boolean {
+  const parts = host.split(".");
+  if (parts.length !== 4) return false;
+  const nums: number[] = [];
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) return false;
+    const n = Number(part);
+    if (!Number.isInteger(n) || n < 0 || n > 255) return false;
+    nums.push(n);
+  }
+  const [a, b] = nums;
+  if (a === 127) return true; // loopback 127/8
+  if (a === 10) return true; // RFC1918 10/8 (covers 10.0.2.2 as well)
+  if (a === 172 && b >= 16 && b <= 31) return true; // RFC1918 172.16/12
+  if (a === 192 && b === 168) return true; // RFC1918 192.168/16
+  if (a === 169 && b === 254) return true; // link-local 169.254/16
+  return false;
+}
+
+/** True when an `http:` hostname is a local target (see above). Pure. */
+export function isLocalHttpHostname(hostname: string): boolean {
+  let host = hostname.toLowerCase();
+  if (host.startsWith("[") && host.endsWith("]") && host.length >= 2) {
+    host = host.slice(1, -1);
+  }
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+  if (host === "local" || host.endsWith(".local")) return true;
+  if (host === "10.0.2.2") return true;
+  if (host === "::1") return true;
+  if (host.startsWith("fe80:") || host === "fe80") return true; // link-local v6
+  return isLoopbackOrPrivateIPv4(host);
+}
+
+declare const __DEV__: boolean | undefined;
+
+/**
+ * Rig escape hatch: `__DEV__` dev builds may use http for non-local hosts.
+ * Closed under test runners (`NODE_ENV=test`, which the jest-expo preset
+ * also marks `__DEV__ === true`): the rejection must stay verifiable in
+ * tests. Same `__DEV__` + non-test convention as the dev API census in
+ * the family transports.
+ */
+function devAllowsInsecureHttp(): boolean {
+  if (typeof __DEV__ === "undefined" || __DEV__ !== true) return false;
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "test") return false;
+  return true;
+}
+
+/**
+ * Throw `FediError('errors.origin.insecure')` when `url` is an `http:`
+ * URL whose host is not a local target (and no `__DEV__` hatch applies).
+ */
+export function rejectNonLocalHttp(url: URL): void {
+  if (url.protocol !== "http:") return;
+  if (isLocalHttpHostname(url.hostname)) return;
+  if (devAllowsInsecureHttp()) return;
+  throw new FediError(
+    `Refusing to use insecure http for "${url.hostname}". Use https or a local test host.`,
+    "errors.origin.insecure",
+    { host: url.hostname },
+  );
 }
 
 /** Bare host of an origin (`https://example.com:8443` → `example.com:8443`). */
@@ -255,16 +343,41 @@ export async function requestJson<T = unknown>(
   }
 
   let response: Response;
+  let raw: string;
   try {
     response = await (opts.fetchImpl ?? defaultFetchImpl)(url.toString(), {
       method,
       headers,
       body,
       signal: controller.signal,
+      // Never follow a redirect with a credential: a 3xx is refused below
+      // (repair X2.2 step 1). `manual` keeps the body on this origin.
+      redirect: "manual",
       // Never carry cookies cross-origin: auth is bound to the session.
       credentials: "omit",
     });
+    // A 3xx here means "send this (credentialed) body elsewhere". Refuse
+    // before any second request: the caller sees a typed redirect error.
+    if (isRedirectStatus(response.status)) {
+      throw new HttpError({
+        kind: "redirect",
+        code: "errors.network.redirect",
+        params: { status: response.status },
+        status: response.status,
+        origin,
+        method,
+        path: url.pathname + url.search,
+        message: `Server redirected the request (HTTP ${response.status}); refusing to follow with credentials.`,
+      });
+    }
+    // The body read stays INSIDE the deadline (repair X2.2 step 3): the
+    // timer and the caller-abort listener are cleared in the `finally`
+    // below, after `text()` settles — a stalled body times out like
+    // stalled headers. Read text first, never blind response.json().
+    raw = await response.text();
   } catch (err) {
+    // The redirect refusal above is already typed — keep it.
+    if (err instanceof HttpError && err.kind === "redirect") throw err;
     if (timedOut) {
       const target = `${method} ${url.pathname}`;
       throw new HttpError({
@@ -297,8 +410,6 @@ export async function requestJson<T = unknown>(
     opts.signal?.removeEventListener("abort", onCallerAbort);
   }
 
-  // Read text first, never blind response.json().
-  const raw = await response.text();
   let data: unknown;
   if (raw.length > 0) {
     try {

@@ -17,6 +17,8 @@ export const FEDI_ERROR_MESSAGES: Record<string, MessageDescriptor> = {
   'errors.validation.hostScheme': msg({id: 'errors.validation.hostScheme', message: 'Use an http(s) instance address, e.g. example.com.'}),
   'errors.validation.hostInvalid': msg({id: 'errors.validation.hostInvalid', message: 'That host does not look like a valid instance address.'}),
   'errors.network.crossOrigin': msg({id: 'errors.network.crossOrigin', message: "Refusing to send this request: the URL points at a different origin than the session's."}),
+  'errors.network.redirect': msg({id: 'errors.network.redirect', message: 'Server redirected the request (HTTP {status}); refusing to follow with credentials.'}),
+  'errors.origin.insecure': msg({id: 'errors.origin.insecure', message: 'Refusing to use insecure http for "{host}". Use https or a local test host.'}),
   'errors.network.badPath': msg({id: 'errors.network.badPath', message: 'Request path must start with "/": got "{path}".'}),
   'errors.network.unreachableBare': msg({id: 'errors.network.unreachableBare', message: 'Could not reach {origin} ({reason}).'}),
   'errors.network.timeoutInstance': msg({id: 'errors.network.timeoutInstance', message: 'Request timed out ({target}): the instance did not answer within {n}s. Retry.'}),

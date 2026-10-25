@@ -228,13 +228,26 @@ describe("misskey/external (pure surface)", () => {
   it("normalizeHost accepts bare hosts, urls, ports; rejects schemes/spaces", () => {
     expect(normalizeHost("example.com")).toEqual({ host: "example.com", scheme: "https" });
     expect(normalizeHost("https://example.com")).toEqual({ host: "example.com", scheme: "https" });
-    expect(normalizeHost("http://example.com:3000/path")).toEqual({
-      host: "example.com:3000",
+    // Repair X2.2 step 6 (misskey M9): cleartext is local-targets-only, so a
+    // public `http:` host is rejected with `errors.origin.insecure` while a
+    // local `http:` host keeps the old shape.
+    expect(normalizeHost("http://localhost:3000/path")).toEqual({
+      host: "localhost:3000",
       scheme: "http",
     });
     for (const bad of ["", "   ", "ftp://example.com", "exam ple.com"]) {
       expect(() => normalizeHost(bad)).toThrow(FediError);
     }
+    const insecure = (() => {
+      try {
+        normalizeHost("http://example.com:3000/path");
+        return null;
+      } catch (e) {
+        return e;
+      }
+    })();
+    expect(insecure).toBeInstanceOf(FediError);
+    expect((insecure as FediError).code).toBe("errors.origin.insecure");
   });
 
   it("buildMiauthUrl joins permissions with commas (the instance splits on commas)", () => {

@@ -30,7 +30,7 @@
 // of absence — and never branch UI on it. The agreement matrix is pinned
 // in `packages/fedi/test/detect.test.ts` ("MD13 classifier authority").
 
-import { defaultFetchImpl, type FetchImpl } from "./http";
+import { defaultFetchImpl, isRedirectStatus, type FetchImpl } from "./http";
 
 export type ServerFamily = "misskey" | "mastodon";
 
@@ -753,6 +753,9 @@ async function fetchNodeinfo(
   return { name, version, body: doc.body };
 }
 
+/** Hops the unauthenticated prober follows for a same-origin 3xx. */
+const PROBE_MAX_REDIRECTS = 3;
+
 async function defaultProber(
   method: "GET" | "POST",
   url: string,
@@ -762,24 +765,74 @@ async function defaultProber(
 ): Promise<ProbeResponse> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let baseOrigin: string;
   try {
-    const res = await fetchImpl(url, {
-      credentials: "omit",
-      method,
-      headers: method === "POST" ? { "Content-Type": "application/json" } : undefined,
-      body: method === "POST" ? JSON.stringify(body ?? {}) : undefined,
-      signal: ctrl.signal,
-    });
-    const raw = res.status === 204 ? "" : await res.text();
-    let parsed: unknown = null;
-    if (raw) {
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        parsed = null;
+    baseOrigin = new URL(url).origin;
+  } catch {
+    clearTimeout(timer);
+    return { status: 0, body: null };
+  }
+  try {
+    let current = url;
+    for (let hop = 0; hop <= PROBE_MAX_REDIRECTS; hop++) {
+      const res = await fetchImpl(current, {
+        credentials: "omit",
+        method,
+        headers: method === "POST" ? { "Content-Type": "application/json" } : undefined,
+        body: method === "POST" ? JSON.stringify(body ?? {}) : undefined,
+        // Unauthenticated discovery may follow same-origin redirects ONLY
+        // (repair X2.2 step 1): `manual` plus an origin re-check per hop,
+        // so a compromised instance cannot bounce the prober elsewhere.
+        redirect: "manual",
+        signal: ctrl.signal,
+      });
+      if (isRedirectStatus(res.status)) {
+        const location = res.headers.get("location");
+        let next: string | null = null;
+        if (location) {
+          try {
+            next = new URL(location, current).toString();
+          } catch {
+            next = null;
+          }
+        }
+        // Cross-origin (or location-less, or over-budget) redirects are
+        // evidence of nothing: stop and report the 3xx with no body.
+        if (!next || hop === PROBE_MAX_REDIRECTS) return { status: res.status, body: null };
+        let nextOrigin: string;
+        try {
+          nextOrigin = new URL(next).origin;
+        } catch {
+          return { status: res.status, body: null };
+        }
+        if (nextOrigin !== baseOrigin) return { status: res.status, body: null };
+        current = next;
+        continue;
       }
+      // A fetch implementation that ignored `manual` must not leak the
+      // prober cross-origin either: re-validate the landed URL.
+      if (typeof res.url === "string" && res.url) {
+        try {
+          if (new URL(res.url, current).origin !== baseOrigin) {
+            return { status: res.status, body: null };
+          }
+        } catch {
+          return { status: res.status, body: null };
+        }
+      }
+      // The body read stays INSIDE the deadline (repair X2.2 step 3).
+      const raw = res.status === 204 ? "" : await res.text();
+      let parsed: unknown = null;
+      if (raw) {
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          parsed = null;
+        }
+      }
+      return { status: res.status, body: parsed };
     }
-    return { status: res.status, body: parsed };
+    return { status: 0, body: null };
   } catch {
     return { status: 0, body: null };
   } finally {

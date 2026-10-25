@@ -29,7 +29,12 @@
 import { KEYSTONE_APP_NAME, KEYSTONE_PERMISSIONS } from "./auth";
 import { randomUuid } from "../core/random";
 import { ApiError, FediError } from "../core/errors";
-import { defaultFetchImpl, type FetchImpl } from "../core/http";
+import {
+  defaultFetchImpl,
+  isRedirectStatus,
+  rejectNonLocalHttp,
+  type FetchImpl,
+} from "../core/http";
 import {
   getActiveSession,
   loadSessions,
@@ -113,6 +118,11 @@ export function normalizeHost(input: string): {
       "errors.validation.hostInvalid",
     );
   }
+  // Cleartext is local-targets-only (repair X2.2 step 6, misskey M9): an
+  // explicit `http://` for a public host would send the `i` token in the
+  // clear. Single policy in `core/http.rejectNonLocalHttp` (throws
+  // `errors.origin.insecure`; the `__DEV__` rig hatch applies there).
+  rejectNonLocalHttp(url);
   const host = url.port ? `${hostname}:${url.port}` : hostname;
   return { host, scheme };
 }
@@ -158,9 +168,11 @@ interface ApiErrorBody {
 
 /** POST to an absolute instance URL with Misskey-family semantics: 204 is
  * empty success (never blind `response.json()`), non-JSON errors keep the
- * HTTP status on the thrown ApiError. A hard timeout converts a hung
- * request into a retryable error naming the endpoint — feeds must never
- * sit on eternal skeletons because one call never settled. */
+ * HTTP status on the thrown ApiError. Redirects are never followed with
+ * the `i` token in the body (repair X2.2 step 1): a 3xx throws
+ * `FediError('errors.network.redirect')`. The deadline covers headers AND
+ * the body read (repair X2.2 step 3) — feeds must never sit on eternal
+ * skeletons because one call never settled. */
 const DIRECT_TIMEOUT_MS = 30_000;
 
 async function postDirect<T>(
@@ -169,17 +181,31 @@ async function postDirect<T>(
   fetchImpl: FetchImpl = defaultFetchImpl,
 ): Promise<T> {
   let response: Response;
+  let raw: string;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), DIRECT_TIMEOUT_MS);
   try {
     response = await fetchImpl(url, {
       method: "POST",
       credentials: "omit",
+      // Never follow a 3xx with the `i` credential (see above).
+      redirect: "manual",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       signal: ctrl.signal,
     });
+    if (isRedirectStatus(response.status)) {
+      throw new FediError(
+        `Server redirected the request (HTTP ${response.status}); refusing to follow with credentials.`,
+        "errors.network.redirect",
+        { status: response.status },
+      );
+    }
+    // The body read stays INSIDE the deadline (see above).
+    raw = response.status === 204 ? "" : await response.text();
   } catch (err) {
+    // The redirect refusal above is already typed — keep it.
+    if (err instanceof FediError && err.code === "errors.network.redirect") throw err;
     // NOTE: never `err instanceof DOMException` here — Hermes/RN may not
     // provide the global, and evaluating it would throw *inside* this catch
     // block. A name check covers DOMException and cross-realm aborts alike.
@@ -201,7 +227,6 @@ async function postDirect<T>(
   } finally {
     clearTimeout(timer);
   }
-  const raw = response.status === 204 ? "" : await response.text();
   let payload: unknown;
   if (raw) {
     try {

@@ -22,10 +22,12 @@ import type { OAuthErrorBody } from "./wire";
 import { ApiError } from "../core/errors";
 import { HttpError, type HttpErrorKind } from "../core/http";
 import type { HttpMethod } from "../core/http";
-import { defaultFetchImpl, resolveSameOriginUrl, type FetchImpl } from "../core/http";
+import { defaultFetchImpl, isRedirectStatus, resolveSameOriginUrl, type FetchImpl } from "../core/http";
 
-/** Hard ceiling for a single call. Hung requests surface as retryable
- * `kind: "timeout"` errors naming the endpoint — never eternal skeletons. */
+/** Deadline for a single call (headers AND the body read — the timer is
+ * cleared only after `response.text()` settles, repair X2.2 step 3). Hung
+ * requests surface as retryable `kind: "timeout"` errors naming the
+ * endpoint — never eternal skeletons. */
 export const DEFAULT_TIMEOUT_MS = 30_000;
 
 /** Dev-only API census: one console line per request (method + path)
@@ -131,21 +133,33 @@ export function retryAfterMs(raw: string | null | undefined): number | null {
  * every honest-state rule the Misskey family relies on (`isUnsupportedError`
  * = 404/405, `isPermissionError` = 401/403) reads the same here. A
  * timeout keeps `kind: "timeout"` — it is never "endpoint unsupported".
- * The 429 headers survive in `params` (`retryAfter` raw +
- * `retryAfterMs` parsed) so callers can back off intelligently instead
- * of hammering. Non-transport values pass through untouched. Direct
+ * The transport error's own `code`/`kind`/`params` are mapped through
+ * (repair X2.2 step 4): the server's free-form `error` text is NEVER the
+ * stable code — it survives only as `detail` in params. The 429 headers
+ * survive in `params` (`retryAfter` raw + `retryAfterMs` parsed) so
+ * callers can back off intelligently instead of hammering.
+ * Non-transport values pass through untouched. Direct
  * endpoint / oauth / instance callers (which bypass the backend's
  * guarded client) should run failures through this before probing
  * support — MD12.
  */
 export function toApiError(err: unknown): unknown {
   if (err instanceof MastoHttpError) {
-    const code =
-      err.body !== null && typeof err.body === "object"
-        ? ((err.body as { error?: unknown }).error as string | undefined)
-        : undefined;
+    let detail: string | undefined;
+    const body = err.body;
+    if (body !== null && typeof body === "object") {
+      const rec = body as { error?: unknown; error_description?: unknown };
+      if (typeof rec.error === "string" && rec.error.trim()) detail = rec.error;
+      else if (typeof rec.error_description === "string" && rec.error_description.trim()) {
+        detail = rec.error_description;
+      }
+    } else if (typeof body === "string" && body.trim() && body.length < 300) {
+      detail = body.trim();
+    }
     const rateLimit = err.rateLimit;
-    return new ApiError(err.message, err.status, code, err.kind, {
+    return new ApiError(err.message, err.status, err.code, err.kind, {
+      ...err.params,
+      ...(detail !== undefined ? { detail } : {}),
       ...(rateLimit
         ? {
             retryAfter: rateLimit.retryAfter,
@@ -327,6 +341,7 @@ export async function request<T = unknown>(
   }
 
   let response: Response;
+  let raw: string;
   try {
     devLogRequest(method, url.pathname + url.search);
     response = await (opts.fetchImpl ?? defaultFetchImpl)(url.toString(), {
@@ -334,10 +349,36 @@ export async function request<T = unknown>(
       headers,
       body,
       signal: controller.signal,
+      // Never follow a redirect with the Bearer token (repair X2.2 step 1):
+      // a 3xx is refused below before any second request. `manual` keeps
+      // the token on this origin (fetch strips cross-origin Authorization
+      // headers, but same-origin redirects would still re-send it — and a
+      // compromised origin must not bounce the token elsewhere).
+      redirect: "manual",
       // Never carry cookies cross-origin: auth is the Bearer token.
       credentials: "omit",
     });
+    if (isRedirectStatus(response.status)) {
+      throw new MastoHttpError({
+        kind: "redirect",
+        code: "errors.network.redirect",
+        params: { status: response.status },
+        status: response.status,
+        origin,
+        method,
+        path: url.pathname + url.search,
+        message: `Server redirected the request (HTTP ${response.status}); refusing to follow with credentials.`,
+      });
+    }
+    // The body read stays INSIDE the deadline (repair X2.2 step 3): the
+    // timer and the caller-abort listener are cleared in the `finally`
+    // below, after `text()` settles. Tolerant parsing: read text first,
+    // never blind response.json(). Empty bodies (204, some 200/202/206)
+    // resolve with data: undefined.
+    raw = await response.text();
   } catch (err) {
+    // The redirect refusal above is already typed — keep it.
+    if (err instanceof MastoHttpError && err.kind === "redirect") throw err;
     if (timedOut) {
       const target = `${method} ${url.pathname}`;
       const n = Math.round(timeoutMs / 1000);
@@ -351,7 +392,12 @@ export async function request<T = unknown>(
         message: `Request timed out (${target}): the instance did not answer within ${n}s. Retry.`,
       });
     }
-    if (err instanceof DOMException && err.name === "AbortError") throw err; // caller cancelled
+    // NOTE: never `err instanceof DOMException` — Hermes/RN may not
+    // provide the global (repair X2.2 step 5 / networking L3); a name
+    // check covers DOMException and cross-realm aborts alike.
+    const isAbort =
+      typeof err === "object" && err !== null && (err as { name?: unknown }).name === "AbortError";
+    if (isAbort) throw err; // caller cancelled
     {
       const reason = err instanceof Error ? err.message : "network error";
       throw new MastoHttpError({
@@ -369,9 +415,6 @@ export async function request<T = unknown>(
     opts.signal?.removeEventListener("abort", onCallerAbort);
   }
 
-  // Tolerant parsing: read text first, never blind response.json().
-  // Empty bodies (204, some 200/202/206) resolve with data: undefined.
-  const raw = await response.text();
   let data: unknown;
   if (raw.length > 0) {
     try {

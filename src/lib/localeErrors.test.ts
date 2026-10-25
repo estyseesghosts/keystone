@@ -12,6 +12,8 @@ describe('localeErrors', () => {
       'errors.validation.hostScheme',
       'errors.validation.hostInvalid',
       'errors.network.crossOrigin',
+      'errors.network.redirect',
+      'errors.origin.insecure',
       'errors.network.badPath',
       'errors.network.unreachableBare',
       'errors.network.timeoutInstance',
@@ -60,7 +62,7 @@ describe('localeErrors', () => {
       'errors.filter.invalidRegex',
       'errors.feeds.invalidDescriptor',
     ]
-    expect(codes).toHaveLength(51)
+    expect(codes).toHaveLength(53)
     for (const code of codes) expect(isKnownErrorCode(code)).toBe(true)
   })
 
