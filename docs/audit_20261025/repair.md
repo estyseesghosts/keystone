@@ -1455,7 +1455,7 @@ Audit: media M5, M15 (audio target)
 
 ## X7.3 - Images: expo-image, blurhash, sizing, sensitive cover
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x7.3.md` (slice) + `state/logs/2026-10-25-repair25-x7.3-x7.4-coordinator.md` (batch-green); 275 suites / 3944 tests green at Wave-7 batch-2 commit)
 Branch: `repair25-x7.3-images`
 Audit: media M6, M7, M14, M15 (alt fallback), M16 (avatars/emoji), M17; richtext (none)
 
@@ -1484,7 +1484,7 @@ Audit: media M6, M7, M14, M15 (alt fallback), M16 (avatars/emoji), M17; richtext
 
 ## X7.4 - Uploads
 
-Status: not started (D9 default applies)
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x7.4.md` (slice) + `state/logs/2026-10-25-repair25-x7.3-x7.4-coordinator.md` (batch-green); D9 default applies; 275 suites / 3944 tests green at Wave-7 batch-2 commit; `en` catalog extraction covers X7.3+X7.4 strings together)
 Branch: `repair25-x7.4-uploads`
 Audit: media M8 (platform half), M9, M10, M11, M12, M13, M16 (profile images); networking M8; privacy 8
 
