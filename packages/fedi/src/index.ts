@@ -11,6 +11,7 @@ export * from "./core/recommendations";
 export * from "./core/detect";
 export * from "./core/backend";
 export * from "./core/http";
+export * from "./core/urlPolicy";
 export * from "./core/config";
 export * from "./core/hosting";
 export * from "./core/boot";

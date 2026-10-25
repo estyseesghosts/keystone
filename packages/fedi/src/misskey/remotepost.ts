@@ -29,6 +29,7 @@ const AP_ACCEPT =
   'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams"';
 
 import { defaultFetchImpl, type FetchImpl } from "../core/http";
+import { isPublicHttpsUrl } from "../core/urlPolicy";
 
 /** Negatives are transient (network/CORS/server hiccup): retryable after this. */
 export const REMOTE_POST_NEGATIVE_TTL_MS = 5 * 60_000;
@@ -106,12 +107,22 @@ export function resolveRemotePostUrl(
   if (pending) return pending;
 
   const task = (async (): Promise<string | null> => {
+    // Outbound policy (repair X2.4): never fetch a non-public AP id —
+    // private/loopback hosts in any encoding, local names, non-https
+    // schemes. The menu falls back to the raw id (see `menuModel`, which
+    // reads `cachedRemotePostUrl(uri) ?? uri`). Redirects are not
+    // followed (`redirect: 'manual'`): the object is only trusted when
+    // its `id` equals the requested `uri`, and following a 3xx would
+    // still send the device's request to the next hop before the trust
+    // check could reject it.
+    if (!isPublicHttpsUrl(uri)) return null;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const res = await (opts.fetchImpl ?? defaultFetchImpl)(uri, {
         headers: { Accept: AP_ACCEPT },
         credentials: "omit",
+        redirect: "manual",
         signal: controller.signal,
       });
       if (!res.ok) return null;

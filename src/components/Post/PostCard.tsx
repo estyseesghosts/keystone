@@ -6,7 +6,7 @@
 // disabled WITH their reason — hidden only when the capability is
 // `unsupported`. Never wired, never inert, never faked.
 
-import {memo, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore} from 'react'
+import {memo, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore} from 'react'
 import {Image, Linking, Platform, Share, StyleSheet, View, type StyleProp, type ViewStyle} from 'react-native'
 
 import {QueryClientContext} from '@tanstack/react-query'
@@ -446,7 +446,21 @@ function LivePostCard(props: PostCardProps) {
               toastError(e)
             }
           },
-          open: url => void Linking.openURL(url).catch(toastError),
+          open: url => {
+            // Lazy remote resolution: the mount-time warm is gone (no
+            // request per rendered row), so tapping "View on remote
+            // instance" resolves the AP id first and opens the human
+            // page. Raw-id fallback preserved when it never resolves.
+            if (effective.uri && url === effective.uri) {
+              const uri = effective.uri
+              void resolveRemotePostUrl(uri).then(
+                resolved => void Linking.openURL(resolved ?? uri).catch(toastError),
+                toastError,
+              )
+              return
+            }
+            void Linking.openURL(url).catch(toastError)
+          },
           openBridgedPost: p => openPostDetail(p.id),
           openBridgedProfile: accountId => openAuthorProfile(accountId),
           // Manual translate: always sent on demand, never gated on
@@ -722,13 +736,6 @@ const PostCardView = memo(function PostCardView({
     bodyHidden,
     liveTranslation: live?.translation ?? null,
   })
-
-  // Warm the remote-page cache for federated posts (MK17): by the
-  // time the menu opens, "Copy remote link" carries the human page
-  // URL instead of the raw AP id. Best-effort, never blocking.
-  useEffect(() => {
-    if (effective.uri) void resolveRemotePostUrl(effective.uri)
-  }, [effective.uri])
 
   const replyTarget =
     !hideReplyContext && post.replyToId !== null ? (post.reply ?? null) : null

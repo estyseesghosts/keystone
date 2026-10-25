@@ -19,6 +19,7 @@ import {useLingui} from '@lingui/react'
 import {
   bareLinkLabel,
   fetchLinkPreview,
+  isPublicHttpsUrl,
   safeHttpUrl,
   urisMatch,
   type ContentNode,
@@ -163,6 +164,10 @@ export function UnfurledLinkCard({
   const mounted = useRef(true)
   const autoStarted = useRef(false)
   const safe = safeHttpUrl(url)
+  // Outbound policy: only a publicly-routable https page is fetched or
+  // previewed. Anything else keeps the honest basic card with no trigger —
+  // a Preview button that could never work would be inert UI.
+  const fetchable = safe !== null && isPublicHttpsUrl(safe) ? safe : null
   useEffect(
     () => () => {
       mounted.current = false
@@ -180,10 +185,10 @@ export function UnfurledLinkCard({
   // Auto-load (data saver off): fetch on mount. Single-flight + module
   // cache keep a feed of identical links to one fetch.
   useEffect(() => {
-    if (!auto || safe === null || autoStarted.current) return
+    if (!auto || fetchable === null || autoStarted.current) return
     autoStarted.current = true
     setPhase('loading')
-    void fetchPreview(safe).then(
+    void fetchPreview(fetchable).then(
       found => {
         if (!mounted.current) return
         setPreview(found)
@@ -193,14 +198,14 @@ export function UnfurledLinkCard({
         if (mounted.current) setPhase('done')
       },
     )
-  }, [auto, safe, fetchPreview])
+  }, [auto, fetchable, fetchPreview])
 
   if (safe === null) return null
 
   const unfurl = () => {
-    if (phase !== 'idle') return
+    if (phase !== 'idle' || fetchable === null) return
     setPhase('loading')
-    void fetchPreview(safe).then(
+    void fetchPreview(fetchable).then(
       found => {
         if (!mounted.current) return
         setPreview(found)
@@ -218,9 +223,13 @@ export function UnfurledLinkCard({
   const open = () =>
     void Linking.openURL(safe).catch(e => showToast(`Could not open: ${String(e)}`))
 
-  const previewImage = preview?.image ? safeHttpUrl(preview.image) : null
+  const previewImageRaw = preview?.image ?? null
+  const previewImage =
+    previewImageRaw !== null && isPublicHttpsUrl(previewImageRaw) ? previewImageRaw : null
   const shownImage = previewImage !== null && !imageFailed ? previewImage : null
-  const previewIcon = preview?.icon ? safeHttpUrl(preview.icon) : null
+  const previewIconRaw = preview?.icon ?? null
+  const previewIcon =
+    previewIconRaw !== null && isPublicHttpsUrl(previewIconRaw) ? previewIconRaw : null
   const shownIcon = previewIcon !== null && !iconFailed ? previewIcon : null
 
   return (
@@ -263,7 +272,7 @@ export function UnfurledLinkCard({
           </View>
         </View>
       </Pressable>
-      {phase === 'idle' ? (
+      {phase === 'idle' && fetchable !== null ? (
         <View style={styles.previewRow}>
           <Caption color="muted" numberOfLines={1}>
             {safe}
