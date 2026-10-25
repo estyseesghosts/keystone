@@ -8,6 +8,7 @@ import type {Capabilities, Session} from '@keystone/fedi'
 import {FEATURE_KEYS} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
+import {lineHeight, typeSize} from '#/alf/tokens'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
 import {makeAccount, makePost} from '#/components/__tests__/fixtures'
@@ -175,6 +176,12 @@ describe('NoteScreen', () => {
     expect(row.alignItems).toBe('center')
     const input = StyleSheet.flatten(screen.getByTestId('inline-reply-input').props.style)
     expect(input.minHeight).toBe(36)
+    // Placeholder centers on the Reply pill label: the same Caption text
+    // metrics the compact pill renders, in a centered 36px box.
+    expect(input.textAlignVertical).toBe('center')
+    expect(input.paddingVertical).toBe(0)
+    expect(input.fontSize).toBe(typeSize.caption)
+    expect(input.lineHeight).toBe(lineHeight.caption)
   })
 
   it('first focus expands the toolbar and it stays expanded after blur', async () => {

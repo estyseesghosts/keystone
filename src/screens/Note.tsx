@@ -42,6 +42,7 @@ import {
 
 import {useTheme} from '#/alf/index'
 import {atoms} from '#/alf/atoms'
+import {lineHeight, typeSize} from '#/alf/tokens'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
@@ -145,6 +146,7 @@ const styles = StyleSheet.create({
   },
   inlineInputCollapsed: {
     minHeight: 36,
+    paddingVertical: 0,
     textAlignVertical: 'center',
   },
   inlineToolbar: {
@@ -512,9 +514,14 @@ function InlineReply({
             style={[
               styles.inlineInputCollapsed,
               {
+                // Caption metrics, not body: the compact Reply pill's label
+                // is a Caption in a centered 36px pill, so the placeholder
+                // shares its exact text line and centers on the same
+                // baseline (both scale with the same multiplier, and the
+                // metrics are theme-independent tokens).
                 color: theme.palette.text,
-                fontSize: 15 * theme.fontScaleMultiplier,
-                lineHeight: 21 * theme.fontScaleMultiplier,
+                fontSize: typeSize.caption * theme.fontScaleMultiplier,
+                lineHeight: lineHeight.caption * theme.fontScaleMultiplier,
               },
               autogrowStyle(autogrow.height),
               NO_OUTLINE,
