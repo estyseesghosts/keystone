@@ -5,14 +5,16 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **263 suites / 3684 tests**,
+Gate baseline (last green on main): **266 suites / 3694 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Wave 5 batch 1-2 done: X5.1–X5.5 committed. (Coordinator fallout:
-   dead-code placement, golden editId update.)
-2. X5.6 capture script + missing coverage last (no duplicates).
-3. Wave 6 (X6.1–X6.5) next; signing/App Links skipped (owner); no
+1. Wave 5 done (X5.1–X5.6 committed). (Coordinator fallout:
+   dead-code placement, golden editId, import depth, node-fs
+   typing.)
+2. Wave 6: X6.1 first (leads composer chain), then X6.2+X6.3
+   parallel, then X6.4+X6.5 parallel.
+3. Waves 7+ in order; signing/App Links skipped (owner); no
    non-English translations (English catalog only).
 
 Blockers / owner-open:

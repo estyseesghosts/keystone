@@ -1209,8 +1209,8 @@ Audit: misskey M7, M11, M14
 
 ## X5.6 - Real fixtures and a capture script
 
-Status: not started
-Branch: `repair25-x5.6-capture-fixtures`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x5.6.md`; dry-run verified; 266 suites / 3694 tests green at Wave-5 commit)
+Branch: `repair25-x5.6-capture-fixtures` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: misskey test/fixture gaps; mastodon test gaps
 
 **Goal.** Replace synthesised Misskey/Sharkey fixtures with recorded ones so
