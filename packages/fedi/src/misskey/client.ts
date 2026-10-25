@@ -47,14 +47,11 @@ import {
 } from "../core/backend";
 import { ApiError, FediError } from "../core/errors";
 
-/** Dev-only API census (see the Mastodon transport): one console line
- * per endpoint call. Silent in tests and production. */
-declare const __DEV__: boolean | undefined;
-const DEV_MISSKEY_API_LOG =
-  typeof __DEV__ !== "undefined" &&
-  __DEV__ &&
-  typeof process !== "undefined" &&
-  process.env.NODE_ENV !== "test";
+/** Injected dev logger (repair X8.1): the app passes its redacting
+ * logger (`src/lib/logger.ts`); absent it is a no-op, so tests and
+ * production stay silent. Never carries bodies or tokens — endpoint only.
+ * Pure-TS: a bare function type, no imports. */
+export type FediLogFn = (level: "debug" | "info" | "warn" | "error", message: string) => void;
 
 interface ApiErrorBody {
   error?: { message?: string; code?: string; kind?: string };
@@ -76,6 +73,8 @@ export interface MisskeyClientOptions {
    * calls flow through `requestJson`'s seam). Defaults to the core/http
    * seam edge. */
   fetchImpl?: FetchImpl;
+  /** Injected dev logger (endpoint only; default no-op). */
+  log?: FediLogFn;
 }
 
 export interface UploadOptions {
@@ -267,6 +266,7 @@ export function createMisskeyClient(
   // carry only `signal` (repair X3.1), so the JSON path reads the client
   // default here instead of a non-existent per-call field.
   const clientFetchImpl = opts.fetchImpl ?? defaultFetchImpl;
+  const clientLog = opts.log;
 
   async function call<T>(
     endpoint: string,
@@ -277,7 +277,7 @@ export function createMisskeyClient(
     const path = endpointPath(session.origin, endpoint);
     const body = authenticated ? authedParams(session, params) : params;
     try {
-      if (DEV_MISSKEY_API_LOG) console.debug(`[fedi-api] → POST /api/${endpoint}`);
+      clientLog?.("debug", `[fedi-api] → POST /api/${endpoint}`);
       const res = await requestJson<T>(session.origin, path, {
         method: "POST",
         json: body,

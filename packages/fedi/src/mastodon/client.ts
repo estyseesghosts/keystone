@@ -30,23 +30,11 @@ import { defaultFetchImpl, isRedirectStatus, resolveSameOriginUrl, type FetchImp
  * endpoint — never eternal skeletons. */
 export const DEFAULT_TIMEOUT_MS = 30_000;
 
-/** Dev-only API census: one console line per request (method + path)
- * plus a line for non-2xx statuses, so a throttle storm shows its
- * shape directly in the dev console. Silent in tests and production. */
-declare const __DEV__: boolean | undefined;
-const DEV_API_LOG =
-  typeof __DEV__ !== "undefined" &&
-  __DEV__ &&
-  typeof process !== "undefined" &&
-  process.env.NODE_ENV !== "test";
-
-function devLogRequest(method: string, path: string): void {
-  if (DEV_API_LOG) console.debug(`[fedi-api] → ${method} ${path}`);
-}
-
-function devLogStatus(method: string, path: string, status: number): void {
-  if (DEV_API_LOG) console.debug(`[fedi-api] ✕ ${method} ${path} → ${status}`);
-}
+/** Injected dev logger (repair X8.1): the app passes its redacting
+ * logger (`src/lib/logger.ts`); absent it is a no-op, so tests and
+ * production stay silent. Never carries bodies or tokens — method + path
+ * only. Pure-TS: a bare function type, no imports. */
+export type FediLogFn = (level: "debug" | "info" | "warn" | "error", message: string) => void;
 
 export type QueryPrimitive = string | number | boolean | null | undefined;
 export type QueryValue = QueryPrimitive | QueryValue[] | { [key: string]: QueryValue };
@@ -236,6 +224,8 @@ export interface RequestOptions {
   idempotencyKey?: string;
   /** Injectable fetch — defaults to the core/http seam edge. */
   fetchImpl?: FetchImpl;
+  /** Injected dev logger (method + path only; default no-op). */
+  log?: FediLogFn;
 }
 
 /** Parse rate-limit response headers into a structured form. Returns null
@@ -343,7 +333,7 @@ export async function request<T = unknown>(
   let response: Response;
   let raw: string;
   try {
-    devLogRequest(method, url.pathname + url.search);
+    opts.log?.("debug", `[fedi-api] → ${method} ${url.pathname + url.search}`);
     response = await (opts.fetchImpl ?? defaultFetchImpl)(url.toString(), {
       method,
       headers,
@@ -458,7 +448,7 @@ export async function request<T = unknown>(
 
   if (!response.ok) {
     // 202 (async media) and 206 (regenerating/processing) are OK statuses.
-    devLogStatus(method, url.pathname + url.search, response.status);
+    opts.log?.("debug", `[fedi-api] ✕ ${method} ${url.pathname + url.search} → ${response.status}`);
     throw new MastoHttpError({
       kind: "http",
       code: "errors.network.apiError",

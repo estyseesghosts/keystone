@@ -34,6 +34,7 @@ import {atoms} from '#/alf/atoms'
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {ErrorBoundary} from '#/components/ErrorBoundary'
 import {Loader} from '#/components/Loader'
 import {SkeletonList} from '#/components/Skeleton'
 import {SignInButton} from '#/components/SignInButton'
@@ -270,8 +271,12 @@ export function FeedView({  sessionId,
       // Unreachable past the signed-out guard below, but the callback is
       // a hook and must be defined above it — so it guards itself.
       if (!sessionId || !resolved) return null
+      // Per-row boundary (repair X8.1, rn-ui M1): a malformed post
+      // collapses to an honest fallback row with a retry — the list stays
+      // mounted and scrollable. Viewability/paging logic below is untouched.
       return (
-        <ThreadRow
+        <ErrorBoundary variant="row" context={item.id}>
+          <ThreadRow
           post={item}
           sessionId={sessionId}
           capabilities={resolved.capabilities}
@@ -283,7 +288,8 @@ export function FeedView({  sessionId,
           // above the first row (nothing above it but the header).
           showSeparator={index > 0 && !(links.connectedAbove[index] ?? false)}
           active={viewableIds.has(item.id)}
-        />
+          />
+        </ErrorBoundary>
       )
     },
     [sessionId, resolved, collapsed, links, viewableIds],

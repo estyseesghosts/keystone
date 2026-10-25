@@ -18,6 +18,7 @@ import {computeFeedThreadLinks, type Capabilities, type EmojiStyle, type Post} f
 
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {ErrorBoundary} from '#/components/ErrorBoundary'
 import {Loader} from '#/components/Loader'
 import {i18n} from '#/locale/i18n'
 import {useSuspendOnBlur} from '#/state/activePlayer'
@@ -129,21 +130,25 @@ export function PostFeed({
   ).current
   const viewabilityConfig = useRef({itemVisiblePercentThreshold: 50}).current
   // Stable row element (same rule as FeedView): memoized ThreadRow
-  // skips unchanged rows on scroll frames.
+  // skips unchanged rows on scroll frames. The per-row boundary mirrors
+  // production (repair X8.1): this harness is the row-boundary test bed,
+  // so it wraps rows exactly like `FeedView` does.
   const renderRow = useCallback(
     ({item, index}: {item: Post; index: number}) => (
-      <ThreadRow
-        post={item}
-        sessionId={sessionId}
-        capabilities={capabilities}
-        emojiStyle={emojiStyle}
-        connectedAbove={links.connectedAbove[index] ?? false}
-        connectedBelow={links.connectedBelow[index] ?? false}
-        // Same rule as production FeedView: bound every post except
-        // inside a connected run and above the first row.
-        showSeparator={index > 0 && !(links.connectedAbove[index] ?? false)}
-        active={viewableIds.has(item.id)}
-      />
+      <ErrorBoundary variant="row" context={item.id}>
+        <ThreadRow
+          post={item}
+          sessionId={sessionId}
+          capabilities={capabilities}
+          emojiStyle={emojiStyle}
+          connectedAbove={links.connectedAbove[index] ?? false}
+          connectedBelow={links.connectedBelow[index] ?? false}
+          // Same rule as production FeedView: bound every post except
+          // inside a connected run and above the first row.
+          showSeparator={index > 0 && !(links.connectedAbove[index] ?? false)}
+          active={viewableIds.has(item.id)}
+        />
+      </ErrorBoundary>
     ),
     [sessionId, capabilities, emojiStyle, links, viewableIds],
   )

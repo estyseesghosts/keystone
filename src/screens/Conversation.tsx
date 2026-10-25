@@ -22,6 +22,7 @@ import {Button} from '#/components/Button'
 import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
+import {logger} from '#/lib/logger'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {conversationTitle} from '#/screens/Conversations'
@@ -100,8 +101,8 @@ export function ConversationScreen() {
     void markRead.mutateAsync(id).catch((err: unknown) => {
       // A failed mark-read never blocks the thread; the unread flag simply
       // refetches as unread. No error wall for a best-effort write — but
-      // the failure is logged so a stuck badge is diagnosable.
-      console.warn('[Conversation] mark-read failed', err)
+      // the failure is logged (redacted) so a stuck badge is diagnosable.
+      logger.warn('[Conversation] mark-read failed', err)
     })
     // Mark-read is a fire-once effect per thread, not a render input;
     // `markRead` is the stable mutation object from the hook.

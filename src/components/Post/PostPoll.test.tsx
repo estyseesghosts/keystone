@@ -7,6 +7,7 @@ import type {Poll} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {PostPoll, formatPollExpiry, isPollClosed} from '#/components/Post/PostPoll'
+import {addSink, type LogRecord} from '#/lib/logger'
 
 i18n.load('en', {})
 i18n.activate('en')
@@ -70,6 +71,25 @@ describe('PostPoll (F8)', () => {
     await screen.findByTestId('poll-error')
     // Still unlocked: retry is possible.
     expect(screen.getByTestId('poll-vote')).toBeTruthy()
+  })
+
+  it('reports a failed vote to the logger (redacted), not console-only', async () => {
+    const seen: LogRecord[] = []
+    const dispose = addSink(r => seen.push(r))
+    try {
+      const onVote = jest.fn().mockRejectedValue(new Error('vote blew up Bearer abc123'))
+      renderPoll(<PostPoll poll={poll()} onVote={onVote} testID="poll" />)
+      fireEvent.press(screen.getByTestId('poll-option-0'))
+      fireEvent.press(screen.getByTestId('poll-vote'))
+      await screen.findByTestId('poll-error')
+      const records = seen.filter(r => r.message.includes('PostPoll'))
+      expect(records).toHaveLength(1)
+      expect(records[0].level).toBe('warn')
+      expect(records[0].detail).toContain('vote blew up')
+      expect(records[0].detail).not.toContain('abc123')
+    } finally {
+      dispose()
+    }
   })
 
   it('renders read-only without onVote and marks voted options', () => {

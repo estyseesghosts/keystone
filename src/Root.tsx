@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from 'react'
+import {useCallback, useEffect, useMemo, useState} from 'react'
 import {View} from 'react-native'
 
 import {I18nProvider, useLingui} from '@lingui/react'
@@ -7,7 +7,9 @@ import {SafeAreaProvider} from 'react-native-safe-area-context'
 
 import {ThemeProvider} from '#/alf/index'
 import {Body} from '#/alf/typography'
+import {ErrorBoundary} from '#/components/ErrorBoundary'
 import {Loader} from '#/components/Loader'
+import {installGlobalErrorHandlers} from '#/lib/logger'
 import {i18n} from '#/locale/i18n'
 import {useColorMode, useTextScale} from '#/state/appearance'
 import {ToastHost} from '#/components/ToastHost'
@@ -53,6 +55,14 @@ export function Root() {
   )
   const [ready, setReady] = useState(false)
   const [hosting, setHosting] = useState<HostingResolution | null>(null)
+  // Repair X8.1: last-resort capture — `ErrorUtils` fatals and web
+  // `unhandledrejection`s forward to the logger (redacted). The root
+  // boundary below renders the recover UI. Nothing else in this file
+  // changes (X3.5 owns the rest).
+  useEffect(() => installGlobalErrorHandlers(), [])
+  const handleRootSignOut = useCallback(() => {
+    void store.signOutEverywhere()
+  }, [store])
   useEffect(() => {
     let cancelled = false
     store.initialize()
@@ -92,7 +102,12 @@ export function Root() {
         insets: {top: 0, bottom: 0, left: 0, right: 0},
       }}>
       <I18nProvider i18n={i18n}>
-        <ThemedProviders store={store} homeOrigin={homeOrigin} ready={ready} hosting={hosting} />
+        {/* Root boundary (repair X8.1, rn-ui M1): inside `I18nProvider`
+            so the crash UI is translated, outside the session/query
+            providers so their own crashes are caught too. */}
+        <ErrorBoundary variant="root" context="root" onSignOut={handleRootSignOut}>
+          <ThemedProviders store={store} homeOrigin={homeOrigin} ready={ready} hosting={hosting} />
+        </ErrorBoundary>
       </I18nProvider>
     </SafeAreaProvider>
   )

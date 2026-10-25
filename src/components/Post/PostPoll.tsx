@@ -17,6 +17,7 @@ import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {CustomEmojiGlyph} from '#/components/EmojiImage'
 import {Pressable} from '#/components/Pressable'
+import {logger} from '#/lib/logger'
 
 const styles = StyleSheet.create({
   box: {borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 8, gap: 8},
@@ -194,9 +195,9 @@ export function PostPoll({
       setVoted(true)
       setRecorded([])
     } catch (e) {
-      // Friendly line in the UI; the raw reason goes to the console
+      // Friendly line in the UI; the redacted reason goes to the logger
       // for diagnosis (never a stuck spinner, never a raw dump).
-      console.error('[PostPoll] vote failed', e)
+      logger.warn('[PostPoll] vote failed', e)
       setFailed(true)
       const round = partialRecordedOf(e)
       if (round.length > 0) setRecorded(prev => [...prev, ...round.filter(c => !prev.includes(c))])
