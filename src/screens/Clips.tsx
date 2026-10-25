@@ -9,6 +9,8 @@ import {useCallback, useEffect, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
+import {msg, plural} from '@lingui/macro'
+
 import {isPermissionError, isUnsupportedError, type ClipSummary} from '@keystone/fedi'
 
 import {useTheme} from '#/alf'
@@ -20,6 +22,7 @@ import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import {showToast} from '#/lib/toast'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
@@ -39,7 +42,7 @@ function CreateRow({onCreate}: {onCreate: (name: string, isPublic: boolean) => P
       setName('')
       setIsPublic(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create the clip.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not create the clip.`))
     } finally {
       setBusy(false)
     }
@@ -47,22 +50,22 @@ function CreateRow({onCreate}: {onCreate: (name: string, isPublic: boolean) => P
   return (
     <View style={[atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="clips-create">
       <TextField
-        label="New clip"
+        label={i18n._(msg`New clip`)}
         value={name}
         onChangeText={setName}
-        placeholder="Clip name"
+        placeholder={i18n._(msg`Clip name`)}
         error={error ?? undefined}
         testID="clips-create-input"
       />
       <Button
-        label={isPublic ? 'Public: on' : 'Public: off'}
+        label={isPublic ? i18n._(msg`Public: on`) : i18n._(msg`Public: off`)}
         variant="secondary"
         disabled={busy}
         onPress={() => setIsPublic(v => !v)}
         testID="clips-create-public"
       />
       <Button
-        label={busy ? 'Creating…' : 'Create clip'}
+        label={busy ? i18n._(msg`Creating…`) : i18n._(msg`Create clip`)}
         variant="primary"
         disabled={busy || name.trim().length === 0}
         onPress={() => void submit()}
@@ -108,7 +111,7 @@ function ClipRow({
       await onRename(trimmed, pub)
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not rename the clip.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not rename the clip.`))
     } finally {
       setBusy(false)
     }
@@ -119,27 +122,41 @@ function ClipRow({
       <Pressable
         onPress={onOpen}
         accessibilityRole="link"
-        accessibilityLabel={`${clip.name}. Open clip.`}
+        accessibilityLabel={i18n._(msg`${clip.name}. Open clip.`)}
         testID={`clips-open-${clip.id}`}>
         <Body>{clip.name}</Body>
       </Pressable>
-      {clip.notesCount != null ? <Caption color="faint">{`${clip.notesCount} notes`}</Caption> : null}
-      {clip.isPublic ? <Caption color="faint">Public</Caption> : null}
+      {clip.notesCount != null ? (
+        <Caption color="faint">
+          {i18n._(
+            plural(clip.notesCount, {
+              one: '# note',
+              other: '# notes',
+            }),
+          )}
+        </Caption>
+      ) : null}
+      {clip.isPublic ? <Caption color="faint">{i18n._(msg`Public`)}</Caption> : null}
       {onAdd ? (
-        <Button label="Add here" variant="primary" onPress={() => void onAdd()} testID={`clips-add-${clip.id}`} />
+        <Button
+          label={i18n._(msg`Add here`)}
+          variant="primary"
+          onPress={() => void onAdd()}
+          testID={`clips-add-${clip.id}`}
+        />
       ) : null}
       {editing ? (
         <View style={[atoms.gap_sm]}>
           <TextField
-            label="Clip name"
+            label={i18n._(msg`Clip name`)}
             value={draft}
             onChangeText={setDraft}
-            placeholder="Clip name"
+            placeholder={i18n._(msg`Clip name`)}
             error={error ?? undefined}
             testID={`clips-rename-input-${clip.id}`}
           />
           <Button
-            label={pub ? 'Public: on' : 'Public: off'}
+            label={pub ? i18n._(msg`Public: on`) : i18n._(msg`Public: off`)}
             variant="secondary"
             disabled={busy}
             onPress={() => setPub(v => !v)}
@@ -147,14 +164,14 @@ function ClipRow({
           />
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label={busy ? 'Saving…' : 'Save'}
+              label={busy ? i18n._(msg`Saving…`) : i18n._(msg`Save`)}
               variant="primary"
               disabled={busy || draft.trim().length === 0}
               onPress={() => void save()}
               testID={`clips-rename-save-${clip.id}`}
             />
             <Button
-              label="Cancel"
+              label={i18n._(msg`Cancel`)}
               variant="secondary"
               disabled={busy}
               onPress={() => {
@@ -168,7 +185,7 @@ function ClipRow({
       ) : (
         <View style={[atoms.row, atoms.gap_sm]}>
           <Button
-            label="Rename"
+            label={i18n._(msg`Rename`)}
             variant="secondary"
             disabled={busy}
             onPress={() => {
@@ -182,17 +199,17 @@ function ClipRow({
       )}
       {pendingDelete ? (
         <View style={[atoms.gap_sm]}>
-          <Caption color="faint">Delete “{clip.name}”? This cannot be undone.</Caption>
+          <Caption color="faint">{i18n._(msg`Delete “${clip.name}”? This cannot be undone.`)}</Caption>
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label="Confirm delete"
+              label={i18n._(msg`Confirm delete`)}
               variant="secondary"
               disabled={busy}
               onPress={() => void onDelete()}
               testID={`clips-delete-confirm-${clip.id}`}
             />
             <Button
-              label="Keep"
+              label={i18n._(msg`Keep`)}
               variant="secondary"
               disabled={busy}
               onPress={onCancelDelete}
@@ -203,7 +220,7 @@ function ClipRow({
       ) : (
         <View style={[atoms.row, atoms.gap_sm]}>
           <Button
-            label="Delete"
+            label={i18n._(msg`Delete`)}
             variant="secondary"
             disabled={busy}
             onPress={onArmDelete}
@@ -271,9 +288,9 @@ export function ClipsScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="clips-screen">
-        <Pagehead title="Clips" />
-        <Body>Sign in to see your clips.</Body>
-        <Caption color="faint">Clips never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Clips`)} />
+        <Body>{i18n._(msg`Sign in to see your clips.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Clips never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -282,22 +299,22 @@ export function ClipsScreen() {
   if (unsupported || (!backend.clips && !loading)) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="clips-screen">
-        <Pagehead title="Clips" />
-        <Body>Clips are not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Clips`)} />
+        <Body>{i18n._(msg`Clips are not available on this server.`)}</Body>
       </View>
     )
   }
 
   return (
     <View style={atoms.flex1} testID="clips-screen">
-      <Pagehead title="Clips" />
-      {addNoteId ? <Caption color="faint">Choose a clip for this post.</Caption> : null}
+      <Pagehead title={i18n._(msg`Clips`)} />
+      {addNoteId ? <Caption color="faint">{i18n._(msg`Choose a clip for this post.`)}</Caption> : null}
       {/* Misskey favourites live here too: the sidebar has one collections
           row per concept, so Clips carries the entry point to Favourites. */}
       {session?.family === 'misskey' ? (
         <View style={[atoms.px_md, atoms.py_sm]}>
           <Button
-            label="Favourites"
+            label={i18n._(msg`Favourites`)}
             variant="secondary"
             onPress={() => navigation.navigate('Favorites')}
             testID="clips-favourites-link"
@@ -316,13 +333,23 @@ export function ClipsScreen() {
         <SkeletonList variant="row" testID="clips-loading" />
       ) : denied ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Your account cannot view clips here.</Body>
-          <Button label="Retry" variant="secondary" onPress={() => void load()} testID="clips-retry" />
+          <Body>{i18n._(msg`Your account cannot view clips here.`)}</Body>
+          <Button
+            label={i18n._(msg`Retry`)}
+            variant="secondary"
+            onPress={() => void load()}
+            testID="clips-retry"
+          />
         </View>
       ) : error ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load clips.</Body>
-          <Button label="Retry" variant="secondary" onPress={() => void load()} testID="clips-retry" />
+          <Body>{i18n._(msg`Could not load clips.`)}</Body>
+          <Button
+            label={i18n._(msg`Retry`)}
+            variant="secondary"
+            onPress={() => void load()}
+            testID="clips-retry"
+          />
         </View>
       ) : (
         <FlatList
@@ -338,7 +365,7 @@ export function ClipsScreen() {
                   const updated = await backend.clips.update(item.id, {name, isPublic})
                   setClips(prev => (prev ?? []).map(c => (c.id === item.id ? updated : c)))
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : 'Could not rename the clip.')
+                  setActionError(err instanceof Error ? err.message : i18n._(msg`Could not rename the clip.`))
                   throw err
                 }
               }}
@@ -350,7 +377,7 @@ export function ClipsScreen() {
                   setClips(prev => (prev ?? []).filter(c => c.id !== item.id))
                   setPendingDeleteId(null)
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : 'Could not delete the clip.')
+                  setActionError(err instanceof Error ? err.message : i18n._(msg`Could not delete the clip.`))
                 }
               }}
               pendingDelete={pendingDeleteId === item.id}
@@ -365,10 +392,10 @@ export function ClipsScreen() {
                       setActionError(null)
                       try {
                         await backend.clips!.addNote(item.id, addNoteId)
-                        showToast(`Added to ${item.name}`)
+                        showToast(i18n._(msg`Added to ${item.name}`))
                         navigation.goBack()
                       } catch (err) {
-                        setActionError(err instanceof Error ? err.message : 'Could not add to the clip.')
+                        setActionError(err instanceof Error ? err.message : i18n._(msg`Could not add to the clip.`))
                       }
                     }
                   : undefined
@@ -387,7 +414,7 @@ export function ClipsScreen() {
           }
           ListEmptyComponent={
             <View style={[atoms.centered, atoms.p_md]}>
-              <Body>You have no clips yet.</Body>
+              <Body>{i18n._(msg`You have no clips yet.`)}</Body>
             </View>
           }
         />

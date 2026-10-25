@@ -401,6 +401,8 @@ describe('ComposeScreen delete-and-redraft handoff', () => {
     const {done} = await setup({expectComposer: false})
     try {
       expect(screen.getByText('There is nothing to redraft here.')).toBeTruthy()
+      // X9.2: the sheet chrome renders translated (English source catalog).
+      expect(screen.getByText('Close')).toBeTruthy()
       expect(screen.queryByTestId('composer-text')).toBeNull()
     } finally {
       done()

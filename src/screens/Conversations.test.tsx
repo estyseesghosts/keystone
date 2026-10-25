@@ -184,6 +184,8 @@ describe('Conversations screen', () => {
       fireEvent.press(screen.getByTestId('conversations-delete-c1'))
       // Two-step: the row asks first.
       expect(screen.getByTestId('conversations-confirm-c1')).toBeTruthy()
+      // X9.2: the confirm chrome renders translated (English source catalog).
+      expect(screen.getByText('Delete conversation')).toBeTruthy()
       expect(backend.conversations.delete).not.toHaveBeenCalled()
       fireEvent.press(screen.getByTestId('conversations-confirm-c1'))
       await screen.findByText('No conversations yet.')

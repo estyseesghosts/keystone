@@ -18,6 +18,8 @@ import {useCallback, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
 
+import {msg} from '@lingui/macro'
+
 import {isUnsupportedError} from '@keystone/fedi'
 
 import {useTheme} from '#/alf'
@@ -28,6 +30,7 @@ import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {
@@ -39,7 +42,7 @@ import type {ChatRoomMembership} from '@keystone/fedi'
 
 function membershipTitle(membership: ChatRoomMembership): string {
   const name = membership.room?.name.trim()
-  return name && name.length > 0 ? name : 'Unnamed room'
+  return name && name.length > 0 ? name : i18n._(msg`Unnamed room`)
 }
 
 function membershipSubtitle(membership: ChatRoomMembership): string {
@@ -49,9 +52,9 @@ function membershipSubtitle(membership: ChatRoomMembership): string {
   if (owner) {
     const shown =
       owner.displayName && owner.displayName.trim().length > 0 ? owner.displayName : `@${owner.acct}`
-    return `by ${shown}`
+    return i18n._(msg`by ${shown}`)
   }
-  return 'No description.'
+  return i18n._(msg`No description.`)
 }
 
 function ChatRoomRow({
@@ -67,7 +70,7 @@ function ChatRoomRow({
       <Pressable
         onPress={onOpen}
         accessibilityRole="link"
-        accessibilityLabel={`${membershipTitle(membership)}. Open chat room.`}
+        accessibilityLabel={i18n._(msg`${membershipTitle(membership)}. Open chat room.`)}
         testID={`chatrooms-open-${room?.id ?? membership.id}`}>
         <Body>{membershipTitle(membership)}</Body>
       </Pressable>
@@ -101,7 +104,7 @@ export function ChatRoomsScreen() {
     try {
       await readAll.mutateAsync()
     } catch {
-      setReadAllError('Could not mark chats read.')
+      setReadAllError(i18n._(msg`Could not mark chats read.`))
     } finally {
       setConfirmingReadAll(false)
     }
@@ -110,9 +113,9 @@ export function ChatRoomsScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="chatrooms-screen">
-        <Pagehead title="Chat" />
-        <Body>Sign in to read your chats.</Body>
-        <Caption color="faint">Chats never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Chat`)} />
+        <Body>{i18n._(msg`Sign in to read your chats.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Chats never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -127,11 +130,12 @@ export function ChatRoomsScreen() {
   if (missing) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="chatrooms-screen">
-        <Pagehead title="Chat" />
-        <Body>Chat is not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Chat`)} />
+        <Body>{i18n._(msg`Chat is not available on this server.`)}</Body>
         <Caption color="faint">
-          This server does not provide the chat rooms Keystone reads, or this build has them
-          disabled.
+          {i18n._(
+            msg`This server does not provide the chat rooms Keystone reads, or this build has them disabled.`,
+          )}
         </Caption>
       </View>
     )
@@ -139,15 +143,15 @@ export function ChatRoomsScreen() {
 
   return (
     <View style={atoms.flex1} testID="chatrooms-screen">
-      <Pagehead title="Chat" />
+      <Pagehead title={i18n._(msg`Chat`)} />
       {readAllError ? <Caption color="faint">{readAllError}</Caption> : null}
       {list.isPending ? (
         <SkeletonList variant="row" testID="chatrooms-loading" />
       ) : list.error ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load chats.</Body>
+          <Body>{i18n._(msg`Could not load chats.`)}</Body>
           <Button
-            label="Retry"
+            label={i18n._(msg`Retry`)}
             variant="secondary"
             onPress={() => void list.refetch()}
             testID="chatrooms-retry"
@@ -183,14 +187,14 @@ export function ChatRoomsScreen() {
                 {confirmingReadAll ? (
                   <View style={[atoms.row, atoms.gap_sm]}>
                     <Button
-                      label={readAll.isPending ? 'Marking…' : 'Mark all read'}
+                      label={readAll.isPending ? i18n._(msg`Marking…`) : i18n._(msg`Mark all read`)}
                       variant="secondary"
                       disabled={readAll.isPending}
                       onPress={() => void runReadAll()}
                       testID="chatrooms-readall-confirm"
                     />
                     <Button
-                      label="Cancel"
+                      label={i18n._(msg`Cancel`)}
                       variant="secondary"
                       disabled={readAll.isPending}
                       onPress={() => setConfirmingReadAll(false)}
@@ -199,7 +203,7 @@ export function ChatRoomsScreen() {
                   </View>
                 ) : (
                   <Button
-                    label="Mark all read"
+                    label={i18n._(msg`Mark all read`)}
                     variant="secondary"
                     onPress={() => setConfirmingReadAll(true)}
                     testID="chatrooms-readall"
@@ -210,7 +214,7 @@ export function ChatRoomsScreen() {
           }
           ListEmptyComponent={
             <View style={[atoms.centered, atoms.p_md]}>
-              <Body>No chat rooms yet.</Body>
+              <Body>{i18n._(msg`No chat rooms yet.`)}</Body>
             </View>
           }
         />

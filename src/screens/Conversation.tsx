@@ -13,6 +13,8 @@ import {useEffect, useRef, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp} from '@react-navigation/native'
 
+import {msg} from '@lingui/macro'
+
 import {isUnsupportedError, type Post} from '@keystone/fedi'
 
 import {useTheme} from '#/alf'
@@ -22,6 +24,7 @@ import {Button} from '#/components/Button'
 import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import {logger} from '#/lib/logger'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
@@ -111,9 +114,9 @@ export function ConversationScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="conversation-screen">
-        <Pagehead title="Conversation" />
-        <Body>Sign in to read your messages.</Body>
-        <Caption color="faint">Messages never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Conversation`)} />
+        <Body>{i18n._(msg`Sign in to read your messages.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Messages never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -122,8 +125,8 @@ export function ConversationScreen() {
   if (!conversationsApi || !capable || !id || (thread.error != null && isUnsupportedError(thread.error))) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="conversation-screen">
-        <Pagehead title="Conversation" />
-        <Body>Messages are not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Conversation`)} />
+        <Body>{i18n._(msg`Messages are not available on this server.`)}</Body>
       </View>
     )
   }
@@ -136,7 +139,7 @@ export function ConversationScreen() {
       await remove.mutateAsync(id)
       navigation.goBack()
     } catch {
-      setDeleteError('Could not delete the conversation.')
+      setDeleteError(i18n._(msg`Could not delete the conversation.`))
     } finally {
       setDeleting(false)
     }
@@ -144,15 +147,15 @@ export function ConversationScreen() {
 
   return (
     <View style={atoms.flex1} testID="conversation-screen">
-      <Pagehead title={conversation ? conversationTitle(conversation) : 'Conversation'} />
+      <Pagehead title={conversation ? conversationTitle(conversation) : i18n._(msg`Conversation`)} />
       {deleteError ? <Caption color="faint">{deleteError}</Caption> : null}
       {thread.isPending ? (
         <SkeletonList variant="row" testID="conversation-loading" />
       ) : thread.error || !conversation ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load this conversation.</Body>
+          <Body>{i18n._(msg`Could not load this conversation.`)}</Body>
           <Button
-            label="Retry"
+            label={i18n._(msg`Retry`)}
             variant="secondary"
             onPress={() => void thread.refetch()}
             testID="conversation-retry"
@@ -166,7 +169,7 @@ export function ConversationScreen() {
           ListHeaderComponent={
             incomplete && !threadError ? (
               <View style={[atoms.centered, atoms.px_md, atoms.py_sm]} testID="conversation-incomplete">
-                <Caption color="faint">Some messages may be missing.</Caption>
+                <Caption color="faint">{i18n._(msg`Some messages may be missing.`)}</Caption>
               </View>
             ) : null
           }
@@ -183,11 +186,11 @@ export function ConversationScreen() {
           ListEmptyComponent={
             threadError ? (
               <View style={[atoms.centered, atoms.p_md]}>
-                <Body>Could not load the message history.</Body>
+                <Body>{i18n._(msg`Could not load the message history.`)}</Body>
               </View>
             ) : (
               <View style={[atoms.centered, atoms.p_md]}>
-                <Body>No messages yet.</Body>
+                <Body>{i18n._(msg`No messages yet.`)}</Body>
               </View>
             )
           }
@@ -196,7 +199,7 @@ export function ConversationScreen() {
       {conversation && !thread.isPending && !thread.error ? (
         <View style={[atoms.px_md, atoms.py_sm, atoms.row, atoms.gap_sm]}>
           <Button
-            label="Reply"
+            label={i18n._(msg`Reply`)}
             variant="secondary"
             onPress={() => {
               if (lastPost) navigation.navigate('Compose', {replyToId: lastPost.id})
@@ -206,14 +209,14 @@ export function ConversationScreen() {
           {confirmingDelete ? (
             <>
               <Button
-                label={deleting ? 'Deleting…' : 'Delete conversation'}
+                label={deleting ? i18n._(msg`Deleting…`) : i18n._(msg`Delete conversation`)}
                 variant="secondary"
                 disabled={deleting}
                 onPress={() => void onDelete()}
                 testID="conversation-confirm-delete"
               />
               <Button
-                label="Cancel"
+                label={i18n._(msg`Cancel`)}
                 variant="secondary"
                 disabled={deleting}
                 onPress={() => setConfirmingDelete(false)}
@@ -222,7 +225,7 @@ export function ConversationScreen() {
             </>
           ) : (
             <Button
-              label="Delete"
+              label={i18n._(msg`Delete`)}
               variant="secondary"
               onPress={() => setConfirmingDelete(true)}
               testID="conversation-delete"

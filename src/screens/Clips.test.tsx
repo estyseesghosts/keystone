@@ -123,6 +123,8 @@ describe('Clips screen', () => {
     try {
       expect(await screen.findByText('Fun')).toBeTruthy()
       expect(screen.getByText('Work')).toBeTruthy()
+      // X9.2: the count caption renders translated via plural (English source catalog).
+      expect(screen.getByText('3 notes')).toBeTruthy()
       fireEvent.press(screen.getByTestId('clips-open-c1'))
       expect(mockNavigate).toHaveBeenCalledWith('Clip', {id: 'c1'})
     } finally {

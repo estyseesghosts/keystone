@@ -108,6 +108,8 @@ describe('ChatThread attachment link vetting (X2.3)', () => {
   it('renders the link for an https file URL', () => {
     setup('https://files.example/note.txt')
     expect(screen.getByTestId('chat-attachment-open-m1')).toBeTruthy()
+    // X9.2: the send chrome renders translated (English source catalog).
+    expect(screen.getByText('Send')).toBeTruthy()
   })
 })
 

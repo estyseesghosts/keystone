@@ -49,7 +49,7 @@ export function chatMessageAuthor(message: ChatMessage): string {
 function ChatAttachment({message}: {message: ChatMessage}) {
   const file = message.file
   if (file) {
-    const label = file.name && file.name.length > 0 ? file.name : 'Attachment'
+    const label = file.name && file.name.length > 0 ? file.name : i18n._(msg`Attachment`)
     // Defence in depth: the Drive URL is server JSON, so it is vetted here
     // (not just in the chat adapter) — a non-http(s) file URL renders as
     // plain text, never as a link. The failure toast never echoes the URL.
@@ -60,15 +60,15 @@ function ChatAttachment({message}: {message: ChatMessage}) {
           <Pressable
             onPress={() => void Linking.openURL(safe).catch(() => showToast(i18n._(msg`Could not open this attachment.`)))}
             accessibilityRole="link"
-            accessibilityLabel={`Open attachment ${label}`}
+            accessibilityLabel={i18n._(msg`Open attachment ${label}`)}
             testID={`chat-attachment-open-${message.id}`}>
             <Body>{label}</Body>
-            <Caption color="faint">{`${file.mimeType} · Open attachment`}</Caption>
+            <Caption color="faint">{i18n._(msg`${file.mimeType} · Open attachment`)}</Caption>
           </Pressable>
         ) : (
           <>
             <Body>{label}</Body>
-            <Caption color="faint">Attachment is still processing.</Caption>
+            <Caption color="faint">{i18n._(msg`Attachment is still processing.`)}</Caption>
           </>
         )}
       </View>
@@ -77,7 +77,7 @@ function ChatAttachment({message}: {message: ChatMessage}) {
   if (message.fileId) {
     return (
       <View testID={`chat-attachment-${message.id}`}>
-        <Caption color="faint">Attachment (not loaded).</Caption>
+        <Caption color="faint">{i18n._(msg`Attachment (not loaded).`)}</Caption>
       </View>
     )
   }
@@ -102,7 +102,7 @@ function ChatMessageRow({
       {message.text ? <Body>{message.text}</Body> : null}
       <ChatAttachment message={message} />
       {!message.text && !message.file && !message.fileId ? (
-        <Caption color="faint">(empty message)</Caption>
+        <Caption color="faint">{i18n._(msg`(empty message)`)}</Caption>
       ) : null}
       {mine ? (
         <View style={[atoms.row, atoms.gap_sm]}>
@@ -110,14 +110,14 @@ function ChatMessageRow({
           {confirming ? (
             <>
               <Button
-                label={deleting ? 'Deleting…' : 'Delete message'}
+                label={deleting ? i18n._(msg`Deleting…`) : i18n._(msg`Delete message`)}
                 variant="secondary"
                 disabled={deleting}
                 onPress={onDelete}
                 testID={`chat-delete-confirm-${message.id}`}
               />
               <Button
-                label="Cancel"
+                label={i18n._(msg`Cancel`)}
                 variant="secondary"
                 disabled={deleting}
                 onPress={() => setConfirming(false)}
@@ -126,7 +126,7 @@ function ChatMessageRow({
             </>
           ) : (
             <Button
-              label="Delete"
+              label={i18n._(msg`Delete`)}
               variant="secondary"
               onPress={() => setConfirming(true)}
               testID={`chat-delete-${message.id}`}
@@ -212,7 +212,7 @@ export function ChatThread({
       await onSend(text)
       setDraft('')
     } catch {
-      setLocalError('Could not send the message.')
+      setLocalError(i18n._(msg`Could not send the message.`))
     }
   }
 
@@ -220,13 +220,13 @@ export function ChatThread({
     <View style={atoms.flex1} testID={`${testPrefix}-screen`}>
       {thread.isPending ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Caption color="faint">Loading…</Caption>
+          <Caption color="faint">{i18n._(msg`Loading…`)}</Caption>
         </View>
       ) : thread.error && !hasData ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load messages.</Body>
+          <Body>{i18n._(msg`Could not load messages.`)}</Body>
           <Button
-            label="Retry"
+            label={i18n._(msg`Retry`)}
             variant="secondary"
             onPress={() => thread.refetch()}
             testID={`${testPrefix}-retry`}
@@ -300,9 +300,9 @@ export function ChatThread({
           testID={`${testPrefix}-input`}
         />
         <Button
-          label={sending ? 'Sending…' : 'Send'}
+          label={sending ? i18n._(msg`Sending…`) : i18n._(msg`Send`)}
           disabled={sending || draft.trim().length === 0}
-          disabledReason={draft.trim().length === 0 ? 'Write a message first.' : undefined}
+          disabledReason={draft.trim().length === 0 ? i18n._(msg`Write a message first.`) : undefined}
           onPress={() => void send()}
           testID={`${testPrefix}-send`}
         />

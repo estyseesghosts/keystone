@@ -133,6 +133,8 @@ describe('ChatUser screen', () => {
     const {done} = await setup({backend})
     try {
       expect(await screen.findByText('hi')).toBeTruthy()
+      // X9.2: the send chrome renders translated (English source catalog).
+      expect(screen.getByText('Send')).toBeTruthy()
       expect(backend.chat.userMessages).toHaveBeenCalledWith(
         'u9',
         expect.objectContaining({limit: 20}),

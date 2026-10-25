@@ -166,6 +166,8 @@ describe('ChatRooms screen', () => {
     const {done} = await setup({backend})
     try {
       expect(await screen.findByTestId('chatrooms-readall')).toBeTruthy()
+      // X9.2: the sweep chrome renders translated (English source catalog).
+      expect(screen.getByText('Mark all read')).toBeTruthy()
       fireEvent.press(screen.getByTestId('chatrooms-readall'))
       // Two-step: the first tap only arms the confirm.
       expect(backend.chat.readAll).not.toHaveBeenCalled()

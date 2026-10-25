@@ -45,7 +45,7 @@ export function conversationTitle(conversation: Conversation): string {
   const names = conversation.accounts.map(a =>
     a.displayName && a.displayName.trim().length > 0 ? a.displayName : `@${a.acct}`,
   )
-  return names.length > 0 ? names.join(', ') : 'Direct message'
+  return names.length > 0 ? names.join(', ') : i18n._(msg`Direct message`)
 }
 
 function ConversationRow({
@@ -60,13 +60,13 @@ function ConversationRow({
   deleting: boolean
 }) {
   const [confirming, setConfirming] = useState(false)
-  const snippet = conversation.lastPost?.content.plain.trim() || 'No messages yet.'
+  const snippet = conversation.lastPost?.content.plain.trim() || i18n._(msg`No messages yet.`)
   return (
     <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]} testID={`conversations-row-${conversation.id}`}>
       <Pressable
         onPress={onOpen}
         accessibilityRole="link"
-        accessibilityLabel={`${conversationTitle(conversation)}. Open conversation.`}
+        accessibilityLabel={i18n._(msg`${conversationTitle(conversation)}. Open conversation.`)}
         testID={`conversations-open-${conversation.id}`}>
         <Body>{conversationTitle(conversation)}</Body>
       </Pressable>
@@ -74,19 +74,19 @@ function ConversationRow({
         {snippet}
       </Caption>
       <View style={[atoms.row, atoms.gap_sm]}>
-        {conversation.unread ? <Caption color="faint">Unread</Caption> : null}
+        {conversation.unread ? <Caption color="faint">{i18n._(msg`Unread`)}</Caption> : null}
         <View style={{flex: 1}} />
         {confirming ? (
           <>
             <Button
-              label={deleting ? 'Deleting…' : 'Delete conversation'}
+              label={deleting ? i18n._(msg`Deleting…`) : i18n._(msg`Delete conversation`)}
               variant="secondary"
               disabled={deleting}
               onPress={onDelete}
               testID={`conversations-confirm-${conversation.id}`}
             />
             <Button
-              label="Cancel"
+              label={i18n._(msg`Cancel`)}
               variant="secondary"
               disabled={deleting}
               onPress={() => setConfirming(false)}
@@ -95,7 +95,7 @@ function ConversationRow({
           </>
         ) : (
           <Button
-            label="Delete"
+            label={i18n._(msg`Delete`)}
             variant="secondary"
             onPress={() => setConfirming(true)}
             testID={`conversations-delete-${conversation.id}`}
@@ -134,7 +134,7 @@ export function ConversationsScreen() {
       try {
         await deleteMutation.mutateAsync(id)
       } catch {
-        setDeleteError('Could not delete the conversation.')
+        setDeleteError(i18n._(msg`Could not delete the conversation.`))
       } finally {
         setDeletingId(null)
       }
@@ -145,9 +145,9 @@ export function ConversationsScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="conversations-screen">
-        <Pagehead title="Messages" />
-        <Body>Sign in to read your messages.</Body>
-        <Caption color="faint">Messages never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Messages`)} />
+        <Body>{i18n._(msg`Sign in to read your messages.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Messages never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -161,10 +161,12 @@ export function ConversationsScreen() {
   if (missing) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="conversations-screen">
-        <Pagehead title="Messages" />
-        <Body>Messages are not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Messages`)} />
+        <Body>{i18n._(msg`Messages are not available on this server.`)}</Body>
         <Caption color="faint">
-          This server does not provide the DM inbox Keystone reads, or this build has it disabled.
+          {i18n._(
+            msg`This server does not provide the DM inbox Keystone reads, or this build has it disabled.`,
+          )}
         </Caption>
       </View>
     )
@@ -179,15 +181,15 @@ export function ConversationsScreen() {
 
   return (
     <View style={atoms.flex1} testID="conversations-screen">
-      <Pagehead title="Messages" />
+      <Pagehead title={i18n._(msg`Messages`)} />
       {deleteError ? <Caption color="faint">{deleteError}</Caption> : null}
       {list.isPending ? (
         <SkeletonList variant="account" testID="conversations-loading" />
       ) : list.error && !hasData ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load messages.</Body>
+          <Body>{i18n._(msg`Could not load messages.`)}</Body>
           <Button
-            label="Retry"
+            label={i18n._(msg`Retry`)}
             variant="secondary"
             onPress={() => void list.refetch()}
             testID="conversations-retry"
@@ -220,7 +222,7 @@ export function ConversationsScreen() {
           }
           ListEmptyComponent={
             <View style={[atoms.centered, atoms.p_md]}>
-              <Body>No conversations yet.</Body>
+              <Body>{i18n._(msg`No conversations yet.`)}</Body>
             </View>
           }
           ListFooterComponent={

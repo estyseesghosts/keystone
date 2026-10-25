@@ -16,12 +16,15 @@ import {View} from 'react-native'
 import {useRoute} from '@react-navigation/native'
 import {useQuery} from '@tanstack/react-query'
 
+import {msg} from '@lingui/macro'
+
 import {isUnsupportedError, type ChatMessage} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {ChatThread, type ChatThreadData} from '#/screens/ChatThread'
 import {
@@ -68,7 +71,7 @@ export function ChatUserScreen() {
     ? account.data.displayName && account.data.displayName.trim().length > 0
       ? account.data.displayName
       : `@${account.data.acct}`
-    : 'Direct message'
+    : i18n._(msg`Direct message`)
 
   const send = useCallback(
     async (text: string) => {
@@ -76,14 +79,14 @@ export function ChatUserScreen() {
       // The server refuses self-sends (`RECIPIENT_IS_YOURSELF`) — refuse
       // first with the honest reason instead of a doomed write.
       if (session && userId === session.accountId) {
-        setSendError('You cannot send a message to yourself.')
+        setSendError(i18n._(msg`You cannot send a message to yourself.`))
         throw new Error('self send refused')
       }
       setSendError(null)
       try {
         await sendMutation.mutateAsync({userId, text})
       } catch {
-        setSendError('Could not send the message.')
+        setSendError(i18n._(msg`Could not send the message.`))
         throw new Error('send failed')
       }
     },
@@ -98,7 +101,7 @@ export function ChatUserScreen() {
       try {
         await deleteMutation.mutateAsync({userId, messageId: message.id})
       } catch {
-        setDeleteState({deletingId: null, error: 'Could not delete the message.'})
+        setDeleteState({deletingId: null, error: i18n._(msg`Could not delete the message.`)})
       } finally {
         setDeleteState(state => (state.deletingId === message.id ? {...state, deletingId: null} : state))
       }
@@ -109,9 +112,9 @@ export function ChatUserScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="chat-user-screen">
-        <Pagehead title="Direct message" />
-        <Body>Sign in to read your chats.</Body>
-        <Caption color="faint">Chats never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Direct message`)} />
+        <Body>{i18n._(msg`Sign in to read your chats.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Chats never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -122,8 +125,8 @@ export function ChatUserScreen() {
   if (missing) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="chat-user-screen">
-        <Pagehead title="Direct message" />
-        <Body>Chat is not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Direct message`)} />
+        <Body>{i18n._(msg`Chat is not available on this server.`)}</Body>
       </View>
     )
   }
@@ -146,8 +149,8 @@ export function ChatUserScreen() {
       <ChatThread
         testPrefix="chat-user"
         thread={threadData}
-        emptyLabel="No messages yet."
-        sendLabel="Write a message…"
+        emptyLabel={i18n._(msg`No messages yet.`)}
+        sendLabel={i18n._(msg`Write a message…`)}
         sending={sendMutation.isPending}
         sendError={sendError}
         onSend={send}

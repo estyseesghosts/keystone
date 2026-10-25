@@ -138,6 +138,8 @@ describe('ChatRoom screen', () => {
     try {
       expect(await screen.findByText('first hello')).toBeTruthy()
       expect(screen.getByText('second hello')).toBeTruthy()
+      // X9.2: the send chrome renders translated (English source catalog).
+      expect(screen.getByText('Send')).toBeTruthy()
       expect(backend.chat.roomMessages).toHaveBeenCalledWith(
         'r1',
         expect.objectContaining({limit: 20}),

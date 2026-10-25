@@ -99,6 +99,8 @@ describe('Clip screen', () => {
     const {done} = await setup()
     try {
       expect(screen.getByText('Sign in to see this clip.')).toBeTruthy()
+      // X9.2: the signed-out caption renders translated (English source catalog).
+      expect(screen.getByText('Clips never show sample data when signed out.')).toBeTruthy()
     } finally {
       done()
     }

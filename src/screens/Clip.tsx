@@ -9,6 +9,8 @@ import {useEffect, useState} from 'react'
 import {View} from 'react-native'
 import {useRoute, type RouteProp} from '@react-navigation/native'
 
+import {msg} from '@lingui/macro'
+
 import {isUnsupportedError, type FeedDescriptor} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
@@ -17,6 +19,7 @@ import {Button} from '#/components/Button'
 import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
 
@@ -61,9 +64,9 @@ export function ClipScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="clip-screen">
-        <Pagehead title="Clip" />
-        <Body>Sign in to see this clip.</Body>
-        <Caption color="faint">Clips never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Clip`)} />
+        <Body>{i18n._(msg`Sign in to see this clip.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Clips never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -72,8 +75,8 @@ export function ClipScreen() {
   if (!backend.clips || backend.capabilities.clips === 'unsupported' || nameState === 'unsupported') {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="clip-screen">
-        <Pagehead title="Clip" />
-        <Body>Clips are not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Clip`)} />
+        <Body>{i18n._(msg`Clips are not available on this server.`)}</Body>
       </View>
     )
   }
@@ -81,7 +84,7 @@ export function ClipScreen() {
   if (nameState === 'loading') {
     return (
       <View style={atoms.flex1} testID="clip-screen">
-        <Pagehead title="Clip" />
+        <Pagehead title={i18n._(msg`Clip`)} />
         <SkeletonList variant="post" testID="clip-loading" />
       </View>
     )
@@ -90,11 +93,11 @@ export function ClipScreen() {
   if (nameState === 'error') {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]} testID="clip-screen">
-        <Pagehead title="Clip" />
-        <Body>Could not load this clip.</Body>
-        <Caption color="faint">Check your connection and try again.</Caption>
+        <Pagehead title={i18n._(msg`Clip`)} />
+        <Body>{i18n._(msg`Could not load this clip.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Check your connection and try again.`)}</Caption>
         <Button
-          label="Retry"
+          label={i18n._(msg`Retry`)}
           variant="secondary"
           onPress={() => {
             setNameState('loading')
@@ -119,8 +122,8 @@ export function ClipScreen() {
   if (nameState === 'missing') {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="clip-screen">
-        <Pagehead title="Clip" />
-        <Body>This clip does not exist.</Body>
+        <Pagehead title={i18n._(msg`Clip`)} />
+        <Body>{i18n._(msg`This clip does not exist.`)}</Body>
       </View>
     )
   }
@@ -128,7 +131,7 @@ export function ClipScreen() {
   const descriptor = `clip|${id}` as FeedDescriptor
   return (
     <View style={atoms.flex1} testID="clip-screen">
-      <Pagehead title={name ?? 'Clip'} />
+      <Pagehead title={name ?? i18n._(msg`Clip`)} />
       <FeedView sessionId={session.id} descriptor={descriptor} testID="clip-feed" />
     </View>
   )

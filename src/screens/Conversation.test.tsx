@@ -172,6 +172,8 @@ describe('Conversation screen', () => {
     const {done} = await setup({backend})
     try {
       expect(await screen.findByTestId('conversation-reply')).toBeTruthy()
+      // X9.2: the action chrome renders translated (English source catalog).
+      expect(screen.getByText('Reply')).toBeTruthy()
       fireEvent.press(screen.getByTestId('conversation-reply'))
       // The existing status-post path: a reply to the last post. The
       // composer already defaults a direct parent to direct + recipients.

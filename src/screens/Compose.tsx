@@ -18,6 +18,8 @@ import {
 
 import type {Post} from '@keystone/fedi'
 
+import {msg} from '@lingui/macro'
+
 import {useTheme as useAlfTheme} from '#/alf'
 import {overlayChrome} from '#/alf/themes'
 import {atoms} from '#/alf/atoms'
@@ -29,6 +31,7 @@ import {CompactComposer} from '#/components/Composer/CompactComposer'
 import {sheetVisibleMaxHeight} from '#/components/Composer/Composer'
 import {Loader} from '#/components/Loader'
 import {Pressable} from '#/components/Pressable'
+import {i18n} from '#/locale/i18n'
 import {takeRedraftSeed, type RedraftSeed} from '#/lib/redraft'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
@@ -145,7 +148,7 @@ export function ComposeScreen() {
           style={styles.backdrop}
           onPress={requestGuardedClose}
           accessibilityRole="button"
-          accessibilityLabel="Close composer"
+          accessibilityLabel={i18n._(msg`Close composer`)}
           testID="compose-backdrop"
         />
         <View pointerEvents="box-none" style={styles.cardWrap}>
@@ -194,7 +197,7 @@ export function ComposeScreen() {
       editId ? backend.post(editId) : Promise.resolve(null),
     ]).then(
       ([replyTo, quote, editing]) => !cancelled && setTargets({replyTo, quote, editing}),
-      err => !cancelled && setFailed(err instanceof Error ? err.message : 'Could not load the post.'),
+      err => !cancelled && setFailed(err instanceof Error ? err.message : i18n._(msg`Could not load the post.`)),
     )
     return () => {
       cancelled = true
@@ -204,8 +207,8 @@ export function ComposeScreen() {
   if (!session || !backend) {
     return shell(
       <View style={[atoms.centered, atoms.p_md, atoms.gap_md]}>
-        <Body>Sign in to post.</Body>
-        <Button label="Close" variant="secondary" onPress={forceClose} />
+        <Body>{i18n._(msg`Sign in to post.`)}</Body>
+        <Button label={i18n._(msg`Close`)} variant="secondary" onPress={forceClose} />
       </View>,
     )
   }
@@ -213,15 +216,15 @@ export function ComposeScreen() {
     return shell(
       <View style={[atoms.centered, atoms.p_md, atoms.gap_md]}>
         <Body>{failed}</Body>
-        <Button label="Close" variant="secondary" onPress={forceClose} />
+        <Button label={i18n._(msg`Close`)} variant="secondary" onPress={forceClose} />
       </View>,
     )
   }
   if (redraftId && !redraftSeed) {
     return shell(
       <View style={[atoms.centered, atoms.p_md, atoms.gap_md]}>
-        <Body>There is nothing to redraft here.</Body>
-        <Button label="Close" variant="secondary" onPress={forceClose} />
+        <Body>{i18n._(msg`There is nothing to redraft here.`)}</Body>
+        <Button label={i18n._(msg`Close`)} variant="secondary" onPress={forceClose} />
       </View>,
     )
   }

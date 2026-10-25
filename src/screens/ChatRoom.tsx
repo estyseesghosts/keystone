@@ -13,12 +13,15 @@ import {useCallback, useState} from 'react'
 import {View} from 'react-native'
 import {useRoute} from '@react-navigation/native'
 
+import {msg} from '@lingui/macro'
+
 import {isUnsupportedError, type ChatMessage} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {ChatThread, type ChatThreadData} from '#/screens/ChatThread'
 import {
@@ -59,7 +62,7 @@ export function ChatRoomScreen() {
       try {
         await sendMutation.mutateAsync({roomId, text})
       } catch {
-        setSendError('Could not send the message.')
+        setSendError(i18n._(msg`Could not send the message.`))
         throw new Error('send failed')
       }
     },
@@ -76,7 +79,7 @@ export function ChatRoomScreen() {
       try {
         await deleteMutation.mutateAsync({roomId, messageId: message.id})
       } catch {
-        setDeleteState({deletingId: null, error: 'Could not delete the message.'})
+        setDeleteState({deletingId: null, error: i18n._(msg`Could not delete the message.`)})
       } finally {
         setDeleteState(state => (state.deletingId === message.id ? {...state, deletingId: null} : state))
       }
@@ -87,9 +90,9 @@ export function ChatRoomScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="chat-room-screen">
-        <Pagehead title="Chat room" />
-        <Body>Sign in to read your chats.</Body>
-        <Caption color="faint">Chats never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Chat room`)} />
+        <Body>{i18n._(msg`Sign in to read your chats.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Chats never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -100,8 +103,8 @@ export function ChatRoomScreen() {
   if (missing) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="chat-room-screen">
-        <Pagehead title="Chat room" />
-        <Body>Chat is not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Chat room`)} />
+        <Body>{i18n._(msg`Chat is not available on this server.`)}</Body>
       </View>
     )
   }
@@ -120,12 +123,12 @@ export function ChatRoomScreen() {
 
   return (
     <View style={atoms.flex1}>
-      <Pagehead title={room.data?.name ?? 'Chat room'} />
+      <Pagehead title={room.data?.name ?? i18n._(msg`Chat room`)} />
       <ChatThread
         testPrefix="chat-room"
         thread={threadData}
-        emptyLabel="No messages yet."
-        sendLabel="Write a message…"
+        emptyLabel={i18n._(msg`No messages yet.`)}
+        sendLabel={i18n._(msg`Write a message…`)}
         sending={sendMutation.isPending}
         sendError={sendError}
         onSend={send}
