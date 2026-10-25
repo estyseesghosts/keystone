@@ -23,10 +23,10 @@
 // is preferred and origin-checked before use (cross-origin links fall
 // back to cursor carryover — `nextContinuation`).
 
-import { createClient, MastoHttpError } from "./client";
+import { MastoHttpError } from "./client";
 import { ApiError, FediError } from "../core/errors";
 import type { MastoClient, QueryValue } from "./client";
-import { adaptAccount, adaptRelationship, adaptStatus } from "./adapt";
+import { adaptAccount, adaptRelationship, adaptStatus, isAccountRow, isStatusRow, noteSkippedRow } from "./adapt";
 import { safeHttpUrl } from "../core/content/ast";
 import type { StatusBody } from "./compose";
 import type { Account, Post, Relationship } from "../core/models";
@@ -38,7 +38,6 @@ import type {
   TimelineKind,
 } from "../core/backend";
 import { normalizeReportOptions } from "../core/backend";
-import { getActiveSessionId, loadSessions, type KeyValueStore } from "../core/sessions";
 import { nextContinuation, prevContinuation, withCursors } from "./pagination";
 import type { Continuation } from "./pagination";
 import type {
@@ -55,26 +54,6 @@ import type {
 } from "./wire";
 
 const PAGE_LIMIT = 20; // server default; hard max 40 on both backends
-
-/**
- * Client for the ACTIVE Mastodon-family session from the unified store
- * (`core/sessions`): the token is only ever paired with its own origin.
- * When signed out, falls back to the page's own origin with NO token so
- * public/local timelines stay browsable — servers that restrict them
- * answer 401/403, which callers surface honestly (never as "endpoint
- * missing").
- */
-export function feedClient(store: KeyValueStore, fallbackOrigin: string): MastoClient {
-  const activeId = getActiveSessionId(store);
-  const session =
-    (activeId
-      ? loadSessions(store).find((s) => s.id === activeId)
-      : undefined) ?? null;
-  if (session && session.family === "mastodon") {
-    return createClient(session.origin, session.token);
-  }
-  return createClient(fallbackOrigin, null);
-}
 
 /** One raw page of a Link-paged listing, before the core `Cursor` encodes
  * the continuation (that happens at the backend boundary — `adapt.pageOf`).
@@ -154,7 +133,16 @@ export async function fetchTimelinePage(
     // 2xx with a non-array body: a malformed answer, NOT an empty feed.
     throw new FediError(`Timeline ${kind} returned an unexpected response shape (HTTP ${res.status}).`, "errors.shape.timeline", { kind, status: res.status });
   }
-  const items = res.data.map(adaptStatus);
+  // Finding 17: one malformed row never fails the page — it is skipped
+  // and counted, and the page keeps its continuation/end rule.
+  const items: Post[] = [];
+  for (const row of res.data) {
+    if (!isStatusRow(row)) {
+      noteSkippedRow(`timeline:${kind}`);
+      continue;
+    }
+    items.push(adaptStatus(row));
+  }
   const continuation = nextContinuation(res.headers, client.origin);
   return {
     items,
@@ -307,7 +295,16 @@ function statusPage(
   if (!Array.isArray(res.data)) {
     throw new FediError(`Expected a status list (HTTP ${res.status}).`, "errors.shape.expectedList", { kind: "status", status: res.status });
   }
-  const items = (res.data as Status[]).map(adaptStatus);
+  // Finding 17: skip-and-count, like `fetchTimelinePage` — a bad row in
+  // an account/tag listing never fails the page.
+  const items: Post[] = [];
+  for (const row of res.data) {
+    if (!isStatusRow(row)) {
+      noteSkippedRow("statusPage");
+      continue;
+    }
+    items.push(adaptStatus(row));
+  }
   const continuation = nextContinuation(res.headers, client.origin);
   return {
     items,
@@ -489,9 +486,28 @@ export async function searchV2(
     hashtags?: Array<{ name?: string; url?: string }>;
   }>(path, params, { signal: opts.signal });
   const data = res.data ?? {};
+  // Finding 17: skip-and-count per row — a malformed search hit never
+  // fails the page (either kind: statuses need a packed account, accounts
+  // need id + acct).
+  const statuses: Post[] = [];
+  for (const row of data.statuses ?? []) {
+    if (!isStatusRow(row)) {
+      noteSkippedRow("search:statuses");
+      continue;
+    }
+    statuses.push(adaptStatus(row));
+  }
+  const accounts: Account[] = [];
+  for (const row of data.accounts ?? []) {
+    if (!isAccountRow(row)) {
+      noteSkippedRow("search:accounts");
+      continue;
+    }
+    accounts.push(adaptAccount(row));
+  }
   return {
-    accounts: (data.accounts ?? []).map(adaptAccount),
-    statuses: (data.statuses ?? []).map(adaptStatus),
+    accounts,
+    statuses,
     hashtags: (data.hashtags ?? [])
       .filter((t) => typeof t.name === "string" && t.name.length > 0)
       .map((t) => ({ name: t.name as string, url: typeof t.url === "string" ? t.url : "" })),
@@ -1230,6 +1246,43 @@ export async function markNotificationsRead(
   await client.post("/api/v1/markers", {
     notifications: { last_read_id: lastReadId },
   });
+}
+
+/** One `GET /api/v1/markers` timeline entry (`last_read_id` + server
+ * bookkeeping). Absent on servers without markers (404/405) — callers
+ * read that as "no read state", never as an error. */
+export interface NotificationMarkers {
+  notifications?: {
+    last_read_id?: string;
+    version?: number;
+    updated_at?: string;
+  };
+  [key: string]: unknown;
+}
+
+/**
+ * `GET /api/v1/markers?timeline[]=notifications` (repair X4.4 finding
+ * 9): the viewer's read position. A 404/405 throws (the caller maps
+ * absence to unknown read state); auth, timeout and 5xx rethrow through
+ * the guarded client untouched — the caller decides those, never this
+ * fetch.
+ */
+export async function fetchNotificationMarkers(
+  client: MastoClient,
+  opts: { signal?: AbortSignal } = {},
+): Promise<NotificationMarkers> {
+  const res = await client.get<NotificationMarkers>(
+    "/api/v1/markers",
+    { timeline: ["notifications"] },
+    { signal: opts.signal },
+  );
+  if (!res.data || typeof res.data !== "object") {
+    throw new FediError(
+      "Markers returned an unexpected response shape.",
+      "errors.shape.markers",
+    );
+  }
+  return res.data;
 }
 
 /** `POST /api/v1/notifications/:id/dismiss` (Mastodon

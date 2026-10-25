@@ -87,6 +87,8 @@ import {
   encodeContinuation,
   htmlToPlainText,
   isStatusRow,
+  markerCoversId,
+  noteSkippedRow,
   pageOf,
 } from "./adapt";
 import {
@@ -116,6 +118,7 @@ import {
   fetchCustomEmojis,
   fetchFollowRequestsPage,
   fetchNotificationsPage,
+  fetchNotificationMarkers,
   fetchInstanceRules,
   fetchScheduledStatusesPage,
   fetchStatusAccountPage,
@@ -160,7 +163,7 @@ import { newIdempotencyKey, statusBodyOf } from "./compose";
 import { adaptStatusHistory } from "./adapt";
 import { rebuildThread } from "./thread";
 import { createStreamHandle } from "./stream";
-import { createClient, toApiError as clientToApiError } from "./client";
+import { createClient, isAuthError, toApiError as clientToApiError } from "./client";
 import type { MastoClient, QueryValue } from "./client";
 import { listsContaining as listsContainingMasto, addToList as addToListMasto, removeFromList as removeFromListMasto } from "./listMembership";
 import {
@@ -401,6 +404,54 @@ export function createMastodonBackend(
 
   async function me(opts: SignalOpts = {}): Promise<Account> {
     return adaptCredentialAccount(await verifySelf(client, opts.signal));
+  }
+
+  // --- Notification read state (repair X4.4 finding 9) ----------------------
+
+  /**
+   * The markers read position (`GET /api/v1/markers`), or null when it is
+   * unknown: no markers on the server (404/405), no position recorded yet,
+   * or any auxiliary failure. Markers never fail the page — but an abort
+   * or an auth refusal propagates (a cancelled or refused read is never
+   * masked as "unknown").
+   */
+  async function notificationReadPosition(signal?: AbortSignal): Promise<string | null> {
+    try {
+      const markers = await fetchNotificationMarkers(client, { signal });
+      const id = markers.notifications?.last_read_id;
+      return typeof id === "string" && id.length > 0 ? id : null;
+    } catch (err) {
+      // Auth refusal and cancellation propagate in EITHER error class:
+      // translated `ApiError` (production client) or raw `MastoHttpError`
+      // (the transport shape, same recognition as `isAuthError`). A
+      // cancelled or refused read is never masked as "unknown".
+      if (
+        err instanceof ApiError &&
+        (err.kind === "aborted" || err.status === 401 || err.status === 403)
+      ) {
+        throw err;
+      }
+      if (isAuthError(err)) {
+        throw err;
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Derive `read` per row against the marker position. Grouped rows carry
+   * their position in `ext.mostRecentNotificationId` (the group key itself
+   * is not a notification id); flat rows use their own id. Unorderable
+   * pairs stay null (unknown) — never guessed.
+   */
+  function deriveNotificationRead(items: Notification[], markerId: string | null): Notification[] {
+    if (markerId === null) return items;
+    return items.map((item) => {
+      const position = item.ext.mostRecentNotificationId ?? item.id;
+      const covered = markerCoversId(markerId, position);
+      if (covered === null) return item;
+      return { ...item, read: covered };
+    });
   }
 
   // The followee on incoming-request rows is the viewer: fetched once per
@@ -1087,6 +1138,10 @@ export function createMastodonBackend(
       if (opts.includeTypes && opts.includeTypes.length > 0 && types.length === 0) {
         return { items: [], cursor: null, end: true };
       }
+      // Finding 9: the markers position is read alongside the listing so
+      // every row derives `read` (flat rows by id, groups by
+      // `most_recent_notification_id`). Unknown stays null.
+      const markerId = await notificationReadPosition(opts.signal);
       // Prefer the grouped v2 endpoint; fall back to flat v1 when the
       // server has none (404/405 — Akkoma/Pleroma) or answers an envelope
       // the adapter cannot read (null). ONLY absence falls back: auth,
@@ -1109,7 +1164,10 @@ export function createMastodonBackend(
             // Grouped rows adapt with their sampled actors, server count,
             // and resolved post (see `adaptV2Notification`).
             return {
-              items: v2.rows.map((n) => adaptV2Notification(n, v2.accounts, v2.statuses)),
+              items: deriveNotificationRead(
+                v2.rows.map((n) => adaptV2Notification(n, v2.accounts, v2.statuses)),
+                markerId,
+              ),
               cursor: encodeContinuation(v2.continuation),
               end: v2.end,
             };
@@ -1125,7 +1183,7 @@ export function createMastodonBackend(
         signal: opts.signal,
       });
       return {
-        items: page.items.map(adaptNotification),
+        items: deriveNotificationRead(page.items.map(adaptNotification), markerId),
         cursor: encodeContinuation(page.continuation),
         end: page.end,
       };
@@ -1133,11 +1191,25 @@ export function createMastodonBackend(
 
     async markNotificationsRead() {
       // No v1 mark-as-read endpoint exists (contract §4): the notifications
-      // marker is the read position, anchored at the newest row.
-      const page = await fetchNotificationsPage(client, { limit: 1 });
-      const newest = page.items[0];
-      if (!newest) return;
-      await markNotificationsRead(client, newest.id);
+      // marker is the read position, anchored at the newest row. A server
+      // with no markers (404/405) answers the typed unsupported state the
+      // UI renders as its honest reason — never an inert control, never a
+      // silent success.
+      try {
+        const page = await fetchNotificationsPage(client, { limit: 1 });
+        const newest = page.items[0];
+        if (!newest) return;
+        await markNotificationsRead(client, newest.id);
+      } catch (err) {
+        if (isAbsentError(err)) {
+          throw new ApiError(
+            "Marking notifications read is not on this server.",
+            404,
+            "errors.unsupported.markers",
+          );
+        }
+        throw err;
+      }
     },
 
     async dismissNotification(id: string) {
@@ -1172,13 +1244,17 @@ export function createMastodonBackend(
       }));
     },
 
-    async uploadMedia(file: File, opts: { isSensitive?: boolean; comment?: string; signal?: AbortSignal } = {}) {
+    async uploadMedia(file: File, opts: { comment?: string; signal?: AbortSignal } = {}) {
       // Contract §4: multipart to v2/media; Mastodon answers 202 while
       // processing and the URL is null until done — poll the media read
       // and return whatever the server has (the media row renders the
       // honest "still processing" state on a null URL). The initial POST
       // carries the caller's `signal` (explicit Cancel only — repair
-      // X3.1/X7.4: unmount never cancels a write).
+      // X3.1/X7.4: unmount never cancels a write). Finding 11: there is
+      // NO per-file sensitivity on this family (status-level `sensitive`
+      // on the post only), so the signature takes no sensitivity flag —
+      // status sensitivity rides `PostDraft.sensitive` through
+      // `statusBodyOf` instead.
       const form = new FormData();
       form.append("file", file);
       if (opts.comment) form.append("description", opts.comment);
@@ -1199,7 +1275,7 @@ export function createMastodonBackend(
       if (!media || typeof media !== "object" || !("id" in media)) {
         throw new FediError("The server did not return the uploaded media.", "errors.shape.uploadedMedia");
       }
-      return adaptMedia(media, opts.isSensitive === true);
+      return adaptMedia(media, false);
     },
 
     async updateMedia(id: string, patch: MediaUpdate) {
@@ -1359,10 +1435,27 @@ export function createMastodonBackend(
       async timeline(listId, opts = {}) {
         const cont = continuationOf(opts.cursor);
         const path = cont?.kind === "url" ? cont.url : `/api/v1/timelines/list/${encodeURIComponent(listId)}`;
-        const query: Record<string, number> = cont ? {} : { limit: opts.limit ?? DEFAULT_LIMIT };
+        // Finding 10: the cursors continuation honours the carried-over
+        // params (the same helper `bookmarks.list` uses) — the Akkoma
+        // cross-origin Link fallback re-fetches on the session origin
+        // instead of repeating page 1 forever.
+        const query: Record<string, QueryValue> =
+          cont?.kind === "url"
+            ? {}
+            : cont?.kind === "cursors"
+              ? withCursors({}, cont.cursors)
+              : { limit: opts.limit ?? DEFAULT_LIMIT };
         const res = await client.get<Array<unknown>>(path, query, { signal: opts.signal });
         const items = Array.isArray(res.data) ? res.data : [];
-        const posts = items.filter(isStatusRow).map((raw) => adaptStatus(raw));
+        // Finding 17: skip-and-count, like `bookmarks.list` below.
+        const posts: Post[] = [];
+        for (const raw of items) {
+          if (!isStatusRow(raw)) {
+            noteSkippedRow("lists:timeline");
+            continue;
+          }
+          posts.push(adaptStatus(raw));
+        }
         const continuation = nextContinuation(res.headers, client.origin);
         return {
           items: posts,
@@ -1415,7 +1508,15 @@ export function createMastodonBackend(
               : { limit: opts.limit ?? DEFAULT_LIMIT };
         const res = await client.get<Array<unknown>>(path, query, { signal: opts.signal });
         const items = Array.isArray(res.data) ? res.data : [];
-        const posts = items.filter(isStatusRow).map((raw) => adaptStatus(raw));
+        // Finding 17: skip-and-count — a bad row never fails the page.
+        const posts: Post[] = [];
+        for (const raw of items) {
+          if (!isStatusRow(raw)) {
+            noteSkippedRow("bookmarks:list");
+            continue;
+          }
+          posts.push(adaptStatus(raw));
+        }
         const continuation = nextContinuation(res.headers, client.origin);
         return {
           items: posts.map((post) => ({ id: post.id, post })),

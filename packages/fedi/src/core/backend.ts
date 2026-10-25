@@ -174,6 +174,14 @@ export interface PostDraft {
   reactionAcceptance?: ReactionAcceptance | null;
   /** Sharkey per-note quote refusal (capability `quote_posting` variants). */
   noQuote?: boolean;
+  /** Mastodon-family status-level sensitivity (repair X4.4 finding 11):
+   * marks every attached medium sensitive (`POST /api/v1/statuses`
+   * `sensitive`). Sent only when a boolean (absent keeps the server
+   * default). The composer toggle is X6.2. */
+  sensitive?: boolean;
+  /** Mastodon-family post language (repair X4.4 finding 11: `language`).
+   * Sent only when a non-empty string. The composer picker is X6.2. */
+  language?: string;
 }
 
 // --- Profile ---------------------------------------------------------------

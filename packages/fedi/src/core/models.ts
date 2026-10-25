@@ -545,6 +545,13 @@ export interface PostExt {
    * (the server HTML mention anchors link by URL; `Post.mentions` carries
    * only the ids). Read by the HTML renderer only. */
   mentionUrls?: Record<string, string>;
+  /** Mastodon 4.5+ shallow nested quote (repair X4.4 finding 15): the
+   * quote object named `quoted_status_id` without packing
+   * `quoted_status`. The adapter keeps the id here with
+   * `quoteUnavailable: false` so the quote resolver can fetch it lazily
+   * by id (`backend.post`); absent = no such relationship. Never
+   * rendered directly — the resolver owns the fetch. */
+  quoteRef?: string | null;
   /** Recommendation breakdown (fork `notes/recommendations` transient
    * `_recommendationFactors_`, moved here by the adapter). Present only
    * on notes from that feed — never persisted, never forwarded on
@@ -788,6 +795,12 @@ export interface NotificationExt {
   /** `chatRoomInvitationReceived` (Misskey): the invited room's display
    * name when packed (`invitation.room.name`). Display only. */
   invitedRoomName?: string | null;
+  /** Mastodon v2 grouped rows (`notification_groups`, repair X4.4
+   * finding 9): the group's `most_recent_notification_id`, kept so the
+   * backend can derive `read` against the markers position and write it
+   * back when marking read. Absent on flat rows and on groups that did
+   * not name one (never invented). */
+  mostRecentNotificationId?: string;
 }
 
 // --- Pagination ------------------------------------------------------------

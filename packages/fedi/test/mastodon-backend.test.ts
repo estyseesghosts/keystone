@@ -440,9 +440,12 @@ describe("MastodonBackend notifications", () => {
     await createMastodonBackend(client).notifications({
       includeTypes: ["reaction", "renote", "follow", "receiveFollowRequest", "pollEnded"],
     });
-    const query = calls[1].body as Record<string, unknown>;
-    expect(calls[0].path).toBe("/api/v2/notifications");
-    expect(calls[1].path).toBe("/api/v1/notifications");
+    const query = calls[2].body as Record<string, unknown>;
+    // Finding 9 (repair X4.4): the markers read position is fetched first
+    // so every row derives `read`; the listing order itself is unchanged.
+    expect(calls[0].path).toBe("/api/v1/markers");
+    expect(calls[1].path).toBe("/api/v2/notifications");
+    expect(calls[2].path).toBe("/api/v1/notifications");
     // favourite + emoji reactions fold into the "Reactions" FILTER (a
     // filter, never a model merge); poll → poll; follow_request maps.
     expect(query.types).toEqual([

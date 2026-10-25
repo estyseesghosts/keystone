@@ -404,34 +404,45 @@ function adaptCard(card: Status["card"]): LinkCard | null {
 /** Quote field: Mastodon nests `{state, quoted_status}`; Akkoma nests the
  * quoted Status itself (state "accepted"). Handle BOTH shapes — never
  * assume one (contract §6). `quote_id` with no quote object is
- * unavailable (deleted/hidden target), NOT "no quote". */
+ * unavailable (deleted/hidden target), NOT "no quote" — EXCEPT the 4.5+
+ * shallow nested shape, which names `quoted_status_id` without packing
+ * the target: the relationship exists but the target is undisclosed, so
+ * `quoteUnavailable` is false and the id rides `quoteRef` for a lazy
+ * fetch (repair X4.4 finding 15). */
 function adaptQuote(
   quote: Status["quote"],
   quoteId: string | null,
-): { quote: Post | null; quoteState: string | null; quoteUnavailable: boolean } {
+): { quote: Post | null; quoteState: string | null; quoteUnavailable: boolean; quoteRef: string | null } {
   if (quote === null || quote === undefined) {
-    return { quote: null, quoteState: null, quoteUnavailable: quoteId !== null };
+    return { quote: null, quoteState: null, quoteUnavailable: quoteId !== null, quoteRef: null };
   }
   // Mastodon shape FIRST: `{state, quoted_status}` carries state/quoted_status
   // keys; Akkoma nests the Status itself (no such keys). Never assume one
   // (contract §6).
   if ("quoted_status" in quote || "state" in quote) {
-    const state = quote as { state?: string | null; quoted_status?: Status | null };
+    const state = quote as { state?: string | null; quoted_status?: Status | null; quoted_status_id?: string | null };
+    const nested = state.quoted_status ? adaptStatus(state.quoted_status) : null;
+    const ref =
+      nested === null && typeof state.quoted_status_id === "string" && state.quoted_status_id.length > 0
+        ? state.quoted_status_id
+        : null;
     return {
-      quote: state.quoted_status ? adaptStatus(state.quoted_status) : null,
+      quote: nested,
       quoteState: typeof state.state === "string" ? state.state : null,
-      // A Mastodon quote object without `quoted_status`: the server knows of
-      // the quote but does not disclose the target.
-      quoteUnavailable: !state.quoted_status,
+      // A Mastodon quote object without `quoted_status`: the server knows
+      // of the quote but does not disclose the target — UNLESS it named
+      // the nested id for a lazy fetch (shallow nested quote).
+      quoteUnavailable: nested === null && ref === null,
+      quoteRef: ref,
     };
   }
   if ("id" in quote && typeof (quote as Status).id === "string") {
     // Akkoma shape: the status itself.
-    return { quote: adaptStatus(quote as Status), quoteState: "accepted", quoteUnavailable: false };
+    return { quote: adaptStatus(quote as Status), quoteState: "accepted", quoteUnavailable: false, quoteRef: null };
   }
   // A quote object of neither known shape: the relationship exists but the
   // target is undisclosed.
-  return { quote: null, quoteState: null, quoteUnavailable: true };
+  return { quote: null, quoteState: null, quoteUnavailable: true, quoteRef: null };
 }
 
 function adaptFiltered(list: StatusFilterResult[] | undefined): Array<{ title: string; action: string }> {
@@ -533,6 +544,9 @@ export function adaptStatus(status: Status): Post {
         ? { reblogged: status.reblogged === true }
         : {}),
       ...(mentionUrls ? { mentionUrls } : {}),
+      // Shallow nested quote (finding 15): the lazy-fetch id for the
+      // quote resolver. Absent when there is no such relationship.
+      ...(quoteParts.quoteRef !== null ? { quoteRef: quoteParts.quoteRef } : {}),
     },
   };
 }
@@ -657,7 +671,10 @@ const NOTIFICATION_KINDS: Record<string, NotificationKind> = {
  * callers already degrade absent rows (null actor/post, skipped listing
  * row), never a throw.
  */
-function isAccountRow(value: unknown): value is WireAccount {
+/** Account-row twin of `isStatusRow` (exported for the listing pages in
+ * `endpoints.ts`/`conversations.ts`, which narrow the same way before
+ * adapting). Exported for the same callers (repair X4.4 finding 17). */
+export function isAccountRow(value: unknown): value is WireAccount {
   if (typeof value !== "object" || value === null) return false;
   const row = value as Record<string, unknown>;
   return typeof row.id === "string" && typeof row.acct === "string";
@@ -669,6 +686,35 @@ export function isStatusRow(value: unknown): value is Status {
   if (typeof value !== "object" || value === null) return false;
   const row = value as Record<string, unknown>;
   return typeof row.id === "string" && isAccountRow(row.account);
+}
+
+// --- Malformed-row skip counts (repair X4.4 finding 17) ----------------------
+//
+// Listing pages skip rows that fail the guards above instead of failing
+// the page; the skips are counted per context so tests and diagnostics
+// can observe them. Counts are process-local and never leave the device
+// (no PII: contexts are static endpoint names, never ids or bodies).
+
+const skippedRows = new Map<string, number>();
+
+/** Record one skipped malformed row in `context` (an endpoint name). */
+export function noteSkippedRow(context: string): void {
+  skippedRows.set(context, (skippedRows.get(context) ?? 0) + 1);
+}
+
+/** How many malformed rows were skipped (in `context`, or everywhere). */
+export function skippedRowCount(context?: string): number {
+  if (context === undefined) {
+    let total = 0;
+    for (const n of skippedRows.values()) total += n;
+    return total;
+  }
+  return skippedRows.get(context) ?? 0;
+}
+
+/** Test-only: drop the skip counts. */
+export function clearSkippedRowCounts(): void {
+  skippedRows.clear();
 }
 
 /**
@@ -765,6 +811,11 @@ function adaptV2Group(
     typeof group.notifications_count === "number" && Number.isFinite(group.notifications_count)
       ? group.notifications_count
       : null;
+  const mostRecent =
+    typeof group.most_recent_notification_id === "string" &&
+    group.most_recent_notification_id.length > 0
+      ? group.most_recent_notification_id
+      : null;
   return {
     id: groupKey,
     kind,
@@ -777,8 +828,33 @@ function adaptV2Group(
     actors,
     post: status,
     reaction,
-    ext: count === null ? {} : { groupedCount: count },
+    ext: {
+      ...(count === null ? {} : { groupedCount: count }),
+      // Kept for the markers read derivation (finding 9): the position
+      // of this group on the marker timeline. Absent when the wire did
+      // not name one.
+      ...(mostRecent === null ? {} : { mostRecentNotificationId: mostRecent }),
+    },
   };
+}
+
+/**
+ * Markers position check (repair X4.4 finding 9): does the notifications
+ * marker `last_read_id` cover `rowId` (the row is at or behind the read
+ * position)? IDs stay opaque strings — never parsed, never numerically
+ * compared: the check only orders same-length all-digit ids (Mastodon
+ * snowflakes, where lexicographic order IS chronological order) and
+ * answers null (unknown) for anything else. Pure.
+ */
+export function markerCoversId(
+  markerId: string | null | undefined,
+  rowId: string | null | undefined,
+): boolean | null {
+  if (typeof markerId !== "string" || markerId.length === 0) return null;
+  if (typeof rowId !== "string" || rowId.length === 0) return null;
+  if (!/^\d+$/.test(markerId) || !/^\d+$/.test(rowId)) return null;
+  if (markerId.length !== rowId.length) return null;
+  return markerId >= rowId;
 }
 
 export function adaptNotification(item: WireNotification): Notification {

@@ -278,6 +278,12 @@ export type PostCardProps = {
    * tests inject fakes. Omit for no resolution — packed structured
    * quotes still render, failed lookups keep their text. */
   resolveQuoteUri?: (uri: string) => Promise<Post | null>
+  /** By-id quote resolver (repair X4.4 finding 15): the live card
+   * injects the session backend's `post` (null on miss) for Mastodon
+   * 4.5+ shallow nested quotes (`ext.quoteRef`); tests inject fakes.
+   * Omit for no by-id resolution — the row renders the honest
+   * unavailable fallback, never a spinner that never settles. */
+  resolveQuoteById?: (id: string) => Promise<Post | null>
   /** Session-scoped seen re-seeding for the quote cache (R2.4/D3.6): the
    * live card injects the session backend's `seedSeenQuote` (Misskey
    * only — backends without a seen set omit it); tests inject fakes or
@@ -407,6 +413,21 @@ function LivePostCard(props: PostCardProps) {
   // per render.
   const resolveQuoteUri = useMemo(
     () => (backend ? (uri: string) => backend.resolveQuoteUri(uri) : undefined),
+    [backend],
+  )
+
+  // By-id quote resolver for the view (repair X4.4 finding 15): the
+  // session backend's own `post`, null on miss — Mastodon 4.5+ shallow
+  // nested quotes (`ext.quoteRef`) resolve lazily by id. Same
+  // once-per-target memo discipline as the URI path.
+  const resolveQuoteById = useMemo(
+    () =>
+      backend
+        ? (id: string) => backend.post(id).then(
+            found => found,
+            () => null,
+          )
+        : undefined,
     [backend],
   )
 
@@ -626,6 +647,7 @@ function LivePostCard(props: PostCardProps) {
       backend={props.backend ?? backend}
       translationSource={translationSource ?? props.translationSource ?? null}
       resolveQuoteUri={props.resolveQuoteUri ?? resolveQuoteUri}
+      resolveQuoteById={props.resolveQuoteById ?? resolveQuoteById}
       seedSeenQuote={props.seedSeenQuote ?? seedSeenQuote}
       linkPreviewMode={previewMode}
       linkPreviewAuto={props.linkPreviewAuto ?? !dataSaver}
@@ -666,6 +688,7 @@ const PostCardView = memo(function PostCardView({
   sessionId,
   translationSource,
   resolveQuoteUri,
+  resolveQuoteById,
   seedSeenQuote,
   onlyAuthorizedQuotes,
   linkPreviewMode,
@@ -709,7 +732,7 @@ const PostCardView = memo(function PostCardView({
     quoteConcealed,
     setQuoteRevealed,
     coveredQuoteUris,
-  } = useQuoteTarget(effective, resolveQuoteUri, onlyAuthorizedQuotes, seedSeenQuote)
+  } = useQuoteTarget(effective, resolveQuoteUri, onlyAuthorizedQuotes, seedSeenQuote, resolveQuoteById)
   const fullNodes = useMemo(
     () => postBodyNodes(effective, {coveredQuoteUris}),
     [effective, coveredQuoteUris],

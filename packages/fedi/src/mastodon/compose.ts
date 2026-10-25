@@ -71,21 +71,12 @@ export function legacyVisibility(raw: string): ComposeVisibility {
   }
 }
 
-export interface StatusBodyInput {
-  text: string;
-  cw: string;
-  visibility: ComposeVisibility;
-  inReplyToId?: string | null;
-  quotedStatusId?: string | null;
-  /** The instance's advertised limit, or FALLBACK_CHAR_LIMIT. */
-  maxChars: number;
-}
-
 /** The JSON body for `POST /api/v1/statuses` (contract §1) and `PUT
  * /api/v1/statuses/:id` (contract §4). `spoiler_text` alone carries a
  * content warning (Mastodon treats a non-empty spoiler as sensitive).
  * `visibility` is the WIRE value (see `wireVisibilityOf` — raw
- * round-trips). */
+ * round-trips). `sensitive`/`language` ride only when the draft set them
+ * (repair X4.4 finding 11; the composer toggle is X6.2). */
 export interface StatusBody {
   status: string;
   visibility: string;
@@ -93,10 +84,10 @@ export interface StatusBody {
   in_reply_to_id?: string;
   quoted_status_id?: string;
   media_ids?: string[];
+  sensitive?: boolean;
+  language?: string;
   poll?: { options: string[]; multiple?: boolean; expires_in?: number; hide_totals?: boolean };
 }
-
-export type StatusBodyResult = { ok: true; body: StatusBody } | { ok: false; reason: string };
 
 // --- Unified-draft → wire body (Phase 3: the MastodonBackend compose path) --
 
@@ -145,6 +136,8 @@ export function statusBodyOf(draft: {
   replyId?: string;
   renoteId?: string;
   mediaIds?: string[];
+  sensitive?: boolean;
+  language?: string;
   poll?: { choices: string[]; multiple?: boolean; expiresAt?: number; expiredAfter?: number; hideTotals?: boolean } | null;
 }): StatusBody {
   const body: StatusBody = {
@@ -156,6 +149,10 @@ export function statusBodyOf(draft: {
   if (draft.replyId) body.in_reply_to_id = draft.replyId;
   if (draft.renoteId) body.quoted_status_id = draft.renoteId;
   if (draft.mediaIds && draft.mediaIds.length > 0) body.media_ids = draft.mediaIds;
+  // Status-level sensitivity/language (finding 11): only when the draft
+  // set them — absent keeps the server default, never a guess.
+  if (draft.sensitive !== undefined) body.sensitive = draft.sensitive;
+  if (draft.language !== undefined && draft.language.length > 0) body.language = draft.language;
   if (draft.poll && draft.poll.choices.length > 0) {
     // Mastodon rejects `poll[expires_in]` below 300 s, and 0 is never
     // valid — clamp at the wire layer (finding 22). The domain layer
@@ -178,24 +175,6 @@ export function statusBodyOf(draft: {
     };
   }
   return body;
-}
-
-export function buildStatusBody(input: StatusBodyInput): StatusBodyResult {
-  const status = input.text.trim();
-  if (status.length === 0) return { ok: false, reason: "Write something first." };
-  const count = [...status].length;
-  if (count > input.maxChars) {
-    return {
-      ok: false,
-      reason: `Too long: ${count} of ${input.maxChars} characters. Shorten the post to post it.`,
-    };
-  }
-  const body: StatusBody = { status, visibility: input.visibility };
-  const spoiler = input.cw.trim();
-  if (spoiler.length > 0) body.spoiler_text = spoiler;
-  if (input.inReplyToId) body.in_reply_to_id = input.inReplyToId;
-  if (input.quotedStatusId) body.quoted_status_id = input.quotedStatusId;
-  return { ok: true, body };
 }
 
 /** 32 lowercase hex characters from the platform CSPRNG. `crypto.randomUUID`

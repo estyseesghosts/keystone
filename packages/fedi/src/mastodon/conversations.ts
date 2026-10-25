@@ -31,7 +31,7 @@
 
 import { ApiError } from "../core/errors";
 import type { Conversation as CoreConversation } from "../core/backend";
-import { adaptAccount, adaptStatus } from "./adapt";
+import { adaptAccount, adaptStatus, isAccountRow, isStatusRow, noteSkippedRow } from "./adapt";
 import type { MastoClient, QueryValue } from "./client";
 import { nextContinuation, withCursors } from "./pagination";
 import type { Continuation } from "./pagination";
@@ -42,14 +42,31 @@ const PAGE_LIMIT = 20; // server default; hard max 40 on both backends
 /** Mastodon `REST::ConversationSerializer` / Akkoma `participation.json`
  * → core `Conversation`. Participants adapt like any other accounts; the
  * latest post adapts like any other status (or null when the server sent
- * none). `unread` is a real boolean on both servers, never derived. */
+ * none). `unread` is a real boolean on both servers, never derived.
+ * Finding 17: malformed participants are skipped and counted (the row
+ * keeps its other participants); a malformed `last_status` degrades to
+ * null and is counted — never a throw. */
 export function adaptConversation(raw: WireConversation): CoreConversation {
+  const accounts: CoreConversation["accounts"] = [];
+  for (const row of Array.isArray(raw.accounts) ? raw.accounts : []) {
+    if (!isAccountRow(row)) {
+      noteSkippedRow("conversation:accounts");
+      continue;
+    }
+    accounts.push(adaptAccount(row));
+  }
+  let lastPost: CoreConversation["lastPost"] = null;
+  if (raw.last_status !== null && raw.last_status !== undefined) {
+    if (isStatusRow(raw.last_status)) {
+      lastPost = adaptStatus(raw.last_status);
+    } else {
+      noteSkippedRow("conversation:last_status");
+    }
+  }
   return {
     id: String(raw.id ?? ""),
-    accounts: Array.isArray(raw.accounts)
-      ? raw.accounts.map(adaptAccount)
-      : [],
-    lastPost: raw.last_status ? adaptStatus(raw.last_status) : null,
+    accounts,
+    lastPost,
     unread: raw.unread === true,
   };
 }

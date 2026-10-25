@@ -101,8 +101,10 @@ describe("MD1 — v2 notifications filter + paging", () => {
       includeTypes: ["reaction"],
       excludeTypes: ["follow"],
     });
-    expect(calls[0].path).toBe("/api/v2/notifications");
-    const query = calls[0].body as Record<string, unknown>;
+    expect(calls[0].path).toBe("/api/v1/markers");
+    const v2call = calls.find(c => c.path === "/api/v2/notifications");
+    expect(v2call).toBeTruthy();
+    const query = v2call!.body as Record<string, unknown>;
     expect(query.types).toEqual(["favourite", "pleroma:emoji_reaction"]);
     expect(query.exclude_types).toEqual(["follow"]);
     expect(page.items[0].kind).toBe("favourite");
@@ -126,8 +128,9 @@ describe("MD1 — v2 notifications filter + paging", () => {
     expect(cont?.kind).toBe("url");
     const second = await backend.notifications({ cursor: first.cursor });
     // The follow-up reads the server's own next URL — still on v2, no v1 call.
-    expect(calls[1].path).toContain("/api/v2/notifications");
-    expect(calls[1].path).toContain("max_id=42");
+    // (Each page also reads markers first for read-state; find the paged call.)
+    const paged = calls.find(c => c.path.includes("max_id=42"));
+    expect(paged?.path).toContain("/api/v2/notifications");
     expect(calls.map((c) => c.path)).not.toContain("/api/v1/notifications");
     expect(second.items).toHaveLength(1);
     expect(second.end).toBe(true);
@@ -136,6 +139,7 @@ describe("MD1 — v2 notifications filter + paging", () => {
   it("falls back to v1 on 404, keeping the type filter honest there", async () => {
     const { client, calls } = stubClient((method, path) => {
       if (path === "/api/v2/notifications") throw httpError(404);
+      if (path === "/api/v1/markers") return { data: {} };
       expect(path).toBe("/api/v1/notifications");
       return { data: [] };
     });
@@ -144,10 +148,11 @@ describe("MD1 — v2 notifications filter + paging", () => {
       excludeTypes: ["follow"],
     });
     expect(calls.map((c) => c.path)).toEqual([
+      "/api/v1/markers",
       "/api/v2/notifications",
       "/api/v1/notifications",
     ]);
-    const v1query = calls[1].body as Record<string, unknown>;
+    const v1query = calls[2].body as Record<string, unknown>;
     expect(v1query.types).toEqual(["mention"]);
     expect(v1query.exclude_types).toEqual(["follow"]);
     expect(page).toEqual({ items: [], cursor: null, end: true });
@@ -161,7 +166,8 @@ describe("MD1 — v2 notifications filter + paging", () => {
     await expect(createMastodonBackend(client).notifications()).rejects.toMatchObject({
       status: 401,
     });
-    expect(calls.map((c) => c.path)).toEqual(["/api/v2/notifications"]);
+    // Finding 9 (repair X4.4): markers read precedes every listing.
+    expect(calls.map((c) => c.path)).toEqual(["/api/v1/markers", "/api/v2/notifications"]);
   });
 
   it("a real notification_groups envelope adapts to grouped rows (no v1 call)", async () => {
@@ -177,7 +183,7 @@ describe("MD1 — v2 notifications filter + paging", () => {
     }>("mastodon", "notification-grouped-v2.json");
     const { client, calls } = stubClient(() => ({ data: env }));
     const page = await createMastodonBackend(client).notifications();
-    expect(calls.map((c) => c.path)).toEqual(["/api/v2/notifications"]);
+    expect(calls.map((c) => c.path)).toEqual(["/api/v1/markers", "/api/v2/notifications"]);
     expect(page.items).toHaveLength(3);
     const fav = page.items[0];
     expect(fav.kind).toBe("favourite");
@@ -204,14 +210,16 @@ describe("MD1 — v2 notifications filter + paging", () => {
     const first = await backend.notifications();
     // Array-bodied v2 stub: no envelope, so v1 served the first page.
     expect(calls.map((c) => c.path)).toEqual([
+      "/api/v1/markers",
       "/api/v2/notifications",
       "/api/v1/notifications",
     ]);
     const second = await backend.notifications({ cursor: first.cursor });
     expect(second.end).toBe(true);
     // The follow-up followed the v1 next URL — v2 was never re-probed.
-    expect(calls[2].path).toContain("/api/v1/notifications");
-    expect(calls[2].path).toContain("max_id=7");
+    // (The second listing reads markers first, so find the paged call.)
+    const paged = calls.find(c => c.path.includes("max_id=7"));
+    expect(paged?.path).toContain("/api/v1/notifications");
   });
 });
 

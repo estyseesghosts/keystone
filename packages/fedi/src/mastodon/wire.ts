@@ -251,10 +251,15 @@ export interface EmojiReaction {
   account_ids?: ID[];
 }
 
-/** Mastodon 4.5+ quote object: `{state, quoted_status}`. */
+/** Mastodon 4.5+ quote object: `{state, quoted_status}`. A quote that
+ * itself quotes arrives SHALLOW: `quoted_status_id` names the nested
+ * target without packing it (repair X4.4 finding 15 — unverified against
+ * source, carried tolerantly: the id is kept for a lazy fetch, never
+ * rendered and never dropped). */
 export interface MastodonQuoteState {
   state?: string | null;
   quoted_status?: Status | null;
+  quoted_status_id?: string | null;
   [key: string]: unknown;
 }
 

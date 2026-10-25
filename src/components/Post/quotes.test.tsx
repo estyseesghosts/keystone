@@ -128,6 +128,58 @@ describe('PostCard structured quotes (WS-A)', () => {
   })
 })
 
+describe('PostCard shallow nested quotes (X4.4 finding 15)', () => {
+  /** A Mastodon 4.5+ shallow nested quote: id only, no packed target. */
+  function shallowPost(): Post {
+    return makePost({
+      id: 'pq',
+      content: {mfm: 'nested discussion', plain: 'nested discussion'},
+      ext: {quoteRef: 'nested-1'},
+    })
+  }
+
+  it('resolves the nested id by id: indicator, then card', async () => {
+    let release!: (found: Post | null) => void
+    const pending = new Promise<Post | null>(resolve => {
+      release = resolve
+    })
+    const seen: string[] = []
+    renderCard(
+      <PostCard
+        post={shallowPost()}
+        sessionId={SESSION}
+        resolveQuoteById={id => {
+          seen.push(id)
+          return pending
+        }}
+      />,
+    )
+    expect(screen.getByTestId('post-quote-resolving-pq')).toBeTruthy()
+    expect(screen.queryByTestId('post-quote-pq-card')).toBeNull()
+    await act(async () => {
+      release(quotedPost())
+    })
+    await waitFor(() => expect(screen.getByTestId('post-quote-pq-card')).toBeTruthy())
+    expect(seen).toEqual(['nested-1'])
+    expect(screen.queryByTestId('post-quote-resolving-pq')).toBeNull()
+  })
+
+  it('by-id miss renders unavailable', async () => {
+    renderCard(
+      <PostCard post={shallowPost()} sessionId={SESSION} resolveQuoteById={() => Promise.resolve(null)} />,
+    )
+    await waitFor(() => expect(screen.getByText('Quoted post unavailable')).toBeTruthy())
+    expect(screen.queryByTestId('post-quote-pq-card')).toBeNull()
+  })
+
+  it('no by-id resolver renders unavailable without fetching', () => {
+    const uriFetch = jest.fn(() => Promise.resolve(quotedPost()))
+    renderCard(<PostCard post={shallowPost()} sessionId={SESSION} resolveQuoteUri={uriFetch} />)
+    expect(screen.getByText('Quoted post unavailable')).toBeTruthy()
+    expect(uriFetch).not.toHaveBeenCalled()
+  })
+})
+
 describe('PostCard textual fallbacks (WS-A)', () => {
   it('resolves an MFM textual marker into a card and strips it', async () => {
     renderCard(

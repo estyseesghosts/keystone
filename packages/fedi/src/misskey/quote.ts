@@ -205,6 +205,19 @@ export function getQuoteTarget(post: Post): QuoteTarget | null {
     return target;
   }
 
+  // Mastodon 4.5+ shallow nested quote (repair X4.4 finding 15): the
+  // adapter kept `ext.quoteRef` (a status id, no packed target, not
+  // unavailable). It normalizes to a structured target with the id and
+  // NO uri — the view fetches it lazily by id (`resolveQuoteById`) and
+  // renders the resolving/unavailable fallbacks meanwhile. Structured
+  // metadata still wins over the textual fallback below.
+  const quoteRef = asString(post.ext.quoteRef);
+  if (quoteRef) {
+    const target: QuoteTarget = { source: "structured", noteId: quoteRef };
+    if (authorizationStatus) target.authorizationStatus = authorizationStatus;
+    return target;
+  }
+
   const quoteTargetUri = asString(post.ext.quoteTargetUri);
   const targetUnavailable = asBool(post.ext.quoteTargetUnavailable);
   if (quoteTargetUri || targetUnavailable) {

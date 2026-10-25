@@ -506,7 +506,9 @@ describe("MD12 — direct throws adapt so the shared predicates read them", () =
     const grouped = fixture<Record<string, unknown>>("mastodon", "notification-grouped-v2.json");
     const { client, calls } = stubClient(() => ({ data: grouped }));
     const page = await createMastodonBackend(client).notifications();
-    expect(calls.map((c) => c.path)).toEqual(["/api/v2/notifications"]);
+    // Finding 9 (repair X4.4): markers read first for read-state, then the
+    // v2 listing — no v1 call for a grouped envelope.
+    expect(calls.map((c) => c.path)).toEqual(["/api/v1/markers", "/api/v2/notifications"]);
     expect(page.items[0].kind).toBe("favourite");
     expect(page.items[0].actors).toHaveLength(3);
   });
@@ -605,13 +607,17 @@ describe("MD14 — bookmarks, lists, filters, uploadMedia paths", () => {
       if (path === "/api/v2/media") return { data: processing };
       return { data: done };
     });
+    // Finding 11 (repair X4.4): no per-file sensitivity on this family —
+    // the upload signature takes no sensitivity flag (status sensitivity
+    // rides `PostDraft.sensitive` instead), so the adapted row is honest
+    // about the server shape, never the dropped opt.
     const media = await createMastodonBackend(client).uploadMedia(
       new File(["x"], "x.png", { type: "image/png" }),
-      { isSensitive: true },
+      { comment: "alt text" },
     );
     expect(media.id).toBe("200");
     expect(media.url).toBe("https://files.mastodon.example.com/media/m1.png");
-    expect(media.isSensitive).toBe(true);
+    expect(media.isSensitive).toBe(false);
     expect(calls.map((c) => c.path)).toEqual(["/api/v2/media", "/api/v1/media/200"]);
   });
 

@@ -39,6 +39,7 @@ export function useQuoteTarget(
   resolveQuoteUri: ((uri: string) => Promise<Post | null>) | undefined,
   onlyAuthorizedQuotes: boolean | undefined,
   seedSeenQuote?: (note: Post) => void,
+  resolveQuoteById?: ((id: string) => Promise<Post | null>) | undefined,
 ): QuoteTargetState {
   // --- Quote cards: structured + textual/URI fallback (WS-A) --------
   // The normalized target (packed renote/quote, Pinetree ext, or the
@@ -68,6 +69,24 @@ export function useQuoteTarget(
     if (!target && htmlQuoteMarkerUri) return htmlQuoteMarkerUri
     return null
   }, [resolveQuoteUri, effective.quote, quoteTarget, htmlQuoteMarkerUri])
+  // The id needing a lookup: a Mastodon 4.5+ shallow nested quote
+  // (`ext.quoteRef`) with no packed note and no URI — repair X4.4
+  // finding 15. Keyed on the adapter's `quoteRef`, never on a bare
+  // `renoteId`: an unpacked renote keeps its v1-parity "known locally,
+  // no fetch" unavailable fallback. Never fetched when the server
+  // flagged the target unavailable or when no by-id resolver is wired.
+  const pendingQuoteId = useMemo(() => {
+    if (resolveQuoteById === undefined) return null
+    if (effective.quote !== null) return null
+    const ref =
+      typeof effective.ext.quoteRef === 'string' && effective.ext.quoteRef.length > 0
+        ? effective.ext.quoteRef
+        : null
+    if (ref === null) return null
+    const target = quoteTarget
+    if (target && (target.targetUnavailable || target.uri)) return null
+    return ref
+  }, [resolveQuoteById, effective.quote, effective.ext.quoteRef, quoteTarget])
   // Lookup state: one resolution per URI. A finished miss never retries
   // implicitly (the backend owns its TTL); the fallback keeps the
   // original text or the honest unavailable state below.
@@ -96,6 +115,34 @@ export function useQuoteTarget(
       cancelled = true
     }
   }, [pendingQuoteUri])
+  // By-id lookup state: one resolution per id, same once-per-target
+  // discipline as the URI path (a finished miss shows the honest
+  // unavailable fallback, never a retry loop).
+  const [resolvedQuoteById, setResolvedQuoteById] = useState<Post | null>(null)
+  const [quoteIdLookupFailed, setQuoteIdLookupFailed] = useState(false)
+  const resolveIdRef = useRef(resolveQuoteById)
+  resolveIdRef.current = resolveQuoteById
+  useEffect(() => {
+    setResolvedQuoteById(null)
+    setQuoteIdLookupFailed(false)
+    const id = pendingQuoteId
+    const fetch = resolveIdRef.current
+    if (id === null || fetch === undefined) return
+    let cancelled = false
+    void fetch(id).then(
+      found => {
+        if (cancelled) return
+        setResolvedQuoteById(found)
+        setQuoteIdLookupFailed(found === null)
+      },
+      () => {
+        if (!cancelled) setQuoteIdLookupFailed(true)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [pendingQuoteId])
   // Seen re-seeding (R2.4/D3.6 restoration of the R1.2-removed
   // `registerSeenNote` effect, now session-scoped — the seeding effect
   // below runs after the conceal gate): rendered notes reseed the owning
@@ -103,14 +150,19 @@ export function useQuoteTarget(
   // URI hits the seen set instead of firing `ap/show`. Seeding writes
   // only through the injected `seedSeenQuote` — one backend, one
   // session — so account B can never observe account A's seeded notes.
-  // The card's target: the packed quote, or a URI that resolved to a
+  // The card's target: the packed quote, or a URI/id that resolved to a
   // post. Anything else falls through to the resolving indicator or the
   // unavailable fallback below.
-  const visibleQuote = effective.quote ?? (pendingQuoteUri !== null ? resolvedQuote : null)
-  const resolvingQuote = pendingQuoteUri !== null && resolvedQuote === null && !quoteLookupFailed
+  const visibleQuote =
+    effective.quote ??
+    (pendingQuoteUri !== null ? resolvedQuote : null) ??
+    (pendingQuoteId !== null ? resolvedQuoteById : null)
+  const resolvingQuote =
+    (pendingQuoteUri !== null && resolvedQuote === null && !quoteLookupFailed) ||
+    (pendingQuoteId !== null && resolvedQuoteById === null && !quoteIdLookupFailed)
   // Stable fallback for a structured relationship with no viewable
   // target (v1 parity): a renote id with no packed note (the server
-  // knows it locally — no fetch), or a URI lookup that finished with
+  // knows it locally — no fetch), or a URI/id lookup that finished with
   // no post. Textual fallbacks never reach here — a failed lookup
   // keeps the original `RE:` text.
   const structuredQuoteUnavailable =
@@ -118,7 +170,9 @@ export function useQuoteTarget(
     effective.quote === null &&
     (pendingQuoteUri !== null
       ? resolvedQuote === null && quoteLookupFailed
-      : quoteTarget.noteId != null)
+      : pendingQuoteId !== null
+        ? resolvedQuoteById === null && quoteIdLookupFailed
+        : quoteTarget.noteId != null)
   // Quote-authorization display label for the wrapper's relationship
   // (pending/rejected/…); approved or missing never labels.
   const quoteStatus = useMemo(

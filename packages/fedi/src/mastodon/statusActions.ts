@@ -12,11 +12,9 @@
 
 import { adaptStatus } from "./adapt";
 import type { MastoClient } from "./client";
-import { FALLBACK_CHAR_LIMIT } from "./compose";
 import { FediError } from "../core/errors";
 import type { StatusBody } from "./compose";
 import { getStatus } from "./endpoints";
-import { fetchInstanceCapabilities } from "./instance";
 import type { Post, ReactionEntry } from "../core/models";
 import type { Status } from "./wire";
 
@@ -127,38 +125,6 @@ export async function setEmojiReaction(
     return adaptStatus(res.data);
   }
   return getStatus(client, statusId);
-}
-
-/** What the composer needs from the instance before it sends anything. */
-export interface WriteCapabilities {
-  maxChars: number;
-  /** True only when the instance advertises quote posting (Akkoma
-   * `quote_posting`). Vanilla Mastodon reports unknown here, so quotes stay
-   * hidden there: a `quoted_status_id` is never sent blind. */
-  quote: boolean;
-}
-
-const NO_WRITE_CAPS: WriteCapabilities = { maxChars: FALLBACK_CHAR_LIMIT, quote: false };
-const capCache = new Map<string, Promise<WriteCapabilities>>();
-
-/** Per-origin capabilities, fetched once. A failed fetch falls back to the
- * conservative answer (no quotes, default limit) and is not cached, so the next
- * call tries again. */
-export function writeCapabilities(origin: string): Promise<WriteCapabilities> {
-  const hit = capCache.get(origin);
-  if (hit) return hit;
-  const pending = fetchInstanceCapabilities(origin).then(
-    (caps) => ({
-      maxChars: caps.maxStatusCharacters ?? FALLBACK_CHAR_LIMIT,
-      quote: caps.features.quote_posting === "supported",
-    }),
-    () => {
-      capCache.delete(origin);
-      return NO_WRITE_CAPS;
-    },
-  );
-  capCache.set(origin, pending);
-  return pending;
 }
 
 /** Create a status (`POST /api/v1/statuses`, JSON body, one Idempotency-Key per

@@ -22,38 +22,32 @@ export interface LinkRelations {
 /**
  * Parse a Link header value into next/prev hrefs (kept verbatim —
  * relative hrefs are allowed here; resolution happens against the
- * session origin in nextLink()/prevLink()).
+ * session origin in the continuation helpers below).
  *
  * Format: `<https://host/api/...?max_id=1>; rel="next", <...>; rel="prev"`
+ *
+ * Finding 18: entries are matched with a regex over `<...>` groups, NOT
+ * a comma split — an href containing a raw comma (legal inside a quoted
+ * param or an unencoded URL) must not cut the entry in half. Hrefs cannot
+ * contain `<`/`>` (they arrive percent-encoded), so `<[^<>]*>` is the
+ * entry boundary; `rel` is read from the entry's own params (quoted or
+ * bare, possibly among other params).
  */
 export function parseLinkHeader(value: string | null | undefined): LinkRelations {
   const out: LinkRelations = { next: null, prev: null };
   if (!value) return out;
-  for (const part of value.split(",")) {
-    const match = /<([^>]+)>\s*;\s*rel="?([^";,]+)"?/i.exec(part.trim());
-    if (!match) continue;
-    const [, href, rel] = match;
-    const rels = rel.toLowerCase().split(/\s+/);
+  const entryPattern = /<([^<>]*)>\s*((?:;\s*[a-zA-Z][a-zA-Z0-9_-]*\s*(?:=\s*(?:"[^"]*"|[^";,\s]+))?\s*)*)/g;
+  let entry: RegExpExecArray | null;
+  while ((entry = entryPattern.exec(value)) !== null) {
+    const href = entry[1];
+    const params = entry[2] ?? "";
+    const relMatch = /rel\s*=\s*"?([^";,\s]+)"?/i.exec(params);
+    if (!relMatch) continue;
+    const rels = relMatch[1].toLowerCase().split(/\s+/);
     if (rels.includes("next") && !out.next) out.next = href;
     if (rels.includes("prev") && !out.prev) out.prev = href;
   }
   return out;
-}
-
-/**
- * The next-page URL, or null: absent Link, or the URL leaves the session
- * origin (a cross-origin next link is never followed with a token).
- */
-export function nextLink(headers: Headers, origin: string): string | null {
-  const href = parseLinkHeader(headers.get("Link")).next;
-  if (!href) return null;
-  return resolveSameOriginUrl(origin, href);
-}
-
-export function prevLink(headers: Headers, origin: string): string | null {
-  const href = parseLinkHeader(headers.get("Link")).prev;
-  if (!href) return null;
-  return resolveSameOriginUrl(origin, href);
 }
 
 /** Cursor params understood by both backends (contract §5). `max_id` pages
@@ -117,13 +111,6 @@ export function cursorsFromUrl(url: string): Cursors {
   } catch {
     return {};
   }
-}
-
-/** Fallback cursor from the LAST item — only for endpoints that emit no
- * Link header. IDs stay strings; no numeric assumptions. */
-export function fallbackMaxId(items: ReadonlyArray<{ id: string }> | undefined): string | undefined {
-  if (!items || items.length === 0) return undefined;
-  return items[items.length - 1].id;
 }
 
 /**

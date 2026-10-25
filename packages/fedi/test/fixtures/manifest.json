@@ -185,6 +185,19 @@
       "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (MastodonQuoteState)"],
       "recordedAt": null
     },
+    "mastodon/status-quote-shallow.json": {
+      "endpoint": "GET /api/v1/statuses/:id (shallow nested quote: quoted_status_id without quoted_status)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (MastodonQuoteState.quoted_status_id)"],
+      "recordedAt": null,
+      "unverified": "The 4.5 shallow-quote shape is carried from the audit (finding 15), not recorded against a live 4.5 server; shape is tolerant (the id is kept, never required)."
+    },
+    "mastodon/markers.json": {
+      "endpoint": "GET /api/v1/markers?timeline[]=notifications",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (markers timeline entry)", "docs/mastoapi-contract.md"],
+      "recordedAt": null
+    },
     "mastodon/account.json": {
       "endpoint": "GET /api/v1/accounts/verify_credentials",
       "source": "synthesised",
