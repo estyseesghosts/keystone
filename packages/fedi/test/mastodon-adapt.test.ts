@@ -108,6 +108,7 @@ describe("adaptStatus (vanilla Mastodon)", () => {
 
   it("maps the poll with per-option own_votes and votersCount verbatim", () => {
     const post = adaptStatus(fixture<Status>("mastodon", "status.json"));
+    expect(post.poll?.id).toBe("34830");
     expect(post.poll?.multiple).toBe(true);
     expect(post.poll?.votesCount).toBe(4);
     expect(post.poll?.votersCount).toBe(3);
@@ -361,6 +362,7 @@ describe("adaptMedia / adaptPoll", () => {
       options: [{ title: "a", votes_count: 5 }],
     };
     const poll = adaptPoll(wire);
+    expect(poll.id).toBe("1");
     expect(poll.votersCount).toBeNull();
     expect(poll.votesCount).toBe(5);
     expect(poll.expired).toBe(true);

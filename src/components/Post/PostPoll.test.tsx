@@ -13,6 +13,7 @@ i18n.activate('en')
 
 function poll(over: Partial<Poll> = {}): Poll {
   return {
+    id: 'poll1',
     multiple: false,
     expiresAt: null,
     expired: false,

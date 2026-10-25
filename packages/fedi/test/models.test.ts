@@ -191,6 +191,7 @@ describe("isPureRenote / appearNoteOf", () => {
       isPureRenote({
         ...wrapper,
         poll: {
+          id: null,
           multiple: false,
           expiresAt: null,
           expired: false,

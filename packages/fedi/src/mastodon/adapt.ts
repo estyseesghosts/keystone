@@ -325,10 +325,13 @@ export function adaptMedia(m: MediaAttachment, sensitive: boolean): Media {
 /** `expired` is the server's own flag (never derived from the clock here),
  * `votersCount` stays null where the server sends none (Akkoma
  * single-choice) — never coerced from votes. Per-option `voted` comes
- * from `own_votes` (the indices the viewer voted). */
+ * from `own_votes` (the indices the viewer voted). `id` is the wire
+ * poll id straight through (ADR 0010: the vote path reads it off the
+ * already-loaded model, never refetches it). */
 export function adaptPoll(p: WirePoll): Poll {
   const own = Array.isArray(p.own_votes) ? p.own_votes : [];
   return {
+    id: p.id,
     multiple: p.multiple === true,
     expiresAt: p.expires_at ?? null,
     expired: p.expired === true,

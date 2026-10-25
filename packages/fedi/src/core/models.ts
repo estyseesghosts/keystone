@@ -285,6 +285,12 @@ export interface PollOption {
 }
 
 export interface Poll {
+  /** The poll's own id (Mastodon family: wire `Poll.id`, always present
+   * incl. Akkoma/Pleroma). Null on the Misskey family — its wire offers
+   * no poll id and its vote keys on the note id — and anywhere the id is
+   * unknown (never guessed; ADR 0010). A null id must mean "unknown",
+   * never "go fetch it". */
+  id: string | null;
   multiple: boolean;
   expiresAt: string | null;
   /** Whether the poll is already closed (derived; never guessed). */

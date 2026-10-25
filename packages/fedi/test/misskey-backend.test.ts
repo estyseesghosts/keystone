@@ -270,6 +270,15 @@ describe("MisskeyBackend compose", () => {
       { noteId: "x", choice: 1 },
     ]);
   });
+
+  it("votePoll with an explicit null poll throws noPoll with no request", async () => {
+    const { transport, calls } = stubTransport(() => undefined);
+    await expect(createMisskeyBackend(transport).votePoll("x", [0], null)).rejects.toMatchObject({
+      name: "FediError",
+      code: "errors.shape.noPoll",
+    });
+    expect(calls).toHaveLength(0);
+  });
 });
 
 describe("MisskeyBackend accounts and social", () => {

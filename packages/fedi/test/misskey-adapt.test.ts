@@ -144,6 +144,8 @@ describe("adaptNote (all three Misskey flavors)", () => {
 
   it("maps a poll with votes summed and votersCount never coerced", () => {
     const post = adaptNote(fixture<Note>("misskey", "note.json"));
+    // The Misskey wire offers no poll id: null, never guessed (ADR 0010).
+    expect(post.poll?.id).toBeNull();
     expect(post.poll?.multiple).toBe(false);
     expect(post.poll?.votesCount).toBe(4);
     expect(post.poll?.votersCount).toBeNull();
@@ -312,6 +314,7 @@ describe("adaptPoll", () => {
 
   it("sums votes and never coerces votersCount", () => {
     const poll = adaptPoll(wire);
+    expect(poll?.id).toBeNull();
     expect(poll?.votesCount).toBe(2);
     expect(poll?.votersCount).toBeNull();
     expect(poll?.multiple).toBe(true);

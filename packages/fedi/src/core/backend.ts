@@ -20,6 +20,7 @@ import type {
   Media,
   Notification,
   Page,
+  Poll,
   Post,
   PostRevision,
   Relationship,
@@ -1183,8 +1184,18 @@ export interface Backend {
   unfavourite(id: string): Promise<void>;
   boost(id: string): Promise<Post>;
   unboost(id: string): Promise<void>;
-  /** Vote in a poll (addition — the app renders polls). */
-  votePoll(id: string, choices: number[]): Promise<void>;
+  /** Vote in a poll (addition — the app renders polls).
+   *
+   * `id` is the post/note id; `poll` is the already-loaded `Post.poll`
+   * (ADR 0010 — never refetched). The Mastodon family votes the poll id
+   * straight from the model: a null/missing `poll?.id` throws the typed
+   * `errors.shape.noPoll` with zero requests (callers holding a bare
+   * status id with no loaded poll get that honest error, never a
+   * transparent refetch). The Misskey family keys on the note id — a
+   * present poll's null id never blocks it — but an explicit null `poll`
+   * (voting with no poll at all) is the same typed error with no request
+   * on both families. Omit `poll` only from legacy two-arg callers. */
+  votePoll(id: string, choices: number[], poll?: Poll | null): Promise<void>;
   /** Resolve a textual `RE:` quote URI to the post it names (addition —
    * Phase 3, plan item 4). Misskey family: the authed `ap/show` lookup;
    * Mastodon family: `/api/v2/search` with `resolve`. Null when it does

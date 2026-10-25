@@ -300,18 +300,20 @@ describe("getStatus / getStatusContext / account statuses / voteInPoll", () => {
     expect(calls[2].query).toEqual({ only_media: true, limit: 20 });
   });
 
-  it("voteInPoll without a poll throws noPoll before any write; with one it posts the poll id", async () => {
-    const { client, calls } = stubClient(() => ({ data: { ...status, poll: null } }));
-    const err = await voteInPoll(client, "s1", [0]).catch((e) => e);
+  it("voteInPoll with a null id throws noPoll with zero requests; with an id it posts once with no GET", async () => {
+    const { client, calls } = stubClient(() => ({ data: status }));
+    const err = await voteInPoll(client, null, [0]).catch((e) => e);
     expect((err as FediError).code).toBe("errors.shape.noPoll");
-    expect(calls).toHaveLength(1); // the status read only, no vote POST
-    const { client: withPoll, calls: pollCalls } = stubClient(() => ({ data: status }));
-    await voteInPoll(withPoll, "s1", [0, 1]);
-    expect(pollCalls[1]).toEqual({
-      method: "POST",
-      path: "/api/v1/polls/34830/votes",
-      body: { choices: [0, 1] },
-    });
+    expect(calls).toHaveLength(0);
+    const { client: withPoll, calls: pollCalls } = stubClient(() => ({}));
+    await voteInPoll(withPoll, "34830", [0, 1]);
+    expect(pollCalls).toEqual([
+      {
+        method: "POST",
+        path: "/api/v1/polls/34830/votes",
+        body: { choices: [0, 1] },
+      },
+    ]);
   });
 });
 

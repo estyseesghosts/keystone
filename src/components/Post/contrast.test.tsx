@@ -131,6 +131,7 @@ describe.each(['light', 'dark'] as const)('feed content contrast (%s theme)', th
     renderWithTheme(
       <PostPoll
         poll={{
+          id: 'poll1',
           multiple: false,
           expiresAt: null,
           expired: false,

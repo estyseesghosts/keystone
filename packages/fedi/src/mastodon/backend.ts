@@ -37,6 +37,7 @@ import type {
   Media,
   Notification,
   Page,
+  Poll,
   Post,
   Relationship,
 } from "../core/models";
@@ -509,8 +510,12 @@ export function createMastodonBackend(
       await setStatusToggle(client, id, "reblog", false);
     },
 
-    async votePoll(id, choices) {
-      await voteInPoll(client, id, choices);
+    async votePoll(_id: string, choices: number[], poll?: Poll | null) {
+      // `_id` is the status id — intentionally unused on this family: the
+      // vote addresses the poll id off the already-loaded model (ADR
+      // 0010: no status GET, no read/vote race). A null/missing model id
+      // is the honest `noPoll` failure with zero requests.
+      await voteInPoll(client, poll?.id, choices);
     },
 
     resolveQuoteUri(uri: string): Promise<Post | null> {

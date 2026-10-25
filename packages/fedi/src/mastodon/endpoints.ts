@@ -843,18 +843,17 @@ export async function setStatusPinned(
 }
 
 /**
- * `POST /api/v1/polls/:id/votes` (contract §4). The endpoint takes the
- * POLL id, not the status id — the poll is read off the status first
- * (core `Poll` carries no id; nothing is guessed). `choices` are option
- * indices (the wire's integer array).
+ * `POST /api/v1/polls/:id/votes` (contract §4). The caller supplies the
+ * POLL id from the already-loaded `Post.poll.id` — never refetched (ADR
+ * 0010: no status GET, so no extra round trip and no read/vote race). A
+ * null/missing id is the honest `noPoll` failure with zero requests —
+ * never a silent refetch.
  */
 export async function voteInPoll(
   client: MastoClient,
-  statusId: string,
+  pollId: string | null | undefined,
   choices: number[],
 ): Promise<void> {
-  const res = await client.get<Status>(`/api/v1/statuses/${encodeURIComponent(statusId)}`);
-  const pollId = res.data?.poll?.id;
   if (!pollId) {
     throw new FediError("This post has no poll to vote in.", "errors.shape.noPoll");
   }

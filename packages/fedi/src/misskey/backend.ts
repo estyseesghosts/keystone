@@ -24,6 +24,7 @@ import type {
   Media,
   Notification,
   Page,
+  Poll,
   Post,
   Relationship,
 } from "../core/models";
@@ -450,7 +451,16 @@ export function createMisskeyBackend(
       await call<undefined>("notes/unrenote", { noteId: id });
     },
 
-    async votePoll(id, choices) {
+    async votePoll(id: string, choices: number[], poll?: Poll | null) {
+      // Voting with no loaded poll at all is the typed `noPoll` failure
+      // with zero requests (ADR 0010) — never let the server 400 decide.
+      // An explicit null means the caller holds a post with no poll;
+      // undefined is a legacy caller holding the note id alone. A
+      // present poll's null id never blocks: the vote keys on the note
+      // id, not a poll id.
+      if (poll === null) {
+        throw new FediError("This post has no poll to vote in.", "errors.shape.noPoll");
+      }
       // One POST per choice: the endpoint takes a single `choice`, so a
       // multi-choice vote is N writes, never one atomic write. Stop at the
       // first failure and report how many choices were already recorded

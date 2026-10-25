@@ -108,6 +108,7 @@ describe('deleteAndRedraft', () => {
       backend,
       post({
         poll: {
+          id: 'poll1',
           options: [{text: 'a', votesCount: 3, voted: true}],
           multiple: false,
           expiresAt: null,

@@ -18,6 +18,7 @@ import { MastoHttpError } from "../src/mastodon/client";
 import { decodeContinuation } from "../src/mastodon/adapt";
 import { ApiError } from "../src/core/errors";
 import type { PostDraft } from "../src/core/backend";
+import type { Poll } from "../src/core/models";
 import type { Account, Status } from "../src/mastodon/wire";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -289,6 +290,31 @@ describe("MastodonBackend toggles and reactions (never merged)", () => {
     expect(deletes.map((c) => c.path)).toEqual([
       "/api/v1/pleroma/statuses/s1/reactions/%F0%9F%8E%89",
     ]);
+  });
+
+  it("votePoll posts the model's poll id directly with no status GET; a null poll is noPoll with no request", async () => {
+    const { client, calls } = statusStub([status]);
+    const backend = createMastodonBackend(client);
+    const poll: Poll = {
+      id: "34830",
+      multiple: true,
+      expiresAt: "2026-10-20T09:41:00.000Z",
+      expired: false,
+      votesCount: 4,
+      votersCount: 3,
+      options: [
+        { text: "yes", votesCount: 3, voted: true },
+        { text: "no", votesCount: 1, voted: false },
+      ],
+    };
+    await backend.votePoll("113959271829458642", [0, 1], poll);
+    expect(calls).toEqual([
+      { method: "POST", path: "/api/v1/polls/34830/votes", body: { choices: [0, 1] } },
+    ]);
+    await expect(
+      backend.votePoll("113959271829458642", [0], null),
+    ).rejects.toMatchObject({ code: "errors.shape.noPoll" });
+    expect(calls).toHaveLength(1);
   });
 
   it("accountReactions is honestly unsupported — favourites are never reactions", async () => {

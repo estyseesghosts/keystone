@@ -234,7 +234,9 @@ export function adaptDriveFolder(folder: WireDriveFolder): CoreDriveFolder {
  * clock at adapt time (the wire sends no closed flag); a poll without an
  * expiry is never expired. `votesCount` is the sum of choice votes;
  * `votersCount` stays null — the server sends none, and it is never
- * coerced. */
+ * coerced. `id` is always null: the Misskey wire offers no poll id, and
+ * nothing is guessed (ADR 0010) — this blocks nothing because `votePoll`
+ * keys on the note id, not a poll id. */
 export function adaptPoll(poll: WirePoll | null, now = Date.now()): Poll | null {
   if (!poll) return null;
   const options = (poll.choices ?? []).map((c) => ({
@@ -243,6 +245,7 @@ export function adaptPoll(poll: WirePoll | null, now = Date.now()): Poll | null 
     voted: c.isVoted === true,
   }));
   return {
+    id: null,
     multiple: poll.multiple === true,
     expiresAt: poll.expiresAt ?? null,
     expired: poll.expiresAt != null && Date.parse(poll.expiresAt) <= now,

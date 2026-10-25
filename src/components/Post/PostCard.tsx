@@ -30,6 +30,7 @@ import {
   type Capabilities,
   type EmojiStyle,
   type Media,
+  type Poll,
   type Post,
 } from '@keystone/fedi'
 
@@ -305,7 +306,7 @@ type LiveBits = {
   menu: PostMenuSection[]
   handlers: PostCardHandlers
   translation: Translation | null
-  votePoll: (postId: string, choices: number[]) => Promise<void>
+  votePoll: (postId: string, choices: number[], poll?: Poll | null) => Promise<void>
 }
 
 /** Wires the write path when session + query providers exist; otherwise
@@ -378,11 +379,14 @@ function LivePostCard(props: PostCardProps) {
   )
 
   // Poll votes ride the owning session's backend (capability-gated in the
-  // view). Stable so the memoized `live` object below holds its identity.
+  // view). The loaded model poll travels alongside the post id so the
+  // Mastodon path votes its poll id with no refetch (ADR 0010); a null
+  // poll here means "no poll" on both families. Stable so the memoized
+  // `live` object below holds its identity.
   const votePoll = useCallback(
-    async (postId: string, choices: number[]) => {
+    async (postId: string, choices: number[], poll?: Poll | null) => {
       if (!backend) throw new Error(i18n._(msg`Sign in to vote.`))
-      await backend.votePoll(postId, choices)
+      await backend.votePoll(postId, choices, poll)
     },
     [backend, i18n],
   )
@@ -1029,7 +1033,7 @@ const PostCardView = memo(function PostCardView({
         {!bodyHidden && effective.poll !== null && (
           <PostPoll
             poll={effective.poll}
-            onVote={live?.votePoll ? choices => live.votePoll(effective.id, choices) : undefined}
+            onVote={live?.votePoll ? choices => live.votePoll(effective.id, choices, effective.poll) : undefined}
             testID={`post-poll-${post.id}`}
           />
         )}

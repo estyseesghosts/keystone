@@ -15,8 +15,10 @@ Follow-up Batch 2a landed on `main` (2026-10-25): quote seen re-seed
 (`Backend.seedSeenQuote?`), mastodon `as any` 6→0, transport re-plumb
 (allowlist 13→3), ADR 0010 (poll-id-on-model) — **217 suites / 2905
 tests** green. Log: `state/logs/2026-10-25-followup-batch2a.md`.
-Remaining follow-ups: Batch 2b (implement ADR 0010), Batch 3
-(screens/minors), Batch 4 (locale extract/compile). Device/live runs `not verified (owner
+Remaining follow-ups: Batch 3 (screens/minors), Batch 4
+(locale extract/compile). Batch 2b (ADR 0010 implementation) landed —
+**217 suites / 2907 tests** green. Log:
+`state/logs/2026-10-25-followup-batch2b.md`. Device/live runs `not verified (owner
 live-tests externally)`.
 
 Phase/slice: **P6 Wave 3.2 + mobile bring-up MERGED on `main`
