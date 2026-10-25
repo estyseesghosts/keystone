@@ -984,8 +984,8 @@ check in X12.1.
 
 ## X4.1 - Notification dismiss and types
 
-Status: not started
-Branch: `repair25-x4.1-notif-dismiss`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x4.1.md`; 254 suites / 3530 tests green at Wave-4 commit)
+Branch: `repair25-x4.1-notif-dismiss` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: mastodon 1, 12
 
 **Steps.**
@@ -1008,8 +1008,8 @@ Audit: mastodon 1, 12
 
 ## X4.2 - Search resolve, capabilities, family detection
 
-Status: not started
-Branch: `repair25-x4.2-search-caps`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x4.2.md`; 254 suites / 3541 tests green at Wave-4 commit)
+Branch: `repair25-x4.2-search-caps` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: mastodon 4, 5, 6, 16
 
 **Steps.**
@@ -1028,8 +1028,8 @@ Audit: mastodon 4, 5, 6, 16
 
 ## X4.3 - Polls
 
-Status: not started
-Branch: `repair25-x4.3-polls`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x4.3.md`; ADR 0013; 254 suites / 3549 tests green at Wave-4 commit)
+Branch: `repair25-x4.3-polls` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: mastodon 7, 20, 22 (poll min); misskey M16
 
 **Steps.**
@@ -1048,8 +1048,8 @@ Audit: mastodon 7, 20, 22 (poll min); misskey M16
 
 ## X4.4 - Notifications read state, lists, drafts, pagination, robustness
 
-Status: not started (D4 default applies)
-Branch: `repair25-x4.4-mastodon-misc`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x4.4.md`; steps 1-6+8+9 landed, step 7 revocation blocked → tracked follow-up; 258 suites / 3597 tests green at Wave-4 commit)
+Branch: `repair25-x4.4-mastodon-misc` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: mastodon 9, 10, 11 (backend half), 15, 17, 18, 19, 21, 22
 
 **Steps.**
