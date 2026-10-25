@@ -1,9 +1,13 @@
 import {useEffect, useMemo, useState} from 'react'
+import {View} from 'react-native'
 
-import {I18nProvider} from '@lingui/react'
+import {I18nProvider, useLingui} from '@lingui/react'
+import {msg} from '@lingui/macro'
 import {SafeAreaProvider} from 'react-native-safe-area-context'
 
 import {ThemeProvider} from '#/alf/index'
+import {Body} from '#/alf/typography'
+import {Loader} from '#/components/Loader'
 import {i18n} from '#/locale/i18n'
 import {useColorMode, useTextScale} from '#/state/appearance'
 import {ToastHost} from '#/components/ToastHost'
@@ -104,6 +108,29 @@ function SystemUIBinder() {
   return null
 }
 
+// Boot splash (repair X3.5): the boot legs are capped, but even a capped
+// boot takes time on a bad network — render a translated loader instead of
+// a blank screen, with a "taking longer" line after 3 s. New UI strings go
+// through Lingui `msg` only.
+export function BootSplash() {
+  const {i18n} = useLingui()
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 3000)
+    return () => clearTimeout(timer)
+  }, [])
+  return (
+    <View
+      accessible
+      accessibilityLabel={i18n._(msg`Loading Keystone`)}
+      testID="boot-loading"
+      style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
+      <Loader testID="boot-loading-indicator" />
+      {slow ? <Body>{i18n._(msg`Taking longer than usual. Check your connection.`)}</Body> : null}
+    </View>
+  )
+}
+
 function ThemedProviders({
   store,
   homeOrigin,
@@ -122,7 +149,7 @@ function ThemedProviders({
       <SystemUIBinder />
       <SessionProvider store={store} homeOrigin={homeOrigin}>
         <HostingProvider value={hosting}>
-          <QueryProvider>{ready ? <Navigation /> : null}</QueryProvider>
+          <QueryProvider>{ready ? <Navigation /> : <BootSplash />}</QueryProvider>
         </HostingProvider>
         <ToastHost />
       </SessionProvider>

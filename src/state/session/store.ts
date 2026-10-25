@@ -339,6 +339,10 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
   const verifyInFlight = new Map<string, Promise<SessionVerifyResult>>()
   const verifyCooldown = new Map<string, {until: number; token: string; result: SessionVerifyResult}>()
   const VERIFY_COOLDOWN_MS = 30_000
+  // Boot cap (repair X3.5): `verifyActive` fails open as `network` after
+  // this long, keeping the session. `verifySession` itself is unbounded
+  // (X1.5 owns it).
+  const VERIFY_ACTIVE_TIMEOUT_MS = 8_000
 
   // Operation chain (repair X1.2, S5/S6): every read-modify-write that
   // crosses an `await` (`add`, `remove`, `dropLocal`, `hydrate`,
@@ -1087,7 +1091,20 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     async verifyActive(): Promise<SessionVerifyResult> {
       const id = snapshot().activeId
       if (!id) return {ok: false, reason: 'signed-out', cleared: false}
-      return store.verifySession(id)
+      // Boot cap (repair X3.5): a stalled `me()` must never leave a blank
+      // app. Fail open as `network` after 8 s — the session is kept, and a
+      // timeout never drops it. (X1.5 owns `verifySession`; this only bounds
+      // the boot call.)
+      const timeout: SessionVerifyResult = {ok: false, reason: 'network', cleared: false}
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const cap = new Promise<SessionVerifyResult>(resolve => {
+        timer = setTimeout(() => resolve(timeout), VERIFY_ACTIVE_TIMEOUT_MS)
+      })
+      try {
+        return await Promise.race([store.verifySession(id), cap])
+      } finally {
+        if (timer !== undefined) clearTimeout(timer)
+      }
     },
 
     async refreshActive(): Promise<SessionRefreshResult> {

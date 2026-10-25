@@ -169,10 +169,27 @@ async function defaultProber(url: string, fetchImpl: FetchImpl = defaultFetchImp
 }
 
 /**
+ * Boot cap (repair X3.5): the config fetch is OPTIONAL — a stalled network
+ * must never leave a blank app. Fail open to the defaults after 5 s.
+ * X1.4 owns the persist policy; this timeout only bounds the fetch leg.
+ */
+export const LOAD_TIMEOUT_MS = 5_000;
+
+function withLoadTimeout(promise: Promise<ConfigFetchResult>): Promise<ConfigFetchResult> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const cap = new Promise<ConfigFetchResult>((resolve) => {
+    timer = setTimeout(() => resolve({ status: 0, body: null }), LOAD_TIMEOUT_MS);
+  });
+  return Promise.race([promise, cap]).finally(() => {
+    if (timer !== null) clearTimeout(timer);
+  });
+}
+
+/**
  * Load (once) and cache the runtime config. Never throws: any failure
  * resolves to the defaults. `base` is the app base path (`/` by default);
- * the file is fetched from `${base}keystone.config.json`.
- */
+ * the file is fetched from `${base}keystone.config.json`. A fetch that
+ * stalls past `LOAD_TIMEOUT_MS` resolves to the defaults (fail open). */
 export function loadRuntimeConfig(opts: {
   base?: string;
   prober?: ConfigProber;
@@ -186,7 +203,7 @@ export function loadRuntimeConfig(opts: {
   const url = `${base}${CONFIG_FILE}`;
   const fetchImpl = opts.fetchImpl ?? defaultFetchImpl;
   const prober = opts.prober ?? ((probedUrl) => defaultProber(probedUrl, fetchImpl));
-  inflight = prober(url)
+  inflight = withLoadTimeout(prober(url))
     .then((res) => {
       cached = res.status >= 200 && res.status < 300 ? mergeRuntimeConfig(res.body) : { ...DEFAULT_RUNTIME_CONFIG };
       return cached;

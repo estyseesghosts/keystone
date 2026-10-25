@@ -415,6 +415,27 @@ describe('verifySession / verifyActive (MD5 boot re-verify)', () => {
     })
     expect(store.list().map(s => s.id)).toEqual([a.id])
   })
+
+  it('a stalled verify fails open as network after 8 s: session kept, never dropped (X3.5)', async () => {
+    jest.useFakeTimers()
+    try {
+      const {store} = setup()
+      const a = await store.add(sessionA())
+      globalThis.fetch = jest.fn(() => new Promise(() => {})) as unknown as typeof fetch
+      const pending = store.verifyActive()
+      const assertion = expect(pending).resolves.toEqual({
+        ok: false,
+        reason: 'network',
+        cleared: false,
+      })
+      await jest.advanceTimersByTimeAsync(8000)
+      await assertion
+      expect(store.list().map(s => s.id)).toEqual([a.id])
+      expect(store.activeId()).toBe(a.id)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
 })
 
 describe('refreshActive (MD5 honest no-op)', () => {

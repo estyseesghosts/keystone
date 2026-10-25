@@ -11,6 +11,7 @@ import {
   resetRuntimeConfigCache,
   resolveHomeServer,
   runtimeConfig,
+  type ConfigFetchResult,
   type ConfigProber,
 } from "../src/core/config";
 
@@ -136,6 +137,35 @@ describe("loadRuntimeConfig", () => {
       prober: () => Promise.reject(new Error("boom")),
     });
     expect(cfg).toEqual(DEFAULT_RUNTIME_CONFIG);
+  });
+
+  it("a stalled fetch fails open to defaults after 5 s (X3.5)", async () => {
+    jest.useFakeTimers();
+    try {
+      const pending = loadRuntimeConfig({
+        prober: () => new Promise<ConfigFetchResult>(() => {}),
+      });
+      const assertion = expect(pending).resolves.toEqual(DEFAULT_RUNTIME_CONFIG);
+      await jest.advanceTimersByTimeAsync(5_000);
+      await assertion;
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("a slow-but-answering fetch still wins before the cap", async () => {
+    jest.useFakeTimers();
+    try {
+      let resolve!: (result: ConfigFetchResult) => void;
+      const pending = loadRuntimeConfig({
+        prober: () => new Promise<ConfigFetchResult>((r) => { resolve = r; }),
+      });
+      await jest.advanceTimersByTimeAsync(4_000);
+      resolve({ status: 200, body: { name: "Slow" } });
+      await expect(pending).resolves.toMatchObject({ name: "Slow" });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("the default prober threads an injected fetchImpl and pins the config URL", async () => {
