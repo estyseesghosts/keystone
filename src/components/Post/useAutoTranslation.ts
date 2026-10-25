@@ -86,6 +86,11 @@ export function useAutoTranslation(args: {
     // other auto failure. Manual translate never consults this.
     if (isTranslateBlocked(sessionId)) return
     if (bodyHidden) return
+    // Repair X2.5: private posts (direct/followers — `specified` maps to
+    // `direct` at the model layer) never auto-translate: the endpoint is
+    // server-side and unscoped, so a skipped fetch is the only saving.
+    // Manual translate (the menu row) stays available on demand.
+    if (effective.visibility.kind === 'direct' || effective.visibility.kind === 'followers') return
     if (effective.content.plain.trim() === '') return
     // Same-language skip: the post is already in the viewer's language,
     // so the server would echo it back — over an unscoped request (see
@@ -120,6 +125,7 @@ export function useAutoTranslation(args: {
   }, [
     effective.id,
     effective.content.plain,
+    effective.visibility.kind,
     sessionId,
     srcSupported,
     srcLang,

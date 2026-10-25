@@ -128,7 +128,28 @@ export function CustomEmojiGlyph({
     if (hinted !== null) return hinted
     return s.urlFor(host ? `:${name}@${host}:` : `:${name}:`)
   })
-  const candidates = [safeHttpUrl(src), safeHttpUrl(lookupPackedEmojis(packed, code)), safeHttpUrl(storeUrl)].filter(
+  // Repair X2.5 (privacy F7, UI half): in packed context (`packed` is
+  // provided — post bodies, display names, reaction chips) the node
+  // `src` loads only when it matches a URL in the packed emoji map;
+  // anything else (a tracking pixel, a plaintext host) is untrusted and
+  // the literal `:code:` renders instead. Without a packed map (the
+  // picker path) the vetted `src` loads as before. The session-store
+  // fallback below is unchanged: it resolves through the emoji host's
+  // own public listing, never the node's URL. Production reaction
+  // entries always mirror the packed map (both adapters populate
+  // `urls` from the same wire URL), so chips are unaffected.
+  const packedUrls =
+    packed != null
+      ? new Set(
+          Object.values(packed)
+            .map(v => safeHttpUrl(v))
+            .filter((u): u is string => u !== null),
+        )
+      : null
+  const safeSrc = safeHttpUrl(src)
+  const trustedSrc =
+    safeSrc !== null && (packedUrls === null || packedUrls.has(safeSrc)) ? safeSrc : null
+  const candidates = [trustedSrc, safeHttpUrl(lookupPackedEmojis(packed, code)), safeHttpUrl(storeUrl)].filter(
     (u): u is string => u !== null,
   )
   const [index, setIndex] = useState(0)

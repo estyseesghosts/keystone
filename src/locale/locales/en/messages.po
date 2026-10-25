@@ -48,12 +48,12 @@ msgstr "(poll / CW only)"
 
 #. placeholder {0}: names[0]
 #. placeholder {1}: rest === 1 ? '' : 's'
-#: src/components/Post/PostCard.tsx:150
+#: src/components/Post/PostCard.tsx:157
 msgid "{0} and {rest} other{1} boosted"
 msgstr "{0} and {rest} other{1} boosted"
 
 #. placeholder {0}: displayNameOf(post.author)
-#: src/components/Post/PostCard.tsx:148
+#: src/components/Post/PostCard.tsx:155
 msgid "{0} boosted"
 msgstr "{0} boosted"
 
@@ -115,7 +115,7 @@ msgid "Accessibility and display"
 msgstr "Accessibility and display"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:56
+#: src/lib/localeErrors.ts:58
 msgid "errors.shape.account"
 msgstr "Account {id} returned an unexpected response shape."
 
@@ -150,7 +150,7 @@ msgid "Accounts whose reposts are hidden."
 msgstr "Accounts whose reposts are hidden."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:71
+#: src/lib/localeErrors.ts:73
 msgid "errors.compose.actionFailed"
 msgstr "Action failed."
 
@@ -202,8 +202,8 @@ msgid "Add recipient"
 msgstr "Add recipient"
 
 #. placeholder {0}: bmLabel.toLowerCase()
-#: src/components/Post/menuModel.ts:362
-#: src/components/Post/menuModel.ts:365
+#: src/components/Post/menuModel.ts:383
+#: src/components/Post/menuModel.ts:386
 msgid "Add to {0}"
 msgstr "Add to {0}"
 
@@ -269,7 +269,7 @@ msgstr "and {extraCount} other{0}"
 msgid "Announcements"
 msgstr "Announcements"
 
-#: src/screens/Login.tsx:560
+#: src/screens/Login.tsx:583
 msgid "Another server"
 msgstr "Another server"
 
@@ -287,7 +287,7 @@ msgid "Antennas"
 msgstr "Antennas"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:28
+#: src/lib/localeErrors.ts:30
 msgid "errors.network.apiError"
 msgstr "API error: HTTP {status}"
 
@@ -296,7 +296,7 @@ msgid "Applies to posts, reactions, and the emoji picker. System uses your devic
 msgstr "Applies to posts, reactions, and the emoji picker. System uses your device font."
 
 #. placeholder {0}: detection.origin
-#: src/screens/Login.tsx:623
+#: src/screens/Login.tsx:646
 msgid "Approve on {0}, then continue here."
 msgstr "Approve on {0}, then continue here."
 
@@ -340,11 +340,15 @@ msgstr "Audio unavailable"
 msgid "Automatic"
 msgstr "Automatic"
 
+#: src/components/Settings/PrivacySection.tsx:42
+msgid "Automatic for public posts"
+msgstr "Automatic for public posts"
+
 #: src/components/shell/MobileStrip.tsx:38
 msgid "Back"
 msgstr "Back"
 
-#: src/screens/AuthCallback.tsx:200
+#: src/screens/AuthCallback.tsx:230
 msgid "Back to sign in"
 msgstr "Back to sign in"
 
@@ -366,6 +370,10 @@ msgstr "Block a domain"
 msgid "Block domain"
 msgstr "Block domain"
 
+#: src/components/Settings/PrivacySection.tsx:120
+msgid "Block screenshots and screen recordings at the OS level."
+msgstr "Block screenshots and screen recordings at the OS level."
+
 #: src/components/Settings/MutesSection.tsx:125
 msgid "Blocked accounts"
 msgstr "Blocked accounts"
@@ -380,7 +388,7 @@ msgstr "Blocked domains"
 msgid "blocks"
 msgstr "blocks"
 
-#: src/components/Post/menuModel.ts:357
+#: src/components/Post/menuModel.ts:378
 msgid "Bookmark"
 msgstr "Bookmark"
 
@@ -397,7 +405,7 @@ msgid "Boost"
 msgstr "Boost"
 
 #. placeholder {0}: detection.origin
-#: src/screens/Login.tsx:611
+#: src/screens/Login.tsx:634
 msgid "Browser sign-in — approve on {0}."
 msgstr "Browser sign-in — approve on {0}."
 
@@ -406,9 +414,9 @@ msgstr "Browser sign-in — approve on {0}."
 #: src/components/Composer/ComposerSections.tsx:551
 #: src/components/Post/ReportChooser.tsx:201
 #: src/components/Settings/FiltersSection.tsx:152
-#: src/screens/Login.tsx:630
-#: src/screens/Login.tsx:668
-#: src/screens/Login.tsx:735
+#: src/screens/Login.tsx:653
+#: src/screens/Login.tsx:691
+#: src/screens/Login.tsx:758
 #: src/screens/Notifications.tsx:472
 msgid "Cancel"
 msgstr "Cancel"
@@ -439,8 +447,8 @@ msgid "Check your connection and try again."
 msgstr "Check your connection and try again."
 
 #: src/components/Settings/TransferSections.tsx:329
-#: src/screens/Login.tsx:600
-#: src/screens/Login.tsx:626
+#: src/screens/Login.tsx:623
+#: src/screens/Login.tsx:649
 msgid "Checking…"
 msgstr "Checking…"
 
@@ -513,8 +521,8 @@ msgstr "Clips"
 msgid "Close dialog"
 msgstr "Close dialog"
 
-#: src/screens/Login.tsx:661
-#: src/screens/Login.tsx:729
+#: src/screens/Login.tsx:684
+#: src/screens/Login.tsx:752
 msgid "Code"
 msgstr "Code"
 
@@ -540,8 +548,8 @@ msgstr "Connecting…"
 msgid "Content warning"
 msgstr "Content warning"
 
-#: src/screens/Login.tsx:600
-#: src/screens/Login.tsx:715
+#: src/screens/Login.tsx:623
+#: src/screens/Login.tsx:738
 msgid "Continue"
 msgstr "Continue"
 
@@ -549,12 +557,12 @@ msgstr "Continue"
 msgid "Conversation"
 msgstr "Conversation"
 
-#: src/components/Post/PostCard.tsx:437
+#: src/components/Post/PostCard.tsx:463
 #: src/components/richtext/MatrixHover.tsx:30
 msgid "Copied"
 msgstr "Copied"
 
-#: src/components/Post/menuModel.ts:304
+#: src/components/Post/menuModel.ts:325
 msgid "Copy contents"
 msgstr "Copy contents"
 
@@ -562,8 +570,8 @@ msgstr "Copy contents"
 msgid "Copy handle"
 msgstr "Copy handle"
 
-#: src/components/Post/menuModel.ts:306
-#: src/components/Post/menuModel.ts:307
+#: src/components/Post/menuModel.ts:327
+#: src/components/Post/menuModel.ts:328
 msgid "Copy link"
 msgstr "Copy link"
 
@@ -571,7 +579,7 @@ msgstr "Copy link"
 msgid "Copy profile URL"
 msgstr "Copy profile URL"
 
-#: src/components/Post/menuModel.ts:325
+#: src/components/Post/menuModel.ts:346
 msgid "Copy remote link"
 msgstr "Copy remote link"
 
@@ -656,6 +664,15 @@ msgstr "Could not mark notifications read."
 msgid "Could not open the media picker."
 msgstr "Could not open the media picker."
 
+#: src/screens/ChatThread.tsx:59
+msgid "Could not open this attachment."
+msgstr "Could not open this attachment."
+
+#: src/components/richtext/mentionRouting.ts:35
+#: src/components/richtext/mentionRouting.ts:38
+msgid "Could not open this link."
+msgstr "Could not open this link."
+
 #: src/components/Notification/NotificationRow.tsx:88
 msgid "could not post your scheduled note"
 msgstr "could not post your scheduled note"
@@ -665,22 +682,22 @@ msgid "Could not post."
 msgstr "Could not post."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:21
+#: src/lib/localeErrors.ts:23
 msgid "errors.network.unreachableBare"
 msgstr "Could not reach {origin} ({reason})."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:25
+#: src/lib/localeErrors.ts:27
 msgid "errors.network.unreachableOrigin"
 msgstr "Could not reach {origin} ({reason}). Is the server running and the host correct?"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:24
+#: src/lib/localeErrors.ts:26
 msgid "errors.network.unreachableInstance"
 msgstr "Could not reach the instance ({reason}). Is the host correct?"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:26
+#: src/lib/localeErrors.ts:28
 msgid "errors.network.unreachableServer"
 msgstr "Could not reach the server ({reason}). Is it running?"
 
@@ -712,7 +729,7 @@ msgid "Could not save the filter."
 msgstr "Could not save the filter."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:35
+#: src/lib/localeErrors.ts:37
 msgid "errors.auth.savePending"
 msgstr "Could not save the sign-in state (session storage blocked) — the redirect flow cannot continue safely."
 
@@ -777,20 +794,20 @@ msgid "Default. Colourful open-source set."
 msgstr "Default. Colourful open-source set."
 
 #: src/components/Composer/ComposerSections.tsx:622
-#: src/components/Post/menuModel.ts:435
-#: src/components/Post/menuModel.ts:437
-#: src/components/Post/menuModel.ts:440
+#: src/components/Post/menuModel.ts:456
+#: src/components/Post/menuModel.ts:458
+#: src/components/Post/menuModel.ts:461
 msgid "Delete"
 msgstr "Delete"
 
-#: src/components/Post/menuModel.ts:414
-#: src/components/Post/menuModel.ts:418
-#: src/components/Post/menuModel.ts:425
-#: src/components/Post/menuModel.ts:429
+#: src/components/Post/menuModel.ts:435
+#: src/components/Post/menuModel.ts:439
+#: src/components/Post/menuModel.ts:446
+#: src/components/Post/menuModel.ts:450
 msgid "Delete and redraft"
 msgstr "Delete and redraft"
 
-#: src/components/Post/menuModel.ts:417
+#: src/components/Post/menuModel.ts:438
 msgid "Delete and redraft this post?"
 msgstr "Delete and redraft this post?"
 
@@ -798,7 +815,7 @@ msgstr "Delete and redraft this post?"
 msgid "Delete this draft"
 msgstr "Delete this draft"
 
-#: src/components/Post/menuModel.ts:437
+#: src/components/Post/menuModel.ts:458
 msgid "Delete this post?"
 msgstr "Delete this post?"
 
@@ -861,6 +878,10 @@ msgstr "Drafts"
 msgid "Drafts ({0})"
 msgstr "Drafts ({0})"
 
+#: src/components/Settings/PrivacySection.tsx:98
+msgid "Draw an opaque cover over the app when it goes to the background, so the task switcher shows nothing. Always on while a chat is open."
+msgstr "Draw an opaque cover over the app when it goes to the background, so the task switcher shows nothing. Always on while a chat is open."
+
 #: src/routes.ts:414
 msgid "Drive"
 msgstr "Drive"
@@ -873,9 +894,9 @@ msgstr "Each post renders through its own source parser."
 msgid "earned an achievement"
 msgstr "earned an achievement"
 
-#: src/components/Post/menuModel.ts:373
-#: src/components/Post/menuModel.ts:375
-#: src/components/Post/menuModel.ts:376
+#: src/components/Post/menuModel.ts:394
+#: src/components/Post/menuModel.ts:396
+#: src/components/Post/menuModel.ts:397
 #: src/components/Settings/FiltersSection.tsx:172
 msgid "Edit"
 msgstr "Edit"
@@ -932,7 +953,7 @@ msgstr "Enter an instance host, e.g. example.com."
 msgid "Every notification is deleted on the server. This cannot be undone."
 msgstr "Every notification is deleted on the server. This cannot be undone."
 
-#: src/screens/Login.tsx:596
+#: src/screens/Login.tsx:619
 msgid "example.social"
 msgstr "example.social"
 
@@ -941,7 +962,7 @@ msgid "Expand sidebar"
 msgstr "Expand sidebar"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:62
+#: src/lib/localeErrors.ts:64
 msgid "errors.shape.expectedList"
 msgstr "Expected a {kind} list (HTTP {status})."
 
@@ -973,7 +994,7 @@ msgstr "failed"
 msgid "favorites"
 msgstr "favorites"
 
-#: src/components/Post/menuModel.ts:357
+#: src/components/Post/menuModel.ts:378
 #: src/routes.ts:416
 msgid "Favorites"
 msgstr "Favorites"
@@ -995,7 +1016,7 @@ msgid "Feeds never show sample data when signed out."
 msgstr "Feeds never show sample data when signed out."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:64
+#: src/lib/localeErrors.ts:66
 msgid "errors.compose.fileTooLarge"
 msgstr "File is too large ({kb} KB — limit is 10 MB)."
 
@@ -1003,7 +1024,7 @@ msgstr "File is too large ({kb} KB — limit is 10 MB)."
 msgid "Filters"
 msgstr "Filters"
 
-#: src/screens/AuthCallback.tsx:196
+#: src/screens/AuthCallback.tsx:226
 msgid "Finishing sign-in"
 msgstr "Finishing sign-in"
 
@@ -1088,11 +1109,11 @@ msgstr "Hard word mutes"
 msgid "Hidden from global timelines"
 msgstr "Hidden from global timelines"
 
-#: src/components/Post/PostCard.tsx:944
+#: src/components/Post/PostCard.tsx:995
 msgid "Hide"
 msgstr "Hide"
 
-#: src/components/Post/PostCard.tsx:943
+#: src/components/Post/PostCard.tsx:994
 msgid "Hide content"
 msgstr "Hide content"
 
@@ -1111,11 +1132,15 @@ msgstr "Hide totals"
 msgid "Home"
 msgstr "Home"
 
+#: src/components/Settings/PrivacySection.tsx:59
+msgid "How link previews in posts load. Private posts never load automatically."
+msgstr "How link previews in posts load. Private posts never load automatically."
+
 #: src/components/Settings/DisplaySection.tsx:148
 msgid "How post bodies, bios and quotes render."
 msgstr "How post bodies, bios and quotes render."
 
-#: src/screens/Login.tsx:626
+#: src/screens/Login.tsx:649
 msgid "I've approved — continue"
 msgstr "I've approved — continue"
 
@@ -1146,12 +1171,12 @@ msgid "Insert emoji"
 msgstr "Insert emoji"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:66
+#: src/lib/localeErrors.ts:68
 msgid "errors.feeds.invalidDescriptor"
 msgstr "Invalid feed descriptor."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:65
+#: src/lib/localeErrors.ts:67
 msgid "errors.filter.invalidRegex"
 msgstr "Invalid regular expression on line {line}."
 
@@ -1168,6 +1193,7 @@ msgid "Keep writing"
 msgstr "Keep writing"
 
 #: src/routes.ts:459
+#: src/state/PrivacyShieldHost.tsx:50
 msgid "Keystone"
 msgstr "Keystone"
 
@@ -1212,6 +1238,11 @@ msgstr "Liked with {mine} — remove reaction"
 msgid "liked your post"
 msgstr "liked your post"
 
+#: src/components/Settings/PrivacySection.tsx:58
+#: src/components/Settings/PrivacySection.tsx:61
+msgid "Link previews"
+msgstr "Link previews"
+
 #: src/routes.ts:378
 #: src/screens/Notifications.tsx:72
 msgid "List"
@@ -1243,6 +1274,10 @@ msgstr "Live updates unavailable"
 msgid "Load more replies"
 msgstr "Load more replies"
 
+#: src/components/Settings/PrivacySection.tsx:43
+msgid "Load previews automatically on public posts only. Never for direct, followers-only, or specified posts."
+msgstr "Load previews automatically on public posts only. Never for direct, followers-only, or specified posts."
+
 #: src/components/Settings/AccountSection.tsx:173
 msgid "Loading account…"
 msgstr "Loading account…"
@@ -1251,7 +1286,7 @@ msgstr "Loading account…"
 msgid "Loading notification settings."
 msgstr "Loading notification settings."
 
-#: src/components/Post/LinkCard.tsx:284
+#: src/components/Post/LinkCard.tsx:293
 msgid "Loading preview…"
 msgstr "Loading preview…"
 
@@ -1266,7 +1301,7 @@ msgstr "Loading this server's rules…"
 #: src/components/Settings/AccountLists.tsx:101
 #: src/components/Settings/DomainBlocks.tsx:166
 #: src/components/Settings/FiltersSection.tsx:129
-#: src/screens/Login.tsx:542
+#: src/screens/Login.tsx:565
 msgid "Loading…"
 msgstr "Loading…"
 
@@ -1331,7 +1366,7 @@ msgid "Media library access was denied. Enable it in the system settings to atta
 msgstr "Media library access was denied. Enable it in the system settings to attach photos or videos."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:54
+#: src/lib/localeErrors.ts:56
 msgid "errors.shape.mediaLookup"
 msgstr "Media lookup returned an unexpected response shape."
 
@@ -1381,8 +1416,8 @@ msgstr "Mute or block an account"
 msgid "Mute reposts"
 msgstr "Mute reposts"
 
-#: src/components/Post/menuModel.ts:354
-#: src/components/Post/menuModel.ts:355
+#: src/components/Post/menuModel.ts:375
+#: src/components/Post/menuModel.ts:376
 msgid "Mute thread"
 msgstr "Mute thread"
 
@@ -1426,6 +1461,10 @@ msgstr "Needs a Mastodon-family server."
 msgid "Needs a Misskey-family server."
 msgstr "Needs a Misskey-family server."
 
+#: src/components/Settings/PrivacySection.tsx:121
+msgid "Needs a native screenshot-blocking module (not installed)."
+msgstr "Needs a native screenshot-blocking module (not installed)."
+
 #: src/components/Settings/FiltersSection.tsx:212
 msgid "Needs a server with word filters (this one has none)."
 msgstr "Needs a server with word filters (this one has none)."
@@ -1437,6 +1476,14 @@ msgstr "Network"
 #: src/screens/Notifications.tsx:62
 msgid "Never"
 msgstr "Never"
+
+#: src/components/Settings/PrivacySection.tsx:38
+msgid "Never fetch automatically. Tap a card to load its preview."
+msgstr "Never fetch automatically. Tap a card to load its preview."
+
+#: src/components/Settings/PrivacySection.tsx:48
+msgid "Never load previews; show server cards only."
+msgstr "Never load previews; show server cards only."
 
 #: src/components/Notification/NotificationRow.tsx:374
 msgid "New"
@@ -1459,12 +1506,12 @@ msgid "Next week 9:00"
 msgstr "Next week 9:00"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:41
+#: src/lib/localeErrors.ts:43
 msgid "errors.unsupported.noAccountFound"
 msgstr "No account found for {acct}."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:40
+#: src/lib/localeErrors.ts:42
 msgid "errors.unsupported.noAccountRef"
 msgstr "No account reference given."
 
@@ -1482,7 +1529,7 @@ msgstr "No clip picker is connected to this view."
 
 #: src/components/Post/ActionBar.tsx:200
 #: src/components/Post/ActionBar.tsx:258
-#: src/components/Post/menuModel.ts:427
+#: src/components/Post/menuModel.ts:448
 msgid "No composer is connected to this view."
 msgstr "No composer is connected to this view."
 
@@ -1494,7 +1541,7 @@ msgstr "No drafts on this device."
 msgid "No drafts yet."
 msgstr "No drafts yet."
 
-#: src/components/Post/menuModel.ts:376
+#: src/components/Post/menuModel.ts:397
 msgid "No editor is connected to this view."
 msgstr "No editor is connected to this view."
 
@@ -1552,7 +1599,7 @@ msgstr "No trending users right now."
 msgid "None."
 msgstr "None."
 
-#: src/components/Post/menuModel.ts:396
+#: src/components/Post/menuModel.ts:417
 msgid "Not interested"
 msgstr "Not interested"
 
@@ -1621,6 +1668,7 @@ msgstr "Notify about new posts"
 
 #: src/components/Settings/DisplaySection.tsx:197
 #: src/components/Settings/DisplaySection.tsx:219
+#: src/components/Settings/PrivacySection.tsx:103
 msgid "off"
 msgstr "off"
 
@@ -1628,11 +1676,14 @@ msgstr "off"
 #: src/components/Settings/DisplaySection.tsx:201
 #: src/components/Settings/DisplaySection.tsx:223
 #: src/components/Settings/FeedsSection.tsx:41
+#: src/components/Settings/PrivacySection.tsx:47
+#: src/components/Settings/PrivacySection.tsx:107
 msgid "Off"
 msgstr "Off"
 
 #: src/components/Settings/DisplaySection.tsx:197
 #: src/components/Settings/DisplaySection.tsx:219
+#: src/components/Settings/PrivacySection.tsx:103
 msgid "on"
 msgstr "on"
 
@@ -1640,6 +1691,7 @@ msgstr "on"
 #: src/components/Settings/DisplaySection.tsx:201
 #: src/components/Settings/DisplaySection.tsx:223
 #: src/components/Settings/FeedsSection.tsx:41
+#: src/components/Settings/PrivacySection.tsx:107
 msgid "On"
 msgstr "On"
 
@@ -1692,7 +1744,7 @@ msgid "Open attachment {0}"
 msgstr "Open attachment {0}"
 
 #: src/components/Post/menuModel.ts:227
-#: src/components/Post/menuModel.ts:320
+#: src/components/Post/menuModel.ts:341
 msgid "Open in Keystone"
 msgstr "Open in Keystone"
 
@@ -1710,9 +1762,9 @@ msgid "Open media: {label}"
 msgstr "Open media: {label}"
 
 #. placeholder {0}: displayNameOf(effective.author)
-#: src/components/Post/PostCard.tsx:898
-#: src/components/Post/PostCard.tsx:971
-#: src/components/Post/PostCard.tsx:994
+#: src/components/Post/PostCard.tsx:949
+#: src/components/Post/PostCard.tsx:1022
+#: src/components/Post/PostCard.tsx:1045
 msgid "Open post by {0}"
 msgstr "Open post by {0}"
 
@@ -1725,9 +1777,9 @@ msgstr "Open profile"
 #. placeholder {0}: displayNameOf(shownAccount)
 #: src/components/Notification/NotificationRow.tsx:268
 #: src/components/Notification/NotificationRow.tsx:285
-#: src/components/Post/PostCard.tsx:227
-#: src/components/Post/PostCard.tsx:879
-#: src/components/Post/PostCard.tsx:925
+#: src/components/Post/PostCard.tsx:234
+#: src/components/Post/PostCard.tsx:930
+#: src/components/Post/PostCard.tsx:976
 msgid "Open profile of {0}"
 msgstr "Open profile of {0}"
 
@@ -1758,16 +1810,20 @@ msgstr "Open the chat room"
 msgid "Open the post"
 msgstr "Open the post"
 
-#: src/screens/Login.tsx:616
-#: src/screens/Login.tsx:718
+#: src/screens/Login.tsx:639
+#: src/screens/Login.tsx:741
 msgid "Opening the approval page."
 msgstr "Opening the approval page."
 
-#: src/screens/Login.tsx:613
-#: src/screens/Login.tsx:649
-#: src/screens/Login.tsx:715
+#: src/screens/Login.tsx:636
+#: src/screens/Login.tsx:672
+#: src/screens/Login.tsx:738
 msgid "Opening…"
 msgstr "Opening…"
+
+#: src/components/Settings/PrivacySection.tsx:119
+msgid "OS screenshot blocking"
+msgstr "OS screenshot blocking"
 
 #: src/components/Composer/CompactComposer.tsx:363
 #: src/components/Composer/Composer.tsx:894
@@ -1796,8 +1852,8 @@ msgstr "Pages ship in a later slice."
 msgid "Palette"
 msgstr "Palette"
 
-#: src/screens/Login.tsx:638
-#: src/screens/Login.tsx:744
+#: src/screens/Login.tsx:661
+#: src/screens/Login.tsx:767
 msgid "Password"
 msgstr "Password"
 
@@ -1815,17 +1871,17 @@ msgstr "Per-type notification settings are only available on Misskey-family serv
 msgid "Phrase"
 msgstr "Phrase"
 
-#: src/components/Post/menuModel.ts:377
+#: src/components/Post/menuModel.ts:398
 msgid "Pin to profile"
 msgstr "Pin to profile"
 
 #: src/components/Post/badges.ts:30
-#: src/components/Post/PostCard.tsx:480
+#: src/components/Post/PostCard.tsx:529
 msgid "Pinned"
 msgstr "Pinned"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:36
+#: src/lib/localeErrors.ts:38
 msgid "errors.unsupported.pinned"
 msgstr "Pinned-post listings are not available on this server."
 
@@ -1909,13 +1965,18 @@ msgstr "Posts {0}"
 msgid "Posts, bios and quotes render as plain text."
 msgstr "Posts, bios and quotes render as plain text."
 
-#: src/components/Post/LinkCard.tsx:277
+#: src/components/Post/LinkCard.tsx:286
 msgid "Preview"
 msgstr "Preview"
 
-#: src/components/Post/LinkCard.tsx:275
+#: src/components/Post/LinkCard.tsx:284
 msgid "Preview link"
 msgstr "Preview link"
+
+#: src/components/Settings/PrivacySection.tsx:97
+#: src/components/Settings/PrivacySection.tsx:103
+msgid "Privacy shield"
+msgstr "Privacy shield"
 
 #: src/components/shell/AccountMenu.tsx:140
 #: src/components/shell/TabBar.tsx:30
@@ -1978,7 +2039,7 @@ msgid "reacted to your post"
 msgstr "reacted to your post"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:38
+#: src/lib/localeErrors.ts:40
 msgid "errors.unsupported.reactions"
 msgstr "Reaction listings are not available on this server."
 
@@ -2032,12 +2093,17 @@ msgstr "Refuse incoming quotes"
 msgid "errors.network.crossOrigin"
 msgstr "Refusing to send this request: the URL points at a different origin than the session's."
 
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:21
+msgid "errors.origin.insecure"
+msgstr "Refusing to use insecure http for \"{host}\". Use https or a local test host."
+
 #: src/screens/Explore.tsx:135
 msgid "Related tags"
 msgstr "Related tags"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:52
+#: src/lib/localeErrors.ts:54
 msgid "errors.shape.relationships"
 msgstr "Relationships returned an unexpected response shape."
 
@@ -2054,7 +2120,7 @@ msgid "Remove {0}"
 msgstr "Remove {0}"
 
 #. placeholder {0}: bmLabel.toLowerCase()
-#: src/components/Post/menuModel.ts:362
+#: src/components/Post/menuModel.ts:383
 msgid "Remove from {0}"
 msgstr "Remove from {0}"
 
@@ -2083,7 +2149,7 @@ msgstr "Reply, {0} replies"
 #. placeholder {0}: replyTarget.author.acct
 #. placeholder {0}: replyTo.author.acct
 #: src/components/Composer/ComposerSections.tsx:138
-#: src/components/Post/PostCard.tsx:853
+#: src/components/Post/PostCard.tsx:904
 msgid "Replying to @{0}"
 msgstr "Replying to @{0}"
 
@@ -2121,17 +2187,17 @@ msgid "reposted your post"
 msgstr "reposted your post"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:20
+#: src/lib/localeErrors.ts:22
 msgid "errors.network.badPath"
 msgstr "Request path must start with \"/\": got \"{path}\"."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:22
+#: src/lib/localeErrors.ts:24
 msgid "errors.network.timeoutInstance"
 msgstr "Request timed out ({target}): the instance did not answer within {n}s. Retry."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:23
+#: src/lib/localeErrors.ts:25
 msgid "errors.network.timeoutServer"
 msgstr "Request timed out ({target}): the server did not answer within {n}s. Retry, or check the dev-server terminal."
 
@@ -2156,7 +2222,7 @@ msgstr "Requires an admin or moderator account on this server."
 msgid "Reset"
 msgstr "Reset"
 
-#: src/components/Post/PostCard.tsx:1042
+#: src/components/Post/PostCard.tsx:1093
 msgid "Resolving quote…"
 msgstr "Resolving quote…"
 
@@ -2317,7 +2383,7 @@ msgstr "sent a test notification"
 msgid "sent an update"
 msgstr "sent an update"
 
-#: src/screens/Login.tsx:590
+#: src/screens/Login.tsx:613
 msgid "Server"
 msgstr "Server"
 
@@ -2331,7 +2397,12 @@ msgid "Server insight"
 msgstr "Server insight"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:27
+#: src/lib/localeErrors.ts:20
+msgid "errors.network.redirect"
+msgstr "Server redirected the request (HTTP {status}); refusing to follow with credentials."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:29
 msgid "errors.network.badJson"
 msgstr "Server returned a non-JSON body (HTTP {status}) for {target}."
 
@@ -2345,16 +2416,20 @@ msgstr "Server-side phrases that hide matching posts everywhere."
 msgid "Settings"
 msgstr "Settings"
 
-#: src/components/Post/menuModel.ts:332
-#: src/components/Post/menuModel.ts:333
+#: src/components/Post/menuModel.ts:353
+#: src/components/Post/menuModel.ts:354
 msgid "Share"
 msgstr "Share"
 
-#: src/components/Post/PostCard.tsx:944
+#: src/components/Post/menuModel.ts:318
+msgid "Sharing or copying it can expose it beyond its audience."
+msgstr "Sharing or copying it can expose it beyond its audience."
+
+#: src/components/Post/PostCard.tsx:995
 msgid "Show"
 msgstr "Show"
 
-#: src/components/Post/PostCard.tsx:943
+#: src/components/Post/PostCard.tsx:994
 msgid "Show content"
 msgstr "Show content"
 
@@ -2366,11 +2441,11 @@ msgstr "Show Federated tab"
 msgid "Show hidden quote"
 msgstr "Show hidden quote"
 
-#: src/components/Post/PostCard.tsx:1033
+#: src/components/Post/PostCard.tsx:1084
 msgid "Show less"
 msgstr "Show less"
 
-#: src/components/Post/PostCard.tsx:1032
+#: src/components/Post/PostCard.tsx:1083
 msgid "Show less of this post"
 msgstr "Show less of this post"
 
@@ -2382,11 +2457,11 @@ msgstr "Show Local even while Social is available. Local always shows when Socia
 msgid "Show Local tab"
 msgstr "Show Local tab"
 
-#: src/components/Post/PostCard.tsx:1020
+#: src/components/Post/PostCard.tsx:1071
 msgid "Show more"
 msgstr "Show more"
 
-#: src/components/Post/PostCard.tsx:1019
+#: src/components/Post/PostCard.tsx:1070
 msgid "Show more of this post"
 msgstr "Show more of this post"
 
@@ -2398,7 +2473,7 @@ msgstr "Show more replies"
 msgid "Show more replies…"
 msgstr "Show more replies…"
 
-#: src/components/Post/PostCard.tsx:955
+#: src/components/Post/PostCard.tsx:1006
 msgid "Show original"
 msgstr "Show original"
 
@@ -2415,11 +2490,11 @@ msgstr "Show tags"
 msgid "Show the Federated timeline alongside the default tab."
 msgstr "Show the Federated timeline alongside the default tab."
 
-#: src/components/Post/PostCard.tsx:955
+#: src/components/Post/PostCard.tsx:1006
 msgid "Show translation"
 msgstr "Show translation"
 
-#: src/components/Post/PostCard.tsx:959
+#: src/components/Post/PostCard.tsx:1010
 msgid "Showing original · Show translation?"
 msgstr "Showing original · Show translation?"
 
@@ -2438,9 +2513,9 @@ msgstr "Shown everywhere"
 #: src/components/SignInButton.tsx:21
 #: src/Navigation.tsx:149
 #: src/routes.ts:453
-#: src/screens/Login.tsx:549
-#: src/screens/Login.tsx:640
-#: src/screens/Login.tsx:746
+#: src/screens/Login.tsx:572
+#: src/screens/Login.tsx:663
+#: src/screens/Login.tsx:769
 msgid "Sign in"
 msgstr "Sign in"
 
@@ -2452,7 +2527,7 @@ msgstr "Sign in again"
 msgid "Sign in again to grant it. Everything this sign-in can already do keeps working."
 msgstr "Sign in again to grant it. Everything this sign-in can already do keeps working."
 
-#: src/components/Post/menuModel.ts:350
+#: src/components/Post/menuModel.ts:371
 msgid "Sign in again to refresh server features."
 msgstr "Sign in again to refresh server features."
 
@@ -2461,7 +2536,7 @@ msgid "Sign in again to refresh this account's permissions."
 msgstr "Sign in again to refresh this account's permissions."
 
 #: src/components/Post/menuModel.ts:269
-#: src/components/Post/menuModel.ts:355
+#: src/components/Post/menuModel.ts:376
 msgid "Sign in to do this."
 msgstr "Sign in to do this."
 
@@ -2497,22 +2572,22 @@ msgstr "Sign in to see suggested users."
 msgid "Sign in to see this feed."
 msgstr "Sign in to see this feed."
 
-#: src/components/Post/PostCard.tsx:405
+#: src/components/Post/PostCard.tsx:431
 msgid "Sign in to vote."
 msgstr "Sign in to vote."
 
 #. placeholder {0}: props.serverName
-#: src/screens/Login.tsx:713
+#: src/screens/Login.tsx:736
 msgid "Sign in with {0} in the browser."
 msgstr "Sign in with {0} in the browser."
 
-#: src/screens/Login.tsx:613
-#: src/screens/Login.tsx:649
+#: src/screens/Login.tsx:636
+#: src/screens/Login.tsx:672
 msgid "Sign in with browser"
 msgstr "Sign in with browser"
 
 #. placeholder {0}: props.serverName
-#: src/screens/Login.tsx:742
+#: src/screens/Login.tsx:765
 msgid "Sign in with your {0} account."
 msgstr "Sign in with your {0} account."
 
@@ -2529,7 +2604,7 @@ msgid "Sign out everywhere"
 msgstr "Sign out everywhere"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:31
+#: src/lib/localeErrors.ts:33
 msgid "errors.auth.signinFailed"
 msgstr "Sign-in failed."
 
@@ -2552,12 +2627,12 @@ msgstr "Signed out of {label}: session expired"
 msgid "Signed out. Add an account to sign in."
 msgstr "Signed out. Add an account to sign in."
 
-#: src/screens/Login.tsx:749
+#: src/screens/Login.tsx:772
 msgid "Signing in."
 msgstr "Signing in."
 
-#: src/screens/Login.tsx:640
-#: src/screens/Login.tsx:746
+#: src/screens/Login.tsx:663
+#: src/screens/Login.tsx:769
 msgid "Signing in…"
 msgstr "Signing in…"
 
@@ -2599,12 +2674,12 @@ msgid "Spam"
 msgstr "Spam"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:57
+#: src/lib/localeErrors.ts:59
 msgid "errors.shape.status"
 msgstr "Status {id} returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:53
+#: src/lib/localeErrors.ts:55
 msgid "errors.shape.statusContext"
 msgstr "Status context returned an unexpected response shape."
 
@@ -2621,7 +2696,7 @@ msgid "Submitting…"
 msgstr "Submitting…"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:61
+#: src/lib/localeErrors.ts:63
 msgid "errors.shape.suggestions"
 msgstr "Suggestions returned an unexpected response shape."
 
@@ -2646,6 +2721,10 @@ msgstr "Tag"
 msgid "Tags"
 msgstr "Tags"
 
+#: src/components/Settings/PrivacySection.tsx:37
+msgid "Tap to load"
+msgstr "Tap to load"
+
 #: src/components/Settings/DisplaySection.tsx:96
 msgid "Text size"
 msgstr "Text size"
@@ -2656,7 +2735,7 @@ msgid "errors.validation.hostInvalid"
 msgstr "That host does not look like a valid instance address."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:39
+#: src/lib/localeErrors.ts:41
 msgid "errors.unsupported.featured"
 msgstr "The featured-notes listing is not available on this server."
 
@@ -2665,37 +2744,37 @@ msgid "The issue does not fit another category"
 msgstr "The issue does not fit another category"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:29
+#: src/lib/localeErrors.ts:31
 msgid "errors.auth.noKeystoneToken"
 msgstr "The server did not issue a Keystone token for this session."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:45
+#: src/lib/localeErrors.ts:47
 msgid "errors.shape.createdList"
 msgstr "The server did not return the created list."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:44
+#: src/lib/localeErrors.ts:46
 msgid "errors.shape.createdPost"
 msgstr "The server did not return the created post."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:50
+#: src/lib/localeErrors.ts:52
 msgid "errors.shape.noScheduled"
 msgstr "The server did not return the scheduled status."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:46
+#: src/lib/localeErrors.ts:48
 msgid "errors.shape.updatedList"
 msgstr "The server did not return the updated list."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:47
+#: src/lib/localeErrors.ts:49
 msgid "errors.shape.updatedProfile"
 msgstr "The server did not return the updated profile."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:48
+#: src/lib/localeErrors.ts:50
 msgid "errors.shape.uploadedMedia"
 msgstr "The server did not return the uploaded media."
 
@@ -2705,12 +2784,12 @@ msgid "The server is throttling requests right now. Wait a moment, then try agai
 msgstr "The server is throttling requests right now. Wait a moment, then try again."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:30
+#: src/lib/localeErrors.ts:32
 msgid "errors.auth.noCredentials"
 msgstr "The server registered an app but did not return usable credentials."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:49
+#: src/lib/localeErrors.ts:51
 msgid "errors.shape.noTranslation"
 msgstr "The server returned no translation for this post."
 
@@ -2723,7 +2802,7 @@ msgid "The server sent no audio URL."
 msgstr "The server sent no audio URL."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:37
+#: src/lib/localeErrors.ts:39
 msgid "errors.unsupported.social"
 msgstr "The social timeline is not available on this server."
 
@@ -2736,7 +2815,7 @@ msgid "There are no notifications to clear."
 msgstr "There are no notifications to clear."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:32
+#: src/lib/localeErrors.ts:34
 msgid "errors.auth.mfaRequired"
 msgstr "This account requires two-factor authentication. Enter your code to finish signing in."
 
@@ -2745,26 +2824,30 @@ msgstr "This account requires two-factor authentication. Enter your code to fini
 msgid "This device"
 msgstr "This device"
 
-#: src/components/Post/menuModel.ts:307
-#: src/components/Post/menuModel.ts:333
+#: src/components/Post/menuModel.ts:328
+#: src/components/Post/menuModel.ts:354
 msgid "This post has no known link."
 msgstr "This post has no known link."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:51
+#: src/lib/localeErrors.ts:53
 msgid "errors.shape.noPoll"
 msgstr "This post has no poll to vote in."
 
-#: src/components/Post/menuModel.ts:304
-#: src/components/Post/menuModel.ts:348
+#: src/components/Post/menuModel.ts:325
+#: src/components/Post/menuModel.ts:369
 msgid "This post has no text."
 msgstr "This post has no text."
 
-#: src/screens/Login.tsx:554
+#: src/components/Post/menuModel.ts:317
+msgid "This post isn't public"
+msgstr "This post isn't public"
+
+#: src/screens/Login.tsx:577
 msgid "This server"
 msgstr "This server"
 
-#: src/screens/Login.tsx:706
+#: src/screens/Login.tsx:729
 msgid "This server could not be identified. Try another server."
 msgstr "This server could not be identified. Try another server."
 
@@ -2772,12 +2855,12 @@ msgstr "This server could not be identified. Try another server."
 msgid "This server does not publish a list of rules."
 msgstr "This server does not publish a list of rules."
 
-#: src/components/Post/menuModel.ts:373
+#: src/components/Post/menuModel.ts:394
 msgid "This server does not support editing posts."
 msgstr "This server does not support editing posts."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:63
+#: src/lib/localeErrors.ts:65
 msgid "errors.reactions.likeUnsupported"
 msgstr "This server does not support likes yet."
 
@@ -2821,7 +2904,7 @@ msgid "This server has no personal domain blocks."
 msgstr "This server has no personal domain blocks."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:43
+#: src/lib/localeErrors.ts:45
 msgid "errors.unsupported.profileField"
 msgstr "This server has no profile field for {fields}."
 
@@ -2829,7 +2912,7 @@ msgstr "This server has no profile field for {fields}."
 msgid "This server has no repost-mute list."
 msgstr "This server has no repost-mute list."
 
-#: src/components/Post/menuModel.ts:351
+#: src/components/Post/menuModel.ts:372
 msgid "This server has no translation service."
 msgstr "This server has no translation service."
 
@@ -2849,12 +2932,20 @@ msgstr "This sign-in is missing permissions Keystone uses."
 msgid "This sign-in predates a permission Keystone now uses."
 msgstr "This sign-in predates a permission Keystone now uses."
 
-#: src/components/Post/PostCard.tsx:470
+#: src/screens/AuthCallback.tsx:153
+#: src/screens/Login.tsx:412
+#: src/screens/Login.tsx:440
+#: src/screens/Login.tsx:482
+#: src/screens/Login.tsx:496
+msgid "This sign-in response did not match the server. Please start again."
+msgstr "This sign-in response did not match the server. Please start again."
+
+#: src/components/Post/PostCard.tsx:519
 msgid "Thread muted"
 msgstr "Thread muted"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:55
+#: src/lib/localeErrors.ts:57
 msgid "errors.shape.timeline"
 msgstr "Timeline {kind} returned an unexpected response shape (HTTP {status})."
 
@@ -2862,27 +2953,31 @@ msgstr "Timeline {kind} returned an unexpected response shape (HTTP {status})."
 msgid "Tomorrow 9:00"
 msgstr "Tomorrow 9:00"
 
-#: src/components/Post/menuModel.ts:339
-#: src/components/Post/menuModel.ts:342
+#: src/components/Post/menuModel.ts:360
+#: src/components/Post/menuModel.ts:363
 msgid "Translate"
 msgstr "Translate"
 
-#: src/components/Post/PostCard.tsx:962
+#: src/components/Post/PostCard.tsx:1013
 msgid "Translated · Show original?"
 msgstr "Translated · Show original?"
 
 #. placeholder {0}: shownTranslation.sourceLang
-#: src/components/Post/PostCard.tsx:961
+#: src/components/Post/PostCard.tsx:1012
 msgid "Translated from {0} · Show original?"
 msgstr "Translated from {0} · Show original?"
 
+#: src/components/Post/PostCard.tsx:505
+msgid "Translation is handled by your server — this text will be sent to it."
+msgstr "Translation is handled by your server — this text will be sent to it."
+
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:60
+#: src/lib/localeErrors.ts:62
 msgid "errors.shape.trendingLinks"
 msgstr "Trending links returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:59
+#: src/lib/localeErrors.ts:61
 msgid "errors.shape.trendingStatuses"
 msgstr "Trending posts returned an unexpected response shape."
 
@@ -2891,7 +2986,7 @@ msgid "Trending tags are not available on this server."
 msgstr "Trending tags are not available on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:58
+#: src/lib/localeErrors.ts:60
 msgid "errors.shape.trendingTags"
 msgstr "Trending tags returned an unexpected response shape."
 
@@ -2901,13 +2996,13 @@ msgstr "Trending users are not available on this server."
 
 #. placeholder {0}: mfa.challengeTypes[0] ?? 'totp'
 #. placeholder {0}: props.mfa.challengeTypes[0] ?? 'totp'
-#: src/screens/Login.tsx:660
-#: src/screens/Login.tsx:728
+#: src/screens/Login.tsx:683
+#: src/screens/Login.tsx:751
 msgid "Two-factor code ({0})"
 msgstr "Two-factor code ({0})"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:33
+#: src/lib/localeErrors.ts:35
 msgid "errors.auth.mfaFailed"
 msgstr "Two-factor sign-in failed."
 
@@ -2981,11 +3076,11 @@ msgstr "Unmute reposts to see them again."
 msgid "Unmute to see their posts again."
 msgstr "Unmute to see their posts again."
 
-#: src/components/Post/menuModel.ts:377
+#: src/components/Post/menuModel.ts:398
 msgid "Unpin from profile"
 msgstr "Unpin from profile"
 
-#: src/components/Post/PostCard.tsx:480
+#: src/components/Post/PostCard.tsx:529
 msgid "Unpinned"
 msgstr "Unpinned"
 
@@ -3016,12 +3111,12 @@ msgstr "uploading..."
 msgid "errors.validation.hostScheme"
 msgstr "Use an http(s) instance address, e.g. example.com."
 
-#: src/components/Post/menuModel.ts:380
+#: src/components/Post/menuModel.ts:401
 msgid "User"
 msgstr "User"
 
-#: src/screens/Login.tsx:637
-#: src/screens/Login.tsx:743
+#: src/screens/Login.tsx:660
+#: src/screens/Login.tsx:766
 msgid "Username"
 msgstr "Username"
 
@@ -3033,26 +3128,26 @@ msgstr "username or handle"
 msgid "Users"
 msgstr "Users"
 
-#: src/screens/Login.tsx:663
-#: src/screens/Login.tsx:731
+#: src/screens/Login.tsx:686
+#: src/screens/Login.tsx:754
 msgid "Verify"
 msgstr "Verify"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:34
+#: src/lib/localeErrors.ts:36
 msgid "errors.auth.noVerifyAccount"
 msgstr "verify_credentials did not return an account."
 
-#: src/screens/AuthCallback.tsx:197
+#: src/screens/AuthCallback.tsx:227
 msgid "Verifying with your server…"
 msgstr "Verifying with your server…"
 
-#: src/screens/Login.tsx:663
-#: src/screens/Login.tsx:731
+#: src/screens/Login.tsx:686
+#: src/screens/Login.tsx:754
 msgid "Verifying…"
 msgstr "Verifying…"
 
-#: src/components/Post/PostCard.tsx:838
+#: src/components/Post/PostCard.tsx:889
 msgid "View edit history"
 msgstr "View edit history"
 
@@ -3061,7 +3156,7 @@ msgid "View insight"
 msgstr "View insight"
 
 #: src/components/Post/menuModel.ts:231
-#: src/components/Post/menuModel.ts:326
+#: src/components/Post/menuModel.ts:347
 msgid "View on remote instance"
 msgstr "View on remote instance"
 
@@ -3086,7 +3181,7 @@ msgstr "Vote"
 msgid "voted in your poll"
 msgstr "voted in your poll"
 
-#: src/components/Post/PostCard.tsx:515
+#: src/components/Post/PostCard.tsx:564
 msgid "We'll show you fewer posts like this."
 msgstr "We'll show you fewer posts like this."
 
@@ -3116,7 +3211,7 @@ msgstr "Who can see this post: {0}. Change audience."
 msgid "Why are you reporting this?"
 msgstr "Why are you reporting this?"
 
-#: src/components/Post/menuModel.ts:391
+#: src/components/Post/menuModel.ts:412
 msgid "Why is this post recommended?"
 msgstr "Why is this post recommended?"
 
@@ -3164,7 +3259,7 @@ msgid "You believe it breaks the law"
 msgstr "You believe it breaks the law"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:42
+#: src/lib/localeErrors.ts:44
 msgid "errors.unsupported.boostVisibility"
 msgstr "You can only change boost visibility for accounts you follow."
 

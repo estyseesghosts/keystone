@@ -142,7 +142,10 @@ describe('PF-E1 reaction chip art', () => {
     const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: 'https://app.example'})
     renderTree(
       <ReactionChips
-        reactions={summary([{key: 'hehe', count: 1, mine: false, url: 'https://akk.example/hehe.png'}])}
+        // Production adapters always mirror the wire URL into the packed
+        // map (misskey `reactionEmojis`, mastodon `custom_emoji`), so the
+        // fixture carries both — repair X2.5 gates the node src on the map.
+        reactions={summary([{key: 'hehe', count: 1, mine: false, url: 'https://akk.example/hehe.png'}], {hehe: 'https://akk.example/hehe.png'})}
         testID="chips"
       />,
       store,

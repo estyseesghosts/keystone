@@ -39,8 +39,20 @@ const devicePrefsSchema = z.object({
   onlyAuthorizedQuotes: z.boolean().default(false),
   // Device-local data saver (E9 follow-up): `false` (default) auto-loads
   // link previews; `true` restores the tap-to-preview trigger. One shared
-  // preference across every account.
+  // preference across every account. Repair X2.5 layers the `linkPreviews`
+  // policy below on top: Data Saver forces `tap` unless previews are `off`.
   dataSaver: z.boolean().default(false),
+  // Link-preview policy (repair X2.5, D5 default `tap`): `tap` shows a
+  // tap-to-unfurl trigger and never fetches on its own; `auto-public`
+  // fetches automatically for public posts only (never for
+  // direct/followers/specified, regardless of pref); `off` shows no
+  // unfurl affordance at all. Server-provided cards always render.
+  linkPreviews: z.enum(['tap', 'auto-public', 'off']).default('tap'),
+  // App-switcher privacy shield (repair X2.5, D6 default off): when on,
+  // an opaque cover draws over the app on `inactive`/`background` so the
+  // OS task-switcher snapshot shows nothing. Android `FLAG_SECURE`
+  // needs a native module and is out of scope.
+  privacyShield: z.boolean().default(false),
 })
 
 export const deviceStateSchema = z.object({
@@ -54,7 +66,7 @@ export type DeviceState = z.infer<typeof deviceStateSchema>
 export const defaultDeviceState: DeviceState = {
   version: STORAGE_VERSION,
   activeSessionId: null,
-  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false},
+  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false, linkPreviews: 'tap', privacyShield: false},
 }
 
 // v1 device shape (frozen for migration): v1 had no `contentMode` and
@@ -100,6 +112,8 @@ export function migrateDeviceState(raw: string | null): DeviceState {
         contentMode: 'auto',
         onlyAuthorizedQuotes: false,
         dataSaver: false,
+        linkPreviews: 'tap',
+        privacyShield: false,
       },
     }
   }

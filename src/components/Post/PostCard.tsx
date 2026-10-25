@@ -48,6 +48,13 @@ import {isSoftMutedPost, useSoftMutedIds} from '#/state/queries/graph'
 import {useOptionalSessionStore} from '#/state/session/SessionProvider'
 import {useLikeEmoji} from '#/state/emojiPrefs'
 import {useDataSaver} from '#/state/appearance'
+import {
+  effectivePreviewMode,
+  needsTranslateNotice,
+  shouldAutoUnfurl,
+  useLinkPreviewMode,
+  type LinkPreviewMode,
+} from '#/state/privacyShield'
 
 import {ActionBar, StaticActionBar, toastError} from './ActionBar'
 import {RecommendationReasonDialog} from '#/components/Recommendations/RecommendationReasonDialog'
@@ -282,8 +289,16 @@ export type PostCardProps = {
    * cards hide behind a tap-to-reveal row; when false (default) every
    * quote renders. */
   onlyAuthorizedQuotes?: boolean
+  /** Link-preview policy override (repair X2.5, D5): `tap` shows a
+   * tap-to-unfurl trigger and never fetches on its own; `auto-public`
+   * auto-loads public posts only (never direct/followers/specified);
+   * `off` shows no unfurl card at all. Omit to follow the device pref
+   * (the live card injects it); when neither is set the legacy
+   * `linkPreviewAuto` flag below decides (`true` = auto-public). */
+  linkPreviewMode?: LinkPreviewMode
   /** Link-preview auto-load override (default: auto-load). The live
-   * card reads the device Data Saver pref; tests inject explicitly. */
+   * card reads the device Data Saver pref; tests inject explicitly.
+   * Only consulted when `linkPreviewMode` is omitted. */
   linkPreviewAuto?: boolean
   /** Soft-mute badge override (soft-mute slice): true renders the
    * "Soft-muted" badge. The live card derives it from the session's
@@ -335,6 +350,12 @@ export function PostCard(props: PostCardProps) {
   return <PostCardView {...props} />
 }
 
+// Manual-translate notice (repair X2.5): translating a private post
+// sends its text to the user's own server (which may call an external
+// translator), so the first such translate shows a one-line notice.
+// Per-launch flag: the notice teaches, it does not nag.
+let translateNoticeShown = false
+
 function LivePostCard(props: PostCardProps) {
   const {post, sessionId} = props
   const {i18n} = useLingui()
@@ -356,6 +377,11 @@ function LivePostCard(props: PostCardProps) {
   )
   const actions = usePostActions(sessionId, effective)
   const dataSaver = useDataSaver()
+  // Link-preview policy (repair X2.5, D5): the device pref, with Data
+  // Saver layered on top (saver on degrades `auto-public` to `tap`).
+  // An explicit `linkPreviewMode` prop (tests, previews) wins.
+  const prefPreviewMode = useLinkPreviewMode()
+  const previewMode = props.linkPreviewMode ?? effectivePreviewMode(prefPreviewMode, dataSaver)
   const [translation, setTranslation] = useState<Translation | null>(null)
   const shown = actions.shadowed.post
   const isOwn = session != null && effective.author.id === session.accountId
@@ -467,9 +493,18 @@ function LivePostCard(props: PostCardProps) {
           // translatability or source language — the user explicitly
           // asked (the render discard below still drops a same-language
           // result). Server-side and unscoped, like every translate call.
+          // Repair X2.5: the first manual translate of a private post
+          // (direct/followers/specified) shows a one-line notice — its
+          // text goes to the user's own server.
           translate: async () => {
             if (!backend) return
             try {
+              if (needsTranslateNotice(effective.visibility.kind, translateNoticeShown)) {
+                translateNoticeShown = true
+                showToast(
+                  i18n._(msg`Translation is handled by your server — this text will be sent to it.`),
+                )
+              }
               setTranslation(
                 await backend.translate(effective.id, handlers.targetLang ?? viewerPrimaryOf(i18n.locale)),
               )
@@ -592,6 +627,7 @@ function LivePostCard(props: PostCardProps) {
       translationSource={translationSource ?? props.translationSource ?? null}
       resolveQuoteUri={props.resolveQuoteUri ?? resolveQuoteUri}
       seedSeenQuote={props.seedSeenQuote ?? seedSeenQuote}
+      linkPreviewMode={previewMode}
       linkPreviewAuto={props.linkPreviewAuto ?? !dataSaver}
       softMuted={props.softMuted ?? softMuted}
       onEditedPress={
@@ -632,6 +668,7 @@ const PostCardView = memo(function PostCardView({
   resolveQuoteUri,
   seedSeenQuote,
   onlyAuthorizedQuotes,
+  linkPreviewMode,
   linkPreviewAuto = true,
   softMuted,
   onEditedPress,
@@ -677,6 +714,13 @@ const PostCardView = memo(function PostCardView({
     () => postBodyNodes(effective, {coveredQuoteUris}),
     [effective, coveredQuoteUris],
   )
+  // Link-preview policy (repair X2.5, D5): the explicit mode wins;
+  // otherwise the legacy `linkPreviewAuto` flag maps onto the policy
+  // (`true` = auto-public, `false` = tap). Auto only ever fires for
+  // public posts — direct/followers/specified stay tap-to-unfurl (or
+  // hidden under `off`) regardless of pref.
+  const previewPolicy = linkPreviewMode ?? (linkPreviewAuto ? 'auto-public' : 'tap')
+  const unfurlAuto = shouldAutoUnfurl(previewPolicy, effective.visibility.kind)
   // E9 honest client unfurl: a bare URL with no server card gets the
   // tap-to-unfurl trigger (never an automatic fetch). Server card wins
   // when present — one card per post, never two.
@@ -1069,8 +1113,8 @@ const PostCardView = memo(function PostCardView({
         {!bodyHidden && effective.card !== null && (
           <LinkCard card={effective.card} testID={`post-card-${post.id}`} />
         )}
-        {!bodyHidden && effective.card === null && unfurlUrl !== null && (
-          <UnfurledLinkCard url={unfurlUrl} auto={linkPreviewAuto} testID={`post-unfurl-${post.id}`} />
+        {!bodyHidden && effective.card === null && unfurlUrl !== null && previewPolicy !== 'off' && (
+          <UnfurledLinkCard url={unfurlUrl} auto={unfurlAuto} testID={`post-unfurl-${post.id}`} />
         )}
         {!context && (
           <ReactionChips

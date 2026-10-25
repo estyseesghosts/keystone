@@ -299,6 +299,27 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
   const link = postLink(post, family, input.origin)
   const uri = safeHttpUrl(post.uri)
   const caps = capabilities
+  // Repair X2.5: Share and Copy rows for a non-public post confirm
+  // first — a tap that copies a DM into a public clipboard should never
+  // be a surprise. Disabled rows (nothing to copy/share) and rows that
+  // already confirm never gain a second confirm.
+  const isPublicPost = post.visibility.kind === 'public'
+  const PRIVATE_COPY_KEYS = new Set(['copy-contents', 'copy-link', 'copy-remote-link', 'share'])
+  const withPrivateConfirm = (item: PostMenuItem): PostMenuItem =>
+    !isPublicPost &&
+    item.run !== undefined &&
+    !item.disabled &&
+    item.confirm === undefined &&
+    PRIVATE_COPY_KEYS.has(item.key)
+      ? {
+          ...item,
+          confirm: {
+            title: t`This post isn't public`,
+            message: t`Sharing or copying it can expose it beyond its audience.`,
+            action: item.label,
+          },
+        }
+      : item
 
   const group1: PostMenuItem[] = [
     copyRow(input, 'copy-contents', t`Copy contents`, post.content.plain, t`This post has no text.`),
@@ -440,7 +461,7 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
         : {key: 'delete', label: t`Delete`, destructive: true, disabled: true, reason: del.gate.reason},
     )
   }
-  return [...recGroup, group1, group2, group3]
+  return [...recGroup, group1.map(withPrivateConfirm), group2, group3]
 }
 
 export function flatten(sections: PostMenuSection[]): PostMenuItem[] {
