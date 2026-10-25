@@ -1,30 +1,28 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
-59 slices, Waves 0–12). Prior programs closed; old changelog archived in
-`state/logs/2026-10-25-repair25-x0.3.md`.
-Active branch: `main` (agents work in the shared tree; coordinator
-commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **292 suites / 4123 tests**,
-typecheck (ios+android+web) + lint clean.
+Phase: **repair program 2026-10-25 COMPLETE** — 59/59 slices `done`
+(`docs/audit_20261025/repair.md`; Waves 0–12, no `won't do`, tracked
+follow-ups stay open, none silently dropped).
+Active branch: `main` (shared-tree program; 129+ repair commits; never
+`git push`ed — owner owns the remote).
+Gate baseline (final green): **292 suites / 4123 tests**, typecheck
+(ios+android+web) + lint (0 errors, 0 warnings) clean. `--forceExit` kept
+(`test:handles` never clean on this tree — X11.2 evidence in its log).
 
-Next 3 steps:
-1. X12.1 done (25 device items + 12 live checks + owner appendix; docs-only,
-   no gates needed).
-2. X12.2 final verification next (solo): full gates + scripted greps +
-   Status-after-repair table + STATE to "repair25 complete".
-3. Then program definition-of-done review (all slices done/wontdo/blocked).
-
-Blockers / owner-open:
-- Rig `:3101`/`:3102` refused; device not run by agents — all live
-  checks `not verified (owner live-tests externally)`, collected in X12.1.
-- D1 answered (commit both); D2–D10 defaults apply unless owner says otherwise.
+Owner actions (all collected in `docs/audit_20261025/device-checks.md`
++ `live-checks.md`, appendix with D1–D10/audit/app-config):
+1. Run the 25 device checks + 12 rig live-checks (`:3101`/`:3102`/Mastodon
+   refused to agents; `scripts/fedi-capture.ts` command in live-checks §0).
+2. Decide the tracked follow-ups: X4.4-s7 revocation creds, X6.2-s6
+   attemptKey, iOS MMKV backup exclusion, X9.2 `context:` sweep, X9.7 fedi
+   reason-codes, X8.1 Stack mounting + fedi `log:` pass-through.
+3. Release track (out of scope): signing identity, App Links/domain +
+   `assetlinks.json`, `app.config.js` name/bundle identifiers.
 
 Links:
-- Plan: `docs/audit_20261025/repair.md` (status lines flipped per commit)
-- Report: `docs/audit_20261025/report.md`; results: `docs/audit_20261025/results/`
-- Latest logs: `state/logs/2026-10-25-repair25-*`
-- ADRs: `docs/adr/` (next free: 0011); decisions: `docs/DECISIONS.md`
+- Plan: `docs/audit_20261025/repair.md` (all Status lines done)
+- Report: `docs/audit_20261025/report.md` ("Status after repair" table)
+- Latest logs: `state/logs/2026-10-25-repair25-x12.*.md`
+- ADRs: `docs/adr/` (0011–0013 in program); decisions: `docs/DECISIONS.md`
 
-Parked work: P6 Wave 3.3 user moderation (old pointer; not in this
-program — do not start from here).
+Parked work: P6 Wave 3.3 user moderation (pre-program pointer; untouched).

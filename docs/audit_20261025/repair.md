@@ -1914,7 +1914,7 @@ run through.
 
 ## X12.2 - Final verification
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x12.2.md` (slice) + `state/logs/2026-10-25-repair25-x12.2-coordinator.md` (batch-green); scripted greps closed (3 gaps fixed, 3 accepted deviations recorded); 292 suites / 4123 tests green at program close)
 Branch: `repair25-x12.2-final`
 
 **Steps.**
