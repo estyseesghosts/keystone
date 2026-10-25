@@ -9,13 +9,12 @@ Gate baseline (last green on main): **278 suites / 3987 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Wave 8 batch 1 done (X8.1–X8.3 committed green; 278 suites / 3987 tests;
-   coord remainder: streaming live-prepend cancels; Note/Toast/test-typing
-   fallout fixed in-batch — see coord log).
-2. X8.4 (hooks cleanup + exhaustive-deps → error) alone next — touches
-   every warning file, runs after batch-1 lands.
-3. Then Wave 9 i18n; signing/App Links skipped (owner); no non-English
-   translations (English catalog only).
+1. Wave 8 done (X8.1–X8.4 committed green; 278 suites / 3987 tests;
+   exhaustive-deps is error, lint 0/0 — see X8.4 coord log for the
+   promotion fallout fixes).
+2. Wave 9 i18n sweep (X9.1–X9.8, English catalog only; burn-down from the
+   X0.2 baseline meter, one directory per slice).
+3. Signing/App Links skipped (owner); no non-English translations.
 
 Blockers / owner-open:
 - Rig `:3101`/`:3102` refused; device not run by agents — all live

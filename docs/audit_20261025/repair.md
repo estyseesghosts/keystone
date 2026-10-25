@@ -1601,7 +1601,7 @@ Audit: sessions-cache 2, 3, 9, 10, 11
 
 ## X8.4 - Hooks cleanup and rule promotion
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x8.4.md` (slice) + `state/logs/2026-10-25-repair25-x8.4-coordinator.md` (batch-green); `exhaustive-deps` is now error, lint 0/0; 278 suites / 3987 tests green at X8.4 commit)
 Branch: `repair25-x8.4-hooks-cleanup`
 Audit: rn-ui M2
 
