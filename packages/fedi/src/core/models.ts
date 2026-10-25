@@ -279,7 +279,10 @@ export function mediaHeight(media: Media): number | null {
 
 export interface PollOption {
   text: string;
-  votesCount: number;
+  /** Votes for this option. Null while the server hides totals (Mastodon
+   * `hide_totals` open poll) — render "hidden until closed", never 0
+   * (ADR 0013). */
+  votesCount: number | null;
   /** True when the viewer voted this option (Misskey `isVoted`). */
   voted: boolean;
 }

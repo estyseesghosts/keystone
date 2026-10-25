@@ -103,6 +103,52 @@ describe('Composer', () => {
     expect(listDrafts(store, s.id)).toEqual([])
   })
 
+  it('rejects a sub-5-minute Mastodon poll duration with a translated error and never posts', async () => {
+    // A restored draft or redraft seed can carry any duration (only the
+    // chips are >= 300 s): submit validates with a message, and the wire
+    // never sees the short expiry (fedi clamps as a backstop).
+    const sid = 'https://s.example me'
+    const store = createMemoryStore()
+    store.setItem(
+      draftsKeyFor(sid),
+      JSON.stringify({
+        version: 1,
+        drafts: [
+          {
+            id: 'dp',
+            updatedAt: 1,
+            text: 'vote',
+            pollChoices: ['yes', 'no'],
+            pollMultiple: false,
+            pollHideTotals: false,
+            pollDurationSeconds: 60,
+          },
+        ],
+      }),
+    )
+    setOpenDraftId(store, sid, 'dp')
+    const backend = backendFor('mastodon')
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <QueryClientProvider client={qc}>
+        <I18nProvider i18n={i18n}>
+          <ThemeProvider>
+            <Composer
+              session={session('mastodon', 'mastodon')}
+              backend={backend}
+              store={store}
+              onClose={() => {}}
+            />
+          </ThemeProvider>
+        </I18nProvider>
+      </QueryClientProvider>,
+    )
+    expect(screen.getByTestId('composer-poll')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    expect(await screen.findByTestId('composer-error')).toHaveTextContent(/at least 5 minutes/)
+    expect(backend.createPost).not.toHaveBeenCalled()
+  })
+
   it('submits only once when submit fires twice before busy commits', async () => {
     // Single-flight (R0.3): `busy` state commits after an async gap, so two
     // synchronous dispatches (double-tap, keyboard submit) must still

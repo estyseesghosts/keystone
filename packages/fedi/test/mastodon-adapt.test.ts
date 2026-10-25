@@ -405,6 +405,41 @@ describe("adaptMedia / adaptPoll", () => {
     expect(poll.expired).toBe(true);
     expect(poll.options[0].voted).toBe(false);
   });
+
+  it("passes hidden totals through as null, never fake 0 (ADR 0013)", () => {
+    const wire: WirePoll = {
+      id: "9",
+      expires_at: "2999-01-01T00:00:00.000Z",
+      expired: false,
+      multiple: false,
+      votes_count: 0,
+      voters_count: null,
+      options: [
+        { title: "yes", votes_count: null },
+        { title: "no", votes_count: null },
+      ],
+    };
+    const poll = adaptPoll(wire);
+    expect(poll.options).toEqual([
+      { text: "yes", votesCount: null, voted: false },
+      { text: "no", votesCount: null, voted: false },
+    ]);
+  });
+
+  it("merges poll.emojis into the packed map for option titles (finding 20)", () => {
+    const status = fixture<Status>("mastodon", "status.json");
+    expect(status.poll).not.toBeNull();
+    const post = adaptStatus({
+      ...status,
+      poll: {
+        ...status.poll!,
+        emojis: [
+          { shortcode: "poll-emoji", url: "https://m.example/emoji/poll-emoji.png", static_url: "https://m.example/emoji/poll-emoji_static.png" },
+        ],
+      },
+    });
+    expect(post.emojis["poll-emoji"]).toBe("https://m.example/emoji/poll-emoji.png");
+  });
 });
 
 describe("adaptRelationship (absent flags stay unknown)", () => {

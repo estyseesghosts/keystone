@@ -326,7 +326,9 @@ export function adaptMedia(m: MediaAttachment, sensitive: boolean): Media {
 /** `expired` is the server's own flag (never derived from the clock here),
  * `votersCount` stays null where the server sends none (Akkoma
  * single-choice) — never coerced from votes. Per-option `voted` comes
- * from `own_votes` (the indices the viewer voted). `id` is the wire
+ * from `own_votes` (the indices the viewer voted). Per-option `votesCount`
+ * passes wire nulls through: a `hide_totals` open poll reports null and
+ * the UI renders "hidden until closed", never 0 (ADR 0013). `id` is the wire
  * poll id straight through (ADR 0010: the vote path reads it off the
  * already-loaded model, never refetches it). */
 export function adaptPoll(p: WirePoll): Poll {
@@ -340,7 +342,7 @@ export function adaptPoll(p: WirePoll): Poll {
     votersCount: p.voters_count ?? null,
     options: (p.options ?? []).map((o, i) => ({
       text: o.title,
-      votesCount: o.votes_count ?? 0,
+      votesCount: o.votes_count,
       voted: own.includes(i),
     })),
   };
@@ -474,6 +476,10 @@ export function adaptStatus(status: Status): Post {
   const reactions = adaptReactions(status.emoji_reactions ?? pleromaReactions);
   const emojis: Record<string, string> = {};
   for (const e of status.emojis ?? []) emojis[e.shortcode] = e.url;
+  // Poll option titles carry `:shortcode:` resolved through `poll.emojis`
+  // (finding 20) — merge them into the packed map so option titles render
+  // through the shared emoji pipeline (ADR 0013; no new model field).
+  for (const e of status.poll?.emojis ?? []) emojis[e.shortcode] = e.url;
   const quoteParts = adaptQuote(status.quote, status.quote_id || null);
   const { mentions, mentionUrls } = adaptMentions(status.mentions);
   const reblog = status.reblog ? adaptStatus(status.reblog) : null;

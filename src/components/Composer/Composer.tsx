@@ -477,6 +477,15 @@ export function useComposerController({
     submitRef.current = true
     setError(null)
     setNotice(null)
+    // Mastodon rejects `poll[expires_in]` below 300 s (finding 22): reject
+    // here with a translated message so the user picks a valid duration.
+    // The domain layer clamps as a backstop, so a short poll can never be
+    // sent even if this check is bypassed.
+    if (family === 'mastodon' && state.poll != null && Math.round(state.poll.durationSeconds) < 300) {
+      setError(i18n._(msg`Polls must stay open at least 5 minutes on this server.`))
+      submitRef.current = false
+      return
+    }
     // Edit mode (C7): validate the same rules, then save through
     // `backend.editPost` (the hook patches every cached copy). Uploads
     // replace the attachment set only when the user added new ones —

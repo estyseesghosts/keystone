@@ -17,6 +17,7 @@ Load-bearing decisions. Numbered, append-only, never renumbered.
 | [0010](0010-poll-id-on-model.md) | Poll id on core `Poll` (delete the Mastodon vote GET-then-POST) | 2026-10-25 | accepted |
 | [0011](0011-token-storage.md) | Native secret-free envelope: SecureStore vault + in-memory token map, web unchanged dev-grade | 2026-10-25 | accepted |
 | [0012](0012-miauth-callback-risk.md) | MiAuth `keystone://` callback: accepted interception risk + mitigations | 2026-10-25 | accepted |
+| [0013](0013-poll-hidden-totals.md) | Poll hidden totals: PollOption.votesCount nullable | 2026-10-25 | accepted |
 
 ## When to write one
 

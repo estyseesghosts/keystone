@@ -305,6 +305,58 @@ describe("golden wire bodies", () => {
     expect((await mastoBody("akkoma", true)).poll).not.toHaveProperty("hide_totals");
   });
 
+  it("Mastodon: sub-minimum poll durations clamp to 300 s, never 0 (finding 22)", async () => {
+    // Domain layer: a restored draft or redraft seed can carry any
+    // duration (only the chips are ≥ 300 s) — the floor holds.
+    const built = buildPostDraft(
+      emptyComposeState({
+        text: "vote",
+        poll: { choices: ["a", "b"], multiple: false, durationSeconds: 60 },
+      }),
+      ctxFor("mastodon", "mastodon"),
+    );
+    expect(built.ok).toBe(true);
+    if (built.ok) expect(built.draft.poll?.expiredAfter).toBe(300);
+    // Misskey-family durations are milliseconds and untouched.
+    const mk = buildPostDraft(
+      emptyComposeState({
+        text: "vote",
+        poll: { choices: ["a", "b"], multiple: false, durationSeconds: 60 },
+      }),
+      ctxFor("misskey", "sharkey"),
+    );
+    expect(mk.ok).toBe(true);
+    if (mk.ok) expect(mk.draft.poll?.expiredAfter).toBe(60000);
+    // Wire layer backstop: even a hand-built draft with a short expiry
+    // (or an expiresAt 60 s out) never sends 0 or a sub-minimum value.
+    const calls: Array<{ path: string; body: any }> = [];
+    const client = {
+      origin: "https://m.example",
+      token: "t",
+      post: (path: string, body: unknown) => {
+        calls.push({ path, body });
+        return Promise.reject(new Error("stop"));
+      },
+    } as never;
+    const backend = createMastodonBackend(client);
+    await backend
+      .createPost({
+        visibility: { kind: "public", localOnly: false, raw: "public" },
+        text: "hi",
+        poll: { choices: ["a", "b"], expiredAfter: 60 },
+      })
+      .catch(() => undefined);
+    expect((calls[0]?.body as { poll: { expires_in: number } }).poll.expires_in).toBe(300);
+    await backend
+      .createPost({
+        visibility: { kind: "public", localOnly: false, raw: "public" },
+        text: "hi",
+        poll: { choices: ["a", "b"], expiresAt: Date.now() + 60_000 },
+      })
+      .catch(() => undefined);
+    expect((calls[1]?.body as { poll: { expires_in: number } }).poll.expires_in).toBe(300);
+  });
+
   it("gates hide_totals per flavor: Mastodon on, Akkoma/Misskey off with a reason", () => {
     expect(composeGates("mastodon", caps("mastodon")).pollHideTotals).toEqual({ enabled: true });
     for (const flavor of ["akkoma", "misskey", "sharkey"] as const) {

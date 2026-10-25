@@ -157,11 +157,17 @@ export function statusBodyOf(draft: {
   if (draft.renoteId) body.quoted_status_id = draft.renoteId;
   if (draft.mediaIds && draft.mediaIds.length > 0) body.media_ids = draft.mediaIds;
   if (draft.poll && draft.poll.choices.length > 0) {
-    const expires =
+    // Mastodon rejects `poll[expires_in]` below 300 s, and 0 is never
+    // valid — clamp at the wire layer (finding 22). The domain layer
+    // (`buildPostDraft`) clamps first and the composer UI validates with
+    // a translated message; this is the backstop for any other caller,
+    // whichever expiry shape the draft carries.
+    const raw =
       draft.poll.expiredAfter ??
       (draft.poll.expiresAt != null
         ? Math.max(0, Math.round((draft.poll.expiresAt - Date.now()) / 1000))
         : undefined);
+    const expires = raw != null ? Math.max(300, raw) : undefined;
     body.poll = {
       options: draft.poll.choices,
       ...(draft.poll.multiple != null ? { multiple: draft.poll.multiple } : {}),

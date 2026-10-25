@@ -5,16 +5,17 @@
 // it to `backend.votePoll`); without it the poll renders read-only.
 // Failures render an honest inline error with a retry — never a toast
 // and a stuck spinner.
-import {useEffect, useRef, useState} from 'react'
+import {Fragment, useEffect, useMemo, useRef, useState} from 'react'
 import {StyleSheet, View} from 'react-native'
 
 import {msg} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
 
-import type {Poll} from '@keystone/fedi'
+import {splitNameEmojis, type Poll} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
+import {CustomEmojiGlyph} from '#/components/EmojiImage'
 import {Pressable} from '#/components/Pressable'
 
 const styles = StyleSheet.create({
@@ -24,6 +25,17 @@ const styles = StyleSheet.create({
   fill: {height: '100%'},
   foot: {flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap'},
 })
+
+/** Closed at render time, not at adapt time (misskey M16): the server's
+ * `expired` flag wins when set, otherwise the deadline in `expiresAt` is
+ * read against the clock on every render — a cached row crosses to closed
+ * without a refetch. `now` is injectable for tests. Pure. */
+export function isPollClosed(poll: Pick<Poll, 'expired' | 'expiresAt'>, now = Date.now()): boolean {
+  if (poll.expired) return true
+  if (poll.expiresAt == null) return false
+  const then = Date.parse(poll.expiresAt)
+  return !Number.isNaN(then) && then <= now
+}
 
 /** Future-facing expiry label. `formatRelativeTime` is past-only
  * (post ages clamp futures to "now") — a poll closing tomorrow must
@@ -66,14 +78,67 @@ function partialRecordedOf(err: unknown): number[] {
   return []
 }
 
+function splitOptionCode(code: string): {name: string; host: string | null} {
+  const inner = code.replace(/^:|:$/g, '')
+  const at = inner.indexOf('@')
+  if (at < 0) return {name: inner, host: null}
+  return {name: inner.slice(0, at), host: inner.slice(at + 1) || null}
+}
+
+function OptionTitle({
+  text,
+  emojis,
+  sessionId,
+  authorHost,
+  size,
+}: {
+  text: string
+  emojis: Record<string, string>
+  sessionId: string | null
+  authorHost: string | null
+  size: number
+}) {
+  const parts = useMemo(() => splitNameEmojis(text), [text])
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.kind === 'text') return <Fragment key={i}>{part.text}</Fragment>
+        const {name, host} = splitOptionCode(part.code)
+        return (
+          <CustomEmojiGlyph
+            key={i}
+            name={name}
+            host={host}
+            src={null}
+            packed={emojis}
+            sessionId={sessionId}
+            authorHost={authorHost}
+            size={size}
+          />
+        )
+      })}
+    </>
+  )
+}
+
 export function PostPoll({
   poll,
   onVote,
+  emojis,
+  sessionId,
+  authorHost,
   testID,
 }: {
   poll: Poll
   /** Submit the chosen option indexes. Omit = read-only display. */
   onVote?: (choices: number[]) => Promise<void>
+  /** Packed custom-emoji map for option titles (`:code:` renders as a
+   * glyph through the shared pipeline; unknown codes stay literal). */
+  emojis?: Record<string, string> | null
+  /** Owning session for remote-emoji fallback (packed-only when null). */
+  sessionId?: string | null
+  /** Origin host hint for host-less codes in remote-authored polls. */
+  authorHost?: string | null
   testID?: string
 }) {
   const theme = useTheme()
@@ -88,7 +153,7 @@ export function PostPoll({
   const [recorded, setRecorded] = useState<number[]>([])
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
-  const closed = poll.expired
+  const closed = isPollClosed(poll)
   const locked = voted || closed || !onVote
 
   // Resync when the server's voted flags change (vote recorded elsewhere,
@@ -141,7 +206,9 @@ export function PostPoll({
   }
 
   const foot: string[] = []
+  const hiddenLabel = i18n._(msg`Hidden until closed`)
   if (total !== null) foot.push(`${total} vote${total === 1 ? '' : 's'}`)
+  else foot.push(hiddenLabel)
   if (poll.votersCount !== null && poll.votersCount !== total)
     foot.push(`${poll.votersCount} voter${poll.votersCount === 1 ? '' : 's'}`)
   if (poll.multiple) foot.push('multiple choice')
@@ -151,11 +218,19 @@ export function PostPoll({
     if (label) foot.push(`closes ${label}`)
   }
 
+  const packed = emojis ?? {}
+  const emojiSize = 15 * theme.fontScaleMultiplier + 2
+
   return (
     <View style={[styles.box, {borderColor: theme.palette.edge, backgroundColor: theme.palette.bg}]} testID={testID}>
       {poll.options.map((opt, i) => {
         const mine = voted ? selected.includes(i) || opt.voted : selected.includes(i)
-        const ratio = total !== null && total > 0 ? opt.votesCount / total : 0
+        // A null count is hidden, not zero (ADR 0013): no bar, no fake
+        // number, and an honest accessibility label.
+        const showBar = opt.votesCount !== null && total !== null && total > 0
+        const ratio =
+          opt.votesCount !== null && total !== null && total > 0 ? opt.votesCount / total : 0
+        const countLabel = opt.votesCount !== null ? `${opt.votesCount} votes` : hiddenLabel
         return (
           <Pressable
             key={i}
@@ -164,14 +239,20 @@ export function PostPoll({
             disabled={locked || busy}
             accessibilityRole={poll.multiple ? 'checkbox' : 'radio'}
             accessibilityState={{disabled: locked || busy, selected: mine}}
-            accessibilityLabel={`${opt.text}, ${opt.votesCount} votes${opt.voted || (voted && selected.includes(i)) ? ', your vote' : ''}`}>
+            accessibilityLabel={`${opt.text}, ${countLabel}${opt.voted || (voted && selected.includes(i)) ? ', your vote' : ''}`}>
             <View style={[styles.option, {borderColor: mine ? theme.palette.text : theme.palette.edge}]}>
               <Body numberOfLines={2}>
                 {(opt.voted || (voted && selected.includes(i))) && '✓ '}
-                {opt.text}
+                <OptionTitle
+                  text={opt.text}
+                  emojis={packed}
+                  sessionId={sessionId ?? null}
+                  authorHost={authorHost ?? null}
+                  size={emojiSize}
+                />
               </Body>
-              <Caption color="muted">{opt.votesCount}</Caption>
-              <PollBar ratio={ratio} />
+              <Caption color="muted">{opt.votesCount ?? hiddenLabel}</Caption>
+              {showBar ? <PollBar ratio={ratio} /> : null}
             </View>
           </Pressable>
         )

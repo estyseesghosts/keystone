@@ -373,7 +373,12 @@ export function buildPostDraft(state: ComposeState, ctx: BuildContext): BuildRes
   if (state.quote) draft.renoteId = state.quote.id;
   if (mediaIds.length > 0) draft.mediaIds = mediaIds;
   if (hasPoll && state.poll) {
-    const seconds = Math.max(1, Math.round(state.poll.durationSeconds));
+    // Mastodon rejects `poll[expires_in]` below 300 s (finding 22): clamp
+    // at the domain layer so no caller can send 0. The composer UI
+    // validates with a translated message before this runs; this silent
+    // floor is the backstop (fedi carries no Lingui catalog).
+    const floor = family === "mastodon" ? 300 : 1;
+    const seconds = Math.max(floor, Math.round(state.poll.durationSeconds));
     draft.poll = {
       choices,
       multiple: gates.pollMultiple.enabled ? state.poll.multiple : false,

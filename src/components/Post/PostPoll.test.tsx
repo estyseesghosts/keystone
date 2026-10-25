@@ -6,7 +6,7 @@ import {i18n} from '@lingui/core'
 import type {Poll} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
-import {PostPoll, formatPollExpiry} from '#/components/Post/PostPoll'
+import {PostPoll, formatPollExpiry, isPollClosed} from '#/components/Post/PostPoll'
 
 i18n.load('en', {})
 i18n.activate('en')
@@ -157,5 +157,102 @@ describe('formatPollExpiry (F8)', () => {
     // `Date.now()` reads (flaky under load).
     expect(formatPollExpiry(new Date(Date.now() + 26 * 3600 * 1000 + 60_000).toISOString())).toBe('in 26h')
     expect(formatPollExpiry(new Date(Date.now() + 5 * 86400 * 1000).toISOString())).toMatch(/^on /)
+  })
+})
+
+describe('isPollClosed (M16)', () => {
+  it('the server flag wins; otherwise the deadline decides at render time', () => {
+    const now = Date.now()
+    expect(isPollClosed({expired: true, expiresAt: null}, now)).toBe(true)
+    expect(isPollClosed({expired: true, expiresAt: new Date(now + 60_000).toISOString()}, now)).toBe(true)
+    expect(isPollClosed({expired: false, expiresAt: new Date(now + 60_000).toISOString()}, now)).toBe(false)
+    expect(isPollClosed({expired: false, expiresAt: new Date(now - 1000).toISOString()}, now)).toBe(true)
+    expect(isPollClosed({expired: false, expiresAt: null}, now)).toBe(false)
+    expect(isPollClosed({expired: false, expiresAt: 'not-a-date'}, now)).toBe(false)
+  })
+})
+
+describe('PostPoll hidden totals (ADR 0013)', () => {
+  function hidden(over: Partial<Poll> = {}): Poll {
+    return poll({
+      votesCount: null,
+      votersCount: null,
+      options: [
+        {text: 'Alpha', votesCount: null, voted: false},
+        {text: 'Beta', votesCount: null, voted: false},
+      ],
+      ...over,
+    })
+  }
+
+  it('renders hidden totals with no bar and no fake zero', () => {
+    renderPoll(<PostPoll poll={hidden()} onVote={jest.fn()} testID="poll" />)
+    expect(screen.getAllByText('Hidden until closed').length).toBeGreaterThan(0)
+    // No fabricated zeros anywhere: neither option counts nor the footer.
+    expect(screen.queryByText('0')).toBeNull()
+    expect(screen.getByTestId('poll-meta')).toHaveTextContent('Hidden until closed')
+    // Voting is still offered: hidden totals are votable.
+    expect(screen.getByTestId('poll-vote')).toBeTruthy()
+    // The accessibility label is honest too.
+    expect(screen.getByTestId('poll-option-0').props.accessibilityLabel).toMatch(/Hidden until closed/)
+  })
+
+  it('renders option-title emoji through the shared pipeline', () => {
+    renderPoll(
+      <PostPoll
+        poll={poll({
+          options: [
+            {text: 'Yes :blobcat:', votesCount: 7, voted: false},
+            {text: 'No', votesCount: 3, voted: false},
+          ],
+        })}
+        emojis={{blobcat: 'https://m.example/emoji/blobcat.png'}}
+        onVote={jest.fn()}
+        testID="poll"
+      />,
+    )
+    expect(screen.getByLabelText(':blobcat:').props.source?.uri).toBe(
+      'https://m.example/emoji/blobcat.png',
+    )
+    expect(screen.queryByText('Yes :blobcat:')).toBeNull()
+    // Unknown codes stay literal, never fabricated.
+    renderPoll(
+      <PostPoll
+        poll={poll({
+          options: [{text: 'Maybe :nosuchemoji:', votesCount: 7, voted: false}],
+        })}
+        emojis={{}}
+        onVote={jest.fn()}
+        testID="poll-unknown"
+      />,
+    )
+    expect(screen.getByText(/:nosuchemoji:/)).toBeTruthy()
+  })
+
+  it('crosses to closed at the deadline without a refetch', () => {
+    jest.useFakeTimers()
+    try {
+      const at = Date.now() + 60_000
+      const {rerender} = renderPoll(
+        <PostPoll poll={poll({expiresAt: new Date(at).toISOString()})} onVote={jest.fn()} testID="poll" />,
+      )
+      expect(screen.getByTestId('poll-vote')).toBeTruthy()
+      jest.advanceTimersByTime(61_000)
+      rerender(
+        <I18nProvider i18n={i18n}>
+          <ThemeProvider theme="light">
+            <PostPoll
+              poll={poll({expiresAt: new Date(at).toISOString()})}
+              onVote={jest.fn()}
+              testID="poll"
+            />
+          </ThemeProvider>
+        </I18nProvider>,
+      )
+      expect(screen.queryByTestId('poll-vote')).toBeNull()
+      expect(screen.getByTestId('poll-meta')).toHaveTextContent(/closed/)
+    } finally {
+      jest.useRealTimers()
+    }
   })
 })

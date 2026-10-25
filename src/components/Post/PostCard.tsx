@@ -1106,6 +1106,9 @@ const PostCardView = memo(function PostCardView({
         {!bodyHidden && effective.poll !== null && (
           <PostPoll
             poll={effective.poll}
+            emojis={emojis}
+            sessionId={sessionId}
+            authorHost={effective.author.host ?? null}
             onVote={live?.votePoll ? choices => live.votePoll(effective.id, choices, effective.poll) : undefined}
             testID={`post-poll-${post.id}`}
           />
