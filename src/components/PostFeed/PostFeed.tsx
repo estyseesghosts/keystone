@@ -2,7 +2,7 @@
 // unit tests. Production renders FeedView (`src/screens/HomeFeed.tsx`),
 // which owns the query + moderation + pill. Do not mount this in screens.
 
-import {useCallback, useMemo} from 'react'
+import {useCallback, useMemo, useRef, useState} from 'react'
 import {
   FlatList,
   RefreshControl,
@@ -20,6 +20,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {i18n} from '#/locale/i18n'
+import {useSuspendOnBlur} from '#/state/activePlayer'
 import {usePagedLoad} from '#/state/queries/usePagedLoad'
 
 import {ThreadRow} from './ThreadRow'
@@ -82,6 +83,10 @@ export function PostFeed({
   testID,
 }: PostFeedProps) {
   void descriptor
+  // Navigation blur suspends every player (repair X7.2, media M5): a tab
+  // switch or push pauses inline media even when rows stay mounted.
+  // No-op with no navigator (tests, previews).
+  useSuspendOnBlur()
   // Avatar-column links (newest-first, adjacency only): a reply directly
   // under its parent shares one connected column. Pure `replyToId`
   // check — quotes/renotes alone never link.
@@ -108,6 +113,21 @@ export function PostFeed({
     },
     [paged],
   )
+  // Viewability-driven players (repair X7.2, media M5): only rows the
+  // list reports as viewable may play. The callback identity is stable
+  // (a ref) so FlatList never re-registers; the equality guard skips
+  // identical sets so scroll frames skip the row subtree.
+  const [viewableIds, setViewableIds] = useState<ReadonlySet<string>>(() => new Set())
+  const onViewableItemsChanged = useRef(
+    ({viewableItems}: {viewableItems: Array<{item: Post}>}) => {
+      setViewableIds(prev => {
+        const next = new Set(viewableItems.map(v => v.item.id))
+        if (prev.size === next.size && [...prev].every(id => next.has(id))) return prev
+        return next
+      })
+    },
+  ).current
+  const viewabilityConfig = useRef({itemVisiblePercentThreshold: 50}).current
   // Stable row element (same rule as FeedView): memoized ThreadRow
   // skips unchanged rows on scroll frames.
   const renderRow = useCallback(
@@ -122,9 +142,10 @@ export function PostFeed({
         // Same rule as production FeedView: bound every post except
         // inside a connected run and above the first row.
         showSeparator={index > 0 && !(links.connectedAbove[index] ?? false)}
+        active={viewableIds.has(item.id)}
       />
     ),
-    [sessionId, capabilities, emojiStyle, links],
+    [sessionId, capabilities, emojiStyle, links, viewableIds],
   )
   return (
     <View style={{flex: 1}} testID={testID ?? 'post-feed'}>
@@ -156,6 +177,8 @@ export function PostFeed({
         }
         onEndReached={paged.onEndReached}
         onEndReachedThreshold={2.5}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         onScroll={handleScroll}
         scrollEventThrottle={32}
         ListEmptyComponent={

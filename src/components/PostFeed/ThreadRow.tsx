@@ -40,6 +40,10 @@ export type ThreadRowProps = {
    * inside a connected reply run (the thread line already joins those —
    * an internal rule would double the separation). */
   showSeparator?: boolean
+  /** Viewability gate for inline players (repair X7.2, media M5): true
+   * while this row is viewable in its list. Lists inject it; anything
+   * else omits it and players follow their own defaults. */
+  active?: boolean
   testID?: string
 }
 
@@ -52,6 +56,7 @@ export const ThreadRow = memo(function ThreadRow({
   connectedAbove = false,
   connectedBelow = false,
   showSeparator = false,
+  active = true,
   testID,
 }: ThreadRowProps) {
   const theme = useTheme()
@@ -72,7 +77,7 @@ export const ThreadRow = memo(function ThreadRow({
           style={[styles.line, variant, {left: LINE_LEFT, backgroundColor: theme.palette.border}]}
         />
       ) : null}
-      <PostCard post={post} sessionId={sessionId} capabilities={capabilities} emojiStyle={emojiStyle} renoters={renoters} />
+      <PostCard post={post} sessionId={sessionId} capabilities={capabilities} emojiStyle={emojiStyle} renoters={renoters} mediaActive={active} />
     </View>
   )
 })

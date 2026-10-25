@@ -12,9 +12,10 @@
 // with a play/pause toggle, and files as an openable name/size card.
 // Every tile opens the Lightbox at its index; unsafe URLs never fetch
 // and never open (F4).
-import {useEffect, useState} from 'react'
+import {useEffect, useState, useSyncExternalStore} from 'react'
 import type {ComponentProps} from 'react'
 import {Image, Linking, ScrollView, StyleSheet, View} from 'react-native'
+import {Path, Svg} from 'react-native-svg'
 import {useVideoPlayer, VideoView} from 'expo-video'
 
 import {msg} from '@lingui/macro'
@@ -23,9 +24,13 @@ import {useLingui} from '@lingui/react'
 import {safeHttpUrl, type Media} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
+import {overlayChrome} from '#/alf/themes'
 import {Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
 import {showToast} from '#/lib/toast'
+import {useReducedMotionSetting} from '#/lib/motion'
+import {appearanceStore} from '#/state/appearance'
+import {releasePlayer, requestPlayerPlay, useAppActive, useIsPlayerActive} from '#/state/activePlayer'
 
 // SDK 57 web types: `VideoView` wants the web player class while
 // `useVideoPlayer` returns the native type. The runtime instance is
@@ -79,6 +84,25 @@ const styles = StyleSheet.create({
   video: {width: '100%', height: '100%'},
   audioBox: {borderRadius: 6, borderWidth: 1, padding: 4, justifyContent: 'center', minHeight: 80},
   row: {flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12},
+  /** Audio toggle: the 44pt floor lives in layout (not hitSlop math), so
+   * the target holds with short labels in every locale. */
+  audioToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minWidth: 44,
+    minHeight: 44,
+  },
+  /** Play affordance over an unplaying gifv (reduce-motion / data-saver):
+   * sanctioned scrim chrome, never a hardcoded literal. */
+  playAffordance: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: overlayChrome.captionScrim,
+  },
   fileMeta: {flex: 1, gap: 2},
   placeholder: {
     borderRadius: 6,
@@ -187,6 +211,59 @@ function mediaLabel(item: Media): string {
   return item.description ?? item.name ?? item.kind
 }
 
+/** Vector play triangle (real icon, never a unicode glyph). Defaults to
+ * the theme text; pass the scrim foreground on dark overlays. */
+function PlayGlyph({size = 24, color, testID}: {size?: number; color?: string; testID?: string}) {
+  const theme = useTheme()
+  return (
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={color ?? theme.palette.text}
+      testID={testID}
+      accessibilityIgnoresInvertColors>
+      <Path d="M8 5v14l11-7z" />
+    </Svg>
+  )
+}
+
+/** Vector pause bars (real icon, never a unicode glyph). */
+function PauseGlyph({size = 24, color, testID}: {size?: number; color?: string; testID?: string}) {
+  const theme = useTheme()
+  return (
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={color ?? theme.palette.text}
+      testID={testID}
+      accessibilityIgnoresInvertColors>
+      <Path d="M7 5h4v14H7zM13 5h4v14h-4z" />
+    </Svg>
+  )
+}
+
+function subscribeDataSaver(fn: () => void): () => void {
+  return appearanceStore.subscribe(fn)
+}
+
+/** Data-saver pref that never crashes the feed: a prefs read that throws
+ * (no storage on a bare tree) falls back to full autoplay, and the real
+ * value flows once storage answers. Module-level seam so the hook below
+ * keeps stable subscribe/snapshot identities. */
+function readDataSaverSafe(): boolean {
+  try {
+    return appearanceStore.getDataSaver()
+  } catch {
+    return false
+  }
+}
+
+function useDataSaverSafe(): boolean {
+  return useSyncExternalStore(subscribeDataSaver, readDataSaverSafe, readDataSaverSafe)
+}
+
 function Still({item, single, index, onOpen, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; bleed?: boolean}) {
   const [failed, setFailed] = useState(false)
   const [measured, setMeasured] = useState<number | null>(null)
@@ -233,40 +310,124 @@ function GifvTile({item, single, index, onOpen, active, bleed}: {item: Media; si
 }
 
 function LoopTile({item, single, index, onOpen, url, active, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; url: string; active: boolean; bleed?: boolean}) {
+  const {i18n} = useLingui()
   const player = useVideoPlayer(url, p => {
     p.loop = true
     p.muted = true
   })
-  // Viewability gate (R2.3): only the active tile plays. Every mounted
-  // gifv autoplaying on init meant N simultaneous decodes for off-screen
-  // strip tiles. Full feed-level viewability wiring is a follow-up; until
-  // then the grid plays at most its first visible tile.
+  // Autoplay policy (media M5): reduce-motion and the data-saver pref both
+  // suppress autoplay — the tile shows a play affordance instead. A manual
+  // tap always wins (the user explicitly asked).
+  const reduceMotion = useReducedMotionSetting()
+  const dataSaver = useDataSaverSafe()
+  const appActive = useAppActive()
+  const playerId = `gifv:${item.id}`
+  const isCurrent = useIsPlayerActive(playerId)
+  const [manualPlay, setManualPlay] = useState(false)
+  const autoplayAllowed = !reduceMotion && !dataSaver
+  // Viewability-driven `active` (the list's viewable rows): the tile plays
+  // only while viewable, foregrounded, allowed-or-tapped, AND holding the
+  // single global slot — scroll-off, blur (the list suspends the store),
+  // backgrounding, policy, and preemption all pause it.
+  const wantsPlay = active && appActive && (autoplayAllowed || manualPlay)
   useEffect(() => {
-    if (active) player.play()
+    if (wantsPlay) requestPlayerPlay(playerId)
+    else releasePlayer(playerId)
+  }, [wantsPlay, playerId])
+  useEffect(() => {
+    if (wantsPlay && isCurrent) player.play()
     else player.pause()
-  }, [player, active])
+  }, [player, wantsPlay, isCurrent])
+  // Unmount (row recycle, navigation away): leave the slot and stop decoding.
+  useEffect(
+    () => () => {
+      releasePlayer(playerId)
+      try {
+        player.pause()
+      } catch {
+        // Best-effort: the player may already be released.
+      }
+    },
+    [player, playerId],
+  )
   // Singles crop only outside shapes (no measured path for video — meta
   // only); in-range loops fit like stills, strip keeps cover.
   const crop = single && isOutOfRange(metaAspect(item) ?? SINGLE_AR)
+  const showAffordance = !autoplayAllowed && !manualPlay
   return (
     <TileFrame item={item} single={single} index={index} aspect={tileAspect(item, single)} onOpen={onOpen} testID={`media-gifv-${item.id}`} label={mediaLabel(item)} bleed={bleed}>
       <VideoView player={player as unknown as ViewPlayer} contentFit={crop || !single ? 'cover' : 'contain'} style={styles.video} testID={`media-gifv-player-${item.id}`} />
+      {showAffordance ? (
+        <Pressable
+          testID={`media-gifv-play-${item.id}`}
+          onPress={() => setManualPlay(true)}
+          accessibilityRole="button"
+          accessibilityLabel={i18n._(msg`Play ${mediaLabel(item)}`)}
+          hitSlop={12}
+          style={styles.playAffordance}>
+          <PlayGlyph testID={`media-gifv-play-icon-${item.id}`} color={overlayChrome.fg} />
+          <Caption style={{color: overlayChrome.fg}}>{i18n._(msg`Play`)}</Caption>
+        </Pressable>
+      ) : null}
     </TileFrame>
   )
 }
 
-function VideoTile({item, single, index, onOpen, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; bleed?: boolean}) {
+function VideoTile({item, single, index, onOpen, active, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; active: boolean; bleed?: boolean}) {
   const url = safeHttpUrl(item.url)
   if (url === null) {
     return <Placeholder label="Video unavailable" reason="The server sent no video URL." testID={`media-missing-${item.id}`} />
   }
-  return <PlayerTile item={item} single={single} index={index} onOpen={onOpen} url={url} bleed={bleed} />
+  return <PlayerTile item={item} single={single} index={index} onOpen={onOpen} url={url} active={active} bleed={bleed} />
 }
 
-function PlayerTile({item, single, index, onOpen, url, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; url: string; bleed?: boolean}) {
+function PlayerTile({item, single, index, onOpen, url, active, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; url: string; active: boolean; bleed?: boolean}) {
   const player = useVideoPlayer(url, p => {
     p.loop = false
   })
+  // Single-global-player membership for user-started video (native controls
+  // own the start — this tile never auto-plays): starting here preempts any
+  // gifv/audio elsewhere, and scroll-off, backgrounding, blur, or
+  // preemption pauses here. Unmount releases and stops.
+  const playerId = `video:${item.id}`
+  const isCurrent = useIsPlayerActive(playerId)
+  const appActive = useAppActive()
+  const [playing, setPlaying] = useState(false)
+  useEffect(() => {
+    if (typeof player.addListener !== 'function') return
+    const sub = player.addListener('playingChange', ({isPlaying}: {isPlaying: boolean}) => {
+      const next = isPlaying === true
+      setPlaying(next)
+      if (next) requestPlayerPlay(playerId)
+    })
+    return () => {
+      try {
+        sub.remove()
+      } catch {
+        // Best-effort teardown.
+      }
+    }
+  }, [player, playerId])
+  useEffect(() => {
+    if (playing && (!active || !appActive || !isCurrent)) {
+      try {
+        player.pause()
+      } catch {
+        // Best-effort: the player may already be released.
+      }
+    }
+  }, [player, playing, active, appActive, isCurrent])
+  useEffect(
+    () => () => {
+      releasePlayer(playerId)
+      try {
+        player.pause()
+      } catch {
+        // Best-effort: the player may already be released.
+      }
+    },
+    [player, playerId],
+  )
   return (
     <TileFrame item={item} single={single} index={index} aspect={tileAspect(item, single)} onOpen={onOpen} testID={`media-video-${item.id}`} label={mediaLabel(item)} bleed={bleed}>
       <VideoView
@@ -280,24 +441,61 @@ function PlayerTile({item, single, index, onOpen, url, bleed}: {item: Media; sin
   )
 }
 
-function AudioTile({item, index, onOpen}: {item: Media; index: number; onOpen?: (index: number) => void}) {
+function AudioTile({item, index, onOpen, active}: {item: Media; index: number; onOpen?: (index: number) => void; active: boolean}) {
   const {i18n} = useLingui()
   const url = safeHttpUrl(item.url)
   if (url === null) {
     return <Placeholder label={i18n._(msg`Audio unavailable`)} reason={i18n._(msg`The server sent no audio URL.`)} testID={`media-missing-${item.id}`} />
   }
-  return <AudioPlayer item={item} index={index} onOpen={onOpen} url={url} />
+  return <AudioPlayer item={item} index={index} onOpen={onOpen} url={url} active={active} />
 }
 
-function AudioPlayer({item, index, onOpen, url}: {item: Media; index: number; onOpen?: (index: number) => void; url: string}) {
+function AudioPlayer({item, index, onOpen, url, active}: {item: Media; index: number; onOpen?: (index: number) => void; url: string; active: boolean}) {
   const theme = useTheme()
   const {i18n} = useLingui()
   const player = useVideoPlayer(url)
+  // Same single-global membership as video: starting here preempts any
+  // other player, and scroll-off, backgrounding, blur, or preemption
+  // pauses here. Unmount releases and stops.
+  const playerId = `audio:${item.id}`
+  const isCurrent = useIsPlayerActive(playerId)
+  const appActive = useAppActive()
   const [playing, setPlaying] = useState(false)
   useEffect(() => {
-    const sub = player.addListener('playingChange', ({isPlaying}) => setPlaying(isPlaying))
-    return () => sub.remove()
-  }, [player])
+    if (typeof player.addListener !== 'function') return
+    const sub = player.addListener('playingChange', ({isPlaying}: {isPlaying: boolean}) => {
+      const next = isPlaying === true
+      setPlaying(next)
+      if (next) requestPlayerPlay(playerId)
+    })
+    return () => {
+      try {
+        sub.remove()
+      } catch {
+        // Best-effort teardown.
+      }
+    }
+  }, [player, playerId])
+  useEffect(() => {
+    if (playing && (!active || !appActive || !isCurrent)) {
+      try {
+        player.pause()
+      } catch {
+        // Best-effort: the player may already be released.
+      }
+    }
+  }, [player, playing, active, appActive, isCurrent])
+  useEffect(
+    () => () => {
+      releasePlayer(playerId)
+      try {
+        player.pause()
+      } catch {
+        // Best-effort: the player may already be released.
+      }
+    },
+    [player, playerId],
+  )
   return (
     <View
       style={[styles.audioBox, {borderColor: theme.palette.border}]}
@@ -305,11 +503,24 @@ function AudioPlayer({item, index, onOpen, url}: {item: Media; index: number; on
       <View style={styles.row}>
         <Pressable
           testID={`media-audio-toggle-${item.id}`}
-          onPress={() => (playing ? player.pause() : player.play())}
+          onPress={() => {
+            if (playing) player.pause()
+            else {
+              requestPlayerPlay(playerId)
+              player.play()
+            }
+          }}
           accessibilityRole="button"
           accessibilityLabel={playing ? i18n._(msg`Pause ${mediaLabel(item)}`) : i18n._(msg`Play ${mediaLabel(item)}`)}
-          accessibilityState={{selected: playing}}>
-          <Caption color="muted">{playing ? i18n._(msg`⏸ Pause`) : i18n._(msg`▶ Play`)}</Caption>
+          accessibilityState={{selected: playing}}
+          hitSlop={12}
+          style={styles.audioToggle}>
+          {playing ? (
+            <PauseGlyph testID={`media-audio-icon-${item.id}`} />
+          ) : (
+            <PlayGlyph testID={`media-audio-icon-${item.id}`} />
+          )}
+          <Caption color="muted">{playing ? i18n._(msg`Pause`) : i18n._(msg`Play`)}</Caption>
         </Pressable>
         <View style={styles.fileMeta}>
           <Caption numberOfLines={1}>{mediaLabel(item)}</Caption>
@@ -386,7 +597,7 @@ function SensitiveTile({
   )
 }
 
-export function PostMediaGrid({media, onOpen, testID, bleed, autoplayIndex = 0}: {media: Media[]; onOpen?: (index: number) => void; testID?: string; bleed?: boolean; autoplayIndex?: number | null}) {
+export function PostMediaGrid({media, onOpen, testID, bleed, active = true}: {media: Media[]; onOpen?: (index: number) => void; testID?: string; bleed?: boolean; active?: boolean}) {
   // Per-tile reveal, keyed by index: revealing one sensitive attachment
   // leaves every other hidden tile behind its own gate (v1 `NoteBody`).
   const [revealed, setRevealed] = useState<ReadonlySet<number>>(() => new Set())
@@ -419,19 +630,22 @@ export function PostMediaGrid({media, onOpen, testID, bleed, autoplayIndex = 0}:
       return <SensitiveTile key={item.id} item={item} index={i} onReveal={reveal} />
     }
     const single = media.length === 1
-    // Viewability gate (R2.3): only the autoplay tile's gifv runs — one
-    // decode at a time until feed-level viewability wiring lands (`null`
-    // pauses every tile). Singles always run (index 0 is the default).
-    const gifvActive = (i: number) => autoplayIndex !== null && i === autoplayIndex
+    // Viewability-driven `active` (repair X7.2, media M5): the list marks
+    // viewable rows; the grid plays at most its first gifv while active,
+    // and video/audio tiles pause on scroll-off through their own `active`.
+    // Outside a list (detail, quotes) `active` defaults to true. The single
+    // global slot in `#/state/activePlayer` still bounds N visible posts to
+    // the configured maximum (default 1).
+    const gifvActive = (index: number) => active && index === 0
     switch (item.kind) {
       case 'image':
         return <Still key={item.id} item={item} single={single} index={i} onOpen={onOpen} bleed={bleed} />
       case 'gifv':
         return <GifvTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} active={gifvActive(i)} bleed={bleed} />
       case 'video':
-        return <VideoTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} bleed={bleed} />
+        return <VideoTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} active={active} bleed={bleed} />
       case 'audio':
-        return <AudioTile key={item.id} item={item} index={i} onOpen={onOpen} />
+        return <AudioTile key={item.id} item={item} index={i} onOpen={onOpen} active={active} />
       default:
         return <FileTile key={item.id} item={item} />
     }

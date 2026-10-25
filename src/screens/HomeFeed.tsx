@@ -42,6 +42,7 @@ import {i18n} from '#/locale/i18n'
 import {usePagedLoad, useRefreshFirstPage} from '#/state/queries/usePagedLoad'
 import {countNewItems, feedItems, filterModerated, filterSoftMuted, useModerationRules, useSoftMutedIds, usePostFeedQuery} from '#/state/queries'
 import {feedScrollKey, readFeedScroll, saveFeedScroll} from '#/state/feedMemory'
+import {useSuspendOnBlur} from '#/state/activePlayer'
 import {LIVE_CAPTURE_LIMIT, useFeedLive} from '#/state/streaming'
 import {useSessionStore} from '#/state/session/SessionProvider'
 import {StreamStatusBadge} from '#/components/StreamBadge'
@@ -158,6 +159,9 @@ export function FeedView({  sessionId,
   const storeBackend = useBackendForSessionId(sessionId)
   const resolved = backend !== undefined ? backend : storeBackend
   const theme = useTheme()
+  // Navigation blur suspends every player (repair X7.2, media M5): a tab
+  // switch or push pauses inline media even when rows stay mounted.
+  useSuspendOnBlur()
   const feed = usePostFeedQuery(sessionId, descriptor, {
     ...(resolved ? {backend: resolved} : {}),
     ...(retry !== undefined ? {retry} : {}),
@@ -246,6 +250,21 @@ export function FeedView({  sessionId,
   // Stable row element: with memoized ThreadRow, an unchanged (post,
   // session, capabilities, links) set skips the whole row subtree on
   // scroll frames instead of rebuilding it.
+  // Viewability-driven players (repair X7.2, media M5): only rows the
+  // list reports as viewable may play. The callback identity is stable
+  // (a ref) so FlatList never re-registers; the equality guard skips
+  // identical sets so scroll frames skip the row subtree.
+  const [viewableIds, setViewableIds] = useState<ReadonlySet<string>>(() => new Set())
+  const onViewableItemsChanged = useRef(
+    ({viewableItems}: {viewableItems: Array<{item: Post}>}) => {
+      setViewableIds(prev => {
+        const next = new Set(viewableItems.map(v => v.item.id))
+        if (prev.size === next.size && [...prev].every(id => next.has(id))) return prev
+        return next
+      })
+    },
+  ).current
+  const viewabilityConfig = useRef({itemVisiblePercentThreshold: 50}).current
   const renderRow = useCallback(
     ({item, index}: {item: Post; index: number}) => {
       // Unreachable past the signed-out guard below, but the callback is
@@ -263,10 +282,11 @@ export function FeedView({  sessionId,
           // connected reply run (joined by the thread line already) and
           // above the first row (nothing above it but the header).
           showSeparator={index > 0 && !(links.connectedAbove[index] ?? false)}
+          active={viewableIds.has(item.id)}
         />
       )
     },
-    [sessionId, resolved, collapsed, links],
+    [sessionId, resolved, collapsed, links, viewableIds],
   )
   // Scroll restoration (N14): offsets are remembered per session +
   // descriptor and restored once per mount, so back-navigation returns
@@ -421,6 +441,8 @@ export function FeedView({  sessionId,
         }
         onEndReached={paged.onEndReached}
         onEndReachedThreshold={2.5}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         ListEmptyComponent={
           <View style={[atoms.centered, atoms.p_md]}>
             <Body>{i18n._(msg`Nothing here yet.`)}</Body>

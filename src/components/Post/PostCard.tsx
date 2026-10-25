@@ -311,6 +311,11 @@ export type PostCardProps = {
    * soft-mute set and the rendered author; tests and previews inject it
    * explicitly. Omit (or false) to leave the badge off — never guessed. */
   softMuted?: boolean
+  /** Viewability gate for inline players (repair X7.2, media M5): true
+   * while the row is viewable in its list. Feed rows inject this from the
+   * list's viewability callback; detail/quote/presentational trees omit it
+   * and keep autoplay behaviour. */
+  mediaActive?: boolean
   /** Backend for mention → account resolution (avatar + display name
    * in chips). The live card injects the session backend; tests and
    * previews omit it — chips fall back to the handle label, never a
@@ -694,6 +699,7 @@ const PostCardView = memo(function PostCardView({
   linkPreviewMode,
   linkPreviewAuto = true,
   softMuted,
+  mediaActive = true,
   onEditedPress,
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
@@ -1110,7 +1116,7 @@ const PostCardView = memo(function PostCardView({
           </Pressable>
           )
         )}
-        {!bodyHidden && <PostMediaGrid media={effective.media} onOpen={index => setLightbox({items: effective.media, index})} testID={`post-media-${post.id}`} />}
+        {!bodyHidden && <PostMediaGrid media={effective.media} onOpen={index => setLightbox({items: effective.media, index})} testID={`post-media-${post.id}`} active={mediaActive} />}
         {!bodyHidden && resolvingQuote && (
           <Caption color="muted" testID={`post-quote-resolving-${post.id}`}>
             {i18n._(msg`Resolving quote…`)}
@@ -1121,6 +1127,10 @@ const PostCardView = memo(function PostCardView({
           <Lightbox
             media={lightbox.items}
             index={lightbox.index}
+            // The tapped tile already passed the grid's sensitive gate, so it
+            // starts revealed inside; every other sensitive frame stays
+            // covered until its own Show control runs (X7.1 step 6).
+            revealedIds={lightbox.items[lightbox.index] ? [lightbox.items[lightbox.index].id] : undefined}
             onIndexChange={index => setLightbox({items: lightbox.items, index})}
             onClose={() => setLightbox(null)}
             testID={`post-lightbox-${post.id}`}
