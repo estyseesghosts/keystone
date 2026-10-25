@@ -245,8 +245,7 @@ give the Wave 9 sweep a measurable burn-down.
 
 ## X0.3 - Reset `state/STATE.md`
 
-Status: not started
-Branch: `repair25-x0.3-state-reset`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x0.3.md`; STATE 188 → 31 lines; counts refreshed from gate runs)
 Audit: build 1, 2
 
 **Goal.** Make `state/STATE.md` a real pointer again so every later session
