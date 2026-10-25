@@ -371,6 +371,47 @@ describe("R1.2 quote resolvers share nothing", () => {
     expect(tA.calls.filter((c) => c.endpoint === "ap/show")).toHaveLength(1);
     expect(tB.calls.filter((c) => c.endpoint === "ap/show")).toHaveLength(1);
   });
+
+  it("seedSeenQuote reseeds only the owning backend's cache (R2.4/D3.6)", async () => {
+    const note = wireNote();
+    const mkTransport = (
+      respond: (endpoint: string, params: Record<string, unknown>) => unknown,
+    ): { transport: MisskeyTransport; calls: RecordedCall[] } => {
+      const { call, calls } = stubCall(respond);
+      return {
+        calls,
+        transport: {
+          call,
+          upload: (() => Promise.resolve({})) as MisskeyTransport["upload"],
+        },
+      };
+    };
+    // Both backends deny `ap/show`: any served Post must come from a seed.
+    const tA = mkTransport(() => {
+      throw new ApiError("forbidden", 403, "FORBIDDEN");
+    });
+    const tB = mkTransport(() => {
+      throw new ApiError("forbidden", 403, "FORBIDDEN");
+    });
+    const backendA = createMisskeyBackend(tA.transport);
+    const backendB = createMisskeyBackend(tB.transport);
+
+    // A rendered card reseeds A's own cache: A's textual fallback hits the
+    // seen set with zero wire calls.
+    backendA.seedSeenQuote?.(postFromWire(note));
+    await expect(backendA.resolveQuoteUri(URI)).resolves.toMatchObject({ id: note.id });
+    expect(tA.calls.filter((c) => c.endpoint === "ap/show")).toHaveLength(0);
+
+    // B never observes A's seed: B's own credentials deny, and the failure
+    // suppresses only B's own refetch (TTL), never A's settled seed.
+    await expect(backendB.resolveQuoteUri(URI)).resolves.toBeNull();
+    expect(tB.calls.filter((c) => c.endpoint === "ap/show")).toHaveLength(1);
+    await expect(backendB.resolveQuoteUri(URI)).resolves.toBeNull();
+    expect(tB.calls.filter((c) => c.endpoint === "ap/show")).toHaveLength(1);
+    // A still serves its seed after B's denial.
+    await expect(backendA.resolveQuoteUri(URI)).resolves.toMatchObject({ id: note.id });
+    expect(tA.calls.filter((c) => c.endpoint === "ap/show")).toHaveLength(0);
+  });
 });
 
 // --- remotepost negatives retry -------------------------------------------------

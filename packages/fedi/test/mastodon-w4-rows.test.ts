@@ -241,6 +241,16 @@ describe("MD2 — bookmarks page via Link rel=next", () => {
     expect(page.end).toBe(true);
     expect(page.cursor).toBeNull();
   });
+
+  it("a malformed bookmark row is skipped, never fails the page", async () => {
+    // An account-less row cannot adapt (adaptStatus needs the packed
+    // account); the narrowed cast skips it instead of throwing.
+    const { client } = stubClient(() => ({ data: [status, { id: "bad" }] }));
+    const page = await createMastodonBackend(client).bookmarks!.list({ limit: 20 });
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0].id).toBe(status.id);
+    expect(page.end).toBe(true);
+  });
 });
 
 describe("MD3 — filters v2-first with v1 fallback", () => {

@@ -14,6 +14,7 @@ Load-bearing decisions. Numbered, append-only, never renumbered.
 | [0007](0007-nullable-notification-created-at.md) | Nullable `Notification.createdAt` (never fake dates) | 2026-10-24 | accepted |
 | [0008](0008-sdk-57-pin.md) | Pin SDK 57 native deps, drop Bluesky-mirror overrides | 2026-10-24 | accepted |
 | [0009](0009-misskey-server-info-nulls.md) | Nullable `MisskeyServerInfo` fields (never invent hardware numbers) | 2026-10-24 | accepted |
+| [0010](0010-poll-id-on-model.md) | Poll id on core `Poll` (delete the Mastodon vote GET-then-POST) | 2026-10-25 | accepted |
 
 ## When to write one
 

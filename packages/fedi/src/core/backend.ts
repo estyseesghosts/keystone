@@ -1191,6 +1191,13 @@ export interface Backend {
    * not resolve (deleted/hidden/search-restricted) — the caller keeps the
    * raw `RE:` text, never a wrong card. */
   resolveQuoteUri(uri: string): Promise<Post | null>;
+  /** Seed the session quote cache with an already-rendered note
+   * (addition — R2.4/D3.6 restoration of the R1.2-removed seen
+   * optimization, now session-scoped). A seeded note is one the session
+   * already rendered, so serving it later reveals nothing new (same or
+   * stricter visibility). Optional: backends without a seen set omit it
+   * and the UI skips seeding. Never crosses sessions. */
+  seedSeenQuote?(note: Post): void;
   /** Server-featured notes (`notes/featured`) (addition). */
   featuredPosts(opts?: PageOpts): Promise<Page<Post>>;
   /** One account's featured/pinned notes (`users/featured-notes`) (addition). */

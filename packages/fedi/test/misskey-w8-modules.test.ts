@@ -678,6 +678,23 @@ describe("misskey/noteEdit + remotepost", () => {
       globalThis.fetch = realFetch;
     }
   });
+
+  it("remotepost: an injected fetchImpl pins the resolved page URL (no global touch)", async () => {
+    const uri = "https://remote.example/notes/w8-injected-1";
+    expect(cachedRemotePostUrl(uri)).toBeNull();
+    const seen: string[] = [];
+    const fetchImpl = async (url: string | URL): Promise<Response> => {
+      seen.push(String(url));
+      return new Response(JSON.stringify({ id: uri, url: "https://remote.example/@u/9" }), {
+        status: 200,
+      });
+    };
+    await expect(resolveRemotePostUrl(uri, { fetchImpl })).resolves.toBe(
+      "https://remote.example/@u/9",
+    );
+    expect(seen).toEqual([uri]);
+    expect(cachedRemotePostUrl(uri)).toBe("https://remote.example/@u/9");
+  });
 });
 
 // --- schedule / serverDrafts ---------------------------------------------------
@@ -1151,6 +1168,19 @@ describe("misskey/external MiAuth check + empty-body (P4.2)", () => {
     expect(err).not.toBeInstanceOf(TypeError);
     expect((err as FediError).code).toBe("errors.shape.account");
     expect(seen.map((s) => s.url)).toEqual(["https://example.com/api/i"]);
+  });
+
+  it("checkExternalSession threads an injected fetchImpl (no global touch)", async () => {
+    const seen: Array<{ url: string; body: string }> = [];
+    const fetchImpl = async (url: string | URL, init?: RequestInit): Promise<Response> => {
+      seen.push({ url: String(url), body: String(init?.body ?? "") });
+      return new Response(JSON.stringify({ ok: true, token: "tok" }), { status: 200 });
+    };
+    await expect(checkExternalSession("https", "example.com", "sess", fetchImpl)).resolves.toEqual({
+      ok: true,
+      token: "tok",
+    });
+    expect(seen).toEqual([{ url: "https://example.com/api/miauth/sess/check", body: "{}" }]);
   });
 });
 

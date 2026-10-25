@@ -84,6 +84,7 @@ import {
   decodeContinuation,
   encodeContinuation,
   htmlToPlainText,
+  isStatusRow,
   pageOf,
 } from "./adapt";
 import {
@@ -1314,7 +1315,7 @@ export function createMastodonBackend(
         const query: Record<string, number> = cont ? {} : { limit: opts.limit ?? DEFAULT_LIMIT };
         const res = await client.get<Array<unknown>>(path, query);
         const items = Array.isArray(res.data) ? res.data : [];
-        const posts = items.map((raw) => adaptStatus(raw as any));
+        const posts = items.filter(isStatusRow).map((raw) => adaptStatus(raw));
         const continuation = nextContinuation(res.headers, client.origin);
         return {
           items: posts,
@@ -1367,7 +1368,7 @@ export function createMastodonBackend(
               : { limit: opts.limit ?? DEFAULT_LIMIT };
         const res = await client.get<Array<unknown>>(path, query);
         const items = Array.isArray(res.data) ? res.data : [];
-        const posts = items.map((raw) => adaptStatus(raw as any));
+        const posts = items.filter(isStatusRow).map((raw) => adaptStatus(raw));
         const continuation = nextContinuation(res.headers, client.origin);
         return {
           items: posts.map((post) => ({ id: post.id, post })),

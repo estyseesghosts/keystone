@@ -253,6 +253,12 @@ export type PostCardProps = {
    * tests inject fakes. Omit for no resolution — packed structured
    * quotes still render, failed lookups keep their text. */
   resolveQuoteUri?: (uri: string) => Promise<Post | null>
+  /** Session-scoped seen re-seeding for the quote cache (R2.4/D3.6): the
+   * live card injects the session backend's `seedSeenQuote` (Misskey
+   * only — backends without a seen set omit it); tests inject fakes or
+   * omit. Omit for no seeding — lookups still resolve, just with a fetch.
+   * Never crosses sessions: each backend seeds only its own cache. */
+  seedSeenQuote?: (note: Post) => void
   /** Device quote-display policy override (default: the appearance
    * store's `onlyAuthorizedQuotes`). When true, unauthorized quote
    * cards hide behind a tap-to-reveal row; when false (default) every
@@ -357,6 +363,17 @@ function LivePostCard(props: PostCardProps) {
   // per render.
   const resolveQuoteUri = useMemo(
     () => (backend ? (uri: string) => backend.resolveQuoteUri(uri) : undefined),
+    [backend],
+  )
+
+  // Seen re-seeding for the view (R2.4/D3.6): the session backend's own
+  // `seedSeenQuote`, threaded alongside `resolveQuoteUri` (never through
+  // the `Backend` interface directly in the view). Absent where the
+  // backend has no seen set (Mastodon family) — the view then skips
+  // seeding. Memoized so the view's seeding effect fires per post, not
+  // per render.
+  const seedSeenQuote = useMemo(
+    () => (backend?.seedSeenQuote ? (note: Post) => backend.seedSeenQuote!(note) : undefined),
     [backend],
   )
 
@@ -539,6 +556,7 @@ function LivePostCard(props: PostCardProps) {
       backend={props.backend ?? backend}
       translationSource={translationSource ?? props.translationSource ?? null}
       resolveQuoteUri={props.resolveQuoteUri ?? resolveQuoteUri}
+      seedSeenQuote={props.seedSeenQuote ?? seedSeenQuote}
       linkPreviewAuto={props.linkPreviewAuto ?? !dataSaver}
       softMuted={props.softMuted ?? softMuted}
       onEditedPress={
@@ -575,6 +593,7 @@ const PostCardView = memo(function PostCardView({
   sessionId,
   translationSource,
   resolveQuoteUri,
+  seedSeenQuote,
   onlyAuthorizedQuotes,
   linkPreviewAuto = true,
   softMuted,
@@ -616,7 +635,7 @@ const PostCardView = memo(function PostCardView({
     quoteConcealed,
     setQuoteRevealed,
     coveredQuoteUris,
-  } = useQuoteTarget(effective, resolveQuoteUri, onlyAuthorizedQuotes)
+  } = useQuoteTarget(effective, resolveQuoteUri, onlyAuthorizedQuotes, seedSeenQuote)
   const fullNodes = useMemo(
     () => postBodyNodes(effective, {coveredQuoteUris}),
     [effective, coveredQuoteUris],

@@ -772,3 +772,20 @@ describe("E6 translation evidence (probe-backed, rig :4000 2026-10-21)", () => {
     ).toBe("unknown");
   });
 });
+
+describe("detectServer default prober threads fetchImpl (seam edge)", () => {
+  it("reaches the Misskey probe through the injected fetch and pins each URL", async () => {
+    const calls: string[] = [];
+    const fetchImpl = async (url: string | URL): Promise<Response> => {
+      calls.push(String(url));
+      if (String(url).endsWith("/api/meta")) {
+        return new Response(JSON.stringify(MISSKEY_META), { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    };
+    const d = await detectServer(ORIGIN, { fetchImpl });
+    expect(d.flavor).toBe("misskey");
+    expect(d.family).toBe("misskey");
+    expect(calls).toEqual([`${ORIGIN}/.well-known/nodeinfo`, `${ORIGIN}/api/meta`]);
+  });
+});

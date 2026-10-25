@@ -137,6 +137,17 @@ describe("loadRuntimeConfig", () => {
     });
     expect(cfg).toEqual(DEFAULT_RUNTIME_CONFIG);
   });
+
+  it("the default prober threads an injected fetchImpl and pins the config URL", async () => {
+    const calls: string[] = [];
+    const fetchImpl = async (url: string | URL): Promise<Response> => {
+      calls.push(String(url));
+      return new Response(JSON.stringify({ mode: "first-party" }), { status: 200 });
+    };
+    const cfg = await loadRuntimeConfig({ fetchImpl });
+    expect(cfg.mode).toBe("first-party");
+    expect(calls).toEqual([`/${CONFIG_FILE}`]);
+  });
 });
 
 describe("resolveHomeServer", () => {

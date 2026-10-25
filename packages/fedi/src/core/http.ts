@@ -34,6 +34,27 @@ export const DEFAULT_HTTP_TIMEOUT_MS = 30_000;
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+/**
+ * Injectable fetch seam. Every transport module takes this (never the
+ * platform global) and falls back to `defaultFetchImpl` below — so the
+ * production default flows from this one edge, and tests pin URLs by
+ * injecting a recording stub. Structural (not `typeof fetch`) so seam
+ * modules never name the banned global, not even in type position.
+ */
+export type FetchImpl = (
+  input: string | URL,
+  init?: RequestInit,
+) => Promise<Response>;
+
+/**
+ * The platform fetch behind the seam edge. Resolved lazily at CALL time
+ * (not bound at module load) so `globalThis.fetch` swaps in tests keep
+ * working exactly as before. This is the only `fetch` reference in
+ * `packages/fedi` production code outside the two stream transports
+ * (which construct sockets, not requests).
+ */
+export const defaultFetchImpl: FetchImpl = (input, init) => fetch(input, init);
+
 /** Typed transport/API error. `status` is 0 for transport-level failures
  * (timeout/network) — callers must not treat 0 as an HTTP answer. `code`
  * (+ `params`) is the stable localizable identity; `message` is English. */
@@ -157,6 +178,8 @@ export interface HttpJsonOptions {
   headers?: Record<string, string>;
   timeoutMs?: number;
   signal?: AbortSignal;
+  /** Injectable fetch — defaults to the seam edge (`defaultFetchImpl`). */
+  fetchImpl?: FetchImpl;
 }
 
 /**
@@ -233,7 +256,7 @@ export async function requestJson<T = unknown>(
 
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await (opts.fetchImpl ?? defaultFetchImpl)(url.toString(), {
       method,
       headers,
       body,

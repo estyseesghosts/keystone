@@ -8,6 +8,7 @@
 import type { Backend, PostDraft, ReactionAcceptance } from "../core/backend";
 import type { Capabilities, ServerFamily } from "../core/detect";
 import type { Post, VisibilityKind } from "../core/models";
+import { defaultFetchImpl, type FetchImpl } from "../core/http";
 import { fetchInstanceCapabilities } from "../mastodon/instance";
 
 // --- Limits and counting -----------------------------------------------------
@@ -55,12 +56,12 @@ export function countComposeChars(family: ServerFamily, text: string): number {
  * `meta` call carries no token and an empty body. */
 export async function fetchComposeLimits(
   session: { origin: string; family: ServerFamily },
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: FetchImpl = defaultFetchImpl,
 ): Promise<ComposeLimits> {
   const defaults = composeDefaultsFor(session.family);
   try {
     if (session.family === "mastodon") {
-      const caps = await fetchInstanceCapabilities(session.origin);
+      const caps = await fetchInstanceCapabilities(session.origin, { fetchImpl });
       return {
         ...defaults,
         maxChars: caps.maxStatusCharacters ?? defaults.maxChars,

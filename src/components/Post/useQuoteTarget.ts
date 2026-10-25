@@ -38,6 +38,7 @@ export function useQuoteTarget(
   effective: Post,
   resolveQuoteUri: ((uri: string) => Promise<Post | null>) | undefined,
   onlyAuthorizedQuotes: boolean | undefined,
+  seedSeenQuote?: (note: Post) => void,
 ): QuoteTargetState {
   // --- Quote cards: structured + textual/URI fallback (WS-A) --------
   // The normalized target (packed renote/quote, Pinetree ext, or the
@@ -95,12 +96,13 @@ export function useQuoteTarget(
       cancelled = true
     }
   }, [pendingQuoteUri])
-  // NOTE (R1.2 repair): rendered notes no longer seed a process-wide
-  // seen set — quote fallback caches are per-backend (one per session),
-  // so account B can never reuse a `Post` resolved under account A's
-  // credentials. The backend self-registers its own `ap/show` successes
-  // into its own cache; re-seeding from rendered cards is R2.4/D3.6 work
-  // (natural home: the `useQuoteTarget` hook).
+  // Seen re-seeding (R2.4/D3.6 restoration of the R1.2-removed
+  // `registerSeenNote` effect, now session-scoped — the seeding effect
+  // below runs after the conceal gate): rendered notes reseed the owning
+  // backend's own quote cache, so a later textual fallback for the same
+  // URI hits the seen set instead of firing `ap/show`. Seeding writes
+  // only through the injected `seedSeenQuote` — one backend, one
+  // session — so account B can never observe account A's seeded notes.
   // The card's target: the packed quote, or a URI that resolved to a
   // post. Anything else falls through to the resolving indicator or the
   // unavailable fallback below.
@@ -168,6 +170,27 @@ export function useQuoteTarget(
     quoteTarget,
     htmlQuoteMarkerUri,
   ])
+  // Seen re-seeding effect (R2.4/D3.6): rendered notes reseed the owning
+  // backend's own quote cache, so a later textual fallback for the same
+  // URI hits the seen set instead of firing `ap/show`. Writes go only
+  // through the injected `seedSeenQuote` — one backend, one session — so
+  // account B can never observe account A's seeded notes. Visibility
+  // stays same-or-stricter: the outer card always renders, so `effective`
+  // seeds; the quote card seeds only when it renders — a concealed card
+  // (device opt-in hiding an unauthorized quote) is not seen. A packed
+  // quote's `renote`/`quote` are the same adapted object, so the identity
+  // guard seeds it once via `visibleQuote`, never through the gate.
+  const seedRef = useRef(seedSeenQuote)
+  seedRef.current = seedSeenQuote
+  useEffect(() => {
+    const seed = seedRef.current
+    if (seed === undefined) return
+    seed(effective)
+    if (effective.renote !== null && effective.renote !== effective.quote) {
+      seed(effective.renote)
+    }
+    if (!quoteConcealed && visibleQuote !== null) seed(visibleQuote)
+  }, [effective, visibleQuote, quoteConcealed])
   return {
     visibleQuote,
     resolvingQuote,

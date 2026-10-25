@@ -16,7 +16,7 @@
 // The object is trusted only when its `id` equals the requested `uri`.
 //
 // Cache scope (R1.2): this cache is process-wide AND safe to share,
-// because it is public-only — resolution uses `fetch` with
+// because it is public-only — resolution uses an injected `fetch` with
 // `credentials: "omit"`, so no session credential ever travels here and
 // no per-account data is stored. Positive entries (a validated public
 // page URL for an exact AP id) settle; negative entries (unreachable,
@@ -27,6 +27,8 @@
 const REQUEST_TIMEOUT_MS = 6000;
 const AP_ACCEPT =
   'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams"';
+
+import { defaultFetchImpl, type FetchImpl } from "../core/http";
 
 /** Negatives are transient (network/CORS/server hiccup): retryable after this. */
 export const REMOTE_POST_NEGATIVE_TTL_MS = 5 * 60_000;
@@ -87,8 +89,12 @@ export function cachedRemotePostUrl(uri: string): string | null {
  * Positive results are kept; negative results are kept only for
  * REMOTE_POST_NEGATIVE_TTL_MS and then retried. Each id has at most one
  * fetch in flight. Sends no credentials (see above), so entries carry no
- * per-account data. */
-export function resolveRemotePostUrl(uri: string): Promise<string | null> {
+ * per-account data. The fetch is injectable (tests pin URLs); production
+ * flows from the core/http seam edge. */
+export function resolveRemotePostUrl(
+  uri: string,
+  opts: { fetchImpl?: FetchImpl } = {},
+): Promise<string | null> {
   const known = resolved.get(uri);
   if (
     known &&
@@ -103,7 +109,7 @@ export function resolveRemotePostUrl(uri: string): Promise<string | null> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      const res = await fetch(uri, {
+      const res = await (opts.fetchImpl ?? defaultFetchImpl)(uri, {
         headers: { Accept: AP_ACCEPT },
         credentials: "omit",
         signal: controller.signal,

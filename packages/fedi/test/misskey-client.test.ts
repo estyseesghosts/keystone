@@ -270,6 +270,20 @@ describe("upload (multipart Drive, FormData — never JSON)", () => {
     form = explicitRoot[0].init.body as FormData;
     expect(form.get("folderId")).toBeNull();
   });
+
+  it("threads an injected fetchImpl and pins the Drive URL", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchImpl = async (url: string | URL, init?: RequestInit): Promise<Response> => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return json({ id: "f9" });
+    };
+    const file = new File(["x"], "pic.png", { type: "image/png" });
+    await createMisskeyClient(session(), { fetchImpl }).upload(file);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(`${ORIGIN}/api/drive/files/create`);
+    expect(calls[0].init.method).toBe("POST");
+    expect((calls[0].init.body as FormData).get("i")).toBe("sess-token");
+  });
 });
 
 // 0.8 — a Misskey-family permission failure must reach the app's global

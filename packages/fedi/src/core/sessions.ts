@@ -38,6 +38,7 @@
 import { familyOf, type ServerFamily, type ServerFlavor } from "./detect";
 import type { DetectionEvidence } from "./detect";
 import type { Account } from "./models";
+import { defaultFetchImpl, type FetchImpl } from "./http";
 
 export type SessionGrant =
   | "password"
@@ -545,7 +546,7 @@ export function removeLegacyKeys(store: KeyValueStore): void {
 // --- Revoke on logout (best-effort) ------------------------------------------
 
 export interface RevokeOptions {
-  fetchImpl?: typeof fetch;
+  fetchImpl?: FetchImpl;
   timeoutMs?: number;
   /** App-credential cache (`keystone_apps`); without it Mastodon revocation
    * is skipped (no request is ever sent without the cached app). */
@@ -588,7 +589,7 @@ export async function revokeSessionToken(
   session: Session,
   opts: RevokeOptions = {},
 ): Promise<boolean> {
-  const fetchImpl = opts.fetchImpl ?? fetch;
+  const fetchImpl = opts.fetchImpl ?? defaultFetchImpl;
   const timeoutMs = opts.timeoutMs ?? 8_000;
   try {
     const family = session.family ?? familyOf(session.flavor);

@@ -397,4 +397,26 @@ describe("fetchComposeLimits", () => {
     }) as unknown as typeof fetch;
     expect((await fetchComposeLimits({ origin: "https://s.example", family: "misskey" }, bad)).maxChars).toBe(3000);
   });
+
+  it("threads fetchImpl through the Mastodon instance probe", async () => {
+    const seen: string[] = [];
+    const fetchImpl = async (url: string | URL): Promise<Response> => {
+      seen.push(String(url));
+      if (String(url).endsWith("/api/v2/instance")) {
+        return new Response(
+          JSON.stringify({
+            version: "4.4.3",
+            domain: "m.example",
+            configuration: { statuses: { max_characters: 700, max_media_attachments: 2 } },
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response("", { status: 404 });
+    };
+    const l = await fetchComposeLimits({ origin: "https://m.example", family: "mastodon" }, fetchImpl);
+    expect(l.maxChars).toBe(700);
+    expect(l.maxMedia).toBe(2);
+    expect(seen.some((u) => u.endsWith("/api/v2/instance"))).toBe(true);
+  });
 });

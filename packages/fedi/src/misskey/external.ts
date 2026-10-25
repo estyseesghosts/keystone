@@ -28,6 +28,7 @@
 
 import { KEYSTONE_APP_NAME, KEYSTONE_PERMISSIONS } from "./auth";
 import { ApiError, FediError } from "../core/errors";
+import { defaultFetchImpl, type FetchImpl } from "../core/http";
 import {
   getActiveSession,
   loadSessions,
@@ -164,12 +165,16 @@ interface ApiErrorBody {
  * sit on eternal skeletons because one call never settled. */
 const DIRECT_TIMEOUT_MS = 30_000;
 
-async function postDirect<T>(url: string, body: Record<string, unknown>): Promise<T> {
+async function postDirect<T>(
+  url: string,
+  body: Record<string, unknown>,
+  fetchImpl: FetchImpl = defaultFetchImpl,
+): Promise<T> {
   let response: Response;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), DIRECT_TIMEOUT_MS);
   try {
-    response = await fetch(url, {
+    response = await fetchImpl(url, {
       method: "POST",
       credentials: "omit",
       headers: { "Content-Type": "application/json" },
@@ -233,10 +238,12 @@ export function checkExternalSession(
   scheme: ExternalScheme,
   host: string,
   session: string,
+  fetchImpl: FetchImpl = defaultFetchImpl,
 ): Promise<MiauthCheckResponse> {
   return postDirect<MiauthCheckResponse>(
     `${externalOrigin(scheme, host)}/api/miauth/${encodeURIComponent(session)}/check`,
     {},
+    fetchImpl,
   );
 }
 
@@ -249,10 +256,11 @@ export async function fetchExternalMe(
   scheme: ExternalScheme,
   host: string,
   token: string,
+  fetchImpl: FetchImpl = defaultFetchImpl,
 ): Promise<Account> {
   const payload = await postDirect<MeDetailed>(`${externalOrigin(scheme, host)}/api/i`, {
     i: token,
-  });
+  }, fetchImpl);
   if (!payload || typeof payload !== "object") {
     throw new FediError(
       "Server returned an empty account response.",
@@ -269,10 +277,12 @@ export function externalApiCall<T>(
   token: string,
   endpoint: string,
   params: Record<string, unknown> = {},
+  fetchImpl: FetchImpl = defaultFetchImpl,
 ): Promise<T> {
   return postDirect<T>(
     `${externalOrigin(scheme, host)}/api/${endpoint}`,
     { ...params, i: params.i ?? token },
+    fetchImpl,
   );
 }
 
@@ -284,6 +294,7 @@ export async function externalUploadFile<T>(
   token: string,
   file: File,
   opts: { isSensitive?: boolean; comment?: string } = {},
+  fetchImpl: FetchImpl = defaultFetchImpl,
 ): Promise<T> {
   const form = new FormData();
   form.append("i", token);
@@ -293,7 +304,7 @@ export async function externalUploadFile<T>(
   if (opts.comment !== undefined) form.append("comment", opts.comment);
   let response: Response;
   try {
-    response = await fetch(`${externalOrigin(scheme, host)}/api/drive/files/create`, {
+    response = await fetchImpl(`${externalOrigin(scheme, host)}/api/drive/files/create`, {
       method: "POST",
       credentials: "omit",
       body: form,
@@ -350,7 +361,7 @@ export interface RevokeExternalOptions {
   /** App-credential cache (`keystone_apps`); without it Mastodon revocation
    * is skipped (no request is ever sent without the cached app). */
   store?: KeyValueStore;
-  fetchImpl?: typeof fetch;
+  fetchImpl?: FetchImpl;
   timeoutMs?: number;
 }
 

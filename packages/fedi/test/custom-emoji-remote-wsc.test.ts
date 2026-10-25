@@ -72,4 +72,21 @@ describe("customEmoji store remoteEmojis()", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(store.remoteUrlFor("remote.example", "wave")).toBe("https://remote.example/wave.png");
   });
+
+  it("ensureHostEmojis threads an injected fetchImpl and pins the host URL", async () => {
+    const seen: string[] = [];
+    const fetchImpl = async (url: string | URL): Promise<Response> => {
+      seen.push(String(url));
+      return new Response(
+        JSON.stringify({ emojis: [{ name: "wave", url: "https://remote.example/wave.png" }] }),
+        { status: 200 },
+      );
+    };
+    const { call } = stubCall(() => ({ emojis: [] }));
+    const store = createCustomEmojiStore(call, "misskey", { fetchImpl });
+    store.ensureHostEmojis("remote.example");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(seen).toEqual(["https://remote.example/api/emojis"]);
+    expect(store.remoteUrlFor("remote.example", "wave")).toBe("https://remote.example/wave.png");
+  });
 });

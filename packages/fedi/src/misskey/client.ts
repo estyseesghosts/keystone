@@ -27,7 +27,13 @@
 // - the exact error message strings for timeout/network, in both the
 //   internal (first-party) and external (third-party) wording.
 
-import { HttpError, requestJson, resolveSameOriginUrl } from "../core/http";
+import {
+  defaultFetchImpl,
+  HttpError,
+  requestJson,
+  resolveSameOriginUrl,
+  type FetchImpl,
+} from "../core/http";
 import type { ServerFlavor } from "../core/detect";
 import type { Session } from "../core/sessions";
 import { ApiError, FediError } from "../core/errors";
@@ -57,6 +63,10 @@ export function authStyleFor(flavor: ServerFlavor): AuthStyle {
 export interface MisskeyClientOptions {
   /** Request deadline. Defaults to 30s, as before. */
   timeoutMs?: number;
+  /** Injectable fetch for the multipart upload path (authenticated JSON
+   * calls flow through `requestJson`'s seam). Defaults to the core/http
+   * seam edge. */
+  fetchImpl?: FetchImpl;
 }
 
 export interface UploadOptions {
@@ -214,6 +224,7 @@ export function createMisskeyClient(
         json: body,
         headers: authenticated ? authHeaders(session) : {},
         timeoutMs,
+        fetchImpl: opts.fetchImpl,
       });
       return res.data as T; // T = undefined for successful 204 endpoints
     } catch (err) {
@@ -256,7 +267,7 @@ export function createMisskeyClient(
 
       let response: Response;
       try {
-        response = await fetch(`${session.origin}${path}`, {
+        response = await (opts.fetchImpl ?? defaultFetchImpl)(`${session.origin}${path}`, {
           method: "POST",
           credentials: "omit",
           body: form,

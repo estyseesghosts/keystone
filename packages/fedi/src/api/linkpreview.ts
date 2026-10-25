@@ -25,6 +25,7 @@
 
 import { parseDocument } from "htmlparser2";
 import { runtimeConfig } from "../core/config";
+import { defaultFetchImpl } from "../core/http";
 
 export interface LinkPreview {
   title?: string;
@@ -46,7 +47,8 @@ const previewCache = new Map<string, LinkPreview | null>();
  * value lives in `previewCache` (hit or negative). */
 const inflight = new Map<string, Promise<LinkPreview | null>>();
 
-/** Injectable fetch (tests pass a stub; production uses global fetch). */
+/** Injectable fetch (tests pass a stub; production flows from the
+ * core/http seam edge). */
 export type PreviewFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 export interface PreviewOptions {
@@ -231,7 +233,7 @@ async function loadPreview(
   let preview: LinkPreview | null = null;
   try {
     if (!isHttpUrl(pageUrl)) return null;
-    const fetchImpl = opts.fetchImpl ?? fetch;
+    const fetchImpl = opts.fetchImpl ?? defaultFetchImpl;
     const proxy = opts.proxy === undefined ? runtimeConfig().linkPreviewProxy : opts.proxy;
     const html = await fetchHeadHtml(fetchImpl, pageUrl, proxy);
     if (html) preview = extractLinkPreview(html, pageUrl);

@@ -14,12 +14,13 @@
  *    still apply). Tests construct the injected seam: `globalThis.fetch`
  *    mocks, `WebSocket` stubs, `DOMException` deletion probes. The ban
  *    targets shipped code.
- * 2. `SEAM_ALLOWLIST` below grandfathers the modules that ARE the
- *    transport today (they call platform `fetch` / read
- *    `globalThis.WebSocket` directly). Re-plumbing them through an
- *    injected seam (`fetchImpl` / `wsFactory` threading) is follow-up
- *    work, not D3.8 — every other fedi file, and every new file, stays
- *    banned. Do not extend this list without that re-plumb.
+ * 2. `SEAM_ALLOWLIST` below grandfathers exactly the modules that ARE the
+ *    platform edge: `core/http` owns the single lazy `fetch` default every
+ *    other transport falls back to, and the two stream transports construct
+ *    sockets from the platform `WebSocket`. Re-plumbing every other
+ *    transport through an injected seam (`fetchImpl` threading) is done —
+ *    every other fedi file, and every new file, stays banned. Do not extend
+ *    this list without that re-plumb.
  *
  * Our own implementation of the plan §1.2 `no-ui-in-fedi` gate.
  * (Patterns from Bluesky's lint setup; code is ours — see ADR-0001.)
@@ -38,34 +39,18 @@ const BANNED_GLOBALS = new Set([
   'fetch',
 ])
 
-// Transport modules that predate the ban and call the platform directly.
+// The platform edge. `core/http` owns the single lazy `fetch` default
+// (`defaultFetchImpl`) every other transport falls back to — the default is
+// resolved at call time, never bound at module load, so test doubles keep
+// working. The two stream transports construct sockets from the platform
+// `WebSocket` (their `wsImpl` / `wsFactory` seams are injected in tests;
+// moving the production socket construction out would touch the backend
+// factories and live-server behavior — left as the documented remainder).
 // Each entry names ONLY the identifier that module may use; anything else
 // (e.g. `navigator` in these files) still reports. Suffix-matched against
-// the linted filename.
-//
-// Two shapes, both grandfathered (D3.8):
-// - direct platform calls (`http`, `detect`, `config`, the two `client`
-//   transports, `external`, `remotepost`, `customEmoji`, the two stream
-//   transports): re-plumbing them through an injected seam is follow-up
-//   work — the ban keeps every other fedi file, and every new file, off
-//   these globals.
-// - injectable-seam defaults (`api/composer`, `api/linkpreview`,
-//   `core/sessions`): these already take a `fetchImpl` the tests stub;
-//   only the production default is the platform global. Same follow-up
-//   (make the default flow from one place), same rule: do not extend this
-//   list without that re-plumb.
+// the linted filename. Do not extend this list: new code injects a seam.
 const SEAM_ALLOWLIST = new Map([
   ['core/http.ts', new Set(['fetch'])],
-  ['core/detect.ts', new Set(['fetch'])],
-  ['core/config.ts', new Set(['fetch'])],
-  ['core/sessions.ts', new Set(['fetch'])],
-  ['api/composer.ts', new Set(['fetch'])],
-  ['api/linkpreview.ts', new Set(['fetch'])],
-  ['misskey/client.ts', new Set(['fetch'])],
-  ['mastodon/client.ts', new Set(['fetch'])],
-  ['misskey/external.ts', new Set(['fetch'])],
-  ['misskey/remotepost.ts', new Set(['fetch'])],
-  ['misskey/customEmoji.ts', new Set(['fetch'])],
   ['misskey/stream.ts', new Set(['globalThis'])],
   ['mastodon/stream.ts', new Set(['globalThis'])],
 ])

@@ -30,6 +30,8 @@
 // of absence — and never branch UI on it. The agreement matrix is pinned
 // in `packages/fedi/test/detect.test.ts` ("MD13 classifier authority").
 
+import { defaultFetchImpl, type FetchImpl } from "./http";
+
 export type ServerFamily = "misskey" | "mastodon";
 
 export type ServerFlavor =
@@ -634,6 +636,9 @@ export type Prober = (
 export interface DetectOptions {
   prober?: Prober;
   timeoutMs?: number;
+  /** Injectable fetch for the default prober (tests pin URLs; production
+   * flows from the core/http seam edge). */
+  fetchImpl?: FetchImpl;
 }
 
 export interface ServerDetection {
@@ -753,11 +758,12 @@ async function defaultProber(
   url: string,
   body?: unknown,
   timeoutMs = 8_000,
+  fetchImpl: FetchImpl = defaultFetchImpl,
 ): Promise<ProbeResponse> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
+    const res = await fetchImpl(url, {
       credentials: "omit",
       method,
       headers: method === "POST" ? { "Content-Type": "application/json" } : undefined,
@@ -791,8 +797,9 @@ export async function detectServer(
   opts: DetectOptions = {},
 ): Promise<ServerDetection> {
   const timeoutMs = opts.timeoutMs ?? 8_000;
+  const fetchImpl = opts.fetchImpl ?? defaultFetchImpl;
   const prober: Prober =
-    opts.prober ?? ((method, url, body) => defaultProber(method, url, body, timeoutMs));
+    opts.prober ?? ((method, url, body) => defaultProber(method, url, body, timeoutMs, fetchImpl));
 
   const evidence: DetectionEvidence = {
     nodeinfoName: null,

@@ -630,6 +630,31 @@ const NOTIFICATION_KINDS: Record<string, NotificationKind> = {
 };
 
 /**
+ * Envelope maps and listing pages arrive as `unknown` (parsed JSON), so
+ * rows are narrowed before adapting — never cast. An account row is only
+ * adaptable when it is an object carrying the two fields `adaptAccount`
+ * needs unconditionally: the string `id` (core identity) and the string
+ * `acct` (split on `"@"` for the host). A status row additionally needs
+ * its packed `account` row — `adaptStatus` hands `status.account`
+ * straight to `adaptAccount`. Anything else degrades exactly where the
+ * callers already degrade absent rows (null actor/post, skipped listing
+ * row), never a throw.
+ */
+function isAccountRow(value: unknown): value is WireAccount {
+  if (typeof value !== "object" || value === null) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.id === "string" && typeof row.acct === "string";
+}
+
+/** Status-row twin of `isAccountRow` (exported for the listing pages in
+ * `backend.ts`, which narrow the same way before adapting). */
+export function isStatusRow(value: unknown): value is Status {
+  if (typeof value !== "object" || value === null) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.id === "string" && isAccountRow(row.account);
+}
+
+/**
  * Flat Mastodon-family notification rows → core Notification. One actor
  * per row (the wire's `account`); rows without a packed account carry NO
  * actor (never an id-only actor — the wire names no id). `type` is an
@@ -661,13 +686,13 @@ export function adaptV2Notification(
   const kind: NotificationKind = NOTIFICATION_KINDS[type] ?? "unknown";
   const accountId = typeof item.account_id === "string" ? item.account_id : null;
   const rawAccount = accountId ? accounts.get(accountId) : null;
-  const account = rawAccount ? adaptAccount(rawAccount as any) : null;
+  const account = isAccountRow(rawAccount) ? adaptAccount(rawAccount) : null;
   const reaction =
     kind === "reaction" && typeof item.emoji === "string" && item.emoji.length > 0
       ? item.emoji
       : null;
   const actors = account ? [{ id: account.id, account, reaction }] : [];
-  const status = item.status ? adaptStatus(item.status as any) : null;
+  const status = isStatusRow(item.status) ? adaptStatus(item.status) : null;
   return {
     id: String(item.id ?? ""),
     kind,
@@ -713,12 +738,12 @@ function adaptV2Group(
     if (seen.has(id)) continue;
     seen.add(id);
     const rawAccount = accounts.get(id);
-    const account = rawAccount ? adaptAccount(rawAccount as any) : null;
+    const account = isAccountRow(rawAccount) ? adaptAccount(rawAccount) : null;
     actors.push({ id, account, reaction });
   }
   const statusId = typeof group.status_id === "string" ? group.status_id : null;
   const rawStatus = statusId ? statuses.get(statusId) : null;
-  const status = rawStatus ? adaptStatus(rawStatus as any) : null;
+  const status = isStatusRow(rawStatus) ? adaptStatus(rawStatus) : null;
   const count =
     typeof group.notifications_count === "number" && Number.isFinite(group.notifications_count)
       ? group.notifications_count

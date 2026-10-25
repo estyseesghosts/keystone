@@ -4,12 +4,14 @@ const rule = require('../no-ui-in-fedi')
 
 const tester = new RuleTester()
 
-// NOTE (D3.8): the `globalThis` / `navigator` / `self` / `fetch` invalid
-// cases below PASS under the old `window/document/localStorage`-only rule
-// — they are the seams the ban closes. The `SEAM_ALLOWLIST` valid cases
-// pin the two deliberate narrowings (test files build the seam; the ten
-// transport modules predate the ban). If a new file needs one of these
-// globals, add a seam — not an allowlist entry without the re-plumb.
+// NOTE (D3.8, re-plumbed after): the `globalThis` / `navigator` / `self` /
+// `fetch` invalid cases below PASS under the old
+// `window/document/localStorage`-only rule — they are the seams the ban
+// closes. The `SEAM_ALLOWLIST` valid cases pin the one deliberate
+// narrowing left (test files build the seam; the HTTP edge owns the single
+// fetch default and the two stream transports construct sockets — every
+// other transport threads an injected `fetchImpl`). If a new file needs one
+// of these globals, add a seam — not an allowlist entry.
 tester.run('no-ui-in-fedi', rule, {
   valid: [
     {
@@ -45,24 +47,13 @@ tester.run('no-ui-in-fedi', rule, {
       filename: 'packages/fedi/test/mastodon-stream.test.ts',
     },
     {
-      // Grandfathered transport seam: the HTTP core calls fetch directly
-      // (re-plumb follow-up, not a new use).
+      // The seam edge: the HTTP core owns the single lazy fetch default
+      // every other transport falls back to (re-plumbed, not a new use).
       code: `const r = await fetch(url)`,
       filename: 'packages/fedi/src/core/http.ts',
     },
     {
-      // Injectable-seam default: tests stub `fetchImpl`, production falls
-      // back to the platform global (same re-plumb follow-up).
-      code: `const fetchImpl = opts.fetchImpl ?? fetch`,
-      filename: 'packages/fedi/src/api/linkpreview.ts',
-    },
-    {
-      // Injectable-seam default: revocation takes `fetchImpl` (R1.4).
-      code: `const fetchImpl = opts.fetchImpl ?? fetch`,
-      filename: 'packages/fedi/src/core/sessions.ts',
-    },
-    {
-      // Grandfathered transport seam: capability detection via WebSocket.
+      // Socket construction stays on the platform edge (re-plumb remainder).
       code: `const WS = globalThis.WebSocket`,
       filename: 'packages/fedi/src/mastodon/stream.ts',
     },
@@ -123,6 +114,25 @@ tester.run('no-ui-in-fedi', rule, {
       // grandfathered fetch file.
       code: `const lang = navigator.language; const r = await fetch(url)`,
       filename: 'packages/fedi/src/core/http.ts',
+      errors: [{messageId: 'noBrowserGlobal'}],
+    },
+    {
+      // Re-plumbed transports default from the edge, never the global:
+      // a `?? fetch` fallback is banned outside `core/http.ts`.
+      code: `const fetchImpl = opts.fetchImpl ?? fetch`,
+      filename: 'packages/fedi/src/api/linkpreview.ts',
+      errors: [{messageId: 'noBrowserGlobal'}],
+    },
+    {
+      // Same for the session store: revocation threads the seam.
+      code: `const fetchImpl = opts.fetchImpl ?? fetch`,
+      filename: 'packages/fedi/src/core/sessions.ts',
+      errors: [{messageId: 'noBrowserGlobal'}],
+    },
+    {
+      // Re-plumbed detectors name no global at all (`fetchImpl` param only).
+      code: `const r = await fetch(url)`,
+      filename: 'packages/fedi/src/core/detect.ts',
       errors: [{messageId: 'noBrowserGlobal'}],
     },
     {

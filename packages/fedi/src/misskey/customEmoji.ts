@@ -14,6 +14,7 @@
 
 import EventEmitter from "eventemitter3";
 import { ApiError } from "../core/errors";
+import { defaultFetchImpl, type FetchImpl } from "../core/http";
 import type { ServerFamily } from "../core/detect";
 import type { WireCall } from "./client";
 import type { CustomEmoji } from "./emoji";
@@ -93,6 +94,7 @@ function normalizeHost(host: string): string {
 export function createCustomEmojiStore(
   call: WireCall,
   family: ServerFamily = "misskey",
+  opts: { fetchImpl?: FetchImpl } = {},
 ): CustomEmojiStore {
   const events = new EventEmitter();
   const emit = () => {
@@ -127,7 +129,7 @@ export function createCustomEmojiStore(
     startedHosts.add(key);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
-    void fetch(`https://${key}/api/emojis`, {
+    void (opts.fetchImpl ?? defaultFetchImpl)(`https://${key}/api/emojis`, {
       method: "POST",
       credentials: "omit",
       headers: { "Content-Type": "application/json" },

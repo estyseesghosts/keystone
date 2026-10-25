@@ -17,6 +17,8 @@
 // This module is a seam only: no call site consumes it yet (that is
 // Phase 2/4 work). Behaviour of the shipped app is unchanged.
 
+import { defaultFetchImpl, type FetchImpl } from "./http";
+
 export type HostingMode = "first-party" | "third-party" | "auto";
 
 export interface RuntimeConfig {
@@ -148,9 +150,9 @@ export type ConfigProber = (url: string) => Promise<ConfigFetchResult>;
 let cached: RuntimeConfig | null = null;
 let inflight: Promise<RuntimeConfig> | null = null;
 
-async function defaultProber(url: string): Promise<ConfigFetchResult> {
+async function defaultProber(url: string, fetchImpl: FetchImpl = defaultFetchImpl): Promise<ConfigFetchResult> {
   try {
-    const res = await fetch(url, { method: "GET", credentials: "omit" });
+    const res = await fetchImpl(url, { method: "GET", credentials: "omit" });
     const raw = res.status === 204 ? "" : await res.text();
     let body: unknown = null;
     if (raw) {
@@ -174,12 +176,16 @@ async function defaultProber(url: string): Promise<ConfigFetchResult> {
 export function loadRuntimeConfig(opts: {
   base?: string;
   prober?: ConfigProber;
+  /** Injectable fetch for the default prober (production flows from the
+   * core/http seam edge). */
+  fetchImpl?: FetchImpl;
 } = {}): Promise<RuntimeConfig> {
   if (cached) return Promise.resolve(cached);
   if (inflight) return inflight;
   const base = normalizeBasePath(opts.base ?? "/");
   const url = `${base}${CONFIG_FILE}`;
-  const prober = opts.prober ?? defaultProber;
+  const fetchImpl = opts.fetchImpl ?? defaultFetchImpl;
+  const prober = opts.prober ?? ((probedUrl) => defaultProber(probedUrl, fetchImpl));
   inflight = prober(url)
     .then((res) => {
       cached = res.status >= 200 && res.status < 300 ? mergeRuntimeConfig(res.body) : { ...DEFAULT_RUNTIME_CONFIG };

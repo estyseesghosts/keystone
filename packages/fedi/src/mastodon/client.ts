@@ -22,7 +22,7 @@ import type { OAuthErrorBody } from "./wire";
 import { ApiError } from "../core/errors";
 import { HttpError, type HttpErrorKind } from "../core/http";
 import type { HttpMethod } from "../core/http";
-import { resolveSameOriginUrl } from "../core/http";
+import { defaultFetchImpl, resolveSameOriginUrl, type FetchImpl } from "../core/http";
 
 /** Hard ceiling for a single call. Hung requests surface as retryable
  * `kind: "timeout"` errors naming the endpoint — never eternal skeletons. */
@@ -220,6 +220,8 @@ export interface RequestOptions {
   signal?: AbortSignal;
   /** Status-create idempotency (one key per logical post attempt). */
   idempotencyKey?: string;
+  /** Injectable fetch — defaults to the core/http seam edge. */
+  fetchImpl?: FetchImpl;
 }
 
 /** Parse rate-limit response headers into a structured form. Returns null
@@ -327,7 +329,7 @@ export async function request<T = unknown>(
   let response: Response;
   try {
     devLogRequest(method, url.pathname + url.search);
-    response = await fetch(url.toString(), {
+    response = await (opts.fetchImpl ?? defaultFetchImpl)(url.toString(), {
       method,
       headers,
       body,

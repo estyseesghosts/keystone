@@ -164,4 +164,34 @@ describe("adaptV2Notification (grouped envelopes)", () => {
     expect(n.id).toBe("mention-y");
     expect(n.createdAt).toBeNull();
   });
+
+  it("malformed envelope rows degrade like absent rows, never throw", () => {
+    const env = groupedEnvelope();
+    const { accounts, statuses } = maps(env);
+    // Packed but unusable: an account row without `acct`, a status row
+    // without a packed `account`. Both degrade exactly like rows the
+    // envelope never packed (id-only actor, null post).
+    accounts.set("8", { id: "8" });
+    statuses.set("101", { id: "101" });
+    const n = adaptV2Notification(
+      {
+        group_key: "mention-z",
+        type: "mention",
+        sample_account_ids: ["8"],
+        status_id: "101",
+      },
+      accounts,
+      statuses,
+    );
+    expect(n.actors).toEqual([{ id: "8", account: null, reaction: null }]);
+    expect(n.post).toBeNull();
+    // Same rule on the flat path: the packed account still adapts, the
+    // account-less status reads null instead of throwing.
+    const flat = adaptV2Notification(
+      { id: "304", type: "mention", account_id: "2", status: { id: "broken" } },
+      accounts,
+    );
+    expect(flat.actors.map((a) => a.id)).toEqual(["2"]);
+    expect(flat.post).toBeNull();
+  });
 });

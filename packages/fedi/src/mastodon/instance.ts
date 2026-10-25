@@ -13,7 +13,7 @@
 //   extension gating elsewhere keys off this (contract §9).
 
 import { isUnsupportedError, request, toApiError } from "./client";
-import { resolveSameOriginUrl } from "../core/http";
+import { resolveSameOriginUrl, type FetchImpl } from "../core/http";
 import type { InstanceV1, InstanceV2, NodeInfo } from "./wire";
 
 export type ServerFamily = "mastodon" | "pleroma" | "akkoma" | "unknown";
@@ -191,12 +191,13 @@ function buildFeatures(
 export async function fetchNodeinfo(
   origin: string,
   timeoutMs = 8_000,
+  fetchImpl?: FetchImpl,
 ): Promise<NodeInfo | null> {
   try {
     const disco = await request<{ links?: Array<{ rel?: string; href?: string }> }>(
       origin,
       "/.well-known/nodeinfo",
-      { timeoutMs },
+      { timeoutMs, fetchImpl },
     );
     const links = Array.isArray(disco.data?.links) ? disco.data.links : [];
     const preferred =
@@ -206,7 +207,7 @@ export async function fetchNodeinfo(
     if (typeof href !== "string") return null;
     const same = resolveSameOriginUrl(origin, href);
     if (!same) return null;
-    const info = await request<NodeInfo>(origin, same, { timeoutMs });
+    const info = await request<NodeInfo>(origin, same, { timeoutMs, fetchImpl });
     return info.data ?? null;
   } catch {
     return null;
@@ -224,7 +225,7 @@ export async function fetchNodeinfo(
  */
 export async function fetchInstanceCapabilities(
   origin: string,
-  opts: { timeoutMs?: number; token?: string | null } = {},
+  opts: { timeoutMs?: number; token?: string | null; fetchImpl?: FetchImpl } = {},
 ): Promise<InstanceCapabilities> {
   try {
     return await fetchInstanceCapabilitiesInner(origin, opts);
@@ -235,20 +236,21 @@ export async function fetchInstanceCapabilities(
 
 async function fetchInstanceCapabilitiesInner(
   origin: string,
-  opts: { timeoutMs?: number; token?: string | null } = {},
+  opts: { timeoutMs?: number; token?: string | null; fetchImpl?: FetchImpl } = {},
 ): Promise<InstanceCapabilities> {
   const timeoutMs = opts.timeoutMs ?? 10_000;
   const token = opts.token ?? null;
+  const fetchImpl = opts.fetchImpl;
 
   let v2: InstanceV2 | null = null;
   let v1: InstanceV1 | null = null;
 
   try {
-    const res = await request<InstanceV2>(origin, "/api/v2/instance", { timeoutMs, token });
+    const res = await request<InstanceV2>(origin, "/api/v2/instance", { timeoutMs, token, fetchImpl });
     v2 = res.data ?? null;
   } catch (err) {
     if (!isUnsupportedError(err)) throw err; // never fall back on timeout/401/403/5xx
-    const res = await request<InstanceV1>(origin, "/api/v1/instance", { timeoutMs, token });
+    const res = await request<InstanceV1>(origin, "/api/v1/instance", { timeoutMs, token, fetchImpl });
     v1 = res.data ?? null;
   }
 
@@ -256,7 +258,7 @@ async function fetchInstanceCapabilitiesInner(
   // (contract §3: v1 in this Mastodon version still carries configuration).
   if (!v1 && v2) {
     try {
-      const res = await request<InstanceV1>(origin, "/api/v1/instance", { timeoutMs, token });
+      const res = await request<InstanceV1>(origin, "/api/v1/instance", { timeoutMs, token, fetchImpl });
       v1 = res.data ?? null;
     } catch {
       // v1 enrichment is optional — v2 alone is authoritative on Mastodon.
@@ -274,7 +276,7 @@ async function fetchInstanceCapabilitiesInner(
   let nodeinfo: NodeInfo | null = null;
   const preliminary = detectFamily(version, pleromaBody, pleromaFeatures, null);
   if (preliminary === "unknown") {
-    nodeinfo = await fetchNodeinfo(origin, timeoutMs);
+    nodeinfo = await fetchNodeinfo(origin, timeoutMs, fetchImpl);
   }
   const family = detectFamily(
     version,

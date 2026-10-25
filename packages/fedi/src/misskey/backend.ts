@@ -488,6 +488,14 @@ export function createMisskeyBackend(
       return quotes.resolveQuoteUri(uri);
     },
 
+    // Session-scoped seen re-seeding (R2.4/D3.6): rendered cards reseed
+    // this backend's own resolver — never another session's. The
+    // Misskey-family seen set is the one `resolveQuoteUri` reads before
+    // `ap/show`, so a rendered note later resolves without a fetch.
+    seedSeenQuote(note: Post): void {
+      quotes.registerSeenNote(note);
+    },
+
     async featuredPosts(opts = {}) {
       const limit = opts.limit ?? DEFAULT_LIMIT;
       const cursor = decodeCursor(opts.cursor ?? null);
