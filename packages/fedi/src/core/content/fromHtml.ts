@@ -28,6 +28,7 @@ import {
   heading,
   invisible,
   isBlankContent,
+  isMentionChip,
   italic,
   link,
   matrix,
@@ -35,11 +36,13 @@ import {
   mention,
   mentionLabelOf,
   mergeMatrixMentions,
+  mismatchForLink,
   quoteNode,
   safeHttpUrl,
   safeUrl,
   strike,
   t,
+  textOf,
   unicodeEmoji,
   type ContentNode,
   type HeadingLevel,
@@ -334,10 +337,14 @@ function convertAnchor(node: DomNode, out: ContentNode[], depth: number): void {
   const isMention = classes.includes("mention");
   const isHashtag = classes.includes("hashtag") || (attribs["data-tag"] ?? "").length > 0;
   if (isMention && !isHashtag) {
-    out.push(mention(href, kids));
-    return;
-  }
-  if (isHashtag) {
+    // F6: a chip needs a handle label or an account URL — otherwise the
+    // anchor is a link wearing chip UI, so it falls through to the link
+    // path below (marked + disclosed on mismatch).
+    if (isMentionChip(kids, href)) {
+      out.push(mention(href, kids));
+      return;
+    }
+  } else if (isHashtag) {
     const tag = hashtagTagOf({
       class: attribs["class"] ?? "",
       href,
@@ -369,18 +376,23 @@ function convertAnchor(node: DomNode, out: ContentNode[], depth: number): void {
   // a bare `@user` label still needs the profile URL to resolve
   // remotely — and taps resolve the label first, so a mismatched URL
   // can never hijack the chip into a browser. Anything richer stays a
-  // link.
+  // link (marked for disclosure on host mismatch).
   const redirectMention = mentionLabelOf(kids);
   if (redirectMention !== null) {
     out.push(mention(href, [t(redirectMention)]));
     return;
   }
-  out.push(link(href, kids));
+  // F6: a URL/host-shaped label on a different host is marked for the
+  // renderer to disclose + confirm.
+  out.push(link(href, kids, mismatchForLink(textOf(kids), href)));
 }
 
 /** Convert one emoji-gated image; a non-emoji image contributes its
  * `alt` text when it has one (F13 accessibility fallback — still no
- * load, no tracking pixel), otherwise it is dropped. */
+ * load, no tracking pixel), otherwise it is dropped. An emoji image
+ * whose `src` is not `https:` never loads either (F7 AST half): when a
+ * shortcode is known the literal `:code:` renders as text, otherwise
+ * the node still drops. */
 function convertEmojiImage(node: DomNode, out: ContentNode[]): void {
   const attribs = attrsOf(node);
   if (!isEmojiImage(attribs)) {
@@ -398,6 +410,12 @@ function convertEmojiImage(node: DomNode, out: ContentNode[]): void {
       return stem ? { name: stem, host: null } : null;
     })();
   if (code === null) return;
+  if (!src.startsWith("https:")) {
+    // Plaintext (or otherwise non-https) emoji source: no fetch, no
+    // tracking pixel — the literal code survives as text.
+    pushText(out, code.host ? `:${code.name}@${code.host}:` : `:${code.name}:`);
+    return;
+  }
   out.push(customEmoji(code.name, code.host, src));
 }
 

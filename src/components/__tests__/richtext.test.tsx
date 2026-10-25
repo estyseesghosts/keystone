@@ -1,9 +1,9 @@
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {act, fireEvent, render, screen} from '@testing-library/react-native'
-import {Linking} from 'react-native'
+import {Alert, Linking, Text} from 'react-native'
 
-import {contentFromHtml, contentFromMfm} from '@keystone/fedi'
+import {contentFromHtml, contentFromMfm, plainTextOf} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {RichText, defaultMentionPress} from '#/components/RichText'
@@ -315,5 +315,98 @@ describe('RichText text scale + content mode (P1/P3)', () => {
     } finally {
       appearanceStore.setContentMode('auto')
     }
+  })
+})
+
+describe('RichText link disclosure (X6.4 F6)', () => {
+  let navigateSpy: jest.SpyInstance
+  let openSpy: jest.SpyInstance
+  let alertSpy: jest.SpyInstance
+  beforeEach(() => {
+    jest.spyOn(navigationRef, 'isReady').mockReturnValue(true)
+    navigateSpy = jest.spyOn(navigationRef, 'navigate').mockImplementation(() => {})
+    openSpy = jest.spyOn(Linking, 'openURL').mockImplementation(() => Promise.resolve(true))
+    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+  })
+  afterEach(() => {
+    jest.restoreAllMocks()
+    jest.clearAllMocks()
+  })
+
+  it('an honest link opens directly with no confirm and no disclosure', () => {
+    const onLink = jest.fn()
+    renderRichText(
+      <RichText nodes={contentFromMfm('[label](https://example.com/x)')} onLinkPress={onLink} />,
+    )
+    fireEvent.press(screen.getByText('label'))
+    expect(onLink).toHaveBeenCalledWith('https://example.com/x')
+    expect(alertSpy).not.toHaveBeenCalled()
+    expect(screen.queryByText(/->/)).toBeNull()
+  })
+
+  it('a mismatched label discloses the real host and confirms before opening', () => {
+    const onLink = jest.fn()
+    renderRichText(
+      <RichText
+        nodes={contentFromHtml(
+          '<p><a href="https://evil.example/login">https://bank.com/login</a></p>',
+        )}
+        onLinkPress={onLink}
+      />,
+    )
+    // Fail-before: no disclosure text, direct open, no confirm.
+    expect(screen.getByText(/-> evil\.example/)).toBeTruthy()
+    fireEvent.press(screen.getByText(/-> evil\.example/))
+    expect(alertSpy).toHaveBeenCalledTimes(1)
+    expect(onLink).not.toHaveBeenCalled()
+    const message = String(alertSpy.mock.calls[0][1])
+    expect(message).toContain('bank.com')
+    expect(message).toContain('https://evil.example/login')
+    // One-tap confirm: Open opens the real target, Cancel does not.
+    const buttons = alertSpy.mock.calls[0][2] as {text: string; onPress?: () => void}[]
+    buttons.find(b => b.text === 'Open link')?.onPress?.()
+    expect(onLink).toHaveBeenCalledWith('https://evil.example/login')
+  })
+
+  it('a mention that names no account renders as a plain link, never a chip', () => {
+    renderRichText(
+      <RichText
+        nodes={[
+          {
+            kind: 'mention',
+            href: 'https://evil.example/gift',
+            children: [{kind: 'text', text: 'Free gift'}],
+          },
+        ]}
+      />,
+    )
+    // Fail-before: a pressable profile chip for a disguised URL.
+    expect(screen.queryByTestId('richtext-mention-chip')).toBeNull()
+    expect(screen.getByText('Free gift')).toBeTruthy()
+    fireEvent.press(screen.getByText('Free gift'))
+    expect(openSpy).toHaveBeenCalledWith('https://evil.example/gift')
+    expect(navigateSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('RichText block clamp (X6.4 F8)', () => {
+  it('a code fence preview clamps to numberOfLines via the plain-text projection', () => {
+    const nodes = contentFromMfm('```js\nlet x = 1\nlet y = 2\nlet z = 3\n```')
+    renderRichText(<RichText nodes={nodes} numberOfLines={2} testID="clamp-code" />)
+    // Fail-before: flow layout ignores numberOfLines (no clamped Text).
+    const root = screen.getByTestId('clamp-code')
+    const clamped = root.findAllByType(Text).filter(t => t.props.numberOfLines === 2)
+    expect(clamped.length).toBeGreaterThan(0)
+    expect(screen.getByText(plainTextOf(nodes))).toBeTruthy()
+  })
+
+  it('a blockquote preview clamps to numberOfLines via the plain-text projection', () => {
+    const nodes = contentFromMfm('> quoted line one\n> quoted line two\n> quoted line three')
+    renderRichText(<RichText nodes={nodes} numberOfLines={2} testID="clamp-quote" />)
+    // Fail-before: the full quote renders with no numberOfLines anywhere.
+    const root = screen.getByTestId('clamp-quote')
+    const clamped = root.findAllByType(Text).filter(t => t.props.numberOfLines === 2)
+    expect(clamped.length).toBeGreaterThan(0)
+    expect(screen.getByText(plainTextOf(nodes))).toBeTruthy()
   })
 })

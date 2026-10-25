@@ -30,11 +30,13 @@ import {
   matrix,
   matrixLabelOf,
   mergeMatrixMentions,
+  mismatchForLink,
   quoteNode,
   safeUrl,
   splitRemoteEmojiCodes,
   strike,
   t,
+  textOf,
   unicodeEmoji,
   type ContentNode,
 } from "./ast";
@@ -178,7 +180,15 @@ function convertNodeAt(node: MfmNode, fnDepth: number, sizeDepth: number): Conte
       const handle = mentionLabelOf(children);
       if (handle !== null) return [mention(href, [t(handle)])];
       if (href === null) return children.length > 0 ? children : [t(node.props.url)];
-      return [link(href, children.length > 0 ? children : [t(node.props.url)])];
+      // F6: a URL/host-shaped label on a different host is marked for the
+      // renderer to disclose + confirm.
+      return [
+        link(
+          href,
+          children.length > 0 ? children : [t(node.props.url)],
+          mismatchForLink(textOf(children), href),
+        ),
+      ];
     }
     case "emojiCode":
       return [customEmoji(node.props.name, null, null)];

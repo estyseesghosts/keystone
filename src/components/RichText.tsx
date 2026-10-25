@@ -18,9 +18,23 @@
 // their children — content is never dropped, effects never faked.
 
 import {Fragment, memo, useContext, useMemo} from 'react'
-import {Image, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle} from 'react-native'
+import {Alert, Image, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle} from 'react-native'
 
-import {DEFAULT_EMOJI_STYLE, acctFromBridgeUrl, bareLinkLabel, displayNameOf, isBridgeUrl, parseAcct, plainTextOf, type Backend, type ContentNode, type EmojiStyle} from '@keystone/fedi'
+import {msg} from '@lingui/macro'
+import {
+  DEFAULT_EMOJI_STYLE,
+  acctFromBridgeUrl,
+  bareLinkLabel,
+  displayNameOf,
+  isBridgeUrl,
+  mismatchForLink,
+  parseAcct,
+  plainTextOf,
+  type Backend,
+  type ContentNode,
+  type EmojiStyle,
+  type LinkMismatch,
+} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
 import {CustomEmojiGlyph, UnicodeEmoji} from '#/components/EmojiImage'
@@ -30,10 +44,11 @@ import {QueryClientContext} from '@tanstack/react-query'
 import {useMentionedAccount} from '#/state/queries'
 import {HoverPreview} from '#/components/Profile/HoverPreview'
 import {useContentMode} from '#/state/appearance'
+import {i18n} from '#/locale/i18n'
 
 import {clampNum, fnArg, headingDelta, safeFontFamily, safeHexColor} from './richtext/fnStyle'
 import {MatrixChip} from './richtext/MatrixHover'
-import {acctFromProfileUrl, defaultHashtagPress, defaultMentionPress, openExternal} from './richtext/mentionRouting'
+import {acctFromBskyAppUrl, acctFromProfileUrl, defaultHashtagPress, defaultMentionPress, openExternal} from './richtext/mentionRouting'
 
 // D3.5 split: routing + Matrix hovercard live in `./richtext/`; these
 // re-exports keep existing importers (`PostCard`, `NotificationRow`,
@@ -289,7 +304,7 @@ function StaticMentionChip({
     <Pressable
       style={[styles.chip, {borderColor: ctx.edge}]}
       accessibilityRole="link"
-      accessibilityLabel={`Open profile: ${name}`}
+      accessibilityLabel={i18n._(msg`Open profile: ${name}`)}
       testID="richtext-mention-chip"
       onPress={onPress}>
       {avatar ? (
@@ -358,6 +373,75 @@ function MentionChip({
   return <ResolvingMentionChip label={label} ctx={ctx} onPress={onPress} />
 }
 
+// A link whose label looks like a URL/host on a different host than its
+// target (F6: `mismatch` on the AST node). The real host renders after
+// the label (`bank.com -> evil.example` — punctuation plus a hostname,
+// never a translated string), and the first tap asks once, showing the
+// real URL; the second tap opens normally. One behavior for both custom
+// and default open paths.
+function MismatchLink({
+  node,
+  mismatch,
+  ctx,
+  depth,
+}: {
+  node: Extract<ContentNode, {kind: 'link'}>
+  mismatch: LinkMismatch
+  ctx: Ctx
+  depth: number
+}) {
+  const open = () => {
+    if (ctx.onLinkPress) ctx.onLinkPress(node.href)
+    else openExternal(node.href)
+  }
+  const ask = () => {
+    Alert.alert(
+      i18n._(msg`This link looks misleading`),
+      i18n._(
+        msg`The label says ${mismatch.labelHost}, but this link opens ${mismatch.targetHost} (${node.href}). Open it?`,
+      ),
+      [
+        {text: i18n._(msg`Cancel`), style: 'cancel'},
+        {text: i18n._(msg`Open link`), onPress: open},
+      ],
+    )
+  }
+  return (
+    <Text
+      style={[styles.link, {color: ctx.linkColor}]}
+      accessibilityRole="link"
+      accessibilityLabel={i18n._(msg`Open link: ${node.href}`)}
+      onPress={ask}>
+      <Inline nodes={node.children} ctx={ctx} depth={depth + 1} />
+      {` -> ${mismatch.targetHost}`}
+    </Text>
+  )
+}
+
+// A labeled (non-bare) link: mismatched labels disclose + confirm, honest
+// labels open directly. Bare chips and the lone-link rule live in `Inline`.
+function LinkText({
+  node,
+  ctx,
+  depth,
+}: {
+  node: Extract<ContentNode, {kind: 'link'}>
+  ctx: Ctx
+  depth: number
+}) {
+  if (node.mismatch) {
+    return <MismatchLink node={node} mismatch={node.mismatch} ctx={ctx} depth={depth} />
+  }
+  return (
+    <Text
+      style={[styles.link, {color: ctx.linkColor}]}
+      accessibilityRole="link"
+      onPress={() => (ctx.onLinkPress ? ctx.onLinkPress(node.href) : openExternal(node.href))}>
+      <Inline nodes={node.children} ctx={ctx} depth={depth + 1} />
+    </Text>
+  )
+}
+
 // Inline nodes inside a parent <Text>. Block nodes (codeBlock, quote)
 // never appear here — the flow splitter hoists them out. Memoized: feeds
 // re-render the row on scroll, and an unchanged (nodes, ctx) pair skips
@@ -390,6 +474,12 @@ const Inline = memo(function Inline({nodes, ctx, depth}: {nodes: readonly Conten
               />
             )
           case 'link': {
+            // F6: a mismatched label is never a bare chip and never hidden
+            // by the lone-link rule — the real host must stay disclosed
+            // even when an embed card carries the same URL.
+            if (node.mismatch) {
+              return <LinkText key={key} node={node} ctx={ctx} depth={depth} />
+            }
             const bareLabel = bareLinkLabel(node)
             if (bareLabel !== null) {
               // Lone link with its own embed card: no pill, just the
@@ -413,7 +503,7 @@ const Inline = memo(function Inline({nodes, ctx, depth}: {nodes: readonly Conten
                   key={key}
                   style={[styles.chip, {borderColor: ctx.edge}]}
                   accessibilityRole="link"
-                  accessibilityLabel={`Open link: ${node.href}`}
+                  accessibilityLabel={i18n._(msg`Open link: ${node.href}`)}
                   testID="richtext-link-chip"
                   onPress={() => (ctx.onLinkPress ? ctx.onLinkPress(node.href) : openExternal(node.href))}>
                   <Text style={{fontSize: ctx.size, color: ctx.textColor}} numberOfLines={1}>
@@ -423,13 +513,7 @@ const Inline = memo(function Inline({nodes, ctx, depth}: {nodes: readonly Conten
               )
             }
             return (
-              <Text
-                key={key}
-                style={[styles.link, {color: ctx.linkColor}]}
-                accessibilityRole="link"
-                onPress={() => (ctx.onLinkPress ? ctx.onLinkPress(node.href) : openExternal(node.href))}>
-                <Inline nodes={node.children} ctx={ctx} depth={depth + 1} />
-              </Text>
+              <LinkText key={key} node={node} ctx={ctx} depth={depth} />
             )
           }
           case 'mention': {
@@ -447,17 +531,21 @@ const Inline = memo(function Inline({nodes, ctx, depth}: {nodes: readonly Conten
             const bridgeAcct = acctFromBridgeUrl(node.href)
             const chipLabel = bridgeAcct !== null ? `@${bridgeAcct}` : label
             const bridgeUnresolved = bridgeAcct === null && isBridgeUrl(node.href)
-            const pressable =
+            // F6: a chip needs a handle label or an account URL (profile,
+            // bsky, or bridge). Anything else is a link wearing chip UI —
+            // it demotes to a plain link (disclosed on host mismatch), so
+            // a disguised URL can never borrow profile-chip trust.
+            const chipEligible =
               !bridgeUnresolved &&
-              (node.href !== null ||
-                ctx.onMentionPress !== undefined ||
-                parseAcct(label) !== null ||
-                acctFromProfileUrl(node.href) !== null)
+              (parseAcct(label) !== null ||
+                bridgeAcct !== null ||
+                acctFromProfileUrl(node.href) !== null ||
+                acctFromBskyAppUrl(node.href) !== null)
             // Resolvable mentions render as an inline avatar chip (v1
             // parity): display name + photo once the account resolves,
             // handle + glyph meanwhile or where no backend is handy.
             // Unresolvable mentions stay plain text — never a dead chip.
-            if (pressable) {
+            if (chipEligible) {
               return (
                 <MentionChip
                   key={key}
@@ -470,6 +558,18 @@ const Inline = memo(function Inline({nodes, ctx, depth}: {nodes: readonly Conten
                   }
                 />
               )
+            }
+            // Unresolvable bridge hrefs stay put (an actor identity, never
+            // a page to browse); any other demoted mention with a target
+            // renders as the link it is.
+            if (node.href !== null && !bridgeUnresolved) {
+              const demoted: Extract<ContentNode, {kind: 'link'}> = {
+                kind: 'link',
+                href: node.href,
+                children: [...node.children],
+                mismatch: mismatchForLink(label, node.href),
+              }
+              return <LinkText key={key} node={demoted} ctx={ctx} depth={depth} />
             }
             return (
               <Text key={key} style={styles.mention}>
@@ -669,6 +769,23 @@ export function RichText({
   )
   const hasBlock = useMemo(() => nodes.some(isBlock), [nodes])
   if (contentMode === 'plain') {
+    return (
+      <View style={style} testID={testID}>
+        <Text
+          numberOfLines={numberOfLines}
+          style={[
+            {fontSize: scaledSize, lineHeight: scaledSize + 5, color: theme.palette.text},
+            textStyle,
+          ]}>
+          {plainTextOf(nodes)}
+        </Text>
+      </View>
+    )
+  }
+  // F8: block trees ignore `numberOfLines` in flow layout (a 100 KB code
+  // fence would inflate the row), so a clamped preview renders the
+  // plain-text projection instead — one Text that actually clamps.
+  if (numberOfLines != null && hasBlock) {
     return (
       <View style={style} testID={testID}>
         <Text

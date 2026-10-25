@@ -20,6 +20,7 @@ import {
   mention,
   mentionLabelOf,
   mergeMatrixMentions,
+  mismatchForLink,
   safeUrl,
   splitMatrixMatch,
   stripTokenPunctuation,
@@ -126,7 +127,10 @@ function expandFieldText(text: string, out: ContentNode[]): void {
           out.push(hashtag(tag, null, [t(`#${tag}`)]));
         } else {
           const href = safeUrl(rawHref);
-          if (href !== null && /^https?:\/\//.test(href)) out.push(link(href, [t(label)]));
+          // F6: a URL/host-shaped label on a different host is marked
+          // for the renderer to disclose + confirm.
+          if (href !== null && /^https?:\/\//.test(href))
+            out.push(link(href, [t(label)], mismatchForLink(label, href)));
           else pushFieldText(out, match[0]);
         }
       }

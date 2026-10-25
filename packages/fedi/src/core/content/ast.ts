@@ -26,7 +26,7 @@ export type ContentNode =
   | { kind: "bullet" }
   | { kind: "heading"; level: HeadingLevel; children: ContentNode[] }
   | { kind: "invisible"; text: string }
-  | { kind: "link"; href: string; children: ContentNode[] }
+  | { kind: "link"; href: string; children: ContentNode[]; mismatch?: LinkMismatch | null }
   | { kind: "mention"; href: string | null; children: ContentNode[] }
   | { kind: "hashtag"; tag: string; href: string | null; children: ContentNode[] }
   | { kind: "matrix"; userId: string; children: ContentNode[] }
@@ -70,9 +70,26 @@ export function invisible(text: string): ContentNode {
   return { kind: "invisible", text };
 }
 
-/** Outbound link. `href` is always a vetted absolute URL (see `safeUrl`). */
-export function link(href: string, children: ContentNode[]): ContentNode {
-  return { kind: "link", href, children };
+/** Outbound link. `href` is always a vetted absolute URL (see `safeUrl`).
+ * `mismatch` is set only when the visible label looks like a URL/host on
+ * a different host than `href` (see `mismatchForLink`); the key stays
+ * absent on honest links so existing shapes compare unchanged. */
+export function link(
+  href: string,
+  children: ContentNode[],
+  mismatch?: LinkMismatch | null,
+): ContentNode {
+  if (mismatch === null || mismatch === undefined) return { kind: "link", href, children };
+  return { kind: "link", href, children, mismatch };
+}
+
+/** A link whose visible label looks like a URL/host on a DIFFERENT host
+ * than `href` (F6: `https://bank.com` labelling `https://evil.example`).
+ * Renderers disclose `targetHost` after the label and confirm before
+ * opening. Absent (not merely null) on honest links. */
+export interface LinkMismatch {
+  labelHost: string;
+  targetHost: string;
 }
 
 /** A mention anchor. Never used as a bare-URL source (see quoteMarker). */
@@ -362,6 +379,114 @@ export function bareLinkLabel(node: ContentNode): string | null {
   if (visible === node.href) return shortenBareUrl(node.href);
   if (hasInvisible) return visible.length > 48 ? visible.slice(0, 47) + "…" : visible;
   return null;
+}
+
+/** Host named by visible label text when it looks like a URL or a bare
+ * host (`https://bank.com/x`, `bank.com/x`), else null. `mailto:` labels,
+ * emails, prose, and trailing-dot tricks (`bank.com.`) never qualify.
+ * Hosts compare lowercased. Pure. */
+export function labelHostOfText(label: string): string | null {
+  const text = label.trim();
+  if (text.length === 0) return null;
+  try {
+    const asUrl = new URL(text);
+    if ((asUrl.protocol === "http:" || asUrl.protocol === "https:") && asUrl.hostname.length > 0) {
+      return asUrl.hostname.toLowerCase();
+    }
+    return null;
+  } catch {
+    // Not a full URL — try a bare host with an optional path.
+  }
+  const bare = /^([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)(?::\d+)?(?:\/\S*)?$/.exec(text);
+  return bare ? (bare[1] as string).toLowerCase() : null;
+}
+
+/** `mismatch` for a link with the given visible label text and href, or
+ * null when the label is not URL/host-shaped or names the href's own
+ * host. `mailto:` hrefs (no hostname) never mismatch. Pure. */
+export function mismatchForLink(labelText: string, href: string): LinkMismatch | null {
+  const labelHost = labelHostOfText(labelText);
+  if (labelHost === null) return null;
+  let targetHost: string;
+  try {
+    targetHost = new URL(href).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  if (targetHost.length === 0 || targetHost === labelHost) return null;
+  return { labelHost, targetHost };
+}
+
+/** True when an href has a profile-page shape (`/@user`, `/users/user`
+ * over http/https) — the server URL names an account even when the
+ * label is display text. Pure. */
+export function isProfileUrlShape(href: string | null): boolean {
+  if (!href) return false;
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  if (url.hostname.length === 0) return false;
+  const segments = url.pathname.split("/").filter((s) => s.length > 0);
+  let username: string | null = null;
+  if (segments.length >= 2 && segments[0] === "users") username = segments[1] ?? null;
+  else if (segments.length >= 1 && segments[0]?.startsWith("@")) username = segments[0].slice(1);
+  return username !== null && /^[\w-]+$/.test(username);
+}
+
+/** True for a `bsky.app/profile/<handle>` page: the bridged fediverse
+ * actor the renderer resolves in-app. The renderer owns the handle
+ * extraction (`acctFromBskyAppUrl`); this is only the shape gate for
+ * the parser side. Pure. */
+export function isBskyProfileUrlShape(href: string | null): boolean {
+  if (!href) return false;
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  if (url.hostname.toLowerCase() !== "bsky.app") return false;
+  const segments = url.pathname.split("/").filter((s) => s.length > 0);
+  return (
+    segments.length === 2 &&
+    segments[0] === "profile" &&
+    /^[\w-]+(?:\.[\w-]+)*$/.test(segments[1] ?? "")
+  );
+}
+
+const BRIDGE_HOST_SHAPE = "bsky.brid.gy";
+
+/** True for a Bridgy Fed actor URL (bridge redirect or actor page): an
+ * actor identity, never a page to browse. Same host rule as
+ * `isBridgeUrl` in `core/models`, checked locally so content stays
+ * dependency-down (models imports nothing from content). Pure. */
+function isBridgeUrlShape(href: string | null): boolean {
+  if (!href) return false;
+  try {
+    const url = new URL(href);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.hostname.toLowerCase() === BRIDGE_HOST_SHAPE
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Chip eligibility for a mention anchor (F6): the label parses as a
+ * handle, or the href names an account (profile URL, bsky.app profile
+ * page, Bridgy Fed actor URL). Anything else is a link wearing chip UI
+ * — callers fall through to the plain-link path (with mismatch marking).
+ * Pure. */
+export function isMentionChip(children: readonly ContentNode[], href: string | null): boolean {
+  if (mentionLabelOf(children) !== null) return true;
+  if (href === null) return false;
+  return isProfileUrlShape(href) || isBskyProfileUrlShape(href) || isBridgeUrlShape(href);
 }
 
 // --- Translated-text scanner (lives in `./fromTranslated`) ------------------
