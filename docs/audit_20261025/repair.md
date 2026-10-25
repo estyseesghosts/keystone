@@ -1401,7 +1401,7 @@ Audit: rn-ui L5
 
 ## X7.1 - Lightbox rewrite
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x7.1.md` (slice) + `state/logs/2026-10-25-repair25-x7.1-x7.2-coordinator.md` (batch-green); 270 suites / 3865 tests green at Wave-7 batch-1 commit; PostCard `revealedIds` call-site hunk rides in the X7.2 commit — file-shared, batch-green)
 Branch: `repair25-x7.1-lightbox`
 Audit: media M1, M2, M3, M4, M14 (re-check), M15 (lightbox half); rn-ui H1; a11y 1, 13
 
@@ -1435,7 +1435,7 @@ Audit: media M1, M2, M3, M4, M14 (re-check), M15 (lightbox half); rn-ui H1; a11y
 
 ## X7.2 - Player lifecycle
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x7.2.md` (slice) + `state/logs/2026-10-25-repair25-x7.1-x7.2-coordinator.md` (batch-green); 270 suites / 3865 tests green at Wave-7 batch-1 commit; `en` catalog extraction covers X7.1+X7.2 strings together)
 Branch: `repair25-x7.2-players`
 Audit: media M5, M15 (audio target)
 

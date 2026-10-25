@@ -5,16 +5,14 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **267 suites / 3814 tests**,
+Gate baseline (last green on main): **270 suites / 3865 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Wave 6 done (X6.1–X6.5 committed; X6.2 step 6 attemptKey
-   blocked → tracked follow-up). (Coordinator fallout: missing
-   import, plural two-arg, TTL fixtures, ol-node pin, mount-fetch
-   wait, literal-label msg routing.)
-2. Wave 7 batch 1: X7.1 (lightbox) + X7.2 (players) in parallel
-   (file-disjoint); then X7.3+X7.4 in parallel.
+1. Wave 7 batch 1 done (X7.1+X7.2 committed green; 270 suites / 3865 tests;
+   foreground-gate fail-open + expo-image test discipline in DECISIONS/log).
+2. Wave 7 batch 2: X7.3 (images) + X7.4 (uploads, D9 default) in parallel
+   (file-disjoint; X7.3 builds on X7.2's `active` prop).
 3. Wave 8 next; signing/App Links skipped (owner); no
    non-English translations (English catalog only).
 
