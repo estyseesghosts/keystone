@@ -8,6 +8,9 @@ import {useCallback, useEffect, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
 
+import type {MessageDescriptor} from '@lingui/core'
+import {msg} from '@lingui/macro'
+
 import {isPermissionError, isUnsupportedError} from '@keystone/fedi'
 import type {
   Capabilities,
@@ -28,15 +31,16 @@ import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
+import {i18n} from '#/locale/i18n'
 
 // List reply policies (Mastodon `replies_policy`). The labels are Mastodon
 // web's own (`lists.replies_policy.*`). The Misskey family has no
 // equivalent and its capability flag is `unsupported`, so these render
 // disabled with a reason rather than as an inert no-op.
-const REPLIES_POLICIES: ReadonlyArray<{value: ListRepliesPolicy; label: string}> = [
-  {value: 'list', label: 'Members of the list'},
-  {value: 'followed', label: 'Any followed user'},
-  {value: 'none', label: 'No one'},
+const REPLIES_POLICIES: ReadonlyArray<{value: ListRepliesPolicy; label: MessageDescriptor}> = [
+  {value: 'list', label: msg`Members of the list`},
+  {value: 'followed', label: msg`Any followed user`},
+  {value: 'none', label: msg({message: 'No one', context: 'list replies policy'})},
 ]
 
 type ListFieldGate = {enabled: true} | {enabled: false; reason: string}
@@ -53,16 +57,16 @@ function fieldGate(
 function repliesPolicyGate(caps: Capabilities | null | undefined): ListFieldGate {
   return fieldGate(
     caps?.lists_replies_policy,
-    'This server cannot choose who replies are shown from.',
-    'This server has not reported list reply settings.',
+    i18n._(msg`This server cannot choose who replies are shown from.`),
+    i18n._(msg`This server has not reported list reply settings.`),
   )
 }
 
 function exclusiveGate(caps: Capabilities | null | undefined): ListFieldGate {
   return fieldGate(
     caps?.lists_exclusive,
-    'This server cannot hide list members from Home.',
-    'This server has not reported exclusive lists.',
+    i18n._(msg`This server cannot hide list members from Home.`),
+    i18n._(msg`This server has not reported exclusive lists.`),
   )
 }
 
@@ -99,12 +103,12 @@ function ListFieldsEditor({
   const excl = exclusiveGate(caps)
   return (
     <View style={[atoms.gap_sm]} testID={`${idPrefix}-fields`}>
-      <Caption color="muted">Show replies from</Caption>
+      <Caption color="muted">{i18n._(msg`Show replies from`)}</Caption>
       <View style={[atoms.row, atoms.gap_sm]}>
         {REPLIES_POLICIES.map(p => (
           <Chip
             key={p.value}
-            label={p.label}
+            label={i18n._(p.label)}
             selected={policy === p.value}
             disabled={!reply.enabled}
             disabledReason={reply.enabled ? undefined : reply.reason}
@@ -116,7 +120,7 @@ function ListFieldsEditor({
       {reply.enabled ? null : <Caption color="faint">{reply.reason}</Caption>}
       <View style={[atoms.row, atoms.gap_sm]}>
         <Chip
-          label="Hide members in Home"
+          label={i18n._(msg`Hide members in Home`)}
           selected={exclusive}
           disabled={!excl.enabled}
           disabledReason={excl.enabled ? undefined : excl.reason}
@@ -151,7 +155,7 @@ function CreateRow({
       await onCreate(trimmed, chosenListFields(caps, policy, exclusive))
       setName('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create the list.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not create the list.`))
     } finally {
       setBusy(false)
     }
@@ -159,10 +163,10 @@ function CreateRow({
   return (
     <View style={[atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="lists-create">
       <TextField
-        label="New list"
+        label={i18n._(msg({message: 'New list', context: 'list creation'}))}
         value={name}
         onChangeText={setName}
-        placeholder="List name"
+        placeholder={i18n._(msg({message: 'List name', context: 'list name input'}))}
         error={error ?? undefined}
         testID="lists-create-input"
       />
@@ -175,17 +179,21 @@ function CreateRow({
         onExclusive={setExclusive}
       />
       <Button
-        label={busy ? 'Creating…' : 'Create list'}
+        label={
+          busy
+            ? i18n._(msg({message: 'Creating…', context: 'button'}))
+            : i18n._(msg({message: 'Create list', context: 'button'}))
+        }
         variant="primary"
         disabled={!canCreate || busy || name.trim().length === 0}
         disabledReason={
-          !canCreate ? 'This server build cannot create lists.' : undefined
+          !canCreate ? i18n._(msg`This server build cannot create lists.`) : undefined
         }
         onPress={() => void submit()}
         testID="lists-create-submit"
       />
       {!canCreate ? (
-        <Caption color="faint">This server build cannot create lists.</Caption>
+        <Caption color="faint">{i18n._(msg`This server build cannot create lists.`)}</Caption>
       ) : null}
     </View>
   )
@@ -239,7 +247,7 @@ function ListRow({
       await onRename(trimmed, chosenListFields(caps, policy, exclusive))
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not rename the list.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not rename the list.`))
     } finally {
       setBusy(false)
     }
@@ -250,17 +258,17 @@ function ListRow({
       <Pressable
         onPress={onOpen}
         accessibilityRole="link"
-        accessibilityLabel={`${list.name}. Open list.`}
+        accessibilityLabel={i18n._(msg`${list.name}. Open list.`)}
         testID={`lists-open-${list.id}`}>
         <Body>{list.name}</Body>
       </Pressable>
       {editing ? (
         <View style={[atoms.gap_sm]}>
           <TextField
-            label="List name"
+            label={i18n._(msg({message: 'List name', context: 'list name input'}))}
             value={draft}
             onChangeText={setDraft}
-            placeholder="List name"
+            placeholder={i18n._(msg({message: 'List name', context: 'list name input'}))}
             error={error ?? undefined}
             testID={`lists-rename-input-${list.id}`}
           />
@@ -274,14 +282,18 @@ function ListRow({
           />
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label={busy ? 'Saving…' : 'Save'}
+              label={
+                busy
+                  ? i18n._(msg({message: 'Saving…', context: 'button'}))
+                  : i18n._(msg({message: 'Save', context: 'button'}))
+              }
               variant="primary"
               disabled={busy || draft.trim().length === 0}
               onPress={() => void save()}
               testID={`lists-rename-save-${list.id}`}
             />
             <Button
-              label="Cancel"
+              label={i18n._(msg({message: 'Cancel', context: 'button'}))}
               variant="secondary"
               disabled={busy}
               onPress={() => {
@@ -295,31 +307,33 @@ function ListRow({
       ) : (
         <View style={[atoms.row, atoms.gap_sm]}>
           <Button
-            label="Rename"
+            label={i18n._(msg({message: 'Rename', context: 'button'}))}
             variant="secondary"
             disabled={!canRename || busy}
-            disabledReason={!canRename ? 'This server build cannot rename lists.' : undefined}
+            disabledReason={!canRename ? i18n._(msg`This server build cannot rename lists.`) : undefined}
             onPress={openEditor}
             testID={`lists-rename-${list.id}`}
           />
           {!canRename ? (
-            <Caption color="faint">This server build cannot rename lists.</Caption>
+            <Caption color="faint">{i18n._(msg`This server build cannot rename lists.`)}</Caption>
           ) : null}
         </View>
       )}
       {pendingDelete ? (
         <View style={[atoms.gap_sm]}>
-          <Caption color="faint">Delete “{list.name}”? This cannot be undone.</Caption>
+          <Caption color="faint">
+            {i18n._(msg`Delete “${list.name}”? This cannot be undone.`)}
+          </Caption>
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label="Confirm delete"
+              label={i18n._(msg({message: 'Confirm delete', context: 'button'}))}
               variant="secondary"
               disabled={!canDelete || busy}
               onPress={() => void onDelete()}
               testID={`lists-delete-confirm-${list.id}`}
             />
             <Button
-              label="Keep"
+              label={i18n._(msg({message: 'Keep', context: 'button', comment: 'Keep the list; cancel deletion'}))}
               variant="secondary"
               disabled={busy}
               onPress={onCancelDelete}
@@ -330,15 +344,15 @@ function ListRow({
       ) : (
         <View style={[atoms.row, atoms.gap_sm]}>
           <Button
-            label="Delete"
+            label={i18n._(msg({message: 'Delete', context: 'button'}))}
             variant="secondary"
             disabled={!canDelete || busy}
-            disabledReason={!canDelete ? 'This server build cannot delete lists.' : undefined}
+            disabledReason={!canDelete ? i18n._(msg`This server build cannot delete lists.`) : undefined}
             onPress={onArmDelete}
             testID={`lists-delete-${list.id}`}
           />
           {!canDelete ? (
-            <Caption color="faint">This server build cannot delete lists.</Caption>
+            <Caption color="faint">{i18n._(msg`This server build cannot delete lists.`)}</Caption>
           ) : null}
         </View>
       )}
@@ -398,9 +412,9 @@ export function ListsScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="lists-screen">
-        <Pagehead title="Lists" />
-        <Body>Sign in to see your lists.</Body>
-        <Caption color="faint">Lists never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg({id: 'lists.title', message: 'Lists'}))} />
+        <Body>{i18n._(msg({id: 'lists.signedOut', message: 'Sign in to see your lists.'}))}</Body>
+        <Caption color="faint">{i18n._(msg`Lists never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -409,21 +423,21 @@ export function ListsScreen() {
   if (unsupported || (!backend.lists && !loading)) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="lists-screen">
-        <Pagehead title="Lists" />
-        <Body>Lists are not available on this server.</Body>
+        <Pagehead title={i18n._(msg({id: 'lists.title', message: 'Lists'}))} />
+        <Body>{i18n._(msg`Lists are not available on this server.`)}</Body>
       </View>
     )
   }
 
   return (
     <View style={atoms.flex1} testID="lists-screen">
-      <Pagehead title="Lists" />
+      <Pagehead title={i18n._(msg({id: 'lists.title', message: 'Lists'}))} />
       {/* Misskey antennas live alongside lists: the Antennas screen links
           here, so this screen links back (sidebar reshuffle). */}
       {session?.family === 'misskey' ? (
         <View style={[atoms.px_md, atoms.py_sm]}>
           <Button
-            label="Antennas"
+            label={i18n._(msg({message: 'Antennas', context: 'navigation button'}))}
             variant="secondary"
             onPress={() => navigation.navigate('Antennas')}
             testID="lists-antennas-link"
@@ -442,13 +456,13 @@ export function ListsScreen() {
         <SkeletonList variant="row" testID="lists-loading" />
       ) : denied ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Your account cannot view lists here.</Body>
-          <Button label="Retry" variant="secondary" onPress={() => void load()} testID="lists-retry" />
+          <Body>{i18n._(msg`Your account cannot view lists here.`)}</Body>
+          <Button label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading lists'}))} variant="secondary" onPress={() => void load()} testID="lists-retry" />
         </View>
       ) : error ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load lists.</Body>
-          <Button label="Retry" variant="secondary" onPress={() => void load()} testID="lists-retry" />
+          <Body>{i18n._(msg`Could not load lists.`)}</Body>
+          <Button label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading lists'}))} variant="secondary" onPress={() => void load()} testID="lists-retry" />
         </View>
       ) : (
         <FlatList
@@ -464,7 +478,7 @@ export function ListsScreen() {
                   const updated = await backend.lists.update(item.id, {name, ...fields})
                   setLists(prev => (prev ?? []).map(l => (l.id === item.id ? updated : l)))
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : 'Could not rename the list.')
+                  setActionError(err instanceof Error ? err.message : i18n._(msg`Could not rename the list.`))
                   throw err
                 }
               }}
@@ -476,7 +490,7 @@ export function ListsScreen() {
                   setLists(prev => (prev ?? []).filter(l => l.id !== item.id))
                   setPendingDeleteId(null)
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : 'Could not delete the list.')
+                  setActionError(err instanceof Error ? err.message : i18n._(msg`Could not delete the list.`))
                 }
               }}
               pendingDelete={pendingDeleteId === item.id}
@@ -499,7 +513,7 @@ export function ListsScreen() {
           }
           ListEmptyComponent={
             <View style={[atoms.centered, atoms.p_md]}>
-              <Body>You have no lists yet.</Body>
+              <Body>{i18n._(msg({id: 'lists.empty', message: 'You have no lists yet.'}))}</Body>
             </View>
           }
         />

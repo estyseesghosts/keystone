@@ -20,6 +20,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {
   formatByteLimit,
   isPermissionError,
@@ -40,6 +42,7 @@ import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
 import type {UploadableFile} from '#/state/queries/composer'
 import {useActiveBackend} from '#/screens/HomeFeed'
+import {i18n} from '#/locale/i18n'
 
 import {FileRow, FolderRow, FolderScope} from './Drive/rows'
 import {UploadPanel} from './Drive/upload'
@@ -156,7 +159,7 @@ export function DriveScreen() {
       setCursor(page.cursor)
       setHasMore(!page.end)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Could not load more files.')
+      setActionError(err instanceof Error ? err.message : i18n._(msg`Could not load more files.`))
     } finally {
       setLoadingMore(false)
     }
@@ -171,24 +174,24 @@ export function DriveScreen() {
       if (result.kind === 'denied') {
         setUploadError(
           result.canAskAgain
-            ? 'Media library access was denied. Allow access to pick a file.'
-            : 'Media library access was denied. Enable it in the system settings to pick a file.',
+            ? i18n._(msg`Media library access was denied. Allow access to pick a file.`)
+            : i18n._(msg`Media library access was denied. Enable it in the system settings to pick a file.`),
         )
         return
       }
       if (result.kind === 'cancelled') return
       if (result.rejected.length > 0) {
         // Per-kind server cap, else the client heap bound (repair X6.2 step
-        // 2) — never a literal. Plain literal like the neighbors; Wave 9
-        // converts this file to `msg`.
+        // 2) — never a literal.
+        const rejected = result.rejected[0]
         setUploadError(
-          `"${result.rejected[0].name}" is too large to upload (limit ${formatByteLimit(result.rejected[0].limit)}).`,
+          i18n._(msg`"${rejected.name}" is too large to upload (limit ${formatByteLimit(rejected.limit)}).`),
         )
         return
       }
       if (result.files.length > 0) setStaged(result.files[0])
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Could not open the file picker.')
+      setUploadError(err instanceof Error ? err.message : i18n._(msg`Could not open the file picker.`))
     }
   }, [])
 
@@ -206,12 +209,12 @@ export function DriveScreen() {
         ...(comment ? {comment} : {}),
         signal: ctrl.signal,
       })
-      setUploadSuccess(`Uploaded “${media.name}”.`)
+      setUploadSuccess(i18n._(msg`Uploaded “${media.name}”.`))
       setStaged(null)
       setUploadComment('')
       await loadRef.current()
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Could not upload the file.')
+      setUploadError(err instanceof Error ? err.message : i18n._(msg`Could not upload the file.`))
     } finally {
       if (uploadCtrl.current === ctrl) uploadCtrl.current = null
       setUploading(false)
@@ -221,9 +224,11 @@ export function DriveScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="drive-screen">
-        <Pagehead title="Drive" />
-        <Body>Sign in to see your drive.</Body>
-        <Caption color="faint">Drive never shows sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg({id: 'drive.title', message: 'Drive', context: 'file storage screen title'}))} />
+        <Body>{i18n._(msg({id: 'drive.signedOut', message: 'Sign in to see your drive.'}))}</Body>
+        <Caption color="faint">
+          {i18n._(msg`Drive never shows sample data when signed out.`)}
+        </Caption>
         <SignInButton />
       </View>
     )
@@ -232,23 +237,23 @@ export function DriveScreen() {
   if (unsupported || (!backend.drive && !loading)) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="drive-screen">
-        <Pagehead title="Drive" />
-        <Body>Drive is not available on this server.</Body>
+        <Pagehead title={i18n._(msg({id: 'drive.title', message: 'Drive', context: 'file storage screen title'}))} />
+        <Body>{i18n._(msg`Drive is not available on this server.`)}</Body>
       </View>
     )
   }
 
   return (
     <View style={atoms.flex1} testID="drive-screen">
-      <Pagehead title="Drive" />
+      <Pagehead title={i18n._(msg({id: 'drive.title', message: 'Drive', context: 'file storage screen title'}))} />
       {actionError ? <Caption color="faint">{actionError}</Caption> : null}
       {loading ? (
         <SkeletonList variant="row" testID="drive-loading" />
       ) : denied ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Your account cannot view drive here.</Body>
+          <Body>{i18n._(msg`Your account cannot view drive here.`)}</Body>
           <Button
-            label="Retry"
+            label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading the drive'}))}
             variant="secondary"
             onPress={() => void load()}
             testID="drive-retry"
@@ -256,9 +261,9 @@ export function DriveScreen() {
         </View>
       ) : error ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load drive.</Body>
+          <Body>{i18n._(msg`Could not load drive.`)}</Body>
           <Button
-            label="Retry"
+            label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading the drive'}))}
             variant="secondary"
             onPress={() => void load()}
             testID="drive-retry"
@@ -297,7 +302,7 @@ export function DriveScreen() {
                   setPendingDeleteId(null)
                   setDetailFile(prev => (prev?.id === item.id ? null : prev))
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : 'Could not delete the file.')
+                  setActionError(err instanceof Error ? err.message : i18n._(msg`Could not delete the file.`))
                 }
               }}
               pendingDelete={pendingDeleteId === item.id}
@@ -319,7 +324,9 @@ export function DriveScreen() {
             <View style={[atoms.gap_sm, atoms.py_sm]} testID="drive-header">
               <UploadPanel
                 targetLabel={
-                  selectedFolder ? `Uploads go to “${selectedFolder.name}”.` : 'Uploads go to Root.'
+                  selectedFolder
+                    ? i18n._(msg`Uploads go to “${selectedFolder.name}”.`)
+                    : i18n._(msg`Uploads go to Root.`)
                 }
                 staged={staged}
                 comment={uploadComment}
@@ -338,7 +345,9 @@ export function DriveScreen() {
               {foldersSupported ? (
                 <View style={[atoms.gap_sm]} testID="drive-folders">
                   <View style={[atoms.px_md]}>
-                    <Caption color="faint">Folders</Caption>
+                    <Caption color="faint">
+                      {i18n._(msg({message: 'Folders', context: 'drive section header'}))}
+                    </Caption>
                   </View>
                   <FolderScope
                     folders={folders ?? []}
@@ -367,7 +376,7 @@ export function DriveScreen() {
                           if (selectedFolderId === folder.id) setSelectedFolderId(null)
                         } catch (err) {
                           setActionError(
-                            err instanceof Error ? err.message : 'Could not delete the folder.',
+                            err instanceof Error ? err.message : i18n._(msg`Could not delete the folder.`),
                           )
                         }
                       }}
@@ -378,15 +387,19 @@ export function DriveScreen() {
                   ))}
                   <View style={[atoms.gap_sm, atoms.px_md]}>
                     <TextField
-                      label="New folder"
+                      label={i18n._(msg({message: 'New folder', context: 'drive folder creation'}))}
                       value={folderName}
                       onChangeText={setFolderName}
-                      placeholder="Folder name"
+                      placeholder={i18n._(msg({message: 'Folder name', context: 'drive folder name input'}))}
                       error={folderError ?? undefined}
                       testID="drive-folder-create-input"
                     />
                     <Button
-                      label={folderBusy ? 'Creating…' : 'Create folder'}
+                      label={
+                        folderBusy
+                          ? i18n._(msg({message: 'Creating…', context: 'button'}))
+                          : i18n._(msg({message: 'Create folder', context: 'button'}))
+                      }
                       variant="primary"
                       disabled={folderBusy || folderName.trim().length === 0}
                       onPress={() => {
@@ -403,7 +416,7 @@ export function DriveScreen() {
                           })
                           .catch((err: unknown) => {
                             setFolderError(
-                              err instanceof Error ? err.message : 'Could not create the folder.',
+                              err instanceof Error ? err.message : i18n._(msg`Could not create the folder.`),
                             )
                           })
                           .finally(() => setFolderBusy(false))
@@ -418,7 +431,9 @@ export function DriveScreen() {
           ListEmptyComponent={
             <View style={[atoms.centered, atoms.p_md]}>
               <Body>
-                {selectedFolderId ? 'This folder has no files yet.' : 'You have no files yet.'}
+                {selectedFolderId
+                  ? i18n._(msg`This folder has no files yet.`)
+                  : i18n._(msg`You have no files yet.`)}
               </Body>
             </View>
           }
@@ -426,7 +441,11 @@ export function DriveScreen() {
             hasMore ? (
               <View style={[atoms.centered, atoms.py_sm]}>
                 <Button
-                  label={loadingMore ? 'Loading…' : 'Load more'}
+                  label={
+                    loadingMore
+                      ? i18n._(msg({message: 'Loading…', context: 'button'}))
+                      : i18n._(msg({message: 'Load more', context: 'button'}))
+                  }
                   variant="secondary"
                   disabled={loadingMore}
                   onPress={() => void loadMore()}

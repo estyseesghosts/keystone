@@ -43,7 +43,7 @@ const memVault = (): TokenVault => ({
   removeToken: () => Promise.resolve(),
 })
 
-async function setup({backend}: {backend?: any} = {}) {
+async function setup({backend}: {backend?: any} = {}, locale: 'en' | 'fr' = 'en') {
   const storage = createMemoryStore()
   const restore = appStorage()
   __setStorageForTests({storage})
@@ -67,7 +67,7 @@ async function setup({backend}: {backend?: any} = {}) {
     })
   }
   i18n.load('en', {})
-  i18n.activate('en')
+  i18n.activate(locale)
   render(
     <I18nProvider i18n={i18n}>
       <ThemeProvider theme="light">
@@ -521,6 +521,17 @@ describe('Drive screen', () => {
       fireEvent.press(screen.getByTestId('drive-folder-scope-d1'))
       expect(await screen.findByText('This folder has no files yet.')).toBeTruthy()
     } finally {
+      done()
+    }
+  })
+
+  it('renders signed-out chrome through the catalog (translated)', async () => {
+    i18n.load('fr', {'drive.signedOut': 'FR_SIGN_IN_DRIVE'})
+    const {done} = await setup({}, 'fr')
+    try {
+      expect(await screen.findByText('FR_SIGN_IN_DRIVE')).toBeTruthy()
+    } finally {
+      i18n.activate('en')
       done()
     }
   })

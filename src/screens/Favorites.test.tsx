@@ -35,7 +35,7 @@ const memVault = (): TokenVault => ({
   removeToken: () => Promise.resolve(),
 })
 
-async function setup({backend}: {backend?: any} = {}) {
+async function setup({backend}: {backend?: any} = {}, locale: 'en' | 'fr' = 'en') {
   const storage = createMemoryStore()
   const restore = appStorage()
   __setStorageForTests({storage})
@@ -58,7 +58,7 @@ async function setup({backend}: {backend?: any} = {}) {
     })
   }
   i18n.load('en', {})
-  i18n.activate('en')
+  i18n.activate(locale)
   render(
     <I18nProvider i18n={i18n}>
       <ThemeProvider theme="light">
@@ -114,6 +114,17 @@ describe('Favorites screen', () => {
       expect(await screen.findByText('saved post')).toBeTruthy()
       expect(backend.bookmarks.list).toHaveBeenCalled()
     } finally {
+      done()
+    }
+  })
+
+  it('renders signed-out chrome through the catalog (translated)', async () => {
+    i18n.load('fr', {'favorites.signedOut': 'FR_SIGN_IN_FAVORITES'})
+    const {done} = await setup({}, 'fr')
+    try {
+      expect(await screen.findByText('FR_SIGN_IN_FAVORITES')).toBeTruthy()
+    } finally {
+      i18n.activate('en')
       done()
     }
   })

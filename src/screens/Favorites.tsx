@@ -9,6 +9,8 @@
 
 import {View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import type {FeedDescriptor} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
@@ -18,17 +20,29 @@ import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
 import {navigationRef} from '#/navigationRef'
 import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
+import {i18n} from '#/locale/i18n'
 
 export function FavoritesScreen() {
   const {session, backend} = useActiveBackend()
-  const title = session?.family === 'mastodon' ? 'Bookmarks' : session?.family === 'misskey' ? 'Favourites' : 'Favorites'
+  const title =
+    session?.family === 'mastodon'
+      ? i18n._(msg({message: 'Bookmarks', context: 'saved posts screen title'}))
+      : session?.family === 'misskey'
+        ? i18n._(msg({message: 'Favourites', context: 'saved posts screen title'}))
+        : i18n._(msg({message: 'Favorites', context: 'saved posts screen title'}))
+  const unavailable =
+    session?.family === 'mastodon'
+      ? i18n._(msg`Bookmarks are not available on this server.`)
+      : session?.family === 'misskey'
+        ? i18n._(msg`Favourites are not available on this server.`)
+        : i18n._(msg`Favorites are not available on this server.`)
 
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="favorites-screen">
-        <Pagehead title="Favorites" />
-        <Body>Sign in to see your favorites.</Body>
-        <Caption color="faint">Favorites never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg({message: 'Favorites', context: 'saved posts screen title'}))} />
+        <Body>{i18n._(msg({id: 'favorites.signedOut', message: 'Sign in to see your favorites.'}))}</Body>
+        <Caption color="faint">{i18n._(msg`Favorites never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -38,7 +52,7 @@ export function FavoritesScreen() {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="favorites-screen">
         <Pagehead title={title} />
-        <Body>{`${title} are not available on this server.`}</Body>
+        <Body>{unavailable}</Body>
       </View>
     )
   }
@@ -50,7 +64,7 @@ export function FavoritesScreen() {
       {session.family === 'misskey' ? (
         <View style={[atoms.px_md, atoms.py_sm]}>
           <Button
-            label="Clips"
+            label={i18n._(msg({message: 'Clips', context: 'navigation button'}))}
             variant="secondary"
             onPress={() => {
               if (navigationRef.isReady()) navigationRef.navigate('Clips' as never)

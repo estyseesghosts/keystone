@@ -2,6 +2,8 @@ import {useEffect, useRef, useState, type ReactNode} from 'react'
 import {View} from 'react-native'
 import {useQueryClient} from '@tanstack/react-query'
 
+import {msg} from '@lingui/macro'
+
 import {useTheme} from '#/alf/index'
 import {atoms} from '#/alf/atoms'
 import {Button} from '#/components/Button'
@@ -19,6 +21,7 @@ import {useRecommendationsAvailable} from '#/state/queries/recommendations'
 import {feedScrollKey, saveFeedScroll} from '#/state/feedMemory'
 import {useActiveBackend, FeedView} from '#/screens/HomeFeed'
 import {appStorage} from '#/storage'
+import {i18n} from '#/locale/i18n'
 
 // Home (`/`): the signed-in account's home timeline with the inline
 // composer as the feed's header content (it scrolls away with the feed —
@@ -111,25 +114,25 @@ export function HomeScreen() {
 
   return (
     <View style={atoms.flex1} testID="home-screen">
-      <Pagehead title="Home" />
+      <Pagehead title={i18n._(msg({id: 'home.title', message: 'Home', context: 'home timeline screen'}))} />
       {showRec ? (
         <Tabs<HomeTab>
           tabs={[
-            {key: 'home', label: 'Home'},
-            {key: 'recommendations', label: 'Recommendations'},
+            {key: 'home', label: i18n._(msg({id: 'home.title', message: 'Home', context: 'home timeline screen'}))},
+            {key: 'recommendations', label: i18n._(msg`Recommendations`)},
           ]}
           active={active}
           onChange={select}
           testID="home-tabs"
           testIDPrefix="home-tab"
-          accessibilityLabel="Home timelines"
+          accessibilityLabel={i18n._(msg`Home timelines`)}
         />
       ) : null}
       {active === 'recommendations' ? (
         <View style={{borderBottomWidth: 1, borderBottomColor: theme.palette.border}}>
           <View style={[atoms.px_md, atoms.py_sm, atoms.row, {justifyContent: 'flex-end'}]}>
             <Button
-              label="Configure recommendations"
+              label={i18n._(msg`Configure recommendations`)}
               variant="secondary"
               compact
               onPress={() => setSettingsOpen(true)}

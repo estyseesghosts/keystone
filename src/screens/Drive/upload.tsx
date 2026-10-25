@@ -3,11 +3,14 @@
 
 import {View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
 import type {UploadableFile} from '#/state/queries/composer'
+import {i18n} from '#/locale/i18n'
 
 export function UploadPanel({
   targetLabel,
@@ -39,22 +42,26 @@ export function UploadPanel({
         <View style={[atoms.gap_sm]}>
           <Body>{staged.name}</Body>
           <TextField
-            label="Description (optional)"
+            label={i18n._(msg({message: 'Description (optional)', context: 'drive upload comment input'}))}
             value={comment}
             onChangeText={onCommentChange}
-            placeholder="Alt text or caption"
+            placeholder={i18n._(msg({message: 'Alt text or caption', context: 'drive upload comment input'}))}
             testID="drive-upload-comment"
           />
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label={uploading ? 'Uploading…' : 'Upload'}
+              label={
+                uploading
+                  ? i18n._(msg({message: 'Uploading…', context: 'button'}))
+                  : i18n._(msg({message: 'Upload', context: 'button'}))
+              }
               variant="primary"
               disabled={uploading}
               onPress={onUpload}
               testID="drive-upload-submit"
             />
             <Button
-              label="Cancel"
+              label={i18n._(msg({message: 'Cancel', context: 'button'}))}
               variant="secondary"
               disabled={uploading}
               onPress={onCancel}
@@ -63,13 +70,13 @@ export function UploadPanel({
           </View>
           {uploading ? (
             <Caption color="faint" testID="drive-upload-progress">
-              {`Uploading “${staged.name}”…`}
+              {i18n._(msg`Uploading “${staged.name}”…`)}
             </Caption>
           ) : null}
         </View>
       ) : (
         <Button
-          label="Choose file"
+          label={i18n._(msg({message: 'Choose file', context: 'button'}))}
           variant="secondary"
           disabled={uploading}
           onPress={onChoose}

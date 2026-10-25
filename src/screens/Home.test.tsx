@@ -51,7 +51,7 @@ const memVault = (): TokenVault => ({
   removeToken: () => Promise.resolve(),
 })
 
-async function setup({signedIn, timeline}: {signedIn: boolean; timeline?: () => Promise<unknown>}) {
+async function setup({signedIn, timeline}: {signedIn: boolean; timeline?: () => Promise<unknown>}, locale: 'en' | 'fr' = 'en') {
   const storage = createMemoryStore()
   const restore = appStorage()
   __setStorageForTests({storage})
@@ -75,7 +75,7 @@ async function setup({signedIn, timeline}: {signedIn: boolean; timeline?: () => 
   }
   const {i18n} = await import('#/locale/i18n')
   i18n.load('en', {})
-  i18n.activate('en')
+  i18n.activate(locale)
   render(
     <I18nProvider i18n={i18n}>
       <ThemeProvider theme="light">
@@ -117,6 +117,18 @@ describe('Home inline composer separator', () => {
       expect(await screen.findByTestId('home-screen')).toBeTruthy()
       expect(screen.queryByTestId('home-composer-separator')).toBeNull()
     } finally {
+      done()
+    }
+  })
+
+  it('renders the screen title through the catalog (translated)', async () => {
+    const {i18n} = await import('#/locale/i18n')
+    i18n.load('fr', {'home.title': 'FR_HOME_TITLE'})
+    const {done} = await setup({signedIn: false}, 'fr')
+    try {
+      expect(await screen.findByText('FR_HOME_TITLE')).toBeTruthy()
+    } finally {
+      i18n.activate('en')
       done()
     }
   })

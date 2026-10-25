@@ -7,6 +7,8 @@
 import {useCallback, useEffect, useState} from 'react'
 import {ScrollView, View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {
   isPermissionError,
   isUnsupportedError,
@@ -21,6 +23,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Dialog} from '#/components/Dialog'
 import {Loader} from '#/components/Loader'
+import {i18n} from '#/locale/i18n'
 
 import {AttachedNoteRow, MetaRow, formatBytes} from './rows'
 
@@ -58,8 +61,9 @@ export function FileDetailDialog({
       setMedia(await drive.showFile(file.id))
     } catch (err) {
       if (isUnsupportedError(err)) setDetailUnsupported(true)
-      else if (isPermissionError(err)) setDetailError('Your account cannot view this file.')
-      else setDetailError(err instanceof Error ? err.message : 'Could not load file details.')
+      else if (isPermissionError(err))
+        setDetailError(i18n._(msg`Your account cannot view this file.`))
+      else setDetailError(err instanceof Error ? err.message : i18n._(msg`Could not load file details.`))
     }
   }, [drive, file.id])
 
@@ -81,7 +85,7 @@ export function FileDetailDialog({
       else if (isPermissionError(err)) setNotesState('denied')
       else {
         setNotesState('error')
-        setNotesError(err instanceof Error ? err.message : 'Could not load notes for this file.')
+        setNotesError(err instanceof Error ? err.message : i18n._(msg`Could not load notes for this file.`))
       }
     }
   }, [drive, file.id])
@@ -105,7 +109,7 @@ export function FileDetailDialog({
       setNotesCursor(page.cursor)
       setNotesHasMore(!page.end)
     } catch (err) {
-      setNotesError(err instanceof Error ? err.message : 'Could not load more notes.')
+      setNotesError(err instanceof Error ? err.message : i18n._(msg`Could not load more notes.`))
     } finally {
       setNotesLoadingMore(false)
     }
@@ -114,28 +118,48 @@ export function FileDetailDialog({
   return (
     <Dialog open onClose={onClose} title={media.name} testID="drive-detail">
       <ScrollView style={{maxHeight: 420}} contentContainerStyle={[atoms.gap_sm]}>
-        <MetaRow label="Name" value={media.name} testID="drive-detail-name" />
-        <MetaRow label="Type" value={media.mimeType} testID="drive-detail-type" />
-        <MetaRow label="Size" value={formatBytes(media.size)} testID="drive-detail-size" />
         <MetaRow
-          label="Created"
-          value={media.createdAt ?? 'Unknown'}
+          label={i18n._(msg({message: 'Name', context: 'drive file detail field'}))}
+          value={media.name}
+          testID="drive-detail-name"
+        />
+        <MetaRow
+          label={i18n._(msg({message: 'Type', context: 'drive file detail field'}))}
+          value={media.mimeType}
+          testID="drive-detail-type"
+        />
+        <MetaRow
+          label={i18n._(msg({message: 'Size', context: 'drive file detail field'}))}
+          value={formatBytes(media.size)}
+          testID="drive-detail-size"
+        />
+        <MetaRow
+          label={i18n._(msg({message: 'Created', context: 'drive file detail field'}))}
+          value={media.createdAt ?? i18n._(msg({message: 'Unknown', context: 'drive file detail value'}))}
           testID="drive-detail-created"
         />
         <MetaRow
-          label="Sensitive"
-          value={media.isSensitive ? 'Yes' : 'No'}
+          label={i18n._(msg({message: 'Sensitive', context: 'drive file detail field'}))}
+          value={
+            media.isSensitive
+              ? i18n._(msg({message: 'Yes', context: 'drive file detail value'}))
+              : i18n._(msg({message: 'No', context: 'drive file detail value'}))
+          }
           testID="drive-detail-sensitive"
         />
         <MetaRow
-          label="Comment"
-          value={media.description ?? 'No description'}
+          label={i18n._(msg({message: 'Comment', context: 'drive file detail field'}))}
+          value={media.description ?? i18n._(msg({message: 'No description', context: 'drive file detail value'}))}
           testID="drive-detail-comment"
         />
-        <MetaRow label="URL" value={media.url ?? 'Not processed yet'} testID="drive-detail-url" />
+        <MetaRow
+          label={i18n._(msg({message: 'URL', context: 'drive file detail field'}))}
+          value={media.url ?? i18n._(msg({message: 'Not processed yet', context: 'drive file detail value'}))}
+          testID="drive-detail-url"
+        />
         {detailUnsupported ? (
           <Caption color="faint" testID="drive-detail-unsupported">
-            This server does not support file details. Showing the values from the file list.
+            {i18n._(msg`This server does not support file details. Showing the values from the file list.`)}
           </Caption>
         ) : null}
         {detailError ? (
@@ -144,7 +168,7 @@ export function FileDetailDialog({
               {detailError}
             </Caption>
             <Button
-              label="Retry"
+              label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading file details'}))}
               variant="secondary"
               onPress={() => void loadDetail()}
               testID="drive-detail-retry"
@@ -153,27 +177,27 @@ export function FileDetailDialog({
         ) : null}
 
         <View style={[atoms.gap_sm]} testID="drive-detail-notes">
-          <Body>Notes using this file</Body>
+          <Body>{i18n._(msg`Notes using this file`)}</Body>
           {notesState === 'loading' ? (
             <View style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
               <Loader testID="drive-detail-notes-loading" />
-              <Caption color="faint">Loading notes…</Caption>
+              <Caption color="faint">{i18n._(msg`Loading notes…`)}</Caption>
             </View>
           ) : notesState === 'unsupported' ? (
             <Caption color="faint" testID="drive-detail-notes-unsupported">
-              This server does not support showing notes that use a file.
+              {i18n._(msg`This server does not support showing notes that use a file.`)}
             </Caption>
           ) : notesState === 'denied' ? (
             <Caption color="faint" testID="drive-detail-notes-denied">
-              Your account cannot view the notes for this file.
+              {i18n._(msg`Your account cannot view the notes for this file.`)}
             </Caption>
           ) : notesState === 'error' ? (
             <View style={[atoms.gap_sm]}>
               <Caption color="faint" testID="drive-detail-notes-error">
-                {notesError ?? 'Could not load notes for this file.'}
+                {notesError ?? i18n._(msg`Could not load notes for this file.`)}
               </Caption>
               <Button
-                label="Retry"
+                label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading file notes'}))}
                 variant="secondary"
                 onPress={() => void loadNotes()}
                 testID="drive-detail-notes-retry"
@@ -181,7 +205,7 @@ export function FileDetailDialog({
             </View>
           ) : notes.length === 0 ? (
             <Caption color="faint" testID="drive-detail-notes-empty">
-              No notes use this file.
+              {i18n._(msg({id: 'drive.detail.notesEmpty', message: 'No notes use this file.'}))}
             </Caption>
           ) : (
             <>
@@ -195,7 +219,11 @@ export function FileDetailDialog({
               ) : null}
               {notesHasMore ? (
                 <Button
-                  label={notesLoadingMore ? 'Loading…' : 'Load more notes'}
+                  label={
+                    notesLoadingMore
+                      ? i18n._(msg({message: 'Loading…', context: 'button'}))
+                      : i18n._(msg({message: 'Load more notes', context: 'button'}))
+                  }
                   variant="secondary"
                   disabled={notesLoadingMore}
                   onPress={() => void loadMoreNotes()}

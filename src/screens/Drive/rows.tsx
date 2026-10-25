@@ -7,6 +7,8 @@
 import {useMemo, useState} from 'react'
 import {View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {
   displayNameOf,
   handleOf,
@@ -21,6 +23,7 @@ import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
 import {postBodyNodes} from '#/components/Post/body'
 import {RichText} from '#/components/RichText'
+import {i18n} from '#/locale/i18n'
 
 /** Human byte size for the detail panel (`null` stays honestly unknown). */
 export function formatBytes(size: number | null): string {
@@ -65,7 +68,7 @@ export function FolderRow({
       await onRename(trimmed)
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not rename the folder.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not rename the folder.`))
     } finally {
       setBusy(false)
     }
@@ -77,23 +80,27 @@ export function FolderRow({
       {editing ? (
         <View style={[atoms.gap_sm]}>
           <TextField
-            label="Folder name"
+            label={i18n._(msg({message: 'Folder name', context: 'drive folder name input'}))}
             value={draft}
             onChangeText={setDraft}
-            placeholder="Folder name"
+            placeholder={i18n._(msg({message: 'Folder name', context: 'drive folder name input'}))}
             error={error ?? undefined}
             testID={`drive-folder-rename-input-${folder.id}`}
           />
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label={busy ? 'Saving…' : 'Save'}
+              label={
+                busy
+                  ? i18n._(msg({message: 'Saving…', context: 'button'}))
+                  : i18n._(msg({message: 'Save', context: 'button'}))
+              }
               variant="primary"
               disabled={busy || draft.trim().length === 0}
               onPress={() => void save()}
               testID={`drive-folder-rename-save-${folder.id}`}
             />
             <Button
-              label="Cancel"
+              label={i18n._(msg({message: 'Cancel', context: 'button'}))}
               variant="secondary"
               disabled={busy}
               onPress={() => {
@@ -108,10 +115,12 @@ export function FolderRow({
       {error && !editing ? <Caption color="faint">{error}</Caption> : null}
       {editing ? null : pendingDelete ? (
         <View style={[atoms.gap_sm]}>
-          <Caption color="faint">Delete “{folder.name}”? This cannot be undone.</Caption>
+          <Caption color="faint">
+            {i18n._(msg`Delete “${folder.name}”? This cannot be undone.`)}
+          </Caption>
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label="Confirm delete"
+              label={i18n._(msg({message: 'Confirm delete', context: 'button'}))}
               variant="secondary"
               disabled={busy}
               onPress={() => {
@@ -121,7 +130,7 @@ export function FolderRow({
               testID={`drive-folder-delete-confirm-${folder.id}`}
             />
             <Button
-              label="Keep"
+              label={i18n._(msg({message: 'Keep', context: 'button', comment: 'Keep the folder; cancel deletion'}))}
               variant="secondary"
               disabled={busy}
               onPress={onCancelDelete}
@@ -132,14 +141,14 @@ export function FolderRow({
       ) : (
         <View style={[atoms.row, atoms.gap_sm]}>
           <Button
-            label="Rename"
+            label={i18n._(msg({message: 'Rename', context: 'button'}))}
             variant="secondary"
             disabled={busy}
             onPress={() => setEditing(true)}
             testID={`drive-folder-rename-${folder.id}`}
           />
           <Button
-            label="Delete"
+            label={i18n._(msg({message: 'Delete', context: 'button'}))}
             variant="secondary"
             disabled={busy}
             onPress={onArmDelete}
@@ -165,7 +174,7 @@ export function FolderScope({
       style={[atoms.row, atoms.gap_sm, atoms.px_md, {flexWrap: 'wrap'}]}
       testID="drive-folder-scope">
       <Button
-        label="Root"
+        label={i18n._(msg({message: 'Root', context: 'drive root folder'}))}
         variant={selectedId === null ? 'primary' : 'secondary'}
         onPress={() => onSelect(null)}
         testID="drive-folder-scope-root"
@@ -221,7 +230,7 @@ export function FileRow({
       await onRename(trimmed)
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not rename the file.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not rename the file.`))
     } finally {
       setBusy(false)
     }
@@ -231,27 +240,33 @@ export function FileRow({
     <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]} testID={`drive-file-${file.id}`}>
       <Body>{file.name}</Body>
       <Caption color="faint">{`${file.kind} · ${file.mimeType}`}</Caption>
-      {file.isSensitive ? <Caption color="faint">Sensitive</Caption> : null}
+      {file.isSensitive ? (
+        <Caption color="faint">{i18n._(msg({message: 'Sensitive', context: 'drive file flag'}))}</Caption>
+      ) : null}
       {editing ? (
         <View style={[atoms.gap_sm]}>
           <TextField
-            label="File name"
+            label={i18n._(msg({message: 'File name', context: 'drive file name input'}))}
             value={draft}
             onChangeText={setDraft}
-            placeholder="File name"
+            placeholder={i18n._(msg({message: 'File name', context: 'drive file name input'}))}
             error={error ?? undefined}
             testID={`drive-file-rename-input-${file.id}`}
           />
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label={busy ? 'Saving…' : 'Save'}
+              label={
+                busy
+                  ? i18n._(msg({message: 'Saving…', context: 'button'}))
+                  : i18n._(msg({message: 'Save', context: 'button'}))
+              }
               variant="primary"
               disabled={busy || draft.trim().length === 0}
               onPress={() => void save()}
               testID={`drive-file-rename-save-${file.id}`}
             />
             <Button
-              label="Cancel"
+              label={i18n._(msg({message: 'Cancel', context: 'button'}))}
               variant="secondary"
               disabled={busy}
               onPress={() => {
@@ -265,21 +280,25 @@ export function FileRow({
       ) : (
         <View style={[atoms.row, atoms.gap_sm, {flexWrap: 'wrap'}]}>
           <Button
-            label="Details"
+            label={i18n._(msg({message: 'Details', context: 'button', comment: 'Open file details'}))}
             variant="secondary"
             disabled={busy}
             onPress={onOpenDetails}
             testID={`drive-file-details-${file.id}`}
           />
           <Button
-            label="Rename"
+            label={i18n._(msg({message: 'Rename', context: 'button'}))}
             variant="secondary"
             disabled={busy}
             onPress={() => setEditing(true)}
             testID={`drive-file-rename-${file.id}`}
           />
           <Button
-            label={file.isSensitive ? 'Mark not sensitive' : 'Mark sensitive'}
+            label={
+              file.isSensitive
+                ? i18n._(msg`Mark not sensitive`)
+                : i18n._(msg`Mark sensitive`)
+            }
             variant="secondary"
             disabled={busy}
             onPress={() => {
@@ -287,7 +306,7 @@ export function FileRow({
               setError(null)
               void onToggleSensitive()
                 .catch((err: unknown) => {
-                  setError(err instanceof Error ? err.message : 'Could not update the file.')
+                  setError(err instanceof Error ? err.message : i18n._(msg`Could not update the file.`))
                 })
                 .finally(() => setBusy(false))
             }}
@@ -297,10 +316,16 @@ export function FileRow({
       )}
       {pendingDelete ? (
         <View style={[atoms.gap_sm]}>
-          <Caption color="faint">Delete “{file.name}”? This cannot be undone.</Caption>
+          <Caption color="faint">
+            {i18n._(msg`Delete “${file.name}”? This cannot be undone.`)}
+          </Caption>
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label={deleting ? 'Deleting…' : 'Confirm delete'}
+              label={
+                deleting
+                  ? i18n._(msg({message: 'Deleting…', context: 'button'}))
+                  : i18n._(msg({message: 'Confirm delete', context: 'button'}))
+              }
               variant="secondary"
               disabled={busy || deleting}
               onPress={() => {
@@ -311,7 +336,7 @@ export function FileRow({
               testID={`drive-file-delete-confirm-${file.id}`}
             />
             <Button
-              label="Keep"
+              label={i18n._(msg({message: 'Keep', context: 'button', comment: 'Keep the file; cancel deletion'}))}
               variant="secondary"
               disabled={busy || deleting}
               onPress={onCancelDelete}
@@ -322,7 +347,7 @@ export function FileRow({
       ) : (
         <View style={[atoms.row, atoms.gap_sm]}>
           <Button
-            label="Delete"
+            label={i18n._(msg({message: 'Delete', context: 'button'}))}
             variant="secondary"
             disabled={busy}
             onPress={onArmDelete}

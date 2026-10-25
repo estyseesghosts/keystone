@@ -15,6 +15,8 @@ import {
   type RouteProp,
 } from '@react-navigation/native'
 
+import {msg} from '@lingui/macro'
+
 import {
   displayNameOf,
   handleOf,
@@ -36,6 +38,7 @@ import {ProfileAvatar} from '#/components/Profile/ProfileAvatar'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
+import {i18n} from '#/locale/i18n'
 
 const PAGE_LIMIT = 20
 
@@ -46,7 +49,7 @@ function FollowerRow({account}: {account: Account}) {
       testID={`follower-row-${account.id}`}
       onPress={() => navigation.navigate('User', {id: account.id})}
       accessibilityRole="link"
-      accessibilityLabel={`Open profile of ${displayNameOf(account)}`}>
+      accessibilityLabel={i18n._(msg`Open profile of ${displayNameOf(account)}`)}>
       <View
         style={[
           atoms.px_md,
@@ -187,9 +190,11 @@ export function FollowersScreen() {
   if (!session || !backend || !sessionId) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="followers-screen">
-        <Pagehead title="Followers" />
-        <Body>Sign in to see followers.</Body>
-        <Caption color="faint">Follow lists never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg({id: 'followers.title', message: 'Followers'}))} />
+        <Body>{i18n._(msg({id: 'followers.signedOut', message: 'Sign in to see followers.'}))}</Body>
+        <Caption color="faint">
+          {i18n._(msg`Follow lists never show sample data when signed out.`)}
+        </Caption>
         <SignInButton />
       </View>
     )
@@ -198,12 +203,12 @@ export function FollowersScreen() {
   if (hidden) {
     return (
       <View style={atoms.flex1} testID="followers-screen">
-        <Pagehead title="Followers" />
+        <Pagehead title={i18n._(msg({id: 'followers.title', message: 'Followers'}))} />
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>
             {hidden === 'private'
-              ? 'Following and followers are hidden.'
-              : 'Following and followers are visible to followers.'}
+              ? i18n._(msg`Following and followers are hidden.`)
+              : i18n._(msg`Following and followers are visible to followers.`)}
           </Body>
         </View>
       </View>
@@ -213,9 +218,9 @@ export function FollowersScreen() {
   if (unsupported) {
     return (
       <View style={atoms.flex1} testID="followers-screen">
-        <Pagehead title="Followers" />
+        <Pagehead title={i18n._(msg({id: 'followers.title', message: 'Followers'}))} />
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Followers are not available on this server.</Body>
+          <Body>{i18n._(msg`Followers are not available on this server.`)}</Body>
         </View>
       </View>
     )
@@ -224,13 +229,15 @@ export function FollowersScreen() {
   if (denied || (error && (items === null || items.length === 0))) {
     return (
       <View style={atoms.flex1} testID="followers-screen">
-        <Pagehead title="Followers" />
+        <Pagehead title={i18n._(msg({id: 'followers.title', message: 'Followers'}))} />
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>
-            {denied ? 'This list is not visible to you.' : 'Could not load followers.'}
+            {denied
+              ? i18n._(msg`This list is not visible to you.`)
+              : i18n._(msg`Could not load followers.`)}
           </Body>
           <Button
-            label="Retry"
+            label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading followers'}))}
             variant="secondary"
             onPress={() => void load('initial')}
             testID="followers-retry"
@@ -243,7 +250,7 @@ export function FollowersScreen() {
   if (loading || items === null) {
     return (
       <View style={atoms.flex1} testID="followers-screen">
-        <Pagehead title="Followers" />
+        <Pagehead title={i18n._(msg({id: 'followers.title', message: 'Followers'}))} />
         <SkeletonList variant="account" testID="followers-loading" />
       </View>
     )
@@ -251,7 +258,7 @@ export function FollowersScreen() {
 
   return (
     <View style={atoms.flex1} testID="followers-screen">
-      <Pagehead title="Followers" />
+      <Pagehead title={i18n._(msg({id: 'followers.title', message: 'Followers'}))} />
       <FlatList
         testID="followers-list"
         data={items}
@@ -269,16 +276,16 @@ export function FollowersScreen() {
         }
         ListEmptyComponent={
           <View style={[atoms.centered, atoms.p_md]}>
-            <Body>No followers yet.</Body>
+            <Body>{i18n._(msg`No followers yet.`)}</Body>
           </View>
         }
         ListFooterComponent={
           <>
             {error ? (
               <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
-                <Caption color="faint">Could not load more followers.</Caption>
+                <Caption color="faint">{i18n._(msg`Could not load more followers.`)}</Caption>
                 <Button
-                  label="Retry"
+                  label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading followers'}))}
                   variant="secondary"
                   onPress={() => void load('more')}
                   testID="followers-retry"
@@ -288,7 +295,11 @@ export function FollowersScreen() {
             {!error && hasMore ? (
               <View style={[atoms.px_md, atoms.py_sm]}>
                 <Button
-                  label={loadingMore ? 'Loading…' : 'Load more'}
+                  label={
+                    loadingMore
+                      ? i18n._(msg({message: 'Loading…', context: 'button'}))
+                      : i18n._(msg({message: 'Load more', context: 'button'}))
+                  }
                   variant="secondary"
                   disabled={loadingMore}
                   onPress={() => void load('more')}

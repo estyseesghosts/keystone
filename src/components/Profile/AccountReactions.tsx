@@ -11,6 +11,8 @@
 import {useEffect, useState} from 'react'
 import {View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {
   isUnsupportedError,
   type Backend,
@@ -19,6 +21,7 @@ import {
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
+import {i18n} from '#/locale/i18n'
 
 type Status = 'loading' | 'ready' | 'unsupported' | 'error'
 
@@ -67,7 +70,7 @@ export function AccountReactionsBlock({
   if (status === 'loading') {
     return (
       <View testID="account-reactions" style={atoms.p_md}>
-        <Caption color="faint">Loading reactions.</Caption>
+        <Caption color="faint">{i18n._(msg`Loading reactions.`)}</Caption>
       </View>
     )
   }
@@ -75,7 +78,7 @@ export function AccountReactionsBlock({
     return (
       <View testID="account-reactions" style={atoms.p_md}>
         <Caption color="faint" testID="account-reactions-unavailable">
-          Reactions are not available on this server.
+          {i18n._(msg({id: 'accountReactions.unsupported', message: 'Reactions are not available on this server.'}))}
         </Caption>
       </View>
     )
@@ -84,7 +87,7 @@ export function AccountReactionsBlock({
     return (
       <View testID="account-reactions" style={atoms.p_md}>
         <Caption color="faint" testID="account-reactions-error">
-          Could not load reactions.
+          {i18n._(msg`Could not load reactions.`)}
         </Caption>
       </View>
     )
@@ -92,12 +95,12 @@ export function AccountReactionsBlock({
   if (items.length === 0) return null
   return (
     <View testID="account-reactions" style={[atoms.px_md, atoms.gap_sm]}>
-      <Caption color="faint">Recent reactions</Caption>
+      <Caption color="faint">{i18n._(msg`Recent reactions`)}</Caption>
       {items.map(r => (
         <View key={r.id} testID={`account-reaction-${r.id}`} style={atoms.gap_sm}>
           <Body>{r.reaction}</Body>
           <Caption color="faint">
-            {r.post ? r.post.content.plain.slice(0, 120) : 'A note you cannot see.'}
+            {r.post ? r.post.content.plain.slice(0, 120) : i18n._(msg`A note you cannot see.`)}
           </Caption>
         </View>
       ))}

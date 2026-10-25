@@ -6,6 +6,8 @@ import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
 import {createMemoryStore} from '@keystone/fedi'
 
+import {i18n} from '#/locale/i18n'
+
 import type {TokenVault} from '#/storage'
 import {__setStorageForTests, appStorage} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
@@ -159,6 +161,20 @@ describe('FollowRequests screen', () => {
       fireEvent.press(screen.getByTestId('follow-requests-retry'))
       expect(await screen.findByText('Follower f1')).toBeTruthy()
     } finally {
+      done()
+    }
+  })
+
+  it('renders the empty state through the catalog (translated)', async () => {
+    i18n.load('fr', {'followRequests.empty': 'FR_NO_REQUESTS'})
+    i18n.activate('fr')
+    const {done} = await setup({
+      backend: {...queueBackend(), followRequests: jest.fn(async () => [])},
+    })
+    try {
+      expect(await screen.findByText('FR_NO_REQUESTS')).toBeTruthy()
+    } finally {
+      i18n.activate('en')
       done()
     }
   })

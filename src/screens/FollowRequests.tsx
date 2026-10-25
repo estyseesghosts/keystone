@@ -9,6 +9,8 @@
 import {useCallback, useEffect, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {
   displayNameOf,
   handleOf,
@@ -25,6 +27,7 @@ import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useGraphActions} from '#/state/queries/graph'
+import {i18n} from '#/locale/i18n'
 
 function RequestRow({
   sessionId,
@@ -49,7 +52,7 @@ function RequestRow({
       await actions.followRequest.resolve(accept)
       onResolved(request.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not answer the request.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not answer the request.`))
     } finally {
       setBusy(false)
     }
@@ -63,7 +66,11 @@ function RequestRow({
       </View>
       <View style={[atoms.row, atoms.gap_sm]}>
         <Button
-          label={busy ? 'Working…' : 'Accept'}
+          label={
+            busy
+              ? i18n._(msg({message: 'Working…', context: 'button'}))
+              : i18n._(msg({message: 'Accept', context: 'button', comment: 'Accept a follow request'}))
+          }
           variant="primary"
           disabled={busy || !gate.enabled}
           disabledReason={gate.enabled ? undefined : gate.reason}
@@ -71,7 +78,11 @@ function RequestRow({
           testID={`follow-request-accept-${request.id}`}
         />
         <Button
-          label={busy ? 'Working…' : 'Reject'}
+          label={
+            busy
+              ? i18n._(msg({message: 'Working…', context: 'button'}))
+              : i18n._(msg({message: 'Reject', context: 'button', comment: 'Reject a follow request'}))
+          }
           variant="secondary"
           disabled={busy || !gate.enabled}
           disabledReason={gate.enabled ? undefined : gate.reason}
@@ -128,9 +139,11 @@ export function FollowRequestsScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="follow-requests-screen">
-        <Pagehead title="Follows" />
-        <Body>Sign in to see follow requests.</Body>
-        <Caption color="faint">Requests never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg({id: 'followRequests.title', message: 'Follows', context: 'follow requests screen'}))} />
+        <Body>{i18n._(msg({id: 'followRequests.signedOut', message: 'Sign in to see follow requests.'}))}</Body>
+        <Caption color="faint">
+          {i18n._(msg`Requests never show sample data when signed out.`)}
+        </Caption>
         <SignInButton />
       </View>
     )
@@ -139,22 +152,22 @@ export function FollowRequestsScreen() {
   if (unsupported) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="follow-requests-screen">
-        <Pagehead title="Follows" />
-        <Body>Follow requests are not available on this server.</Body>
+        <Pagehead title={i18n._(msg({id: 'followRequests.title', message: 'Follows', context: 'follow requests screen'}))} />
+        <Body>{i18n._(msg`Follow requests are not available on this server.`)}</Body>
       </View>
     )
   }
 
   return (
     <View style={atoms.flex1} testID="follow-requests-screen">
-      <Pagehead title="Follows" />
+      <Pagehead title={i18n._(msg({id: 'followRequests.title', message: 'Follows', context: 'follow requests screen'}))} />
       {loading ? (
         <SkeletonList variant="account" testID="follow-requests-loading" />
       ) : error ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load follow requests.</Body>
+          <Body>{i18n._(msg`Could not load follow requests.`)}</Body>
           <Button
-            label="Retry"
+            label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading follow requests'}))}
             variant="secondary"
             onPress={() => void load()}
             testID="follow-requests-retry"
@@ -179,7 +192,7 @@ export function FollowRequestsScreen() {
           }
           ListEmptyComponent={
             <View style={[atoms.centered, atoms.p_md]}>
-              <Body>No follow requests.</Body>
+              <Body>{i18n._(msg({id: 'followRequests.empty', message: 'No follow requests.'}))}</Body>
             </View>
           }
         />

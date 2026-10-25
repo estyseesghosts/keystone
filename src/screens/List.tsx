@@ -9,6 +9,8 @@ import {useEffect, useState} from 'react'
 import {View} from 'react-native'
 import {useRoute, type RouteProp} from '@react-navigation/native'
 
+import {msg} from '@lingui/macro'
+
 import {isUnsupportedError, type FeedDescriptor} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
@@ -19,6 +21,7 @@ import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
 import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
+import {i18n} from '#/locale/i18n'
 
 export function ListScreen() {
   const route = useRoute<RouteProp<RootParamList, 'List'>>()
@@ -61,9 +64,9 @@ export function ListScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="list-screen">
-        <Pagehead title="List" />
-        <Body>Sign in to see this list.</Body>
-        <Caption color="faint">Lists never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg({id: 'list.title', message: 'List', context: 'user list screen'}))} />
+        <Body>{i18n._(msg({id: 'list.signedOut', message: 'Sign in to see this list.'}))}</Body>
+        <Caption color="faint">{i18n._(msg`Lists never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -72,8 +75,8 @@ export function ListScreen() {
   if (!backend.lists || backend.capabilities.lists === 'unsupported' || nameState === 'unsupported') {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="list-screen">
-        <Pagehead title="List" />
-        <Body>Lists are not available on this server.</Body>
+        <Pagehead title={i18n._(msg({id: 'list.title', message: 'List', context: 'user list screen'}))} />
+        <Body>{i18n._(msg`Lists are not available on this server.`)}</Body>
       </View>
     )
   }
@@ -81,7 +84,7 @@ export function ListScreen() {
   if (nameState === 'loading') {
     return (
       <View style={atoms.flex1} testID="list-screen">
-        <Pagehead title="List" />
+        <Pagehead title={i18n._(msg({id: 'list.title', message: 'List', context: 'user list screen'}))} />
         <SkeletonList variant="post" testID="list-loading" />
       </View>
     )
@@ -90,11 +93,11 @@ export function ListScreen() {
   if (nameState === 'error') {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]} testID="list-screen">
-        <Pagehead title="List" />
-        <Body>Could not load this list.</Body>
-        <Caption color="faint">Check your connection and try again.</Caption>
+        <Pagehead title={i18n._(msg({id: 'list.title', message: 'List', context: 'user list screen'}))} />
+        <Body>{i18n._(msg`Could not load this list.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Check your connection and try again.`)}</Caption>
         <Button
-          label="Retry"
+          label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading the list'}))}
           variant="secondary"
           onPress={() => {
             setNameState('loading')
@@ -119,8 +122,8 @@ export function ListScreen() {
   if (nameState === 'missing') {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="list-screen">
-        <Pagehead title="List" />
-        <Body>This list does not exist.</Body>
+        <Pagehead title={i18n._(msg({id: 'list.title', message: 'List', context: 'user list screen'}))} />
+        <Body>{i18n._(msg({id: 'list.missing', message: 'This list does not exist.'}))}</Body>
       </View>
     )
   }
@@ -128,7 +131,7 @@ export function ListScreen() {
   const descriptor = `list|${id}` as FeedDescriptor
   return (
     <View style={atoms.flex1} testID="list-screen">
-      <Pagehead title={name ?? 'List'} />
+      <Pagehead title={name ?? i18n._(msg({id: 'list.title', message: 'List', context: 'user list screen'}))} />
       <FeedView sessionId={session.id} descriptor={descriptor} testID="list-feed" />
     </View>
   )

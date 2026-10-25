@@ -6,6 +6,8 @@ import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
 import {createMemoryStore} from '@keystone/fedi'
 
+import {i18n} from '#/locale/i18n'
+
 import type {TokenVault} from '#/storage'
 import {__setStorageForTests, appStorage} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
@@ -307,6 +309,20 @@ describe('Lists screen', () => {
       expect(screen.getByText('This server has not reported list reply settings.')).toBeTruthy()
       expect(screen.getByText('This server has not reported exclusive lists.')).toBeTruthy()
     } finally {
+      done()
+    }
+  })
+
+  it('renders the empty state through the catalog (translated)', async () => {
+    i18n.load('fr', {'lists.empty': 'FR_NO_LISTS'})
+    i18n.activate('fr')
+    const {done} = await setup({
+      backend: {family: 'misskey', capabilities: {lists: 'supported'}, lists: {list: jest.fn(async () => [])}},
+    })
+    try {
+      expect(await screen.findByText('FR_NO_LISTS')).toBeTruthy()
+    } finally {
+      i18n.activate('en')
       done()
     }
   })

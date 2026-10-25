@@ -1,5 +1,6 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
+import {i18n} from '#/locale/i18n'
 import {ThemeProvider} from '#/alf/index'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {makeAccount} from '#/components/__tests__/fixtures'
@@ -250,5 +251,16 @@ describe('FollowersScreen', () => {
   it('renders the honest empty state', async () => {
     setup({backend: backendWith({pages: [[]]})})
     expect(await screen.findByText('No followers yet.')).toBeTruthy()
+  })
+
+  it('renders signed-out chrome through the catalog (translated)', async () => {
+    i18n.load('fr', {'followers.signedOut': 'FR_SIGN_IN_FOLLOWERS'})
+    i18n.activate('fr')
+    try {
+      setup()
+      expect(await screen.findByText('FR_SIGN_IN_FOLLOWERS')).toBeTruthy()
+    } finally {
+      i18n.activate('en')
+    }
   })
 })
