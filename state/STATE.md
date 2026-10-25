@@ -1,5 +1,15 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
+Repair program 2026-10-24 (audit `docs/audit_20261024/`): ALL WAVES
+MERGED on `main` — Wave 0 (`c817c30`), Wave 1 (`4625769`), Wave 2
+(`9e67b4d`), Wave 3 (`f982592`), Wave 4 (`9b4e9ce`). Green at each
+commit: final **217 suites / 2887 tests**, typecheck + lint clean.
+Tracker: `docs/audit_20261024/repair.md` (all slices `done`).
+Logs: `state/logs/2026-10-24-repair-*`. ADRs 0007 (nullable
+Notification.createdAt), 0008 (SDK 57 pin). Follow-ups ticketed in
+logs: fetchExternalMe-204-TypeError, D3.8 scanner-share post-merge,
+device/live runs `not verified (owner live-tests externally)`.
+
 Phase/slice: **P6 Wave 3.2 + mobile bring-up MERGED on `main`
 (2026-10-22)** — one repo (`~/keystone2`); reports queue + device
 bundling/signing/iOS-OAuth all on main. Next: 3.3 user moderation,
