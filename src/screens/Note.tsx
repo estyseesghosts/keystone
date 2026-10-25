@@ -42,7 +42,6 @@ import {
 
 import {useTheme} from '#/alf/index'
 import {atoms} from '#/alf/atoms'
-import {lineHeight, typeSize} from '#/alf/tokens'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
@@ -78,18 +77,13 @@ import {
   threadRepliesQueryKey,
 } from '#/state/queries'
 
-// Reply-chain depth backstop (replies Slice B): thread cycles (a replies
+// Reply-chain depth backstop (flat chains): thread cycles (a replies
 // to b replies to a, federated or malicious) would recurse forever
-// through the per-level reply queries, so any chain at or past this depth
-// renders nothing. Real threads never approach it (the fedi tree builder
-// already guards; this is the UI belt), and it never shows a dead-end
-// caption — deeper levels simply keep collapsing behind "Show more
-// replies…" links until the queries run dry or this stops them.
+// through the per-level reply queries, so any chain at or past this
+// depth renders nothing. Real threads never approach it, and it never
+// shows a dead-end caption — the reveal simply stops there once the
+// queries run dry or this stops it.
 const MAX_CHAIN_DEPTH = 64
-// Chain levels at or below this depth render inline on mount (direct
-// replies + one chain level); deeper levels collapse behind the show-more
-// text link, which expands one level at a time.
-const CHAIN_AUTO_DEPTH = 1
 
 /** True once a reply chain has hit the cycle backstop (renders nothing). */
 export function isChainCapped(depth: number, max: number = MAX_CHAIN_DEPTH): boolean {
@@ -141,6 +135,10 @@ const styles = StyleSheet.create({
   },
   inlineInputColCollapsed: {
     flex: 1,
+    // Fills the row height so the single-line input centers against the
+    // Reply pill by layout (input paddingVertical 0 + textAlignVertical
+    // center), never by shrinking the font.
+    alignSelf: 'stretch',
     justifyContent: 'center',
     minWidth: 0,
   },
@@ -173,16 +171,25 @@ const styles = StyleSheet.create({
   },
 })
 
-// Thread connectors (E8, v1 `Note` parity, own code): a 1px left edge
-// ties same-thread cards together — the ancestor chain above the
-// focused post, each root reply row below it, and every nested branch
-// level. v1 draws the same idea through the avatar column with
-// `::before` rules (web-only); the edge is the native equivalent —
-// adjacent rows share the indent so the segments read as one spine.
-// PostCard internals are untouched: the edge wraps each card.
-function threadEdge(borderColor: string) {
-  return {borderLeftWidth: 1, borderLeftColor: borderColor, marginLeft: 16, paddingLeft: 12}
-}
+// Reply spine (flat chains, X-style — own code): every reply row is
+// full-width — zero indent, zero per-depth borders or guides. The only
+// connector is a 2px vertical spine through the avatar column, drawn
+// UNDER the card (mounted before it, pointer-transparent) so avatars
+// sit on the line. A row draws a TOP stub (row top → avatar center)
+// iff the row directly above it is its parent, and a BOTTOM stub
+// (avatar center → row bottom) iff a shown child row sits directly
+// below it: one continuous line along a true parent→child→grandchild
+// adjacency, breaks everywhere else. No elbows, no branching ticks.
+// The show-more link row never draws stubs.
+//
+// Geometry pins the PostCard avatar box (16px horizontal / 12px vertical
+// card padding, 40px avatar): column center x=36, avatar center y=32.
+// A context line above the avatar row (boost/reply badges) pushes the
+// true center down, but the stubs stay colinear, so the line still reads
+// as one — the joint only shows where a leaf's line terminates.
+const SPINE_X = 36
+const SPINE_JOINT = 32
+const SPINE_WIDTH = 2
 
 function AccountRow({account}: {account: Account}) {
   return (
@@ -484,8 +491,11 @@ function InlineReply({
   )
 
   // Collapsed (X-style): ONE compact row — avatar, single-line input, and
-  // Reply pill, vertically centered. No toolbar, no dead space. First
-  // focus/typing swaps to the expanded column below.
+  // Reply pill, vertically centered. The input keeps the body prose
+  // metrics (15/21); centering against the pill is layout-only: the
+  // wrapper fills the row height with centered content while the input
+  // itself is paddingVertical 0 + textAlignVertical center. No toolbar,
+  // no dead space. First focus/typing swaps to the expanded column below.
   if (!expanded) {
     return (
       <View
@@ -495,7 +505,7 @@ function InlineReply({
         ]}
         testID="inline-reply">
         {avatar}
-        <View style={styles.inlineInputColCollapsed}>
+        <View style={styles.inlineInputColCollapsed} testID="inline-reply-input-wrap">
           <TextInput
             testID="inline-reply-input"
             multiline
@@ -514,14 +524,13 @@ function InlineReply({
             style={[
               styles.inlineInputCollapsed,
               {
-                // Caption metrics, not body: the compact Reply pill's label
-                // is a Caption in a centered 36px pill, so the placeholder
-                // shares its exact text line and centers on the same
-                // baseline (both scale with the same multiplier, and the
-                // metrics are theme-independent tokens).
+                // Body prose metrics, same as the expanded input: the
+                // compact Reply pill centers against this by layout (the
+                // wrapper fills the row height; paddingVertical 0 +
+                // textAlignVertical center here), never by shrinking type.
                 color: theme.palette.text,
-                fontSize: typeSize.caption * theme.fontScaleMultiplier,
-                lineHeight: lineHeight.caption * theme.fontScaleMultiplier,
+                fontSize: 15 * theme.fontScaleMultiplier,
+                lineHeight: 21 * theme.fontScaleMultiplier,
               },
               autogrowStyle(autogrow.height),
               NO_OUTLINE,
@@ -709,102 +718,221 @@ function InClipsRow({backend, postId}: {backend: Backend; postId: string}) {
   )
 }
 
-// Reply chain (replies Slice B, X-style): the inline chain under one post.
-// Levels at or below CHAIN_AUTO_DEPTH render on mount with avatar-column
-// connector edges (the same `threadEdge` spine as the root rows —
-// adjacent rows share the indent so the segments read as one line);
-// deeper levels collapse behind a muted "Show more replies…" text link
-// (Caption-sized, never a Button pill) that expands exactly one more
-// level inline, so every link reveals real rows — never an empty state,
-// never a dead-end caption. Tapping a reply card itself still navigates
-// to its own Note screen: PostCard owns that press, this only wraps cards
-// in the edge. Queries prefetch on mount even while collapsed (the
-// Compose-goBack refetch path reads these keys), and the link only
-// renders once real children are known — never an inert control.
-function ReplyChain({
+// One flat reply row: the untouched PostCard plus its spine stubs (if
+// any) — full-width, zero indent, zero depth styling. The overlay mounts
+// BEFORE the card so the spine runs under the avatar (avatars sit on
+// the line); it is pointer-transparent so card taps are unaffected.
+// PostCard still owns card-tap navigation to its own Note screen.
+function ReplyRowView({
+  post,
   sessionId,
-  backend,
-  parentId,
-  depth,
+  topStub,
+  bottomStub,
 }: {
+  post: Post
   sessionId: string
-  backend: Backend
-  parentId: string
-  depth: number
+  /** The row directly above this one is this row's parent. */
+  topStub: boolean
+  /** A shown child row sits directly below this one. */
+  bottomStub: boolean
 }) {
   const theme = useTheme()
-  const [expanded, setExpanded] = useState(depth <= CHAIN_AUTO_DEPTH)
-  const replies = useThreadRepliesQuery(sessionId, parentId, {backend})
-  const items = useMemo(
-    () => chronological(replies.data?.pages.flatMap(page => page.items) ?? []),
-    [replies.data],
-  )
-  // Cycle backstop (a replies to b replies to a, federated or malicious):
-  // silently stop, never recurse and never a dead-end caption.
-  if (isChainCapped(depth)) return null
-  if (replies.isError) {
-    return (
-      <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
-        <Caption color="faint">Could not load replies.</Caption>
-        <Pressable
-          testID={`replies-retry-${parentId}`}
-          onPress={() => void replies.refetch()}
-          accessibilityRole="button"
-          accessibilityLabel={i18n._(msg`Retry loading replies`)}>
-          <Caption color="muted">{i18n._(msg`Retry`)}</Caption>
-        </Pressable>
-      </View>
-    )
-  }
-  if (!expanded) {
-    // Pending or childless: nothing yet — the link appears only once it
-    // would expand something real.
-    if (replies.isPending || items.length === 0) return null
-    return (
-      <View style={[atoms.px_md, atoms.py_sm]}>
-        <Pressable
-          testID={`show-more-replies-${parentId}`}
-          onPress={() => setExpanded(true)}
-          accessibilityRole="button"
-          accessibilityLabel={i18n._(msg`Show more replies`)}>
-          <Caption color="muted">{i18n._(msg`Show more replies…`)}</Caption>
-        </Pressable>
-      </View>
-    )
-  }
-  if (replies.isPending) {
-    return (
-      <View style={[atoms.centered, atoms.py_sm]}>
-        <Loader testID={`replies-loading-${parentId}`} />
-      </View>
-    )
-  }
-  if (items.length === 0) return null
   return (
-    <View testID={`replies-${parentId}`}>
-      {items.map(child => {
-        const shown = appearNoteOf(child)
-        return (
-          <View key={child.id} style={threadEdge(theme.palette.border)}>
-            <PostCard post={child} sessionId={sessionId} testID={`reply-${child.id}`} />
-            <ReplyChain
-              sessionId={sessionId}
-              backend={backend}
-              parentId={shown.id}
-              depth={depth + 1}
+    <View testID={`reply-row-${post.id}`}>
+      {topStub || bottomStub ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          {topStub ? (
+            <View
+              testID={`reply-spine-top-${post.id}`}
+              style={{
+                position: 'absolute',
+                left: SPINE_X - SPINE_WIDTH / 2,
+                top: 0,
+                height: SPINE_JOINT,
+                width: SPINE_WIDTH,
+                backgroundColor: theme.palette.border,
+              }}
             />
-          </View>
-        )
-      })}
+          ) : null}
+          {bottomStub ? (
+            <View
+              testID={`reply-spine-bottom-${post.id}`}
+              style={{
+                position: 'absolute',
+                left: SPINE_X - SPINE_WIDTH / 2,
+                top: SPINE_JOINT,
+                bottom: 0,
+                width: SPINE_WIDTH,
+                backgroundColor: theme.palette.border,
+              }}
+            />
+          ) : null}
+        </View>
+      ) : null}
+      <PostCard post={post} sessionId={sessionId} testID={`reply-${post.id}`} />
     </View>
   )
 }
 
-// Root reply row: one direct reply of the focused post as a FlatList row —
-// a PostCard plus its inline child chain. The chain starts at depth 1, so
-// children render inline on mount and grandchildren collapse behind
-// "Show more replies…" links.
-function ReplyRow({
+// The one muted chain link per direct reply: Caption-sized text, never a
+// Button pill. Only the terminal chain node renders it, gated on skipped
+// siblings or known children, so it always reveals real rows — never an
+// inert control.
+function ShowMoreLink({rootId, onPress}: {rootId: string; onPress: () => void}) {
+  return (
+    <View style={[atoms.px_md, atoms.py_sm]}>
+      <Pressable
+        testID={`show-more-replies-${rootId}`}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={i18n._(msg`Show more replies`)}>
+        <Caption color="muted">{i18n._(msg`Show more replies…`)}</Caption>
+      </Pressable>
+    </View>
+  )
+}
+
+function ChainLoading({parentId}: {parentId: string}) {
+  return (
+    <View style={[atoms.centered, atoms.py_sm]}>
+      <Loader testID={`replies-loading-${parentId}`} />
+    </View>
+  )
+}
+
+function ChainError({parentId, onRetry}: {parentId: string; onRetry: () => void}) {
+  return (
+    <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
+      <Caption color="faint">Could not load replies.</Caption>
+      <Pressable
+        testID={`replies-retry-${parentId}`}
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel={i18n._(msg`Retry loading replies`)}>
+        <Caption color="muted">{i18n._(msg`Retry`)}</Caption>
+      </Pressable>
+    </View>
+  )
+}
+
+// One lineal chain node (B at level 1, C at level 2): its row plus the
+// continuation below. The read site sorts oldest-first at every fork —
+// Misskey `notes/replies` answers newest-first, Mastodon `context`
+// descendants oldest-first, so server order is never trusted (the query
+// itself is untouched) — and the lineal child is always the oldest, so
+// forks follow chronology. Siblings skipped at this level ride
+// `youngerAbove` down and render — oldest-first, depth-first — inside
+// the reveal, after this node's whole subtree.
+function ChainSpine({
+  sessionId,
+  backend,
+  rootId,
+  post,
+  level,
+  depth,
+  skippedBefore,
+  youngerAbove,
+  youngerAboveDepth,
+  revealed,
+  onExpand,
+}: {
+  sessionId: string
+  backend: Backend
+  /** The direct reply this chain hangs under: owns the one link. */
+  rootId: string
+  /** This lineal node's post. */
+  post: Post
+  /** 1 for B (child of the direct reply), 2 for C. */
+  level: number
+  /** Tree depth of this node (cycle backstop accounting). */
+  depth: number
+  /** A sibling was skipped above this node (its subtree is hidden). */
+  skippedBefore: boolean
+  /** Skipped younger siblings from levels above, rendered in the reveal. */
+  youngerAbove: Post[]
+  youngerAboveDepth: number
+  revealed: boolean
+  onExpand: () => void
+}) {
+  const shown = appearNoteOf(post)
+  const replies = useThreadRepliesQuery(sessionId, shown.id, {backend})
+  const items = useMemo(
+    () => chronological(replies.data?.pages.flatMap(page => page.items) ?? []),
+    [replies.data],
+  )
+  const oldest = items.length > 0 ? items[0] : null
+  // Terminal = the lineal descent stops here: C's level, or a leaf above
+  // it. Only the terminal node may own the chain's one link.
+  const terminal = level >= 2 || oldest === null
+  const loaded = !replies.isPending && !replies.isError
+  return (
+    <>
+      <ReplyRowView
+        post={post}
+        sessionId={sessionId}
+        topStub
+        bottomStub={level < 2 ? oldest !== null : revealed && items.length > 0}
+      />
+      {replies.isPending ? <ChainLoading parentId={shown.id} /> : null}
+      {replies.isError ? (
+        <ChainError parentId={shown.id} onRetry={() => void replies.refetch()} />
+      ) : null}
+      {loaded && level < 2 && oldest !== null ? (
+        <ChainSpine
+          sessionId={sessionId}
+          backend={backend}
+          rootId={rootId}
+          post={oldest}
+          level={level + 1}
+          depth={depth + 1}
+          skippedBefore={skippedBefore || items.length > 1}
+          youngerAbove={items.slice(1)}
+          youngerAboveDepth={depth + 1}
+          revealed={revealed}
+          onExpand={onExpand}
+        />
+      ) : null}
+      {loaded && terminal && !revealed && (skippedBefore || items.length > 0) ? (
+        <ShowMoreLink rootId={rootId} onPress={onExpand} />
+      ) : null}
+      {loaded && revealed ? (
+        <>
+          {terminal
+            ? items.map((child, i) => (
+                <FullSubtree
+                  key={child.id}
+                  sessionId={sessionId}
+                  backend={backend}
+                  post={child}
+                  depth={depth + 1}
+                  isFirst={i === 0}
+                />
+              ))
+            : null}
+          {youngerAbove.map(sib => (
+            <FullSubtree
+              key={sib.id}
+              sessionId={sessionId}
+              backend={backend}
+              post={sib}
+              depth={youngerAboveDepth}
+              isFirst={false}
+            />
+          ))}
+        </>
+      ) : null}
+    </>
+  )
+}
+
+// One direct reply of the focused post: row A, then the lineal descent
+// (B, C) — 3 rows — then the one "Show more replies…" link iff more
+// exists in this subtree. Tapping the link reveals the ENTIRE remaining
+// subtree in one tap (D onward plus every skipped younger sibling
+// subtree, depth-first, oldest-first) with no further links: real
+// threads are shallow, and the silent 64-depth cycle backstop below is
+// the only bound.
+function RootReply({
   sessionId,
   backend,
   child,
@@ -813,13 +941,99 @@ function ReplyRow({
   backend: Backend
   child: Post
 }) {
-  const theme = useTheme()
+  const [revealed, setRevealed] = useState(false)
   const shown = appearNoteOf(child)
+  const replies = useThreadRepliesQuery(sessionId, shown.id, {backend})
+  const items = useMemo(
+    () => chronological(replies.data?.pages.flatMap(page => page.items) ?? []),
+    [replies.data],
+  )
+  const oldest = items.length > 0 ? items[0] : null
   return (
-    <View style={threadEdge(theme.palette.border)} testID={`thread-edge-${child.id}`}>
-      <PostCard post={child} sessionId={sessionId} testID={`reply-${child.id}`} />
-      <ReplyChain sessionId={sessionId} backend={backend} parentId={shown.id} depth={1} />
-    </View>
+    <>
+      <ReplyRowView
+        post={child}
+        sessionId={sessionId}
+        topStub={false}
+        bottomStub={oldest !== null}
+      />
+      {replies.isPending ? <ChainLoading parentId={shown.id} /> : null}
+      {replies.isError ? (
+        <ChainError parentId={shown.id} onRetry={() => void replies.refetch()} />
+      ) : null}
+      {!replies.isPending && !replies.isError && oldest !== null ? (
+        <ChainSpine
+          sessionId={sessionId}
+          backend={backend}
+          rootId={shown.id}
+          post={oldest}
+          level={1}
+          depth={1}
+          skippedBefore={items.length > 1}
+          youngerAbove={items.slice(1)}
+          youngerAboveDepth={1}
+          revealed={revealed}
+          onExpand={() => setRevealed(true)}
+        />
+      ) : null}
+    </>
+  )
+}
+
+// Full reveal row: the post plus ALL of its children, oldest-first, each
+// recursing the same way — one tap reveals the whole subtree, no further
+// links. The cycle backstop stops silently (renders nothing, never a
+// dead-end caption).
+function FullSubtree({
+  sessionId,
+  backend,
+  post,
+  depth,
+  isFirst,
+}: {
+  sessionId: string
+  backend: Backend
+  post: Post
+  depth: number
+  /** First shown child of its parent: sits directly below it. */
+  isFirst: boolean
+}) {
+  const shown = appearNoteOf(post)
+  const replies = useThreadRepliesQuery(sessionId, shown.id, {backend})
+  const items = useMemo(
+    () => chronological(replies.data?.pages.flatMap(page => page.items) ?? []),
+    [replies.data],
+  )
+  // Cycle backstop (a replies to b replies to a, federated or
+  // malicious): silently stop, never recurse and never a dead-end
+  // caption.
+  if (isChainCapped(depth)) return null
+  const loaded = !replies.isPending && !replies.isError
+  return (
+    <>
+      <ReplyRowView
+        post={post}
+        sessionId={sessionId}
+        topStub={isFirst}
+        bottomStub={loaded && items.length > 0}
+      />
+      {replies.isPending ? <ChainLoading parentId={shown.id} /> : null}
+      {replies.isError ? (
+        <ChainError parentId={shown.id} onRetry={() => void replies.refetch()} />
+      ) : null}
+      {loaded
+        ? items.map((child, i) => (
+            <FullSubtree
+              key={child.id}
+              sessionId={sessionId}
+              backend={backend}
+              post={child}
+              depth={depth + 1}
+              isFirst={i === 0}
+            />
+          ))
+        : null}
+    </>
   )
 }
 
@@ -845,10 +1059,12 @@ export function NoteScreen() {
   const [tab, setTab] = useState<'replies' | 'reposts' | 'reactions'>('replies')
   // Root replies ride the outer FlatList's rows (F24): a single
   // VirtualizedList whose header is the ancestors + focused post + entry +
-  // tabs, never PostCards inside a ScrollView. Child chains render inline
-  // inside each row (one level auto-expanded, deeper levels behind
-  // show-more links). Disabled until the focused post resolves, and
-  // prefetched across tabs off the same session-scoped query key.
+  // tabs, never PostCards inside a ScrollView. Each row is one direct
+  // reply plus its flat lineal chain (oldest-child descent: A, B, C, then
+  // the one show-more link); tapping the link reveals the whole
+  // remaining subtree in one tap. Disabled until the focused post
+  // resolves, and prefetched across tabs off the same session-scoped
+  // query key.
   const rootParentId = focused?.id ?? ''
   const rootReplies = useThreadRepliesQuery(sessionId, rootParentId, {
     ...(backend ? {backend} : {}),
@@ -929,16 +1145,12 @@ export function NoteScreen() {
           testID="thread-body"
           data={tab === 'replies' ? rootItems : []}
           keyExtractor={item => `${sessionId}:${item.id}`}
-          renderItem={({item}) => <ReplyRow sessionId={sessionId} backend={backend} child={item} />}
+          renderItem={({item}) => <RootReply sessionId={sessionId} backend={backend} child={item} />}
           ListHeaderComponent={
             <>
-              {thread.data.ancestors.length > 0 ? (
-                <View style={threadEdge(theme.palette.border)} testID="ancestor-chain">
-                  {thread.data.ancestors.map(a => (
-                    <PostCard key={a.id} post={a} sessionId={sessionId} testID={`ancestor-${a.id}`} />
-                  ))}
-                </View>
-              ) : null}
+              {thread.data.ancestors.map(a => (
+                <PostCard key={a.id} post={a} sessionId={sessionId} testID={`ancestor-${a.id}`} />
+              ))}
               {thread.data.incomplete ? (
                 <View style={[atoms.px_md, atoms.py_sm]}>
                   <Caption color="faint">Earlier reply context unavailable.</Caption>

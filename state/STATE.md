@@ -18,7 +18,11 @@ green. Log: `state/logs/2026-10-26-replies-sliceA.md`. Slice B landed
 (2026-10-26): tree flattened — chronological chains with connector
 spine, subtle show-more text link, pills/captions/dead-ends deleted,
 cycle backstop silent — **217 suites / 2960 tests** green. Log:
-`state/logs/2026-10-26-replies-sliceB.md`. Next: replies program
+`state/logs/2026-10-26-replies-sliceB.md`. Chains redone per owner
+spec (2026-10-26): lineal A→B→C + one show-more link, zero indent,
+parent-child-only spine stubs, composer font reverted to body metrics —
+**217 suites / 2960 tests** green. Log:
+`state/logs/2026-10-26-replies-chains.md`. Next: replies program
 complete — owner live-tests externally.
 
 Repair program 2026-10-24 (audit `docs/audit_20261024/`): ALL WAVES
