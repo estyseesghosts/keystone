@@ -1769,7 +1769,7 @@ Audit: a11y 2 (completion)
 
 ## X10.1 - Semantics and keyboard
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x10.1.md` (slice) + `state/logs/2026-10-25-repair25-x10.1-coordinator.md` (batch-green); 289 suites / 4098 tests green at X10.1 commit)
 Branch: `repair25-x10.1-a11y-semantics`
 Audit: a11y 6, 7, 8, 11, 12, 13 (counter); rn-ui M4 (announce half); media M15 (modal)
 
