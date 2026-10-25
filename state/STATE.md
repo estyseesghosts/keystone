@@ -21,7 +21,9 @@ Follow-up Batch 2a landed on `main` (2026-10-25): quote seen re-seed
 (`Backend.seedSeenQuote?`), mastodon `as any` 6→0, transport re-plumb
 (allowlist 13→3), ADR 0010 (poll-id-on-model) — **217 suites / 2905
 tests** green. Log: `state/logs/2026-10-25-followup-batch2a.md`.
-Remaining follow-ups: Batch 4 (locale extract/compile). Batch 2b (ADR 0010 implementation) landed —
+Remaining follow-ups: none — program complete (Batches 1–4).
+Owner-only items outstanding (see final report in the Batch 4 log tail
++ handoff list). `state/STATE.md` pointer current as of this commit. Batch 2b (ADR 0010 implementation) landed —
 **217 suites / 2907 tests** green. Log:
 `state/logs/2026-10-25-followup-batch2b.md`. Device/live runs `not verified (owner
 live-tests externally)`.
