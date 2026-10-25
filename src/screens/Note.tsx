@@ -77,11 +77,32 @@ import {
   threadRepliesQueryKey,
 } from '#/state/queries'
 
-// Defensive render-depth cap for nested reply branches. Real threads rarely
-// pass a handful of levels; the cap only stops a malicious cycle from
-// recursing forever (the fedi tree builder already guards, this is the UI
-// belt).
-const MAX_DEPTH = 64
+// Reply-chain depth backstop (replies Slice B): thread cycles (a replies
+// to b replies to a, federated or malicious) would recurse forever
+// through the per-level reply queries, so any chain at or past this depth
+// renders nothing. Real threads never approach it (the fedi tree builder
+// already guards; this is the UI belt), and it never shows a dead-end
+// caption — deeper levels simply keep collapsing behind "Show more
+// replies…" links until the queries run dry or this stops them.
+const MAX_CHAIN_DEPTH = 64
+// Chain levels at or below this depth render inline on mount (direct
+// replies + one chain level); deeper levels collapse behind the show-more
+// text link, which expands one level at a time.
+const CHAIN_AUTO_DEPTH = 1
+
+/** True once a reply chain has hit the cycle backstop (renders nothing). */
+export function isChainCapped(depth: number, max: number = MAX_CHAIN_DEPTH): boolean {
+  return depth >= max
+}
+
+// Reply order (Slice B): the families disagree — Misskey `notes/replies`
+// answers newest-first while Mastodon `context` descendants arrive
+// oldest-first — so the read site sorts by creation time instead of
+// trusting (or reversing) server order. The query itself is untouched:
+// feeds and pagination elsewhere keep their own order.
+function chronological(items: Post[]): Post[] {
+  return [...items].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+}
 
 const styles = StyleSheet.create({
   inlineReply: {
@@ -681,125 +702,102 @@ function InClipsRow({backend, postId}: {backend: Backend; postId: string}) {
   )
 }
 
-function ReplyBranch({
+// Reply chain (replies Slice B, X-style): the inline chain under one post.
+// Levels at or below CHAIN_AUTO_DEPTH render on mount with avatar-column
+// connector edges (the same `threadEdge` spine as the root rows —
+// adjacent rows share the indent so the segments read as one line);
+// deeper levels collapse behind a muted "Show more replies…" text link
+// (Caption-sized, never a Button pill) that expands exactly one more
+// level inline, so every link reveals real rows — never an empty state,
+// never a dead-end caption. Tapping a reply card itself still navigates
+// to its own Note screen: PostCard owns that press, this only wraps cards
+// in the edge. Queries prefetch on mount even while collapsed (the
+// Compose-goBack refetch path reads these keys), and the link only
+// renders once real children are known — never an inert control.
+function ReplyChain({
   sessionId,
   backend,
   parentId,
-  expandedByDefault,
   depth,
-  rootCount,
 }: {
   sessionId: string
   backend: Backend
   parentId: string
-  expandedByDefault: boolean
   depth: number
-  /** Known reply total for the root branch header; null deeper down. */
-  rootCount: number | null
 }) {
-  const [expanded, setExpanded] = useState(expandedByDefault)
-  const replies = useThreadRepliesQuery(sessionId, parentId, {backend})
   const theme = useTheme()
-  const edge = depth > 0 ? {borderLeftWidth: 1, borderLeftColor: theme.palette.border} : null
-
-  if (!expanded) {
+  const [expanded, setExpanded] = useState(depth <= CHAIN_AUTO_DEPTH)
+  const replies = useThreadRepliesQuery(sessionId, parentId, {backend})
+  const items = useMemo(
+    () => chronological(replies.data?.pages.flatMap(page => page.items) ?? []),
+    [replies.data],
+  )
+  // Cycle backstop (a replies to b replies to a, federated or malicious):
+  // silently stop, never recurse and never a dead-end caption.
+  if (isChainCapped(depth)) return null
+  if (replies.isError) {
     return (
-      <View style={[atoms.px_md, atoms.py_sm]}>
-        <Button
-          label="Show replies"
-          variant="secondary"
-          onPress={() => setExpanded(true)}
-          testID={`show-replies-${parentId}`}
-        />
+      <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
+        <Caption color="faint">Could not load replies.</Caption>
+        <Pressable
+          testID={`replies-retry-${parentId}`}
+          onPress={() => void replies.refetch()}
+          accessibilityRole="button"
+          accessibilityLabel={i18n._(msg`Retry loading replies`)}>
+          <Caption color="muted">{i18n._(msg`Retry`)}</Caption>
+        </Pressable>
       </View>
     )
   }
-
-  const items = replies.data?.pages.flatMap(page => page.items) ?? []
-
+  if (!expanded) {
+    // Pending or childless: nothing yet — the link appears only once it
+    // would expand something real.
+    if (replies.isPending || items.length === 0) return null
+    return (
+      <View style={[atoms.px_md, atoms.py_sm]}>
+        <Pressable
+          testID={`show-more-replies-${parentId}`}
+          onPress={() => setExpanded(true)}
+          accessibilityRole="button"
+          accessibilityLabel={i18n._(msg`Show more replies`)}>
+          <Caption color="muted">{i18n._(msg`Show more replies…`)}</Caption>
+        </Pressable>
+      </View>
+    )
+  }
+  if (replies.isPending) {
+    return (
+      <View style={[atoms.centered, atoms.py_sm]}>
+        <Loader testID={`replies-loading-${parentId}`} />
+      </View>
+    )
+  }
+  if (items.length === 0) return null
   return (
-    <View
-      style={[{paddingLeft: depth > 0 ? 12 : 0}, edge]}
-      testID={`replies-${parentId}`}>
-      {expandedByDefault ? null : (
-        <View style={[atoms.px_md, atoms.py_sm]}>
-          <Button
-            label="Hide replies"
-            variant="secondary"
-            onPress={() => setExpanded(false)}
-            testID={`hide-replies-${parentId}`}
-          />
-        </View>
-      )}
-      {rootCount !== null ? (
-        <View style={[atoms.px_md, atoms.py_sm]}>
-          <Caption color="faint" testID={`replies-count-${parentId}`}>
-            {`Replies (${rootCount})`}
-          </Caption>
-        </View>
-      ) : null}
-      {replies.isPending ? (
-        <View style={[atoms.centered, atoms.py_sm]}>
-          <Loader testID={`replies-loading-${parentId}`} />
-        </View>
-      ) : replies.isError ? (
-        <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
-          <Caption color="faint">Could not load replies.</Caption>
-          <Button
-            label="Retry"
-            variant="secondary"
-            onPress={() => void replies.refetch()}
-            testID={`replies-retry-${parentId}`}
-          />
-        </View>
-      ) : items.length === 0 ? (
-        <View style={[atoms.centered, atoms.p_md]}>
-          <Body>Nothing here yet.</Body>
-          <Caption color="faint">Be the first to reply.</Caption>
-        </View>
-      ) : (
-        items.map(child => {
-          const shown = appearNoteOf(child)
-          return (
-            <View key={child.id}>
-              <PostCard post={child} sessionId={sessionId} testID={`reply-${child.id}`} />
-              {depth + 1 >= MAX_DEPTH ? (
-                <View style={[atoms.px_md, atoms.py_sm]}>
-                  <Caption color="faint">Thread is too deep to expand here.</Caption>
-                </View>
-              ) : (
-                <ReplyBranch
-                  sessionId={sessionId}
-                  backend={backend}
-                  parentId={shown.id}
-                  expandedByDefault={false}
-                  depth={depth + 1}
-                  rootCount={null}
-                />
-              )}
-            </View>
-          )
-        })
-      )}
-      {replies.hasNextPage ? (
-        <View style={[atoms.px_md, atoms.py_sm]}>
-          <Button
-            label={replies.isFetchingNextPage ? 'Loading…' : 'Load more replies'}
-            variant="secondary"
-            onPress={() => void replies.fetchNextPage()}
-            testID={`more-replies-${parentId}`}
-          />
-        </View>
-      ) : null}
+    <View testID={`replies-${parentId}`}>
+      {items.map(child => {
+        const shown = appearNoteOf(child)
+        return (
+          <View key={child.id} style={threadEdge(theme.palette.border)}>
+            <PostCard post={child} sessionId={sessionId} testID={`reply-${child.id}`} />
+            <ReplyChain
+              sessionId={sessionId}
+              backend={backend}
+              parentId={shown.id}
+              depth={depth + 1}
+            />
+          </View>
+        )
+      })}
     </View>
   )
 }
 
-// Root reply row (F24): one direct reply of the focused post as a FlatList
-// row — a PostCard plus its (collapsed, View-based) child branch. The
-// MAX_DEPTH cycle guard mirrors ReplyBranch: the nested branch starts at
-// depth 1, exactly as the old root ReplyBranch (depth 0) rendered it.
-function RootReplyRow({
+// Root reply row: one direct reply of the focused post as a FlatList row —
+// a PostCard plus its inline child chain. The chain starts at depth 1, so
+// children render inline on mount and grandchildren collapse behind
+// "Show more replies…" links.
+function ReplyRow({
   sessionId,
   backend,
   child,
@@ -813,20 +811,7 @@ function RootReplyRow({
   return (
     <View style={threadEdge(theme.palette.border)} testID={`thread-edge-${child.id}`}>
       <PostCard post={child} sessionId={sessionId} testID={`reply-${child.id}`} />
-      {0 + 1 >= MAX_DEPTH ? (
-        <View style={[atoms.px_md, atoms.py_sm]}>
-          <Caption color="faint">Thread is too deep to expand here.</Caption>
-        </View>
-      ) : (
-        <ReplyBranch
-          sessionId={sessionId}
-          backend={backend}
-          parentId={shown.id}
-          expandedByDefault={false}
-          depth={0 + 1}
-          rootCount={null}
-        />
-      )}
+      <ReplyChain sessionId={sessionId} backend={backend} parentId={shown.id} depth={1} />
     </View>
   )
 }
@@ -853,14 +838,20 @@ export function NoteScreen() {
   const [tab, setTab] = useState<'replies' | 'reposts' | 'reactions'>('replies')
   // Root replies ride the outer FlatList's rows (F24): a single
   // VirtualizedList whose header is the ancestors + focused post + entry +
-  // tabs, never PostCards inside a ScrollView. Nested branches stay
-  // View-based inside each row. Disabled until the focused post resolves,
-  // and prefetched across tabs off the same session-scoped query key.
+  // tabs, never PostCards inside a ScrollView. Child chains render inline
+  // inside each row (one level auto-expanded, deeper levels behind
+  // show-more links). Disabled until the focused post resolves, and
+  // prefetched across tabs off the same session-scoped query key.
   const rootParentId = focused?.id ?? ''
   const rootReplies = useThreadRepliesQuery(sessionId, rootParentId, {
     ...(backend ? {backend} : {}),
   })
-  const rootItems = rootReplies.data?.pages.flatMap(page => page.items) ?? []
+  // Oldest-first at the read site (the query order is family-dependent);
+  // the query itself is untouched.
+  const rootItems = useMemo(
+    () => chronological(rootReplies.data?.pages.flatMap(page => page.items) ?? []),
+    [rootReplies.data],
+  )
 
   // E10: the thread query is never invalidated on create-success (the
   // create-post mutation only writes feed keys), and the old
@@ -931,7 +922,7 @@ export function NoteScreen() {
           testID="thread-body"
           data={tab === 'replies' ? rootItems : []}
           keyExtractor={item => `${sessionId}:${item.id}`}
-          renderItem={({item}) => <RootReplyRow sessionId={sessionId} backend={backend} child={item} />}
+          renderItem={({item}) => <ReplyRow sessionId={sessionId} backend={backend} child={item} />}
           ListHeaderComponent={
             <>
               {thread.data.ancestors.length > 0 ? (
@@ -976,14 +967,6 @@ export function NoteScreen() {
               />
               {tab === 'replies' ? (
                 <View testID={`replies-${focused.id}`}>
-                  <View style={[atoms.px_md, atoms.py_sm]}>
-                    <Caption color="faint" testID={`replies-count-${focused.id}`}>
-                      {/* Loaded rows are a true subset of the server total,
-                          so the header never reads below what is on screen
-                          while the focused post's counts catch up. */}
-                      {`Replies (${Math.max(focused.counts.replies, rootItems.length)})`}
-                    </Caption>
-                  </View>
                   {rootReplies.isPending ? (
                     <View style={[atoms.centered, atoms.py_sm]}>
                       <Loader testID={`replies-loading-${focused.id}`} />
@@ -991,12 +974,13 @@ export function NoteScreen() {
                   ) : rootReplies.isError ? (
                     <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
                       <Caption color="faint">Could not load replies.</Caption>
-                      <Button
-                        label="Retry"
-                        variant="secondary"
-                        onPress={() => void rootReplies.refetch()}
+                      <Pressable
                         testID={`replies-retry-${focused.id}`}
-                      />
+                        onPress={() => void rootReplies.refetch()}
+                        accessibilityRole="button"
+                        accessibilityLabel={i18n._(msg`Retry loading replies`)}>
+                        <Caption color="muted">{i18n._(msg`Retry`)}</Caption>
+                      </Pressable>
                     </View>
                   ) : null}
                 </View>
@@ -1015,12 +999,17 @@ export function NoteScreen() {
             tab === 'replies' ? (
               rootReplies.hasNextPage ? (
                 <View style={[atoms.px_md, atoms.py_sm]}>
-                  <Button
-                    label={rootReplies.isFetchingNextPage ? 'Loading…' : 'Load more replies'}
-                    variant="secondary"
-                    onPress={() => void rootReplies.fetchNextPage()}
-                    testID={`more-replies-${focused.id}`}
-                  />
+                  {rootReplies.isFetchingNextPage ? (
+                    <Caption color="faint">Loading…</Caption>
+                  ) : (
+                    <Pressable
+                      testID={`more-replies-${focused.id}`}
+                      onPress={() => void rootReplies.fetchNextPage()}
+                      accessibilityRole="button"
+                      accessibilityLabel={i18n._(msg`Load more replies`)}>
+                      <Caption color="muted">{i18n._(msg`Load more replies`)}</Caption>
+                    </Pressable>
+                  )}
                 </View>
               ) : null
             ) : tab === 'reposts' ? (

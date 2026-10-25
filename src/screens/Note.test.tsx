@@ -11,7 +11,7 @@ import {ThemeProvider} from '#/alf/index'
 import {SessionProvider} from '#/state/session/SessionProvider'
 
 import {makeAccount, makePost} from '#/components/__tests__/fixtures'
-import {NoteScreen} from './Note'
+import {NoteScreen, isChainCapped} from './Note'
 
 // Post-detail screen tests (v1 `Note` parity): the focused post renders with
 // its ancestors above and its replies below, the inline composer posts a
@@ -99,7 +99,14 @@ function fakeBackend(over: Record<string, unknown> = {}) {
     reply,
     post: jest.fn(async () => focused),
     thread: jest.fn(async () => ({ancestors: [ancestor], incomplete: false})),
-    threadReplies: jest.fn(async () => ({items: [reply], cursor: null, end: true})),
+    threadReplies: jest.fn(async (id: string) => ({
+      // Only the focused post has a reply here; chains under anything
+      // else are empty (an id-blind mock would render the reply as its
+      // own child once chains go inline).
+      items: id === 'p1' ? [reply] : [],
+      cursor: null,
+      end: true,
+    })),
     createPost: jest.fn(async (draft: {replyId?: string; text?: string}) =>
       makePost({
         id: 'r-new',
@@ -293,15 +300,17 @@ describe('NoteScreen', () => {
     expect(screen.queryByTestId('in-clips-p1')).toBeNull()
   })
 
-  it('renders the thread as a single FlatList, never PostCards in a ScrollView (F24)', async () => {
+  it('renders the thread as a single FlatList with inline reply chains, never pills (Slice B)', async () => {
     setup(fakeBackend())
     await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
     // The thread body IS the FlatList (header = ancestors + focused +
-    // inline composer + tabs, rows = root replies); nested branches stay
-    // collapsed Views.
+    // inline composer + tabs, rows = root replies with inline chains).
     expect(screen.UNSAFE_getByType(FlatList)).toBeTruthy()
     await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
-    expect(screen.getByTestId('show-replies-r1')).toBeTruthy()
+    // No Show/Hide pills, no dead-end caption.
+    expect(screen.queryByTestId('show-replies-r1')).toBeNull()
+    expect(screen.queryByTestId('hide-replies-r1')).toBeNull()
+    expect(screen.queryByText(/too deep/)).toBeNull()
   })
 })
 
@@ -421,12 +430,170 @@ describe('NoteScreen thread connectors (E8)', () => {
     expect(edgeOf('thread-edge-r1').borderLeftWidth).toBe(1)
   })
 
-  it('draws the nested branch edge one level down', async () => {
+  it('renders one chain level inline with connector edges, never pills', async () => {
     setup(twoLevelBackend())
     await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
-    fireEvent.press(screen.getByTestId('show-replies-r1'))
+    // The grandchild renders with no tap: one chain level is inline, and
+    // its own (empty) chain stays silent rather than linking nowhere.
     await waitFor(() => expect(screen.getByTestId('reply-r2')).toBeTruthy())
-    expect(edgeOf('replies-r1').borderLeftWidth).toBe(1)
+    expect(screen.getByTestId('replies-r1')).toBeTruthy()
+    expect(edgeOf('thread-edge-r1').borderLeftWidth).toBe(1)
+    expect(screen.queryByTestId('show-replies-r1')).toBeNull()
+    expect(screen.queryByTestId('hide-replies-r1')).toBeNull()
+    expect(screen.queryByTestId('show-more-replies-r1')).toBeNull()
+    expect(screen.queryByTestId('show-more-replies-r2')).toBeNull()
+    expect(screen.queryByText(/too deep/)).toBeNull()
+  })
+})
+
+describe('NoteScreen replies Slice B (chronological chains + show-more)', () => {
+  function threeLevelBackend() {
+    const r1 = makePost({
+      id: 'r1',
+      replyToId: 'p1',
+      createdAt: '2026-10-20T00:00:00.000Z',
+      content: {mfm: 'first reply', plain: 'first reply'},
+    })
+    const r2 = makePost({
+      id: 'r2',
+      replyToId: 'r1',
+      createdAt: '2026-10-21T00:00:00.000Z',
+      content: {mfm: 'second reply', plain: 'second reply'},
+    })
+    const r3 = makePost({
+      id: 'r3',
+      replyToId: 'r2',
+      createdAt: '2026-10-22T00:00:00.000Z',
+      content: {mfm: 'third reply', plain: 'third reply'},
+    })
+    const children: Record<string, typeof r1[]> = {p1: [r1], r1: [r2], r2: [r3], r3: []}
+    return fakeBackend({
+      threadReplies: jest.fn(async (id: string) => ({
+        items: children[id] ?? [],
+        cursor: null,
+        end: true,
+      })),
+    })
+  }
+
+  it('lists root replies oldest-first even when the server answers newest-first', async () => {
+    const older = makePost({
+      id: 'r-old',
+      replyToId: 'p1',
+      createdAt: '2026-10-20T00:00:00.000Z',
+      content: {mfm: 'older reply', plain: 'older reply'},
+    })
+    const newer = makePost({
+      id: 'r-new',
+      replyToId: 'p1',
+      createdAt: '2026-10-21T00:00:00.000Z',
+      content: {mfm: 'newer reply', plain: 'newer reply'},
+    })
+    setup(
+      fakeBackend({
+        threadReplies: jest.fn(async (id: string) => ({
+          // Server order is newest-first (the Misskey family); the screen
+          // normalizes to oldest-first at the read site, so the query and
+          // feed order elsewhere are untouched.
+          items: id === 'p1' ? [newer, older] : [],
+          cursor: null,
+          end: true,
+        })),
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('reply-r-old')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('reply-r-new')).toBeTruthy())
+    const list = screen.UNSAFE_getByType(FlatList)
+    expect((list.props.data as {id: string}[]).map(p => p.id)).toEqual(['r-old', 'r-new'])
+  })
+
+  it('collapses deeper chains behind a show-more text link that expands inline', async () => {
+    setup(threeLevelBackend())
+    await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('reply-r2')).toBeTruthy())
+    // Level 2 waits behind the muted text link, not a pill.
+    expect(screen.queryByTestId('reply-r3')).toBeNull()
+    const link = await screen.findByTestId('show-more-replies-r2')
+    expect(screen.getByText('Show more replies…')).toBeTruthy()
+    fireEvent.press(link)
+    await waitFor(() => expect(screen.getByTestId('reply-r3')).toBeTruthy())
+    // The card itself still opens its own Note screen (PostCard owns the
+    // press; the chain only wraps it).
+    expect(screen.getByTestId('post-open-r3')).toBeTruthy()
+    expect(screen.queryByText(/too deep/)).toBeNull()
+  })
+
+  it('pages root replies through a muted load-more text link', async () => {
+    const r1 = makePost({
+      id: 'r1',
+      replyToId: 'p1',
+      createdAt: '2026-10-20T00:00:00.000Z',
+      content: {mfm: 'first page', plain: 'first page'},
+    })
+    const r2 = makePost({
+      id: 'r2',
+      replyToId: 'p1',
+      createdAt: '2026-10-21T00:00:00.000Z',
+      content: {mfm: 'second page', plain: 'second page'},
+    })
+    setup(
+      fakeBackend({
+        threadReplies: jest.fn(async (id: string, opts: {cursor?: unknown} = {}) => {
+          if (id !== 'p1') return {items: [], cursor: null, end: true}
+          return opts.cursor == null
+            ? {items: [r1], cursor: 'c1', end: false}
+            : {items: [r2], cursor: null, end: true}
+        }),
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
+    expect(screen.queryByTestId('reply-r2')).toBeNull()
+    const more = await screen.findByTestId('more-replies-p1')
+    expect(screen.getByText('Load more replies')).toBeTruthy()
+    fireEvent.press(more)
+    await waitFor(() => expect(screen.getByTestId('reply-r2')).toBeTruthy())
+  })
+
+  it('a reply cycle keeps expanding one level per show-more tap instead of hanging', async () => {
+    const a = makePost({
+      id: 'ca',
+      replyToId: 'cb',
+      createdAt: '2026-10-20T00:00:00.000Z',
+      content: {mfm: 'cycle a', plain: 'cycle a'},
+    })
+    const b = makePost({
+      id: 'cb',
+      replyToId: 'ca',
+      createdAt: '2026-10-21T00:00:00.000Z',
+      content: {mfm: 'cycle b', plain: 'cycle b'},
+    })
+    setup(
+      fakeBackend({
+        threadReplies: jest.fn(async (id: string) => ({
+          items: id === 'p1' ? [a] : id === 'ca' ? [b] : id === 'cb' ? [a] : [],
+          cursor: null,
+          end: true,
+        })),
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('reply-ca')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('reply-cb')).toBeTruthy())
+    // Depth 2 sits behind the text link; each press reveals exactly one
+    // more level, and the next level waits behind its own link.
+    fireEvent.press(await screen.findByTestId('show-more-replies-cb'))
+    await waitFor(() => expect(screen.getAllByTestId('reply-ca')).toHaveLength(2))
+    expect(screen.getAllByTestId('reply-cb')).toHaveLength(1)
+    fireEvent.press(await screen.findByTestId('show-more-replies-ca'))
+    await waitFor(() => expect(screen.getAllByTestId('reply-cb')).toHaveLength(2))
+    expect(screen.queryByText(/too deep/)).toBeNull()
+  })
+
+  it('caps chains at the backstop depth and never below it', () => {
+    expect(isChainCapped(0)).toBe(false)
+    expect(isChainCapped(63)).toBe(false)
+    expect(isChainCapped(64)).toBe(true)
+    expect(isChainCapped(1000)).toBe(true)
   })
 })
 
