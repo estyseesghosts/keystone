@@ -622,8 +622,8 @@ PKCE login on Android+iOS -> `not verified (device)` unless run.
 
 ## X2.2 - Transport hardening
 
-Status: not started
-Branch: `repair25-x2.2-transport`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x2.2.md`; 243 suites / 3397 tests green at Wave-2 commit)
+Branch: `repair25-x2.2-transport` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: security M4, L3 (http origin); networking M1, L1, L3; mastodon 3; misskey M9
 
 **Goal.** Redirects cannot carry tokens to another origin, body reads obey
@@ -668,8 +668,8 @@ the timeout and abort, and plaintext `http` is limited to local targets.
 
 ## X2.3 - Auth, deep links, streaming origin
 
-Status: not started (D7 default applies)
-Branch: `repair25-x2.3-auth-links`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x2.3.md`; ADR 0012; 243 suites / 3397 tests green at Wave-2 commit)
+Branch: `repair25-x2.3-auth-links` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: security M3, M5, L1, L2; privacy 6; networking M5 (policy half), L5
 
 **Goal.** No server-supplied string reaches `Linking.openURL` unvetted, the
@@ -759,8 +759,8 @@ server-influenced URL, and every such site uses it.
 
 ## X2.5 - Privacy defaults and surfaces
 
-Status: not started (D5, D6 defaults apply)
-Branch: `repair25-x2.5-privacy-defaults`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x2.5.md`; 243 suites / 3397 tests green at Wave-2 commit)
+Branch: `repair25-x2.5-privacy-defaults` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: privacy 5 (default half), 9, 10, 12, 13; richtext F7 (UI half)
 
 **Goal.** Private content is not beaconed, translated, or shared by surprise.
