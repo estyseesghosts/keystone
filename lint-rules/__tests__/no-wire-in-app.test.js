@@ -8,6 +8,12 @@ const tester = new RuleTester()
 // imports) PASS under the old `/(^|\/)wire$/` rule — they are the evasion
 // the segment ban closes. If you weaken the regex back to a trailing
 // match, these tests go red; that red is the proof.
+//
+// NOTE (X0.1): the `noDeepImport` cases below PASS under the old
+// wire-segment-only rule — `@keystone/fedi/mastodon/client` has no `wire`
+// segment. They are the deep-import evasion the subpath ban closes. The
+// barrel (`@keystone/fedi`) and non-backend subpaths (`core/models`,
+// `core/content/*`) must keep passing: domain models stay importable.
 tester.run('no-wire-in-app', rule, {
   valid: [
     {
@@ -19,6 +25,15 @@ tester.run('no-wire-in-app', rule, {
       filename: 'src/state/queries/feed.ts',
     },
     {
+      // Non-backend subpaths stay importable (domain models, content AST).
+      code: `import {Post} from '@keystone/fedi/core/models'`,
+      filename: 'src/components/Post.tsx',
+    },
+    {
+      code: `import {parseContent} from '@keystone/fedi/core/content/ast'`,
+      filename: 'src/state/queries/feed.ts',
+    },
+    {
       // Substring, not a segment: must never match.
       code: `import {x} from '@keystone/wireless'`,
       filename: 'src/state/queries/feed.ts',
@@ -27,6 +42,12 @@ tester.run('no-wire-in-app', rule, {
       // Suffix without a segment boundary: must never match.
       code: `import {x} from './mywire'`,
       filename: 'src/components/Post.tsx',
+    },
+    {
+      // The basename ban is scoped to the package specifier: relative
+      // `./client` helpers in src/ are not fedi internals.
+      code: `import {x} from './client'`,
+      filename: 'src/state/queries/feed.ts',
     },
   ],
   invalid: [
@@ -68,6 +89,51 @@ tester.run('no-wire-in-app', rule, {
       code: `export {x} from '@keystone/fedi/mastodon/wire'`,
       filename: 'src/state/queries/feed.ts',
       errors: [{messageId: 'noWireImport'}],
+    },
+    {
+      // Deep import into the Mastodon backend family.
+      code: `import {MastoClient} from '@keystone/fedi/mastodon/client'`,
+      filename: 'src/state/queries/feed.ts',
+      errors: [{messageId: 'noDeepImport'}],
+    },
+    {
+      // The backend dir root is internals too, not just its files.
+      code: `import {x} from '@keystone/fedi/mastodon'`,
+      filename: 'src/state/queries/feed.ts',
+      errors: [{messageId: 'noDeepImport'}],
+    },
+    {
+      // Deep import into the Misskey backend family.
+      code: `import {x} from '@keystone/fedi/misskey/adapt'`,
+      filename: 'src/components/Post.tsx',
+      errors: [{messageId: 'noDeepImport'}],
+    },
+    {
+      code: `const c = await import('@keystone/fedi/misskey/client')`,
+      filename: 'src/state/queries/feed.ts',
+      errors: [{messageId: 'noDeepImport'}],
+    },
+    {
+      // `core/http` is the transport seam; app code never touches it.
+      code: `import {x} from '@keystone/fedi/core/http'`,
+      filename: 'src/state/session/store.ts',
+      errors: [{messageId: 'noDeepImport'}],
+    },
+    {
+      code: `const h = require('@keystone/fedi/core/http')`,
+      filename: 'src/state/queries/feed.ts',
+      errors: [{messageId: 'noDeepImport'}],
+    },
+    {
+      // Backend basenames are internals wherever they hang.
+      code: `import {x} from '@keystone/fedi/api/client'`,
+      filename: 'src/components/Post.tsx',
+      errors: [{messageId: 'noDeepImport'}],
+    },
+    {
+      code: `export {x} from '@keystone/fedi/mastodon/endpoints'`,
+      filename: 'src/state/queries/feed.ts',
+      errors: [{messageId: 'noDeepImport'}],
     },
   ],
 })

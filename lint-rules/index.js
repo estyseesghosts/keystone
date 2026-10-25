@@ -4,5 +4,7 @@ module.exports = {
     'no-ui-in-fedi': require('./no-ui-in-fedi'),
     'no-wire-in-app': require('./no-wire-in-app'),
     'no-hardcoded-color': require('./no-hardcoded-color'),
+    'query-key-session-first': require('./query-key-session-first'),
+    'no-inner-html': require('./no-inner-html'),
   },
 }

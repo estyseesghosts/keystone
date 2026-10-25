@@ -143,7 +143,7 @@ export function noteReactionsQueryKey(sessionId: string, postId: string): AppQue
   return createQueryKey(sessionId, 'post-reactions', postId)
 }
 
-function infinitePages<PageT>(opts: {
+function useInfinitePages<PageT>(opts: {
   sessionId: string | null
   id: string
   backend: Backend | null
@@ -182,7 +182,7 @@ export function useRepostsQuery(
 ) {
   const backend = options.backend ?? null
   const queryKey = repostsQueryKey(sessionId ?? 'signed-out', postId)
-  return infinitePages({
+  return useInfinitePages({
     sessionId,
     id: postId,
     backend,
@@ -206,7 +206,7 @@ export function useNoteReactionsQuery(
 ) {
   const backend = options.backend ?? null
   const queryKey = noteReactionsQueryKey(sessionId ?? 'signed-out', postId)
-  return infinitePages({
+  return useInfinitePages({
     sessionId,
     id: postId,
     backend,

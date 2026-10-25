@@ -12,11 +12,26 @@ const tester = new RuleTester()
 // fetch default and the two stream transports construct sockets — every
 // other transport threads an injected `fetchImpl`). If a new file needs one
 // of these globals, add a seam — not an allowlist entry.
+//
+// NOTE (X0.1): `BANNED_IMPORT` is a prefix ban, not an exact-match list.
+// The `react-native-mmkv` / `@react-native-async-storage` / `@expo` /
+// `@tanstack` cases below PASS under the old `react-native($|/)` matcher —
+// they are the ecosystem gap the prefix ban closes. Pure-TS libs (`zod`,
+// `mfm-js`, `eventemitter3`) must keep passing; if a UI-adjacent package
+// needs an exception, record it in `docs/DECISIONS.md` — not in the rule.
 tester.run('no-ui-in-fedi', rule, {
   valid: [
     {
       code: `import {EventEmitter} from 'eventemitter3'`,
       filename: 'packages/fedi/src/misskey/stream.ts',
+    },
+    {
+      code: `import {z} from 'zod'`,
+      filename: 'packages/fedi/src/core/sessions.ts',
+    },
+    {
+      code: `import {parse} from 'mfm-js'`,
+      filename: 'packages/fedi/src/core/content/parse.ts',
     },
     {
       code: `import {Post} from '../models'`,
@@ -65,6 +80,16 @@ tester.run('no-ui-in-fedi', rule, {
       errors: [{messageId: 'noUiImport'}],
     },
     {
+      code: `import {useState} from 'react'`,
+      filename: 'packages/fedi/src/core/sessions.ts',
+      errors: [{messageId: 'noUiImport'}],
+    },
+    {
+      code: `import {createRoot} from 'react-dom/client'`,
+      filename: 'packages/fedi/src/core/sessions.ts',
+      errors: [{messageId: 'noUiImport'}],
+    },
+    {
       code: `import {View} from 'react-native'`,
       filename: 'packages/fedi/src/misskey/adapt.ts',
       errors: [{messageId: 'noUiImport'}],
@@ -77,6 +102,50 @@ tester.run('no-ui-in-fedi', rule, {
     {
       code: `export * from 'expo-constants'`,
       filename: 'packages/fedi/src/core/config.ts',
+      errors: [{messageId: 'noUiImport'}],
+    },
+    {
+      // `react-native-*` ecosystem packages are UI framework code.
+      code: `import mmkv from 'react-native-mmkv'`,
+      filename: 'packages/fedi/src/core/sessions.ts',
+      errors: [{messageId: 'noUiImport'}],
+    },
+    {
+      code: `const anim = await import('react-native-reanimated')`,
+      filename: 'packages/fedi/src/misskey/adapt.ts',
+      errors: [{messageId: 'noUiImport'}],
+    },
+    {
+      // `@react-native/*` and `@react-native-*/*` are UI framework code.
+      code: `import AsyncStorage from '@react-native-async-storage/async-storage'`,
+      filename: 'packages/fedi/src/core/sessions.ts',
+      errors: [{messageId: 'noUiImport'}],
+    },
+    {
+      code: `const net = require('@react-native-community/netinfo')`,
+      filename: 'packages/fedi/src/core/detect.ts',
+      errors: [{messageId: 'noUiImport'}],
+    },
+    {
+      // `expo-*` and `@expo/*` are UI framework code.
+      code: `import {getRandomValues} from 'expo-crypto'`,
+      filename: 'packages/fedi/src/core/random.ts',
+      errors: [{messageId: 'noUiImport'}],
+    },
+    {
+      code: `import {Ionicons} from '@expo/vector-icons'`,
+      filename: 'packages/fedi/src/misskey/adapt.ts',
+      errors: [{messageId: 'noUiImport'}],
+    },
+    {
+      // `@tanstack/*` is UI state-layer code.
+      code: `import {useQuery} from '@tanstack/react-query'`,
+      filename: 'packages/fedi/src/core/backend.ts',
+      errors: [{messageId: 'noUiImport'}],
+    },
+    {
+      code: `export * from '@tanstack/query-async-storage-persister'`,
+      filename: 'packages/fedi/src/core/sessions.ts',
       errors: [{messageId: 'noUiImport'}],
     },
     {

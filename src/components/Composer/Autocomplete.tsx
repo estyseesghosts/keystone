@@ -97,9 +97,9 @@ export function SuggestionList({
   onPick: (s: Suggestion) => void
 }) {
   const theme = useTheme()
-  if (suggestions.length === 0) return null
   // Theme colors join the hoisted layout here (memoized on the theme, so
-  // typing never rebuilds the stylesheet identity mid-list).
+  // typing never rebuilds the stylesheet identity mid-list). Hooks stay
+  // above the empty-list early return (rules-of-hooks).
   const styles = useMemo(
     () => ({
       box: [
@@ -110,6 +110,7 @@ export function SuggestionList({
     }),
     [theme],
   )
+  if (suggestions.length === 0) return null
   return (
     <View style={styles.box} testID="composer-suggestions">
       {suggestions.map(s => (

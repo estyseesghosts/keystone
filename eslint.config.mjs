@@ -1,6 +1,7 @@
 // Flat config: base style via oxlint (`pnpm lint` runs that first);
 // this file enforces only our own boundary rules (see lint-rules/).
 import tsParser from '@typescript-eslint/parser'
+import reactHooks from 'eslint-plugin-react-hooks'
 
 import keystone from './lint-rules/index.js'
 
@@ -21,14 +22,17 @@ const jestGlobals = {
 
 export default [
   {
-    files: ['packages/fedi/**/*.ts'],
+    files: ['packages/fedi/**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {ecmaFeatures: {jsx: false}},
       globals: {...jestGlobals},
     },
     plugins: {keystone},
-    rules: {'keystone/no-ui-in-fedi': 'error'},
+    rules: {
+      'keystone/no-ui-in-fedi': 'error',
+      'keystone/no-inner-html': 'error',
+    },
   },
   {
     files: ['src/**/*.{ts,tsx}'],
@@ -36,10 +40,15 @@ export default [
       parser: tsParser,
       parserOptions: {ecmaFeatures: {jsx: true}},
     },
-    plugins: {keystone},
+    plugins: {keystone, 'react-hooks': reactHooks},
     rules: {
       'keystone/no-wire-in-app': 'error',
       'keystone/no-hardcoded-color': 'error',
+      'keystone/query-key-session-first': 'error',
+      'keystone/no-inner-html': 'error',
+      // X8.4 raises exhaustive-deps to error after the cleanup pass.
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
   {

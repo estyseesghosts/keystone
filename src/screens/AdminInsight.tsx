@@ -272,6 +272,12 @@ function DescriptionSection({
 }: {
   section: AdminSection<{updatedAt: string | null; html: string}>
 }) {
+  // Hooks above the not-ready early return (rules-of-hooks); the memo
+  // is already null-safe for missing data.
+  const nodes = useMemo(
+    () => (section.data?.html ? contentFromHtml(section.data.html) : []),
+    [section.data],
+  )
   if (section.status !== 'ready' || !section.data) {
     return (
       <SectionState
@@ -284,10 +290,6 @@ function DescriptionSection({
       />
     )
   }
-  const nodes = useMemo(
-    () => (section.data?.html ? contentFromHtml(section.data.html) : []),
-    [section.data],
-  )
   return (
     <View style={[atoms.gap_sm]} testID="admin-insight-description">
       {section.data.updatedAt ? (

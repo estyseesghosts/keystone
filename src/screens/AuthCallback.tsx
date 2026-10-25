@@ -84,7 +84,10 @@ function stripWebCallback(): void {
 export function AuthCallbackScreen() {
   const nav = useNavigation<NavigationProp<RootParamList>>()
   const store = useSessionStore()
-  const nativeUrl = Platform.OS === 'web' ? null : Linking.useURL()
+  // Unconditional hook call (rules-of-hooks): the web path ignores the
+  // value below. `Linking.useURL` is safe to call on web (returns null).
+  const linkingUrl = Linking.useURL()
+  const nativeUrl = Platform.OS === 'web' ? null : linkingUrl
   const [status, setStatus] = useState<'working' | 'error'>('working')
   const [error, setError] = useState<string | null>(null)
   const ran = useRef(false)

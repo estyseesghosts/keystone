@@ -1,7 +1,10 @@
 /**
  * Boundary rule: `packages/fedi` is pure TypeScript.
  *
- * Forbids UI/framework imports (`react`, `react-native`, `expo*`, `#/`)
+ * Forbids UI/framework imports by package-name prefix — `react`/`react-dom`,
+ * `react-native` and suffixed variants, `@react-native/` scoped packages,
+ * `expo` and suffixed variants, `@expo/` scoped packages, `@tanstack/`
+ * scoped packages, and `#/` —
  * and browser globals (`window`, `document`, `localStorage`, plus the
  * `globalThis` / `navigator` / `self` / `fetch` seams a future contributor
  * would reach for instead of injecting a dependency) in shipped fedi code.
@@ -26,8 +29,24 @@
  * (Patterns from Bluesky's lint setup; code is ours — see ADR-0001.)
  */
 
-const BANNED_IMPORT =
-  /^(react(-dom)?($|\/)|react-native($|\/)|expo($|\/)|expo-|#\/)/
+const BANNED_IMPORT = [
+  // The React runtime itself has no place in the data layer.
+  /^react($|[/-])/,
+  /^react-dom($|[/-])/,
+  // `react-native`, its subpaths, and the `react-native-*` ecosystem
+  // (e.g. `react-native-mmkv`).
+  /^react-native($|[/-])/,
+  // `@react-native/*` and `@react-native-*/*` (e.g.
+  // `@react-native-async-storage/async-storage`).
+  /^@react-native([/-])/,
+  // `expo`, `expo/*`, `expo-*`, and `@expo/*` (e.g. `@expo/vector-icons`).
+  /^expo($|[/-])/,
+  /^@expo\//,
+  // `@tanstack/*` (e.g. `@tanstack/react-query`).
+  /^@tanstack\//,
+  // The app alias never resolves inside the package.
+  /^#\//,
+]
 
 const BANNED_GLOBALS = new Set([
   'window',
@@ -56,7 +75,10 @@ const SEAM_ALLOWLIST = new Map([
 ])
 
 function checkSource(context, value, node) {
-  if (typeof value === 'string' && BANNED_IMPORT.test(value)) {
+  if (
+    typeof value === 'string' &&
+    BANNED_IMPORT.some(re => re.test(value))
+  ) {
     context.report({node, messageId: 'noUiImport', data: {source: value}})
   }
 }
