@@ -249,7 +249,7 @@ export function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) 
       style={[
         styles.sidebar,
         rail ? styles.sidebarRail : styles.sidebarFull,
-        {borderRightColor: alf.palette.border},
+        {borderEndColor: alf.palette.border},
       ]}>
       {rail ? (
         <Pressable
@@ -410,7 +410,7 @@ export function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) 
 const styles = StyleSheet.create({
   sidebar: {
     flexShrink: 0,
-    borderRightWidth: 1,
+    borderEndWidth: 1,
     padding: 16,
     gap: 4,
     ...Platform.select({

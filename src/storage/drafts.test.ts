@@ -168,9 +168,13 @@ describe('write failures and backups (repair X1.3 S9/S12)', () => {
   it('saveDraft backs up a corrupt list before overwriting and reports true', () => {
     const store = createMemoryStore()
     store.setItem(draftsKeyFor(A), '{corrupt')
-    expect(saveDraft(store, A, draft())).toBe(true)
+    // One fixture for save + expectation: `draft()` stamps `Date.now()`, so
+    // two calls race the millisecond tick under load (X9.6 coordinator fix —
+    // X11.2 owns this file long-term).
+    const d = draft()
+    expect(saveDraft(store, A, d)).toBe(true)
     expect(store.getItem(draftsBakKeyFor(A))).toBe('{corrupt')
-    expect(loadDraft(store, A, 'd1')).toEqual(draft())
+    expect(loadDraft(store, A, 'd1')).toEqual(d)
   })
 
   it('saveDraft on a throwing store returns false instead of throwing', () => {

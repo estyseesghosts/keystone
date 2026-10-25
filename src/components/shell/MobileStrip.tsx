@@ -27,8 +27,8 @@ export function MobileStrip({leaf}: {leaf: LeafState}) {
           backgroundColor: alf.palette.bg,
           borderBottomColor: alf.palette.border,
           paddingTop: insets.top,
-          paddingLeft: Math.max(16, insets.left),
-          paddingRight: Math.max(16, insets.right),
+          paddingStart: Math.max(16, insets.left),
+          paddingEnd: Math.max(16, insets.right),
         },
       ]}>
       <View style={styles.stripSide}>

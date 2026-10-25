@@ -45,7 +45,7 @@ export function ComposeFab() {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    right: 16,
+    end: 16,
   },
   fab: {
     width: 56,

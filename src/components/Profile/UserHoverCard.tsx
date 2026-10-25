@@ -279,7 +279,7 @@ export function UserHoverCardView({
             </Pressable>
           </View>
         </View>
-        <Body numberOfLines={1}>{name}</Body>
+        <Body numberOfLines={1} style={{writingDirection: 'auto'}}>{name}</Body>
         <Caption color="faint" numberOfLines={1}>
           @{account.acct}
           {account.locked ? i18n._(msg` · locked`) : ''}
@@ -295,7 +295,7 @@ export function UserHoverCardView({
             testID={testID ? `${testID}-bio` : undefined}
           />
         ) : account.bio.plain ? (
-          <Caption color="muted" numberOfLines={4}>
+          <Caption color="muted" numberOfLines={4} style={{writingDirection: 'auto'}}>
             {account.bio.plain}
           </Caption>
         ) : null}

@@ -936,7 +936,7 @@ msgstr "by {shown}"
 #: src/components/Composer/Composer.tsx:1219
 #: src/components/Composer/ComposerSections.tsx:664
 #: src/components/Post/ReportChooser.tsx:201
-#: src/components/RichText.tsx:405
+#: src/components/RichText.tsx:406
 #: src/components/Settings/FiltersSection.tsx:157
 #: src/screens/AdminReportDetail.tsx:117
 #: src/screens/Antennas.tsx:200
@@ -3941,7 +3941,7 @@ msgstr "Open in Keystone"
 msgid "Open in viewer"
 msgstr "Open in viewer"
 
-#: src/components/RichText.tsx:406
+#: src/components/RichText.tsx:407
 msgid "Open link"
 msgstr "Open link"
 
@@ -3950,8 +3950,8 @@ msgstr "Open link"
 #. placeholder {0}: node.href
 #: src/components/Post/LinkCard.tsx:71
 #: src/components/Post/LinkCard.tsx:244
-#: src/components/RichText.tsx:414
-#: src/components/RichText.tsx:507
+#: src/components/RichText.tsx:415
+#: src/components/RichText.tsx:508
 #: src/screens/explore/NewsTab.tsx:48
 msgid "Open link: {0}"
 msgstr "Open link: {0}"
@@ -5771,7 +5771,7 @@ msgstr "The issue does not fit another category"
 #. placeholder {0}: mismatch.labelHost
 #. placeholder {1}: mismatch.targetHost
 #. placeholder {2}: node.href
-#: src/components/RichText.tsx:402
+#: src/components/RichText.tsx:403
 msgid "The label says {0}, but this link opens {1} ({2}). Open it?"
 msgstr "The label says {0}, but this link opens {1} ({2}). Open it?"
 
@@ -5920,7 +5920,7 @@ msgstr "This folder has no files yet."
 msgid "This link is not available."
 msgstr "This link is not available."
 
-#: src/components/RichText.tsx:400
+#: src/components/RichText.tsx:401
 msgid "This link looks misleading"
 msgstr "This link looks misleading"
 

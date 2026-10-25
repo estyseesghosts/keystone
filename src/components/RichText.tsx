@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   code: {fontFamily: 'monospace'},
   link: {textDecorationLine: 'underline'},
   mention: {fontWeight: '600'},
-  quote: {borderLeftWidth: 2, paddingLeft: 8, marginVertical: 4},
+  quote: {borderStartWidth: 2, paddingStart: 8, marginVertical: 4},
   codeBlock: {borderRadius: 6, padding: 8, marginVertical: 4},
   // Inline chips (v1 `.mchip` parity): an atomic pill the line-box never
   // splits mid-word, so long URLs and handles wrap as a unit instead of
@@ -318,7 +318,8 @@ function StaticMentionChip({
       ) : (
         <ProfileIcon size={14} color={ctx.textColor} />
       )}
-      <Text style={{fontSize: ctx.size, color: ctx.textColor}} numberOfLines={1}>
+      {/* Display names are server-supplied and may mix directions. */}
+      <Text style={{fontSize: ctx.size, color: ctx.textColor, writingDirection: 'auto'}} numberOfLines={1}>
         {name}
       </Text>
     </Pressable>
@@ -507,7 +508,8 @@ const Inline = memo(function Inline({nodes, ctx, depth}: {nodes: readonly Conten
                   accessibilityLabel={i18n._(msg`Open link: ${node.href}`)}
                   testID="richtext-link-chip"
                   onPress={() => (ctx.onLinkPress ? ctx.onLinkPress(node.href) : openExternal(node.href))}>
-                  <Text style={{fontSize: ctx.size, color: ctx.textColor}} numberOfLines={1}>
+                  {/* Titles are server-supplied and may mix directions. */}
+                  <Text style={{fontSize: ctx.size, color: ctx.textColor, writingDirection: 'auto'}} numberOfLines={1}>
                     {chipLabel}
                   </Text>
                 </Pressable>
@@ -680,7 +682,9 @@ const Flow = memo(function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ct
       <Text
         key={`t-${n++}`}
         style={[
-          {fontSize: ctx.size, lineHeight: ctx.size + 5, color: ctx.textColor},
+          // User content: server-supplied strings may mix directions;
+          // `auto` lets each paragraph follow its own first strong char.
+          {fontSize: ctx.size, lineHeight: ctx.size + 5, color: ctx.textColor, writingDirection: 'auto'},
           ctx.align === 'center' ? {textAlign: 'center' as const} : null,
         ]}>
         <Inline nodes={run} ctx={ctx} depth={n} />
@@ -697,12 +701,12 @@ const Flow = memo(function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ct
     if (node.kind === 'codeBlock') {
       parts.push(
         <View key={`b-${n++}`} style={[styles.codeBlock, {backgroundColor: ctx.codeBg}]}>
-          <Text style={[styles.code, {fontSize: ctx.size - 1, color: ctx.textColor}]}>{node.code}</Text>
+          <Text style={[styles.code, {fontSize: ctx.size - 1, color: ctx.textColor, writingDirection: 'auto'}]}>{node.code}</Text>
         </View>,
       )
     } else if (node.kind === 'quote') {
       parts.push(
-        <View key={`b-${n++}`} style={[styles.quote, {borderLeftColor: ctx.quoteEdge}]}>
+        <View key={`b-${n++}`} style={[styles.quote, {borderStartColor: ctx.quoteEdge}]}>
           <Flow nodes={node.children} ctx={ctx} />
         </View>,
       )
@@ -775,7 +779,7 @@ export function RichText({
         <Text
           numberOfLines={numberOfLines}
           style={[
-            {fontSize: scaledSize, lineHeight: scaledSize + 5, color: theme.palette.text},
+            {fontSize: scaledSize, lineHeight: scaledSize + 5, color: theme.palette.text, writingDirection: 'auto'},
             textStyle,
           ]}>
           {plainTextOf(nodes)}
@@ -792,7 +796,7 @@ export function RichText({
         <Text
           numberOfLines={numberOfLines}
           style={[
-            {fontSize: scaledSize, lineHeight: scaledSize + 5, color: theme.palette.text},
+            {fontSize: scaledSize, lineHeight: scaledSize + 5, color: theme.palette.text, writingDirection: 'auto'},
             textStyle,
           ]}>
           {plainTextOf(nodes)}
@@ -805,7 +809,7 @@ export function RichText({
       <View style={style} testID={testID}>
         <Text
           numberOfLines={numberOfLines}
-          style={[{fontSize: scaledSize, lineHeight: scaledSize + 5, color: theme.palette.text}, textStyle]}>
+          style={[{fontSize: scaledSize, lineHeight: scaledSize + 5, color: theme.palette.text, writingDirection: 'auto'}, textStyle]}>
           <Inline nodes={nodes} ctx={ctx} depth={0} />
         </Text>
       </View>

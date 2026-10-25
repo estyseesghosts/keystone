@@ -14,8 +14,9 @@ import {PostCard} from '#/components/Post/index'
 
 // PostCard geometry: row padding 16h/12v, avatar 40. The line runs down
 // the avatar centre (16 + 20 - 1), starting/ending at the avatar centre
-// (12 + 20) on open ends — same rule as v1's feed-row ::before.
-const LINE_LEFT = 35
+// (12 + 20) on open ends — same rule as v1's feed-row ::before. The
+// offset is inline-start so the spine mirrors with the layout in RTL.
+const LINE_START = 35
 const LINE_WIDTH = 2
 const AVATAR_CENTER_Y = 32
 
@@ -74,7 +75,7 @@ export const ThreadRow = memo(function ThreadRow({
         <View
           testID={`thread-connector-${post.id}`}
           pointerEvents="none"
-          style={[styles.line, variant, {left: LINE_LEFT, backgroundColor: theme.palette.border}]}
+          style={[styles.line, variant, {start: LINE_START, backgroundColor: theme.palette.border}]}
         />
       ) : null}
       <PostCard post={post} sessionId={sessionId} capabilities={capabilities} emojiStyle={emojiStyle} renoters={renoters} mediaActive={active} />

@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   toolbar: {flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 44},
   // Breathing room between the character count and the submit pill (the
   // toolbar row itself only gaps tightly for the icon cluster).
-  submitWrap: {marginLeft: 8},
+  submitWrap: {marginStart: 8},
   tool: {
     width: 44,
     height: 44,
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   dot: {
     position: 'absolute',
     top: 8,
-    right: 8,
+    end: 8,
     width: 6,
     height: 6,
     borderRadius: 3,

@@ -47,6 +47,8 @@ export default [
       'keystone/query-key-session-first': 'error',
       'keystone/no-inner-html': 'error',
       'keystone/no-literal-ui-string': 'error',
+      // X9.6 RTL: logical start/end props only (tree converted, clean).
+      'keystone/prefer-logical-style': 'error',
       // Promoted to error by X8.4 (cleanup pass landed, warning set is empty).
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'error',

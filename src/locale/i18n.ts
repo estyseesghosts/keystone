@@ -1,4 +1,5 @@
 import {useSyncExternalStore} from 'react'
+import {I18nManager} from 'react-native'
 
 import {i18n, type Messages} from '@lingui/core'
 import {useLingui} from '@lingui/react'
@@ -206,6 +207,91 @@ export async function activatePseudoLocale(): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+// --- RTL readiness (X9.6) ---------------------------------------------------
+//
+// No RTL locale ships (all 8 carried locales are LTR), but layout uses
+// logical `start`/`end` props throughout `src/` so a future RTL locale
+// mirrors for free. These helpers are the seams it will use:
+
+/** Primary language subtags written right-to-left (BCP-47, case-insensitive).
+ * Checked against the tag's first subtag only, so `ar-EG` matches. Pure. */
+const RTL_LANGS = new Set([
+  'ar', // Arabic
+  'he', // Hebrew
+  'fa', // Persian
+  'ur', // Urdu
+  'ps', // Pashto
+  'sd', // Sindhi
+  'ug', // Uyghur
+  'yi', // Yiddish
+  'dv', // Dhivehi
+  'ku', // Kurdish
+  'ckb', // Central Kurdish
+])
+
+/** True when the BCP-47 tag's primary language is right-to-left. Pure. */
+export function isRtlLocale(code: string): boolean {
+  const primary = code.split('-')[0]?.toLowerCase() ?? ''
+  return RTL_LANGS.has(primary)
+}
+
+// Dev-only RTL rehearsal: no RTL catalog ships, so the pseudo-locale gains
+// an RTL mode instead. The flag persists in dev storage; the setter also
+// nudges `I18nManager` (best-effort) so logical props mirror after the
+// reload the OS layout direction requires. Directional icons read
+// `isRtlNow()` at render and flip without a reload. Never true in
+// production. No RTL locale is shipped.
+const PSEUDO_RTL_FLAG_KEY = 'keystone.dev.pseudoRtl'
+
+/** True only in a dev host with the RTL rehearsal flag set. Pure. */
+export function isPseudoRtlEnabled(
+  storage: () => KeyValueStore = appStorage,
+): boolean {
+  if (!isDevHost()) return false
+  try {
+    return storage().getItem(PSEUDO_RTL_FLAG_KEY) === JSON.stringify(true)
+  } catch {
+    return false
+  }
+}
+
+/** Dev-only toggle for the RTL rehearsal flag. No-op in production. Takes
+ * full effect after a reload (the OS layout direction is read at boot);
+ * icons flip immediately via `isRtlNow()`. */
+export function setPseudoRtlEnabled(
+  on: boolean,
+  storage: () => KeyValueStore = appStorage,
+): void {
+  if (!isDevHost()) return
+  try {
+    if (on) storage().setItem(PSEUDO_RTL_FLAG_KEY, JSON.stringify(true))
+    else storage().removeItem(PSEUDO_RTL_FLAG_KEY)
+  } catch {
+    // Storage unavailable: the flag lasts for this session only.
+  }
+  try {
+    I18nManager.allowRTL(true)
+    I18nManager.forceRTL(on)
+  } catch {
+    // Bare test runtimes may lack the native module: the persisted flag
+    // still drives `isRtlNow()` for icons.
+  }
+}
+
+/** Current layout direction: the OS RTL switch, or the dev rehearsal flag.
+ * Plain function (not a hook): direction changes require a reload except
+ * for icon flips, so no subscription is needed. */
+export function isRtlNow(
+  storage: () => KeyValueStore = appStorage,
+): boolean {
+  try {
+    if (I18nManager.isRTL) return true
+  } catch {
+    // Bare runtimes without the native module: fall through to the flag.
+  }
+  return isPseudoRtlEnabled(storage)
 }
 
 // Boot the stored locale synchronously at import: the first render already

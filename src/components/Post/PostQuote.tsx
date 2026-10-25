@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
   head: {flexDirection: 'row', alignItems: 'center', gap: 6},
   headText: {flex: 1, minWidth: 0},
   avatar: {alignItems: 'center', justifyContent: 'center'},
-  nested: {gap: 4, paddingLeft: 8, marginTop: 4},
+  nested: {gap: 4, paddingStart: 8, marginTop: 4},
   nestedHead: {flexDirection: 'row', alignItems: 'center', gap: 6},
   nestedRow: {flexDirection: 'row', gap: 8},
   nestedText: {flex: 1, minWidth: 0},
@@ -112,7 +112,7 @@ function NestedQuote({
   return (
     <View
       testID={testID}
-      style={[styles.nested, {borderLeftWidth: 2, borderLeftColor: theme.palette.border}]}>
+      style={[styles.nested, {borderStartWidth: 2, borderStartColor: theme.palette.border}]}>
       <View style={styles.nestedHead}>
         <QuoteAvatar
           account={quote.author}

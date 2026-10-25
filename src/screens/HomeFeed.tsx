@@ -106,8 +106,8 @@ const feedChromeStyles = StyleSheet.create({
   floatingPill: {
     position: 'absolute',
     top: 8,
-    left: 0,
-    right: 0,
+    start: 0,
+    end: 0,
     alignItems: 'center',
     zIndex: 5,
     elevation: 5,
@@ -115,8 +115,8 @@ const feedChromeStyles = StyleSheet.create({
   pinnedBar: {
     position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
+    start: 0,
+    end: 0,
     zIndex: 4,
     elevation: 4,
   },

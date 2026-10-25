@@ -752,7 +752,7 @@ function ReplyRowView({
               testID={`reply-spine-top-${post.id}`}
               style={{
                 position: 'absolute',
-                left: SPINE_X - SPINE_WIDTH / 2,
+                start: SPINE_X - SPINE_WIDTH / 2,
                 top: 0,
                 height: SPINE_JOINT,
                 width: SPINE_WIDTH,
@@ -765,7 +765,7 @@ function ReplyRowView({
               testID={`reply-spine-bottom-${post.id}`}
               style={{
                 position: 'absolute',
-                left: SPINE_X - SPINE_WIDTH / 2,
+                start: SPINE_X - SPINE_WIDTH / 2,
                 top: SPINE_JOINT,
                 bottom: 0,
                 width: SPINE_WIDTH,
@@ -818,7 +818,7 @@ function AncestorRowView({
               testID={`ancestor-spine-top-${post.id}`}
               style={{
                 position: 'absolute',
-                left: SPINE_X - SPINE_WIDTH / 2,
+                start: SPINE_X - SPINE_WIDTH / 2,
                 top: 0,
                 height: SPINE_JOINT,
                 width: SPINE_WIDTH,
@@ -831,7 +831,7 @@ function AncestorRowView({
               testID={`ancestor-spine-bottom-${post.id}`}
               style={{
                 position: 'absolute',
-                left: SPINE_X - SPINE_WIDTH / 2,
+                start: SPINE_X - SPINE_WIDTH / 2,
                 top: SPINE_JOINT,
                 bottom: 0,
                 width: SPINE_WIDTH,
@@ -1273,7 +1273,7 @@ export function NoteScreen() {
                       testID={`focused-spine-top-${focused.id}`}
                       style={{
                         position: 'absolute',
-                        left: SPINE_X - SPINE_WIDTH / 2,
+                        start: SPINE_X - SPINE_WIDTH / 2,
                         top: 0,
                         height: SPINE_JOINT,
                         width: SPINE_WIDTH,

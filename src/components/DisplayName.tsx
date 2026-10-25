@@ -90,7 +90,9 @@ export function DisplayName({
   // (it sits later in the array).
   return (
     <Text
-      style={[{fontSize: scaledSize, color: theme.palette.text}, textStyle]}
+      // Server-supplied names may mix directions; `auto` follows each
+      // name's own first strong character.
+      style={[{fontSize: scaledSize, color: theme.palette.text, writingDirection: 'auto'}, textStyle]}
       numberOfLines={numberOfLines}
       testID={testID}>
       {parts.map((part, i) =>

@@ -245,7 +245,7 @@ export function ProfileHeader({
           textStyle={{color: theme.palette.text}}
         />
       ) : (
-        <Body testID="profile-bio">{account.bio.plain}</Body>
+        <Body testID="profile-bio" style={{writingDirection: 'auto'}}>{account.bio.plain}</Body>
       )}
     </View>
   ) : null
@@ -256,7 +256,7 @@ export function ProfileHeader({
           key={`${f.name}-${i}`}
           testID={`profile-field-${i}`}
           style={[styles.card, {backgroundColor: theme.palette.bgSoft}]}>
-          <Caption color="faint">
+          <Caption color="faint" style={{writingDirection: 'auto'}}>
             {f.name}
             {f.verifiedAt ? ' · Verified.' : ''}
           </Caption>
@@ -270,7 +270,7 @@ export function ProfileHeader({
               textStyle={{color: theme.palette.text}}
             />
           ) : (
-            <Body>{f.value}</Body>
+            <Body style={{writingDirection: 'auto'}}>{f.value}</Body>
           )}
         </View>
       ))}
@@ -307,10 +307,10 @@ export function ProfileHeader({
             <ProfileAvatar uri={account.avatarUrl} name={displayNameOf(account)} />
           </View>
         </View>
-        {/* Identity row: left-justified name/handle text takes the free
+        {/* Identity row: leading-justified name/handle text takes the free
             space (long names truncate via DisplayName's single line, never
-            pushing the buttons); actions sit to its right in the same
-            visual row. */}
+            pushing the buttons); actions sit at its trailing edge in the
+            same visual row (mirrors in RTL via logical props). */}
         <View testID="profile-identity-row" style={styles.identityRow}>
           <View testID="profile-identity" style={styles.identityText}>
             {/* F11-half: custom-emoji names render through DisplayName.

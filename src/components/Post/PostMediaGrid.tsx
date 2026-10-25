@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   hideButton: {
     position: 'absolute',
     top: 8,
-    right: 8,
+    end: 8,
     minWidth: 44,
     minHeight: 44,
     alignItems: 'center',

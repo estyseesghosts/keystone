@@ -98,8 +98,8 @@ function ChatMessageRow({
   const [confirming, setConfirming] = useState(false)
   return (
     <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]} testID={`chat-message-${message.id}`}>
-      <Caption color="faint">{chatMessageAuthor(message)}</Caption>
-      {message.text ? <Body>{message.text}</Body> : null}
+      <Caption color="faint" style={{writingDirection: 'auto'}}>{chatMessageAuthor(message)}</Caption>
+      {message.text ? <Body style={{writingDirection: 'auto'}}>{message.text}</Body> : null}
       <ChatAttachment message={message} />
       {!message.text && !message.file && !message.fileId ? (
         <Caption color="faint">{i18n._(msg`(empty message)`)}</Caption>

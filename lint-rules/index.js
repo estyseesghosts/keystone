@@ -7,5 +7,6 @@ module.exports = {
     'query-key-session-first': require('./query-key-session-first'),
     'no-inner-html': require('./no-inner-html'),
     'no-literal-ui-string': require('./no-literal-ui-string'),
+    'prefer-logical-style': require('./prefer-logical-style'),
   },
 }

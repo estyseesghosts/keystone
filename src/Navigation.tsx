@@ -231,7 +231,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
                 {maxWidth: mobile ? butterflyPx.mainColMax : feedMaxWidth},
                 mobile
                   ? null
-                  : {borderRightColor: alf.palette.border, borderRightWidth: 1},
+                  : {borderEndColor: alf.palette.border, borderEndWidth: 1},
               ]}>
               <Stack.Navigator screenOptions={{headerShown: false, animation: 'none'}}>
               <Stack.Screen name="Main" component={MainTabs} />

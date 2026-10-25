@@ -56,8 +56,8 @@ export function ShellTabBar({leaf}: {leaf: LeafState}) {
           backgroundColor: alf.palette.bg,
           borderTopColor: alf.palette.border,
           paddingBottom: 12 + insets.bottom,
-          paddingLeft: Math.max(8, insets.left),
-          paddingRight: Math.max(8, insets.right),
+          paddingStart: Math.max(8, insets.left),
+          paddingEnd: Math.max(8, insets.right),
         },
       ]}>
       {tabs.map(key => {

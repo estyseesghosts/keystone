@@ -42,8 +42,8 @@ function ThreadPost({post}: {post: Post}) {
       : `@${post.author.acct}`
   return (
     <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
-      <Caption color="faint">{author}</Caption>
-      <Body>{post.content.plain}</Body>
+      <Caption color="faint" style={{writingDirection: 'auto'}}>{author}</Caption>
+      <Body style={{writingDirection: 'auto'}}>{post.content.plain}</Body>
     </View>
   )
 }

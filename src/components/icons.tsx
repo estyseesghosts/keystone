@@ -1,6 +1,8 @@
 import {Circle, Line, Path, Svg} from 'react-native-svg'
+import {View} from 'react-native'
 
 import {useTheme} from '#/alf/index'
+import {isRtlNow} from '#/locale/i18n'
 
 // Butterfly icon set: monochrome stroke icons on a 24×24 grid
 // (stroke width 2, round caps/joins), drawn for this app in the v1 style.
@@ -16,10 +18,17 @@ export type IconProps = {
 function Base({
   size = 24,
   color,
+  flipForRtl = false,
   children,
-}: IconProps & {children: React.ReactNode}) {
+}: IconProps & {children: React.ReactNode; flipForRtl?: boolean}) {
   const theme = useTheme()
-  return (
+  // Directional glyphs (back, chevrons) mirror in RTL so "back" still
+  // points at where the reader came from. The flip wraps the mark in a
+  // transformed View (Svg's style type does not name transforms): layout
+  // position is untouched, only the arrow turns, and the LTR tree is
+  // byte-identical (no wrapper). Action glyphs (reply, login, repost)
+  // never flip — they name an action, not a reading direction.
+  const mark = (
     <Svg
       width={size}
       height={size}
@@ -33,6 +42,8 @@ function Base({
       {children}
     </Svg>
   )
+  if (flipForRtl && isRtlNow()) return <View style={{transform: [{scaleX: -1}]}}>{mark}</View>
+  return mark
 }
 
 export function HomeIcon(p: IconProps) {
@@ -93,7 +104,7 @@ export function PencilIcon(p: IconProps) {
 
 export function BackIcon(p: IconProps) {
   return (
-    <Base {...p}>
+    <Base {...p} flipForRtl>
       <Path d="M15 18l-6-6 6-6" />
     </Base>
   )
@@ -336,20 +347,20 @@ export function MessageIcon(p: IconProps) {
   )
 }
 
-/** Collapse the sidebar to the icon rail (panel + left chevron). */
+/** Collapse the sidebar to the icon rail (panel + start chevron). */
 export function CollapseIcon(p: IconProps) {
   return (
-    <Base {...p}>
+    <Base {...p} flipForRtl>
       <Path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
       <Path d="M13.5 9.5l-3 2.5 3 2.5" />
     </Base>
   )
 }
 
-/** Expand the sidebar to full width (panel + right chevron). */
+/** Expand the sidebar to full width (panel + end chevron). */
 export function ExpandIcon(p: IconProps) {
   return (
-    <Base {...p}>
+    <Base {...p} flipForRtl>
       <Path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
       <Path d="M10.5 9.5l3 2.5-3 2.5" />
     </Base>

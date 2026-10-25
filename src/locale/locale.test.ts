@@ -6,7 +6,10 @@ import {
   formatCount,
   i18n,
   isLocaleCode,
+  isPseudoRtlEnabled,
+  isRtlLocale,
   parseLocale,
+  setPseudoRtlEnabled,
 } from './i18n'
 
 describe('parseLocale', () => {
@@ -85,5 +88,32 @@ describe('missing-translation fallback', () => {
     } finally {
       i18n.activate(previous)
     }
+  })
+})
+
+describe('isRtlLocale', () => {
+  it('matches RTL primary subtags, case-insensitively, with regions', () => {
+    for (const code of ['ar', 'ar-EG', 'he', 'fa', 'ur', 'ps', 'yi', 'ku']) {
+      expect(isRtlLocale(code)).toBe(true)
+    }
+    expect(isRtlLocale('AR')).toBe(true)
+  })
+  it('reads false for every carried locale and for pseudo', () => {
+    for (const code of ['en', 'fr', 'de', 'zh-CN', 'zh-TW', 'yue-HK', 'ja', 'hi', 'pseudo']) {
+      expect(isRtlLocale(code)).toBe(false)
+    }
+    expect(isRtlLocale('')).toBe(false)
+  })
+})
+
+describe('pseudo RTL rehearsal flag (dev-only, no RTL locale ships)', () => {
+  it('round-trips off -> on -> off on an injected store', () => {
+    const storage = createMemoryStore()
+    const useStorage = () => storage
+    expect(isPseudoRtlEnabled(useStorage)).toBe(false)
+    setPseudoRtlEnabled(true, useStorage)
+    expect(isPseudoRtlEnabled(useStorage)).toBe(true)
+    setPseudoRtlEnabled(false, useStorage)
+    expect(isPseudoRtlEnabled(useStorage)).toBe(false)
   })
 })

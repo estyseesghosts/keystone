@@ -78,8 +78,9 @@ function renderFab(bottom: number) {
 
 function fabBottom(): number | undefined {
   const wraps = screen.root.findAll(node => typeof node.type === 'string' && (() => {
-    const flat = StyleSheet.flatten(node.props?.style) as {position?: string; right?: number} | null
-    return !!flat && flat.position === 'absolute' && flat.right === 16
+    // Physical `right` or logical `end` (X9.6): identical in LTR.
+    const flat = StyleSheet.flatten(node.props?.style) as {position?: string; right?: number; end?: number} | null
+    return !!flat && flat.position === 'absolute' && (flat.right === 16 || flat.end === 16)
   })())
   expect(wraps).toHaveLength(1)
   return (StyleSheet.flatten(wraps[0].props.style) as {bottom?: number}).bottom

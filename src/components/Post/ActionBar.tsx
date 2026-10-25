@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   actionDisabled: {opacity: 0.5},
-  spacer: {marginLeft: 'auto'},
+  spacer: {marginStart: 'auto'},
 })
 
 const plainMessage = (e: unknown) =>

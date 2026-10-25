@@ -329,12 +329,12 @@ const styles = StyleSheet.create({
   // top+left borders as an up-arrow. Bottom mirrors it.
   caretTop: {
     top: -CARET / 2 - 1,
-    borderRightWidth: 0,
+    borderEndWidth: 0,
     borderBottomWidth: 0,
   },
   caretBottom: {
     bottom: -CARET / 2 - 1,
-    borderLeftWidth: 0,
+    borderStartWidth: 0,
     borderTopWidth: 0,
   },
 })

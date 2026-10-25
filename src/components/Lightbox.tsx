@@ -378,8 +378,8 @@ const styles = StyleSheet.create({
   chrome: {
     position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
+    start: 0,
+    end: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -389,8 +389,8 @@ const styles = StyleSheet.create({
   chromeButton: {minHeight: 44, justifyContent: 'center', paddingHorizontal: space.sm},
   caption: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    start: 0,
+    end: 0,
     bottom: 0,
     padding: space.md,
     backgroundColor: overlayChrome.captionScrim,
@@ -669,8 +669,8 @@ export function Lightbox({media, index, onIndexChange, onClose, revealedIds, tes
             styles.chrome,
             {
               paddingTop: insets.top + space.md,
-              paddingLeft: insets.left + space.md,
-              paddingRight: insets.right + space.md,
+              paddingStart: insets.left + space.md,
+              paddingEnd: insets.right + space.md,
             },
           ]}
           testID="lightbox-chrome">
@@ -714,8 +714,8 @@ export function Lightbox({media, index, onIndexChange, onClose, revealedIds, tes
             styles.caption,
             {
               paddingBottom: insets.bottom + space.md,
-              paddingLeft: insets.left + space.md,
-              paddingRight: insets.right + space.md,
+              paddingStart: insets.left + space.md,
+              paddingEnd: insets.right + space.md,
             },
           ]}
           testID="lightbox-caption">

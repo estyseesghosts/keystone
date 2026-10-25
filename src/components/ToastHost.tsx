@@ -17,7 +17,7 @@ const TOAST_MS = 4000
 const TOAST_ABOVE_BAR_GAP = 16
 const TOAST_DESKTOP_BOTTOM = 24
 const styles = StyleSheet.create({
-  host: {position: 'absolute', left: 16, right: 16, alignItems: 'center'},
+  host: {position: 'absolute', start: 16, end: 16, alignItems: 'center'},
 })
 
 // Mount once near the app root. Shows the oldest queued toast, then the next.
