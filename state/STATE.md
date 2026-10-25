@@ -5,13 +5,13 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **283 suites / 4053 tests**,
+Gate baseline (last green on main): **286 suites / 4071 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. X9.5 done (committed green; 283 suites / 4053 tests; shared format.ts +
-   minute ticker; no fallout).
-2. X9.6 RTL next (solo, tree-wide), then X9.7 error codes, then X9.8.
+1. X9.6 done (committed green; 286 suites / 4071 tests; logical-style rule
+   live as error; drafts-flake one-liner fixed in-batch — see coord log).
+2. X9.7 error codes next (solo), then X9.8 close-out.
 3. Signing/App Links skipped (owner); no non-English translations.
 
 Blockers / owner-open:

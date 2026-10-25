@@ -1706,7 +1706,7 @@ Audit: a11y 3, 4, 5; media (size units); richtext X6.3 (unixtime)
 
 ## X9.6 - RTL readiness
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x9.6.md` (slice) + `state/logs/2026-10-25-repair25-x9.6-coordinator.md` (batch-green); logical-style rule live as error; 286 suites / 4071 tests green at X9.6 commit)
 Branch: `repair25-x9.6-rtl`
 Audit: a11y 15
 
