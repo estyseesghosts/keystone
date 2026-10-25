@@ -545,6 +545,18 @@ describe("three-state capabilities", () => {
     expect(FEATURE_KEYS).toContain("lists_exclusive");
     expect(FEATURE_KEYS).toContain("polls_hide_totals");
   });
+
+  // X4.2 finding 6 — `poll[multiple]` is a documented Mastodon parameter
+  // and `statusBodyOf` already sends it, so the multi-choice toggle is on
+  // for mastodon. Akkoma/Pleroma have no verified claim either way: they
+  // stay "unknown" (honest, not a guess) until a fixture proves otherwise.
+  it("X4.2 polls_multi: mastodon supported, akkoma/pleroma unknown", () => {
+    expect(buildCapabilities("mastodon").polls_multi).toBe("supported");
+    for (const flavor of ["akkoma", "pleroma", "unknown"] as const) {
+      expect([flavor, buildCapabilities(flavor).polls_multi]).toEqual([flavor, "unknown"]);
+    }
+    expect(FEATURE_KEYS).toContain("polls_multi");
+  });
 });
 
 describe("E6 translation evidence (probe-backed, rig :4000 2026-10-21)", () => {

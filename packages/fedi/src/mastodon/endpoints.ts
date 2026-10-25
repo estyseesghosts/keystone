@@ -423,9 +423,24 @@ export interface SearchResult {
 
 export type SearchV2Type = "accounts" | "hashtags" | "statuses";
 
+/** True for queries that need server-side remote resolution (finding 4):
+ * a URL (the "open this post on my server" flow) or a handle shape
+ * (`@user`, `user@host`, `@user@host`). Autocomplete (`@` suggestions)
+ * never uses this — it stays local. Pure. */
+export function shouldResolveSearch(query: string): boolean {
+  const trimmed = query.trim();
+  if (trimmed.length === 0) return false;
+  if (/^https?:\/\//i.test(trimmed)) return true;
+  return trimmed.includes("@");
+}
+
 export interface SearchV2Options {
   type?: SearchV2Type;
   limit?: number;
+  /** Remote resolution (finding 4): `resolve=true` for URL/handle-shape
+   * queries on authenticated sessions (resolution needs a token).
+   * Autocomplete never sets this — it stays local. */
+  resolve?: boolean;
   /** Continue from a page's Link-derived plan (`SearchResult.continuation`
    * or `.prev`). `null`/undefined = fresh first page. */
   continuation?: Continuation | null;
@@ -458,6 +473,7 @@ export async function searchV2(
   if (continuation?.kind !== "url") {
     params.q = trimmed;
     if (opts.type) params.type = opts.type;
+    if (opts.resolve) params.resolve = true;
     if (continuation?.kind === "cursors") {
       Object.assign(params, withCursors({}, continuation.cursors));
     } else {
@@ -630,12 +646,14 @@ export async function fetchSuggestions(
 
 /** Profile tabs (phase3-handoff §2.6). Posts = top-level posts (no replies,
  * no boosts); All = replies and boosts too; Media = posts with attachments.
- * Featured is not offered: Mastodon's pinned-post list is a separate read
- * this slice does not port. */
+ * Featured is not a tab: it is a separate pinned read
+ * (`accountFeaturedPosts`, `pinned=true`) on mastodon/akkoma/pleroma. */
 export type ProfileStatusTab = "posts" | "all" | "media";
 
 /** Explicit account-status filters (contract §4 params) — what the unified
- * `accountPosts` maps its core options onto. `pinned` is Akkoma-only. */
+ * `accountPosts` maps its core options onto. `pinned` is served by
+ * `accountFeaturedPosts` on mastodon/akkoma/pleroma; any other flavor
+ * answers the honest unsupported state there. */
 export interface StatusFilterOpts {
   exclude_replies?: boolean;
   exclude_reblogs?: boolean;

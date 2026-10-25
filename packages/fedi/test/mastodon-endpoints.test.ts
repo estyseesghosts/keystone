@@ -39,6 +39,7 @@ import {
   setBlocked,
   setFollowing,
   setMuted,
+  shouldResolveSearch,
   voteInPoll,
 } from "../src/mastodon/endpoints";
 
@@ -478,6 +479,46 @@ describe("endpoint shape leftovers (R1.3 class)", () => {
       prev: null,
     });
     expect(searchCalls).toHaveLength(0);
+  });
+
+  describe("searchV2 resolve (finding 4)", () => {
+    it("shouldResolveSearch matches URLs and handle shapes only", () => {
+      expect(shouldResolveSearch("https://other.example/@x/123")).toBe(true);
+      expect(shouldResolveSearch("http://other.example/users/x")).toBe(true);
+      expect(shouldResolveSearch("@x@other.example")).toBe(true);
+      expect(shouldResolveSearch("x@other.example")).toBe(true);
+      expect(shouldResolveSearch("@x")).toBe(true);
+      expect(shouldResolveSearch("cats")).toBe(false);
+      expect(shouldResolveSearch("#cats")).toBe(false);
+      expect(shouldResolveSearch("   ")).toBe(false);
+    });
+
+    it("searchV2 sends resolve=true only when asked", async () => {
+      const { client, calls } = stubClient(() => ({ data: {} }));
+      await searchV2(client, "https://other.example/@x/123", {
+        type: "statuses",
+        resolve: true,
+      });
+      expect(calls[0].query).toMatchObject({
+        q: "https://other.example/@x/123",
+        type: "statuses",
+        resolve: true,
+      });
+      const { client: local, calls: localCalls } = stubClient(() => ({ data: {} }));
+      await searchV2(local, "cats", { type: "statuses" });
+      expect(localCalls[0].query).not.toHaveProperty("resolve");
+    });
+
+    it("a url continuation replays verbatim and never adds resolve", async () => {
+      const { client, calls } = stubClient(() => ({ data: {} }));
+      const url = "https://mastodon.example/api/v2/search?q=cats&type=statuses&offset=20";
+      await searchV2(client, "cats", {
+        type: "statuses",
+        resolve: true,
+        continuation: { kind: "url", url },
+      });
+      expect(calls[0]).toEqual({ method: "GET", path: url, query: {} });
+    });
   });
 
   it("account writes hit their verbs (following/muted/blocked)", async () => {

@@ -142,6 +142,7 @@ import {
   setMuted,
   setStatusPinned,
   setShowingReblogs,
+  shouldResolveSearch,
   translateStatus,
   updateCredentialImage,
   updateMediaAttachment,
@@ -340,6 +341,17 @@ export function createMastodonBackend(
     });
   }
 
+  /** Remote resolution needs a token (finding 4): URL/handle-shape
+   * queries resolve on authenticated sessions only; autocomplete never
+   * resolves (it stays local). */
+  function resolveFor(query: string): boolean {
+    return (
+      typeof client.token === "string" &&
+      client.token.length > 0 &&
+      shouldResolveSearch(query)
+    );
+  }
+
   function pageOpts(opts: PageOpts): TimelinePageOptions {
     const cont = continuationOf(opts.cursor);
     const base = cont
@@ -371,10 +383,11 @@ export function createMastodonBackend(
   }
 
   async function accountFeaturedPosts(id: string, opts: PageOpts = {}): Promise<Page<Post>> {
-    // Akkoma/Pleroma answer `pinned=true` on the statuses endpoint
-    // (contract §4); vanilla Mastodon has no pinned listing — never
-    // show an unpinned feed pretending to be featured.
-    if (flavor !== "akkoma" && flavor !== "pleroma") {
+    // `pinned=true` is a documented Mastodon parameter (finding 5);
+    // Akkoma/Pleroma answer it too (contract §4). Any other flavor —
+    // including unknown — never shows an unpinned feed pretending to be
+    // featured.
+    if (flavor !== "mastodon" && flavor !== "akkoma" && flavor !== "pleroma") {
       unsupported("errors.unsupported.pinned");
     }
     const page = await fetchAccountStatusesPage(
@@ -808,6 +821,7 @@ export function createMastodonBackend(
       async posts(query: string, opts: SearchPostsOpts = {}) {
         const result = await searchV2(client, query, {
           type: "statuses",
+          ...(resolveFor(query) ? { resolve: true as const } : {}),
           ...pageOpts(opts),
         });
         return toSearchPage(result, result.statuses);
@@ -820,6 +834,7 @@ export function createMastodonBackend(
       async accounts(query: string, opts: PageOpts = {}) {
         const result = await searchV2(client, query, {
           type: "accounts",
+          ...(resolveFor(query) ? { resolve: true as const } : {}),
           ...pageOpts(opts),
         });
         return toSearchPage(result, result.accounts);
@@ -833,7 +848,8 @@ export function createMastodonBackend(
         });
         return result.hashtags.map((t) => t.name);
       },
-      /** `@` autocomplete: account candidates via typed v2 search. */
+      /** `@` autocomplete: account candidates via typed v2 search.
+       * Autocomplete stays local (finding 4): never `resolve`. */
       async suggestAccounts(query: string, opts: PageOpts = {}) {
         const result = await searchV2(client, query, {
           type: "accounts",

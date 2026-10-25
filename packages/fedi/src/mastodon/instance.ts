@@ -35,6 +35,12 @@ export interface InstanceCapabilities {
    * (`decideStreamingOrigin` reason; persisted for the UI evidence). */
   streamingOriginReason: StreamingOriginReason | null;
   serverFamily: ServerFamily;
+  /** How the family was decided when the version markers and NodeInfo
+   * were silent (finding 16): `"instance-v2-shape"` when a v2 body
+   * carrying `configuration.urls.streaming` and no `pleroma` key decided
+   * after a failed NodeInfo fetch; null otherwise. Diagnostics data,
+   * never a capability. */
+  evidence: string | null;
   features: Record<string, FeatureSupport>;
 }
 
@@ -378,12 +384,32 @@ async function fetchInstanceCapabilitiesInner(
   if (preliminary === "unknown") {
     nodeinfo = await fetchNodeinfo(origin, timeoutMs, fetchImpl);
   }
-  const family = detectFamily(
+  let family = detectFamily(
     version,
     pleromaBody,
     pleromaFeatures,
     nodeinfo?.software?.name ?? null,
   );
+  // Finding 16: NodeInfo failed/blocked and the version carries no
+  // marker, but the v2 body is unmistakably Mastodon-shaped
+  // (`configuration.urls.streaming` present, no `pleroma` key — a shape
+  // Akkoma never serves since it has no v2 instance endpoint). That
+  // resolves to `mastodon`, recorded as `instance-v2-shape` evidence.
+  // Any positive evidence (version marker, pleroma shape, a NodeInfo
+  // name — including an unrecognized one) keeps precedence: this is a
+  // last resort, never an override.
+  let evidence: string | null = null;
+  const streamingAdvertised = v2?.configuration?.urls?.streaming;
+  if (
+    family === "unknown" &&
+    nodeinfo === null &&
+    typeof streamingAdvertised === "string" &&
+    streamingAdvertised.length > 0 &&
+    !pleromaBody
+  ) {
+    family = "mastodon";
+    evidence = "instance-v2-shape";
+  }
 
   // `domain` (v2) and `uri` (v1) are the instance domain — distinct from
   // Account fields (acct/url), never conflated (keystodon.md §7).
@@ -407,6 +433,7 @@ async function fetchInstanceCapabilitiesInner(
     streamingOrigin: streaming.origin,
     streamingOriginReason: streaming.reason,
     serverFamily: family,
+    evidence,
     features: buildFeatures(family, pleromaFeatures, v1, v2),
   };
 }

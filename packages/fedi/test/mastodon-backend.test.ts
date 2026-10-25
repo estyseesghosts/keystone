@@ -41,6 +41,8 @@ interface RecordedCall {
 interface StubOptions {
   respond?: (method: string, path: string, body?: unknown) => { data?: unknown; headers?: Headers };
   link?: string | null;
+  /** Session token; `null` simulates an unauthenticated session. */
+  token?: string | null;
 }
 
 function stubClient(opts: StubOptions = {}): { client: MastoClient; calls: RecordedCall[] } {
@@ -60,7 +62,7 @@ function stubClient(opts: StubOptions = {}): { client: MastoClient; calls: Recor
   };
   const client: MastoClient = {
     origin: "https://mastodon.example",
-    token: "t",
+    token: opts.token === undefined ? "t" : opts.token,
     // GET records its query in the body slot (the params under test).
     get: (path, query, _o) => Promise.resolve(respond("GET", path, query)),
     post: (path, body, _o) => Promise.resolve(respond("POST", path, body)),
@@ -333,19 +335,20 @@ describe("MastodonBackend toggles and reactions (never merged)", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("accountFeaturedPosts is pinned-listings only on Akkoma/Pleroma", async () => {
-    const vanilla = statusStub([status]);
-    await expect(
-      createMastodonBackend(vanilla.client, { flavor: "mastodon" }).accountFeaturedPosts("u1"),
-    ).rejects.toThrow(/not available/i);
-    expect(vanilla.calls).toHaveLength(0);
+  it("accountFeaturedPosts sends pinned=true on mastodon/akkoma/pleroma, unsupported elsewhere", async () => {
+    for (const flavor of ["mastodon", "akkoma", "pleroma"] as const) {
+      const { client, calls } = statusStub([status]);
+      const page = await createMastodonBackend(client, { flavor }).accountFeaturedPosts("u1");
+      expect(calls[0].path).toBe("/api/v1/accounts/u1/statuses");
+      expect(calls[0].body).toMatchObject({ pinned: true });
+      expect(page.items[0].id).toBe(status.id);
+    }
 
-    const akkoma = statusStub([akkomaStatus]);
-    const page = await createMastodonBackend(akkoma.client, {
-      flavor: "akkoma",
-    }).accountFeaturedPosts("u1");
-    expect(akkoma.calls[0].path).toBe("/api/v1/accounts/u1/statuses");
-    expect(page.items[0].id).toBe(akkomaStatus.id);
+    const unknown = statusStub([status]);
+    await expect(createMastodonBackend(unknown.client).accountFeaturedPosts("u1")).rejects.toThrow(
+      /not available/i,
+    );
+    expect(unknown.calls).toHaveLength(0);
   });
 });
 
@@ -781,6 +784,53 @@ describe("MastodonBackend explore", () => {
       path: "/api/v2/search",
       body: { q: "ann", type: "accounts", limit: 8 },
     });
+  });
+
+  it("search.posts/accounts resolve URL and handle queries on authenticated sessions", async () => {
+    const { client, calls } = stubClient({
+      respond: () => ({ data: { accounts: [account], statuses: [status], hashtags: [] } }),
+    });
+    const backend = createMastodonBackend(client, { flavor: "mastodon" });
+    await backend.search.posts("https://other.example/@x/123");
+    expect(calls[0].body).toMatchObject({ resolve: true, type: "statuses" });
+    await backend.search.accounts("@x@other.example");
+    expect(calls[1].body).toMatchObject({ resolve: true, type: "accounts" });
+    await backend.search.accounts("x@other.example");
+    expect(calls[2].body).toMatchObject({ resolve: true, type: "accounts" });
+  });
+
+  it("plain queries stay local (no resolve param)", async () => {
+    const { client, calls } = stubClient({
+      respond: () => ({ data: { accounts: [account], statuses: [], hashtags: [] } }),
+    });
+    const backend = createMastodonBackend(client, { flavor: "mastodon" });
+    await backend.search.posts("cats");
+    await backend.search.accounts("ann");
+    expect(calls[0].body).not.toHaveProperty("resolve");
+    expect(calls[1].body).not.toHaveProperty("resolve");
+  });
+
+  it("resolve needs a token: unauthenticated sessions stay local", async () => {
+    const { client, calls } = stubClient({
+      token: null,
+      respond: () => ({ data: { accounts: [], statuses: [status], hashtags: [] } }),
+    });
+    const backend = createMastodonBackend(client, { flavor: "mastodon" });
+    await backend.search.posts("https://other.example/@x/123");
+    await backend.search.accounts("@x@other.example");
+    expect(calls[0].body).not.toHaveProperty("resolve");
+    expect(calls[1].body).not.toHaveProperty("resolve");
+  });
+
+  it("autocomplete stays local even for handle shapes", async () => {
+    const { client, calls } = stubClient({
+      respond: () => ({ data: { accounts: [account], statuses: [], hashtags: [{ name: "cats" }] } }),
+    });
+    const backend = createMastodonBackend(client, { flavor: "mastodon" });
+    await backend.search.suggestAccounts!("@x@other.example");
+    await backend.search.suggestTags!("cats");
+    expect(calls[0].body).not.toHaveProperty("resolve");
+    expect(calls[1].body).not.toHaveProperty("resolve");
   });
 });
 

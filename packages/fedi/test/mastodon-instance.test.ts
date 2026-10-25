@@ -222,6 +222,70 @@ describe("fetchInstanceCapabilities v2→v1 fallback (Akkoma contract)", () => {
       stub.restore();
     }
   });
+
+  // Finding 16: NodeInfo failed/blocked and the version carries no
+  // marker, but the v2 body is unmistakably Mastodon-shaped
+  // (`configuration.urls.streaming`, no `pleroma` key) — the family
+  // resolves to mastodon with `instance-v2-shape` evidence. The fixture
+  // is the existing `mastodon/instance-v2.json` (bare "4.4.3" version +
+  // streaming URL); NodeInfo 404s by default in the stub.
+  it("NodeInfo failure + v2 streaming shape resolves to mastodon", async () => {
+    const mastodonOrigin = "https://mastodon.example";
+    const stub = stubFetch([
+      {
+        method: "GET",
+        match: "/api/v2/instance",
+        status: 200,
+        body: fixture("mastodon", "instance-v2.json"),
+      },
+    ]);
+    try {
+      const caps = await fetchInstanceCapabilities(mastodonOrigin);
+      expect(stub.calls).toContain("GET /.well-known/nodeinfo");
+      expect(caps.serverFamily).toBe("mastodon");
+      expect(caps.evidence).toBe("instance-v2-shape");
+      // The rest still normalizes: streaming origin, limits, features.
+      expect(caps.streamingOrigin).toBe("wss://mastodon.example");
+      expect(caps.features.pkce).toBe("supported");
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("no streaming shape + NodeInfo failure stays unknown (never guessed)", async () => {
+    const v2 = fixture<Record<string, unknown>>("mastodon", "instance-v2.json");
+    delete (v2.configuration as Record<string, unknown>).urls;
+    const stub = stubFetch([
+      { method: "GET", match: "/api/v2/instance", status: 200, body: v2 },
+    ]);
+    try {
+      const caps = await fetchInstanceCapabilities(ORIGIN);
+      expect(caps.serverFamily).toBe("unknown");
+      expect(caps.evidence).toBeNull();
+    } finally {
+      stub.restore();
+    }
+  });
+
+  it("a pleroma-shaped body never takes the v2-shape fallback", async () => {
+    const stub = stubFetch([
+      { method: "GET", match: "/api/v2/instance", status: 404, body: null },
+      {
+        method: "GET",
+        match: "/api/v1/instance",
+        status: 200,
+        body: fixture("akkoma", "instance-v1.json"),
+      },
+    ]);
+    try {
+      // NodeInfo 404s by default: shape evidence alone decides.
+      const caps = await fetchInstanceCapabilities(ORIGIN);
+      expect(caps.serverFamily).toBe("akkoma");
+      expect(caps.evidence).toBeNull();
+    } finally {
+      stub.restore();
+    }
+  });
 });
 
 describe("instance helpers", () => {

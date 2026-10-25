@@ -458,7 +458,11 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     mfm: "unsupported",
     reactions: "unsupported",
     like: "unsupported",
-    polls_multi: "unsupported",
+    // `poll[multiple]` is a documented Mastodon parameter and
+    // `statusBodyOf` (compose.ts) already sends it (finding 6), so the
+    // multi-choice toggle is on here. Akkoma/Pleroma have no table entry:
+    // they stay "unknown" (honest, no fixture proof either way).
+    polls_multi: "supported",
     // `poll[hide_totals]` is permitted and persisted by Mastodon
     // (`statuses_controller.rb` `status_params`, `PostStatusService`,
     // `poll.rb`); the web UI does not expose it, the API does.
