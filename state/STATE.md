@@ -9,10 +9,11 @@ Gate baseline (last green on main): **217 suites / 2967 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Wave 0: land X0.1 (lint gaps) + X0.4 (native dirs, D1=commit both)
-   + X0.2 (i18n ratchet, after X0.1).
-2. Wave 1: X1.1 (vault + ADR 0011) first, then X1.2–X1.6 per the
-   conflict table (`store.ts`: X1.1→X1.2→X1.5).
+1. Wave 0 done (X0.1–X0.4 committed). Wave 1 batch 1 done: X1.1
+   (vault + ADR 0011), X1.4 (cache policy), X1.6 (platform config)
+   committed — **222 suites / 3113 tests** green.
+2. Wave 1 batch 2: X1.2 (purge) then X1.3 (storage resilience —
+   renames a key X1.2 owns), then X1.5 (401 handling).
 3. Waves 2+ in order; D8=yes (build X4.5); signing/App Links skipped
    (owner); no non-English translations (English catalog only).
 

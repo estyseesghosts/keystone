@@ -299,8 +299,8 @@ audits. Land in order.
 
 ## X1.1 - Token vault that actually works; tokens out of plaintext
 
-Status: not started
-Branch: `repair25-x1.1-vault`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x1.1.md`; ADR 0011; 222 suites / 3113 tests green at Wave-1 commit)
+Branch: `repair25-x1.1-vault` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: storage S1, S2, S5 (vault half); security M1; privacy 3; sessions-cache 5
 
 **Goal.** On native, bearer tokens and Mastodon `client_secret`s live only in
@@ -363,8 +363,8 @@ by X1.4's allowlist); web storage change.
 
 ## X1.2 - Purge everything on sign-out; fix session races
 
-Status: not started (D3 default applies)
-Branch: `repair25-x1.2-session-purge`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x1.2.md`; D3 default recorded; 223 suites / 3127 tests green at Wave-1 commit)
+Branch: `repair25-x1.2-session-purge` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: privacy 2, 7 (logout half); storage S3, S5, S6; networking H3; sessions-cache 1, 6, 7
 
 **Goal.** Removing an account or signing out wipes every trace of it from
@@ -422,8 +422,8 @@ helpers), `src/screens/Home.tsx` (homeTab key helper only), tests.
 
 ## X1.3 - Storage resilience
 
-Status: not started
-Branch: `repair25-x1.3-storage-resilience`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x1.3.md`; 224 suites / 3163 tests green at Wave-1 commit)
+Branch: `repair25-x1.3-storage-resilience` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: storage S4, S9, S10, S11, S12
 
 **Goal.** Storage reads and writes never destroy data they could not parse,
@@ -466,8 +466,8 @@ and storage failures are visible.
 
 ## X1.4 - Persisted query cache policy
 
-Status: not started
-Branch: `repair25-x1.4-cache-policy`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x1.4.md`; 222 suites / 3113 tests green at Wave-1 commit)
+Branch: `repair25-x1.4-cache-policy` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: privacy 1; storage S7, S8; sessions-cache 8; security L4
 
 **Goal.** Only an allowlist of non-private data is persisted, size-bounded,
@@ -532,8 +532,8 @@ dropped (after confirmation), not left as an empty signed-in shell.
 
 ## X1.6 - Platform config: backup, permissions, cleartext
 
-Status: not started
-Branch: `repair25-x1.6-platform-config`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x1.6.md`; 222 suites / 3113 tests green at Wave-1 commit)
+Branch: `repair25-x1.6-platform-config` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: security M2, L3 (Android cleartext); privacy 3 (backup), 11
 
 **Goal.** Reduce platform attack surface without touching signing.
