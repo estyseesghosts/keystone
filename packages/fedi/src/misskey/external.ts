@@ -369,17 +369,20 @@ export async function externalUploadFile<T>(
   return payload as T;
 }
 
-/** Best-effort revocation of an external token (failures are ignored —
- * local state always clears regardless, same policy as internal sign-out).
- * Misskey family: `i/revoke-token`; Mastodon family: `POST /oauth/revoke`
- * with the cached app credentials (RFC 7009) — dispatched through
- * `core/sessions.revokeSessionToken`, which owns both shapes.
+/** Best-effort revocation of an external token (local state always clears
+ * regardless, same policy as internal sign-out).
+ * Misskey family: `i/revoke-token` with `{i, token}` — Sharkey requires
+ * `tokenId` or `token` and ignores a bare `i`; Mastodon family:
+ * `POST /oauth/revoke` with the cached app credentials (RFC 7009) —
+ * dispatched through `core/sessions.revokeSessionToken`, which owns both
+ * shapes.
  *
  * Pass the session `store` so the Mastodon branch can find the cached
  * `client_id` (`keystone_apps`); without it revocation is silently skipped
- * (the old bug). Returns true when a revocation request was issued, false
- * when the Mastodon branch skipped for lack of cached app credentials —
- * the skip is observable, never silent. */
+ * (the old bug). Returns true when the server accepted the revocation
+ * (2xx), false when the request failed, the server answered non-2xx, or
+ * the Mastodon branch skipped for lack of cached app credentials — the
+ * skip/failure is observable, never silent. */
 export interface RevokeExternalOptions {
   /** App-credential cache (`keystone_apps`); without it Mastodon revocation
    * is skipped (no request is ever sent without the cached app). */
@@ -410,8 +413,10 @@ export function revokeExternalToken(
       { store: opts.store, fetchImpl: opts.fetchImpl, timeoutMs: opts.timeoutMs },
     );
   }
-  return externalApiCall<undefined>(scheme, host, token, "i/revoke-token", {})
-    .then(() => true, () => true);
+  return externalApiCall<undefined>(scheme, host, token, "i/revoke-token", { token }).then(
+    () => true,
+    () => false,
+  );
 }
 
 // --- Local storage (dev-only persistence, same caveat as internal tokens) ---

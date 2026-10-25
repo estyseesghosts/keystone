@@ -248,12 +248,18 @@ export interface SessionStore {
   add(input: NewSessionInput): Promise<Session>
   /** Activate a STORED session. False when unknown — never a ghost. */
   switch(id: string): boolean
-  /** Best-effort server revoke, then drop envelope + vault entries. */
-  remove(id: string): Promise<void>
-  /** Remove the given (default: active) session. */
-  signOut(id?: string): Promise<void>
-  /** Revoke + drop every session. The store is empty after this. */
-  signOutEverywhere(): Promise<void>
+  /** Best-effort server revoke, then drop envelope + vault entries.
+   * Returns false when a Misskey-family revoke failed (non-2xx) so the
+   * UI can say the server token may still be valid. Mastodon `false`
+   * (no cached app = skipped, never a request) stays silent — same as
+   * before, never a failure toast. */
+  remove(id: string): Promise<boolean>
+  /** Remove the given (default: active) session. False = its server revoke
+   * failed (Misskey family); local state still cleared. */
+  signOut(id?: string): Promise<boolean>
+  /** Revoke + drop every session. The store is empty after this. False =
+   * at least one Misskey-family revoke failed; local state still cleared. */
+  signOutEverywhere(): Promise<boolean>
   /** Token hydration (async vault layer above the sync seam). Secure vaults
    * (ADR 0011): vault wins, envelope-only tokens migrate in (verified),
    * failures emit. Plain vaults (web, D2): vault-wins overlay, the envelope
@@ -646,11 +652,14 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         vaultSecret = null
       }
     }
-    return revokeSessionToken(session, {
+    const ok = await revokeSessionToken(session, {
       fetchImpl: deps.revokeFetch ?? fetch,
       store: storage,
       ...(vaultSecret ? {appSecret: vaultSecret} : {}),
     })
+    // Only Misskey-family failures surface: a Mastodon `false` is the
+    // no-cached-app skip (no request was ever sent), silent as before.
+    return session.family === 'mastodon' ? true : ok
   }
 
   /** Drop a session WITHOUT server revoke (dead-token path: revoking with
@@ -853,7 +862,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
       return true
     },
 
-    async remove(id: string): Promise<void> {
+    async remove(id: string): Promise<boolean> {
       return serialize(async () => {
         const activeBefore = resolveActiveId(
           getActiveSessionId(storage, homeOrigin),
@@ -861,11 +870,11 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
           readSessions(),
         )
         const existing = resolveSession(id)
-        if (!existing) return
-        await revoke(existing)
+        if (!existing) return true
+        const revoked = await revoke(existing)
         // Re-read: a concurrent erase already dropped the row (S5). The
         // chain makes this defense-in-depth — no store op interleaves.
-        if (!readSessions().some(s => s.id === id)) return
+        if (!readSessions().some(s => s.id === id)) return revoked
         await removeSessionQueries(id)
         removeSession(storage, id, homeOrigin)
         permissionDenied.delete(id)
@@ -881,23 +890,25 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         if (activeBefore === id) fixActiveAfterRemoval()
         else if (readMirror() === id) writeMirror(activeBefore)
         emit()
+        return revoked
       })
     },
 
-    async signOut(id?: string): Promise<void> {
+    async signOut(id?: string): Promise<boolean> {
       const target = id ?? store.activeId()
-      if (!target) return
-      await store.remove(target)
+      if (!target) return true
+      return store.remove(target)
     },
 
-    async signOutEverywhere(): Promise<void> {
+    async signOutEverywhere(): Promise<boolean> {
       return serialize(async () => {
         const snapshot = readSessions().map(attach)
         const removedIds = new Set(snapshot.map(s => s.id))
         // Parallel revokes with the per-revoke timeout kept (revoke never
         // throws; allSettled is belt-and-braces). Sequential awaits here
         // used to stall a fresh sign-in for 8s per account (S6).
-        await Promise.allSettled(snapshot.map(session => revoke(session)))
+        const outcomes = await Promise.allSettled(snapshot.map(session => revoke(session)))
+        const revoked = outcomes.every(r => r.status === 'fulfilled' && r.value)
         // Re-read per id: a session added while revokes were in flight is
         // NOT in the snapshot and survives with its active pointer (S6).
         for (const session of snapshot) {
@@ -928,6 +939,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         if (!resolved || removedIds.has(resolved)) fixActiveAfterRemoval()
         else if (readMirror() !== resolved) writeMirror(resolved)
         emit()
+        return revoked
       })
     },
 

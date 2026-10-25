@@ -363,24 +363,36 @@ export function createQuoteResolver(call: WireCall): QuoteResolver {
 
     const task = call<ApShowResponse>("ap/show", { uri: key }).then(
       (res) => {
-        const raw =
-          res && res.type === "Note" && isNoteLike(res.object)
-            ? (res.object as Note)
-            : null;
-        const note = raw ? adaptNote(raw) : null;
-        if (note) {
-          registerSeenNote(note);
-          completedLookups.set(key, note);
-          evictOldest(completedLookups, LOOKUP_MAX);
-          failedAt.delete(key);
-        } else {
+        try {
+          const raw =
+            res && res.type === "Note" && isNoteLike(res.object)
+              ? (res.object as Note)
+              : null;
+          const note = raw ? adaptNote(raw) : null;
+          if (note) {
+            registerSeenNote(note);
+            completedLookups.set(key, note);
+            evictOldest(completedLookups, LOOKUP_MAX);
+            failedAt.delete(key);
+          } else {
+            failedAt.set(key, Date.now());
+            evictOldest(failedAt, LOOKUP_MAX);
+          }
+          return note;
+        } catch {
+          // An adapt crash is a lookup failure, not a stuck promise: record
+          // it with the same TTL as any other miss so the next call after
+          // the window refetches instead of replaying this rejection.
           failedAt.set(key, Date.now());
+          evictOldest(failedAt, LOOKUP_MAX);
+          return null;
+        } finally {
+          inflightLookups.delete(key);
         }
-        inflightLookups.delete(key);
-        return note;
       },
       () => {
         failedAt.set(key, Date.now());
+        evictOldest(failedAt, LOOKUP_MAX);
         inflightLookups.delete(key);
         return null;
       },

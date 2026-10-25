@@ -31,13 +31,18 @@ export function AccountSwitcher({onAddAccount}: {onAddAccount: () => void}) {
     )
   }
 
-  const run = async (id: string | null, fn: () => Promise<void>) => {
+  const run = async (id: string | null, fn: () => Promise<boolean>) => {
     setBusyId(id ?? 'all')
     setError(null)
     try {
-      await fn()
+      // Local state always clears; a false revoke means the server token
+      // may still be valid — say so, honestly, instead of staying silent.
+      const revoked = await fn()
+      if (!revoked) {
+        setError(i18n._(msg`Signed out, but the token could not be revoked on the server.`))
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign-out failed.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Sign-out failed.`))
     } finally {
       setBusyId(null)
     }

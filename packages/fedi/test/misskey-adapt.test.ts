@@ -214,6 +214,25 @@ describe("adaptAccount / adaptMe (all three flavors)", () => {
     expect(account.host).toBe("sharkey.example");
   });
 
+  it("maps movedTo from the wire URI; alsoKnownAs stays in ext (M14)", () => {
+    const user = fixture<UserDetailed>("misskey", "user-moved.json");
+    const account = adaptAccount(user);
+    expect(account.movedTo).toEqual({
+      id: "https://mastodon.example.com/users/ann_new",
+      acct: "https://mastodon.example.com/users/ann_new",
+      url: "https://mastodon.example.com/users/ann_new",
+    });
+    // No migration packed: null, never a guessed target.
+    expect(adaptAccount(fixture<UserDetailed>("misskey", "user.json")).movedTo).toBeNull();
+    // `alsoKnownAs` is not promoted to core — it rides the MeDetailed ext
+    // bag for the profile editor and nothing else reads it.
+    const me = adaptMe(user as unknown as MeDetailed);
+    expect(me.ext.me).toMatchObject({
+      alsoKnownAs: ["https://mastodon.example.com/users/ann_new"],
+    });
+    expect(me.movedTo).toEqual(account.movedTo);
+  });
+
   it("Pinetree's absent newer fields stay absent/empty — never faked", () => {
     const user = fixture<UserDetailed>("pinetree", "user.json");
     const account = adaptAccount(user);

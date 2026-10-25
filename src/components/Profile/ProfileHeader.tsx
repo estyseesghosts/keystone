@@ -19,6 +19,9 @@ import {
   type Relationship,
 } from '@keystone/fedi'
 
+import {msg} from '@lingui/macro'
+import {useLingui} from '@lingui/react'
+
 import {useTheme} from '#/alf/index'
 import {useShellLayout} from '#/alf/breakpoints'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
@@ -190,6 +193,7 @@ export function ProfileHeader({
   /** When provided, the matching stats count renders as a link. */
   onPressFollowing?: () => void
 }) {
+  const {i18n} = useLingui()
   const theme = useTheme()
   const desktop = useShellLayout() !== 'mobile'
   // A failed background image unmounts to `palette.bg`. Never a broken
@@ -328,6 +332,11 @@ export function ProfileHeader({
             )}
             {account.locked ? <Caption color="faint">Locked account.</Caption> : null}
             {account.bot ? <Caption color="faint">Automated account.</Caption> : null}
+            {account.movedTo ? (
+              <Caption color="faint" testID="profile-moved-banner">
+                {i18n._(msg`This account has moved to ${account.movedTo.acct}.`)}
+              </Caption>
+            ) : null}
           </View>
           {actions ? (
             <View testID="profile-identity-actions" style={styles.identityActions}>

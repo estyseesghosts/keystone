@@ -340,6 +340,32 @@ describe("R1.2 quote resolvers share nothing", () => {
     }
   });
 
+  it("an adapt crash resolves null and retries after the TTL (M11)", async () => {
+    jest.useFakeTimers();
+    try {
+      // `ap/show` answers Note-shaped but userless: `adaptNote` throws
+      // inside the success handler (pre-fix this stuck the rejected
+      // promise forever — the in-flight entry was never deleted, no TTL).
+      const { call, calls } = stubCall((endpoint) => {
+        if (endpoint !== "ap/show") throw new Error(`unexpected ${endpoint}`);
+        return { type: "Note", object: { id: "9adaptcrash000001", text: null } };
+      });
+      const resolver = createQuoteResolver(call);
+      await expect(resolver.resolveQuoteUri(URI)).resolves.toBeNull();
+      expect(calls.filter((c) => c.endpoint === "ap/show")).toHaveLength(1);
+
+      // Suppressed within the TTL: no refetch.
+      await expect(resolver.resolveQuoteUri(URI)).resolves.toBeNull();
+      expect(calls.filter((c) => c.endpoint === "ap/show")).toHaveLength(1);
+
+      jest.advanceTimersByTime(QUOTE_LOOKUP_FAILURE_TTL_MS + 1);
+      await expect(resolver.resolveQuoteUri(URI)).resolves.toBeNull();
+      expect(calls.filter((c) => c.endpoint === "ap/show")).toHaveLength(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("per-backend caches isolate sessions at the factory level", async () => {
     const note = wireNote();
     const mkTransport = (

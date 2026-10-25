@@ -142,7 +142,7 @@ describe('remove / sign-out', () => {
     // Revoke went to A's origin carrying A's token — and only there.
     expect(calls).toHaveLength(1)
     expect(calls[0].url).toBe(`${ORIGIN_A}/api/i/revoke-token`)
-    expect(JSON.parse(String(calls[0].init.body))).toEqual({i: 'token-a'})
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({i: 'token-a', token: 'token-a'})
     expect(store.list().map(s => s.id)).not.toContain(a.id)
     expect(map.has(`${ORIGIN_A} ${a.id}`)).toBe(false)
     expect(storage.getItem('keystone_sessions')).not.toContain('token-a')
@@ -191,6 +191,35 @@ describe('remove / sign-out', () => {
     expect(store.activeId()).toBeNull()
     expect(map.size).toBe(0)
     expect(readDeviceState(storage).activeSessionId).toBeNull()
+  })
+
+  it('remove returns true when the server accepts the revoke', async () => {
+    const {store} = setup()
+    const a = await store.add(sessionA())
+    await expect(store.remove(a.id)).resolves.toBe(true)
+  })
+
+  it('remove returns false when the server revoke fails, but still clears local state (M7)', async () => {
+    const storage: KeyValueStore = createMemoryStore()
+    const {vault} = stubVault()
+    const failing = jest.fn(() => Promise.resolve(new Response('{}', {status: 401}))) as unknown as typeof fetch
+    const store = createSessionStore({storage, vault, homeOrigin: HOME_ORIGIN, revokeFetch: failing})
+    const a = await store.add(sessionA())
+    await expect(store.signOut(a.id)).resolves.toBe(false)
+    expect(store.list()).toHaveLength(0)
+    expect(store.activeId()).toBeNull()
+  })
+
+  it('signOutEverywhere returns false when any revoke fails, but still empties the store', async () => {
+    const storage: KeyValueStore = createMemoryStore()
+    const {vault} = stubVault()
+    const failing = jest.fn(() => Promise.resolve(new Response('{}', {status: 500}))) as unknown as typeof fetch
+    const store = createSessionStore({storage, vault, homeOrigin: HOME_ORIGIN, revokeFetch: failing})
+    await store.add(sessionA())
+    await store.add(sessionB())
+    await expect(store.signOutEverywhere()).resolves.toBe(false)
+    expect(store.list()).toHaveLength(0)
+    expect(store.activeId()).toBeNull()
   })
 })
 

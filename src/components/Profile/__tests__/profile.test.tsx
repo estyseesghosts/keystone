@@ -147,6 +147,30 @@ describe('ProfileHeader (v1 banner + avatar row + bio + stats)', () => {
     expect(screen.getByText('Automated account.')).toBeTruthy()
   })
 
+  it('shows the migration banner when the account moved (M14)', () => {
+    renderWithProviders(
+      <ProfileHeader
+        account={account({
+          movedTo: {
+            id: 'https://mastodon.example.com/users/ann_new',
+            acct: 'https://mastodon.example.com/users/ann_new',
+            url: 'https://mastodon.example.com/users/ann_new',
+          },
+        })}
+        isSelf={false}
+        relationship={null}
+      />,
+    )
+    expect(screen.getByTestId('profile-moved-banner')).toBeTruthy()
+  })
+
+  it('hides the migration banner when the account did not move', () => {
+    renderWithProviders(
+      <ProfileHeader account={account()} isSelf relationship={null} />,
+    )
+    expect(screen.queryByTestId('profile-moved-banner')).toBeNull()
+  })
+
   it('renders MFM bios through RichText, never raw source', () => {
     renderWithProviders(
       <ProfileHeader

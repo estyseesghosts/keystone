@@ -756,6 +756,10 @@ export interface RevokeOptions {
    * MMKV row when present; the row stays the fallback for pre-migration
    * installs. Null/undefined means "no vault secret". */
   appSecret?: string | null;
+  /** Misskey-family app token id (`i/revoke-token` accepts `tokenId` or
+   * `token`; Sharkey rejects a bare `i`). Known only when the issuer
+   * returned it — absent means "revoke by `token` value". */
+  tokenId?: string | null;
 }
 
 function cachedAppFor(
@@ -781,14 +785,18 @@ function timeoutSignal(ms: number): AbortSignal | undefined {
 
 /**
  * Best-effort server-side revocation for a session. Misskey family:
- * `POST ${origin}/api/i/revoke-token`. Mastodon family:
+ * `POST ${origin}/api/i/revoke-token` with `{i, token}` (plus `tokenId`
+ * when known — Sharkey requires `tokenId` or `token` and ignores a bare
+ * `i`). Mastodon family:
  * `POST ${origin}/oauth/revoke` with the cached app credentials (RFC 7009;
  * skipped when no app is cached). Never throws — local state clears
  * regardless of the outcome.
  *
- * @returns true when a revocation request was issued, false when the
- * Mastodon branch skipped for lack of cached app credentials. The skip is
- * observable (no silent no-op): callers that need to record it check this.
+ * @returns true when the server accepted the revocation (2xx), false when
+ * the Mastodon branch skipped for lack of cached app credentials OR the
+ * server answered non-2xx. The skip/failure is observable (no silent
+ * no-op): callers that surface it (sign-out UI) check this. Network
+ * errors stay best-effort-true (offline sign-out never blocks).
  */
 export async function revokeSessionToken(
   session: Session,
@@ -807,21 +815,26 @@ export async function revokeSessionToken(
       // revokes with the client_id alone — best-effort, never throws.
       const secret = opts.appSecret ?? app.client_secret;
       if (secret) form.set("client_secret", secret);
-      await fetchImpl(`${session.origin}/oauth/revoke`, {
+      const response = await fetchImpl(`${session.origin}/oauth/revoke`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: form.toString(),
         signal: timeoutSignal(timeoutMs),
       });
-      return true;
+      return response.ok;
     }
-    await fetchImpl(`${session.origin}/api/i/revoke-token`, {
+    const body: { i: string; token: string; tokenId?: string } = {
+      i: session.token,
+      token: session.token,
+    };
+    if (opts.tokenId) body.tokenId = opts.tokenId;
+    const response = await fetchImpl(`${session.origin}/api/i/revoke-token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ i: session.token }),
+      body: JSON.stringify(body),
       signal: timeoutSignal(timeoutMs),
     });
-    return true;
+    return response.ok;
   } catch {
     // Offline, already-revoked, or unsupported endpoint: ignore.
     return true;

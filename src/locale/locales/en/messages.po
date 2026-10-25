@@ -71,11 +71,15 @@ msgstr "{newCount} new posts"
 msgid "{notes} notes · {following} following · {followers} followers"
 msgstr "{notes} notes · {following} following · {followers} followers"
 
+#: src/screens/Notifications.tsx:421
+msgid "{pending, plural, one {# filtered notification} other {# filtered notifications}}"
+msgstr "{pending, plural, one {# filtered notification} other {# filtered notifications}}"
+
 #: src/state/queries/usePagedLoad.ts:142
 msgid "{seconds, plural, one {Auto-load paused by the server — resumes in # second.} other {Auto-load paused by the server — resumes in # seconds.}}"
 msgstr "{seconds, plural, one {Auto-load paused by the server — resumes in # second.} other {Auto-load paused by the server — resumes in # seconds.}}"
 
-#: src/screens/Notifications.tsx:390
+#: src/screens/Notifications.tsx:743
 msgid "{unread} new"
 msgstr "{unread} new"
 
@@ -110,9 +114,17 @@ msgstr "A post cannot have both media and a poll."
 msgid "A variation within a theme."
 msgstr "A variation within a theme."
 
+#: src/screens/Notifications.tsx:525
+msgid "Accept"
+msgstr "Accept"
+
 #: src/components/Notification/NotificationRow.tsx:76
 msgid "accepted your follow request"
 msgstr "accepted your follow request"
+
+#: src/screens/Notifications.tsx:525
+msgid "Accepting…"
+msgstr "Accepting…"
 
 #: src/routes.ts:431
 msgid "Accessibility and display"
@@ -188,7 +200,7 @@ msgid "Add a reason for the report."
 msgstr "Add a reason for the report."
 
 #: src/components/AccountSwitcher.tsx:29
-#: src/components/AccountSwitcher.tsx:90
+#: src/components/AccountSwitcher.tsx:95
 #: src/components/shell/AccountMenu.tsx:134
 msgid "Add account"
 msgstr "Add account"
@@ -421,7 +433,7 @@ msgstr "Browser sign-in — approve on {0}."
 #: src/screens/Login.tsx:653
 #: src/screens/Login.tsx:691
 #: src/screens/Login.tsx:758
-#: src/screens/Notifications.tsx:503
+#: src/screens/Notifications.tsx:861
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -465,7 +477,11 @@ msgstr "Choice {0}"
 msgid "Choose file"
 msgstr "Choose file"
 
-#: src/screens/Notifications.tsx:177
+#: src/screens/Notifications.tsx:470
+msgid "Choose which notifications wait here instead of the main list."
+msgstr "Choose which notifications wait here instead of the main list."
+
+#: src/screens/Notifications.tsx:182
 msgid "Choose who notifies you, per type. Empty means the server default."
 msgstr "Choose who notifies you, per type. Empty means the server default."
 
@@ -481,24 +497,24 @@ msgstr "Classic flat set."
 msgid "Clear"
 msgstr "Clear"
 
-#: src/screens/Notifications.tsx:405
-#: src/screens/Notifications.tsx:508
+#: src/screens/Notifications.tsx:758
+#: src/screens/Notifications.tsx:866
 msgid "Clear all"
 msgstr "Clear all"
 
-#: src/screens/Notifications.tsx:498
+#: src/screens/Notifications.tsx:856
 msgid "Clear all notifications?"
 msgstr "Clear all notifications?"
 
-#: src/screens/Notifications.tsx:425
+#: src/screens/Notifications.tsx:778
 msgid "Clearing notifications is not on this server."
 msgstr "Clearing notifications is not on this server."
 
-#: src/screens/Notifications.tsx:412
+#: src/screens/Notifications.tsx:765
 msgid "Clearing notifications."
 msgstr "Clearing notifications."
 
-#: src/screens/Notifications.tsx:405
+#: src/screens/Notifications.tsx:758
 msgid "Clearing…"
 msgstr "Clearing…"
 
@@ -595,6 +611,10 @@ msgstr "Copy RSS"
 msgid "Copy username"
 msgstr "Copy username"
 
+#: src/screens/Notifications.tsx:337
+msgid "Could not accept that request."
+msgstr "Could not accept that request."
+
 #: src/components/Settings/FiltersSection.tsx:74
 msgid "Could not add the filter."
 msgstr "Could not add the filter."
@@ -603,7 +623,7 @@ msgstr "Could not add the filter."
 msgid "Could not cancel."
 msgstr "Could not cancel."
 
-#: src/screens/Notifications.tsx:304
+#: src/screens/Notifications.tsx:657
 msgid "Could not clear notifications."
 msgstr "Could not clear notifications."
 
@@ -611,13 +631,21 @@ msgstr "Could not clear notifications."
 msgid "Could not delete."
 msgstr "Could not delete."
 
-#: src/screens/Notifications.tsx:290
+#: src/screens/Notifications.tsx:643
 msgid "Could not dismiss that notification."
 msgstr "Could not dismiss that notification."
+
+#: src/screens/Notifications.tsx:338
+msgid "Could not dismiss that request."
+msgstr "Could not dismiss that request."
 
 #: src/components/Settings/TransferSections.tsx:91
 msgid "Could not import."
 msgstr "Could not import."
+
+#: src/screens/Notifications.tsx:310
+msgid "Could not load filtered notifications."
+msgstr "Could not load filtered notifications."
 
 #: src/components/Settings/FiltersSection.tsx:57
 msgid "Could not load filters."
@@ -633,15 +661,15 @@ msgstr "Could not load more messages."
 msgid "Could not load more posts."
 msgstr "Could not load more posts."
 
-#: src/screens/Notifications.tsx:477
+#: src/screens/Notifications.tsx:835
 msgid "Could not load more."
 msgstr "Could not load more."
 
-#: src/screens/Notifications.tsx:135
+#: src/screens/Notifications.tsx:140
 msgid "Could not load notification settings."
 msgstr "Could not load notification settings."
 
-#: src/screens/Notifications.tsx:435
+#: src/screens/Notifications.tsx:793
 msgid "Could not load notifications."
 msgstr "Could not load notifications."
 
@@ -652,6 +680,11 @@ msgstr "Could not load scheduled posts."
 #: src/components/Composer/ComposerSections.tsx:607
 msgid "Could not load server drafts."
 msgstr "Could not load server drafts."
+
+#: src/screens/Notifications.tsx:282
+#: src/screens/Notifications.tsx:459
+msgid "Could not load the filter policy."
+msgstr "Could not load the filter policy."
 
 #: src/screens/HomeFeed.tsx:336
 msgid "Could not load this feed."
@@ -666,7 +699,7 @@ msgstr "Could not load this profile."
 msgid "Could not load."
 msgstr "Could not load."
 
-#: src/screens/Notifications.tsx:340
+#: src/screens/Notifications.tsx:693
 msgid "Could not mark notifications read."
 msgstr "Could not mark notifications read."
 
@@ -721,7 +754,7 @@ msgstr "Could not remove the filter."
 msgid "Could not resolve \"{raw}\"."
 msgstr "Could not resolve \"{raw}\"."
 
-#: src/screens/Notifications.tsx:153
+#: src/screens/Notifications.tsx:158
 msgid "Could not save notification settings."
 msgstr "Could not save notification settings."
 
@@ -733,6 +766,10 @@ msgstr "Could not save the draft on this device."
 #: src/components/Composer/ComposerSections.tsx:595
 msgid "Could not save the draft."
 msgstr "Could not save the draft."
+
+#: src/screens/Notifications.tsx:375
+msgid "Could not save the filter policy."
+msgstr "Could not save the filter policy."
 
 #: src/components/Settings/FiltersSection.tsx:104
 msgid "Could not save the filter."
@@ -765,7 +802,7 @@ msgstr "Couldn't submit your vote. Try again."
 msgid "created an access token"
 msgstr "created an access token"
 
-#: src/components/AccountSwitcher.tsx:61
+#: src/components/AccountSwitcher.tsx:66
 #: src/components/shell/AccountMenu.tsx:105
 msgid "Current account"
 msgstr "Current account"
@@ -795,7 +832,7 @@ msgstr "Data saver"
 msgid "Debug"
 msgstr "Debug"
 
-#: src/screens/Notifications.tsx:78
+#: src/screens/Notifications.tsx:83
 msgid "Default"
 msgstr "Default"
 
@@ -854,6 +891,7 @@ msgstr "Discussions"
 
 #: src/components/Notification/NotificationRow.tsx:399
 #: src/components/Popup.tsx:256
+#: src/screens/Notifications.tsx:533
 msgid "Dismiss"
 msgstr "Dismiss"
 
@@ -861,9 +899,13 @@ msgstr "Dismiss"
 msgid "Dismiss notification"
 msgstr "Dismiss notification"
 
-#: src/screens/Notifications.tsx:420
+#: src/screens/Notifications.tsx:773
 msgid "Dismissing a notification is not on this server."
 msgstr "Dismissing a notification is not on this server."
+
+#: src/screens/Notifications.tsx:533
+msgid "Dismissing…"
+msgstr "Dismissing…"
 
 #: src/components/Settings/DomainBlocks.tsx:36
 #: src/components/Settings/DomainBlocks.tsx:133
@@ -937,7 +979,7 @@ msgstr "Editing the first keyword. The rest of this group stay as they are: {0}"
 msgid "Editing your post"
 msgstr "Editing your post"
 
-#: src/screens/Notifications.tsx:74
+#: src/screens/Notifications.tsx:79
 msgid "Either"
 msgstr "Either"
 
@@ -959,7 +1001,7 @@ msgstr "Enter a domain like example.com."
 msgid "errors.validation.hostRequired"
 msgstr "Enter an instance host, e.g. example.com."
 
-#: src/screens/Notifications.tsx:500
+#: src/screens/Notifications.tsx:858
 msgid "Every notification is deleted on the server. This cannot be undone."
 msgstr "Every notification is deleted on the server. This cannot be undone."
 
@@ -1030,6 +1072,18 @@ msgstr "Feeds never show sample data when signed out."
 msgid "errors.compose.fileTooLarge"
 msgstr "File is too large ({kb} KB — limit is 10 MB)."
 
+#: src/screens/Notifications.tsx:411
+msgid "Filtered notifications"
+msgstr "Filtered notifications"
+
+#: src/screens/Notifications.tsx:394
+msgid "Filtered notifications are not on this server. Everything stays in the main list."
+msgstr "Filtered notifications are not on this server. Everything stays in the main list."
+
+#: src/screens/Notifications.tsx:384
+msgid "Filtered notifications are only on Mastodon-family servers. Everything stays in the main list."
+msgstr "Filtered notifications are only on Mastodon-family servers. Everything stays in the main list."
+
 #: src/components/Settings/FiltersSection.tsx:127
 msgid "Filters"
 msgstr "Filters"
@@ -1038,7 +1092,7 @@ msgstr "Filters"
 msgid "Finishing sign-in"
 msgstr "Finishing sign-in"
 
-#: src/screens/Notifications.tsx:365
+#: src/screens/Notifications.tsx:718
 msgid "Flat"
 msgstr "Flat"
 
@@ -1058,7 +1112,7 @@ msgstr "Follow the device setting."
 msgid "followed you"
 msgstr "followed you"
 
-#: src/screens/Notifications.tsx:70
+#: src/screens/Notifications.tsx:75
 msgid "Follower"
 msgstr "Follower"
 
@@ -1071,7 +1125,7 @@ msgid "following"
 msgstr "following"
 
 #: src/routes.ts:420
-#: src/screens/Notifications.tsx:68
+#: src/screens/Notifications.tsx:73
 msgid "Following"
 msgstr "Following"
 
@@ -1095,6 +1149,18 @@ msgstr "Forward to {remoteHost}: off"
 msgid "Forward to {remoteHost}: on"
 msgstr "Forward to {remoteHost}: on"
 
+#: src/screens/Notifications.tsx:403
+msgid "From new accounts"
+msgstr "From new accounts"
+
+#: src/screens/Notifications.tsx:402
+msgid "From people who don't follow you"
+msgstr "From people who don't follow you"
+
+#: src/screens/Notifications.tsx:401
+msgid "From people you don't follow"
+msgstr "From people you don't follow"
+
 #: src/components/Notification/NotificationRow.tsx:92
 msgid "gave you a role"
 msgstr "gave you a role"
@@ -1103,11 +1169,11 @@ msgstr "gave you a role"
 msgid "Google’s set."
 msgstr "Google’s set."
 
-#: src/screens/Notifications.tsx:364
+#: src/screens/Notifications.tsx:717
 msgid "Grouped"
 msgstr "Grouped"
 
-#: src/screens/Notifications.tsx:383
+#: src/screens/Notifications.tsx:736
 msgid "Grouped rows are not on this server — showing a flat list."
 msgstr "Grouped rows are not on this server — showing a flat list."
 
@@ -1258,7 +1324,7 @@ msgid "Link previews"
 msgstr "Link previews"
 
 #: src/routes.ts:378
-#: src/screens/Notifications.tsx:76
+#: src/screens/Notifications.tsx:81
 msgid "List"
 msgstr "List"
 
@@ -1305,7 +1371,7 @@ msgstr "Loading Keystone"
 msgid "Loading more messages…"
 msgstr "Loading more messages…"
 
-#: src/screens/Notifications.tsx:170
+#: src/screens/Notifications.tsx:175
 msgid "Loading notification settings."
 msgstr "Loading notification settings."
 
@@ -1313,9 +1379,13 @@ msgstr "Loading notification settings."
 msgid "Loading preview…"
 msgstr "Loading preview…"
 
-#: src/screens/Notifications.tsx:163
+#: src/screens/Notifications.tsx:168
 msgid "Loading settings…"
 msgstr "Loading settings…"
+
+#: src/screens/Notifications.tsx:415
+msgid "Loading the filter policy."
+msgstr "Loading the filter policy."
 
 #: src/components/Post/ReportChooser.tsx:215
 msgid "Loading this server's rules…"
@@ -1345,19 +1415,19 @@ msgstr "Locked after upload"
 msgid "Malicious links, fake engagement, or repetitive replies"
 msgstr "Malicious links, fake engagement, or repetitive replies"
 
-#: src/screens/Notifications.tsx:396
+#: src/screens/Notifications.tsx:749
 msgid "Mark all read"
 msgstr "Mark all read"
 
-#: src/screens/Notifications.tsx:337
+#: src/screens/Notifications.tsx:690
 msgid "Mark-all-read is not on this server."
 msgstr "Mark-all-read is not on this server."
 
-#: src/screens/Notifications.tsx:400
+#: src/screens/Notifications.tsx:753
 msgid "Marking notifications read."
 msgstr "Marking notifications read."
 
-#: src/screens/Notifications.tsx:396
+#: src/screens/Notifications.tsx:749
 msgid "Marking read…"
 msgstr "Marking read…"
 
@@ -1460,7 +1530,7 @@ msgstr "mutes"
 msgid "Mutes and blocks"
 msgstr "Mutes and blocks"
 
-#: src/screens/Notifications.tsx:72
+#: src/screens/Notifications.tsx:77
 msgid "Mutual"
 msgstr "Mutual"
 
@@ -1496,7 +1566,7 @@ msgstr "Needs a server with word filters (this one has none)."
 msgid "Network"
 msgstr "Network"
 
-#: src/screens/Notifications.tsx:66
+#: src/screens/Notifications.tsx:71
 msgid "Never"
 msgstr "Never"
 
@@ -1568,6 +1638,10 @@ msgstr "No drafts yet."
 msgid "No editor is connected to this view."
 msgstr "No editor is connected to this view."
 
+#: src/screens/Notifications.tsx:544
+msgid "No filtered notifications."
+msgstr "No filtered notifications."
+
 #: src/components/Settings/FiltersSection.tsx:131
 msgid "No filters. Matching posts stay hidden once you add one."
 msgstr "No filters. Matching posts stay hidden once you add one."
@@ -1580,7 +1654,7 @@ msgstr "No message composer is connected to this view yet."
 msgid "No news right now."
 msgstr "No news right now."
 
-#: src/screens/Notifications.tsx:467
+#: src/screens/Notifications.tsx:825
 msgid "No notifications."
 msgstr "No notifications."
 
@@ -1635,6 +1709,10 @@ msgstr "Not offered yet."
 msgid "Not on this server."
 msgstr "Not on this server."
 
+#: src/screens/Notifications.tsx:477
+msgid "Not reported by this server."
+msgstr "Not reported by this server."
+
 #: src/components/Settings/TransferSections.tsx:338
 msgid "Not there yet — the server builds the file in the background."
 msgstr "Not there yet — the server builds the file in the background."
@@ -1664,13 +1742,13 @@ msgstr "Nothing here yet."
 msgid "Nothing to copy."
 msgstr "Nothing to copy."
 
-#: src/screens/Notifications.tsx:113
-#: src/screens/Notifications.tsx:163
+#: src/screens/Notifications.tsx:118
+#: src/screens/Notifications.tsx:168
 msgid "Notification settings"
 msgstr "Notification settings"
 
-#: src/screens/Notifications.tsx:134
-#: src/screens/Notifications.tsx:152
+#: src/screens/Notifications.tsx:139
+#: src/screens/Notifications.tsx:157
 msgid "Notification settings are not on this server."
 msgstr "Notification settings are not on this server."
 
@@ -1681,7 +1759,7 @@ msgstr "Notification settings are not on this server."
 msgid "Notifications"
 msgstr "Notifications"
 
-#: src/screens/Notifications.tsx:349
+#: src/screens/Notifications.tsx:702
 msgid "Notifications never show sample data when signed out."
 msgstr "Notifications never show sample data when signed out."
 
@@ -1701,6 +1779,7 @@ msgstr "off"
 #: src/components/Settings/FeedsSection.tsx:41
 #: src/components/Settings/PrivacySection.tsx:47
 #: src/components/Settings/PrivacySection.tsx:107
+#: src/screens/Notifications.tsx:483
 msgid "Off"
 msgstr "Off"
 
@@ -1715,6 +1794,7 @@ msgstr "on"
 #: src/components/Settings/DisplaySection.tsx:223
 #: src/components/Settings/FeedsSection.tsx:41
 #: src/components/Settings/PrivacySection.tsx:107
+#: src/screens/Notifications.tsx:482
 msgid "On"
 msgstr "On"
 
@@ -1885,7 +1965,7 @@ msgstr "Password"
 msgid "Pause {0}"
 msgstr "Pause {0}"
 
-#: src/screens/Notifications.tsx:117
+#: src/screens/Notifications.tsx:122
 msgid "Per-type notification settings are only available on Misskey-family servers."
 msgstr "Per-type notification settings are only available on Misskey-family servers."
 
@@ -2004,6 +2084,10 @@ msgstr "Preview link"
 #: src/components/Settings/PrivacySection.tsx:103
 msgid "Privacy shield"
 msgstr "Privacy shield"
+
+#: src/screens/Notifications.tsx:404
+msgid "Private mentions"
+msgstr "Private mentions"
 
 #: src/components/shell/AccountMenu.tsx:140
 #: src/components/shell/TabBar.tsx:30
@@ -2279,8 +2363,10 @@ msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach i
 #: src/screens/HomeFeed.tsx:444
 #: src/screens/Note.tsx:871
 #: src/screens/Note.tsx:1307
-#: src/screens/Notifications.tsx:437
-#: src/screens/Notifications.tsx:484
+#: src/screens/Notifications.tsx:432
+#: src/screens/Notifications.tsx:513
+#: src/screens/Notifications.tsx:795
+#: src/screens/Notifications.tsx:842
 #: src/screens/User.tsx:161
 msgid "Retry"
 msgstr "Retry"
@@ -2298,7 +2384,8 @@ msgstr "Review accounts waiting for your approval."
 #: src/components/Composer/Composer.tsx:900
 #: src/components/Settings/FiltersSection.tsx:145
 #: src/components/Settings/WordFields.tsx:132
-#: src/screens/Notifications.tsx:198
+#: src/screens/Notifications.tsx:203
+#: src/screens/Notifications.tsx:495
 msgid "Save"
 msgstr "Save"
 
@@ -2318,14 +2405,19 @@ msgstr "Save this draft to finish it later, or discard it."
 msgid "Saved."
 msgstr "Saved."
 
-#: src/screens/Notifications.tsx:202
+#: src/screens/Notifications.tsx:207
 msgid "Saving notification settings."
 msgstr "Saving notification settings."
+
+#: src/screens/Notifications.tsx:499
+msgid "Saving the filter policy."
+msgstr "Saving the filter policy."
 
 #: src/components/Composer/ComposerSections.tsx:636
 #: src/components/Settings/DomainBlocks.tsx:159
 #: src/components/Settings/WordFields.tsx:132
-#: src/screens/Notifications.tsx:198
+#: src/screens/Notifications.tsx:203
+#: src/screens/Notifications.tsx:495
 msgid "Saving…"
 msgstr "Saving…"
 
@@ -2488,6 +2580,7 @@ msgid "Show Local tab"
 msgstr "Show Local tab"
 
 #: src/components/Post/PostCard.tsx:1094
+#: src/screens/Notifications.tsx:548
 msgid "Show more"
 msgstr "Show more"
 
@@ -2586,11 +2679,11 @@ msgstr "Sign in to manage mutes and blocks."
 msgid "Sign in to manage word filters."
 msgstr "Sign in to manage word filters."
 
-#: src/screens/Notifications.tsx:339
+#: src/screens/Notifications.tsx:692
 msgid "Sign in to mark notifications read."
 msgstr "Sign in to mark notifications read."
 
-#: src/screens/Notifications.tsx:348
+#: src/screens/Notifications.tsx:701
 msgid "Sign in to see notifications."
 msgstr "Sign in to see notifications."
 
@@ -2621,7 +2714,7 @@ msgstr "Sign in with browser"
 msgid "Sign in with your {0} account."
 msgstr "Sign in with your {0} account."
 
-#: src/components/AccountSwitcher.tsx:73
+#: src/components/AccountSwitcher.tsx:78
 msgid "Sign out"
 msgstr "Sign out"
 
@@ -2629,7 +2722,7 @@ msgstr "Sign out"
 msgid "Sign out {name}"
 msgstr "Sign out {name}"
 
-#: src/components/AccountSwitcher.tsx:84
+#: src/components/AccountSwitcher.tsx:89
 msgid "Sign out everywhere"
 msgstr "Sign out everywhere"
 
@@ -2637,6 +2730,10 @@ msgstr "Sign out everywhere"
 #: src/lib/localeErrors.ts:33
 msgid "errors.auth.signinFailed"
 msgstr "Sign-in failed."
+
+#: src/components/AccountSwitcher.tsx:45
+msgid "Sign-out failed."
+msgstr "Sign-out failed."
 
 #. placeholder {0}: session.accountId
 #. placeholder {1}: session.origin
@@ -2651,6 +2748,10 @@ msgstr "signed in to your account"
 #: src/state/queries/Provider.tsx:71
 msgid "Signed out of {label}: session expired"
 msgstr "Signed out of {label}: session expired"
+
+#: src/components/AccountSwitcher.tsx:42
+msgid "Signed out, but the token could not be revoked on the server."
+msgstr "Signed out, but the token could not be revoked on the server."
 
 #: src/components/Settings/AccountSection.tsx:59
 #: src/components/Settings/AccountSection.tsx:80
@@ -2692,6 +2793,7 @@ msgstr "Some attachments failed to upload. Retry or remove them."
 
 #: src/components/Notification/NotificationRow.tsx:179
 #: src/components/Notification/NotificationRow.tsx:314
+#: src/screens/Notifications.tsx:523
 msgid "Someone"
 msgstr "Someone"
 
@@ -2730,7 +2832,7 @@ msgstr "Submitting…"
 msgid "errors.shape.suggestions"
 msgstr "Suggestions returned an unexpected response shape."
 
-#: src/components/AccountSwitcher.tsx:64
+#: src/components/AccountSwitcher.tsx:69
 msgid "Switch"
 msgstr "Switch"
 
@@ -2844,9 +2946,14 @@ msgstr "The social timeline is not available on this server."
 msgid "Theme"
 msgstr "Theme"
 
-#: src/screens/Notifications.tsx:411
+#: src/screens/Notifications.tsx:764
 msgid "There are no notifications to clear."
 msgstr "There are no notifications to clear."
+
+#. placeholder {0}: account.movedTo.acct
+#: src/components/Profile/ProfileHeader.tsx:337
+msgid "This account has moved to {0}."
+msgstr "This account has moved to {0}."
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:34
@@ -3266,7 +3373,12 @@ msgstr "Word filters"
 msgid "Word mutes"
 msgstr "Word mutes"
 
-#: src/components/AccountSwitcher.tsx:91
+#: src/screens/Notifications.tsx:529
+#: src/screens/Notifications.tsx:537
+msgid "Working on this request."
+msgstr "Working on this request."
+
+#: src/components/AccountSwitcher.tsx:96
 #: src/components/shell/AccountMenu.tsx:125
 msgid "Working…"
 msgstr "Working…"

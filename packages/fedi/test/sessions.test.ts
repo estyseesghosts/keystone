@@ -350,14 +350,60 @@ describe("store API", () => {
 });
 
 describe("revoke on logout (best-effort)", () => {
-  it("misskey family revokes via POST /api/i/revoke-token with the token as `i`", async () => {
+  it("misskey family revokes via POST /api/i/revoke-token with {i, token}", async () => {
     const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
     await revokeSessionToken(internal(), { fetchImpl: fetchImpl as unknown as typeof fetch });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(`${ORIGIN}/api/i/revoke-token`);
     expect(init.method).toBe("POST");
-    expect(JSON.parse(String(init.body))).toEqual({ i: "tok-internal" });
+    // Sharkey requires `tokenId` or `token` and ignores a bare `i` (M7).
+    expect(JSON.parse(String(init.body))).toEqual({ i: "tok-internal", token: "tok-internal" });
+  });
+
+  it("misskey revoke includes tokenId when known", async () => {
+    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    await expect(
+      revokeSessionToken(internal(), {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        tokenId: "app-token-id",
+      }),
+    ).resolves.toBe(true);
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      i: "tok-internal",
+      token: "tok-internal",
+      tokenId: "app-token-id",
+    });
+  });
+
+  it("misskey revoke returns false on non-2xx (M7)", async () => {
+    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 401 })));
+    await expect(
+      revokeSessionToken(internal(), { fetchImpl: fetchImpl as unknown as typeof fetch }),
+    ).resolves.toBe(false);
+  });
+
+  it("mastodon revoke returns false on non-2xx", async () => {
+    setJson(OAUTH_APPS_KEY, {
+      "https://mastodon.example": { client_id: "cid", client_secret: "csec" },
+    });
+    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 400 })));
+    await expect(
+      revokeSessionToken(
+        {
+          id: "https://mastodon.example 7",
+          origin: "https://mastodon.example",
+          family: "mastodon",
+          flavor: "unknown",
+          accountId: "7",
+          token: "masto-token",
+          grant: "oauth-pkce",
+          hosting: "third-party",
+        },
+        { fetchImpl: fetchImpl as unknown as typeof fetch, store },
+      ),
+    ).resolves.toBe(false);
   });
 
   it("mastodon family revokes via POST /oauth/revoke with the cached app", async () => {

@@ -56,6 +56,10 @@ export interface UserDetailed extends UserLite {
    * `followers` (followers only), `private` (owner only). Absent means
    * unknown — the list UI renders without a privacy gate. */
   ffVisibility?: "public" | "followers" | "private" | null;
+  /** Account-migration target: the server packs the destination account
+   * URI (bare string; absent/null = not moved). The profile banner reads
+   * it; `alsoKnownAs` stays in the `MeDetailed` ext bag. */
+  movedTo?: string | null;
   /** Pinned notes (Misskey-family; absent until the backend packs them —
    * the Featured tab ships absent, never faked). */
   pinnedNoteIds?: string[] | null;

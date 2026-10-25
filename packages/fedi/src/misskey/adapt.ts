@@ -113,7 +113,7 @@ export function adaptAccount(user: UserLite | UserDetailed): Account {
     lastFetchedAt: detailed.lastFetchedAt ?? null,
     emojis: user.emojis ?? {},
     fields: accountFields(detailed),
-    movedTo: null,
+    movedTo: movedToOf(detailed),
     ffVisibility: detailed.ffVisibility ?? null,
     pinnedPostIds: detailed.pinnedNoteIds ?? null,
     pinnedPosts: detailed.pinnedNotes
@@ -136,6 +136,16 @@ export function adaptMe(me: MeDetailed): Account {
       me: { ...(me as unknown as Record<string, unknown>) },
     },
   };
+}
+
+/** Migration target: the wire packs the destination account URI (a bare
+ * string; absent/null/empty = not moved). Core keeps `{id, acct, url}`;
+ * the URI is the only stable identity the wire gives, so all three read
+ * from it — the banner links `url`, never a guessed handle. */
+function movedToOf(user: Partial<UserDetailed>): Account["movedTo"] {
+  const raw = user.movedTo;
+  if (typeof raw !== "string" || raw.length === 0) return null;
+  return { id: raw, acct: raw, url: raw };
 }
 
 function bioContent(description: string | null | undefined): Content {
