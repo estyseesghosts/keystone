@@ -56,6 +56,7 @@ import {useAutogrowInput, autogrowStyle} from './useAutogrowInput'
 import {NO_OUTLINE} from './noOutline'
 import {Chip} from './Chip'
 import {CloseConfirmDialog} from './CloseConfirmDialog'
+import {Dialog} from '#/components/Dialog'
 import {
   CwSection,
   DraftsSection,
@@ -174,6 +175,29 @@ function snapshotDraft(id: string, state: ComposeState, hadMedia: boolean): Loca
     scheduledAt: state.scheduledAt,
     hadMedia,
   }
+}
+
+// Close confirm for edit mode (repair X6.1 F2): no "Save draft" — an
+// edit is never a draft. Discard or keep writing only. Same testIDs for
+// the two remaining buttons so close-guard tests stay meaningful.
+export function EditCloseDialog({onDiscard, onKeep}: {onDiscard: () => void; onKeep: () => void}) {
+  return (
+    <Dialog open onClose={onKeep} title={i18n._(msg`Discard changes?`)} testID="composer-close-confirm">
+      <Body>{i18n._(msg`Close without saving your changes?`)}</Body>
+      <Button
+        label={i18n._(msg`Discard`)}
+        variant="secondary"
+        onPress={onDiscard}
+        testID="composer-close-discard"
+      />
+      <Button
+        label={i18n._(msg`Keep writing`)}
+        variant="secondary"
+        onPress={onKeep}
+        testID="composer-close-keep"
+      />
+    </Dialog>
+  )
 }
 
 /** Handle an owning sheet calls to route backdrop/back-nav exits through
@@ -317,6 +341,14 @@ export function useComposerController({
       : null,
   )
   const [busy, setBusy] = useState(false)
+  // Latest-state refs (repair X6.1 F3): alt/description writes owed at
+  // submit read the CURRENT text, not the closure from press time — a
+  // description typed between press and the media-edit call still wins.
+  // Shared with create mode (same submit path); harmless there.
+  const stateRef = useRef(state)
+  stateRef.current = state
+  const uploadsItemsRef = useRef(uploads.items)
+  uploadsItemsRef.current = uploads.items
   // Single-flight guard (R0.3): `busy` state commits after an async gap, so
   // a second submit dispatched in the same tick (double-tap, keyboard
   // submit, both chromes) would run validation + upload + create twice.
@@ -338,9 +370,13 @@ export function useComposerController({
   // A failed write (repair X1.3 S12: quota, locked store) shows a
   // non-blocking notice instead of failing silently; the next successful
   // save clears it.
+  // Repair X6.1 F2: never in edit mode — an edit seeds non-empty text,
+  // so autosaving would write a new-post draft of the old post and set
+  // the pointer; a killed edit would then prefill the next new post.
   const postedRef = useRef(false)
   const autosaveFailedRef = useRef(false)
   useEffect(() => {
+    if (editing != null) return
     if (postedRef.current) return
     const timer = setTimeout(() => {
       // A throwing store (failed reads or writes) counts as a failed
@@ -367,7 +403,7 @@ export function useComposerController({
       }
     }, 400)
     return () => clearTimeout(timer)
-  }, [state, store, session.id, id, uploads.items.length])
+  }, [state, store, session.id, id, uploads.items.length, editing])
 
   // Draft target restore (C6): the stored draft keeps reply/quote ids only,
   // so re-attach the posts through the owning session's backend. Runs for
@@ -419,12 +455,13 @@ export function useComposerController({
    * written: seeded attachments whose alt changed and uploads whose text
    * changed after the file was sent (clickstone §1.7). Throws when the
    * server refuses — the caller aborts instead of posting with stale alt
-   * text. */
+   * text. Reads the live refs (repair X6.1 F3), not the press-time
+   * closure, so a description typed while uploads finish still wins. */
   const applyMediaEdits = async () => {
     if (!backend.updateMedia) return
     const updates = pendingMediaUpdates(
-      state.media,
-      uploads.items.map(u => ({
+      stateRef.current.media,
+      uploadsItemsRef.current.map(u => ({
         mediaId: u.mediaId,
         alt: u.alt,
         originalAlt: u.altAtUpload,
@@ -487,10 +524,12 @@ export function useComposerController({
       return
     }
     // Edit mode (C7): validate the same rules, then save through
-    // `backend.editPost` (the hook patches every cached copy). Uploads
-    // replace the attachment set only when the user added new ones —
-    // otherwise the post's own media ids ride along so the edit cannot
-    // silently strip attachments. Polls are server-kept (the edit wire
+    // `backend.editPost` (the hook patches every cached copy).
+    // Repair X6.1 F1: the attachment set is ALWAYS explicit — kept
+    // seeded ids plus newly uploaded ids (empty means "no media" and the
+    // backend sends it explicitly per X5.4). The post's own ids are the
+    // fallback only when the seed carries no `media` array at all
+    // (unknown, not empty). Polls are server-kept (the edit wire
     // has no poll fields) and scheduling an edit is refused by hiding
     // the control, not by erroring here.
     if (editing) {
@@ -502,31 +541,34 @@ export function useComposerController({
       }
       setBusy(true)
       try {
-        let mediaIds: string[] | undefined
+        let uploadedIds: string[] = []
         if (uploads.items.length > 0) {
           const ids = await uploads.ensureUploaded()
           if (!ids) {
             setError('Some attachments failed to upload. Retry or remove them.')
             return
           }
-          mediaIds = ids
+          uploadedIds = ids
         }
         // Alt text / descriptions changed on existing attachments go to the
         // media endpoint FIRST (clickstone §1.7): the edit cannot save a
         // caption the user believes they changed while the server kept the
         // old one.
         await applyMediaEdits()
-        const keepMediaIds = mediaIds ?? (state.media.length > 0 ? state.media.map(m => m.id) : editing.mediaIds) ?? []
+        const keepMediaIds =
+          editing.media != null
+            ? [...state.media.map(m => m.id), ...uploadedIds]
+            : [...(editing.mediaIds ?? []), ...uploadedIds]
         await edit.mutateAsync({
           id: editing.id,
-          draft: {...pre.draft, ...(keepMediaIds.length > 0 ? {mediaIds: keepMediaIds} : {})},
+          draft: {...pre.draft, mediaIds: keepMediaIds},
         })
         postedRef.current = true
-        deleteDraft(store, session.id, id)
-        // Slice 1: the edit posted — no longer the in-progress draft, so
-        // a post-submit refresh opens fresh. Slice 3: stop tracking any
-        // open server draft for the same reason.
-        clearOpenDraftId(store, session.id)
+        // Repair X6.1 F2: an edit never owns a draft row or the open
+        // pointer — a fresh edit id was minted at open and no autosave
+        // ran, so there is nothing to delete and (critically) no
+        // unrelated pointer to clear. Clearing here would wipe an
+        // in-progress new-post draft from another composer.
         setServerDraftId(null)
         onPosted?.('posted')
         onClose?.()
@@ -692,7 +734,33 @@ export function useComposerController({
   // though `isDraftEmpty` ignores media (media ids are never stored, so
   // `saveDraft` drops text-empty rows), closing would silently lose
   // uploads-in-progress, so the guard still asks.
+  // Repair X6.1 F2: in edit mode dirtiness is a diff against the seeded
+  // post (text, CW + toggle, media ids, poll, visibility + localOnly).
+  // A pending upload also counts. An untouched edit closes silently; a
+  // killed edit wrote no draft, so the next new post opens fresh.
   const isCloseDirty = useCallback((): boolean => {
+    if (editing) {
+      const seedText = editing.content.mfm ?? editing.content.plain ?? ''
+      if (state.text !== seedText) return true
+      const seedCw = editing.cw ?? ''
+      if (state.cwEnabled !== (seedCw !== '')) return true
+      if ((state.cw ?? '') !== seedCw) return true
+      const seedIds =
+        editing.media != null ? editing.media.map(m => m.id) : [...(editing.mediaIds ?? [])]
+      const curIds = state.media.map(m => m.id)
+      if (curIds.length !== seedIds.length) return true
+      for (let i = 0; i < curIds.length; i++) {
+        if (curIds[i] !== seedIds[i]) return true
+      }
+      if (uploads.items.length > 0) return true
+      // The composer never seeds a poll into an edit (polls are
+      // server-kept): any poll state is a user change.
+      if (state.poll != null) return true
+      if (state.visibilityRaw !== (editing.visibility?.raw ?? state.visibilityRaw)) return true
+      if ((state.localOnly ?? false) !== (editing.visibility?.localOnly ?? false)) return true
+      if ((state.visibleUserIds ?? []).length > 0) return true
+      return false
+    }
     if (state.media.length > 0 || uploads.items.length > 0) return true
     return !isDraftEmpty({
       text: state.text,
@@ -700,7 +768,7 @@ export function useComposerController({
       pollChoices: state.poll?.choices ?? null,
       visibleUserIds: state.visibleUserIds,
     })
-  }, [state, uploads.items])
+  }, [state, uploads.items, editing])
 
   const requestClose = useCallback(() => {
     if (!onClose) return
@@ -709,6 +777,15 @@ export function useComposerController({
   }, [isCloseDirty, onClose])
 
   const saveAndClose = useCallback(async () => {
+    // Repair X6.1 F2: no "Save as draft" in edit mode — the close dialog
+    // hides the Save button, and this guard makes a stray call a plain
+    // close with NO draft writes and NO pointer touches (never wipe an
+    // unrelated in-progress new-post draft).
+    if (editing != null) {
+      setConfirmingClose(false)
+      onClose?.()
+      return
+    }
     // Slice 3 — the SMART DEFAULT: a backend offering `serverDrafts` saves
     // there (create, or update the open server draft), then drops the local
     // row AND the pointer so no duplicate copy is left behind. No
@@ -771,9 +848,17 @@ export function useComposerController({
       // across the await, so double-tap can reach here twice).
       saveCloseRef.current = false
     }
-  }, [backend, saveServerDraftNow, store, session.id, id, state, uploads.items, onClose])
+  }, [backend, saveServerDraftNow, store, session.id, id, state, uploads.items, onClose, editing])
 
   const discardAndClose = useCallback(() => {
+    // Repair X6.1 F2: in edit mode there is no draft row and no pointer
+    // to touch — just close. Touching the pointer here would wipe an
+    // unrelated in-progress new-post draft.
+    if (editing != null) {
+      setConfirmingClose(false)
+      onClose?.()
+      return
+    }
     // The sheet itself is the discard confirm — no second confirm.
     deleteDraft(store, session.id, id)
     clearOpenDraftId(store, session.id)
@@ -782,7 +867,7 @@ export function useComposerController({
     postedRef.current = true
     setConfirmingClose(false)
     onClose?.()
-  }, [store, session.id, id, onClose])
+  }, [store, session.id, id, onClose, editing])
 
   const keepWriting = useCallback(() => {
     setConfirmingClose(false)
@@ -886,6 +971,10 @@ export function Composer(props: ComposerProps) {
   // its targets into state (C6), and state initializes from props otherwise.
   const replyTo = state.replyTo
   const quote = state.quote
+  // Repair X6.1 F3: edit-mode busy gate for the render below (mirrors the
+  // controller's `editBusy`; create-mode behaviour is untouched).
+  const editBusy = editing != null && busy
+  const busyReason = i18n._(msg`Saving…`)
   // Floating box rests at 120px and grows with the prose to 480px, then
   // scrolls internally. Same hook as the inline composer.
   const autogrow = useAutogrowInput(120, 480, state.text)
@@ -958,7 +1047,11 @@ export function Composer(props: ComposerProps) {
         </Body>
       ) : null}
       {confirmingClose ? (
-        <CloseConfirmDialog onSave={saveAndClose} onDiscard={discardAndClose} onKeep={keepWriting} />
+        editing ? (
+          <EditCloseDialog onDiscard={discardAndClose} onKeep={keepWriting} />
+        ) : (
+          <CloseConfirmDialog onSave={saveAndClose} onDiscard={discardAndClose} onKeep={keepWriting} />
+        )
       ) : null}
 
       <Caption color="muted">{i18n._(msg`Audience`)}</Caption>
@@ -968,6 +1061,8 @@ export function Composer(props: ComposerProps) {
             key={o.raw}
             label={o.label}
             selected={state.visibilityRaw === o.raw}
+            disabled={editBusy}
+            disabledReason={editBusy ? busyReason : undefined}
             onPress={() => patch({visibilityRaw: o.raw})}
             testID={`composer-vis-${o.raw}`}
           />
@@ -976,6 +1071,8 @@ export function Composer(props: ComposerProps) {
           <Chip
             label={i18n._(msg`Local only`)}
             selected={state.localOnly}
+            disabled={editBusy}
+            disabledReason={editBusy ? busyReason : undefined}
             onPress={() => patch({localOnly: !state.localOnly})}
             testID="composer-local-only"
           />
@@ -1012,17 +1109,21 @@ export function Composer(props: ComposerProps) {
         <Chip
           label={i18n._(msg`CW`)}
           selected={state.cwEnabled}
+          disabled={editBusy}
+          disabledReason={editBusy ? busyReason : undefined}
           onPress={() => patch({cwEnabled: !state.cwEnabled})}
           testID="composer-cw-toggle"
         />
         <Chip
           label={i18n._(msg`Poll`)}
           selected={!!state.poll}
-          disabled={!gates.poll.enabled || (!state.poll && pollBlockedByMedia)}
+          disabled={!gates.poll.enabled || (!state.poll && pollBlockedByMedia) || editBusy}
           disabledReason={
-            !gates.poll.enabled
-              ? gates.poll.reason
-              : i18n._(msg`A post cannot have both media and a poll.`)
+            editBusy
+              ? busyReason
+              : !gates.poll.enabled
+                ? gates.poll.reason
+                : i18n._(msg`A post cannot have both media and a poll.`)
           }
           onPress={() =>
             patch({
@@ -1033,9 +1134,13 @@ export function Composer(props: ComposerProps) {
         />
         <Chip
           label={i18n._(msg`Media`)}
-          disabled={mediaFull || mediaBlockedByPoll}
+          disabled={mediaFull || mediaBlockedByPoll || editBusy}
           disabledReason={
-            mediaBlockedByPoll ? i18n._(msg`A post cannot have both media and a poll.`) : i18n._(msg`Attachment limit reached.`)
+            editBusy
+              ? busyReason
+              : mediaBlockedByPoll
+                ? i18n._(msg`A post cannot have both media and a poll.`)
+                : i18n._(msg`Attachment limit reached.`)
           }
           onPress={addMedia}
           testID="composer-media-add"

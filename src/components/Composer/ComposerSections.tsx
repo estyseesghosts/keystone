@@ -48,13 +48,27 @@ const POLL_DURATIONS: Array<{label: string; seconds: number}> = [
 
 export function CwSection({c}: {c: ComposerController}) {
   if (!c.state.cwEnabled) return null
+  // Repair X6.1 F3: CW text is frozen while an edit save is in flight.
+  // Create-mode behaviour (X6.2) is untouched — the gate is edit-only.
+  const locked = c.editing != null && c.busy
   return (
-    <TextField
-      label={i18n._(msg`Content warning`)}
-      value={c.state.cw}
-      onChangeText={cw => c.patch({cw})}
-      testID="composer-cw"
-    />
+    <>
+      <TextField
+        label={i18n._(msg`Content warning`)}
+        value={c.state.cw}
+        onChangeText={cw => {
+          if (locked) return
+          c.patch({cw})
+        }}
+        editable={!locked}
+        testID="composer-cw"
+      />
+      {locked ? (
+        <Caption color="muted" testID="composer-cw-busy-reason">
+          {i18n._(msg`Saving…`)}
+        </Caption>
+      ) : null}
+    </>
   )
 }
 
@@ -156,45 +170,60 @@ export function QuotePreviewSection({c}: {c: ComposerController}) {
 
 export function PollSection({c}: {c: ComposerController}) {
   if (!c.state.poll) return null
+  // Repair X6.1 F3: poll controls are frozen while an edit save is in
+  // flight. Edit-only gate so create-mode behaviour (X6.2) is untouched.
+  const locked = c.editing != null && c.busy
+  const lockedReason = i18n._(msg`Saving…`)
   return (
     <View style={{gap: space.sm}} testID="composer-poll">
+      {locked ? (
+        <Caption color="muted" testID="composer-poll-busy-reason">
+          {lockedReason}
+        </Caption>
+      ) : null}
       {c.state.poll.choices.map((choice, i) => (
         <TextField
           key={i}
           label={i18n._(msg`Choice ${i + 1}`)}
           value={choice}
-          onChangeText={t =>
+          editable={!locked}
+          onChangeText={t => {
+            if (locked) return
             c.patch({
               poll: {...c.state.poll!, choices: c.state.poll!.choices.map((x, j) => (j === i ? t : x))},
             })
-          }
+          }}
         />
       ))}
       <View style={c.styles.row}>
         {c.state.poll.choices.length < c.limits.maxPollOptions ? (
           <Chip
             label={i18n._(msg`Add choice`)}
+            disabled={locked}
+            disabledReason={locked ? lockedReason : undefined}
             onPress={() => c.patch({poll: {...c.state.poll!, choices: [...c.state.poll!.choices, '']}})}
           />
         ) : null}
         {c.state.poll.choices.length > 2 ? (
           <Chip
             label={i18n._(msg`Remove last`)}
+            disabled={locked}
+            disabledReason={locked ? lockedReason : undefined}
             onPress={() => c.patch({poll: {...c.state.poll!, choices: c.state.poll!.choices.slice(0, -1)}})}
           />
         ) : null}
         <Chip
           label={i18n._(msg`Multiple choice`)}
           selected={c.state.poll.multiple}
-          disabled={!c.gates.pollMultiple.enabled}
-          disabledReason={c.gates.pollMultiple.enabled ? undefined : c.gates.pollMultiple.reason}
+          disabled={!c.gates.pollMultiple.enabled || locked}
+          disabledReason={locked ? lockedReason : c.gates.pollMultiple.enabled ? undefined : c.gates.pollMultiple.reason}
           onPress={() => c.patch({poll: {...c.state.poll!, multiple: !c.state.poll!.multiple}})}
         />
         <Chip
           label={i18n._(msg`Hide totals`)}
           selected={c.state.poll.hideTotals}
-          disabled={!c.gates.pollHideTotals.enabled}
-          disabledReason={c.gates.pollHideTotals.enabled ? undefined : c.gates.pollHideTotals.reason}
+          disabled={!c.gates.pollHideTotals.enabled || locked}
+          disabledReason={locked ? lockedReason : c.gates.pollHideTotals.enabled ? undefined : c.gates.pollHideTotals.reason}
           onPress={() => c.patch({poll: {...c.state.poll!, hideTotals: !c.state.poll!.hideTotals}})}
           testID="composer-poll-hide-totals"
         />
@@ -205,6 +234,8 @@ export function PollSection({c}: {c: ComposerController}) {
             key={d.seconds}
             label={d.label}
             selected={c.state.poll!.durationSeconds === d.seconds}
+            disabled={locked}
+            disabledReason={locked ? lockedReason : undefined}
             onPress={() => c.patch({poll: {...c.state.poll!, durationSeconds: d.seconds}})}
           />
         ))}
@@ -215,6 +246,10 @@ export function PollSection({c}: {c: ComposerController}) {
 
 export function UploadsSection({c}: {c: ComposerController}) {
   const sensitiveGate = c.gates.mediaSensitive
+  // Repair X6.1 F3: in edit mode, alt text and Remove freeze while the
+  // save is in flight. Edit-only gate so create-mode (X6.2) is untouched.
+  const locked = c.editing != null && c.busy
+  const lockedReason = i18n._(msg`Saving…`)
   return (
     <>
       {c.uploads.items.map(u => (
@@ -238,15 +273,25 @@ export function UploadsSection({c}: {c: ComposerController}) {
             <TextField
               label={i18n._(msg`Description (alt text)`)}
               value={u.alt}
-              onChangeText={t => c.uploads.setAlt(u.key, t)}
-              editable={c.gates.mediaDescription.enabled || u.status !== 'done'}
+              onChangeText={t => {
+                if (locked) return
+                c.uploads.setAlt(u.key, t)
+              }}
+              editable={(c.gates.mediaDescription.enabled || u.status !== 'done') && !locked}
               placeholder={
-                u.status === 'done' && !c.gates.mediaDescription.enabled
-                  ? c.gates.mediaDescription.reason
-                  : i18n._(msg`Describe the media`)
+                locked
+                  ? lockedReason
+                  : u.status === 'done' && !c.gates.mediaDescription.enabled
+                    ? c.gates.mediaDescription.reason
+                    : i18n._(msg`Describe the media`)
               }
               testID={`composer-upload-alt-${u.key}`}
             />
+            {locked ? (
+              <Caption color="muted" testID={`composer-upload-busy-reason-${u.key}`}>
+                {lockedReason}
+              </Caption>
+            ) : null}
             {u.status === 'done' && !c.gates.mediaDescription.enabled ? (
               <Caption color="muted" testID={`composer-upload-alt-reason-${u.key}`}>
                 {c.gates.mediaDescription.reason}
@@ -271,7 +316,13 @@ export function UploadsSection({c}: {c: ComposerController}) {
               />
             </View>
           </View>
-          <Chip label={i18n._(msg`Remove`)} onPress={() => c.uploads.remove(u.key)} />
+          <Chip
+            label={i18n._(msg`Remove`)}
+            disabled={locked}
+            disabledReason={locked ? lockedReason : undefined}
+            onPress={() => c.uploads.remove(u.key)}
+            testID={`composer-upload-remove-${u.key}`}
+          />
         </View>
       ))}
       {c.uploads.items.length > 0 && !sensitiveGate.enabled ? (
@@ -293,6 +344,11 @@ export function UploadsSection({c}: {c: ComposerController}) {
 export function SeededMediaSection({c}: {c: ComposerController}) {
   const gate = c.gates.mediaDescription
   if (c.state.media.length === 0) return null
+  // Repair X6.1 F3: seeded Remove and alt text freeze while the edit save
+  // is in flight (redraft create-mode is untouched — the gate is
+  // edit-only).
+  const locked = c.editing != null && c.busy
+  const lockedReason = i18n._(msg`Saving…`)
   return (
     <>
       {c.state.media.map(m => (
@@ -307,11 +363,16 @@ export function SeededMediaSection({c}: {c: ComposerController}) {
             <TextField
               label={i18n._(msg`Description (alt text)`)}
               value={m.alt}
-              onChangeText={t => (gate.enabled ? c.setSeededAlt(m.id, t) : undefined)}
-              editable={gate.enabled}
-              placeholder={gate.enabled ? i18n._(msg`Describe the media`) : gate.reason}
+              onChangeText={t => (gate.enabled && !locked ? c.setSeededAlt(m.id, t) : undefined)}
+              editable={gate.enabled && !locked}
+              placeholder={locked ? lockedReason : gate.enabled ? i18n._(msg`Describe the media`) : gate.reason}
               testID={`composer-seeded-alt-${m.id}`}
             />
+            {locked ? (
+              <Caption color="muted" testID={`composer-seeded-busy-reason-${m.id}`}>
+                {lockedReason}
+              </Caption>
+            ) : null}
             {!gate.enabled ? (
               <Caption color="muted" testID={`composer-seeded-alt-reason-${m.id}`}>
                 {gate.reason}
@@ -320,6 +381,8 @@ export function SeededMediaSection({c}: {c: ComposerController}) {
           </View>
           <Chip
             label={i18n._(msg`Remove`)}
+            disabled={locked}
+            disabledReason={locked ? lockedReason : undefined}
             onPress={() => c.removeSeeded(m.id)}
             testID={`composer-seeded-remove-${m.id}`}
           />
@@ -632,12 +695,17 @@ export function ServerDraftsSection({c}: {c: ComposerController}) {
         ))
       )}
       <View style={c.styles.row}>
-        <Chip
-          label={busy ? i18n._(msg`Saving…`) : i18n._(msg`Save current as server draft`)}
-          disabled={busy}
-          onPress={() => void saveCurrent()}
-          testID="composer-serverdraft-save"
-        />
+        {/* Repair X6.1 F2: no "Save as draft" in edit mode — the button
+            is hidden (the close dialog hides Save too). The list stays so
+            an edit can still restore a server draft as its base. */}
+        {c.editing ? null : (
+          <Chip
+            label={busy ? i18n._(msg`Saving…`) : i18n._(msg`Save current as server draft`)}
+            disabled={busy}
+            onPress={() => void saveCurrent()}
+            testID="composer-serverdraft-save"
+          />
+        )}
       </View>
     </View>
   )

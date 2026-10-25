@@ -357,6 +357,112 @@ describe('Composer', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('closes an unedited edit silently with no Save option (F2)', () => {
+    // Repair X6.1 F2: dirtiness is a diff against the seeded post — an
+    // untouched edit is clean, so Cancel closes at once. Before the fix
+    // the seeded text always counted as dirty and the sheet appeared.
+    const editing = {
+      id: 'p9',
+      content: {mfm: 'orig', plain: 'orig'},
+      cw: null,
+      visibility: {kind: 'public', localOnly: false, raw: 'public'},
+      mediaIds: [],
+      media: [],
+      author: {id: 'me'},
+    } as never
+    const {onClose} = setup('sharkey', {}, {editing})
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('composer-close-confirm')).toBeNull()
+  })
+
+  it('a dirty edit offers Discard/Keep only, never Save (F2)', async () => {
+    const editing = {
+      id: 'p9',
+      content: {mfm: 'orig', plain: 'orig'},
+      cw: null,
+      visibility: {kind: 'public', localOnly: false, raw: 'public'},
+      mediaIds: [],
+      media: [],
+      author: {id: 'me'},
+    } as never
+    const store = createMemoryStore()
+    const s = session('misskey', 'sharkey')
+    // A backend WITH server drafts: before the fix the save button rode
+    // the section even in edit mode; after the fix it is hidden.
+    const serverDrafts = {list: jest.fn(async () => [])} as never
+    const backend = backendFor('sharkey', {editPost: jest.fn().mockResolvedValue(editing), serverDrafts})
+    const onClose = jest.fn()
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <QueryClientProvider client={qc}>
+        <I18nProvider i18n={i18n}>
+          <ThemeProvider>
+            <Composer session={s} backend={backend} store={store} editing={editing} onClose={onClose} />
+          </ThemeProvider>
+        </I18nProvider>
+      </QueryClientProvider>,
+    )
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'fixed')
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    expect(screen.getByTestId('composer-close-confirm')).toBeTruthy()
+    // No "Save as draft" in edit mode — neither close-guard nor server.
+    expect(screen.queryByTestId('composer-close-save')).toBeNull()
+    expect(screen.queryByTestId('composer-serverdraft-save')).toBeNull()
+    expect(screen.getByTestId('composer-close-discard')).toBeTruthy()
+    expect(screen.getByTestId('composer-close-keep')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('composer-close-discard'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(listDrafts(store, s.id)).toEqual([])
+    expect(getOpenDraftId(store, s.id)).toBeNull()
+  })
+
+  it('a killed edit never prefills the next new post (F2)', () => {
+    // Before the fix the 400ms autosave wrote the seeded edit text as a
+    // new-post draft and set the pointer, so the next fresh composer
+    // opened prefilled. After the fix edit mode never autosaves.
+    jest.useFakeTimers()
+    try {
+      const editing = {
+        id: 'p9',
+        content: {mfm: 'orig', plain: 'orig'},
+        cw: null,
+        visibility: {kind: 'public', localOnly: false, raw: 'public'},
+        mediaIds: [],
+        media: [],
+        author: {id: 'me'},
+      } as never
+      const store = createMemoryStore()
+      const s = session('misskey', 'sharkey')
+      const backend = backendFor('sharkey', {editPost: jest.fn().mockResolvedValue(editing)})
+      const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+      const first = render(
+        <QueryClientProvider client={qc}>
+          <ThemeProvider>
+            <Composer session={s} backend={backend} store={store} editing={editing} onClose={() => {}} />
+          </ThemeProvider>
+        </QueryClientProvider>,
+      )
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'touched during edit')
+      act(() => {
+        jest.advanceTimersByTime(500)
+      })
+      expect(listDrafts(store, s.id)).toEqual([])
+      expect(getOpenDraftId(store, s.id)).toBeNull()
+      first.unmount()
+      render(
+        <QueryClientProvider client={new QueryClient({defaultOptions: {queries: {retry: false}}})}>
+          <ThemeProvider>
+            <Composer session={s} backend={backendFor('sharkey')} store={store} onClose={() => {}} />
+          </ThemeProvider>
+        </QueryClientProvider>,
+      )
+      expect(screen.getByTestId('composer-text').props.value).toBe('')
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
   it('sends per-note noQuote on the Misskey family (create and edit)', async () => {
     const on = setup('sharkey')
     expect(screen.getByTestId('composer-no-quote')).not.toBeDisabled()

@@ -260,14 +260,20 @@ export async function uploadAll(
   const ids: string[] = []
   let failed = false
   for (const item of items) {
+    // Repair X6.1 F3: skip keys no longer in `files` (removed while the
+    // submit was in flight). A removed upload never attaches its id and
+    // never fails the submit with an error on a row that no longer
+    // exists. Edit-only in intent (the composer disables Remove while
+    // busy); safe for create mode too — a removed file must never send.
+    if (!files.has(item.key)) continue
     if (item.status === 'done' && item.mediaId) {
       ids.push(item.mediaId)
       continue
     }
     const file = files.get(item.key)
     if (!file) {
-      onUpdate(item.key, {status: 'error', error: 'File is no longer available.'})
-      failed = true
+      // Unreachable after the `has` guard above (a present key always
+      // has its File); kept as a honest fallback that never attaches.
       continue
     }
     // Client bound (R2.3): an over-cap File never reaches the transport —

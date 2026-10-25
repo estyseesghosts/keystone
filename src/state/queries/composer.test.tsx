@@ -190,6 +190,31 @@ describe('uploadAll', () => {
     await uploadOne({uploadMedia} as unknown as Backend, new File(['x'], 'ok.png'))
     expect(uploadMedia).toHaveBeenCalledTimes(1)
   })
+  it('skips keys removed mid-submit and never attaches a removed id', async () => {
+    // Repair X6.1 F3: file 2 was removed during the submit (its key left
+    // `files` while the stale `items` snapshot still lists it). The
+    // removed done id must not ride the post, and the removed pending
+    // row must not fail the submit.
+    const uploadMedia = jest.fn().mockResolvedValue({id: 'm-new'})
+    const backend = {uploadMedia} as unknown as Backend
+    const files = new Map([['a', new File(['x'], 'a.png')]])
+    const patches: Array<[string, Partial<UploadItem>]> = []
+    const ids = await uploadAll(
+      backend,
+      [
+        item('a', {status: 'done', mediaId: 'm-keep'}),
+        item('b', {status: 'done', mediaId: 'm-removed'}),
+        item('c', {status: 'staged'}),
+      ],
+      files,
+      (k, p) => patches.push([k, p]),
+    )
+    // Only the still-present done id survives; no upload attempted for
+    // the removed rows, no error recorded on a gone row, no failure.
+    expect(ids).toEqual(['m-keep'])
+    expect(uploadMedia).not.toHaveBeenCalled()
+    expect(patches).toEqual([])
+  })
 })
 
 describe('attachmentSizeError', () => {
