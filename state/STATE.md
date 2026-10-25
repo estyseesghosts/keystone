@@ -5,14 +5,14 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **288 suites / 4075 tests**,
+Gate baseline (last green on main): **289 suites / 4077 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. X9.7 done (committed green; 288 suites / 4075 tests; 88-code union +
-   no-echo grep gate; no coordinator changes).
-2. X9.8 close-out next (baseline already {} — verify, plain-error rule,
-   extract-clean, pseudo test, i18n.md checklist), then Wave 10 a11y.
+1. Wave 9 done (X9.1–X9.8 committed green; 289 suites / 4077 tests;
+   baseline deleted, plain-error rule, extract idempotent-clean).
+2. Wave 10 a11y next: X10.1 (semantics/keyboard) + X10.2 (contrast) —
+   dispatch together only if file-disjoint, else sequential.
 3. Signing/App Links skipped (owner); no non-English translations.
 
 Blockers / owner-open:

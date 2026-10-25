@@ -1745,7 +1745,7 @@ Audit: networking L1 (consumer); security L2 (toast echo); i18n requirement
 
 ## X9.8 - Burn-down to zero and catalog check
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x9.8.md` (slice) + `state/logs/2026-10-25-repair25-x9.8-coordinator.md` (batch-green); baseline mechanism deleted, rule is plain error, extract idempotent-clean, pseudo smoke live; 289 suites / 4077 tests green at X9.8 commit)
 Branch: `repair25-x9.8-i18n-close`
 Audit: a11y 2 (completion)
 
