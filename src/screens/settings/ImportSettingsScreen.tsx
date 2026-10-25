@@ -1,11 +1,14 @@
+import {useI18n} from '#/locale/i18n'
+
 import {ImportSection} from '#/components/Settings/TransferSections'
 
-import {SETTINGS_TITLES} from './meta'
+import {settingsTitle} from './meta'
 import {SectionShell} from './SectionShell'
 
 export function ImportSettingsScreen() {
+  const i18n = useI18n()
   return (
-    <SectionShell title={SETTINGS_TITLES.import}>
+    <SectionShell title={settingsTitle(i18n, 'import')}>
       <ImportSection />
     </SectionShell>
   )

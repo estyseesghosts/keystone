@@ -1,11 +1,14 @@
+import {useI18n} from '#/locale/i18n'
+
 import {FeedsSection} from '#/components/Settings/FeedsSection'
 
-import {SETTINGS_TITLES} from './meta'
+import {settingsTitle} from './meta'
 import {SectionShell} from './SectionShell'
 
 export function FeedsSettingsScreen() {
+  const i18n = useI18n()
   return (
-    <SectionShell title={SETTINGS_TITLES.feeds}>
+    <SectionShell title={settingsTitle(i18n, 'feeds')}>
       <FeedsSection />
     </SectionShell>
   )

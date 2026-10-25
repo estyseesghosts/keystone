@@ -94,6 +94,33 @@ const RECEIVE_OPTIONS: Array<{value: string}> = [
   {value: 'list'},
 ]
 
+// Filter-preset tab labels, resolved at render time through the fedi
+// `labelKey` codes (a module constant would freeze the boot locale).
+// Unknown future keys fall back to the fedi English label — shown, never
+// dropped.
+function presetLabel(preset: {label: string; labelKey: string}): string {
+  switch (preset.labelKey) {
+    case 'notif.filterAll':
+      return i18n._(msg`All`)
+    case 'notif.filterMentions':
+      return i18n._(msg`Mentions`)
+    case 'notif.filterReactions':
+      return i18n._(msg`Reactions`)
+    case 'notif.filterReposts':
+      return i18n._(msg`Reposts`)
+    case 'notif.filterFollows':
+      return i18n._(msg`Follows`)
+    case 'notif.filterPolls':
+      return i18n._(msg`Polls`)
+    case 'notif.filterNotes':
+      return i18n._(msg`Notes`)
+    case 'notif.filterSystem':
+      return i18n._(msg`System`)
+    default:
+      return preset.label
+  }
+}
+
 function readReceiveConfig(me: {ext: {me?: Record<string, unknown>}} | null): Record<string, string> {
   const raw = me?.ext.me?.['notificationRecieveConfig']
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
@@ -183,7 +210,7 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
           </Caption>
           {notificationFilterPresets(backend.family).filter(p => p.id !== 'all').map(preset => (
             <View key={preset.id} testID={`notifications-settings-row-${preset.id}`}>
-              <Caption>{preset.label}</Caption>
+              <Caption>{presetLabel(preset)}</Caption>
               <Tabs
                 tabs={RECEIVE_OPTIONS.map(opt => ({
                   key: opt.value || 'default',
@@ -195,7 +222,7 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
                 }
                 testID={`notifications-settings-options-${preset.id}`}
                 testIDPrefix={`notifications-settings-option-${preset.id}`}
-                accessibilityLabel={preset.label}
+                accessibilityLabel={presetLabel(preset)}
               />
             </View>
           ))}
@@ -695,7 +722,7 @@ export function NotificationsScreen() {
 
   return (
     <View style={atoms.flex1} testID="notifications-screen">
-      <Pagehead title="Notifications" />
+      <Pagehead title={i18n._(msg`Notifications`)} />
       {!session || !backend ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
           <Body>{i18n._(msg`Sign in to see notifications.`)}</Body>
@@ -705,12 +732,12 @@ export function NotificationsScreen() {
       ) : (
         <View style={atoms.flex1}>
           <Tabs
-            tabs={presets.map(p => ({key: p.id, label: p.label}))}
+            tabs={presets.map(p => ({key: p.id, label: presetLabel(p)}))}
             active={filterId}
             onChange={setFilterId}
             testID="notification-filters"
             testIDPrefix="notification-filter"
-            accessibilityLabel="Notification filters"
+            accessibilityLabel={i18n._(msg`Notification filters`)}
           />
           <Tabs
             tabs={[
@@ -728,7 +755,7 @@ export function NotificationsScreen() {
             }}
             testID="notification-grouping"
             testIDPrefix="notification-grouping"
-            accessibilityLabel="Notification grouping"
+            accessibilityLabel={i18n._(msg`Notification grouping`)}
           />
           {groupedUnsupported ? (
             <View style={[atoms.px_md]}>

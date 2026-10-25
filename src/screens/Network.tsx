@@ -52,14 +52,14 @@ export function NetworkScreen() {
 
   return (
     <View style={atoms.flex1} testID="network-screen">
-      <Pagehead title="Network" />
+      <Pagehead title={i18n._(msg`Network`)} />
       <Tabs
         tabs={visible.map(t => ({key: t, label: tabLabel(t)}))}
         active={active}
         onChange={t => navigation.setParams({tab: t} as never)}
         testID="network-tabs"
         testIDPrefix="network-tab"
-        accessibilityLabel="Network timelines"
+        accessibilityLabel={i18n._(msg`Network timelines`)}
       />
       <FeedView
         sessionId={session?.id ?? null}

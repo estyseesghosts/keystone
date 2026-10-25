@@ -1,5 +1,6 @@
 import {forwardRef, useCallback, useImperativeHandle, useMemo, useRef, type ReactNode} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
+import {msg} from '@lingui/macro'
 
 import {useTheme} from '#/alf/index'
 import {atoms} from '#/alf/atoms'
@@ -9,7 +10,7 @@ import {Loader} from '#/components/Loader'
 import {SkeletonList} from '#/components/Skeleton'
 import {ThreadRow} from '#/components/PostFeed/ThreadRow'
 import {useRecommendationDwell, RECOMMENDATION_VIEWABILITY_CONFIG} from '#/lib/recommendationDwell'
-import {useLocale} from '#/locale/i18n'
+import {useLocale, useI18n} from '#/locale/i18n'
 import {collapseReposts, computeFeedThreadLinks, isUnsupportedError, type Backend} from '@keystone/fedi'
 import {feedItems, usePostFeedQuery} from '#/state/queries'
 import {useBackendForSessionId} from '#/screens/HomeFeed'
@@ -33,6 +34,7 @@ export const RecommendationsFeed = forwardRef<
 >(function RecommendationsFeed({sessionId, backend, testID, scrollHeader}, ref) {
   const theme = useTheme()
   const locale = useLocale()
+  const i18n = useI18n()
   const {settings} = useRecommendationSettings(sessionId)
   // Same resolution as FeedView: the injected prop wins (tests,
   // per-column accounts); otherwise the session's own backend, so
@@ -96,13 +98,13 @@ export const RecommendationsFeed = forwardRef<
     const unavailable = isUnsupportedError(feed.error)
     return (
       <View testID={testID} style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-        <Body>{unavailable ? 'Not on this server.' : 'Could not load recommendations.'}</Body>
+        <Body>{unavailable ? i18n._(msg`Not on this server.`) : i18n._(msg`Could not load recommendations.`)}</Body>
         <Caption color="faint">
           {unavailable
-            ? 'This server has no recommendations feed.'
-            : 'Check your connection and try again.'}
+            ? i18n._(msg`This server has no recommendations feed.`)
+            : i18n._(msg`Check your connection and try again.`)}
         </Caption>
-        <Button label="Retry" variant="secondary" onPress={() => void feed.refetch()} testID="feed-retry" />
+        <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={() => void feed.refetch()} testID="feed-retry" />
       </View>
     )
   }
@@ -144,8 +146,8 @@ export const RecommendationsFeed = forwardRef<
         )}
         ListEmptyComponent={
           <View style={[atoms.centered, atoms.p_md]}>
-            <Body>Nothing here yet.</Body>
-            <Caption color="faint">Pull to refresh.</Caption>
+            <Body>{i18n._(msg`Nothing here yet.`)}</Body>
+            <Caption color="faint">{i18n._(msg`Pull to refresh.`)}</Caption>
           </View>
         }
         ListFooterComponent={
@@ -155,14 +157,14 @@ export const RecommendationsFeed = forwardRef<
             </View>
           ) : feed.isFetchNextPageError ? (
             <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
-              <Caption color="faint">Could not load more posts.</Caption>
+              <Caption color="faint">{i18n._(msg`Could not load more posts.`)}</Caption>
               {paged.cooldownLabel ? (
                 <Caption color="faint" testID="feed-more-cooldown">
                   {paged.cooldownLabel}
                 </Caption>
               ) : null}
               <Button
-                label="Retry"
+                label={i18n._(msg`Retry`)}
                 variant="secondary"
                 onPress={() => void feed.fetchNextPage()}
                 testID="feed-more-retry"

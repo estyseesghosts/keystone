@@ -20,7 +20,7 @@ import {useVideoPlayer, VideoView} from 'expo-video'
 import type {ImageLoadEventData} from 'expo-image'
 
 import {msg} from '@lingui/macro'
-import {useLingui} from '@lingui/react'
+import {useI18n} from '#/locale/i18n'
 
 import {safeHttpUrl, type Media} from '@keystone/fedi'
 
@@ -196,7 +196,7 @@ function TileFrame({
   bleed?: boolean
 }) {
   const theme = useTheme()
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   return (
     <Pressable
       testID={testID ?? `media-${item.id}`}
@@ -301,12 +301,19 @@ function useDataSaverSafe(): boolean {
 function Still({item, single, index, onOpen, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; bleed?: boolean}) {
   const [failed, setFailed] = useState(false)
   const [measured, setMeasured] = useState<number | null>(null)
+  const i18n = useI18n()
   // Server strings are never trusted as image sources (F4): anything
   // but http(s) renders the missing-image placeholder, never a fetch.
   const full = safeHttpUrl(item.url)
   const preview = safeHttpUrl(item.previewUrl) ?? full
   if (full === null || preview === null || failed) {
-    return <Placeholder label="Image unavailable" reason="The server sent no image URL." testID={`media-missing-${item.id}`} />
+    return (
+      <Placeholder
+        label={i18n._(msg`Image unavailable`)}
+        reason={i18n._(msg`The server sent no image URL.`)}
+        testID={`media-missing-${item.id}`}
+      />
+    )
   }
   // Singles: full-width natural ratio clamped to the display range, and
   // the whole image shows EXCEPT outside shapes, which crop to the
@@ -347,15 +354,22 @@ function Still({item, single, index, onOpen, bleed}: {item: Media; single: boole
  * reliable animated-img, and the Lightbox already loops gifv — the loop
  * matches the behavior). Tapping opens the Lightbox. */
 function GifvTile({item, single, index, onOpen, active, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; active: boolean; bleed?: boolean}) {
+  const i18n = useI18n()
   const url = safeHttpUrl(item.url)
   if (url === null) {
-    return <Placeholder label="Video unavailable" reason="The server sent no video URL." testID={`media-missing-${item.id}`} />
+    return (
+      <Placeholder
+        label={i18n._(msg`Video unavailable`)}
+        reason={i18n._(msg`The server sent no video URL.`)}
+        testID={`media-missing-${item.id}`}
+      />
+    )
   }
   return <LoopTile item={item} single={single} index={index} onOpen={onOpen} url={url} active={active} bleed={bleed} />
 }
 
 function LoopTile({item, single, index, onOpen, url, active, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; url: string; active: boolean; bleed?: boolean}) {
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const player = useVideoPlayer(url, p => {
     p.loop = true
     p.muted = true
@@ -419,9 +433,16 @@ function LoopTile({item, single, index, onOpen, url, active, bleed}: {item: Medi
 }
 
 function VideoTile({item, single, index, onOpen, active, bleed}: {item: Media; single: boolean; index: number; onOpen?: (index: number) => void; active: boolean; bleed?: boolean}) {
+  const i18n = useI18n()
   const url = safeHttpUrl(item.url)
   if (url === null) {
-    return <Placeholder label="Video unavailable" reason="The server sent no video URL." testID={`media-missing-${item.id}`} />
+    return (
+      <Placeholder
+        label={i18n._(msg`Video unavailable`)}
+        reason={i18n._(msg`The server sent no video URL.`)}
+        testID={`media-missing-${item.id}`}
+      />
+    )
   }
   return <PlayerTile item={item} single={single} index={index} onOpen={onOpen} url={url} active={active} bleed={bleed} />
 }
@@ -487,7 +508,7 @@ function PlayerTile({item, single, index, onOpen, url, active, bleed}: {item: Me
 }
 
 function AudioTile({item, index, onOpen, active}: {item: Media; index: number; onOpen?: (index: number) => void; active: boolean}) {
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const url = safeHttpUrl(item.url)
   if (url === null) {
     return <Placeholder label={i18n._(msg`Audio unavailable`)} reason={i18n._(msg`The server sent no audio URL.`)} testID={`media-missing-${item.id}`} />
@@ -497,7 +518,7 @@ function AudioTile({item, index, onOpen, active}: {item: Media; index: number; o
 
 function AudioPlayer({item, index, onOpen, url, active}: {item: Media; index: number; onOpen?: (index: number) => void; url: string; active: boolean}) {
   const theme = useTheme()
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const player = useVideoPlayer(url)
   // Same single-global membership as video: starting here preempts any
   // other player, and scroll-off, backgrounding, blur, or preemption
@@ -582,7 +603,7 @@ function AudioPlayer({item, index, onOpen, url, active}: {item: Media; index: nu
 
 function FileTile({item}: {item: Media}) {
   const theme = useTheme()
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const url = safeHttpUrl(item.url)
   const size = formatBytes(item.size)
   return (
@@ -597,7 +618,7 @@ function FileTile({item}: {item: Media}) {
         {url ? (
           <Pressable
             testID={`media-file-open-${item.id}`}
-            onPress={() => void Linking.openURL(url).catch(e => showToast(`Could not open: ${String(e)}`))}
+            onPress={() => void Linking.openURL(url).catch(() => showToast(i18n._(msg`Could not open this link.`)))}
             accessibilityRole="link"
             accessibilityLabel={i18n._(msg`Open attachment ${item.name || item.kind}`)}>
             <Caption color="muted">{i18n._(msg`Open`)}</Caption>
@@ -632,7 +653,7 @@ function SensitiveCover({
   onShow: (id: string) => void
 }) {
   const theme = useTheme()
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const hiddenLabel = i18n._(msg`Sensitive media hidden. The author marked this media sensitive.`)
   return (
     <TileFrame
@@ -673,7 +694,7 @@ function SensitiveCover({
  * of the tile (never nested in its Lightbox pressable, so one tap cannot
  * both hide and open). */
 function RevealedSensitive({item, onHide, children}: {item: Media; onHide: (id: string) => void; children: React.ReactNode}) {
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   return (
     <View testID={`media-sensitive-revealed-${item.id}`} style={styles.revealedWrap}>
       {children}

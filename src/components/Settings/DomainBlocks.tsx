@@ -151,7 +151,12 @@ function DomainBlockList({api}: {api: DomainBlocksApi}) {
           setInput(text)
           setError(null)
         }}
-        placeholder="example.com"
+        placeholder={i18n._(
+          msg({
+            message: 'example.com',
+            comment: 'Example domain in the input placeholder; keep unless a localized example reads better',
+          }),
+        )}
         error={error ?? undefined}
         testID="domain-blocks-input"
       />

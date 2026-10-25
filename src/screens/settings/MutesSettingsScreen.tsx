@@ -1,11 +1,14 @@
+import {useI18n} from '#/locale/i18n'
+
 import {MutesSection} from '#/components/Settings/MutesSection'
 
-import {SETTINGS_TITLES} from './meta'
+import {settingsTitle} from './meta'
 import {SectionShell} from './SectionShell'
 
 export function MutesSettingsScreen() {
+  const i18n = useI18n()
   return (
-    <SectionShell title={SETTINGS_TITLES.mutes}>
+    <SectionShell title={settingsTitle(i18n, 'mutes')}>
       <MutesSection />
     </SectionShell>
   )

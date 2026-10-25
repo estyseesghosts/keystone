@@ -14,7 +14,7 @@ import {useEffect, useRef, useState} from 'react'
 import {Image, Linking, StyleSheet, View} from 'react-native'
 
 import {msg} from '@lingui/macro'
-import {useLingui} from '@lingui/react'
+import {useI18n} from '#/locale/i18n'
 
 import {
   bareLinkLabel,
@@ -58,6 +58,7 @@ function hostOf(url: string): string {
 
 export function LinkCard({card, testID}: {card: LinkCardModel; testID?: string}) {
   const theme = useTheme()
+  const i18n = useI18n()
   const [imageFailed, setImageFailed] = useState(false)
   const url = safeHttpUrl(card.url)
   if (url === null) return null
@@ -65,9 +66,9 @@ export function LinkCard({card, testID}: {card: LinkCardModel; testID?: string})
   return (
     <Pressable
       testID={testID}
-      onPress={() => void Linking.openURL(url).catch(e => showToast(`Could not open: ${String(e)}`))}
+      onPress={() => void Linking.openURL(url).catch(() => showToast(i18n._(msg`Could not open this link.`)))}
       accessibilityRole="link"
-      accessibilityLabel={`Open link: ${card.title || url}`}>
+      accessibilityLabel={i18n._(msg`Open link: ${card.title || url}`)}>
       <View
         style={[styles.card, {borderColor: theme.palette.edge, backgroundColor: theme.palette.bg}]}
         testID={testID ? `${testID}-card` : undefined}>
@@ -156,7 +157,7 @@ export function UnfurledLinkCard({
   auto?: boolean
 }) {
   const theme = useTheme()
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const [imageFailed, setImageFailed] = useState(false)
   const [iconFailed, setIconFailed] = useState(false)
   const [phase, setPhase] = useState<'idle' | 'loading' | 'done'>('idle')
@@ -221,7 +222,7 @@ export function UnfurledLinkCard({
   }
 
   const open = () =>
-    void Linking.openURL(safe).catch(e => showToast(`Could not open: ${String(e)}`))
+    void Linking.openURL(safe).catch(() => showToast(i18n._(msg`Could not open this link.`)))
 
   const previewImageRaw = preview?.image ?? null
   const previewImage =
@@ -240,7 +241,7 @@ export function UnfurledLinkCard({
         testID={testID ? `${testID}-open` : undefined}
         onPress={open}
         accessibilityRole="link"
-        accessibilityLabel={`Open link: ${preview?.title || safe}`}>
+        accessibilityLabel={i18n._(msg`Open link: ${preview?.title || safe}`)}>
         {shownImage !== null ? (
           <Image
             source={{uri: shownImage}}

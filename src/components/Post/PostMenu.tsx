@@ -4,6 +4,7 @@
 
 import {useRef, useState} from 'react'
 import {StyleSheet, View, type View as ViewType} from 'react-native'
+import {msg} from '@lingui/macro'
 
 import {atoms} from '#/alf/atoms'
 import {radius, space} from '#/alf/tokens'
@@ -14,6 +15,7 @@ import {Divider} from '#/components/Divider'
 import {Pressable} from '#/components/Pressable'
 import {TextField} from '#/components/forms/TextField'
 import {showToast} from '#/lib/toast'
+import {i18n as singletonI18n, useI18n} from '#/locale/i18n'
 
 import type {PostMenuItem, PostMenuSection, ReportChooserValues} from './menuModel'
 import {ReportChooser} from './ReportChooser'
@@ -24,13 +26,13 @@ const styles = StyleSheet.create({
 })
 
 function errorMessage(e: unknown): string {
-  return e instanceof Error && e.message ? e.message : 'Something went wrong.'
+  return e instanceof Error && e.message ? e.message : singletonI18n._(msg`Something went wrong.`)
 }
 
 export function PostMenu({
   sections,
   postId,
-  label = 'More options',
+  label,
   trigger,
   sessionId = null,
 }: {
@@ -42,6 +44,8 @@ export function PostMenu({
   /** Owning session — the report chooser reads that server's rules. */
   sessionId?: string | null
 }) {
+  const i18n = useI18n()
+  const resolvedLabel = label ?? i18n._(msg`More options`)
   const [open, setOpen] = useState(false)
   const [tier2, setTier2] = useState<PostMenuSection[] | null>(null)
   const [confirming, setConfirming] = useState<PostMenuItem | null>(null)
@@ -116,12 +120,12 @@ export function PostMenu({
           <Pressable
             testID={id}
             accessibilityRole="button"
-            accessibilityLabel={label}
+            accessibilityLabel={resolvedLabel}
             onPress={() => setOpen(true)}>
             {trigger}
           </Pressable>
         ) : (
-          <Button testID={id} label={label} variant="secondary" onPress={() => setOpen(true)} />
+          <Button testID={id} label={resolvedLabel} variant="secondary" onPress={() => setOpen(true)} />
         )}
       </View>
       {open ? (
@@ -159,7 +163,14 @@ export function PostMenu({
                 disabled={!!confirming.confirm!.commentLabel && comment.trim() === ''}
                 onPress={() => execConfirm(confirming)}
               />
-              <Button testID={`${id}-cancel`} label="Cancel" variant="secondary" onPress={() => setConfirming(null)} />
+              <Button
+                testID={`${id}-cancel`}
+                label={i18n._(
+                  msg({message: 'Cancel', context: 'dialog button', comment: 'Close the menu without doing anything'}),
+                )}
+                variant="secondary"
+                onPress={() => setConfirming(null)}
+              />
             </View>
           ) : (
             <View style={atoms.gap_sm}>
@@ -167,10 +178,14 @@ export function PostMenu({
                 <Pressable
                   testID={`${id}-back`}
                   accessibilityRole="button"
-                  accessibilityLabel="Back"
+                  accessibilityLabel={i18n._(
+                    msg({message: 'Back', context: 'menu navigation', comment: 'Go back to the top-level menu'}),
+                  )}
                   onPress={() => setTier2(null)}
                   style={styles.row}>
-                  <Body>Back</Body>
+                  <Body>
+                    {i18n._(msg({message: 'Back', context: 'menu navigation', comment: 'Go back to the top-level menu'}))}
+                  </Body>
                 </Pressable>
               )}
               {shown.map((section, i) =>

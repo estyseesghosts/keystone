@@ -1,4 +1,6 @@
 import {Platform, Pressable, StyleSheet, View, type ViewStyle} from 'react-native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {useTheme as useAlfTheme} from '#/alf'
 import {useShellLayout} from '#/alf/breakpoints'
@@ -17,6 +19,7 @@ import {navigationRef} from '#/navigationRef'
 export function Pagehead({title, right}: {title: string; right?: React.ReactNode}) {
   const layout = useShellLayout()
   const alf = useAlfTheme()
+  const i18n = useI18n()
   if (layout === 'mobile') return null
   return (
     <View
@@ -37,7 +40,9 @@ export function Pagehead({title, right}: {title: string; right?: React.ReactNode
           navigationRef.navigate('Main', {screen: 'Home'} as never)
         }}
         accessibilityRole="button"
-        accessibilityLabel="Back"
+        accessibilityLabel={i18n._(
+          msg({message: 'Back', context: 'navigation', comment: 'Go back to the previous screen'}),
+        )}
         hitSlop={12}
         testID="pagehead-back">
         <BackIcon size={20} color={alf.palette.text} />

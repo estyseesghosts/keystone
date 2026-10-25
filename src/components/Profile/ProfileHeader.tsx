@@ -20,13 +20,12 @@ import {
 } from '@keystone/fedi'
 
 import {msg} from '@lingui/macro'
-import {useLingui} from '@lingui/react'
 
 import {useTheme} from '#/alf/index'
 import {useShellLayout} from '#/alf/breakpoints'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 import {Body, Caption, Heading} from '#/alf/typography'
-import {formatCompactCount, formatCount, useLocale} from '#/locale/i18n'
+import {formatCompactCount, formatCount, useLocale, useI18n} from '#/locale/i18n'
 import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
@@ -36,11 +35,12 @@ import {ProfileBanner} from '#/components/Profile/ProfileBanner'
 import {profileDetailLayout} from '#/components/Profile/profileDetailLayout'
 
 export function FollowStateCaption({relationship}: {relationship: Relationship | null}) {
+  const i18n = useI18n()
   if (!relationship) return null
   const parts: string[] = []
-  if (relationship.isFollowing) parts.push('You follow this account.')
-  if (relationship.isFollowed) parts.push('Follows you.')
-  if (relationship.hasPendingFollowRequestFromYou) parts.push('Follow request pending.')
+  if (relationship.isFollowing) parts.push(i18n._(msg`You follow this account.`))
+  if (relationship.isFollowed) parts.push(i18n._(msg`Follows you.`))
+  if (relationship.hasPendingFollowRequestFromYou) parts.push(i18n._(msg`Follow request pending.`))
   if (parts.length === 0) return null
   return <Caption color="faint">{parts.join(' ')}</Caption>
 }
@@ -99,6 +99,7 @@ function StatsCards({
   onPressFollowing?: () => void
 }) {
   const locale = useLocale()
+  const i18n = useI18n()
   // Same gates as the old one-line stats: hidden counts stay hidden —
   // the posts card renders alone with the honest caption, never a
   // placeholder card. Numbers show compact; accessibility labels keep
@@ -115,22 +116,22 @@ function StatsCards({
         <StatCard
           testID="profile-stat-posts"
           value={formatCompactCount(locale, account.statusesCount)}
-          label="posts"
+          label={i18n._(msg`posts`)}
         />
         {!hiddenCounts ? (
           onPressFollowing ? (
             <StatCard
               testID="profile-following-link"
               value={formatCompactCount(locale, account.followingCount)}
-              label="following"
+              label={i18n._(msg`following`)}
               onPress={onPressFollowing}
-              accessibilityLabel={`${followingExact} following. Open following list.`}
+              accessibilityLabel={i18n._(msg`${followingExact} following. Open following list.`)}
             />
           ) : (
             <StatCard
               testID="profile-stat-following"
               value={formatCompactCount(locale, account.followingCount)}
-              label="following"
+              label={i18n._(msg`following`)}
             />
           )
         ) : null}
@@ -139,27 +140,27 @@ function StatsCards({
             <StatCard
               testID="profile-followers-link"
               value={formatCompactCount(locale, account.followersCount)}
-              label="followers"
+              label={i18n._(msg`followers`)}
               onPress={onPressFollowers}
-              accessibilityLabel={`${followersExact} followers. Open followers list.`}
+              accessibilityLabel={i18n._(msg`${followersExact} followers. Open followers list.`)}
             />
           ) : (
             <StatCard
               testID="profile-stat-followers"
               value={formatCompactCount(locale, account.followersCount)}
-              label="followers"
+              label={i18n._(msg`followers`)}
             />
           )
         ) : null}
       </View>
       {account.ffVisibility === 'private' && !isSelf ? (
         <Caption color="faint">
-          {postsExact} posts · Following and followers are hidden.
+          {i18n._(msg`${postsExact} posts · Following and followers are hidden.`)}
         </Caption>
       ) : null}
       {account.ffVisibility === 'followers' && !isSelf && !account.isFollowing ? (
         <Caption color="faint">
-          {postsExact} posts · Following and followers are visible to followers.
+          {i18n._(msg`${postsExact} posts · Following and followers are visible to followers.`)}
         </Caption>
       ) : null}
     </>
@@ -193,7 +194,7 @@ export function ProfileHeader({
   /** When provided, the matching stats count renders as a link. */
   onPressFollowing?: () => void
 }) {
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const theme = useTheme()
   const desktop = useShellLayout() !== 'mobile'
   // A failed background image unmounts to `palette.bg`. Never a broken
@@ -330,8 +331,8 @@ export function ProfileHeader({
                 </Caption>
               </>
             )}
-            {account.locked ? <Caption color="faint">Locked account.</Caption> : null}
-            {account.bot ? <Caption color="faint">Automated account.</Caption> : null}
+            {account.locked ? <Caption color="faint">{i18n._(msg`Locked account.`)}</Caption> : null}
+            {account.bot ? <Caption color="faint">{i18n._(msg`Automated account.`)}</Caption> : null}
             {account.movedTo ? (
               <Caption color="faint" testID="profile-moved-banner">
                 {i18n._(msg`This account has moved to ${account.movedTo.acct}.`)}

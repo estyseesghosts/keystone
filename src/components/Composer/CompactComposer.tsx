@@ -338,7 +338,15 @@ export function CompactComposer(props: CompactComposerProps) {
           label={i18n._(msg`Content warning`)}
           active={c.state.cwEnabled}
           onPress={() => c.patch({cwEnabled: !c.state.cwEnabled})}>
-          <Body style={{color: c.state.cwEnabled ? theme.palette.bg : muted}}>CW</Body>
+          <Body style={{color: c.state.cwEnabled ? theme.palette.bg : muted}}>
+            {i18n._(
+              msg({
+                message: 'CW',
+                context: 'composer content-warning toggle',
+                comment: 'Short button label; abbreviation of "Content warning"',
+              }),
+            )}
+          </Body>
         </ToolButton>
         <RNPressable
           ref={moreAnchor}

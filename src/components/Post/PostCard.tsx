@@ -12,7 +12,6 @@ import {Linking, Platform, Share, StyleSheet, View, type StyleProp, type ViewSty
 import {QueryClientContext} from '@tanstack/react-query'
 
 import {msg, t} from '@lingui/macro'
-import {useLingui} from '@lingui/react'
 
 import {
   appearNoteOf,
@@ -73,7 +72,7 @@ import {quoteCardProps, useQuoteTarget} from './useQuoteTarget'
 import {useAutoTranslation} from './useAutoTranslation'
 import {TagBubble} from './TagBubble'
 import {HoverPreview} from '#/components/Profile/HoverPreview'
-import {formatCount, useLocale} from '#/locale/i18n'
+import {formatCount, useLocale, useI18n} from '#/locale/i18n'
 import {ReactionChips} from './ReactionChips'
 import {formatRelativeTime} from './time'
 
@@ -373,7 +372,7 @@ let translateNoticeShown = false
 
 function LivePostCard(props: PostCardProps) {
   const {post, sessionId} = props
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const queryClient = useContext(QueryClientContext)
   const store = useOptionalSessionStore()!
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot)
@@ -702,7 +701,7 @@ const PostCardView = memo(function PostCardView({
   onEditedPress,
 }: PostCardProps & {live?: LiveBits}) {
   const theme = useTheme()
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const locale = useLocale()
   const [cwOpen, setCwOpen] = useState(false)
   // Per-session configured like key (F18): chips hide it, the like
@@ -1015,7 +1014,7 @@ const PostCardView = memo(function PostCardView({
         </View>
         {cw !== null && (
           <View style={[styles.cwBox, {backgroundColor: theme.palette.bg, borderColor: theme.palette.borderStrong}]} testID={`cw-${post.id}`}>
-            <Caption color="muted">CW: {cw}</Caption>
+            <Caption color="muted">{i18n._(msg`CW: ${cw}`)}</Caption>
             <Pressable
               testID={`cw-toggle-${post.id}`}
               onPress={() => setCwOpen(v => !v)}

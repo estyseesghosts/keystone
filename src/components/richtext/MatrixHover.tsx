@@ -7,7 +7,7 @@ import {useCallback, useEffect, useRef, useState, type ReactNode} from 'react'
 import {Platform, StyleSheet, Text, View, type View as ViewType} from 'react-native'
 
 import {msg} from '@lingui/macro'
-import {useLingui} from '@lingui/react'
+import {useI18n} from '#/locale/i18n'
 
 import {useTheme} from '#/alf/index'
 import {Body} from '#/alf/typography'
@@ -23,7 +23,7 @@ export type MatrixCtx = {size: number; textColor: string; edge: string}
 
 // Copy action shared by the native chip tap and the hovercard button.
 function useCopyMatrixId(userId: string) {
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   return useCallback(async () => {
     try {
       await copyText(userId)
@@ -39,7 +39,7 @@ function useCopyMatrixId(userId: string) {
 // Navigation never happens for Matrix IDs. Exported for tests.
 export function MatrixHovercard({userId}: {userId: string}) {
   const theme = useTheme()
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const copy = useCopyMatrixId(userId)
   const copyable = canCopy()
   return (
@@ -233,7 +233,7 @@ export function MatrixChip({
   ctx: MatrixCtx
 }) {
   const copy = useCopyMatrixId(userId)
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const short = userId.startsWith('@') ? userId.slice(1) : userId
   const chip = (
     <Pressable
@@ -247,7 +247,7 @@ export function MatrixChip({
       testID="richtext-matrix-chip"
       onPress={() => void copy()}>
       <Text style={{fontSize: ctx.size, color: ctx.textColor}} numberOfLines={1}>
-        {`[m] ${short}`}
+        {i18n._(msg`[m] ${short}`)}
       </Text>
     </Pressable>
   )

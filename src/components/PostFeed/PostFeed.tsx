@@ -12,7 +12,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native'
 
-import {msg} from '@lingui/macro'
+import {msg, plural} from '@lingui/macro'
 
 import {computeFeedThreadLinks, type Capabilities, type EmojiStyle, type Post} from '@keystone/fedi'
 
@@ -158,7 +158,16 @@ export function PostFeed({
         <View style={styles.pillWrap}>
           <Button
             testID="new-posts-pill"
-            label={newPostsCount > 0 ? `Show ${newPostsCount} new posts` : 'Show new posts'}
+            label={
+              newPostsCount > 0
+                ? i18n._(
+                    plural(newPostsCount, {
+                      one: `Show ${newPostsCount} new post`,
+                      other: `Show ${newPostsCount} new posts`,
+                    }),
+                  )
+                : i18n._(msg`Show new posts`)
+            }
             variant="secondary"
             onPress={() => onSeeNewPosts?.()}
           />
@@ -193,13 +202,13 @@ export function PostFeed({
             </View>
           ) : isError ? (
             <View style={styles.state} testID="post-feed-error">
-              <Body>Couldn&apos;t load this feed</Body>
-              <Caption color="muted">{errorMessage ?? 'Check your connection and try again.'}</Caption>
-              {onRefresh && <Button testID="post-feed-retry" label="Retry" variant="secondary" onPress={onRefresh} />}
+              <Body>{i18n._(msg`Couldn't load this feed`)}</Body>
+              <Caption color="muted">{errorMessage ?? i18n._(msg`Check your connection and try again.`)}</Caption>
+              {onRefresh && <Button testID="post-feed-retry" label={i18n._(msg`Retry`)} variant="secondary" onPress={onRefresh} />}
             </View>
           ) : (
             <View style={styles.state} testID="post-feed-empty">
-              <Body>No posts yet</Body>
+              <Body>{i18n._(msg`No posts yet`)}</Body>
             </View>
           )
         }

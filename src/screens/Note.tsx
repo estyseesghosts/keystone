@@ -194,7 +194,7 @@ function AccountRow({account}: {account: Account}) {
         navigationRef.navigate('Main', {screen: 'User', params: {id: account.id}} as never)
       }}
       accessibilityRole="link"
-      accessibilityLabel={`Open profile of ${displayNameOf(account)}`}>
+      accessibilityLabel={i18n._(msg`Open profile of ${displayNameOf(account)}`)}>
       <View style={[atoms.px_md, atoms.py_sm, {flexDirection: 'row', alignItems: 'center', gap: 12}]}>
         <Body numberOfLines={1}>{displayNameOf(account)}</Body>
         <Caption color="muted" numberOfLines={1}>
@@ -203,6 +203,15 @@ function AccountRow({account}: {account: Account}) {
       </View>
     </Pressable>
   )
+}
+
+// Paged account/reaction listing labels, resolved at render time (a
+// module constant would freeze the boot locale). Unknown kinds render
+// raw: they are data, never translated.
+function kindLabel(kind: string): string {
+  if (kind === 'reactions') return i18n._(msg`reactions`)
+  if (kind === 'boosts') return i18n._(msg`boosts`)
+  return kind
 }
 
 function PagedList<T>({
@@ -234,12 +243,15 @@ function PagedList<T>({
   }
   if (state.isError) {
     const unavailable = isUnsupportedError(state.error)
+    const kindName = kindLabel(kind)
     return (
       <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
         <Caption color="faint">
-          {unavailable ? `No ${kind} listing on this server.` : `Could not load ${kind}.`}
+          {unavailable
+            ? i18n._(msg`No ${kindName} listing on this server.`)
+            : i18n._(msg`Could not load ${kindName}.`)}
         </Caption>
-        <Button label="Retry" variant="secondary" onPress={() => void state.refetch()} testID={`${testID}-retry`} />
+        <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={() => void state.refetch()} testID={`${testID}-retry`} />
       </View>
     )
   }
@@ -247,7 +259,7 @@ function PagedList<T>({
   if (items.length === 0) {
     return (
       <View style={[atoms.centered, atoms.p_md]} testID={testID}>
-        <Body>Nothing here yet.</Body>
+        <Body>{i18n._(msg`Nothing here yet.`)}</Body>
       </View>
     )
   }
@@ -257,7 +269,7 @@ function PagedList<T>({
       {state.hasNextPage ? (
         <View style={[atoms.px_md, atoms.py_sm]}>
           <Button
-            label={state.isFetchingNextPage ? 'Loading…' : `Load more ${kind}`}
+            label={state.isFetchingNextPage ? i18n._(msg`Loading…`) : i18n._(msg`Load more ${kindLabel(kind)}`)}
             variant="secondary"
             onPress={() => void state.fetchNextPage()}
             testID={`${testID}-more`}
@@ -687,7 +699,7 @@ function InClipsRow({backend, postId}: {backend: Backend; postId: string}) {
   if (!backend.clips || clips == null || clips.length === 0) return null
   return (
     <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]} testID={`in-clips-${postId}`}>
-      <Caption color="faint">In clips</Caption>
+      <Caption color="faint">{i18n._(msg`In clips`)}</Caption>
       <View style={[atoms.row, atoms.gap_sm, {flexWrap: 'wrap'}]}>
         {clips.map(c => (
           <Pressable
@@ -697,7 +709,7 @@ function InClipsRow({backend, postId}: {backend: Backend; postId: string}) {
               if (navigationRef.isReady()) navigationRef.navigate('Clip', {id: c.id})
             }}
             accessibilityRole="link"
-            accessibilityLabel={`Open clip ${c.name}`}>
+            accessibilityLabel={i18n._(msg`Open clip ${c.name}`)}>
             <Body>{c.name}</Body>
           </Pressable>
         ))}
@@ -869,7 +881,7 @@ function ChainLoading({parentId}: {parentId: string}) {
 function ChainError({parentId, onRetry}: {parentId: string; onRetry: () => void}) {
   return (
     <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
-      <Caption color="faint">Could not load replies.</Caption>
+      <Caption color="faint">{i18n._(msg`Could not load replies.`)}</Caption>
       <Pressable
         testID={`replies-retry-${parentId}`}
         onPress={onRetry}
@@ -1180,11 +1192,11 @@ export function NoteScreen() {
 
   return (
     <View style={atoms.flex1} testID="note-screen">
-      <Pagehead title="Note" />
+      <Pagehead title={i18n._(msg`Note`)} />
       {!session || !backend || !sessionId ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Sign in to see this thread.</Body>
-          <Caption color="faint">Threads never show sample data when signed out.</Caption>
+          <Body>{i18n._(msg`Sign in to see this thread.`)}</Body>
+          <Caption color="faint">{i18n._(msg`Threads never show sample data when signed out.`)}</Caption>
           <SignInButton />
         </View>
       ) : thread.isPending ? (
@@ -1193,17 +1205,19 @@ export function NoteScreen() {
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           {thread.error instanceof ApiError && thread.error.status === 429 ? (
             <>
-              <Body testID="thread-rate-limited">Rate limited by the server.</Body>
-              <Caption color="faint">The server is throttling requests right now. Wait a moment, then try again.</Caption>
+              <Body testID="thread-rate-limited">{i18n._(msg`Rate limited by the server.`)}</Body>
+              <Caption color="faint">
+                {i18n._(msg`The server is throttling requests right now. Wait a moment, then try again.`)}
+              </Caption>
             </>
           ) : (
             <>
-              <Body>Could not load this thread.</Body>
-              <Caption color="faint">It may be deleted, private, or on an unreachable server.</Caption>
+              <Body>{i18n._(msg`Could not load this thread.`)}</Body>
+              <Caption color="faint">{i18n._(msg`It may be deleted, private, or on an unreachable server.`)}</Caption>
             </>
           )}
           <Button
-            label="Retry"
+            label={i18n._(msg`Retry`)}
             variant="secondary"
             onPress={() => void thread.refetch()}
             testID="thread-retry"
@@ -1240,7 +1254,7 @@ export function NoteScreen() {
               })}
               {thread.data.incomplete ? (
                 <View style={[atoms.px_md, atoms.py_sm]}>
-                  <Caption color="faint">Earlier reply context unavailable.</Caption>
+                  <Caption color="faint">{i18n._(msg`Earlier reply context unavailable.`)}</Caption>
                 </View>
               ) : null}
               <View
@@ -1287,16 +1301,16 @@ export function NoteScreen() {
               <Tabs
                 tabs={
                   [
-                    {key: 'replies', label: 'Replies'},
-                    {key: 'reposts', label: 'Reposts'},
-                    {key: 'reactions', label: 'Reactions'},
+                    {key: 'replies', label: i18n._(msg`Replies`)},
+                    {key: 'reposts', label: i18n._(msg`Reposts`)},
+                    {key: 'reactions', label: i18n._(msg`Reactions`)},
                   ] as {key: typeof tab; label: string}[]
                 }
                 active={tab}
                 onChange={setTab}
                 testID="note-tabs"
                 testIDPrefix="note-tab"
-                accessibilityLabel="Post details"
+                accessibilityLabel={i18n._(msg`Post details`)}
               />
               {tab === 'replies' ? (
                 <View testID={`replies-${focused.id}`}>
@@ -1306,7 +1320,7 @@ export function NoteScreen() {
                     </View>
                   ) : rootReplies.isError ? (
                     <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
-                      <Caption color="faint">Could not load replies.</Caption>
+                      <Caption color="faint">{i18n._(msg`Could not load replies.`)}</Caption>
                       <Pressable
                         testID={`replies-retry-${focused.id}`}
                         onPress={() => void rootReplies.refetch()}
@@ -1323,8 +1337,8 @@ export function NoteScreen() {
           ListEmptyComponent={
             tab === 'replies' && !rootReplies.isPending && !rootReplies.isError ? (
               <View style={[atoms.centered, atoms.p_md]}>
-                <Body>Nothing here yet.</Body>
-                <Caption color="faint">Be the first to reply.</Caption>
+                <Body>{i18n._(msg`Nothing here yet.`)}</Body>
+                <Caption color="faint">{i18n._(msg`Be the first to reply.`)}</Caption>
               </View>
             ) : null
           }
@@ -1333,7 +1347,7 @@ export function NoteScreen() {
               rootReplies.hasNextPage ? (
                 <View style={[atoms.px_md, atoms.py_sm]}>
                   {rootReplies.isFetchingNextPage ? (
-                    <Caption color="faint">Loading…</Caption>
+                    <Caption color="faint">{i18n._(msg`Loading…`)}</Caption>
                   ) : (
                     <Pressable
                       testID={`more-replies-${focused.id}`}

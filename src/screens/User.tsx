@@ -3,7 +3,7 @@ import {View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
 import {msg} from '@lingui/macro'
-import {useLingui} from '@lingui/react'
+import {useI18n} from '#/locale/i18n'
 
 import {type Account, type Relationship, ApiError, parseAcct} from '@keystone/fedi'
 
@@ -28,7 +28,7 @@ export function UserScreen() {
   const nav = useNavigation<NavigationProp<RootParamList>>()
   const routeId = route.params?.id
   const routeAcct = route.params?.acct
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const {session, backend} = useActiveBackend()
   // Mention taps land here with an acct, not an id (F9): look the
   // account up once, then run the normal id path. A failed lookup is
@@ -136,8 +136,8 @@ export function UserScreen() {
     <View style={atoms.flex1} testID="user-screen">
       {!session || !backend || (!targetId && !resolving && !resolveError) ? (
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Body>Sign in to see profiles.</Body>
-          <Caption color="faint">Profiles never show sample data when signed out.</Caption>
+          <Body>{i18n._(msg`Sign in to see profiles.`)}</Body>
+          <Caption color="faint">{i18n._(msg`Profiles never show sample data when signed out.`)}</Caption>
           <SignInButton />
         </View>
       ) : resolving || loading ? (

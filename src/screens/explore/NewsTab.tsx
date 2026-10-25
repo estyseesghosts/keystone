@@ -19,7 +19,7 @@ import {Button} from '#/components/Button'
 import {SkeletonList} from '#/components/Skeleton'
 import {Pressable} from '#/components/Pressable'
 import {showToast} from '#/lib/toast'
-import {i18n} from '#/locale/i18n'
+import {i18n, useI18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 
 import {mergeNewsLinks} from './news'
@@ -27,14 +27,15 @@ import {RowSeparator} from './rows'
 
 function NewsCard({link}: {link: NewsLink}) {
   const theme = useTheme()
+  const i18n = useI18n()
   const navigation = useNavigation<NavigationProp<RootParamList>>()
   const openLink = () => {
     const safe = safeHttpUrl(link.url)
     if (!safe) {
-      showToast('Could not open this link.')
+      showToast(i18n._(msg`Could not open this link.`))
       return
     }
-    void Linking.openURL(safe).catch(() => showToast('Could not open this link.'))
+    void Linking.openURL(safe).catch(() => showToast(i18n._(msg`Could not open this link.`)))
   }
   return (
     <View style={[atoms.py_sm, atoms.px_md]} testID="explore-news-item">
@@ -44,7 +45,7 @@ function NewsCard({link}: {link: NewsLink}) {
       <Pressable
         onPress={openLink}
         accessibilityRole="link"
-        accessibilityLabel={`Open link: ${link.title}`}
+        accessibilityLabel={i18n._(msg`Open link: ${link.title}`)}
         testID="explore-news-open"
         style={styles.newsRow}>
         {link.image ? (
@@ -70,7 +71,7 @@ function NewsCard({link}: {link: NewsLink}) {
             <Pressable
               onPress={() => navigation.navigate('NewsDiscussions', {url: link.url, title: link.title})}
               accessibilityRole="button"
-              accessibilityLabel={`Discussions about ${link.title}`}
+              accessibilityLabel={i18n._(msg`Discussions about ${link.title}`)}
               hitSlop={12}
               testID="explore-news-discussions"
               style={styles.discussPillWrap}>
@@ -127,7 +128,7 @@ export function NewsTab({backend}: {backend: Backend}) {
         setEnd(page.end)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load news.')
+        if (!cancelled) setError(err instanceof Error ? err.message : i18n._(msg`Could not load news.`))
       })
       .finally(() => {
         if (!cancelled) {
@@ -177,7 +178,7 @@ export function NewsTab({backend}: {backend: Backend}) {
         setEnd(page.end)
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Could not load more news.')
+        setError(err instanceof Error ? err.message : i18n._(msg`Could not load more news.`))
       })
       .finally(() => {
         loadingRef.current = false

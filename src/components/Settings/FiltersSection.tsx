@@ -112,7 +112,12 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
           label={i18n._(msg`Phrase`)}
           value={phrase}
           onChangeText={setPhrase}
-          placeholder="spoiler"
+          placeholder={i18n._(
+            msg({
+              message: 'spoiler',
+              comment: 'Example filter phrase in the input placeholder; localize the example word if it reads better',
+            }),
+          )}
           error={error ?? undefined}
           testID="filter-phrase-input"
         />

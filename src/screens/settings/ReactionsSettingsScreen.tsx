@@ -1,11 +1,14 @@
+import {useI18n} from '#/locale/i18n'
+
 import {ReactionsSection} from '#/components/Settings/ReactionsSection'
 
-import {SETTINGS_TITLES} from './meta'
+import {settingsTitle} from './meta'
 import {SectionShell} from './SectionShell'
 
 export function ReactionsSettingsScreen() {
+  const i18n = useI18n()
   return (
-    <SectionShell title={SETTINGS_TITLES.reactions}>
+    <SectionShell title={settingsTitle(i18n, 'reactions')}>
       <ReactionsSection />
     </SectionShell>
   )

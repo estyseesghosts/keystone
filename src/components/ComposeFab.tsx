@@ -1,5 +1,7 @@
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
 import {StyleSheet, View} from 'react-native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {useTheme} from '#/alf/index'
 import {useShellLayout} from '#/alf/breakpoints'
@@ -24,6 +26,7 @@ export function ComposeFab() {
   const theme = useTheme()
   const insets = useOptionalSafeAreaInsets()
   const {session} = useActiveBackend()
+  const i18n = useI18n()
   if (!session || layout !== 'mobile') return null
   return (
     <View style={[styles.wrap, {bottom: FAB_BASE_BOTTOM + insets.bottom}]} pointerEvents="box-none">
@@ -31,7 +34,7 @@ export function ComposeFab() {
         testID="compose-fab"
         onPress={() => nav.navigate('Compose')}
         accessibilityRole="button"
-        accessibilityLabel="Write a post"
+        accessibilityLabel={i18n._(msg`Write a post`)}
         style={[styles.fab, {backgroundColor: theme.palette.text}]}>
         <PencilIcon size={24} color={theme.palette.bg} />
       </Pressable>

@@ -1,5 +1,7 @@
 import {useContext} from 'react'
 import {StyleSheet, View} from 'react-native'
+import {plural} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 import {QueryClientContext} from '@tanstack/react-query'
 
 import {useTheme as useAlfTheme} from '#/alf'
@@ -139,19 +141,23 @@ function NotificationsUnreadBadgeInner({
   testID: string
 }) {
   const alf = useAlfTheme()
+  const i18n = useI18n()
   const unread = useUnreadNotificationsCount(sessionId)
   if (unread == null || unread <= 0) return null
+  const unreadLabel = i18n._(
+    plural(unread, {one: `${unread} unread notification`, other: `${unread} unread notifications`}),
+  )
   if (compact) {
     return (
       <View
         testID={testID}
-        accessibilityLabel={`${unread} unread notifications`}
+        accessibilityLabel={unreadLabel}
         style={[styles.badgeDot, {backgroundColor: alf.palette.text}]}
       />
     )
   }
   return (
-    <View testID={testID} accessibilityLabel={`${unread} unread notifications`} style={[styles.badge, {backgroundColor: alf.palette.text}]}>
+    <View testID={testID} accessibilityLabel={unreadLabel} style={[styles.badge, {backgroundColor: alf.palette.text}]}>
       <Body style={[styles.badgeText, {color: alf.palette.bg}]} numberOfLines={1}>
         {unread > 99 ? '99+' : String(unread)}
       </Body>

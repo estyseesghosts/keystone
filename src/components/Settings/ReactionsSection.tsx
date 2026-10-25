@@ -1,5 +1,7 @@
 import {useEffect, useState} from 'react'
 import {View} from 'react-native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {isUnsupportedError, UNICODE_EMOJI_GROUPS} from '@keystone/fedi'
 
@@ -52,6 +54,7 @@ function LikeEmojiRow({
   const [busy, setBusy] = useState(false)
   const [serverNote, setServerNote] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const i18n = useI18n()
 
   useEffect(() => {
     setDraft(current)
@@ -59,11 +62,11 @@ function LikeEmojiRow({
 
   const persistServer = async (emoji: string): Promise<void> => {
     if (!backend) {
-      setServerNote('Device only while signed out.')
+      setServerNote(i18n._(msg`Device only while signed out.`))
       return
     }
     if (backend.family !== 'misskey') {
-      setServerNote('Device only: this server has no default-reaction field.')
+      setServerNote(i18n._(msg`Device only: this server has no default-reaction field.`))
       return
     }
     setBusy(true)
@@ -72,9 +75,9 @@ function LikeEmojiRow({
       setServerNote(null)
     } catch (err) {
       if (isUnsupportedError(err)) {
-        setServerNote('Device only: this server has no default-reaction field.')
+        setServerNote(i18n._(msg`Device only: this server has no default-reaction field.`))
       } else {
-        setServerNote('Device only: the server refused the value.')
+        setServerNote(i18n._(msg`Device only: the server refused the value.`))
       }
     } finally {
       setBusy(false)
@@ -84,7 +87,7 @@ function LikeEmojiRow({
   const save = (emoji: string) => {
     const clean = emoji.trim()
     if (clean.length === 0) {
-      setError('Enter an emoji first.')
+      setError(i18n._(msg`Enter an emoji first.`))
       return
     }
     setError(null)
@@ -94,15 +97,15 @@ function LikeEmojiRow({
 
   return (
     <SettingRow
-      title="Like emoji"
-      hint="The one-tap like on every post. Saved on this device; sent to the server where supported."
+      title={i18n._(msg`Like emoji`)}
+      hint={i18n._(msg`The one-tap like on every post. Saved on this device; sent to the server where supported.`)}
       testID="like-emoji-row">
       <View style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
         <UnicodeEmoji sequence={current} size={28} />
         <Body testID="like-emoji-current">{current}</Body>
       </View>
       <TextField
-        label="Custom like emoji"
+        label={i18n._(msg`Custom like emoji`)}
         value={draft}
         onChangeText={setDraft}
         placeholder={DEFAULT_LIKE_EMOJI}
@@ -111,17 +114,17 @@ function LikeEmojiRow({
       />
       <View style={[atoms.row, atoms.gap_sm]}>
         <Button
-          label="Save"
+          label={i18n._(msg({message: 'Save', context: 'settings button', comment: 'Save the custom like emoji'}))}
           variant="primary"
           disabled={busy}
           onPress={() => save(draft)}
           testID="like-emoji-save"
         />
         <Button
-          label="Reset to heart"
+          label={i18n._(msg`Reset to heart`)}
           variant="secondary"
           disabled={busy || current === DEFAULT_LIKE_EMOJI}
-          disabledReason={current === DEFAULT_LIKE_EMOJI ? 'Already the default heart.' : undefined}
+          disabledReason={current === DEFAULT_LIKE_EMOJI ? i18n._(msg`Already the default heart.`) : undefined}
           onPress={() => save(DEFAULT_LIKE_EMOJI)}
           testID="like-emoji-reset"
         />
@@ -135,10 +138,11 @@ function FavouritesRow({scope, favs = favouritesStore}: {scope: string; favs?: F
   const list = useFavourites(scope, favs)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const i18n = useI18n()
   const add = () => {
     const clean = draft.trim()
     if (clean.length === 0) {
-      setError('Enter an emoji first.')
+      setError(i18n._(msg`Enter an emoji first.`))
       return
     }
     setError(null)
@@ -147,11 +151,11 @@ function FavouritesRow({scope, favs = favouritesStore}: {scope: string; favs?: F
   }
   return (
     <SettingRow
-      title="Favourite emoji"
-      hint="Pinned at the top of the emoji picker, after recents."
+      title={i18n._(msg`Favourite emoji`)}
+      hint={i18n._(msg`Pinned at the top of the emoji picker, after recents.`)}
       testID="favourites-row">
       {list.length === 0 ? (
-        <Caption color="faint">No favourites yet. Add one below, or star emoji in the picker.</Caption>
+        <Caption color="faint">{i18n._(msg`No favourites yet. Add one below, or star emoji in the picker.`)}</Caption>
       ) : (
         <View style={[atoms.gap_sm]} testID="favourites-list">
           {list.map(emoji => (
@@ -159,7 +163,9 @@ function FavouritesRow({scope, favs = favouritesStore}: {scope: string; favs?: F
               <UnicodeEmoji sequence={emoji} size={24} />
               <Body>{emoji}</Body>
               <Button
-                label="Remove"
+                label={i18n._(
+                  msg({message: 'Remove', context: 'settings button', comment: 'Remove the emoji from favourites'}),
+                )}
                 variant="secondary"
                 onPress={() => favs.remove(scope, emoji)}
                 testID={`favourite-remove-${emoji}`}
@@ -169,14 +175,14 @@ function FavouritesRow({scope, favs = favouritesStore}: {scope: string; favs?: F
         </View>
       )}
       <TextField
-        label="Add a favourite"
+        label={i18n._(msg`Add a favourite`)}
         value={draft}
         onChangeText={setDraft}
         placeholder="👍"
         error={error ?? undefined}
         testID="favourite-field"
       />
-      <Button label="Add favourite" variant="secondary" onPress={add} testID="favourite-add" />
+      <Button label={i18n._(msg`Add favourite`)} variant="secondary" onPress={add} testID="favourite-add" />
     </SettingRow>
   )
 }
@@ -184,10 +190,11 @@ function FavouritesRow({scope, favs = favouritesStore}: {scope: string; favs?: F
 function UnicodeGroupsRow({groups = emojiGroupPrefsStore}: {groups?: EmojiGroupPrefsStore}) {
   const pinned = usePinnedGroups(groups)
   const hidden = useHiddenGroups(groups)
+  const i18n = useI18n()
   return (
     <SettingRow
-      title="Unicode groups"
-      hint="Pin groups to the top of the picker, or hide the ones you never use."
+      title={i18n._(msg`Unicode groups`)}
+      hint={i18n._(msg`Pin groups to the top of the picker, or hide the ones you never use.`)}
       testID="unicode-groups-row">
       <View style={[atoms.gap_sm]}>
         {UNICODE_EMOJI_GROUPS.map(group => {
@@ -197,25 +204,37 @@ function UnicodeGroupsRow({groups = emojiGroupPrefsStore}: {groups?: EmojiGroupP
             <View key={group.category} style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
               <Body>{group.category}</Body>
               <Caption color="faint">
-                {isPinned ? 'pinned' : isHidden ? 'hidden' : ''}
+                {isPinned
+                  ? i18n._(msg({message: 'pinned', context: 'emoji group status', comment: 'Status: the group is pinned'}))
+                  : isHidden
+                    ? i18n._(msg({message: 'hidden', context: 'emoji group status', comment: 'Status: the group is hidden'}))
+                    : ''}
               </Caption>
               <Pressable
                 accessibilityRole="checkbox"
                 accessibilityState={{checked: isPinned}}
-                accessibilityLabel={`Pin ${group.category}`}
+                accessibilityLabel={i18n._(msg`Pin ${group.category}`)}
                 onPress={() => (isPinned ? groups.unpin(group.category) : groups.pin(group.category))}
                 testID={`group-pin-${group.category}`}>
-                <Body>{isPinned ? 'Unpin' : 'Pin'}</Body>
+                <Body>
+                  {isPinned
+                    ? i18n._(msg({message: 'Unpin', context: 'emoji group toggle', comment: 'Unpin the emoji group'}))
+                    : i18n._(msg({message: 'Pin', context: 'emoji group toggle', comment: 'Pin the emoji group'}))}
+                </Body>
               </Pressable>
               <Pressable
                 accessibilityRole="checkbox"
                 accessibilityState={{checked: isHidden}}
-                accessibilityLabel={`Hide ${group.category}`}
+                accessibilityLabel={i18n._(msg`Hide ${group.category}`)}
                 onPress={() =>
                   isHidden ? groups.unhide(group.category) : groups.hide(group.category)
                 }
                 testID={`group-hide-${group.category}`}>
-                <Body>{isHidden ? 'Unhide' : 'Hide'}</Body>
+                <Body>
+                  {isHidden
+                    ? i18n._(msg({message: 'Unhide', context: 'emoji group toggle', comment: 'Show the emoji group again'}))
+                    : i18n._(msg({message: 'Hide', context: 'emoji group toggle', comment: 'Hide the emoji group'}))}
+                </Body>
               </Pressable>
             </View>
           )
@@ -228,20 +247,21 @@ function UnicodeGroupsRow({groups = emojiGroupPrefsStore}: {groups?: EmojiGroupP
 export function ReactionsSection() {
   const session = useOptionalActiveSession()
   const scope = scopeOf(session?.id ?? null)
+  const i18n = useI18n()
   return (
     <View style={[atoms.gap_sm]} testID="settings-section-reactions">
       {!session ? (
         <SectionHint>
-          Signed out: likes and favourites save to this device only, under a shared account.
+          {i18n._(msg`Signed out: likes and favourites save to this device only, under a shared account.`)}
         </SectionHint>
       ) : null}
       <LikeEmojiRow scope={scope} />
       <FavouritesRow scope={scope} />
       <UnicodeGroupsRow />
       <PlaceholderRow
-        title="Back up emoji prefs"
-        hint="Export likes, pins, and hides to a file; import them back."
-        reason="Needs file sharing — not available in this build."
+        title={i18n._(msg`Back up emoji prefs`)}
+        hint={i18n._(msg`Export likes, pins, and hides to a file; import them back.`)}
+        reason={i18n._(msg`Needs file sharing — not available in this build.`)}
         testID="placeholder-emoji-backup"
       />
     </View>

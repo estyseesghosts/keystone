@@ -4,6 +4,9 @@ import {
   groupCustomByCategory,
   type CustomEmoji as CoreCustomEmoji,
 } from '@keystone/fedi'
+import {msg} from '@lingui/macro'
+
+import {i18n} from '#/locale/i18n'
 
 // Pure picker model (slice 4.5): sections for recents, server custom emoji
 // (grouped by category) and Unicode categories, with search.
@@ -78,12 +81,12 @@ export function buildPickerSections(opts: {
   const toCustom = (e: CoreCustomEmoji): PickedEmoji => ({kind: 'custom', key: customKey(e.name), url: e.url})
 
   if (q === '' && opts.recents.length > 0) {
-    sections.push({id: 'recents', title: 'Recently used', items: opts.recents})
+    sections.push({id: 'recents', title: i18n._(msg`Recently used`), items: opts.recents})
   }
 
   const favourites = opts.favourites ?? []
   if (q === '' && favourites.length > 0) {
-    sections.push({id: 'favourites', title: 'Favourites', items: favourites})
+    sections.push({id: 'favourites', title: i18n._(msg`Favourites`), items: favourites})
   }
 
   const customList = filterCustomEmojis(
@@ -108,7 +111,7 @@ export function buildPickerSections(opts: {
     if (hits.length > 0) {
       sections.push({
         id: 'remote',
-        title: 'Remote',
+        title: i18n._(msg`Remote`),
         items: hits.map(e => ({kind: 'custom' as const, key: `:${e.name}@${e.host}:`, url: e.url})),
       })
     }

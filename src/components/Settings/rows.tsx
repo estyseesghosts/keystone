@@ -1,4 +1,6 @@
 import {StyleSheet, View} from 'react-native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {atoms} from '#/alf/atoms'
 import {useTheme} from '#/alf/index'
@@ -58,12 +60,13 @@ export function PlaceholderRow({
   testID?: string
 }) {
   const theme = useTheme()
+  const i18n = useI18n()
   return (
     <View
       testID={testID}
       accessibilityRole="none"
       accessibilityState={{disabled: true}}
-      accessibilityLabel={`${title}. Unavailable: ${reason}`}
+      accessibilityLabel={i18n._(msg`${title}. Unavailable: ${reason}`)}
       style={[
         styles.row,
         styles.divider,

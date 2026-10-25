@@ -1,5 +1,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {Modal, Platform, ScrollView, StyleSheet, Switch, View} from 'react-native'
+import {msg} from '@lingui/macro'
+import type {I18n} from '@lingui/core'
 
 import {atoms} from '#/alf/atoms'
 import {useTheme} from '#/alf/index'
@@ -8,7 +10,7 @@ import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Pressable} from '#/components/Pressable'
 import {showToast} from '#/lib/toast'
-import {useLocale} from '#/locale/i18n'
+import {useLocale, useI18n} from '#/locale/i18n'
 import {useBackendForSessionId} from '#/screens/HomeFeed'
 import {
   saveRecommendationSettings,
@@ -31,26 +33,49 @@ import {
 // then refreshes `me`. Backdrop/X/Escape with unsaved edits asks
 // save-or-discard first — never a silent loss.
 
-const FACTOR_CAPTIONS: Record<RecFactorKey, string> = {
-  relevancy: 'How closely a post matches your interests.',
-  authorAffinity: 'Authors whose style matches your taste.',
-  quality: 'Well-written, substantive posts.',
-  popularity: 'Posts with many reactions, replies and boosts.',
-  recency: 'Prefer newer posts.',
-  shortPostPenalty: 'Demote very short text.',
-  overTagPenalty: 'Demote hashtag-stuffed posts.',
-  replyPenalty: 'Demote standalone replies lacking context.',
-  topicPreference: 'Your liked / disliked topics weight.',
-  followed: 'Boost for followed authors.',
-  similarUsers: 'Boost for posts liked by similar-taste users.',
+// Ranking-factor and interaction captions, resolved at render time (a
+// module constant would freeze the boot locale — the locale switches at
+// runtime).
+function factorCaption(i18n: I18n, key: RecFactorKey): string {
+  switch (key) {
+    case 'relevancy':
+      return i18n._(msg`How closely a post matches your interests.`)
+    case 'authorAffinity':
+      return i18n._(msg`Authors whose style matches your taste.`)
+    case 'quality':
+      return i18n._(msg`Well-written, substantive posts.`)
+    case 'popularity':
+      return i18n._(msg`Posts with many reactions, replies and boosts.`)
+    case 'recency':
+      return i18n._(msg`Prefer newer posts.`)
+    case 'shortPostPenalty':
+      return i18n._(msg`Demote very short text.`)
+    case 'overTagPenalty':
+      return i18n._(msg`Demote hashtag-stuffed posts.`)
+    case 'replyPenalty':
+      return i18n._(msg`Demote standalone replies lacking context.`)
+    case 'topicPreference':
+      return i18n._(msg`Your liked / disliked topics weight.`)
+    case 'followed':
+      return i18n._(msg`Boost for followed authors.`)
+    case 'similarUsers':
+      return i18n._(msg`Boost for posts liked by similar-taste users.`)
+  }
 }
 
-const ENGAGEMENT_CAPTIONS: Record<RecEngagementKey, string> = {
-  reaction: 'Reacting to a post.',
-  reply: 'Replying to a post.',
-  boost: 'Boosting (renoting) a post.',
-  favorite: 'Adding a post to favorites.',
-  post: 'What you post yourself.',
+function engagementCaption(i18n: I18n, key: RecEngagementKey): string {
+  switch (key) {
+    case 'reaction':
+      return i18n._(msg`Reacting to a post.`)
+    case 'reply':
+      return i18n._(msg`Replying to a post.`)
+    case 'boost':
+      return i18n._(msg`Boosting (renoting) a post.`)
+    case 'favorite':
+      return i18n._(msg`Adding a post to favorites.`)
+    case 'post':
+      return i18n._(msg`What you post yourself.`)
+  }
 }
 
 const LANG_NAMES: Record<string, string> = {en: 'English', ja: '日本語', zh: '中文'}
@@ -85,12 +110,15 @@ function Stepper({
 }) {
   const clamp = (n: number) => Math.min(max, Math.max(min, Math.round(n / step) * step))
   const theme = useTheme()
+  const i18n = useI18n()
   return (
     <View style={[atoms.row, atoms.itemsCenter, {gap: 12}]}>
       <Pressable
         testID={`${testID}-minus`}
         accessibilityRole="button"
-        accessibilityLabel="Decrease"
+        accessibilityLabel={i18n._(
+          msg({message: 'Decrease', context: 'stepper button', comment: 'Decrease the numeric setting'}),
+        )}
         onPress={() => onChange(clamp(value - step))}
         style={[styles.stepBtn, {borderColor: theme.palette.edge}]}>
         <Body>−</Body>
@@ -99,7 +127,9 @@ function Stepper({
       <Pressable
         testID={`${testID}-plus`}
         accessibilityRole="button"
-        accessibilityLabel="Increase"
+        accessibilityLabel={i18n._(
+          msg({message: 'Increase', context: 'stepper button', comment: 'Increase the numeric setting'}),
+        )}
         onPress={() => onChange(clamp(value + step))}
         style={[styles.stepBtn, {borderColor: theme.palette.edge}]}>
         <Body>+</Body>
@@ -119,6 +149,7 @@ export function RecommendationsSettingsOverlay({
 }) {
   const theme = useTheme()
   const locale = useLocale()
+  const i18n = useI18n()
   const backend = useBackendForSessionId(sessionId)
   const {settings, isPending} = useRecommendationSettings(sessionId)
   const interests = useRecommendationInterests(sessionId)
@@ -215,7 +246,7 @@ export function RecommendationsSettingsOverlay({
   async function save() {
     if (!draft || !sessionId) return
     if (draft.languages.length === 0) {
-      showToast('Pick at least one language.')
+      showToast(i18n._(msg`Pick at least one language.`))
       return
     }
     setSaving(true)
@@ -234,8 +265,8 @@ export function RecommendationsSettingsOverlay({
       setBaseline(draft)
       setConfirming(false)
       onClose()
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Could not save recommendations settings.')
+    } catch {
+      showToast(i18n._(msg`Could not save recommendations settings.`))
     } finally {
       setSaving(false)
     }
@@ -269,7 +300,7 @@ export function RecommendationsSettingsOverlay({
           testID="rec-settings-overlay-backdrop"
           onPress={requestClose}
           accessibilityRole="button"
-          accessibilityLabel="Close recommendations settings"
+          accessibilityLabel={i18n._(msg`Close recommendations settings`)}
           style={styles.backdrop}
         />
         <View
@@ -277,37 +308,62 @@ export function RecommendationsSettingsOverlay({
           style={[styles.card, {backgroundColor: theme.palette.bg, borderColor: theme.palette.border}]}>
           <View style={[atoms.row, atoms.itemsCenter, {gap: 12}]}>
             <View style={atoms.flex1}>
-              <Heading>Recommendations</Heading>
+              <Heading>{i18n._(msg`Recommendations`)}</Heading>
             </View>
             <Pressable
               testID="rec-settings-overlay-close"
               onPress={requestClose}
               accessibilityRole="button"
-              accessibilityLabel="Close recommendations settings">
+              accessibilityLabel={i18n._(msg`Close recommendations settings`)}>
               <Heading>✕</Heading>
             </Pressable>
           </View>
           {confirming ? (
             <View style={[atoms.gap_md]} testID="rec-settings-dirty-confirm">
-              <Body>You have unsaved changes. Save them or discard?</Body>
-              <Button label={saving ? 'Saving…' : 'Save changes'} onPress={save} disabled={saving} testID="rec-settings-confirm-save" />
-              <Button label="Discard changes" variant="secondary" onPress={discard} disabled={saving} testID="rec-settings-confirm-discard" />
-              <Button label="Keep editing" variant="secondary" onPress={() => setConfirming(false)} disabled={saving} testID="rec-settings-confirm-cancel" />
+              <Body>{i18n._(msg`You have unsaved changes. Save them or discard?`)}</Body>
+              <Button
+                label={saving ? i18n._(msg`Saving…`) : i18n._(msg`Save changes`)}
+                onPress={save}
+                disabled={saving}
+                testID="rec-settings-confirm-save"
+              />
+              <Button
+                label={i18n._(msg`Discard changes`)}
+                variant="secondary"
+                onPress={discard}
+                disabled={saving}
+                testID="rec-settings-confirm-discard"
+              />
+              <Button
+                label={i18n._(msg`Keep editing`)}
+                variant="secondary"
+                onPress={() => setConfirming(false)}
+                disabled={saving}
+                testID="rec-settings-confirm-cancel"
+              />
             </View>
           ) : !draft ? (
             <View style={[atoms.centered, atoms.p_md]} testID="rec-settings-loading">
-              <Body>{isPending ? 'Loading…' : backend?.recommendations ? 'Loading…' : 'This server has no recommendations.'}</Body>
+              <Body>
+                {isPending
+                  ? i18n._(msg`Loading…`)
+                  : backend?.recommendations
+                    ? i18n._(msg`Loading…`)
+                    : i18n._(msg`This server has no recommendations.`)}
+              </Body>
             </View>
           ) : (
             <ScrollView testID="rec-settings-form" style={{maxHeight: 520}}>
               <View style={[atoms.gap_md]}>
                 <Caption color="faint">
-                  Tune how the recommendations feed (the ✨ tab) picks posts for you.
+                  {i18n._(msg`Tune how the recommendations feed (the ✨ tab) picks posts for you.`)}
                 </Caption>
                 <View style={[atoms.row, atoms.itemsCenter, {gap: 12}]}>
                   <View style={atoms.flex1}>
-                    <Body>Enable recommendations</Body>
-                    <Caption color="faint">When off, the feed is removed and settings below are disabled.</Caption>
+                    <Body>{i18n._(msg`Enable recommendations`)}</Body>
+                    <Caption color="faint">
+                      {i18n._(msg`When off, the feed is removed and settings below are disabled.`)}
+                    </Caption>
                   </View>
                   <Switch
                     testID="rec-settings-enabled"
@@ -317,14 +373,16 @@ export function RecommendationsSettingsOverlay({
                   />
                 </View>
                 <Button
-                  label={saving ? 'Saving…' : 'Save'}
+                  label={saving ? i18n._(msg`Saving…`) : i18n._(msg`Save`)}
                   onPress={save}
                   disabled={saving || draft.languages.length === 0}
                   testID="rec-settings-save-top"
                 />
                 <View style={draft.enabled ? undefined : styles.disabled} testID="rec-settings-fields">
-                  <Body>Languages</Body>
-                  <Caption color="faint">Posts from all selected languages are pooled and ranked together.</Caption>
+                  <Body>{i18n._(msg`Languages`)}</Body>
+                  <Caption color="faint">
+                    {i18n._(msg`Posts from all selected languages are pooled and ranked together.`)}
+                  </Caption>
                   <View style={[atoms.row, {gap: 8, flexWrap: 'wrap'}]}>
                     {REC_LANGUAGES.map(l => {
                       const on = draft.languages.includes(l)
@@ -348,8 +406,12 @@ export function RecommendationsSettingsOverlay({
                       )
                     })}
                   </View>
-                  <Body>Followed-post share: {Math.round(draft.followedRatio * 100)}%</Body>
-                  <Caption color="faint">Share of the feed from follows (max 7 days old, unseen). 0% = off.</Caption>
+                  <Body>
+                    {i18n._(msg`Followed-post share: ${Math.round(draft.followedRatio * 100)}%`)}
+                  </Body>
+                  <Caption color="faint">
+                    {i18n._(msg`Share of the feed from follows (max 7 days old, unseen). 0% = off.`)}
+                  </Caption>
                   <Stepper
                     value={draft.followedRatio}
                     min={0}
@@ -359,12 +421,14 @@ export function RecommendationsSettingsOverlay({
                     testID="rec-settings-followed-ratio"
                     format={v => `${Math.round(v * 100)}%`}
                   />
-                  <Body>Ranking factors</Body>
-                  <Caption color="faint">Each slider multiplies how much a factor counts: 0 ignores it, 1 keeps the default, 2 doubles it.</Caption>
+                  <Body>{i18n._(msg`Ranking factors`)}</Body>
+                  <Caption color="faint">
+                    {i18n._(msg`Each slider multiplies how much a factor counts: 0 ignores it, 1 keeps the default, 2 doubles it.`)}
+                  </Caption>
                   {REC_FACTOR_KEYS.map(k => (
                     <View key={k} style={[atoms.gap_sm]}>
                       <Body>{k}</Body>
-                      <Caption color="faint">{FACTOR_CAPTIONS[k]}</Caption>
+                      <Caption color="faint">{factorCaption(i18n, k)}</Caption>
                       <Stepper
                         value={draft.factors[k]}
                         min={0}
@@ -376,12 +440,14 @@ export function RecommendationsSettingsOverlay({
                       />
                     </View>
                   ))}
-                  <Body>Interaction weights</Body>
-                  <Caption color="faint">How strongly each interaction nudges your interests toward similar posts.</Caption>
+                  <Body>{i18n._(msg`Interaction weights`)}</Body>
+                  <Caption color="faint">
+                    {i18n._(msg`How strongly each interaction nudges your interests toward similar posts.`)}
+                  </Caption>
                   {REC_ENGAGEMENT_KEYS.map(k => (
                     <View key={k} style={[atoms.gap_sm]}>
                       <Body>{k}</Body>
-                      <Caption color="faint">{ENGAGEMENT_CAPTIONS[k]}</Caption>
+                      <Caption color="faint">{engagementCaption(i18n, k)}</Caption>
                       <Stepper
                         value={draft.engagement[k]}
                         min={0}
@@ -395,8 +461,10 @@ export function RecommendationsSettingsOverlay({
                   ))}
                   <View style={[atoms.row, atoms.itemsCenter, {gap: 12}]}>
                     <View style={atoms.flex1}>
-                      <Body>Recommend NSFW posts</Body>
-                      <Caption color="faint">When off, posts with sensitive media are never recommended.</Caption>
+                      <Body>{i18n._(msg`Recommend NSFW posts`)}</Body>
+                      <Caption color="faint">
+                        {i18n._(msg`When off, posts with sensitive media are never recommended.`)}
+                      </Caption>
                     </View>
                     <Switch
                       testID="rec-settings-nsfw"
@@ -405,7 +473,7 @@ export function RecommendationsSettingsOverlay({
                       disabled={saving}
                     />
                   </View>
-                  <Body>Interested in</Body>
+                  <Body>{i18n._(msg`Interested in`)}</Body>
                   <View style={[atoms.row, {gap: 8, flexWrap: 'wrap'}]}>
                     {draft.interestTopics.map(t => (
                       <Pressable
@@ -432,7 +500,7 @@ export function RecommendationsSettingsOverlay({
                       </Pressable>
                     ))}
                   </View>
-                  <Body>Not interested in</Body>
+                  <Body>{i18n._(msg`Not interested in`)}</Body>
                   <View style={[atoms.row, {gap: 8, flexWrap: 'wrap'}]}>
                     {draft.disinterestTopics.map(t => (
                       <Pressable
@@ -455,7 +523,7 @@ export function RecommendationsSettingsOverlay({
                   </View>
                 </View>
                 <Button
-                  label={saving ? 'Saving…' : 'Save'}
+                  label={saving ? i18n._(msg`Saving…`) : i18n._(msg`Save`)}
                   onPress={save}
                   disabled={saving || draft.languages.length === 0}
                   testID="rec-settings-save-bottom"

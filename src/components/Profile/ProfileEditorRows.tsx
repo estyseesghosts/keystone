@@ -4,6 +4,8 @@
 // unsupported row renders disabled WITH its reason — never omitted, never
 // inert.
 import {StyleSheet, Switch, TextInput, View} from 'react-native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import type {ReactNode} from 'react'
 
@@ -138,6 +140,8 @@ export function EditorImageRow({
   errorTestID?: string
   progressTestID?: string
 }) {
+  const i18n = useI18n()
+  const uploadingLabel = i18n._(msg`Uploading…`)
   return (
     <View testID={testID} style={atoms.gap_sm}>
       <Caption>{label}</Caption>
@@ -147,12 +151,12 @@ export function EditorImageRow({
         variant="secondary"
         onPress={onChoose}
         disabled={uploading || !!disabledReason}
-        disabledReason={disabledReason ?? (uploading ? 'Uploading…' : undefined)}
+        disabledReason={disabledReason ?? (uploading ? uploadingLabel : undefined)}
         testID={testID ? `${testID}-choose` : undefined}
       />
       {uploading ? (
         <Caption testID={progressTestID} color="faint">
-          Uploading…
+          {uploadingLabel}
         </Caption>
       ) : null}
       {error ? (

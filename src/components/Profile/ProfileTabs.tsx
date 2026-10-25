@@ -51,7 +51,7 @@ export function ProfileTabs({
       onChange={onChange}
       testID="profile-tabs"
       testIDPrefix="profile-tab"
-      accessibilityLabel="Profile posts"
+      accessibilityLabel={i18n._(msg`Profile posts`)}
     />
   )
 }

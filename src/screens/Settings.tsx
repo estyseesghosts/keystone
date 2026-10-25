@@ -1,5 +1,7 @@
 import {ScrollView, View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {atoms} from '#/alf/atoms'
 import {Body, Caption, Heading} from '#/alf/typography'
@@ -13,7 +15,7 @@ import {FeedsSettingsScreen} from './settings/FeedsSettingsScreen'
 import {FiltersSettingsScreen} from './settings/FiltersSettingsScreen'
 import {ImportSettingsScreen} from './settings/ImportSettingsScreen'
 import {LanguageSettingsScreen} from './settings/LanguageSettingsScreen'
-import {SETTINGS_META} from './settings/meta'
+import {settingsMeta} from './settings/meta'
 import {MutesSettingsScreen} from './settings/MutesSettingsScreen'
 import {ReactionsSettingsScreen} from './settings/ReactionsSettingsScreen'
 
@@ -37,19 +39,20 @@ function sectionFromParam(raw: unknown): SettingsSection | undefined {
 export function SettingsScreen() {
   const nav = useNavigation<NavigationProp<RootParamList>>()
   const route = useRoute<RouteProp<RootParamList, 'Settings'>>()
+  const i18n = useI18n()
   const section = sectionFromParam(route.params?.section)
   return (
     <ScrollView testID="settings-screen">
       <View style={[atoms.p_md, atoms.gap_md]}>
         {section === undefined ? (
           <>
-            <Heading>Settings</Heading>
-            {SETTINGS_META.map(s => (
+            <Heading>{i18n._(msg`Settings`)}</Heading>
+            {settingsMeta(i18n).map(s => (
               <Pressable
                 key={s.id}
                 testID={`settings-row-${s.id}`}
                 accessibilityRole="button"
-                accessibilityLabel={`${s.title}. ${s.hint}`}
+                accessibilityLabel={i18n._(msg`${s.title}. ${s.hint}`)}
                 onPress={() => nav.navigate('Settings', {section: s.id})}
                 style={[atoms.gap_sm, {paddingVertical: 8}]}>
                 <Body>{s.title}</Body>

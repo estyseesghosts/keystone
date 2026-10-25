@@ -20,6 +20,8 @@ import {useContext, useEffect, useState, type ReactNode} from 'react'
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native'
 import {QueryClientContext} from '@tanstack/react-query'
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {
   displayNameOf,
@@ -65,6 +67,7 @@ function extStr(account: Account, key: string): string {
 export function ProfileEditorScreen() {
   const nav = useNavigation<NavigationProp<RootParamList>>()
   const alf = useAlfTheme()
+  const i18n = useI18n()
   const {backend} = useActiveBackend()
   const session = useActiveSession()
   const isMastodon = (session?.family ?? backend?.family) === 'mastodon'
@@ -131,14 +134,14 @@ export function ProfileEditorScreen() {
       })
       .catch(err => {
         if (cancelled) return
-        setLoadError(err instanceof Error ? err.message : 'Could not load your profile.')
+        setLoadError(err instanceof Error ? err.message : i18n._(msg`Could not load your profile.`))
         setLoading(false)
       })
     return () => {
       cancelled = true
     }
     // Load once per backend identity; the family switch re-seeds the form.
-  }, [backend, fieldCap])
+  }, [backend, fieldCap, i18n])
 
   // v1-style overlay: the `ProfileEdit` route is a transparent modal, so
   // this screen renders as a floating card over a dismissible scrim. Every
@@ -150,7 +153,9 @@ export function ProfileEditorScreen() {
         testID="profile-editor-backdrop"
         style={styles.backdrop}
         accessibilityRole="button"
-        accessibilityLabel="Close editor"
+        accessibilityLabel={i18n._(
+          msg({message: 'Close editor', context: 'navigation', comment: 'Close the profile editor'}),
+        )}
         onPress={() => nav.goBack()}
       />
       <View
@@ -160,10 +165,14 @@ export function ProfileEditorScreen() {
           <Pressable
             testID="profile-editor-close"
             accessibilityRole="button"
-            accessibilityLabel="Close editor"
+            accessibilityLabel={i18n._(
+              msg({message: 'Close editor', context: 'navigation', comment: 'Close the profile editor'}),
+            )}
             hitSlop={8}
             onPress={() => nav.goBack()}>
-            <Body>Close</Body>
+            <Body>
+              {i18n._(msg({message: 'Close', context: 'navigation', comment: 'Close the profile editor'}))}
+            </Body>
           </Pressable>
         </View>
         {content}
@@ -174,8 +183,13 @@ export function ProfileEditorScreen() {
   if (!backend) {
     return overlay(
       <View testID="profile-editor" style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-        <Body>Sign in to edit your profile.</Body>
-        <Button label="Back" variant="secondary" onPress={() => nav.goBack()} testID="profile-editor-back" />
+        <Body>{i18n._(msg`Sign in to edit your profile.`)}</Body>
+        <Button
+          label={i18n._(msg({message: 'Back', context: 'navigation', comment: 'Go back to the previous screen'}))}
+          variant="secondary"
+          onPress={() => nav.goBack()}
+          testID="profile-editor-back"
+        />
       </View>,
     )
   }
@@ -191,9 +205,14 @@ export function ProfileEditorScreen() {
   if (loadError || !me) {
     return overlay(
       <View testID="profile-editor" style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-        <Body>Could not load your profile.</Body>
+        <Body>{i18n._(msg`Could not load your profile.`)}</Body>
         <Caption color="faint">{loadError}</Caption>
-        <Button label="Back" variant="secondary" onPress={() => nav.goBack()} testID="profile-editor-back" />
+        <Button
+          label={i18n._(msg({message: 'Back', context: 'navigation', comment: 'Go back to the previous screen'}))}
+          variant="secondary"
+          onPress={() => nav.goBack()}
+          testID="profile-editor-back"
+        />
       </View>,
     )
   }
@@ -232,11 +251,11 @@ export function ProfileEditorScreen() {
         },
         (err: unknown) => {
           if (isPermissionError(err)) {
-            setError('You do not have permission to update this profile. Sign in again and retry.')
+            setError(i18n._(msg`You do not have permission to update this profile. Sign in again and retry.`))
           } else if (err instanceof Error) {
             setError(err.message)
           } else {
-            setError('Could not save your profile.')
+            setError(i18n._(msg`Could not save your profile.`))
           }
         },
       )
@@ -245,11 +264,11 @@ export function ProfileEditorScreen() {
       })
   }
 
-  const misskeyOnlyReason = 'Only available on Misskey-family servers.'
+  const misskeyOnlyReason = i18n._(msg`Only available on Misskey-family servers.`)
   const uploadProfileImage = backend.uploadProfileImage
   const imageDisabledReason = uploadProfileImage
     ? undefined
-    : 'This server has no endpoint for profile pictures, so they cannot be changed here.'
+    : i18n._(msg`This server has no endpoint for profile pictures, so they cannot be changed here.`)
 
   /** Pick and upload one image. Uploads on pick — the text fields below
    * keep their unsaved values because nothing here re-seeds them. */
@@ -265,7 +284,7 @@ export function ProfileEditorScreen() {
       picked = await pickProfileImage(kind)
     } catch (err) {
       setImageError(
-        err instanceof Error ? err.message : 'Could not open the photo picker.',
+        err instanceof Error ? err.message : i18n._(msg`Could not open the photo picker.`),
       )
       return
     }
@@ -273,13 +292,13 @@ export function ProfileEditorScreen() {
     if (picked.kind === 'denied') {
       setImageError(
         picked.canAskAgain
-          ? 'Photo access was denied. Try again and allow access when your device asks.'
-          : 'Photo access is off for this app. Allow it in your device settings to change your picture.',
+          ? i18n._(msg`Photo access was denied. Try again and allow access when your device asks.`)
+          : i18n._(msg`Photo access is off for this app. Allow it in your device settings to change your picture.`),
       )
       return
     }
     if (!uploadProfileImage) {
-      setImageError(imageDisabledReason ?? 'Profile pictures cannot be changed on this server.')
+      setImageError(imageDisabledReason ?? i18n._(msg`Profile pictures cannot be changed on this server.`))
       return
     }
 
@@ -303,12 +322,12 @@ export function ProfileEditorScreen() {
     } catch (err) {
       if (isPermissionError(err)) {
         setImageError(
-          'Your sign-in is missing the permission to change profile pictures. Sign in again and retry.',
+          i18n._(msg`Your sign-in is missing the permission to change profile pictures. Sign in again and retry.`),
         )
       } else if (err instanceof Error) {
         setImageError(err.message)
       } else {
-        setImageError('Could not upload that picture.')
+        setImageError(i18n._(msg`Could not upload that picture.`))
       }
       // Nothing changed server-side: fall back to the last confirmed image.
       setImagePreviews(prev => ({...prev, [kind]: null}))
@@ -323,42 +342,44 @@ export function ProfileEditorScreen() {
   return overlay(
     <ScrollView testID="profile-editor" style={atoms.flex1}>
       <View style={[atoms.gap_sm, atoms.p_md]}>
-        <Heading>Edit profile</Heading>
+        <Heading>{i18n._(msg`Edit profile`)}</Heading>
         <Caption color="faint">
-          {isMastodon ? 'Mastodon server' : 'Misskey-family server'} · @{me.acct}
+          {isMastodon
+            ? i18n._(msg`Mastodon server · @${me.acct}`)
+            : i18n._(msg`Misskey-family server · @${me.acct}`)}
         </Caption>
 
         <EditorTextRow
-          label="Display name"
+          label={i18n._(msg`Display name`)}
           value={name}
           onChangeText={setName}
           placeholder={me.username}
           testID="profile-editor-name"
         />
         <EditorTextRow
-          label={isMastodon ? 'Bio' : 'Bio (MFM)'}
+          label={isMastodon ? i18n._(msg`Bio`) : i18n._(msg`Bio (MFM)`)}
           value={bio}
           onChangeText={setBio}
           multiline
           testID="profile-editor-bio"
         />
         <EditorSwitchRow
-          label="Locked account"
-          hint="Require approval for new followers."
+          label={i18n._(msg`Locked account`)}
+          hint={i18n._(msg`Require approval for new followers.`)}
           value={locked}
           onValueChange={setLocked}
           testID="profile-editor-locked"
         />
         <EditorSwitchRow
-          label="Automated account"
-          hint="Mark this account as a bot."
+          label={i18n._(msg`Automated account`)}
+          hint={i18n._(msg`Mark this account as a bot.`)}
           value={bot}
           onValueChange={setBot}
           testID="profile-editor-bot"
         />
 
         <EditorTextRow
-          label="Location"
+          label={i18n._(msg`Location`)}
           value={location}
           onChangeText={isMastodon ? undefined : setLocation}
           editable={!isMastodon}
@@ -366,16 +387,21 @@ export function ProfileEditorScreen() {
           testID="profile-editor-location"
         />
         <EditorTextRow
-          label="Birthday"
+          label={i18n._(msg`Birthday`)}
           value={birthday}
           onChangeText={isMastodon ? undefined : setBirthday}
-          placeholder="YYYY-MM-DD"
+          placeholder={i18n._(
+            msg({
+              message: 'YYYY-MM-DD',
+              comment: 'Date-format example in the input placeholder; keep as-is',
+            }),
+          )}
           editable={!isMastodon}
           disabledReason={isMastodon ? misskeyOnlyReason : undefined}
           testID="profile-editor-birthday"
         />
         <EditorTextRow
-          label="Followed message"
+          label={i18n._(msg`Followed message`)}
           value={followedMessage}
           onChangeText={isMastodon ? undefined : setFollowedMessage}
           editable={!isMastodon}
@@ -383,10 +409,15 @@ export function ProfileEditorScreen() {
           testID="profile-editor-followedMessage"
         />
         <EditorTextRow
-          label="Language"
+          label={i18n._(msg`Language`)}
           value={lang}
           onChangeText={isMastodon ? undefined : setLang}
-          placeholder="en"
+          placeholder={i18n._(
+            msg({
+              message: 'en',
+              comment: 'Language-code example in the input placeholder; keep as-is',
+            }),
+          )}
           editable={!isMastodon}
           disabledReason={isMastodon ? misskeyOnlyReason : undefined}
           testID="profile-editor-lang"
@@ -394,24 +425,24 @@ export function ProfileEditorScreen() {
 
         <View style={atoms.gap_sm}>
           <Caption>
-            Profile fields ({fields.length}/{fieldCap})
+            {i18n._(msg`Profile fields (${fields.length}/${fieldCap})`)}
           </Caption>
           {fields.map((f, i) => (
             <View key={i} style={atoms.gap_sm}>
               <EditorTextRow
-                label={`Field ${i + 1} name`}
+                label={i18n._(msg`Field ${i + 1} name`)}
                 value={f.name}
                 onChangeText={text => setField(i, {name: text})}
                 testID={`profile-editor-field-name-${i}`}
               />
               <EditorTextRow
-                label={`Field ${i + 1} value`}
+                label={i18n._(msg`Field ${i + 1} value`)}
                 value={f.value}
                 onChangeText={text => setField(i, {value: text})}
                 testID={`profile-editor-field-value-${i}`}
               />
               <Button
-                label="Remove field"
+                label={i18n._(msg`Remove field`)}
                 variant="secondary"
                 onPress={() => setFields(prev => prev.filter((_, j) => j !== i))}
                 testID={`profile-editor-field-remove-${i}`}
@@ -420,20 +451,20 @@ export function ProfileEditorScreen() {
           ))}
           {fields.length < fieldCap ? (
             <Button
-              label="Add field"
+              label={i18n._(msg`Add field`)}
               variant="secondary"
               onPress={() => setFields(prev => [...prev, {name: '', value: ''}])}
               testID="profile-editor-field-add"
             />
           ) : (
             <Caption color="faint">
-              This server allows at most {fieldCap} profile fields.
+              {i18n._(msg`This server allows at most ${fieldCap} profile fields.`)}
             </Caption>
           )}
         </View>
 
         <EditorImageRow
-          label="Avatar"
+          label={i18n._(msg`Avatar`)}
           preview={
             <ProfileAvatar
               uri={previewUriFor('avatar')}
@@ -441,27 +472,31 @@ export function ProfileEditorScreen() {
               testID="profile-editor-avatar-preview"
             />
           }
-          chooseLabel={previewUriFor('avatar') ? 'Replace avatar' : 'Choose avatar'}
+          chooseLabel={
+            previewUriFor('avatar') ? i18n._(msg`Replace avatar`) : i18n._(msg`Choose avatar`)
+          }
           uploading={uploading === 'avatar'}
           error={imageErrors.avatar}
-          disabledReason={uploading === 'banner' ? 'Finish the banner upload first.' : imageDisabledReason}
+          disabledReason={uploading === 'banner' ? i18n._(msg`Finish the banner upload first.`) : imageDisabledReason}
           onChoose={() => void changeImage('avatar')}
           testID="profile-editor-avatar"
           errorTestID="profile-editor-avatar-error"
           progressTestID="profile-editor-avatar-progress"
         />
         <EditorImageRow
-          label="Banner"
+          label={i18n._(msg`Banner`)}
           preview={
             <ProfileBanner
               uri={previewUriFor('banner')}
               testID="profile-editor-banner-preview"
             />
           }
-          chooseLabel={previewUriFor('banner') ? 'Replace banner' : 'Choose banner'}
+          chooseLabel={
+            previewUriFor('banner') ? i18n._(msg`Replace banner`) : i18n._(msg`Choose banner`)
+          }
           uploading={uploading === 'banner'}
           error={imageErrors.banner}
-          disabledReason={uploading === 'avatar' ? 'Finish the avatar upload first.' : imageDisabledReason}
+          disabledReason={uploading === 'avatar' ? i18n._(msg`Finish the avatar upload first.`) : imageDisabledReason}
           onChoose={() => void changeImage('banner')}
           testID="profile-editor-banner"
           errorTestID="profile-editor-banner-error"
@@ -470,13 +505,13 @@ export function ProfileEditorScreen() {
 
         {error ? <Body testID="profile-editor-error">{error}</Body> : null}
         <Button
-          label={saving ? 'Saving' : 'Save'}
+          label={saving ? i18n._(msg`Saving`) : i18n._(msg`Save`)}
           onPress={save}
           disabled={saving}
           testID="profile-editor-save"
         />
         <Button
-          label="Cancel"
+          label={i18n._(msg`Cancel`)}
           variant="secondary"
           onPress={() => nav.goBack()}
           testID="profile-editor-cancel"

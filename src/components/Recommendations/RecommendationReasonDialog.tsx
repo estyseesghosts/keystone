@@ -1,4 +1,7 @@
 import {ScrollView, StyleSheet, View} from 'react-native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
+import type {I18n} from '@lingui/core'
 
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
@@ -11,18 +14,28 @@ import type {RecommendationBreakdown} from '@keystone/fedi'
 // `MkRecommendationReason` (summary, additive table, recency multiplier,
 // learned ranker when a model drove the ranking).
 
-const ENGAGEMENT_LABELS: Record<string, string> = {
-  reaction: 'Reaction',
-  favorite: 'Favorite',
-  renote: 'Renote',
-  reply: 'Reply',
-  dwell: 'Good click',
-  replyEngagedByAuthor: 'Reply engaged by author',
-  dislike: 'Not interested',
-}
-
-function engagementLabel(key: string): string {
-  return ENGAGEMENT_LABELS[key] ?? key
+// Ranking-factor labels, resolved at render time (a module constant would
+// freeze the boot locale — the locale switches at runtime). Unknown keys
+// render raw: they are server-supplied data, never translated.
+function engagementLabel(i18n: I18n, key: string): string {
+  switch (key) {
+    case 'reaction':
+      return i18n._(msg({message: 'Reaction', context: 'recommendation factor', comment: 'Label for the reaction ranking factor'}))
+    case 'favorite':
+      return i18n._(msg({message: 'Favorite', context: 'recommendation factor', comment: 'Label for the favorite ranking factor'}))
+    case 'renote':
+      return i18n._(msg({message: 'Renote', context: 'recommendation factor', comment: 'Label for the repost ranking factor'}))
+    case 'reply':
+      return i18n._(msg({message: 'Reply', context: 'recommendation factor', comment: 'Label for the reply ranking factor'}))
+    case 'dwell':
+      return i18n._(msg`Good click`)
+    case 'replyEngagedByAuthor':
+      return i18n._(msg`Reply engaged by author`)
+    case 'dislike':
+      return i18n._(msg`Not interested`)
+    default:
+      return key
+  }
 }
 
 export function RecommendationReasonDialog({
@@ -35,20 +48,28 @@ export function RecommendationReasonDialog({
   onClose: () => void
 }) {
   const theme = useTheme()
+  const i18n = useI18n()
   const additive = (breakdown?.rows ?? []).filter(r => r.kind === 'add')
   const mult = (breakdown?.rows ?? []).filter(r => r.kind === 'mult')
   return (
-    <Dialog open={open} onClose={onClose} title="Why is this post recommended?" testID="rec-reason-dialog">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={i18n._(msg`Why is this post recommended?`)}
+      testID="rec-reason-dialog">
       {breakdown ? (
         <ScrollView testID="rec-reason-body" style={{maxHeight: 480}}>
           <View style={styles.block}>
-            <Body>Final score: {breakdown.score.toFixed(3)}</Body>            {breakdown.topic ? <Caption color="muted">Inferred topic: {breakdown.topic}</Caption> : null}
+            <Body>{i18n._(msg`Final score: ${breakdown.score.toFixed(3)}`)}</Body>
+            {breakdown.topic ? (
+              <Caption color="muted">{i18n._(msg`Inferred topic: ${breakdown.topic}`)}</Caption>
+            ) : null}
             <Caption color="muted">
-              Type: {breakdown.type === 'following' ? 'Following' : 'Score'}
+              {breakdown.type === 'following' ? i18n._(msg`Type: Following`) : i18n._(msg`Type: Score`)}
             </Caption>
             {breakdown.type === 'following' ? (
               <Caption color="muted" testID="rec-reason-following-note">
-                This post is from an account you follow. It&apos;s still scored and ranked like discovery posts.
+                {i18n._(msg`This post is from an account you follow. It's still scored and ranked like discovery posts.`)}
               </Caption>
             ) : null}
           </View>
@@ -68,7 +89,7 @@ export function RecommendationReasonDialog({
               </View>
             ))}
             <View style={[styles.row, {borderBottomColor: theme.palette.border}]}>
-              <Body style={styles.cellName}>Subtotal</Body>
+              <Body style={styles.cellName}>{i18n._(msg`Subtotal`)}</Body>
               <Body style={styles.cellNum}>{breakdown.subtotal.toFixed(3)}</Body>
             </View>
             {mult.map(row => (
@@ -81,19 +102,20 @@ export function RecommendationReasonDialog({
               </View>
             ))}
             <View style={[styles.row, {borderBottomColor: theme.palette.border}]}>
-              <Body style={styles.cellName}>Final score</Body>
+              <Body style={styles.cellName}>{i18n._(msg`Final score`)}</Body>
               <Body style={styles.cellNum}>{breakdown.score.toFixed(3)}</Body>
             </View>
           </View>
           {breakdown.engagements && breakdown.engagements.length > 0 ? (
             <View style={styles.block} testID="rec-reason-learned">
               <Body>
-                Learned ranker · {Math.round((breakdown.rankerWeight ?? 0) * 100)}% blend · score{' '}
-                {(breakdown.learnedScore ?? 0).toFixed(2)}
+                {i18n._(
+                  msg`Learned ranker · ${Math.round((breakdown.rankerWeight ?? 0) * 100)}% blend · score ${(breakdown.learnedScore ?? 0).toFixed(2)}`,
+                )}
               </Body>
               {breakdown.engagements.map(row => (
                 <View key={row.key} style={[styles.row, {borderBottomColor: theme.palette.border}]}>
-                  <Body style={styles.cellName}>{engagementLabel(row.key)}</Body>
+                  <Body style={styles.cellName}>{engagementLabel(i18n, row.key)}</Body>
                   <Body style={styles.cellNum}>{(row.prob * 100).toFixed(1)}%</Body>
                   <Body style={styles.cellNum}>{row.value.toFixed(1)}</Body>
                   <Body style={styles.cellNum}>

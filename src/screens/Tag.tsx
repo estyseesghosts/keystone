@@ -13,6 +13,8 @@
 import {useCallback, useEffect, useState} from 'react'
 import {View} from 'react-native'
 import {useRoute, type RouteProp} from '@react-navigation/native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {
   isPermissionError,
@@ -30,15 +32,6 @@ import {SignInButton} from '#/components/SignInButton'
 import {titleForRoute, type RootParamList} from '#/routes'
 import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
 import {safeDescriptorArg} from './explore/safeDescriptor'
-
-/** Why the action block is unavailable — a stable English reason shown
- * both as a caption and on the disabled controls' accessibility label. */
-const REASON_NEEDS_MASTODON = 'Hashtag following needs a Mastodon-family server.'
-const REASON_NO_SHOW = 'This server cannot report hashtag state.'
-const REASON_NO_STATE = 'This server has no state for this hashtag yet.'
-const REASON_NO_FEATURED = 'Featured hashtags are not available on this server.'
-const REASON_ACTION_UNSUPPORTED = 'This server does not support that hashtag action.'
-const REASON_NO_MUTE = 'There is no hashtag-mute endpoint on this server; use a keyword filter instead.'
 
 function DisabledAction({
   label,
@@ -59,6 +52,7 @@ function DisabledAction({
 
 function TagActions({backend, tag}: {backend: Backend; tag: string}) {
   const tags = backend.tags
+  const i18n = useI18n()
   const [info, setInfo] = useState<TagInfo | null>(null)
   const [loading, setLoading] = useState(true)
   /** A stable reason when the server cannot answer at all (404/405 or no
@@ -72,7 +66,7 @@ function TagActions({backend, tag}: {backend: Backend; tag: string}) {
   const load = useCallback(async () => {
     if (!show) {
       setLoading(false)
-      setUnavailable(REASON_NO_SHOW)
+      setUnavailable(i18n._(msg`This server cannot report hashtag state.`))
       setInfo(null)
       return
     }
@@ -83,15 +77,15 @@ function TagActions({backend, tag}: {backend: Backend; tag: string}) {
       setInfo(await show(tag))
     } catch (err) {
       if (isUnsupportedError(err)) {
-        setUnavailable(REASON_NO_STATE)
+        setUnavailable(i18n._(msg`This server has no state for this hashtag yet.`))
         setInfo(null)
       } else {
-        setError(err instanceof Error ? err.message : 'Could not load this hashtag.')
+        setError(err instanceof Error ? err.message : i18n._(msg`Could not load this hashtag.`))
       }
     } finally {
       setLoading(false)
     }
-  }, [show, tag])
+  }, [show, tag, i18n])
 
   useEffect(() => {
     void load()
@@ -108,12 +102,12 @@ function TagActions({backend, tag}: {backend: Backend; tag: string}) {
       await load()
     } catch (err) {
       if (isUnsupportedError(err)) {
-        setUnavailable(REASON_ACTION_UNSUPPORTED)
+        setUnavailable(i18n._(msg`This server does not support that hashtag action.`))
         setInfo(null)
       } else if (isPermissionError(err)) {
-        setError('Your account cannot change this hashtag.')
+        setError(i18n._(msg`Your account cannot change this hashtag.`))
       } else {
-        setError(err instanceof Error ? err.message : 'Action failed.')
+        setError(err instanceof Error ? err.message : i18n._(msg`Action failed.`))
       }
     } finally {
       setBusy(false)
@@ -123,8 +117,16 @@ function TagActions({backend, tag}: {backend: Backend; tag: string}) {
   if (!tags) {
     return (
       <View style={[atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="tag-actions">
-        <DisabledAction label="Follow hashtag" reason={REASON_NEEDS_MASTODON} testID="tag-follow" />
-        <DisabledAction label="Mute this hashtag" reason={REASON_NO_MUTE} testID="tag-mute" />
+        <DisabledAction
+          label={i18n._(msg`Follow hashtag`)}
+          reason={i18n._(msg`Hashtag following needs a Mastodon-family server.`)}
+          testID="tag-follow"
+        />
+        <DisabledAction
+          label={i18n._(msg`Mute this hashtag`)}
+          reason={i18n._(msg`There is no hashtag-mute endpoint on this server; use a keyword filter instead.`)}
+          testID="tag-mute"
+        />
       </View>
     )
   }
@@ -133,19 +135,19 @@ function TagActions({backend, tag}: {backend: Backend; tag: string}) {
   const featuring = info?.featuring === true
   const followDisabled = busy || loading || unavailable !== null
   const followReason =
-    unavailable ?? (loading ? 'Loading hashtag state…' : undefined)
+    unavailable ?? (loading ? i18n._(msg`Loading hashtag state…`) : undefined)
 
   return (
     <View style={[atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="tag-actions">
       {followDisabled && followReason ? (
         <DisabledAction
-          label={following ? 'Unfollow hashtag' : 'Follow hashtag'}
+          label={following ? i18n._(msg`Unfollow hashtag`) : i18n._(msg`Follow hashtag`)}
           reason={followReason}
           testID="tag-follow"
         />
       ) : (
         <Button
-          label={following ? 'Unfollow hashtag' : 'Follow hashtag'}
+          label={following ? i18n._(msg`Unfollow hashtag`) : i18n._(msg`Follow hashtag`)}
           variant="primary"
           disabled={busy}
           onPress={() => void act(() => (following ? tags.unfollow(tag) : tags.follow(tag)))}
@@ -154,7 +156,7 @@ function TagActions({backend, tag}: {backend: Backend; tag: string}) {
       )}
       {tags.feature ? (
         <Button
-          label={featuring ? "Don't feature on profile" : 'Feature on profile'}
+          label={featuring ? i18n._(msg`Don't feature on profile`) : i18n._(msg`Feature on profile`)}
           variant="secondary"
           disabled={busy || loading || unavailable !== null}
           disabledReason={followReason}
@@ -165,12 +167,16 @@ function TagActions({backend, tag}: {backend: Backend; tag: string}) {
         />
       ) : (
         <DisabledAction
-          label={featuring ? "Don't feature on profile" : 'Feature on profile'}
-          reason={REASON_NO_FEATURED}
+          label={featuring ? i18n._(msg`Don't feature on profile`) : i18n._(msg`Feature on profile`)}
+          reason={i18n._(msg`Featured hashtags are not available on this server.`)}
           testID="tag-feature"
         />
       )}
-      <DisabledAction label="Mute this hashtag" reason={REASON_NO_MUTE} testID="tag-mute" />
+      <DisabledAction
+        label={i18n._(msg`Mute this hashtag`)}
+        reason={i18n._(msg`There is no hashtag-mute endpoint on this server; use a keyword filter instead.`)}
+        testID="tag-mute"
+      />
       {error ? (
         <Caption testID="tag-actions-error" color="faint">
           {error}
@@ -186,13 +192,14 @@ export function TagScreen() {
   // sanitizer keeps `tag|<tag>` to one segment (Explore's rule).
   const tag = safeDescriptorArg((route.params?.tag ?? '').replace(/^#+/, ''))
   const {session, backend} = useActiveBackend()
+  const i18n = useI18n()
   const title = titleForRoute('Tag', {tag: route.params?.tag})
   if (!session || !backend) {
     return (
       <View style={atoms.flex1} testID="tag-screen">
         <Pagehead title={title} />
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Body>Sign in to browse this tag.</Body>
+          <Body>{i18n._(msg`Sign in to browse this tag.`)}</Body>
           <SignInButton />
         </View>
       </View>
@@ -203,7 +210,7 @@ export function TagScreen() {
       <View style={atoms.flex1} testID="tag-screen">
         <Pagehead title={title} />
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Body>This tag is empty.</Body>
+          <Body>{i18n._(msg`This tag is empty.`)}</Body>
         </View>
       </View>
     )

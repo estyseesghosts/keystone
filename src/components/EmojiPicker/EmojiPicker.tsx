@@ -1,5 +1,7 @@
 import {useEffect, useMemo, useState, useSyncExternalStore} from 'react'
 import {FlatList, View} from 'react-native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 import {useQuery} from '@tanstack/react-query'
 
 import {isLocalEmojiHost} from '@keystone/fedi'
@@ -95,6 +97,7 @@ function Cell({sessionId, emoji, onPress}: {sessionId: string; emoji: PickedEmoj
 
 export function EmojiPicker({sessionId, onPick, recentsStore = emojiRecentsStore, favouritesStore: favs = favouritesStore, groupPrefsStore: groups = emojiGroupPrefsStore, testID}: EmojiPickerProps) {
   const [query, setQuery] = useState('')
+  const i18n = useI18n()
   // Live store reads (never bare — the compiler freezes bare method
   // calls on the stable store identity): each selector re-runs on every
   // store emission, so a landing host table re-renders this picker.
@@ -173,14 +176,14 @@ export function EmojiPicker({sessionId, onPick, recentsStore = emojiRecentsStore
     )
   return (
     <View style={[atoms.gap_sm, {maxHeight: 360}]} testID={testID ?? 'emoji-picker'}>
-      <TextField label="Search emoji" value={query} onChangeText={setQuery} testID="emoji-search" />
+      <TextField label={i18n._(msg`Search emoji`)} value={query} onChangeText={setQuery} testID="emoji-search" />
       {failed && merged.length === 0 ? (
         <View style={atoms.gap_sm}>
-          <Caption color="faint">Could not load custom emoji.</Caption>
-          <Button label="Retry" variant="secondary" onPress={retry} testID="emoji-retry" />
+          <Caption color="faint">{i18n._(msg`Could not load custom emoji.`)}</Caption>
+          <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={retry} testID="emoji-retry" />
         </View>
       ) : null}
-      {rows.length === 0 ? <Body>No emoji found.</Body> : null}
+      {rows.length === 0 ? <Body>{i18n._(msg`No emoji found.`)}</Body> : null}
       <FlatList
         data={rows}
         renderItem={render}

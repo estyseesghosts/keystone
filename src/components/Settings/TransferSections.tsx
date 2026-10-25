@@ -344,8 +344,11 @@ function ExportRow({
   )
 }
 
-const NO_TRANSFER_REASON =
-  'Needs a Misskey-family server. Mastodon has no import/export API — use the instance website.'
+function noTransferReason(): string {
+  return i18n._(
+    msg`Needs a Misskey-family server. Mastodon has no import/export API — use the instance website.`,
+  )
+}
 
 export function ImportSection() {
   const session = useActiveSession()
@@ -353,7 +356,7 @@ export function ImportSection() {
   if (!session || !backend) {
     return (
       <View style={[atoms.gap_sm]} testID="settings-section-import">
-        <SectionHint>Sign in to move data in.</SectionHint>
+        <SectionHint>{i18n._(msg`Sign in to move data in.`)}</SectionHint>
       </View>
     )
   }
@@ -366,7 +369,7 @@ export function ImportSection() {
             key={row.kind}
             title={row.title}
             hint={row.hint}
-            reason={NO_TRANSFER_REASON}
+            reason={noTransferReason()}
             testID={`placeholder-import-${row.kind}`}
           />
         ))}
@@ -410,7 +413,7 @@ export function ExportSection() {
   if (!session || !backend) {
     return (
       <View style={[atoms.gap_sm]} testID="settings-section-export">
-        <SectionHint>Sign in to move data out.</SectionHint>
+        <SectionHint>{i18n._(msg`Sign in to move data out.`)}</SectionHint>
       </View>
     )
   }
@@ -424,7 +427,7 @@ export function ExportSection() {
             key={row.kind}
             title={row.title}
             hint={row.hint}
-            reason={NO_TRANSFER_REASON}
+            reason={noTransferReason()}
             testID={`placeholder-export-${row.kind}`}
           />
         ))}

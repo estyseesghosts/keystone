@@ -1,15 +1,17 @@
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
+import {useI18n} from '#/locale/i18n'
 
 import {AccountSection} from '#/components/Settings/AccountSection'
 import type {RootParamList} from '#/routes'
 
-import {SETTINGS_TITLES} from './meta'
+import {settingsTitle} from './meta'
 import {SectionShell} from './SectionShell'
 
 export function AccountSettingsScreen() {
   const nav = useNavigation<NavigationProp<RootParamList>>()
+  const i18n = useI18n()
   return (
-    <SectionShell title={SETTINGS_TITLES.account}>
+    <SectionShell title={settingsTitle(i18n, 'account')}>
       <AccountSection
         onAddAccount={() => nav.navigate('Login')}
         onOpenFollowRequests={() => nav.navigate('FollowRequests')}

@@ -1,6 +1,8 @@
 import {useCallback, useContext, useMemo} from 'react'
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
 import {QueryClientContext, useQueryClient} from '@tanstack/react-query'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {backendForSession, type Post} from '@keystone/fedi'
 
@@ -31,6 +33,7 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
   const nav = useNavigation<NavigationProp<RootParamList>>()
   const qc = useQueryClient()
   const store = useSessionStore()
+  const i18n = useI18n()
 
   const userFor = useCallback(
     (post: Post, sessionId: string) => {
@@ -66,7 +69,7 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
       return {
         onMute: run(
           () => controller.setMuted(sessionId, backend, post.author.id, !(known?.isMuted ?? false)),
-          known?.isMuted ? 'Unmuted' : 'Muted',
+          known?.isMuted ? i18n._(msg`Unmuted`) : i18n._(msg`Muted`),
         ),
         onMuteBoosts: run(
           async () => {
@@ -74,11 +77,11 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
             else await backend.muteRenotes(post.author.id)
             await resync()
           },
-          renoteMuted === true ? 'Reposts unmuted' : 'Reposts muted',
+          renoteMuted === true ? i18n._(msg`Reposts unmuted`) : i18n._(msg`Reposts muted`),
         ),
         onBlock: run(
           () => controller.setBlocked(sessionId, backend, post.author.id, !(known?.isBlocking ?? false)),
-          known?.isBlocking ? 'Unblocked' : 'Blocked',
+          known?.isBlocking ? i18n._(msg`Unblocked`) : i18n._(msg`Blocked`),
         ),
         onReport: async (values: ReportChooserValues) => {
           try {
@@ -86,7 +89,7 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
             const mastodon = s.family === 'mastodon'
             // Misskey's `users/report-abuse` requires a non-empty comment;
             // Mastodon can file a report with the post + category alone.
-            if (!mastodon && !text) throw new Error('Add a reason for the report.')
+            if (!mastodon && !text) throw new Error(i18n._(msg`Add a reason for the report.`))
             await backend.reportAccount(
               post.author.id,
               mastodon
@@ -101,7 +104,7 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
                   }
                 : {comment: text},
             )
-            showToast('Report sent')
+            showToast(i18n._(msg`Report sent`))
           } catch (e) {
             toastError(e)
           }
@@ -122,7 +125,7 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
             : {}),
       }
     },
-    [store, qc, nav],
+    [store, qc, nav, i18n],
   )
 
   const handlers = useMemo<PostCardHandlers>(

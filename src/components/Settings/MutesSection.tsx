@@ -82,7 +82,12 @@ export function MutesSection() {
             field="mutedWords"
             title={i18n._(msg`Word mutes`)}
             hint={i18n._(msg`One group per line; words on a line must all match. /regex/ lines stay verbatim.`)}
-            placeholder={'spoiler\n/^advertisement/i'}
+            placeholder={i18n._(
+              msg({
+                message: 'spoiler\n/^advertisement/i',
+                comment: 'Example word-mute lines in the input placeholder; localize the words if they read better',
+              }),
+            )}
           />
           <WordField
             backend={backend}
@@ -100,7 +105,12 @@ export function MutesSection() {
             field="mutedInstances"
             title={i18n._(msg`Muted servers`)}
             hint={i18n._(msg`One host per line. Matching is case-sensitive.`)}
-            placeholder="example.com"
+            placeholder={i18n._(
+              msg({
+                message: 'example.com',
+                comment: 'Example domain in the input placeholder; keep unless a localized example reads better',
+              }),
+            )}
           />
         </>
       ) : (

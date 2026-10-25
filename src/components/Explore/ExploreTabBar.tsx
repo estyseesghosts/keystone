@@ -39,7 +39,9 @@ export function ExploreTabBar({
       onChange={onChange}
       testID="explore-tabs"
       testIDPrefix="explore-tab"
-      accessibilityLabel="Explore"
+      accessibilityLabel={i18n._(
+        msg({message: 'Explore', context: 'navigation', comment: 'Accessibility label for the Explore tab bar'}),
+      )}
     />
   )
 }

@@ -9,7 +9,6 @@
 import {Image, StyleSheet, View} from 'react-native'
 
 import {msg} from '@lingui/macro'
-import {useLingui} from '@lingui/react'
 
 import type {ContentNode, EmojiStyle, Media, Post} from '@keystone/fedi'
 import {handleOf, isPureRenote, safeHttpUrl} from '@keystone/fedi'
@@ -20,7 +19,7 @@ import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
-import {useLocale} from '#/locale/i18n'
+import {useLocale, useI18n} from '#/locale/i18n'
 
 import {postBodyNodes, postEmojis, postTagBubble} from './body'
 import {PostMediaGrid} from './PostMediaGrid'
@@ -56,13 +55,14 @@ const styles = StyleSheet.create({
 
 function QuoteAvatar({account, size, testID}: {account: Post['author']; size: number; testID?: string}) {
   const theme = useTheme()
+  const i18n = useI18n()
   if (account.avatarUrl) {
     return (
       <Image
         source={{uri: account.avatarUrl}}
         style={{width: size, height: size, borderRadius: size / 2}}
         accessibilityRole="image"
-        accessibilityLabel={`${account.displayName} profile picture`}
+        accessibilityLabel={i18n._(msg`${account.displayName} profile picture`)}
         testID={testID}
       />
     )
@@ -190,7 +190,7 @@ export function PostQuote({
   sessionId?: string | null
 }) {
   const theme = useTheme()
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const locale = useLocale()
   const activeId = useOptionalActiveSession()?.id ?? null
   const sid = sessionId ?? activeId

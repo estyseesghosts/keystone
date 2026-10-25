@@ -49,7 +49,13 @@ export function ExploreSearchBar({
         onChangeText={onChangeText}
         placeholder={i18n._(msg`Search users, tags, and posts`)}
         placeholderTextColor={theme.palette.faint}
-        accessibilityLabel="Search"
+        accessibilityLabel={i18n._(
+          msg({
+            message: 'Search',
+            context: 'explore search field',
+            comment: 'Accessibility label for the Explore search input',
+          }),
+        )}
         autoCapitalize="none"
         autoCorrect={false}
         returnKeyType="search"

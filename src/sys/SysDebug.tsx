@@ -1,4 +1,6 @@
 import {View} from 'react-native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {atoms} from '#/alf/atoms'
 import {useTheme, useThemeName} from '#/alf/index'
@@ -13,6 +15,7 @@ const SIZES = Object.keys(typeSize) as (keyof typeof typeSize)[]
 export function SysDebug() {
   const name = useThemeName()
   const theme = useTheme()
+  const i18n = useI18n()
   const swatches = Object.entries(theme.palette)
   return (
     <View
@@ -23,10 +26,10 @@ export function SysDebug() {
         atoms.gap_md,
         {backgroundColor: theme.palette.bg},
       ]}>
-      <Heading>Keystone debug ({name})</Heading>
+      <Heading>{i18n._(msg`Keystone debug (${name})`)}</Heading>
       {SIZES.map(s => (
         <Body key={s}>
-          {s} · {typeSize[s]}pt
+          {i18n._(msg`${s} · ${typeSize[s]}pt`)}
         </Body>
       ))}
       <View style={[atoms.row, {gap: space.sm, flexWrap: 'wrap'}]}>
@@ -45,7 +48,7 @@ export function SysDebug() {
           </View>
         ))}
       </View>
-      <Caption>A pure grey system — no accent colour.</Caption>
+      <Caption>{i18n._(msg`A pure grey system — no accent colour.`)}</Caption>
     </View>
   )
 }

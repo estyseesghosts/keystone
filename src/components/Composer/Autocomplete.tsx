@@ -1,5 +1,7 @@
 import {useEffect, useMemo, useState} from 'react'
 import {StyleSheet, View} from 'react-native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {
   autocompleteTriggerAt,
@@ -97,6 +99,7 @@ export function SuggestionList({
   onPick: (s: Suggestion) => void
 }) {
   const theme = useTheme()
+  const i18n = useI18n()
   // Theme colors join the hoisted layout here (memoized on the theme, so
   // typing never rebuilds the stylesheet identity mid-list). Hooks stay
   // above the empty-list early return (rules-of-hooks).
@@ -118,7 +121,7 @@ export function SuggestionList({
           key={s.key}
           style={styles.row}
           accessibilityRole="button"
-          accessibilityLabel={`Insert ${s.label}`}
+          accessibilityLabel={i18n._(msg`Insert ${s.label}`)}
           onPress={() => onPick(s)}>
           <Caption>{s.label}</Caption>
         </Pressable>

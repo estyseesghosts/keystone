@@ -1,6 +1,6 @@
 import {useMemo, type ReactNode} from 'react'
 import {Platform, Pressable, StyleSheet, View, type ViewStyle} from 'react-native'
-import {useLingui} from '@lingui/react'
+import {useI18n} from '#/locale/i18n'
 import {msg, t} from '@lingui/macro'
 
 import {useTheme as useAlfTheme} from '#/alf'
@@ -161,7 +161,7 @@ function pagesStubReason(i18n: I18n): string {
 // navigator, so bare tab names would resolve nowhere.
 export function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) {
   const session = useOptionalActiveSession()
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const alf = useAlfTheme()
   const backend = useMemo(() => (session ? backendForSession(session) : null), [session])
   const rail = layout === 'rail'
@@ -262,7 +262,7 @@ export function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) 
         </Pressable>
       ) : (
         <View style={styles.brandRow}>
-          <Heading style={styles.brand}>Keystone</Heading>
+          <Heading style={styles.brand}>{t`Keystone`}</Heading>
           <Pressable
             onPress={collapseSidebar}
             accessibilityRole="button"

@@ -9,6 +9,8 @@
 // stay where they belong (load-more footers, refresh, busy buttons).
 
 import {StyleSheet, View, type DimensionValue} from 'react-native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {useTheme} from '#/alf/index'
 
@@ -98,8 +100,9 @@ export function SkeletonList({
   testID?: string
 }) {
   const Row = ROWS[variant]
+  const i18n = useI18n()
   return (
-    <View testID={testID} style={styles.list} accessibilityLabel="Loading">
+    <View testID={testID} style={styles.list} accessibilityLabel={i18n._(msg`Loading`)}>
       {Array.from({length: count}, (_, i) => (
         <View key={i}>
           {i > 0 ? <Separator /> : null}

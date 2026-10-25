@@ -7,6 +7,8 @@
 
 import {View} from 'react-native'
 import {useRoute, type RouteProp} from '@react-navigation/native'
+import {msg} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {safeHttpUrl, type FeedDescriptor} from '@keystone/fedi'
 
@@ -20,15 +22,16 @@ import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
 export function NewsDiscussionsScreen() {
   const route = useRoute<RouteProp<RootParamList, 'NewsDiscussions'>>()
   const {session, backend} = useActiveBackend()
+  const i18n = useI18n()
   const url = safeHttpUrl(route.params?.url ?? '')
   const title = route.params?.title
 
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="news-discussions-screen">
-        <Pagehead title="Discussions" />
-        <Body>Sign in to see the discussion.</Body>
-        <Caption color="faint">Discussions never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Discussions`)} />
+        <Body>{i18n._(msg`Sign in to see the discussion.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Discussions never show sample data when signed out.`)}</Caption>
         <SignInButton />
       </View>
     )
@@ -37,8 +40,8 @@ export function NewsDiscussionsScreen() {
   if (!url) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="news-discussions-screen">
-        <Pagehead title="Discussions" />
-        <Body>This link is not available.</Body>
+        <Pagehead title={i18n._(msg`Discussions`)} />
+        <Body>{i18n._(msg`This link is not available.`)}</Body>
       </View>
     )
   }
@@ -46,7 +49,7 @@ export function NewsDiscussionsScreen() {
   const descriptor = `search|${url}` as FeedDescriptor
   return (
     <View style={atoms.flex1} testID="news-discussions-screen">
-      <Pagehead title="Discussions" />
+      <Pagehead title={i18n._(msg`Discussions`)} />
       <FeedView
         sessionId={session.id}
         descriptor={descriptor}

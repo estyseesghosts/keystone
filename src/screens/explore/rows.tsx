@@ -4,6 +4,8 @@
 // with the tab that renders the row (`onOpen` callbacks).
 
 import {Image, StyleSheet, View} from 'react-native'
+import {msg, plural} from '@lingui/macro'
+import {useI18n} from '#/locale/i18n'
 
 import {displayNameOf, handleOf, type Account, type TrendingTag} from '@keystone/fedi'
 
@@ -21,6 +23,7 @@ export function RowSeparator({testID}: {testID: string}) {
 
 export function ExploreAvatar({account}: {account: Account}) {
   const theme = useTheme()
+  const i18n = useI18n()
   const label = displayNameOf(account).slice(0, 1).toUpperCase()
   if (account.avatarUrl) {
     return (
@@ -28,7 +31,7 @@ export function ExploreAvatar({account}: {account: Account}) {
         source={{uri: account.avatarUrl}}
         style={styles.avatar}
         accessibilityIgnoresInvertColors
-        accessibilityLabel={`${displayNameOf(account)} profile picture`}
+        accessibilityLabel={i18n._(msg`${displayNameOf(account)} profile picture`)}
         testID={`explore-avatar-${account.id}`}
       />
     )
@@ -61,9 +64,17 @@ export function AccountRow({account, onOpen}: {account: Account; onOpen: () => v
 }
 
 export function TagChip({tag, onOpen}: {tag: TrendingTag; onOpen: () => void}) {
+  const i18n = useI18n()
   const counts =
     tag.users != null || tag.uses != null
-      ? [tag.users != null ? `${tag.users} people` : null, tag.uses != null ? `${tag.uses} posts` : null]
+      ? [
+          tag.users != null
+            ? i18n._(plural(tag.users, {one: `${tag.users} person`, other: `${tag.users} people`}))
+            : null,
+          tag.uses != null
+            ? i18n._(plural(tag.uses, {one: `${tag.uses} post`, other: `${tag.uses} posts`}))
+            : null,
+        ]
           .filter(Boolean)
           .join(' · ')
       : null
