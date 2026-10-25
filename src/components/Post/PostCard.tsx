@@ -80,6 +80,12 @@ const styles = StyleSheet.create({
   // never floating above it on replies and reposts.
   contextBlock: {gap: 2},
   cardRow: {flexDirection: 'row', gap: 12},
+  // The avatar hover anchor sits in the card row: without an explicit
+  // cross-axis opt-out the row stretches it to full post height, turning
+  // the whole left column into a hover/press strip. `flex-start` keeps
+  // the anchor box exactly the 40×40 avatar (already top-aligned, so no
+  // pixels move — only the interactive hit area shrinks).
+  avatarHover: {alignSelf: 'flex-start'},
   main: {flex: 1, gap: 2, minWidth: 0},
   header: {minWidth: 0},
   headerCol: {gap: 1},
@@ -212,7 +218,8 @@ function Avatar({post, sessionId, backend}: {post: Post; sessionId: string; back
       sessionId={sessionId}
       backend={backend}
       onOpenProfile={() => openAuthorProfile(post.author.id)}
-      testID={`author-hover-${post.author.id}`}>
+      testID={`author-hover-${post.author.id}`}
+      style={styles.avatarHover}>
       <Pressable
         testID={`avatar-press-${post.author.id}`}
         onPress={() => openAuthorProfile(post.author.id)}

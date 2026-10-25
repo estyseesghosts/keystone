@@ -4,7 +4,7 @@
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {render, screen, within} from '@testing-library/react-native'
-import {Platform} from 'react-native'
+import {Platform, StyleSheet} from 'react-native'
 
 import {ThemeProvider} from '#/alf/index'
 import {PostCard} from '#/components/Post/index'
@@ -53,5 +53,16 @@ describe('PostCard hover anchors (web)', () => {
     expect(within(handleAnchor).getByTestId('author-handle-a1')).toBeTruthy()
     expect(within(handleAnchor).queryByTestId('author-press-a1')).toBeNull()
     expect(within(handleAnchor).queryByTestId('post-tags-p1')).toBeNull()
+  })
+
+  it('hugs the avatar box (no full-height column strip)', () => {
+    renderCard(<PostCard post={tagged()} sessionId={SESSION} />)
+    const avatarAnchor = screen.getByTestId('author-hover-a1-anchor')
+    // The trigger wraps only the avatar press — the column below it is
+    // outside the hover/press zone.
+    expect(within(avatarAnchor).getByTestId('avatar-press-a1')).toBeTruthy()
+    // ...and the anchor opts out of the card row's cross-axis stretch, so
+    // its box is the 40×40 avatar instead of a full-post-height column.
+    expect(StyleSheet.flatten(avatarAnchor.props.style)?.alignSelf).toBe('flex-start')
   })
 })

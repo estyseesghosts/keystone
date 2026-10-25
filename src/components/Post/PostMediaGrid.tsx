@@ -145,7 +145,14 @@ function TileFrame({
       onPress={onOpen ? () => onOpen(index) : undefined}
       accessibilityRole={onOpen ? 'button' : 'image'}
       accessibilityLabel={onOpen ? i18n._(msg`Open media: ${label}`) : label}
-      disabled={!onOpen}>
+      disabled={!onOpen}
+      // Shrink-wrap: the pressable hugs the displayed frame instead of
+      // stretching full row width (no dead click area beside a
+      // narrower image). Singles sit in a column wrap (hug
+      // horizontally); strip tiles sit in a row (hug vertically, widths
+      // already hug). maxWidth only for singles: strip tiles scroll
+      // horizontally and must keep their aspect widths.
+      style={[{alignSelf: 'flex-start'}, single ? {maxWidth: '100%'} : null]}>
       <View
         style={[
           single ? styles.single : styles.stripItem,

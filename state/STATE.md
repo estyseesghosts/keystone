@@ -22,8 +22,12 @@ cycle backstop silent — **217 suites / 2960 tests** green. Log:
 spec (2026-10-26): lineal A→B→C + one show-more link, zero indent,
 parent-child-only spine stubs, composer font reverted to body metrics —
 **217 suites / 2960 tests** green. Log:
-`state/logs/2026-10-26-replies-chains.md`. Next: replies program
-complete — owner live-tests externally.
+`state/logs/2026-10-26-replies-chains.md`. Click targets fixed
+(2026-10-26): avatar hover anchor hugs the 40×40 box (was a full-height
+strip), media pressable shrink-wraps the fitted frame (was full row
+width) — **217 suites / 2963 tests** green. Log:
+`state/logs/2026-10-26-clicktargets.md`. Next: owner verifies on web
+against `docs/clicktargets/correct-*.png`.
 
 Repair program 2026-10-24 (audit `docs/audit_20261024/`): ALL WAVES
 MERGED on `main` — Wave 0 (`c817c30`), Wave 1 (`4625769`), Wave 2

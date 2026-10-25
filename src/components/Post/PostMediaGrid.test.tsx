@@ -1,6 +1,7 @@
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {fireEvent, render, screen} from '@testing-library/react-native'
+import {StyleSheet} from 'react-native'
 import type {Media} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
@@ -177,5 +178,39 @@ describe('PostMediaGrid sizing', () => {
       <PostMediaGrid media={[imageMedia({id: 'm1', url: 'notaurl'})]} testID="grid" />,
     )
     expect(screen.getByTestId('media-missing-m1')).toBeTruthy()
+  })
+
+  it('shrink-wraps the single-tile pressable to the image box (no full-row dead zone)', () => {
+    renderWithProviders(
+      <PostMediaGrid
+        media={[metaMedia(300, 400, {id: 'm1', description: 'Tall'})]}
+        onOpen={() => {}}
+        testID="grid"
+      />,
+    )
+    // A 3:4 portrait hugs at 480 × aspect; the button must hug with it
+    // instead of stretching the full row width beside the image.
+    const flat = StyleSheet.flatten(screen.getByLabelText('Open media: Tall').props.style) as {
+      alignSelf?: string
+      maxWidth?: string | number
+    }
+    expect(flat.alignSelf).toBe('flex-start')
+    expect(flat.maxWidth).toBe('100%')
+  })
+
+  it('shrink-wraps strip tile pressables too (same TileFrame)', () => {
+    renderWithProviders(
+      <PostMediaGrid
+        media={[imageMedia({id: 'm1', description: 'One'}), imageMedia({id: 'm2', description: 'Two'})]}
+        onOpen={() => {}}
+        testID="grid"
+      />,
+    )
+    for (const label of ['Open media: One', 'Open media: Two']) {
+      const flat = StyleSheet.flatten(screen.getByLabelText(label).props.style) as {
+        alignSelf?: string
+      }
+      expect(flat.alignSelf).toBe('flex-start')
+    }
   })
 })
