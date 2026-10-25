@@ -1535,7 +1535,7 @@ Audit: media M8 (platform half), M9, M10, M11, M12, M13, M16 (profile images); n
 
 ## X8.1 - Error boundaries and a logger
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x8.1.md` (slice) + `state/logs/2026-10-25-repair25-x8.1-x8.2-x8.3-coordinator.md` (batch-green); 278 suites / 3987 tests green at Wave-8 batch-1 commit)
 Branch: `repair25-x8.1-boundaries-logger`
 Audit: rn-ui M1; a11y 10, 14; privacy 13; storage S12 (consumer)
 
@@ -1557,7 +1557,7 @@ Audit: rn-ui M1; a11y 10, 14; privacy 13; storage S12 (consumer)
 
 ## X8.2 - Screen-level bugs
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x8.2.md` (slice) + `state/logs/2026-10-25-repair25-x8.1-x8.2-x8.3-coordinator.md` (batch-green); 278 suites / 3987 tests green at Wave-8 batch-1 commit)
 Branch: `repair25-x8.2-screens`
 Audit: rn-ui M3, M4, M5, L3, L5 (device), L6
 
@@ -1581,7 +1581,7 @@ Audit: rn-ui M3, M4, M5, L3, L5 (device), L6
 
 ## X8.3 - Cache and optimistic-update correctness
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x8.3.md` (slice) + `state/logs/2026-10-25-repair25-x8.1-x8.2-x8.3-coordinator.md` (batch-green); streaming.ts live-prepend cancel remainder completed by coordinator in-batch; 278 suites / 3987 tests green at Wave-8 batch-1 commit)
 Branch: `repair25-x8.3-cache-correctness`
 Audit: sessions-cache 2, 3, 9, 10, 11
 

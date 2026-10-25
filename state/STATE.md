@@ -5,17 +5,17 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **275 suites / 3944 tests**,
+Gate baseline (last green on main): **278 suites / 3987 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Wave 7 done (X7.1–X7.4 committed green; 275 suites / 3944 tests;
-   batch-2 fallout: explicit-cancel signal, FormData ref spies, expo-image
-   sourced-match discipline, querySignal section headers — see coord log).
-2. Wave 8: X8.1 (boundaries/logger) + X8.2 (screens) + X8.3 (cache) + X8.4
-   (hooks) in file-disjoint parallel batches.
-3. Signing/App Links skipped (owner); no non-English translations
-   (English catalog only).
+1. Wave 8 batch 1 done (X8.1–X8.3 committed green; 278 suites / 3987 tests;
+   coord remainder: streaming live-prepend cancels; Note/Toast/test-typing
+   fallout fixed in-batch — see coord log).
+2. X8.4 (hooks cleanup + exhaustive-deps → error) alone next — touches
+   every warning file, runs after batch-1 lands.
+3. Then Wave 9 i18n; signing/App Links skipped (owner); no non-English
+   translations (English catalog only).
 
 Blockers / owner-open:
 - Rig `:3101`/`:3102` refused; device not run by agents — all live
