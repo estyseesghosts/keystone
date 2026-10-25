@@ -4,6 +4,7 @@ import {
   DEFAULT_LOCALE,
   createLocaleStore,
   formatCount,
+  i18n,
   isLocaleCode,
   parseLocale,
 } from './i18n'
@@ -69,5 +70,20 @@ describe('formatCount', () => {
     expect(formatCount('en', 1234)).toBe('1,234')
     expect(typeof formatCount('hi', 1234)).toBe('string')
     expect(formatCount('en', 0)).toBe('0')
+  })
+})
+
+describe('missing-translation fallback', () => {
+  it('falls back to the English source message, never the message id', () => {
+    const previous = i18n.locale
+    try {
+      i18n.load('fr', {})
+      i18n.activate('fr')
+      const id = '__x0_2_missing_probe__'
+      const source = 'English source for a missing key'
+      expect(i18n._({id, message: source})).toBe(source)
+    } finally {
+      i18n.activate(previous)
+    }
   })
 })

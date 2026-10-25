@@ -46,6 +46,7 @@ export default [
       'keystone/no-hardcoded-color': 'error',
       'keystone/query-key-session-first': 'error',
       'keystone/no-inner-html': 'error',
+      'keystone/no-literal-ui-string': 'error',
       // X8.4 raises exhaustive-deps to error after the cleanup pass.
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',

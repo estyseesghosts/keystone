@@ -33,6 +33,7 @@
     "typecheck:android": "tsc --project ./tsconfig.check.android.json",
     "typecheck:web": "tsc --project ./tsconfig.check.web.json",
     "lint": "oxlint --quiet src packages scripts lint-rules && eslint .",
+    "lint:i18n-baseline": "node -e \"require('./lint-rules/no-literal-ui-string').rebuildBaseline()\"",
     "intl:extract": "lingui extract --clean --locale en",
     "intl:compile": "lingui compile",
     "prettier": "prettier --check .",

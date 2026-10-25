@@ -180,8 +180,7 @@ delete `packages/fedi/src/zz_audit_tmp.test.ts` if it exists.
 
 ## X0.2 - i18n ratchet: lint rule, pseudo-locale, conventions
 
-Status: not started
-Branch: `repair25-x0.2-i18n-ratchet`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x0.2.md`; baseline 80 files / 620 violations; 220 suites / 3053 tests green at Wave-0 commit)
 Audit: a11y 2, 3, 4 (infra); user requirement "no string literals anywhere"
 
 **Goal.** Make it impossible to add a new user-visible string literal, and

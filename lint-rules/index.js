@@ -6,5 +6,6 @@ module.exports = {
     'no-hardcoded-color': require('./no-hardcoded-color'),
     'query-key-session-first': require('./query-key-session-first'),
     'no-inner-html': require('./no-inner-html'),
+    'no-literal-ui-string': require('./no-literal-ui-string'),
   },
 }
