@@ -5,15 +5,15 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **278 suites / 3987 tests**,
+Gate baseline (last green on main): **281 suites / 4015 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Wave 8 done (X8.1–X8.4 committed green; 278 suites / 3987 tests;
-   exhaustive-deps is error, lint 0/0 — see X8.4 coord log for the
-   promotion fallout fixes).
-2. Wave 9 i18n sweep (X9.1–X9.8, English catalog only; burn-down from the
-   X0.2 baseline meter, one directory per slice).
+1. Wave 9 batch 1 done (X9.1–X9.4 committed green; 281 suites / 4015 tests;
+   baseline 620 → 0; coord: useI18n fallback hook + fr-test locale params —
+   see coord log).
+2. Wave 9 remainder SEQUENTIALLY (each tree-wide): X9.5 formatters, then
+   X9.6 RTL, then X9.7 error codes, then X9.8 close-out.
 3. Signing/App Links skipped (owner); no non-English translations.
 
 Blockers / owner-open:

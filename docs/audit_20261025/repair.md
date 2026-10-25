@@ -1633,7 +1633,7 @@ one directory per slice, lowest baseline first. Each slice:
 
 ## X9.1 - Admin, announcements, antennas, channels screens
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x9.1.md` (slice) + `state/logs/2026-10-25-repair25-x9.1-x9.2-x9.3-x9.4-coordinator.md` (batch-green); 281 suites / 4015 tests green at Wave-9 batch-1 commit)
 Branch: `repair25-x9.1-i18n-admin-etc`
 Audit: a11y 2
 
@@ -1644,7 +1644,7 @@ in `AdminReportsList.tsx:107`, file sizes in `AdminInsight.tsx:88`
 
 ## X9.2 - Chat, clips, compose, conversations
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x9.2.md` (slice) + `state/logs/2026-10-25-repair25-x9.1-x9.2-x9.3-x9.4-coordinator.md` (batch-green); 281 suites / 4015 tests green at Wave-9 batch-1 commit)
 Branch: `repair25-x9.2-i18n-chat-etc`
 Audit: a11y 2
 
@@ -1654,7 +1654,7 @@ Files: `ChatRoom`, `ChatRooms`, `ChatThread`, `ChatUser`, `Clip`, `Clips`
 
 ## X9.3 - Drive, follow graph, lists, favourites, home
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x9.3.md` (slice) + `state/logs/2026-10-25-repair25-x9.1-x9.2-x9.3-x9.4-coordinator.md` (batch-green); 281 suites / 4015 tests green at Wave-9 batch-1 commit)
 Branch: `repair25-x9.3-i18n-drive-etc`
 Audit: a11y 2
 
@@ -1664,7 +1664,7 @@ Files: `Drive.tsx` and `Drive/*` (`detail.tsx:164-184`, `rows.tsx:36`),
 
 ## X9.4 - Components
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x9.4.md` (slice) + `state/logs/2026-10-25-repair25-x9.1-x9.2-x9.3-x9.4-coordinator.md` (batch-green); baseline ratcheted 620 → 0 with this batch; `en` catalog + baseline ride here; 281 suites / 4015 tests green at Wave-9 batch-1 commit)
 Branch: `repair25-x9.4-i18n-components`
 Audit: a11y 2, 3, 13
 
