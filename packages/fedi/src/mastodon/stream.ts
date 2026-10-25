@@ -33,6 +33,7 @@
 
 import type { FeedChannelState, FeedSource, FeedSubscription, PostUpdateEvent, StreamHandle, StreamState } from "../core/backend";
 import type { Notification, Post } from "../core/models";
+import { redactUrl } from "../core/redact";
 import { adaptNotification, adaptStatus } from "./adapt";
 import type { Notification as WireNotification, Status as WireStatus } from "./wire";
 
@@ -232,7 +233,10 @@ export function createStreamHandle(
   const globalFactory: WebSocketFactory | null = streamingSupported()
     ? (url: string, protocols?: string[]) => {
         const socket = defaultFactory(url, protocols);
-        if (!socket) throw new Error(`No WebSocket implementation for ${url}.`);
+        // The URL never reaches errors verbatim: origins stay out of
+        // messages by rule (see `redactUrl`; this family's URL carries no
+        // token, but the rule is unconditional).
+        if (!socket) throw new Error(`No WebSocket implementation for ${redactUrl(url)}.`);
         return socket;
       }
     : null;

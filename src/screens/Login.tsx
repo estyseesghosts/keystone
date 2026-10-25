@@ -54,7 +54,7 @@ import {
   webCallbackUri,
   type MisskeyMiAuthPending,
 } from './LoginFlows'
-import {parseCallbackParams} from './AuthCallback'
+import {miauthAccountMatchesHost, miauthPendingMatchesOrigin, parseCallbackParams} from './AuthCallback'
 
 // Complete the iOS auth session when the app returns from the browser.
 void WebBrowser.maybeCompleteAuthSession()
@@ -405,6 +405,13 @@ export function LoginScreen() {
         callbackUrl = started.callbackUrl
       }
       setMiauth(active)
+      // ADR 0012: the pending row must name the origin being signed in
+      // to — if the server input changed after the approval page opened,
+      // the row no longer matches and never completes here.
+      if (!miauthPendingMatchesOrigin(active, detection.origin)) {
+        setError(i18n._(msg`This sign-in response did not match the server. Please start again.`))
+        return
+      }
       // Same-tab web navigation unloads this page (the callback completes
       // it); otherwise poll here for the approval.
       if (Platform.OS === 'web') {
@@ -427,6 +434,12 @@ export function LoginScreen() {
         session: active.session,
         ...(attempts !== undefined ? {attempts} : {}),
       })
+      // ADR 0012: the verified account must belong to the pending host —
+      // anything else is discarded, never stored.
+      if (!miauthAccountMatchesHost(done.account, active.host)) {
+        setError(i18n._(msg`This sign-in response did not match the server. Please start again.`))
+        return
+      }
       await finish({
         origin: done.origin,
         family: 'misskey',
@@ -464,6 +477,11 @@ export function LoginScreen() {
     // below still covers the wait.
     const taken = takeMisskeyPending(appStorage(), params.session)
     if (!taken || !detection) return false
+    // ADR 0012: the taken row must name the origin being signed in to.
+    if (!miauthPendingMatchesOrigin(taken, detection.origin)) {
+      setError(i18n._(msg`This sign-in response did not match the server. Please start again.`))
+      return true
+    }
     try {
       // Just approved — the check lands immediately; a few retries cover
       // the slow-approve race (same shape as AuthCallback).
@@ -473,6 +491,11 @@ export function LoginScreen() {
         session: taken.session,
         attempts: 5,
       })
+      // ADR 0012: the verified account must belong to the pending host.
+      if (!miauthAccountMatchesHost(done.account, taken.host)) {
+        setError(i18n._(msg`This sign-in response did not match the server. Please start again.`))
+        return true
+      }
       await finish({
         origin: done.origin,
         family: 'misskey',

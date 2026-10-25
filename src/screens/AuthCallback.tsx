@@ -63,6 +63,29 @@ export function parseCallbackParams(href: string | null | undefined): CallbackPa
   }
 }
 
+/** True when the pending MiAuth row names exactly the origin being signed
+ * in to (scheme + host, case-insensitive). A row for another origin —
+ * e.g. the server input changed after the approval page opened — never
+ * completes here. Pure (ADR 0012 mitigation). */
+export function miauthPendingMatchesOrigin(
+  pending: {scheme: string; host: string},
+  origin: string,
+): boolean {
+  return `${pending.scheme}://${pending.host}`.toLowerCase() === origin.toLowerCase()
+}
+
+/** True when the verified account belongs to the pending host: a local
+ * account (`host: null`) always matches; a remote host must equal the
+ * pending host. Anything else is discarded, never stored. Pure (ADR 0012
+ * mitigation). */
+export function miauthAccountMatchesHost(
+  account: {host: string | null},
+  host: string,
+): boolean {
+  if (account.host == null) return true
+  return account.host.toLowerCase() === host.toLowerCase()
+}
+
 /** Web same-tab return URL (`location.href`), null outside a browser. */
 function webHref(): string | null {
   return (globalThis as {location?: {href?: string}}).location?.href ?? null
@@ -124,6 +147,13 @@ export function AuthCallbackScreen() {
             session: pending.session,
             attempts: 5,
           })
+          // ADR 0012: the verified account must belong to the pending
+          // host — anything else is discarded, never stored.
+          if (!miauthAccountMatchesHost(done.account, pending.host)) {
+            setError(i18n._(msg`This sign-in response did not match the server. Please start again.`))
+            setStatus('error')
+            return
+          }
           let flavor: ServerFlavor = 'unknown'
           let evidence: DetectionEvidence | null = null
           try {

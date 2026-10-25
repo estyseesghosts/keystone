@@ -7,15 +7,35 @@
 
 import {Linking} from 'react-native'
 
-import {acctFromBridgeUrl, isBridgeUrl, parseAcct} from '@keystone/fedi'
+import {msg} from '@lingui/macro'
 
+import {acctFromBridgeUrl, isBridgeUrl, parseAcct, safeHttpUrl, safeUrl} from '@keystone/fedi'
+
+import {i18n} from '#/locale/i18n'
 import {showToast} from '#/lib/toast'
 import {navigationRef} from '#/navigationRef'
 
-export function openExternal(href: string) {
+/** The vetted target of an outbound open, or null when the raw string is
+ * not openable (defence in depth: AST hrefs are vetted at parse, but this
+ * helper never trusts its caller). `mailto:` rides only when the caller
+ * passes `allowMailto`. Pure. */
+export function vettedExternalUrl(
+  href: string,
+  opts?: {allowMailto?: boolean},
+): string | null {
+  return opts?.allowMailto ? safeUrl(href) : safeHttpUrl(href)
+}
+
+export function openExternal(href: string, opts?: {allowMailto?: boolean}) {
   // One behavior with every other link surface (LinkCard, PostCard menu):
-  // a failed open toasts, never swallows.
-  void Linking.openURL(href).catch(e => showToast(`Could not open: ${String(e)}`))
+  // a failed open toasts, never swallows — and the toast never echoes the
+  // URL (it may carry a token or a private host).
+  const vetted = vettedExternalUrl(href, opts)
+  if (vetted === null) {
+    showToast(i18n._(msg`Could not open this link.`))
+    return
+  }
+  void Linking.openURL(vetted).catch(() => showToast(i18n._(msg`Could not open this link.`)))
 }
 
 /** Profile navigation for a mention tap (E2): the `User` screen resolves

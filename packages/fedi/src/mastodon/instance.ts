@@ -27,8 +27,13 @@ export interface InstanceCapabilities {
   maxStatusCharacters: number | null;
   maxMediaAttachments: number | null;
   /** Normalized `ws(s)://host[:port]` streaming origin, or null when the
-   * instance did not advertise one. NEVER assume the REST host. */
+   * instance did not advertise one — or the advertisement was refused
+   * (foreign host, IP literal, credentials, scheme mismatch: privacy 6).
+   * NEVER assume the REST host; null means "dial the session origin". */
   streamingOrigin: string | null;
+  /** Why the advertised streaming origin was accepted or refused
+   * (`decideStreamingOrigin` reason; persisted for the UI evidence). */
+  streamingOriginReason: StreamingOriginReason | null;
   serverFamily: ServerFamily;
   features: Record<string, FeatureSupport>;
 }
@@ -66,32 +71,127 @@ function numOrNull(value: unknown): number | null {
 /** Normalize a streaming host advertisement to a `ws(s)://host[:port]`
  * origin. `configuration.urls.streaming` (v2) may be a DIFFERENT host;
  * `urls.streaming_api` (v1) is Akkoma's ws origin. When the session
- * origin is known the advertised scheme must match it (`https` → `wss`,
- * `http` → `ws`): a mismatch answers null so the stream client falls
- * back to the session origin's mapping instead of dialing a
- * differently-schemed host (contract §8). */
+ * origin is known the advertised host must ALSO belong to it (see
+ * `decideStreamingOrigin`): a mismatch answers null so the stream client
+ * falls back to the session origin's mapping instead of handing the
+ * token to a third host (contract §8, privacy 6). */
 export function normalizeStreamingOrigin(
   raw: unknown,
   sessionOrigin?: string | null,
 ): string | null {
+  return decideStreamingOrigin(sessionOrigin ?? null, raw).origin;
+}
+
+/** Why an advertised streaming origin was accepted or refused. Kept in
+ * `evidence` (via `streamingEvidenceFor`) so the UI can say why the REST
+ * origin is dialed instead of the advertised host. */
+export type StreamingOriginReason =
+  | "equal"
+  | "subdomain"
+  | "sibling"
+  | "unvalidated"
+  | "scheme-mismatch"
+  | "foreign"
+  | "ip-literal"
+  | "credentials"
+  | "invalid";
+
+/** The validator's answer: the ws(s) origin to dial (null = refused, dial
+ * the session origin instead) plus the reason for the evidence record. */
+export interface StreamingOriginDecision {
+  origin: string | null;
+  reason: StreamingOriginReason;
+}
+
+/** True when the hostname is an IP literal in any common encoding — never
+ * an acceptable streaming advertisement (a token must not ride to a bare
+ * address on a stranger's word alone). DNS names go through the
+ * equal/subdomain/sibling checks below. */
+function isIpLiteralHost(host: string): boolean {
+  if (host.includes(":")) return true; // IPv6 literal (`URL` strips the brackets)
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return true; // dotted IPv4
+  if (/^\d+$/.test(host)) return true; // decimal single-part
+  if (/^0[xX][0-9a-fA-F]+$/.test(host)) return true; // hex single-part
+  if (/^0[0-7]+$/.test(host)) return true; // octal single-part
+  return false;
+}
+
+/** Accept an advertised streaming origin only for its own session origin:
+ * the scheme must pin as before (`https` → `wss`, `http` → `ws`), and the
+ * advertised host must equal the session host, be a subdomain of it, or be
+ * a sibling under a shared parent of at least two labels (so `evil.com`
+ * can never pass as a "sibling" of `victim.com` through the bare `com`).
+ * Anything else — foreign hosts, IP literals, userinfo-bearing URLs —
+ * is refused (null) so the client dials the session origin instead; the
+ * reason survives for the evidence record. Without a session origin the
+ * scheme-mapped origin is returned unvalidated (the composer-limits path).
+ * Pure. */
+export function decideStreamingOrigin(
+  sessionOrigin: string | null | undefined,
+  raw: unknown,
+): StreamingOriginDecision {
   const value = strOrNull(raw);
-  if (!value) return null;
+  if (!value) return { origin: null, reason: "invalid" };
+  let url: URL;
   try {
-    const url = new URL(value);
-    let origin: string;
-    if (url.protocol === "ws:" || url.protocol === "wss:") origin = url.origin;
-    else if (url.protocol === "http:") origin = `ws://${url.host}`;
-    else if (url.protocol === "https:") origin = `wss://${url.host}`;
-    else return null;
-    if (sessionOrigin) {
-      const session = new URL(sessionOrigin);
-      const expected = session.protocol === "https:" ? "wss:" : session.protocol === "http:" ? "ws:" : null;
-      if (expected !== null && new URL(origin).protocol !== expected) return null;
-    }
-    return origin;
+    url = new URL(value);
   } catch {
-    return null;
+    return { origin: null, reason: "invalid" };
   }
+  if (url.username.length > 0 || url.password.length > 0) {
+    return { origin: null, reason: "credentials" };
+  }
+  let origin: string;
+  if (url.protocol === "ws:" || url.protocol === "wss:") origin = url.origin;
+  else if (url.protocol === "http:") origin = `ws://${url.host}`;
+  else if (url.protocol === "https:") origin = `wss://${url.host}`;
+  else return { origin: null, reason: "invalid" };
+  if (!sessionOrigin) return { origin, reason: "unvalidated" };
+  let session: URL;
+  try {
+    session = new URL(sessionOrigin);
+  } catch {
+    return { origin: null, reason: "invalid" };
+  }
+  const expected = session.protocol === "https:" ? "wss:" : session.protocol === "http:" ? "ws:" : null;
+  if (expected !== null && new URL(origin).protocol !== expected) {
+    return { origin: null, reason: "scheme-mismatch" };
+  }
+  const sessionHost = session.hostname.toLowerCase().replace(/\.$/, "");
+  const advHost = url.hostname.toLowerCase().replace(/\.$/, "");
+  if (!sessionHost || !advHost) return { origin: null, reason: "invalid" };
+  if (isIpLiteralHost(advHost)) return { origin: null, reason: "ip-literal" };
+  if (advHost === sessionHost) return { origin, reason: "equal" };
+  if (advHost.endsWith(`.${sessionHost}`)) return { origin, reason: "subdomain" };
+  const sessionLabels = sessionHost.split(".");
+  const advLabels = advHost.split(".");
+  if (
+    sessionLabels.length >= 3 &&
+    advLabels.length >= 3 &&
+    sessionLabels.slice(1).join(".") === advLabels.slice(1).join(".")
+  ) {
+    return { origin, reason: "sibling" };
+  }
+  return { origin: null, reason: "foreign" };
+}
+
+/** The persisted evidence shape for a streaming-origin decision (X3.4
+ * copies this into `Session.evidence`, which owns the widened fields).
+ * `streamingOrigin` is the validated ws(s) origin (null = refused, dial
+ * the session origin); `streamingOriginReason` is the `decide` reason. */
+export interface StreamingOriginEvidence {
+  streamingOrigin: string | null;
+  streamingOriginReason: StreamingOriginReason | null;
+}
+
+/** Evidence patch for a streaming advertisement: the validated origin plus
+ * its reason, ready for X3.4 to persist on the session. Pure. */
+export function streamingEvidenceFor(
+  sessionOrigin: string | null | undefined,
+  raw: unknown,
+): StreamingOriginEvidence {
+  const decided = decideStreamingOrigin(sessionOrigin, raw);
+  return { streamingOrigin: decided.origin, streamingOriginReason: decided.reason };
 }
 
 /** Family detection: substring markers on the version FIRST (Akkoma's
@@ -289,9 +389,10 @@ async function fetchInstanceCapabilitiesInner(
   // Account fields (acct/url), never conflated (keystodon.md §7).
   const domain = strOrNull(v2?.domain) ?? strOrNull(v1?.uri) ?? null;
 
-  const streaming =
-    normalizeStreamingOrigin(v2?.configuration?.urls?.streaming, origin) ??
-    normalizeStreamingOrigin(v1?.urls?.streaming_api, origin);
+  const streaming = decideStreamingOrigin(
+    origin,
+    v2?.configuration?.urls?.streaming ?? v1?.urls?.streaming_api ?? null,
+  );
 
   return {
     origin,
@@ -303,7 +404,8 @@ async function fetchInstanceCapabilitiesInner(
       numOrNull(v1?.configuration?.statuses?.max_characters) ??
       numOrNull(v1?.max_toot_chars),
     maxMediaAttachments: numOrNull(v2?.configuration?.statuses?.max_media_attachments),
-    streamingOrigin: streaming,
+    streamingOrigin: streaming.origin,
+    streamingOriginReason: streaming.reason,
     serverFamily: family,
     features: buildFeatures(family, pleromaFeatures, v1, v2),
   };

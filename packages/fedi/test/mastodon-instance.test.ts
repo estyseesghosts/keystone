@@ -9,10 +9,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  decideStreamingOrigin,
   detectFamily,
   fetchInstanceCapabilities,
   normalizeStreamingOrigin,
   reactionsSupported,
+  streamingEvidenceFor,
 } from "../src/mastodon/instance";
 
 function fixture<T>(flavor: string, name: string): T {
@@ -61,7 +63,10 @@ describe("fetchInstanceCapabilities v2→v1 fallback (Akkoma contract)", () => {
       },
     ]);
     try {
-      const caps = await fetchInstanceCapabilities(ORIGIN);
+      // The session origin names the fixture's own domain (production
+      // always calls with its own origin; the old placeholder origin would
+      // read as a foreign streaming host under the privacy-6 rule).
+      const caps = await fetchInstanceCapabilities("https://akkoma.example");
       expect(stub.calls).toContain("GET /api/v2/instance");
       expect(stub.calls).toContain("GET /api/v1/instance");
       expect(caps.serverFamily).toBe("akkoma");
@@ -71,6 +76,7 @@ describe("fetchInstanceCapabilities v2→v1 fallback (Akkoma contract)", () => {
       expect(caps.features.password_grant).toBe("supported");
       expect(caps.features.quote_posting).toBe("supported");
       expect(caps.streamingOrigin).toBe("wss://akkoma.example");
+      expect(caps.streamingOriginReason).toBe("equal");
     } finally {
       stub.restore();
     }
@@ -118,6 +124,7 @@ describe("fetchInstanceCapabilities v2→v1 fallback (Akkoma contract)", () => {
   });
 
   it("mastodon v2 answers directly (family + limits + streaming origin)", async () => {
+    const mastodonOrigin = "https://mastodon.example";
     const stub = stubFetch([
       {
         method: "GET",
@@ -132,7 +139,7 @@ describe("fetchInstanceCapabilities v2→v1 fallback (Akkoma contract)", () => {
         match: "/.well-known/nodeinfo",
         status: 200,
         body: {
-          links: [{ rel: "http://nodeinfo.diaspora.software/ns/schema/2.1", href: `${ORIGIN}/nodeinfo/2.1` }],
+          links: [{ rel: "http://nodeinfo.diaspora.software/ns/schema/2.1", href: `${mastodonOrigin}/nodeinfo/2.1` }],
         },
       },
       {
@@ -143,12 +150,15 @@ describe("fetchInstanceCapabilities v2→v1 fallback (Akkoma contract)", () => {
       },
     ]);
     try {
-      const caps = await fetchInstanceCapabilities(ORIGIN);
+      // Same production-shape origin as the Akkoma case above: the session
+      // origin names the fixture's own domain.
+      const caps = await fetchInstanceCapabilities(mastodonOrigin);
       expect(caps.serverFamily).toBe("mastodon");
       expect(caps.domain).toBe("mastodon.example");
       expect(caps.maxStatusCharacters).toBe(500);
       expect(caps.maxMediaAttachments).toBe(4);
       expect(caps.streamingOrigin).toBe("wss://mastodon.example");
+      expect(caps.streamingOriginReason).toBe("equal");
       expect(caps.features.emoji_reactions).toBe("unsupported");
       expect(caps.features.password_grant).toBe("unsupported");
     } finally {
@@ -228,9 +238,12 @@ describe("instance helpers", () => {
     expect(normalizeStreamingOrigin("wss://stream.mastodon.example", "https://mastodon.example")).toBe(
       "wss://stream.mastodon.example",
     );
-    expect(normalizeStreamingOrigin("ws://stream.local:4000", "http://localhost:4000")).toBe(
-      "ws://stream.local:4000",
+    expect(normalizeStreamingOrigin("ws://stream.localhost:4000", "http://localhost:4000")).toBe(
+      "ws://stream.localhost:4000",
     );
+    // A merely similar host is foreign, not a subdomain (privacy 6): the
+    // client falls back to the session origin.
+    expect(normalizeStreamingOrigin("ws://stream.local:4000", "http://localhost:4000")).toBeNull();
     // Mismatched scheme → null (the client falls back to the session host).
     expect(normalizeStreamingOrigin("ws://stream.mastodon.example", "https://mastodon.example")).toBeNull();
     expect(normalizeStreamingOrigin("https://stream.mastodon.example", "https://mastodon.example")).toBe(
@@ -252,5 +265,89 @@ describe("instance helpers", () => {
     expect(reactionsSupported({ features: { emoji_reactions: "unknown" } })).toBe(false);
     expect(reactionsSupported({ features: { emoji_reactions: "supported" } })).toBe(true);
     expect(reactionsSupported(null, { emoji_reactions: [{ name: "x" }] })).toBe(true);
+  });
+});
+
+describe("decideStreamingOrigin host rules (privacy 6, X2.3)", () => {
+  it("accepts equal, subdomain, and sibling hosts", () => {
+    expect(decideStreamingOrigin("https://m.example", "wss://m.example")).toEqual({
+      origin: "wss://m.example",
+      reason: "equal",
+    });
+    expect(decideStreamingOrigin("https://m.example", "wss://stream.m.example")).toEqual({
+      origin: "wss://stream.m.example",
+      reason: "subdomain",
+    });
+    expect(decideStreamingOrigin("https://a.example.com", "wss://b.example.com")).toEqual({
+      origin: "wss://b.example.com",
+      reason: "sibling",
+    });
+  });
+
+  it("refuses foreign hosts — including single-label-parent lookalikes", () => {
+    expect(decideStreamingOrigin("https://m.example", "wss://evil.example")).toEqual({
+      origin: null,
+      reason: "foreign",
+    });
+    // `b.example` shares the bare `example` with `a.example`: a one-label
+    // parent is not enough for a sibling (else every `*.com` pair would be).
+    expect(decideStreamingOrigin("https://a.example", "wss://b.example")).toEqual({
+      origin: null,
+      reason: "foreign",
+    });
+    expect(decideStreamingOrigin("https://m.example", "wss://evil.com")).toEqual({
+      origin: null,
+      reason: "foreign",
+    });
+  });
+
+  it("refuses IP literals in every common encoding", () => {
+    expect(decideStreamingOrigin("https://m.example", "wss://192.0.2.1/")).toEqual({
+      origin: null,
+      reason: "ip-literal",
+    });
+    expect(decideStreamingOrigin("https://m.example", "wss://[::1]/")).toEqual({
+      origin: null,
+      reason: "ip-literal",
+    });
+    expect(decideStreamingOrigin("https://m.example", "wss://2130706433/")).toEqual({
+      origin: null,
+      reason: "ip-literal",
+    });
+  });
+
+  it("refuses userinfo-bearing URLs and keeps the scheme pin", () => {
+    expect(decideStreamingOrigin("https://m.example", "wss://user@m.example/")).toEqual({
+      origin: null,
+      reason: "credentials",
+    });
+    expect(decideStreamingOrigin("https://m.example", "wss://user:pass@m.example/")).toEqual({
+      origin: null,
+      reason: "credentials",
+    });
+    // The scheme pin runs before the host check.
+    expect(decideStreamingOrigin("https://m.example", "ws://stream.m.example")).toEqual({
+      origin: null,
+      reason: "scheme-mismatch",
+    });
+    expect(decideStreamingOrigin("https://m.example", "gopher://m.example")).toEqual({
+      origin: null,
+      reason: "invalid",
+    });
+    expect(decideStreamingOrigin("https://m.example", null)).toEqual({
+      origin: null,
+      reason: "invalid",
+    });
+  });
+
+  it("streamingEvidenceFor carries the decision for the session evidence", () => {
+    expect(streamingEvidenceFor("https://a.example.com", "wss://b.example.com")).toEqual({
+      streamingOrigin: "wss://b.example.com",
+      streamingOriginReason: "sibling",
+    });
+    expect(streamingEvidenceFor("https://m.example", "wss://evil.example")).toEqual({
+      streamingOrigin: null,
+      streamingOriginReason: "foreign",
+    });
   });
 });

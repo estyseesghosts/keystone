@@ -18,13 +18,17 @@ import {useState} from 'react'
 import {FlatList, Linking, RefreshControl, TextInput, View} from 'react-native'
 import type {InfiniteData} from '@tanstack/react-query'
 
-import type {ChatMessage, Page} from '@keystone/fedi'
+import {msg} from '@lingui/macro'
+
+import {safeHttpUrl, type ChatMessage, type Page} from '@keystone/fedi'
 
 import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Pressable} from '#/components/Pressable'
+import {i18n} from '#/locale/i18n'
+import {showToast} from '#/lib/toast'
 
 /** Author line: packed name, else handle, else a stable id suffix — never
  * an invented name. Pure. */
@@ -44,11 +48,15 @@ function ChatAttachment({message}: {message: ChatMessage}) {
   const file = message.file
   if (file) {
     const label = file.name && file.name.length > 0 ? file.name : 'Attachment'
+    // Defence in depth: the Drive URL is server JSON, so it is vetted here
+    // (not just in the chat adapter) — a non-http(s) file URL renders as
+    // plain text, never as a link. The failure toast never echoes the URL.
+    const safe = safeHttpUrl(file.url)
     return (
       <View testID={`chat-attachment-${message.id}`}>
-        {file.url ? (
+        {safe !== null ? (
           <Pressable
-            onPress={() => void Linking.openURL(file.url as string).catch(() => {})}
+            onPress={() => void Linking.openURL(safe).catch(() => showToast(i18n._(msg`Could not open this attachment.`)))}
             accessibilityRole="link"
             accessibilityLabel={`Open attachment ${label}`}
             testID={`chat-attachment-open-${message.id}`}>

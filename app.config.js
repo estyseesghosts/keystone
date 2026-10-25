@@ -53,6 +53,20 @@ module.exports = function (_config) {
         // / `data_extraction_rules.xml` (written by withAndroidHardening)
         // exclude `files/mmkv/` if backups are ever re-enabled.
         allowBackup: false,
+        // X2.3 (security M3, ADR 0012): the narrowest callback claim Expo
+        // expresses — exactly the `keystone` scheme + `auth` host +
+        // `/callback` path, `autoVerify` off (no App Links: no signing
+        // identity, no domain). The top-level `scheme` still generates its
+        // broad filter alongside this one, so this is depth, not a
+        // boundary — the accepted risk stays recorded in the ADR.
+        intentFilters: [
+          {
+            action: 'VIEW',
+            autoVerify: false,
+            data: [{scheme: 'keystone', host: 'auth', path: '/callback'}],
+            category: ['BROWSABLE', 'DEFAULT'],
+          },
+        ],
         adaptiveIcon: {
           foregroundImage: './assets/adaptive-icon.png',
           backgroundColor: '#1f3a5f',
