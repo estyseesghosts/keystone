@@ -31,7 +31,7 @@ module.exports = function (_config) {
         // ___UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption)
         // unless the app adopts the scene life cycle. Expo 57 ships
         // EXExpoAppSceneDelegate for exactly this but wires no manifest
-        // itself, so we declare it here (survives `expo prebuild`).
+        // itself, so we declare it here.
         infoPlist: {
           UIApplicationSceneManifest: {
             UIApplicationSupportsMultipleScenes: false,

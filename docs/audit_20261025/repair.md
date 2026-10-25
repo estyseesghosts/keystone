@@ -274,7 +274,7 @@ starts from an unambiguous next step.
 
 ## X0.4 - `ios/` tracking policy
 
-Status: not started (blocked on D1)
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x0.4.md`; D1=commit both applied, `git status` clean of `?? ios/`)
 Branch: `repair25-x0.4-native-dirs`
 Audit: build 3
 
