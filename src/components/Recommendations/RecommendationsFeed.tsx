@@ -15,6 +15,7 @@ import {feedItems, usePostFeedQuery} from '#/state/queries'
 import {useBackendForSessionId} from '#/screens/HomeFeed'
 import {recommendationFeedParams, useRecommendationSettings} from '#/state/queries/recommendations'
 import {filterModerated, filterSoftMuted, useModerationRules, useSoftMutedIds} from '#/state/queries'
+import {usePagedLoad, useRefreshFirstPage} from '#/state/queries/usePagedLoad'
 
 // Recommendations feed (fork `notes/recommendations`, offset-paged).
 // Reuses the timeline renderers (ThreadRow → PostCard); no custom card.
@@ -60,17 +61,25 @@ export const RecommendationsFeed = forwardRef<
   const listRef = useRef<FlatList<(typeof visibleItems)[number]>>(null)
   const {onViewableItemsChanged, flush} = useRecommendationDwell(sessionId, resolved ?? null)
 
+  // Paging (X3.3): the shared gate — a failed page or a 429 cooldown never
+  // loops; only the footer Retry fetches again. Refresh trims to the first
+  // page first (one request, not N).
+  const paged = usePagedLoad(feed)
+  const refreshFirst = useRefreshFirstPage(feed.queryKey, feed.refetch)
+  const onRefresh = useCallback(() => {
+    flush()
+    refreshFirst()
+  }, [flush, refreshFirst])
+
   useImperativeHandle(ref, () => ({
     reload: () => {
       flush()
-      void feed.refetch()
+      refreshFirst()
     },
     scrollToTop: () => listRef.current?.scrollToOffset({offset: 0, animated: true}),
   }))
 
-  const onEndReached = useCallback(() => {
-    if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage()
-  }, [feed])
+  const onEndReached = paged.onEndReached
 
   if (!sessionId) return null
 
@@ -115,10 +124,7 @@ export const RecommendationsFeed = forwardRef<
         refreshControl={
           <RefreshControl
             refreshing={feed.isRefetching}
-            onRefresh={() => {
-              flush()
-              void feed.refetch()
-            }}
+            onRefresh={onRefresh}
             testID="feed-refresh"
             tintColor={theme.palette.muted}
             colors={[theme.palette.muted]}
@@ -150,6 +156,11 @@ export const RecommendationsFeed = forwardRef<
           ) : feed.isFetchNextPageError ? (
             <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
               <Caption color="faint">Could not load more posts.</Caption>
+              {paged.cooldownLabel ? (
+                <Caption color="faint" testID="feed-more-cooldown">
+                  {paged.cooldownLabel}
+                </Caption>
+              ) : null}
               <Button
                 label="Retry"
                 variant="secondary"

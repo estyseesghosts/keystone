@@ -119,6 +119,14 @@ describe('PostFeed prefetch (seamless infinite scroll)', () => {
     }
   }
 
+  function endNode() {
+    const list = screen.getByTestId('post-feed-list')
+    return {
+      onScroll: (list.props as {onScroll: (e: unknown) => void}).onScroll,
+      onEndReached: (list.props as {onEndReached: () => void}).onEndReached,
+    }
+  }
+
   it('fetches the next page well before the bottom edge', () => {
     renderFeed(
       <PostFeed sessionId={SESSION} descriptor="timeline|home" posts={[makePost()]} canLoadMore onLoadMore={() => {}} />,
@@ -160,6 +168,62 @@ describe('PostFeed prefetch (seamless infinite scroll)', () => {
     )
     listNode().onScroll(scrollEvent(4300, 5000, 800))
     expect(onLoadMore).not.toHaveBeenCalled()
+  })
+
+  it('latches burst scroll events: one call per fetch (X3.3)', () => {
+    const onLoadMore = jest.fn()
+    renderFeed(
+      <PostFeed sessionId={SESSION} descriptor="timeline|home" posts={[makePost()]} canLoadMore onLoadMore={onLoadMore} />,
+    )
+    const {onScroll, onEndReached} = endNode()
+    // A burst of scroll + end events within one fetch fires exactly once.
+    onScroll(scrollEvent(4300, 5000, 800))
+    onScroll(scrollEvent(4300, 5000, 800))
+    onEndReached()
+    onEndReached()
+    expect(onLoadMore).toHaveBeenCalledTimes(1)
+  })
+
+  it('a failed page never refires: only the footer Retry fetches again (X3.3)', () => {
+    const onLoadMore = jest.fn()
+    const {rerender} = renderFeed(
+      <PostFeed
+        sessionId={SESSION}
+        descriptor="timeline|home"
+        posts={[makePost()]}
+        canLoadMore
+        onLoadMore={onLoadMore}
+      />,
+    )
+    // The next-page fetch fails: the harness re-renders in the error state.
+    rerender(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <SessionProvider homeOrigin="https://example.social" store={memoryStore()}>
+            <PostFeed
+              sessionId={SESSION}
+              descriptor="timeline|home"
+              posts={[makePost()]}
+              canLoadMore
+              onLoadMore={onLoadMore}
+              isFetchNextPageError
+              moreError={new Error('flaky')}
+            />
+          </SessionProvider>
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    expect(screen.getByTestId('post-feed-more-error')).toBeTruthy()
+    const {onScroll, onEndReached} = endNode()
+    for (let i = 0; i < 20; i++) {
+      onScroll(scrollEvent(4300, 5000, 800))
+      onEndReached()
+    }
+    expect(onLoadMore).not.toHaveBeenCalled()
+    // Only the explicit Retry clears the error.
+    expect(screen.getByTestId('post-feed-more-retry')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('post-feed-more-retry'))
+    expect(onLoadMore).toHaveBeenCalledTimes(1)
   })
 })
 

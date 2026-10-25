@@ -32,6 +32,7 @@ import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
 import {useLiveNotifications} from '#/state/streaming'
+import {usePagedLoad, useRefreshFirstPage} from '#/state/queries/usePagedLoad'
 import {
   notificationsItems,
   useClearNotifications,
@@ -243,6 +244,12 @@ export function NotificationsScreen() {
   const dismiss = useDismissNotification(session?.id ?? null, {backend: backend ?? null})
   const clear = useClearNotifications(session?.id ?? null, {backend: backend ?? null})
 
+  // Paging (X3.3): both auto-load sites go through the shared gate, so
+  // a failed page or a 429 cooldown never loops — only the footer Retry
+  // fetches again. Refresh trims to the first page first (one request).
+  const paged = usePagedLoad(query)
+  const onRefresh = useRefreshFirstPage(query.queryKey, query.refetch)
+
   const family = backend?.family ?? null
   const canDismiss =
     family === 'mastodon' && !dismissUnsupported && typeof backend?.dismissNotification === 'function'
@@ -416,6 +423,7 @@ export function NotificationsScreen() {
           ) : (
             <FlatList
               data={items}
+              testID="notifications-list"
               keyExtractor={(item: Notification) => item.id}
               renderItem={({item}) => (
                 <NotificationRow
@@ -426,15 +434,13 @@ export function NotificationsScreen() {
               refreshControl={
                 <RefreshControl
                   refreshing={query.isRefetching}
-                  onRefresh={() => void query.refetch()}
+                  onRefresh={onRefresh}
                   tintColor={theme.palette.muted}
                   colors={[theme.palette.muted]}
                   progressBackgroundColor={theme.palette.bg}
                 />
               }
-              onEndReached={() => {
-                if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage()
-              }}
+              onEndReached={paged.onEndReached}
               onEndReachedThreshold={2.5}
               ListEmptyComponent={
                 <View style={[atoms.centered, atoms.p_md]}>
@@ -449,6 +455,11 @@ export function NotificationsScreen() {
                 ) : query.isFetchNextPageError ? (
                   <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
                     <Caption color="faint">{i18n._(msg`Could not load more.`)}</Caption>
+                    {paged.cooldownLabel ? (
+                      <Caption color="faint" testID="notifications-more-cooldown">
+                        {paged.cooldownLabel}
+                      </Caption>
+                    ) : null}
                     <Button
                       label={i18n._(msg`Retry`)}
                       variant="secondary"

@@ -294,3 +294,102 @@ describe('FeedView scroll layout (header content, sticky bar, prefetch)', () => 
     await waitFor(() => expect(timeline).toHaveBeenCalledTimes(2))
   })
 })
+
+describe('FeedView paging gate (X3.3)', () => {
+  async function signedIn() {
+    const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: HOME_ORIGIN})
+    const added = await store.add({
+      origin: 'https://a.example',
+      family: 'misskey',
+      flavor: 'misskey',
+      accountId: 'alice',
+      token: 'token-a',
+      grant: 'password',
+      hosting: 'third-party',
+    })
+    return {store, sessionId: added.id}
+  }
+
+  function scrollEvent(y: number, contentHeight: number, viewHeight: number) {
+    return {
+      nativeEvent: {
+        contentOffset: {x: 0, y},
+        contentSize: {width: 390, height: contentHeight},
+        layoutMeasurement: {width: 390, height: viewHeight},
+      },
+    }
+  }
+
+  function failingBackend() {
+    const post = makePost({id: 'p1', content: {mfm: 'first page', plain: 'first page'}})
+    const throttled = new ApiError('throttled', 429, 'errors.network.apiError', 'http', {
+      retryAfter: '30',
+      retryAfterMs: 30_000,
+    })
+    const timeline = jest
+      .fn()
+      .mockResolvedValueOnce({items: [post], cursor: 'c1', end: false})
+      .mockRejectedValueOnce(throttled)
+      .mockResolvedValue({items: [], cursor: null, end: true})
+    return {timeline, backend: {timeline} as unknown as Backend}
+  }
+
+  it('error state + 20 scroll events = 0 extra requests (429 shows a countdown, Retry still works)', async () => {
+    const {store, sessionId} = await signedIn()
+    const {timeline, backend} = failingBackend()
+    renderWithProviders(
+      <FeedView sessionId={sessionId} descriptor="timeline|home" backend={backend} retry={false} testID="feed" />,
+      store,
+    )
+    expect(await screen.findByText('first page')).toBeTruthy()
+    // First auto-page fails with a 429 carrying Retry-After: 30.
+    const first = screen.getByTestId('feed-list')
+    ;(first.props as {onEndReached: () => void}).onEndReached()
+    expect(await screen.findByTestId('feed-more-retry')).toBeTruthy()
+    expect(timeline).toHaveBeenCalledTimes(2)
+    // The 429 cooldown is visible while the loaded page stays mounted.
+    expect(screen.getByTestId('feed-more-cooldown')).toBeTruthy()
+    // A scroll storm after the failure issues no further requests.
+    for (let i = 0; i < 20; i++) {
+      const list = screen.getByTestId('feed-list')
+      const props = list.props as {onScroll: (e: unknown) => void; onEndReached: () => void}
+      fireEvent.scroll(list, scrollEvent(4300, 5000, 800))
+      props.onEndReached()
+    }
+    expect(timeline).toHaveBeenCalledTimes(2)
+    // Only the explicit Retry clears the error and fetches again.
+    fireEvent.press(screen.getByTestId('feed-more-retry'))
+    await waitFor(() => expect(timeline).toHaveBeenCalledTimes(3))
+  })
+
+  it('pull-to-refresh trims to the first page (one request, not N)', async () => {
+    const {store, sessionId} = await signedIn()
+    const p1 = makePost({id: 'p1', content: {mfm: 'first page', plain: 'first page'}})
+    const p2 = makePost({id: 'p2', content: {mfm: 'second page', plain: 'second page'}})
+    const timeline = jest
+      .fn()
+      .mockResolvedValueOnce({items: [p1], cursor: 'c1', end: false})
+      .mockResolvedValueOnce({items: [p2], cursor: null, end: true})
+      .mockResolvedValue({items: [p1], cursor: 'c1', end: false})
+    const backend = {timeline} as unknown as Backend
+    renderWithProviders(
+      <FeedView sessionId={sessionId} descriptor="timeline|home" backend={backend} retry={false} testID="feed" />,
+      store,
+    )
+    expect(await screen.findByText('first page')).toBeTruthy()
+    const first = screen.getByTestId('feed-list')
+    ;(first.props as {onEndReached: () => void}).onEndReached()
+    expect(await screen.findByText('second page')).toBeTruthy()
+    expect(timeline).toHaveBeenCalledTimes(2)
+    // Refresh refetches only the trimmed first page (cursor null): one
+    // more request, not one per loaded page.
+    const list = screen.getByTestId('feed-list')
+    const control = (list.props as {refreshControl?: {props: {onRefresh: () => void}}}).refreshControl
+    control?.props.onRefresh()
+    await waitFor(() => expect(timeline).toHaveBeenCalledTimes(3))
+    // Settle: no second per-page refetch may follow.
+    await new Promise(r => setTimeout(r, 50))
+    expect(timeline).toHaveBeenCalledTimes(3)
+    expect(timeline).toHaveBeenLastCalledWith("home", expect.objectContaining({cursor: null}))
+  })
+})

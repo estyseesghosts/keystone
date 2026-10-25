@@ -17,6 +17,8 @@ import {useCallback, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
 
+import {msg} from '@lingui/macro'
+
 import {isUnsupportedError, type Conversation, type Cursor} from '@keystone/fedi'
 
 import {useTheme} from '#/alf'
@@ -29,6 +31,8 @@ import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
+import {i18n} from '#/locale/i18n'
+import {usePagedLoad, useRefreshFirstPage} from '#/state/queries/usePagedLoad'
 import {
   conversationItems,
   useConversationsQuery,
@@ -116,9 +120,11 @@ export function ConversationsScreen() {
   const deleteMutation = useDeleteConversation(session?.id ?? null, {backend: backend ?? undefined})
   const items = conversationItems(list.data)
 
-  const loadMore = useCallback(() => {
-    if (list.hasNextPage && !list.isFetchingNextPage) void list.fetchNextPage()
-  }, [list])
+  // Paging (X3.3): the shared gate — a failed page or a 429 cooldown never
+  // loops; only the footer Retry fetches again. Refresh trims to the first
+  // page first (one request, not N).
+  const paged = usePagedLoad(list)
+  const onRefresh = useRefreshFirstPage(list.queryKey, list.refetch)
 
   const remove = useCallback(
     async (id: string) => {
@@ -164,13 +170,20 @@ export function ConversationsScreen() {
     )
   }
 
+  // TanStack marks the whole query `error` even when only a next page
+  // failed — `list.data` still holds the loaded pages. The full error
+  // screen is only for having NO data; with data the list stays mounted
+  // and the footer offers the next-page retry (X3.3: only that Retry may
+  // clear a next-page error).
+  const hasData = list.data != null && list.data.pages.some(p => p.items.length > 0)
+
   return (
     <View style={atoms.flex1} testID="conversations-screen">
       <Pagehead title="Messages" />
       {deleteError ? <Caption color="faint">{deleteError}</Caption> : null}
       {list.isPending ? (
         <SkeletonList variant="account" testID="conversations-loading" />
-      ) : list.error ? (
+      ) : list.error && !hasData ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>Could not load messages.</Body>
           <Button
@@ -183,6 +196,7 @@ export function ConversationsScreen() {
       ) : (
         <FlatList
           data={items}
+          testID="conversations-list"
           keyExtractor={item => item.id}
           renderItem={({item}) => (
             <ConversationRow
@@ -192,12 +206,12 @@ export function ConversationsScreen() {
               deleting={deletingId === item.id}
             />
           )}
-          onEndReached={() => loadMore()}
+          onEndReached={paged.onEndReached}
           onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl
               refreshing={list.isFetching && !list.isPending}
-              onRefresh={() => void list.refetch()}
+              onRefresh={onRefresh}
               testID="conversations-refresh"
               tintColor={theme.palette.muted}
               colors={[theme.palette.muted]}
@@ -208,6 +222,28 @@ export function ConversationsScreen() {
             <View style={[atoms.centered, atoms.p_md]}>
               <Body>No conversations yet.</Body>
             </View>
+          }
+          ListFooterComponent={
+            list.isFetchingNextPage ? (
+              <View style={[atoms.centered, atoms.py_sm]}>
+                <Caption color="faint">{i18n._(msg`Loading more messages…`)}</Caption>
+              </View>
+            ) : list.isFetchNextPageError ? (
+              <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
+                <Caption color="faint">{i18n._(msg`Could not load more messages.`)}</Caption>
+                {paged.cooldownLabel ? (
+                  <Caption color="faint" testID="conversations-more-cooldown">
+                    {paged.cooldownLabel}
+                  </Caption>
+                ) : null}
+                <Button
+                  label={i18n._(msg`Retry`)}
+                  variant="secondary"
+                  onPress={() => void list.fetchNextPage()}
+                  testID="conversations-more-retry"
+                />
+              </View>
+            ) : null
           }
         />
       )}

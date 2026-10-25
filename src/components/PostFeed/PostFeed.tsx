@@ -12,11 +12,15 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native'
 
+import {msg} from '@lingui/macro'
+
 import {computeFeedThreadLinks, type Capabilities, type EmojiStyle, type Post} from '@keystone/fedi'
 
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
+import {i18n} from '#/locale/i18n'
+import {usePagedLoad} from '#/state/queries/usePagedLoad'
 
 import {ThreadRow} from './ThreadRow'
 
@@ -41,6 +45,13 @@ export type PostFeedProps = {
   onLoadMore?: () => void
   isFetchingMore?: boolean
   canLoadMore?: boolean
+  /** Next-page failure flag (X3.3): while true, auto-paging stays silent
+   * and only the footer Retry (which calls `onLoadMore` directly) fetches
+   * again. */
+  isFetchNextPageError?: boolean
+  /** The next-page failure itself, when known (carries 429 `retryAfterMs`
+   * for the cooldown countdown). */
+  moreError?: unknown
   /** New-posts pill hook point (streaming lands in slice 3.10). */
   hasNewPosts?: boolean
   newPostsCount?: number
@@ -61,6 +72,8 @@ export function PostFeed({
   onLoadMore,
   isFetchingMore = false,
   canLoadMore = false,
+  isFetchNextPageError = false,
+  moreError = null,
   hasNewPosts = false,
   newPostsCount = 0,
   onSeeNewPosts,
@@ -75,16 +88,25 @@ export function PostFeed({
   const links = useMemo(() => computeFeedThreadLinks(posts), [posts])
   // Scroll-proximity prefetch: start the next page ~1200px before the
   // bottom edge, well ahead of `onEndReached` (itself raised to 2.5
-  // screens). Same guards as the threshold handler — `canLoadMore` and
-  // !`isFetchingMore`, so never a duplicate fetch.
+  // screens). BOTH this handler and `onEndReached` go through the shared
+  // `usePagedLoad` gate (X3.3): `canLoadMore` and !`isFetchingMore`, plus
+  // the error guard (a failed page never refires), the burst latch (one
+  // call per fetch), and the 429 cooldown — so never a duplicate fetch.
+  const paged = usePagedLoad({
+    hasNextPage: canLoadMore,
+    isFetchingNextPage: isFetchingMore,
+    isFetchNextPageError,
+    fetchNextPage: () => onLoadMore?.(),
+    error: moreError,
+  })
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const {contentOffset, contentSize, layoutMeasurement} = e.nativeEvent
       if (contentSize == null || layoutMeasurement == null) return
       const distanceToEnd = contentSize.height - (contentOffset.y + layoutMeasurement.height)
-      if (distanceToEnd < 1200 && canLoadMore && !isFetchingMore) onLoadMore?.()
+      if (distanceToEnd < 1200) paged.onEndReached()
     },
-    [canLoadMore, isFetchingMore, onLoadMore],
+    [paged],
   )
   // Stable row element (same rule as FeedView): memoized ThreadRow
   // skips unchanged rows on scroll frames.
@@ -132,7 +154,7 @@ export function PostFeed({
             <RefreshControl refreshing={isLoading} onRefresh={onRefresh} testID="post-feed-refresh" />
           ) : undefined
         }
-        onEndReached={canLoadMore && !isFetchingMore ? () => onLoadMore?.() : undefined}
+        onEndReached={paged.onEndReached}
         onEndReachedThreshold={2.5}
         onScroll={handleScroll}
         scrollEventThrottle={32}
@@ -157,6 +179,21 @@ export function PostFeed({
           isFetchingMore ? (
             <View style={styles.footer} testID="post-feed-more-loading">
               <Loader testID="post-feed-more-loader" />
+            </View>
+          ) : isFetchNextPageError ? (
+            <View style={styles.footer} testID="post-feed-more-error">
+              <Caption color="muted">{i18n._(msg`Could not load more posts.`)}</Caption>
+              {paged.cooldownLabel ? (
+                <Caption color="muted" testID="post-feed-more-cooldown">
+                  {paged.cooldownLabel}
+                </Caption>
+              ) : null}
+              <Button
+                testID="post-feed-more-retry"
+                label={i18n._(msg`Retry`)}
+                variant="secondary"
+                onPress={() => onLoadMore?.()}
+              />
             </View>
           ) : null
         }

@@ -4,9 +4,9 @@
 // conversation queries, so the capability gate is genuinely exercised.
 
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {fireEvent, render, screen} from '@testing-library/react-native'
+import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
-import {createMemoryStore} from '@keystone/fedi'
+import {createMemoryStore, ApiError} from '@keystone/fedi'
 
 import type {TokenVault} from '#/storage'
 import {__setStorageForTests, appStorage} from '#/storage'
@@ -215,6 +215,43 @@ describe('Conversations screen', () => {
     try {
       expect(await screen.findByText('Could not load messages.')).toBeTruthy()
       expect(screen.getByTestId('conversations-retry')).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
+
+  it('a failed page never refires: 20 scroll events = 0 extra requests (X3.3)', async () => {
+    const throttled = new ApiError('throttled', 429, 'errors.network.apiError', 'http', {
+      retryAfter: '30',
+      retryAfterMs: 30_000,
+    })
+    const list = jest
+      .fn()
+      .mockResolvedValueOnce({items: [conv()], cursor: 'c1', end: false})
+      .mockRejectedValueOnce(throttled)
+      .mockResolvedValue({items: [], cursor: null, end: true})
+    const backend = fullBackend({list})
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('Bob')).toBeTruthy()
+      const first = screen.getByTestId('conversations-list')
+      ;(first.props as {onEndReached: () => void}).onEndReached()
+      expect(await screen.findByTestId('conversations-more-retry')).toBeTruthy()
+      expect(list).toHaveBeenCalledTimes(2)
+      // The 429 cooldown is visible while the loaded row stays mounted.
+      expect(screen.getByTestId('conversations-more-cooldown')).toBeTruthy()
+      for (let i = 0; i < 20; i++) {
+        const scrolled = screen.getByTestId('conversations-list')
+        ;(scrolled.props as {onEndReached: () => void}).onEndReached()
+      }
+      expect(list).toHaveBeenCalledTimes(2)
+      // Only the explicit Retry fetches again (the loaded row stays; the
+      // new empty page just ends the feed).
+      fireEvent.press(screen.getByTestId('conversations-more-retry'))
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(3))
+      // The successful retry clears the error: wait for the footer to
+      // settle away rather than asserting synchronously mid-flush.
+      await waitFor(() => expect(screen.queryByTestId('conversations-more-retry')).toBeNull())
     } finally {
       done()
     }

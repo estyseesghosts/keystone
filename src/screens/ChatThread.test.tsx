@@ -1,7 +1,10 @@
 // X2.3: a server-supplied chat file URL is vetted before it becomes a
 // link — non-http(s) file URLs render as plain text, never as a Pressable.
+// X3.3: a failed page never refires from scroll — only the footer Retry
+// fetches again.
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {I18nProvider} from '@lingui/react'
-import {render, screen} from '@testing-library/react-native'
+import {fireEvent, render, screen} from '@testing-library/react-native'
 import type {ReactElement} from 'react'
 
 import type {ChatMessage, Media} from '@keystone/fedi'
@@ -47,7 +50,7 @@ function message(url: string | null): ChatMessage {
   }
 }
 
-function threadWith(items: ChatMessage[]): ChatThreadData {
+function threadWith(items: ChatMessage[], over: Partial<ChatThreadData> = {}): ChatThreadData {
   return {
     pages: undefined,
     items,
@@ -58,16 +61,18 @@ function threadWith(items: ChatMessage[]): ChatThreadData {
     isFetching: false,
     fetchNextPage: () => {},
     refetch: () => {},
+    ...over,
   }
 }
 
-function setup(url: string | null): {unmount: () => void} {
+function setup(url: string | null, threadOver: Partial<ChatThreadData> = {}): {unmount: () => void} {
   const tree: ReactElement = (
+    <QueryClientProvider client={new QueryClient()}>
     <I18nProvider i18n={i18n}>
       <ThemeProvider theme="light">
         <ChatThread
           testPrefix="chat-user"
-          thread={threadWith([message(url)])}
+          thread={threadWith([message(url)], threadOver)}
           emptyLabel="No messages."
           sendLabel="Write a message."
           sending={false}
@@ -79,6 +84,7 @@ function setup(url: string | null): {unmount: () => void} {
         />
       </ThemeProvider>
     </I18nProvider>
+    </QueryClientProvider>
   )
   return render(tree)
 }
@@ -102,5 +108,25 @@ describe('ChatThread attachment link vetting (X2.3)', () => {
   it('renders the link for an https file URL', () => {
     setup('https://files.example/note.txt')
     expect(screen.getByTestId('chat-attachment-open-m1')).toBeTruthy()
+  })
+})
+
+describe('ChatThread paging gate (X3.3)', () => {
+  it('error state + 20 scroll events = 0 extra requests; only Retry fetches', () => {
+    const fetchNextPage = jest.fn()
+    setup('https://files.example/note.txt', {
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      isFetchNextPageError: true,
+      error: new Error('flaky'),
+      fetchNextPage,
+    })
+    expect(screen.getByTestId('chat-user-more-retry')).toBeTruthy()
+    const list = screen.getByTestId('chat-user-list')
+    const onEndReached = (list.props as {onEndReached: () => void}).onEndReached
+    for (let i = 0; i < 20; i++) onEndReached()
+    expect(fetchNextPage).not.toHaveBeenCalled()
+    fireEvent.press(screen.getByTestId('chat-user-more-retry'))
+    expect(fetchNextPage).toHaveBeenCalledTimes(1)
   })
 })

@@ -14,9 +14,9 @@
 //   confirmed, server-side; the row disappears through invalidation +
 //   refetch, never a local prune).
 
-import {useState} from 'react'
+import {useCallback, useState} from 'react'
 import {FlatList, Linking, RefreshControl, TextInput, View} from 'react-native'
-import type {InfiniteData} from '@tanstack/react-query'
+import {useQueryClient, type InfiniteData} from '@tanstack/react-query'
 
 import {msg} from '@lingui/macro'
 
@@ -29,6 +29,8 @@ import {Button} from '#/components/Button'
 import {Pressable} from '#/components/Pressable'
 import {i18n} from '#/locale/i18n'
 import {showToast} from '#/lib/toast'
+import {trimQueryToFirstPage, usePagedLoad} from '#/state/queries/usePagedLoad'
+import type {AppQueryKey} from '#/state/queries/keys'
 
 /** Author line: packed name, else handle, else a stable id suffix — never
  * an invented name. Pure. */
@@ -143,6 +145,16 @@ export interface ChatThreadData {
   error: unknown
   hasNextPage: boolean
   isFetchingNextPage: boolean
+  /**
+   * Next-page failure flag (X3.3): when present it gates auto-paging and
+   * arms the 429 cooldown; only the footer Retry clears it. Callers that
+   * do not pass it yet fall back to "error with loaded items", so the
+   * guard still holds without caller changes.
+   */
+  isFetchNextPageError?: boolean
+  /** Cache key of the backing infinite query, when known: refresh trims
+   * to the first page first (one request, not N). Absent = plain refetch. */
+  queryKey?: AppQueryKey
   isFetching: boolean
   fetchNextPage: () => void
   refetch: () => void
@@ -177,6 +189,21 @@ export function ChatThread({
   const [draft, setDraft] = useState('')
   const [localError, setLocalError] = useState<string | null>(null)
 
+  // Paging (X3.3): a next-page failure keeps the loaded messages and only
+  // the footer Retry fetches again — scroll bursts and 429 cooldowns never
+  // loop. `isFetchNextPageError` is still rolling out to callers, so an
+  // error alongside loaded items counts as a page error.
+  const hasData = thread.items.length > 0
+  const paged = usePagedLoad({
+    ...thread,
+    isFetchNextPageError: thread.isFetchNextPageError ?? (thread.error != null && hasData),
+  })
+  const queryClient = useQueryClient()
+  const onRefresh = useCallback(() => {
+    if (thread.queryKey) trimQueryToFirstPage(queryClient, thread.queryKey)
+    void thread.refetch()
+  }, [queryClient, thread.queryKey, thread.refetch])
+
   const send = async () => {
     const text = draft.trim()
     if (!text || sending) return
@@ -195,7 +222,7 @@ export function ChatThread({
         <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
           <Caption color="faint">Loading…</Caption>
         </View>
-      ) : thread.error ? (
+      ) : thread.error && !hasData ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
           <Body>Could not load messages.</Body>
           <Button
@@ -208,6 +235,7 @@ export function ChatThread({
       ) : (
         <FlatList
           data={thread.items}
+          testID={`${testPrefix}-list`}
           keyExtractor={item => item.id}
           renderItem={({item}) => (
             <ChatMessageRow
@@ -217,14 +245,12 @@ export function ChatThread({
               onDelete={() => onDelete(item)}
             />
           )}
-          onEndReached={() => {
-            if (thread.hasNextPage && !thread.isFetchingNextPage) thread.fetchNextPage()
-          }}
+          onEndReached={paged.onEndReached}
           onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl
               refreshing={thread.isFetching && !thread.isPending}
-              onRefresh={() => thread.refetch()}
+              onRefresh={onRefresh}
               testID={`${testPrefix}-refresh`}
               tintColor={theme.palette.muted}
               colors={[theme.palette.muted]}
@@ -235,6 +261,28 @@ export function ChatThread({
             <View style={[atoms.centered, atoms.p_md]}>
               <Body>{emptyLabel}</Body>
             </View>
+          }
+          ListFooterComponent={
+            thread.isFetchingNextPage ? (
+              <View style={[atoms.centered, atoms.py_sm]}>
+                <Caption color="faint">{i18n._(msg`Loading more messages…`)}</Caption>
+              </View>
+            ) : (thread.isFetchNextPageError ?? (thread.error != null && hasData)) ? (
+              <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
+                <Caption color="faint">{i18n._(msg`Could not load more messages.`)}</Caption>
+                {paged.cooldownLabel ? (
+                  <Caption color="faint" testID={`${testPrefix}-more-cooldown`}>
+                    {paged.cooldownLabel}
+                  </Caption>
+                ) : null}
+                <Button
+                  label={i18n._(msg`Retry`)}
+                  variant="secondary"
+                  onPress={() => thread.fetchNextPage()}
+                  testID={`${testPrefix}-more-retry`}
+                />
+              </View>
+            ) : null
           }
         />
       )}

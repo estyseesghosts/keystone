@@ -1,11 +1,12 @@
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {render, screen} from '@testing-library/react-native'
+import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {FlatList} from 'react-native'
 
 import {
   NOTIFICATION_FILTER_PRESETS,
+  ApiError,
   createMemoryStore,
   notificationFilterPresets,
   type Backend,
@@ -202,5 +203,65 @@ describe('NotificationsScreen prefetch (seamless infinite scroll)', () => {
     expect(await screen.findByText('No notifications.')).toBeTruthy()
     const list = screen.UNSAFE_getByType(FlatList)
     expect((list.props as {onEndReachedThreshold?: number}).onEndReachedThreshold).toBeGreaterThanOrEqual(2)
+  })
+
+  it('a failed page never refires: 20 scroll events = 0 extra requests (X3.3)', async () => {
+    const vault: TokenVault = {
+      getToken: async () => null,
+      setToken: async () => {},
+      removeToken: async () => {},
+    }
+    const store = createSessionStore({storage: createMemoryStore(), vault, homeOrigin: 'https://a.example'})
+    const added = await store.add({
+      origin: 'https://a.example',
+      family: 'misskey',
+      flavor: 'misskey',
+      accountId: 'alice',
+      token: 'token-a',
+      grant: 'password',
+      hosting: 'third-party',
+    })
+    const throttled = new ApiError('throttled', 429, 'errors.network.apiError', 'http', {
+      retryAfter: '30',
+      retryAfterMs: 30_000,
+    })
+    const notifications = jest
+      .fn()
+      .mockResolvedValueOnce({items: [baseNotification], cursor: 'c1', end: false})
+      .mockRejectedValueOnce(throttled)
+      .mockResolvedValue({items: [], cursor: null, end: true})
+    mockBackends.set(added.id, {
+      family: 'misskey',
+      capabilities: {},
+      notifications,
+    } as unknown as Backend)
+    i18n.load('en', {})
+    i18n.activate('en')
+    render(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <QueryClientProvider client={new QueryClient()}>
+            <SessionProvider store={store} homeOrigin="https://a.example">
+              <NotificationsScreen />
+            </SessionProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    expect(await screen.findByText('reacted ❤')).toBeTruthy()
+    const first = screen.UNSAFE_getByType(FlatList)
+    ;(first.props as {onEndReached: () => void}).onEndReached()
+    expect(await screen.findByTestId('notifications-more-retry')).toBeTruthy()
+    expect(notifications).toHaveBeenCalledTimes(2)
+    // The 429 cooldown is visible while the loaded row stays mounted.
+    expect(screen.getByTestId('notifications-more-cooldown')).toBeTruthy()
+    for (let i = 0; i < 20; i++) {
+      const node = screen.UNSAFE_getByType(FlatList)
+      ;(node.props as {onEndReached: () => void}).onEndReached()
+    }
+    expect(notifications).toHaveBeenCalledTimes(2)
+    // Only the explicit Retry fetches again.
+    fireEvent.press(screen.getByTestId('notifications-more-retry'))
+    await waitFor(() => expect(notifications).toHaveBeenCalledTimes(3))
   })
 })

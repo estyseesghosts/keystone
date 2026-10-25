@@ -6,6 +6,7 @@ import React from 'react'
 
 import {
   appearNoteOf,
+  ApiError,
   createMemoryStore,
   type Backend,
   type Page,
@@ -23,6 +24,7 @@ import {buildPostMenu, flatten} from '#/components/Post/menuModel'
 import {fetchFeedPage} from '#/state/queries/usePostFeedQuery'
 import {recommendationFeedParams} from '#/state/queries/recommendations'
 import {useRecommendationDwell} from '#/lib/recommendationDwell'
+import {RecommendationsFeed} from './RecommendationsFeed'
 import {RecommendationsSettingsOverlay} from './RecommendationsSettingsOverlay'
 import {HomeScreen} from '#/screens/Home'
 
@@ -428,6 +430,78 @@ describe('home recommendations tab', () => {
       expect(screen.queryByTestId('home-tabs')).toBeNull()
     } finally {
       done()
+    }
+  })
+})
+
+describe('recommendations feed paging gate (X3.3)', () => {
+  it('a failed page never refires: 20 scroll events = 0 extra requests', async () => {
+    const storage = createMemoryStore()
+    const restore = appStorage()
+    __setStorageForTests({storage})
+    const recPost = makePost({id: 'r1', content: {mfm: 'rec hello', plain: 'rec hello'}})
+    const throttled = new ApiError('throttled', 429, 'errors.network.apiError', 'http', {
+      retryAfter: '30',
+      retryAfterMs: 30_000,
+    })
+    const feed = jest
+      .fn()
+      .mockResolvedValueOnce({items: [recPost], cursor: 'c1', end: false})
+      .mockRejectedValueOnce(throttled)
+      .mockResolvedValue({items: [], cursor: null, end: true})
+    mockBackendHolder.current = {
+      capabilities: {},
+      recommendations: {feed, dwell: jest.fn(async () => undefined)},
+      me: jest.fn(async () => makeAccount({id: 'alice'})),
+    }
+    const sessionStore = createSessionStore({
+      storage: createMemoryStore(),
+      vault: memVault(),
+      homeOrigin: HOME_ORIGIN,
+      revokeFetch: (() => Promise.resolve(new Response('{}', {status: 200}))) as unknown as typeof fetch,
+    })
+    await sessionStore.add({
+      origin: 'https://m.example',
+      family: 'misskey',
+      flavor: 'sharkey',
+      accountId: 'alice',
+      token: 'token-a',
+      grant: 'oauth-pkce',
+      hosting: 'third-party',
+    })
+    const sessionId = sessionStore.getSnapshot().activeId!
+    const {i18n} = await import('#/locale/i18n')
+    i18n.load('en', {})
+    i18n.activate('en')
+    const {unmount} = render(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <QueryClientProvider client={new QueryClient({defaultOptions: {queries: {retry: false}}})}>
+            <SessionProvider store={sessionStore} homeOrigin={HOME_ORIGIN}>
+              <RecommendationsFeed sessionId={sessionId} />
+            </SessionProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    try {
+      expect(await screen.findByText('rec hello')).toBeTruthy()
+      const first = screen.getByTestId('feed-list')
+      ;(first.props as {onEndReached: () => void}).onEndReached()
+      expect(await screen.findByTestId('feed-more-retry')).toBeTruthy()
+      expect(feed).toHaveBeenCalledTimes(2)
+      expect(screen.getByTestId('feed-more-cooldown')).toBeTruthy()
+      for (let i = 0; i < 20; i++) {
+        const node = screen.getByTestId('feed-list')
+        ;(node.props as {onEndReached: () => void}).onEndReached()
+      }
+      expect(feed).toHaveBeenCalledTimes(2)
+      fireEvent.press(screen.getByTestId('feed-more-retry'))
+      await waitFor(() => expect(feed).toHaveBeenCalledTimes(3))
+    } finally {
+      unmount()
+      __setStorageForTests({storage: restore})
+      mockBackendHolder.current = null
     }
   })
 })

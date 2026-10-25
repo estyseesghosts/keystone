@@ -39,6 +39,7 @@ import {SkeletonList} from '#/components/Skeleton'
 import {SignInButton} from '#/components/SignInButton'
 import {ThreadRow} from '#/components/PostFeed/ThreadRow'
 import {i18n} from '#/locale/i18n'
+import {usePagedLoad, useRefreshFirstPage} from '#/state/queries/usePagedLoad'
 import {countNewItems, feedItems, filterModerated, filterSoftMuted, useModerationRules, useSoftMutedIds, usePostFeedQuery} from '#/state/queries'
 import {feedScrollKey, readFeedScroll, saveFeedScroll} from '#/state/feedMemory'
 import {LIVE_CAPTURE_LIMIT, useFeedLive} from '#/state/streaming'
@@ -201,11 +202,16 @@ export function FeedView({  sessionId,
   const {active: liveActive, pendingCount: livePending, status: liveStatus, flush: flushLive} = feedLive
   // Seamless infinite scroll: the next page starts ~1200px before the
   // bottom edge, well ahead of `onEndReached` (which is itself raised to
-  // 2.5 screens). Guards match the threshold handler — `hasNextPage` and
-  // !`isFetchingNextPage`, so never a duplicate fetch, never a stall.
+  // 2.5 screens). BOTH this handler and `onEndReached` go through the
+  // shared `usePagedLoad` gate (X3.3): no fetch unless there is a next
+  // page, none is in flight, the last next-page fetch did NOT fail, no
+  // 429 cooldown is running, and no earlier burst event is latched — so
+  // scroll bursts fire exactly once and a failed page never loops. Only
+  // the explicit footer Retry clears a next-page error.
   // The same handler also writes the N14 scroll offset (a Map set, no
   // re-render).
-  const {hasNextPage, isFetchingNextPage, fetchNextPage} = feed
+  const paged = usePagedLoad(feed)
+  const onRefresh = useRefreshFirstPage(feed.queryKey, feed.refetch)
   // True-sticky bar state: the in-flow copy reports its content offset via
   // onLayout; the scroll handler pins a copy above the list once the
   // in-flow copy scrolls off the top. Refs mirror the boolean so scrolling
@@ -226,7 +232,7 @@ export function FeedView({  sessionId,
       if (contentSize == null || layoutMeasurement == null) return
       const distanceToEnd =
         contentSize.height - (native.contentOffset.y + layoutMeasurement.height)
-      if (distanceToEnd < 1200 && hasNextPage && !isFetchingNextPage) void fetchNextPage()
+      if (distanceToEnd < 1200) paged.onEndReached()
       if (hasStickyBar) {
         const shouldPin = native.contentOffset.y >= tabsOffsetY.current - 1
         if (shouldPin !== tabsPinnedRef.current) {
@@ -235,7 +241,7 @@ export function FeedView({  sessionId,
         }
       }
     },
-    [scrollKey, hasNextPage, isFetchingNextPage, fetchNextPage, hasStickyBar],
+    [scrollKey, paged, hasStickyBar],
   )
   // Stable row element: with memoized ThreadRow, an unchanged (post,
   // session, capabilities, links) set skips the whole row subtree on
@@ -406,16 +412,14 @@ export function FeedView({  sessionId,
         refreshControl={
           <RefreshControl
             refreshing={feed.isRefetching}
-            onRefresh={() => void feed.refetch()}
+            onRefresh={onRefresh}
             testID="feed-refresh"
             tintColor={theme.palette.muted}
             colors={[theme.palette.muted]}
             progressBackgroundColor={theme.palette.bg}
           />
         }
-        onEndReached={() => {
-          if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage()
-        }}
+        onEndReached={paged.onEndReached}
         onEndReachedThreshold={2.5}
         ListEmptyComponent={
           <View style={[atoms.centered, atoms.p_md]}>
@@ -431,6 +435,11 @@ export function FeedView({  sessionId,
           ) : feed.isFetchNextPageError ? (
             <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
               <Caption color="faint">{i18n._(msg`Could not load more posts.`)}</Caption>
+              {paged.cooldownLabel ? (
+                <Caption color="faint" testID="feed-more-cooldown">
+                  {paged.cooldownLabel}
+                </Caption>
+              ) : null}
               <Button
                 label={i18n._(msg`Retry`)}
                 variant="secondary"
