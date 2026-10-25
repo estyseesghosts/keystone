@@ -171,3 +171,33 @@ The internal "This server" tab needs a local backend and will fail without
 one — expected. Streaming stays disabled for external accounts (an external
 token must never reach the local `/streaming` socket); everything else —
 timelines, composer, reactions, drive, antennas, search — works.
+
+## 8. Recording fixtures (`scripts/fedi-capture.ts`, repair X5.6)
+
+Agents cannot reach the rig, so Misskey/Sharkey fixtures ship as
+`source: synthesised`. The owner re-records them from a live server with:
+
+```bash
+cd /Users/terezi/keystone2
+node scripts/fedi-capture.ts --dry-run   # no network: in-process stub, temp dir (this is what CI runs)
+TOKEN="$(cat ~/.keystone-misskey-token)"
+node scripts/fedi-capture.ts --family misskey --origin http://127.0.0.1:3101 --token "$TOKEN"
+node scripts/fedi-capture.ts --family sharkey --origin http://127.0.0.1:3102 --token "$TOKEN"
+node scripts/fedi-capture.ts --family mastodon --origin https://mastodon.example --token "$TOKEN" \
+  --poll-status-id <status-with-hidden-totals-poll> --quote-status-id <status-with-nested-quote> \
+  --include-writes
+```
+
+Defaults: read-only (no writes unless `--include-writes`, which creates then
+deletes its own probe posts); output to `packages/fedi/test/fixtures`;
+`FEDI_CAPTURE_TOKEN` works instead of `--token`. Never commit a token.
+
+Every response is redacted before it is written (credential values,
+`Bearer <x>`, email-shaped strings, IPv4 literals, and the passed token;
+structural reaction keys like `:name@host:` survive). Each file written
+gains a `manifest.json` entry with `source: recorded`, the server `version`,
+and `recordedAt`. Review the diff before tests consume it — a recorded page
+reflects the owner's account state (notifications especially: v1/v2 pages go
+to the new `notifications-recorded.json` /
+`notifications-grouped-recorded.json` files so existing test rows are not
+clobbered; promote them deliberately).
