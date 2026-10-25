@@ -135,17 +135,11 @@ const styles = StyleSheet.create({
   },
   inlineInputColCollapsed: {
     flex: 1,
-    // Fills the row height so the single-line input centers against the
-    // Reply pill by layout (input paddingVertical 0 + textAlignVertical
-    // center), never by shrinking the font.
+    // Fills the row height so the placeholder text centers against the
+    // Reply pill by layout, never by shrinking the font.
     alignSelf: 'stretch',
     justifyContent: 'center',
     minWidth: 0,
-  },
-  inlineInputCollapsed: {
-    minHeight: 36,
-    paddingVertical: 0,
-    textAlignVertical: 'center',
   },
   inlineToolbar: {
     flexDirection: 'row',
@@ -344,8 +338,9 @@ function InlineReply({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // Collapsed until first interaction (X-style: avatar + placeholder +
-  // Reply only): focusing or typing expands the toolbar, which then stays
-  // expanded — no collapse, no toggle.
+  // Reply only): pressing the placeholder expands the real input with
+  // its toolbar (media + emoji), which then stays expanded — no
+  // collapse, no toggle.
   const [expanded, setExpanded] = useState(false)
   const [emojiOpen, setEmojiOpen] = useState(false)
   const emojiAnchor = useRef<ViewType | null>(null)
@@ -490,13 +485,16 @@ function InlineReply({
     />
   )
 
-  // Collapsed (X-style): ONE compact row — avatar, single-line input, and
-  // Reply pill, vertically centered. The input keeps the body prose
-  // metrics (15/21); centering against the pill is layout-only: the
-  // wrapper fills the row height with centered content while the input
-  // itself is paddingVertical 0 + textAlignVertical center. No toolbar,
-  // no dead space. First focus/typing swaps to the expanded column below.
+  // Collapsed (X-style): ONE compact row — avatar, placeholder text,
+  // and Reply pill, all vertically centered by the row's
+  // `alignItems: center`. The placeholder is a plain Body text element at
+  // the body prose metrics (15/21), never a TextInput: two centered Text
+  // elements in one centered row cannot misalign, and no internal
+  // TextInput text layout is tuned. No toolbar, no dead space. Pressing
+  // the placeholder swaps to the expanded column below (sticky — no
+  // collapse, no toggle).
   if (!expanded) {
+    const placeholderLabel = i18n._(msg`Post your reply`)
     return (
       <View
         style={[
@@ -505,39 +503,22 @@ function InlineReply({
         ]}
         testID="inline-reply">
         {avatar}
-        <View style={styles.inlineInputColCollapsed} testID="inline-reply-input-wrap">
-          <TextInput
-            testID="inline-reply-input"
-            multiline
-            value={text}
-            onChangeText={t => {
-              setText(t)
-              setExpanded(true)
-              autogrow.remeasure()
-            }}
-            onSelectionChange={e => setCaret(e.nativeEvent.selection.end)}
-            onFocus={() => setExpanded(true)}
-            placeholder={i18n._(msg`Post your reply`)}
-            placeholderTextColor={theme.palette.faint}
-            accessibilityLabel={i18n._(msg`Post your reply`)}
-            ref={autogrow.inputRef}
-            style={[
-              styles.inlineInputCollapsed,
-              {
-                // Body prose metrics, same as the expanded input: the
-                // compact Reply pill centers against this by layout (the
-                // wrapper fills the row height; paddingVertical 0 +
-                // textAlignVertical center here), never by shrinking type.
-                color: theme.palette.text,
-                fontSize: 15 * theme.fontScaleMultiplier,
-                lineHeight: 21 * theme.fontScaleMultiplier,
-              },
-              autogrowStyle(autogrow.height),
-              NO_OUTLINE,
-            ]}
-            onContentSizeChange={autogrow.onContentSizeChange}
-          />
-        </View>
+        <Pressable
+          testID="inline-reply-placeholder"
+          onPress={() => setExpanded(true)}
+          accessibilityRole="button"
+          accessibilityLabel={placeholderLabel}
+          style={styles.inlineInputColCollapsed}>
+          <Body
+            color="faint"
+            numberOfLines={1}
+            style={{
+              fontSize: 15 * theme.fontScaleMultiplier,
+              lineHeight: 21 * theme.fontScaleMultiplier,
+            }}>
+            {placeholderLabel}
+          </Body>
+        </Pressable>
         {replyButton}
       </View>
     )
@@ -564,7 +545,7 @@ function InlineReply({
           onSelectionChange={e => setCaret(e.nativeEvent.selection.end)}
           onFocus={() => setExpanded(true)}
           // Focus carries across the collapsed→expanded branch switch
-          // below (the collapsed input unmounts): the expanded box mounts
+          // (the collapsed placeholder unmounts): the expanded box mounts
           // exactly at expansion, so autoFocus only ever fires there.
           autoFocus
           placeholder={i18n._(msg`Post your reply`)}

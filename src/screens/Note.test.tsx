@@ -167,40 +167,43 @@ describe('NoteScreen', () => {
     expect(screen.getByTestId('ancestor-a0')).toBeTruthy()
     expect(screen.getByTestId('focused-p1')).toBeTruthy()
     expect(screen.getByTestId('inline-reply')).toBeTruthy()
-    expect(screen.getByTestId('inline-reply-input')).toBeTruthy()
+    expect(screen.getByTestId('inline-reply-placeholder')).toBeTruthy()
     await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
   })
 
   it('the collapsed inline composer keeps body metrics; centering is layout-only', async () => {
     setup(fakeBackend())
-    await waitFor(() => expect(screen.getByTestId('inline-reply-input')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('inline-reply-placeholder')).toBeTruthy())
     expect(screen.getByTestId('inline-reply-submit')).toBeTruthy()
+    // Collapsed renders no TextInput at all — the placeholder is plain
+    // text, so internal input text layout cannot misalign it.
+    expect(screen.queryByTestId('inline-reply-input')).toBeNull()
     expect(screen.queryByTestId('inline-reply-media')).toBeNull()
     expect(screen.queryByTestId('inline-reply-emoji')).toBeNull()
-    // Collapsed is one compact row — avatar, input, and Reply pill share
-    // a vertically centered row, and the input rests at single-line height.
+    // Collapsed is one compact row — avatar, placeholder, and Reply pill
+    // share a vertically centered row.
     const row = StyleSheet.flatten(screen.getByTestId('inline-reply').props.style)
     expect(row.flexDirection).toBe('row')
     expect(row.alignItems).toBe('center')
-    const input = StyleSheet.flatten(screen.getByTestId('inline-reply-input').props.style)
-    expect(input.minHeight).toBe(36)
-    // Body prose metrics, same as the expanded input — never Caption.
-    expect(input.fontSize).toBe(15)
-    expect(input.lineHeight).toBe(21)
-    // Vertical centering is layout-only: zero vertical padding with
-    // platform centering, inside a wrapper that fills the row height
-    // with centered content.
-    expect(input.textAlignVertical).toBe('center')
-    expect(input.paddingVertical).toBe(0)
-    const wrap = StyleSheet.flatten(screen.getByTestId('inline-reply-input-wrap').props.style)
+    // The placeholder is body prose, same metrics as the expanded input.
+    const labelStyle = StyleSheet.flatten(screen.getByText('Post your reply').props.style)
+    expect(labelStyle.fontSize).toBe(15)
+    expect(labelStyle.lineHeight).toBe(21)
+    // The placeholder pressable fills the row height with centered
+    // content — the centering is layout-only, never a smaller font.
+    const placeholder = screen.getByTestId('inline-reply-placeholder')
+    expect(placeholder.props.accessibilityRole).toBe('button')
+    expect(placeholder.props.accessibilityLabel).toBe('Post your reply')
+    const wrap = StyleSheet.flatten(placeholder.props.style)
     expect(wrap.alignSelf).toBe('stretch')
     expect(wrap.justifyContent).toBe('center')
   })
 
-  it('first focus expands the toolbar and it stays expanded after blur', async () => {
+  it('tapping the placeholder expands to the real input with its toolbar, sticky after blur', async () => {
     setup(fakeBackend())
-    await waitFor(() => expect(screen.getByTestId('inline-reply-input')).toBeTruthy())
-    fireEvent(screen.getByTestId('inline-reply-input'), 'focus')
+    await waitFor(() => expect(screen.getByTestId('inline-reply-placeholder')).toBeTruthy())
+    fireEvent.press(screen.getByTestId('inline-reply-placeholder'))
+    expect(screen.getByTestId('inline-reply-input')).toBeTruthy()
     expect(screen.getByTestId('inline-reply-media')).toBeTruthy()
     expect(screen.getByTestId('inline-reply-emoji')).toBeTruthy()
     // Expanded: the taller growing input replaces the single-line row.
@@ -214,8 +217,8 @@ describe('NoteScreen', () => {
 
   it('the emoji button inserts at the caret', async () => {
     setup(fakeBackend())
-    await waitFor(() => expect(screen.getByTestId('inline-reply-input')).toBeTruthy())
-    fireEvent(screen.getByTestId('inline-reply-input'), 'focus')
+    await waitFor(() => expect(screen.getByTestId('inline-reply-placeholder')).toBeTruthy())
+    fireEvent.press(screen.getByTestId('inline-reply-placeholder'))
     fireEvent.changeText(screen.getByTestId('inline-reply-input'), 'hello')
     fireEvent.press(screen.getByTestId('inline-reply-emoji'))
     await waitFor(() => expect(screen.getByTestId('inline-reply-emoji-popup')).toBeTruthy())
@@ -232,11 +235,12 @@ describe('NoteScreen', () => {
 
   it('the inline composer posts a reply to the focused post and shows it without leaving (E10)', async () => {
     const backend = setup(fakeBackend())
-    await waitFor(() => expect(screen.getByTestId('inline-reply-input')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('inline-reply-placeholder')).toBeTruthy())
     // Gated while empty: pressing Reply with no text or media posts nothing.
     fireEvent.press(screen.getByTestId('inline-reply-submit'))
     expect(backend.createPost).not.toHaveBeenCalled()
     const before = backend.threadReplies.mock.calls.filter((c: unknown[]) => c[0] === 'p1').length
+    fireEvent.press(screen.getByTestId('inline-reply-placeholder'))
     fireEvent.changeText(screen.getByTestId('inline-reply-input'), 'hello')
     fireEvent.press(screen.getByTestId('inline-reply-submit'))
     await waitFor(() => expect(backend.createPost).toHaveBeenCalled())
@@ -255,7 +259,8 @@ describe('NoteScreen', () => {
 
   it('a failed reply posts an honest inline error and keeps the text', async () => {
     const backend = setup(fakeBackend({createPost: jest.fn(async () => { throw new Error('nope') })}))
-    await waitFor(() => expect(screen.getByTestId('inline-reply-input')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('inline-reply-placeholder')).toBeTruthy())
+    fireEvent.press(screen.getByTestId('inline-reply-placeholder'))
     fireEvent.changeText(screen.getByTestId('inline-reply-input'), 'hello')
     fireEvent.press(screen.getByTestId('inline-reply-submit'))
     await waitFor(() => expect(screen.getByTestId('inline-reply-error')).toBeTruthy())
