@@ -47,9 +47,18 @@ function chunks(src: string): Array<{kind: Marker; body: string}> {
     }
   }
   marks.sort((a, b) => a.i - b.i)
+  // A chunk ends at the next marker or the next top-level `// --- ` section
+  // header, whichever comes first (repair X7.4: the composer upload section
+  // carries an explicit per-item cancel `signal` — user-initiated, never the
+  // unmount signal — and must not be attributed to the create-post
+  // `mutationFn` body above it).
+  const headerAt = (from: number): number => {
+    const i = src.indexOf('\n// --- ', from)
+    return i < 0 ? src.length : i + 1
+  }
   return marks.map((m, n) => ({
     kind: m.kind,
-    body: src.slice(m.i, n + 1 < marks.length ? marks[n + 1].i : src.length),
+    body: src.slice(m.i, Math.min(n + 1 < marks.length ? marks[n + 1].i : src.length, headerAt(m.i + m.kind.length))),
   }))
 }
 

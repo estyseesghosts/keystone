@@ -332,7 +332,7 @@ describe('Drive screen', () => {
       await waitFor(() => expect(backend.uploadMedia).toHaveBeenCalledTimes(1))
       const [fileArg, optsArg] = backend.uploadMedia.mock.calls[0]
       expect(fileArg.name).toBe('cat.png')
-      expect(optsArg).toEqual({folderId: 'd1', comment: 'a cat'})
+      expect(optsArg).toEqual({folderId: 'd1', comment: 'a cat', signal: expect.any(AbortSignal)})
       expect(await screen.findByTestId('drive-upload-success')).toBeTruthy()
       // The list is re-read from the server for the same folder.
       await waitFor(() =>
@@ -370,7 +370,7 @@ describe('Drive screen', () => {
       expect(await screen.findByText('root.png')).toBeTruthy()
       fireEvent.press(screen.getByTestId('drive-upload-submit'))
       await waitFor(() => expect(backend.uploadMedia).toHaveBeenCalledTimes(1))
-      expect(backend.uploadMedia.mock.calls[0][1]).toEqual({})
+      expect(backend.uploadMedia.mock.calls[0][1]).toEqual({signal: expect.any(AbortSignal)})
     } finally {
       done()
     }

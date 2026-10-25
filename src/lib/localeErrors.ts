@@ -22,6 +22,8 @@ export const FEDI_ERROR_MESSAGES: Record<string, MessageDescriptor> = {
   'errors.network.badPath': msg({id: 'errors.network.badPath', message: 'Request path must start with "/": got "{path}".'}),
   'errors.network.unreachableBare': msg({id: 'errors.network.unreachableBare', message: 'Could not reach {origin} ({reason}).'}),
   'errors.network.timeoutInstance': msg({id: 'errors.network.timeoutInstance', message: 'Request timed out ({target}): the instance did not answer within {n}s. Retry.'}),
+  'errors.network.timeoutUpload': msg({id: 'errors.network.timeoutUpload', message: 'Upload timed out after {n}s: the file may already be on the server. Check before retrying.'}),
+  'errors.network.aborted': msg({id: 'errors.network.aborted', message: 'Request was cancelled.'}),
   'errors.network.timeoutServer': msg({id: 'errors.network.timeoutServer', message: 'Request timed out ({target}): the server did not answer within {n}s. Retry, or check the dev-server terminal.'}),
   'errors.network.unreachableInstance': msg({id: 'errors.network.unreachableInstance', message: 'Could not reach the instance ({reason}). Is the host correct?'}),
   'errors.network.unreachableOrigin': msg({id: 'errors.network.unreachableOrigin', message: 'Could not reach {origin} ({reason}). Is the server running and the host correct?'}),

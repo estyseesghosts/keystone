@@ -70,7 +70,13 @@ import type {
   TimelineKind,
   Translation,
   TrendingTag,
+  UploadFileRef,
   UserReaction,
+} from "../core/backend";
+import {
+  appendUploadFile,
+  uploadSizeOf,
+  uploadTimeoutForBytes,
 } from "../core/backend";
 import type { Capabilities, DetectionEvidence, ServerFlavor } from "../core/detect";
 import { buildCapabilities } from "../core/detect";
@@ -149,6 +155,7 @@ import {
   translateStatus,
   updateCredentialImage,
   updateMediaAttachment,
+  uploadMediaAttachment,
   voteInPoll,
 } from "./endpoints";
 import {
@@ -294,6 +301,64 @@ function wireNotificationTypes(tokens: readonly string[] | undefined): string[] 
     for (const wire of NOTIF_WIRE_TYPES[token] ?? []) out.add(wire);
   }
   return [...out];
+}
+
+// --- Upload helpers (repair X7.4) -------------------------------------------
+
+/** Map a deadline-kind upload failure to the distinct upload-timeout error
+ * (the file may already be stored — never "the instance did not answer").
+ * A timeout that already carries the upload code (the injectable-sender
+ * path, including the stall variant) passes through untouched, and
+ * anything else passes through. Pure. */
+function asUploadTimeout(err: unknown, timeoutMs: number): unknown {
+  if (typeof err !== "object" || err === null) return err;
+  const rec = err as {kind?: unknown; code?: unknown};
+  if (rec.kind !== "timeout") return err;
+  if (rec.code === "errors.network.timeoutUpload") return err;
+  const n = Math.round(timeoutMs / 1000);
+  return new ApiError(
+    `Upload timed out after ${n}s: the file may already be on the server. Check before retrying.`,
+    0,
+    "errors.network.timeoutUpload",
+    "timeout",
+    {target: "POST /api/v2/media", n},
+  );
+}
+
+/** True for a caller-cancellation error in either error class (the guarded
+ * client adapts `MastoHttpError` to `ApiError`, keeping `kind`). Pure. */
+function isAbortedError(err: unknown): boolean {
+  return (
+    typeof err === "object" && err !== null && (err as {kind?: unknown}).kind === "aborted"
+  );
+}
+
+/** Shared aborted error (the Misskey transport's mapping, mirrored so both
+ * families surface one shape). */
+function abortedError(): ApiError {
+  return new ApiError("Request was cancelled.", 0, "errors.network.aborted", "aborted", {
+    status: 0,
+  });
+}
+
+/** Sleep that rejects with the aborted error when `signal` fires, so the
+ * processing poll never swallows a Cancel and never outlives it. */
+function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortedError());
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(abortedError());
+    };
+    signal?.addEventListener("abort", onAbort, {once: true});
+  });
 }
 
 // --- The backend ------------------------------------------------------------
@@ -788,7 +853,7 @@ export function createMastodonBackend(
      * account, so the UI shows the server's URL (and the new
      * `avatar_static`) instead of a local guess.
      */
-    async uploadProfileImage(kind: ProfileImageKind, file: File) {
+    async uploadProfileImage(kind: ProfileImageKind, file: File | UploadFileRef) {
       return adaptCredentialAccount(await updateCredentialImage(client, kind, file));
     },
 
@@ -1269,30 +1334,54 @@ export function createMastodonBackend(
       }));
     },
 
-    async uploadMedia(file: File, opts: { comment?: string; signal?: AbortSignal } = {}) {
+    async uploadMedia(file, opts = {}) {
       // Contract §4: multipart to v2/media; Mastodon answers 202 while
-      // processing and the URL is null until done — poll the media read
-      // and return whatever the server has (the media row renders the
-      // honest "still processing" state on a null URL). The initial POST
-      // carries the caller's `signal` (explicit Cancel only — repair
-      // X3.1/X7.4: unmount never cancels a write). Finding 11: there is
-      // NO per-file sensitivity on this family (status-level `sensitive`
-      // on the post only), so the signature takes no sensitivity flag —
-      // status sensitivity rides `PostDraft.sensitive` through
-      // `statusBodyOf` instead.
+      // processing and the URL is null until done.
+      //
+      // Repair X7.4: native references go on as `{uri, name, type}` (never
+      // read into JS); the POST carries the caller's `signal` (explicit
+      // Cancel only — repair X3.1/X7.4: unmount never cancels a write),
+      // the size-scaled deadline, byte progress, and the injectable
+      // sender. A deadline or stall failure reports
+      // `errors.network.timeoutUpload` (the file may already be stored),
+      // never "the instance did not answer".
+      //
+      // The POST is followed by a bounded processing poll (~15 s, M13).
+      // When the budget elapses the media — with its id, still URL-less —
+      // is returned as-is: a null URL IS the processing state, and the
+      // composer renders it as "still processing" and re-checks on submit.
+      // It is never marked `done` with a null URL.
+      //
+      // Finding 11: there is NO per-file sensitivity on this family
+      // (status-level `sensitive` on the post only), so the signature takes
+      // no sensitivity flag — status sensitivity rides `PostDraft.sensitive`
+      // through `statusBodyOf` instead.
       const form = new FormData();
-      form.append("file", file);
+      appendUploadFile(form, "file", file, "upload");
       if (opts.comment) form.append("description", opts.comment);
-      const res = await client.postFormData<MediaAttachment>("/api/v2/media", form, {
-        signal: opts.signal,
-      });
-      let media = res.data;
+      const timeoutMs = uploadTimeoutForBytes(uploadSizeOf(file));
+      let media: MediaAttachment;
+      try {
+        media = await uploadMediaAttachment(client, form, {
+          timeoutMs,
+          ...(opts.signal ? {signal: opts.signal} : {}),
+          ...(opts.onProgress ? {onProgress: opts.onProgress} : {}),
+          ...(opts.uploadImpl ? {uploadImpl: opts.uploadImpl} : {}),
+        });
+      } catch (err) {
+        throw asUploadTimeout(err, timeoutMs);
+      }
       if (media && media.url == null && media.id) {
         for (let attempt = 0; attempt < 20 && media.url == null; attempt += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 750));
+          // A Cancel rejects here (never swallowed below): the poll does
+          // not outlive the user's decision.
+          await abortableDelay(750, opts.signal);
           try {
-            media = await getMedia(client, media.id);
-          } catch {
+            media = await getMedia(client, media.id, {
+              ...(opts.signal ? {signal: opts.signal} : {}),
+            });
+          } catch (err) {
+            if (isAbortedError(err)) throw err;
             break; // 422 processing failure: return what we have
           }
         }

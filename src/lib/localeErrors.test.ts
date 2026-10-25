@@ -17,6 +17,8 @@ describe('localeErrors', () => {
       'errors.network.badPath',
       'errors.network.unreachableBare',
       'errors.network.timeoutInstance',
+      'errors.network.timeoutUpload',
+      'errors.network.aborted',
       'errors.network.timeoutServer',
       'errors.network.unreachableInstance',
       'errors.network.unreachableOrigin',
@@ -62,7 +64,7 @@ describe('localeErrors', () => {
       'errors.filter.invalidRegex',
       'errors.feeds.invalidDescriptor',
     ]
-    expect(codes).toHaveLength(53)
+    expect(codes).toHaveLength(55)
     for (const code of codes) expect(isKnownErrorCode(code)).toBe(true)
   })
 

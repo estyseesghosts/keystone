@@ -74,6 +74,22 @@ export function DriveScreen() {
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null)
   const [detailFile, setDetailFile] = useState<Media | null>(null)
 
+  // Repair X7.4 step 1: the in-flight Drive upload is cancellable — the
+  // request aborts on unmount (leaving the screen never leaks it). The
+  // panel keeps its staged/failed states; only the network work stops.
+  const uploadCtrl = useRef<AbortController | null>(null)
+  useEffect(
+    () => () => {
+      try {
+        uploadCtrl.current?.abort()
+      } catch {
+        // Already settled.
+      }
+      uploadCtrl.current = null
+    },
+    [],
+  )
+
   const foldersSupported = backend?.drive?.folders != null
   const selectedFolder = (folders ?? []).find(folder => folder.id === selectedFolderId) ?? null
 
@@ -181,11 +197,14 @@ export function DriveScreen() {
     setUploading(true)
     setUploadError(null)
     setUploadSuccess(null)
+    const ctrl = new AbortController()
+    uploadCtrl.current = ctrl
     try {
       const comment = uploadComment.trim()
       const media = await backend.uploadMedia(staged.file, {
         ...(selectedFolderId ? {folderId: selectedFolderId} : {}),
         ...(comment ? {comment} : {}),
+        signal: ctrl.signal,
       })
       setUploadSuccess(`Uploaded “${media.name}”.`)
       setStaged(null)
@@ -194,6 +213,7 @@ export function DriveScreen() {
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Could not upload the file.')
     } finally {
+      if (uploadCtrl.current === ctrl) uploadCtrl.current = null
       setUploading(false)
     }
   }, [backend, staged, uploading, uploadComment, selectedFolderId])

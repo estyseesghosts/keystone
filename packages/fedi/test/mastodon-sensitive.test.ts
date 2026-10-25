@@ -157,7 +157,12 @@ describe("mastodon uploadMedia (finding 11)", () => {
     const upload = calls.find((c) => c.path === "/api/v2/media");
     expect(upload).toBeDefined();
     const form = upload?.body as FormData;
-    expect(form.get("file")).toBe(file);
+    // Undici clones File parts on 3-arg append (RN keeps them): assert the
+    // sent bytes by value, not by identity.
+    const sent = form.get("file") as File
+    expect(sent).toBeInstanceOf(File)
+    expect(sent.name).toBe("pic.png")
+    expect(sent.size).toBe(5)
     expect(form.get("description")).toBe("alt text");
     // No per-file sensitivity field exists on this family (finding 11).
     // (No `FormData.keys()` iteration: the test env's DOM lib lacks it;

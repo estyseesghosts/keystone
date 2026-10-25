@@ -2,15 +2,22 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {act, renderHook, waitFor} from '@testing-library/react-native'
 import React from 'react'
 
-import type {Backend, Post, ScheduledNote, ServerDraft, Session} from '@keystone/fedi'
+import {createMemoryStore, type Backend, type Post, type ScheduledNote, type ServerDraft, type Session} from '@keystone/fedi'
 
 import {feedQueryKey} from './keys'
 import {
   MAX_MEDIA_BYTES,
   attachmentSizeError,
+  dismissVideoNotice,
   insertCreatedPost,
+  isWebAssetUri,
+  readRemindAltText,
+  resetVideoNoticesForTests,
   scheduledPostsKey,
   serverDraftsKey,
+  shouldShowVideoNotice,
+  strippableMime,
+  stripImageForUpload,
   submitPost,
   uploadAll,
   uploadOne,
@@ -21,8 +28,25 @@ import {
   useScheduledPosts,
   useServerDrafts,
   useUploads,
+  webXhrUpload,
+  writeRemindAltText,
   type UploadItem,
 } from './composer'
+
+jest.mock('expo-image-manipulator', () => ({
+  manipulateAsync: jest.fn(),
+  SaveFormat: {JPEG: 'jpeg', PNG: 'png', WEBP: 'webp'},
+}))
+
+jest.mock('expo-file-system', () => ({
+  getInfoAsync: jest.fn(),
+}))
+
+const Manip = require('expo-image-manipulator') as {
+  manipulateAsync: jest.Mock
+  SaveFormat: {JPEG: string}
+}
+const FS = require('expo-file-system') as {getInfoAsync: jest.Mock}
 
 const post = (id: string, over: Partial<Post> = {}): Post =>
   ({
@@ -117,11 +141,15 @@ describe('uploadAll', () => {
     alt: '',
     sensitive: false,
     error: null,
+    progress: null,
+    mimeType: null,
+    keepOriginal: false,
+    hadGps: null,
     ...over,
   })
 
   it('uploads with alt as comment, skips done items, reports status', async () => {
-    const uploadMedia = jest.fn().mockImplementation(async () => ({id: 'm-new'}))
+    const uploadMedia = jest.fn().mockImplementation(async () => ({id: 'm-new', url: 'https://x.example/m-new.png'}))
     const backend = {uploadMedia} as unknown as Backend
     const files = new Map([['a', new File(['x'], 'a.png')], ['b', new File(['y'], 'b.png')]])
     const events: Array<[string, string | undefined]> = []
@@ -140,7 +168,7 @@ describe('uploadAll', () => {
   it('returns null and marks the failed item, keeping others', async () => {
     const uploadMedia = jest
       .fn()
-      .mockResolvedValueOnce({id: 'm1'})
+      .mockResolvedValueOnce({id: 'm1', url: 'https://x.example/m1.png'})
       .mockRejectedValueOnce(new Error('too big'))
     const files = new Map([['a', new File(['x'], 'a')], ['b', new File(['y'], 'b')]])
     const patches: Record<string, Partial<UploadItem>> = {}
@@ -312,7 +340,7 @@ describe('useUploads size guard', () => {
         {file: big, name: 'big.png', previewUri: null},
       ])
     })
-    expect(refused).toEqual([{name: 'big.png', limit: MAX_MEDIA_BYTES}])
+    expect(refused).toEqual([{name: 'big.png', limit: MAX_MEDIA_BYTES, reason: 'too-large'}])
     expect(result.current.items.map(i => i.name)).toEqual(['ok.png'])
   })
 
@@ -455,5 +483,490 @@ describe('server draft hooks (C9/MK5)', () => {
       wrapper: wrapper(testClient()),
     })
     await expect(noMod.result.current.mutateAsync('d1')).rejects.toThrow(/draft/i)
+  })
+})
+
+describe('uploadAll concurrency (X7.4 step 4)', () => {
+  const item = (key: string, over: Partial<UploadItem> = {}): UploadItem => ({
+    key,
+    name: key,
+    previewUri: null,
+    status: 'staged',
+    mediaId: null,
+    alt: '',
+    sensitive: false,
+    error: null,
+    progress: null,
+    mimeType: null,
+    keepOriginal: false,
+    hadGps: null,
+    ...over,
+  })
+
+  it('uploads up to the limit in parallel and returns ids in item order', async () => {
+    let inFlight = 0
+    let maxInFlight = 0
+    const uploadMedia: jest.Mock = jest.fn(async () => {
+      inFlight += 1
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      const id = `m-${uploadMedia.mock.calls.length - 1}`
+      // One macrotask of "network": the two workers interleave through
+      // real timer FIFO order, deterministically.
+      await new Promise(resolve => setTimeout(resolve, 0))
+      inFlight -= 1
+      return {id, url: `https://x.example/${id}.png`}
+    })
+    const files = new Map(
+      ['a', 'b', 'c', 'd', 'e', 'f'].map(k => [k, new File(['x'], `${k}.png`)] as [string, File]),
+    )
+    const ids = await uploadAll(
+      {uploadMedia} as unknown as Backend,
+      ['a', 'b', 'c', 'd', 'e', 'f'].map(k => item(k)),
+      files,
+      () => {},
+      {},
+      null,
+      {concurrency: 2},
+    )
+    expect(maxInFlight).toBe(2)
+    expect(ids).toEqual(['m-0', 'm-1', 'm-2', 'm-3', 'm-4', 'm-5'])
+    expect(uploadMedia).toHaveBeenCalledTimes(6)
+  })
+
+  it('keeps successes on retry (failed items retry, done items never re-send)', async () => {
+    const uploadMedia = jest
+      .fn()
+      .mockResolvedValueOnce({id: 'm-a', url: 'https://x.example/a.png'})
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce({id: 'm-b', url: 'https://x.example/b.png'})
+    const files = new Map([
+      ['a', new File(['x'], 'a.png')],
+      ['b', new File(['y'], 'b.png')],
+    ])
+    const backend = {uploadMedia} as unknown as Backend
+    const patches: Record<string, Partial<UploadItem>> = {}
+    const first = await uploadAll(
+      backend,
+      [item('a'), item('b')],
+      files,
+      (k, p) => (patches[k] = {...patches[k], ...p}),
+    )
+    expect(first).toBeNull()
+    expect(patches.a.status).toBe('done')
+    expect(patches.b.status).toBe('error')
+    // Retry with the success recorded: only `b` re-sends.
+    uploadMedia.mockClear()
+    const second = await uploadAll(
+      backend,
+      [item('a', {status: 'done', mediaId: 'm-a'}), item('b', {status: 'error'})],
+      files,
+      () => {},
+    )
+    expect(uploadMedia).toHaveBeenCalledTimes(1)
+    expect(second).toEqual(['m-a', 'm-b'])
+  })
+
+  it('maps a caller abort back to staged (explicit Cancel never errors the row)', async () => {
+    const signals: AbortSignal[] = []
+    const uploadMedia = jest.fn(
+      (_file: unknown, opts: {signal?: AbortSignal} = {}) =>
+        new Promise((_resolve, reject) => {
+          signals.push(opts.signal!)
+          opts.signal?.addEventListener('abort', () => {
+            const err = new Error('Request was cancelled.') as Error & {kind: string; code: string}
+            err.kind = 'aborted'
+            err.code = 'errors.network.aborted'
+            reject(err)
+          })
+        }),
+    )
+    const ctrls = new Map<string, AbortController>()
+    const files = new Map([['a', new File(['x'], 'a.png')]])
+    const patches: Record<string, Partial<UploadItem>> = {}
+    const promise = uploadAll(
+      {uploadMedia} as unknown as Backend,
+      [item('a')],
+      files,
+      (k, p) => (patches[k] = {...patches[k], ...p}),
+      {},
+      null,
+      {
+        signalFor: key => {
+          const c = new AbortController()
+          ctrls.set(key, c)
+          return c.signal
+        },
+      },
+    )
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(signals).toHaveLength(1)
+    ctrls.get('a')!.abort()
+    await expect(promise).resolves.toBeNull()
+    expect(patches.a.status).toBe('staged')
+    expect(patches.a.error).toBeNull()
+  })
+})
+
+describe('uploadAll processing re-check (X7.4 step 5)', () => {
+  const item = (key: string, over: Partial<UploadItem> = {}): UploadItem => ({
+    key,
+    name: key,
+    previewUri: null,
+    status: 'staged',
+    mediaId: null,
+    alt: '',
+    sensitive: false,
+    error: null,
+    progress: null,
+    mimeType: null,
+    keepOriginal: false,
+    hadGps: null,
+    ...over,
+  })
+
+  it('marks a null-URL upload processing (never done) and still attaches its id', async () => {
+    const uploadMedia = jest.fn(async () => ({id: 'm1', url: null}))
+    const patches: Record<string, Partial<UploadItem>> = {}
+    const ids = await uploadAll(
+      {uploadMedia} as unknown as Backend,
+      [item('a')],
+      new Map([['a', new File(['x'], 'a.png')]]),
+      (k, p) => (patches[k] = {...patches[k], ...p}),
+    )
+    expect(ids).toEqual(['m1'])
+    expect(patches.a).toMatchObject({status: 'processing', mediaId: 'm1'})
+  })
+
+  it('re-checks processing rows through updateMedia on the next run', async () => {
+    const updateMedia = jest.fn(async () => ({id: 'm1', url: 'https://x.example/m1.png'}))
+    const patches: Record<string, Partial<UploadItem>> = {}
+    const ids = await uploadAll(
+      {updateMedia} as unknown as Backend,
+      [item('a', {status: 'processing', mediaId: 'm1', alt: 'a cat'})],
+      new Map([['a', new File(['x'], 'a.png')]]),
+      (k, p) => (patches[k] = {...patches[k], ...p}),
+    )
+    expect(updateMedia).toHaveBeenCalledWith('m1', {description: 'a cat'})
+    expect(patches.a).toMatchObject({status: 'done'})
+    expect(ids).toEqual(['m1'])
+  })
+
+  it('keeps a still-processing row processing when the re-check finds no URL', async () => {
+    const updateMedia = jest.fn(async () => ({id: 'm1', url: null}))
+    const patches: Record<string, Partial<UploadItem>> = {}
+    const ids = await uploadAll(
+      {updateMedia} as unknown as Backend,
+      [item('a', {status: 'processing', mediaId: 'm1'})],
+      new Map([['a', new File(['x'], 'a.png')]]),
+      (k, p) => (patches[k] = {...patches[k], ...p}),
+    )
+    expect(ids).toEqual(['m1'])
+    expect(patches.a?.status).not.toBe('done')
+  })
+})
+
+describe('useUploads cancel + remove (X7.4 step 1)', () => {
+  function file(name = 'a.png') {
+    return {file: new File(['x'], name), name, previewUri: null}
+  }
+
+  it('remove() aborts the in-flight request', async () => {
+    const signals: AbortSignal[] = []
+    const uploadMedia = jest.fn(
+      (_f: unknown, opts: {signal?: AbortSignal} = {}) =>
+        new Promise((_, reject) => {
+          signals.push(opts.signal!)
+          // Like the real transports (X7.4 step 1): abort rejects the
+          // in-flight send so `remove()` can settle the batch.
+          opts.signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            {once: true},
+          )
+        }),
+    )
+    const {result} = renderHook(() => useUploads({uploadMedia} as unknown as Backend))
+    act(() => {
+      result.current.add([file()])
+    })
+    const key = result.current.items[0].key
+    let pending: Promise<string[] | null> | null = null
+    act(() => {
+      pending = result.current.ensureUploaded()
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(signals).toHaveLength(1)
+    expect(signals[0].aborted).toBe(false)
+    act(() => {
+      result.current.remove(key)
+    })
+    expect(signals[0].aborted).toBe(true)
+    await act(async () => {
+      await expect(pending!).resolves.toBeNull()
+    })
+    expect(result.current.items).toEqual([])
+  })
+
+  it('remove() best-effort deletes a stored Misskey file, and drops Mastodon ids silently', async () => {
+    const deleteFile = jest.fn(async () => undefined)
+    const backend = {
+      uploadMedia: jest.fn(async () => ({id: 'm1', url: 'https://x.example/m1.png'})),
+      drive: {deleteFile},
+    } as unknown as Backend
+    const {result} = renderHook(() => useUploads(backend))
+    act(() => {
+      result.current.add([file()])
+    })
+    const key = result.current.items[0].key
+    await act(async () => {
+      await result.current.ensureUploaded()
+    })
+    expect(result.current.items[0].status).toBe('done')
+    act(() => {
+      result.current.remove(key)
+    })
+    expect(deleteFile).toHaveBeenCalledWith('m1')
+  })
+
+  it('remove() of a stored row without a drive module just drops it', async () => {
+    const backend = {
+      uploadMedia: jest.fn(async () => ({id: 'm1', url: null})),
+    } as unknown as Backend
+    const {result} = renderHook(() => useUploads(backend))
+    act(() => {
+      result.current.add([file()])
+    })
+    const key = result.current.items[0].key
+    await act(async () => {
+      await result.current.ensureUploaded()
+    })
+    expect(result.current.items[0].status).toBe('processing')
+    act(() => {
+      result.current.remove(key)
+    })
+    expect(result.current.items).toEqual([])
+  })
+})
+
+describe('strip + re-encode (X7.4 step 6, D9)', () => {
+  beforeEach(() => {
+    Manip.manipulateAsync.mockReset()
+    FS.getInfoAsync.mockReset()
+  })
+
+  it('strippableMime covers JPEG/HEIC/PNG stills only', () => {
+    expect(strippableMime('image/jpeg')).toBe(true)
+    expect(strippableMime('image/heic')).toBe(true)
+    expect(strippableMime('image/heif')).toBe(true)
+    expect(strippableMime('image/png')).toBe(true)
+    expect(strippableMime('image/jpeg; charset=binary')).toBe(true)
+    expect(strippableMime('image/gif')).toBe(false)
+    expect(strippableMime('image/webp')).toBe(false)
+    expect(strippableMime('video/mp4')).toBe(false)
+    expect(strippableMime(null)).toBe(false)
+    expect(strippableMime(undefined)).toBe(false)
+  })
+
+  it('isWebAssetUri splits blob/data from native references', () => {
+    expect(isWebAssetUri('blob:https://x/1')).toBe(true)
+    expect(isWebAssetUri('data:image/png;base64,xx')).toBe(true)
+    expect(isWebAssetUri('file:///tmp/a.jpg')).toBe(false)
+    expect(isWebAssetUri('ph://ABC')).toBe(false)
+    expect(isWebAssetUri('content://media/a')).toBe(false)
+  })
+
+  it('uploadOne strips a JPEG by default and sends the re-encoded file', async () => {
+    const realCreate = URL.createObjectURL
+    const realFetch = globalThis.fetch
+    ;(URL as unknown as {createObjectURL: unknown}).createObjectURL = jest.fn(() => 'blob:in')
+    Manip.manipulateAsync.mockResolvedValue({uri: 'blob:out'})
+    globalThis.fetch = jest.fn(async (url: unknown) => {
+      if (url === 'blob:out') return {blob: async () => new Blob(['y'], {type: 'image/jpeg'})}
+      return realFetch(url as unknown as RequestInfo)
+    }) as unknown as typeof fetch
+    try {
+      const uploadMedia: jest.Mock = jest.fn(async () => ({id: 'm1', url: 'https://x.example/m1.jpg'}))
+      const jpeg = new File(['x'], 'photo.jpg', {type: 'image/jpeg'})
+      const {id, processing} = await uploadOne({uploadMedia} as unknown as Backend, jpeg, {
+        name: 'photo.jpg',
+        mimeType: 'image/jpeg',
+      })
+      expect(id).toBe('m1')
+      expect(processing).toBe(false)
+      expect(Manip.manipulateAsync).toHaveBeenCalledWith(
+        'blob:in',
+        [],
+        {compress: 0.92, format: 'jpeg'},
+      )
+      const sent = uploadMedia.mock.calls[0][0] as File
+      expect(sent).toBeInstanceOf(File)
+      expect(sent.name).toBe('photo.jpg')
+      expect(sent.type).toBe('image/jpeg')
+    } finally {
+      ;(URL as unknown as {createObjectURL: unknown}).createObjectURL = realCreate
+      globalThis.fetch = realFetch
+    }
+  })
+
+  it('uploadOne keeps the original when keepOriginal is set (no manipulator call)', async () => {
+    const uploadMedia: jest.Mock = jest.fn(async () => ({id: 'm1', url: 'https://x.example/m1.jpg'}))
+    const jpeg = new File(['x'], 'photo.jpg', {type: 'image/jpeg'})
+    await uploadOne({uploadMedia} as unknown as Backend, jpeg, {
+      name: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      keepOriginal: true,
+    })
+    expect(Manip.manipulateAsync).not.toHaveBeenCalled()
+    expect(uploadMedia.mock.calls[0][0]).toBe(jpeg)
+  })
+
+  it('uploadOne falls back to the original when the manipulator fails', async () => {
+    const realCreate = URL.createObjectURL
+    ;(URL as unknown as {createObjectURL: unknown}).createObjectURL = jest.fn(() => 'blob:in')
+    Manip.manipulateAsync.mockRejectedValue(new Error('no native module'))
+    try {
+      const uploadMedia: jest.Mock = jest.fn(async () => ({id: 'm1', url: 'https://x.example/m1.jpg'}))
+      const jpeg = new File(['x'], 'photo.jpg', {type: 'image/jpeg'})
+      await uploadOne({uploadMedia} as unknown as Backend, jpeg, {
+        name: 'photo.jpg',
+        mimeType: 'image/jpeg',
+      })
+      expect(uploadMedia.mock.calls[0][0]).toBe(jpeg)
+    } finally {
+      ;(URL as unknown as {createObjectURL: unknown}).createObjectURL = realCreate
+    }
+  })
+
+  it('stripImageForUpload re-targets a native reference without reading bytes', async () => {
+    Manip.manipulateAsync.mockResolvedValue({uri: 'file:///cache/stripped.jpg'})
+    FS.getInfoAsync.mockResolvedValue({exists: true, size: 4321})
+    const ref = {uri: 'file:///tmp/orig.heic', name: 'orig.heic', type: 'image/heic', size: 9999}
+    const out = await stripImageForUpload(ref, 'orig.heic', 'image/heic')
+    expect(out.stripped).toBe(true)
+    expect(out.source).toEqual({uri: 'file:///cache/stripped.jpg', name: 'orig.jpg', type: 'image/jpeg', size: 4321})
+    expect(FS.getInfoAsync).toHaveBeenCalledWith('file:///cache/stripped.jpg')
+  })
+})
+
+describe('alt-text reminder pref + video notice (X7.4 steps 6-7)', () => {
+  it('readRemindAltText defaults off and round-trips', () => {
+    const store = createMemoryStore()
+    expect(readRemindAltText(store)).toBe(false)
+    writeRemindAltText(store, true)
+    expect(readRemindAltText(store)).toBe(true)
+    writeRemindAltText(store, false)
+    expect(readRemindAltText(store)).toBe(false)
+  })
+
+  it('video notice shows once per session until dismissed', () => {
+    resetVideoNoticesForTests()
+    expect(shouldShowVideoNotice('s1', false)).toBe(false)
+    expect(shouldShowVideoNotice('s1', true)).toBe(true)
+    dismissVideoNotice('s1')
+    expect(shouldShowVideoNotice('s1', true)).toBe(false)
+    expect(shouldShowVideoNotice('s2', true)).toBe(true)
+    resetVideoNoticesForTests()
+    expect(shouldShowVideoNotice('s1', true)).toBe(true)
+  })
+})
+
+describe('webXhrUpload (X7.4 step 1)', () => {
+  const realXhr = (globalThis as unknown as {XMLHttpRequest?: unknown}).XMLHttpRequest
+
+  function fakeXhr(behavior: (xhr: Record<string, unknown>) => void) {
+    const instances: Array<Record<string, unknown>> = []
+    const Ctor = function (this: Record<string, unknown>) {
+      const self: Record<string, unknown> = {
+        headers: {},
+        upload: {onprogress: null},
+        open: jest.fn((method: string, url: string) => {
+          self.method = method
+          self.url = url
+        }),
+        setRequestHeader: jest.fn((k: string, v: string) => {
+          ;(self.headers as Record<string, string>)[k] = v
+        }),
+        send: jest.fn((body: unknown) => {
+          self.body = body
+          behavior(self)
+        }),
+        abort: jest.fn(() => {
+          ;(self.onabort as (() => void) | null)?.()
+        }),
+      }
+      instances.push(self)
+      return self
+    }
+    ;(globalThis as unknown as {XMLHttpRequest?: unknown}).XMLHttpRequest =
+      Ctor as unknown as typeof XMLHttpRequest
+    return instances
+  }
+
+  afterEach(() => {
+    ;(globalThis as unknown as {XMLHttpRequest?: unknown}).XMLHttpRequest = realXhr
+  })
+
+  it('sends headers + body, forwards byte progress, and resolves the transport shape', async () => {
+    const instances = fakeXhr(self => {
+      ;(self.upload as {onprogress: ((ev: {loaded: number; total: number}) => void) | null}).onprogress?.({
+        loaded: 50,
+        total: 100,
+      })
+      ;(self.upload as {onprogress: ((ev: {loaded: number; total: number}) => void) | null}).onprogress?.({
+        loaded: 100,
+        total: 0,
+      })
+      self.status = 200
+      self.responseText = '{"id":"m1"}'
+      self.responseURL = 'https://s.example/api/v2/media'
+      ;(self.onload as () => void)()
+    })
+    const seen: Array<[number, number | null]> = []
+    const out = await webXhrUpload({
+      url: 'https://s.example/api/v2/media',
+      method: 'POST',
+      headers: {Authorization: 'Bearer t'},
+      body: new FormData(),
+      timeoutMs: 60_000,
+      onProgress: (l, t) => seen.push([l, t]),
+    })
+    expect(out).toEqual({status: 200, bodyText: '{"id":"m1"}', responseUrl: 'https://s.example/api/v2/media'})
+    expect(seen).toEqual([
+      [50, 100],
+      [100, null],
+    ])
+    expect((instances[0].headers as Record<string, string>).Authorization).toBe('Bearer t')
+  })
+
+  it('rejects with an AbortError-named error when the signal fires', async () => {
+    fakeXhr(() => {})
+    const ctrl = new AbortController()
+    const promise = webXhrUpload({
+      url: 'https://s.example/api/v2/media',
+      method: 'POST',
+      headers: {},
+      body: new FormData(),
+      timeoutMs: 60_000,
+      signal: ctrl.signal,
+    })
+    ctrl.abort()
+    await expect(promise).rejects.toMatchObject({name: 'AbortError'})
+  })
+
+  it('rejects honestly without an XHR global', async () => {
+    ;(globalThis as unknown as {XMLHttpRequest?: unknown}).XMLHttpRequest = undefined
+    await expect(
+      webXhrUpload({
+        url: 'https://s.example/api/v2/media',
+        method: 'POST',
+        headers: {},
+        body: new FormData(),
+        timeoutMs: 60_000,
+      }),
+    ).rejects.toMatchObject({code: 'errors.network.unreachableBare'})
   })
 })

@@ -58,6 +58,7 @@ import type {
   TimelineKind,
   TransferApi,
   Translation,
+  UploadFileRef,
   UserReaction,
 } from "../core/backend";
 import type { DetectionEvidence, ServerFlavor } from "../core/detect";
@@ -143,7 +144,7 @@ import { createTransferApi } from "./importExport";
 
 export interface MisskeyTransport {
   call<T>(endpoint: string, params?: Record<string, unknown>, opts?: CallOptions): Promise<T>;
-  upload<T>(file: File, opts?: UploadOptions): Promise<T>;
+  upload<T>(file: File | UploadFileRef, opts?: UploadOptions): Promise<T>;
 }
 
 export interface MisskeyBackendOptions {
@@ -708,7 +709,7 @@ export function createMisskeyBackend(
      * id as `avatarId` / `bannerId`. Both of those params were already
      * accepted by `updateProfile`; this is the UI-reachable path to them.
      */
-    async uploadProfileImage(kind: ProfileImageKind, file: File) {
+    async uploadProfileImage(kind: ProfileImageKind, file: File | UploadFileRef) {
       const uploaded = await transport.upload<DriveFile>(file);
       const id = uploaded?.id;
       if (typeof id !== "string" || id.length === 0) {
@@ -990,13 +991,17 @@ export function createMisskeyBackend(
       // Build the multipart options explicitly: `folderId`/`force` are
       // opt-in Drive fields. A null folderId means the Drive root and is
       // omitted (never sent as an empty field — Sharkey rejects those).
-      // `signal` aborts on explicit Cancel only (repair X3.1/X7.4).
+      // `signal` aborts on explicit Cancel only (repair X3.1/X7.4);
+      // `onProgress`/`uploadImpl` ride through to the transport (repair
+      // X7.4 byte progress + injectable sender).
       const uploadOpts: UploadOptions = {
         ...(opts.isSensitive !== undefined ? { isSensitive: opts.isSensitive } : {}),
         ...(opts.comment !== undefined ? { comment: opts.comment } : {}),
         ...(opts.folderId != null ? { folderId: opts.folderId } : {}),
         ...(opts.force !== undefined ? { force: opts.force } : {}),
         ...(opts.signal ? { signal: opts.signal } : {}),
+        ...(opts.onProgress ? { onProgress: opts.onProgress } : {}),
+        ...(opts.uploadImpl ? { uploadImpl: opts.uploadImpl } : {}),
       };
       return adaptDriveFile(await transport.upload<DriveFile>(file, uploadOpts));
     },

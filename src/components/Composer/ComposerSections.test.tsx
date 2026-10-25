@@ -269,6 +269,107 @@ describe('UploadsSection', () => {
   })
 })
 
+describe('UploadsSection upload controls (X7.4)', () => {
+  function setupControls({
+    status = 'uploading',
+    progress = null,
+    keepOriginal = false,
+    hadGps = null,
+    videoNotice = null,
+  }: {
+    status?: 'staged' | 'uploading' | 'processing' | 'done' | 'error'
+    progress?: {loaded: number; total: number | null} | null
+    keepOriginal?: boolean
+    hadGps?: boolean | null
+    videoNotice?: string | null
+  } = {}) {
+    const cancel = jest.fn()
+    const setKeepOriginal = jest.fn()
+    const dismissVideoNotice = jest.fn()
+    const c = {
+      styles: {media: {}, row: {}, thumb: {}},
+      gates: {
+        mediaSensitive: {enabled: true},
+        mediaDescription: {enabled: true},
+      },
+      uploads: {
+        items: [
+          {
+            key: 'u1',
+            name: 'cat.png',
+            previewUri: null,
+            status,
+            mediaId: status === 'done' || status === 'processing' ? 'm1' : null,
+            alt: '',
+            sensitive: false,
+            error: status === 'error' ? 'Upload failed.' : null,
+            progress,
+            mimeType: 'image/png',
+            keepOriginal,
+            hadGps,
+          },
+        ],
+        setAlt: jest.fn(),
+        setSensitive: jest.fn(),
+        setKeepOriginal,
+        remove: jest.fn(),
+        cancel,
+      },
+      videoNotice,
+      dismissVideoNotice,
+    } as unknown as ComposerController
+    render(
+      <ThemeProvider>
+        <UploadsSection c={c} />
+      </ThemeProvider>,
+    )
+    return {cancel, setKeepOriginal, dismissVideoNotice}
+  }
+
+  it('shows a Cancel button only while uploading', () => {
+    const {cancel} = setupControls({status: 'uploading'})
+    fireEvent.press(screen.getByTestId('composer-upload-cancel-u1'))
+    expect(cancel).toHaveBeenCalledWith('u1')
+  })
+
+  it('hides Cancel once the upload settled', () => {
+    setupControls({status: 'done'})
+    expect(screen.queryByTestId('composer-upload-cancel-u1')).toBeNull()
+  })
+
+  it('renders determinate progress as a percent and unknown totals as indeterminate', () => {
+    setupControls({status: 'uploading', progress: {loaded: 1, total: 4}})
+    expect(screen.getByText(/Uploading 25%/)).toBeTruthy()
+  })
+
+  it('renders the processing state honestly (never done with no URL)', () => {
+    setupControls({status: 'processing'})
+    expect(screen.getByText(/Still processing/)).toBeTruthy()
+  })
+
+  it('toggles Keep-original with a GPS-specific warning when location is known', () => {
+    const {setKeepOriginal} = setupControls({status: 'staged', keepOriginal: true, hadGps: true})
+    expect(screen.getByTestId('composer-upload-gps-u1')).toHaveTextContent(/location data/)
+    fireEvent.press(screen.getByTestId('composer-upload-keep-u1'))
+    expect(setKeepOriginal).toHaveBeenCalledWith('u1', false)
+  })
+
+  it('warns generically when the original may carry data (GPS unknown)', () => {
+    setupControls({status: 'staged', keepOriginal: true, hadGps: null})
+    expect(screen.getByTestId('composer-upload-gps-u1')).toHaveTextContent(/may include/)
+  })
+
+  it('shows the once-per-session video notice with a dismiss', () => {
+    const {dismissVideoNotice} = setupControls({
+      status: 'staged',
+      videoNotice: 'Videos are sent unchanged.',
+    })
+    expect(screen.getByTestId('composer-video-notice')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('composer-video-notice-dismiss'))
+    expect(dismissVideoNotice).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('ScheduledListSection', () => {
   const session = {id: 'sess-1'}
   function scheduledBackend(list: unknown[]) {

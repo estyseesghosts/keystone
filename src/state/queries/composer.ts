@@ -1,4 +1,4 @@
-import {useCallback, useMemo, useRef, useState} from 'react'
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {
   useMutation,
   useQuery,
@@ -10,18 +10,25 @@ import {
 import {
   attachmentCapFor,
   attachmentSizeError,
+  FediError,
   fetchComposeLimits,
+  isUploadFileRef,
   kindOfMime,
   type AttachmentCaps,
   type Backend,
   type ComposeLimits,
   type CustomEmoji,
+  type KeyValueStore,
   type Page,
   type Post,
   type PostDraft,
   type ScheduledNote,
   type ServerDraft,
   type Session,
+  type UploadFileRef,
+  type UploadRequestImpl,
+  type UploadRequestOpts,
+  type UploadRequestResult,
 } from '@keystone/fedi'
 
 // Byte-cap helpers live in fedi (`api/composer`, repair X6.2 step 2); the
@@ -200,14 +207,17 @@ export function useCreatePost(session: Session | null, backend: Backend | null) 
 
 // --- Upload tracking -----------------------------------------------------------
 
-export type UploadStatus = 'staged' | 'uploading' | 'done' | 'error'
+/** Lifecycle of one staged attachment (repair X7.4): `processing` is a
+ * real state — the server stored the file but its URL is not ready
+ * (Mastodon async media). A row is never `done` with a null URL. */
+export type UploadStatus = 'staged' | 'uploading' | 'processing' | 'done' | 'error'
 
 export interface UploadItem {
   key: string
   name: string
   previewUri: string | null
   status: UploadStatus
-  /** Server media id once done. */
+  /** Server media id once uploaded (including while `processing`). */
   mediaId: string | null
   /** Alt text / description, sent WITH the upload (the Misskey-family
    * `comment` / Mastodon `description`). */
@@ -222,12 +232,53 @@ export interface UploadItem {
    * this is never invented for those servers. */
   sensitive: boolean
   error: string | null
+  /** Byte progress of the in-flight upload (repair X7.4 step 1); null when
+   * idle or when the transport reports no bytes (honest indeterminate). */
+  progress: {loaded: number; total: number | null} | null
+  /** MIME of the staged file (repair X7.4 steps 6-7: strip eligibility +
+   * the alt-text reminder counts images only). Null when unknown. */
+  mimeType: string | null
+  /** D9 opt-out (repair X7.4 step 6): when true the original bytes upload
+   * unchanged; default false (strip + re-encode). Warns on GPS. */
+  keepOriginal: boolean
+  /** GPS EXIF seen at pick time (repair X7.4 step 6); null = unknown
+   * (no EXIF block to read). Drives the Keep-original warning. */
+  hadGps: boolean | null
 }
 
 export interface UploadableFile {
-  file: File
+  /** Web `File`, or a native `{uri, name, type}` reference (repair X7.4
+   * step 3: native uploads never read the whole file into JS). */
+  file: File | UploadFileRef
   name: string
   previewUri: string | null
+  /** MIME of the source (repair X7.4 steps 6-7). Falls back to the
+   * source's own type when omitted. */
+  mimeType?: string | null
+  /** GPS EXIF seen at pick time; null/omitted = unknown. */
+  hadGps?: boolean | null
+}
+
+/** MIME of an upload source, preferring the picker's explicit value. */
+export function sourceMimeType(
+  source: File | UploadFileRef,
+  override?: string | null,
+): string | null {
+  if (override) return override
+  if (isUploadFileRef(source)) return source.type || null
+  return (source as File).type || null
+}
+
+/** Byte size of an upload source, or NaN when unknown (the size guard
+ * treats unknown as "server decides", never blocked here). */
+export function sourceSize(source: File | UploadFileRef): number {
+  if (isUploadFileRef(source)) {
+    return typeof source.size === 'number' && Number.isFinite(source.size) && source.size > 0
+      ? source.size
+      : NaN
+  }
+  const size = (source as File).size
+  return typeof size === 'number' && Number.isFinite(size) && size > 0 ? size : NaN
 }
 
 /** Drive targeting for an upload batch (Misskey family). Omitted/`null`
@@ -239,30 +290,362 @@ export interface UploadTarget {
   force?: boolean
 }
 
+/** MIME types the D9 strip + re-encode applies to (repair X7.4 step 6):
+ * JPEG/HEIC stills and PNG (all → JPEG q0.92, orientation baked, metadata
+ * dropped). GIF/WebP pass through untouched — animation must survive and
+ * stillness is not cheaply knowable. Video/audio pass through (never
+ * re-encoded; the once-per-session notice covers them). */
+export function strippableMime(mime: string | null | undefined): boolean {
+  if (!mime) return false
+  const m = mime.toLowerCase().split(';')[0].trim()
+  return m === 'image/jpeg' || m === 'image/heic' || m === 'image/heif' || m === 'image/png'
+}
+
+/** True for a `blob:`/`data:` URI (web picker output). Anything else
+ * (`file://`, `ph://`, `content://`) is a native reference that must
+ * never be `fetch`ed whole into JS (repair X7.4 step 3). Pure. */
+export function isWebAssetUri(uri: string): boolean {
+  return uri.startsWith('blob:') || uri.startsWith('data:')
+}
+
+/** Best-effort byte count for a native URI (repair X7.4 step 3: the
+ * picker's `fileSize` is absent for some library assets). `expo-file-system`
+ * is a TRANSITIVE dep (undeclared) — it is dynamically imported and never
+ * relied on: absence (or any failure) resolves null (unknown), and the
+ * upload-time guard + server stay the verdict. Pure-ish (one guarded
+ * import, no state). */
+export async function probeNativeFileSize(uri: string): Promise<number | null> {
+  try {
+    const FS = (await import('expo-file-system')) as unknown as {
+      getInfoAsync?: (uri: string) => Promise<{exists?: boolean; size?: number} | null>
+    }
+    if (typeof FS?.getInfoAsync !== 'function') return null
+    const info = await FS.getInfoAsync(uri)
+    return typeof info?.size === 'number' && info.size > 0 ? info.size : null
+  } catch {
+    return null
+  }
+}
+
+function createObjectUrl(file: File): string | null {
+  try {
+    const URL_ = (
+      globalThis as unknown as {URL?: {createObjectURL?: (f: Blob) => string}}
+    ).URL
+    return URL_?.createObjectURL?.(file) ?? null
+  } catch {
+    return null
+  }
+}
+
+function revokeObjectUrl(url: string): void {
+  try {
+    const URL_ = (
+      globalThis as unknown as {URL?: {revokeObjectURL?: (u: string) => void}}
+    ).URL
+    URL_?.revokeObjectURL?.(url)
+  } catch {
+    // Best-effort: a leaked object URL is reclaimed with the document.
+  }
+}
+
+/** Re-encode one image through `expo-image-manipulator` (JPEG q0.92),
+ * which drops EXIF/GPS metadata and bakes the orientation in (repair X7.4
+ * step 6, D9 default ON). Non-strippable sources pass through untouched.
+ * A missing/failed manipulator falls back to the original source (an
+ * upload proceeds with original bytes rather than failing the post).
+ * Web Files round-trip through an object URL; native references stay
+ * references (the manipulator output URI becomes the new reference). */
+export async function stripImageForUpload(
+  source: File | UploadFileRef,
+  name: string,
+  mime: string | null | undefined,
+): Promise<{source: File | UploadFileRef; stripped: boolean}> {
+  if (!strippableMime(mime)) return {source, stripped: false}
+  let Manip: typeof import('expo-image-manipulator')
+  try {
+    Manip = await import('expo-image-manipulator')
+  } catch {
+    return {source, stripped: false}
+  }
+  const base = name.replace(/\.[a-z0-9]+$/i, '') || 'upload'
+  const outName = `${base}.jpg`
+  const inUri = isUploadFileRef(source) ? source.uri : createObjectUrl(source)
+  if (!inUri) return {source, stripped: false}
+  const isRef = isUploadFileRef(source)
+  try {
+    const out = await Manip.manipulateAsync(inUri, [], {
+      compress: 0.92,
+      format: Manip.SaveFormat.JPEG,
+    })
+    if (!out?.uri || out.uri === inUri) return {source, stripped: false}
+    if (isRef) {
+      const size = await probeNativeFileSize(out.uri)
+      return {
+        source: {uri: out.uri, name: outName, type: 'image/jpeg', size},
+        stripped: true,
+      }
+    }
+    const res = await fetch(out.uri)
+    const blob = await res.blob()
+    return {source: new File([blob], outName, {type: 'image/jpeg'}), stripped: true}
+  } catch {
+    return {source, stripped: false}
+  } finally {
+    if (!isRef) revokeObjectUrl(inUri)
+  }
+}
+
+/** Minimal structural XHR surface (repair X7.4 step 1): declared locally
+ * so this file typechecks for native targets too — the implementation
+ * only ever runs on web. */
+interface XhrSender {
+  open(method: string, url: string): void
+  setRequestHeader(name: string, value: string): void
+  send(body: unknown): void
+  abort(): void
+  status: number
+  responseText: string
+  responseURL: string
+  upload?: {onprogress: ((ev: {loaded: number; total: number}) => void) | null} | undefined
+  onload: (() => void) | null
+  onerror: (() => void) | null
+  onabort: (() => void) | null
+}
+
+function xhrAbortError(): Error {
+  const err = new Error('Request was cancelled.')
+  err.name = 'AbortError'
+  return err
+}
+
+/** Web multipart sender over `XMLHttpRequest` (repair X7.4 step 1): the
+ * only path with byte progress (`upload.onprogress`). XHR follows
+ * redirects itself, so the final URL rides along for the transport's
+ * origin check. Honors `signal`; the deadline/stall timers stay with the
+ * transport (no `xhr.timeout` — one owner for the deadline). Rejects with
+ * an `AbortError`-named error on cancel so the transport maps it exactly
+ * like a fetch abort. */
+export function webXhrUpload(req: UploadRequestOpts): Promise<UploadRequestResult> {
+  return new Promise((resolve, reject) => {
+    const Ctor = (
+      globalThis as unknown as {XMLHttpRequest?: new () => XhrSender}
+    ).XMLHttpRequest
+    if (!Ctor) {
+      reject(
+        new FediError(
+          `Could not upload to ${req.url} (no XMLHttpRequest on this web runtime).`,
+          'errors.network.unreachableBare',
+          {origin: req.url, reason: 'no XMLHttpRequest'},
+        ),
+      )
+      return
+    }
+    const xhr = new Ctor()
+    let settled = false
+    const settle = (fn: () => void) => {
+      if (!settled) {
+        settled = true
+        fn()
+      }
+    }
+    const detach = () => req.signal?.removeEventListener('abort', onAbort)
+    const onAbort = () => {
+      try {
+        xhr.abort()
+      } catch {
+        // Already settled: `onabort` below still maps the outcome.
+      }
+    }
+    if (req.signal?.aborted) {
+      reject(xhrAbortError())
+      return
+    }
+    xhr.open(req.method, req.url)
+    for (const [k, v] of Object.entries(req.headers)) {
+      try {
+        xhr.setRequestHeader(k, v)
+      } catch {
+        // A forbidden header (e.g. set by the transport on a locked-down
+        // WebView): the send still goes; auth comes from the form fields
+        // on the Misskey family.
+      }
+    }
+    req.signal?.addEventListener('abort', onAbort, {once: true})
+    if (xhr.upload) {
+      xhr.upload.onprogress = ev => {
+        try {
+          req.onProgress?.(ev.loaded, ev.total > 0 ? ev.total : null)
+        } catch {
+          // A throwing listener must not fail the upload.
+        }
+      }
+    }
+    xhr.onload = () => {
+      detach()
+      settle(() =>
+        resolve({
+          status: xhr.status,
+          bodyText: xhr.responseText,
+          responseUrl: xhr.responseURL || undefined,
+        }),
+      )
+    }
+    xhr.onerror = () => {
+      detach()
+      settle(() =>
+        reject(
+          new FediError(
+            `Could not reach ${req.url} (network error).`,
+            'errors.network.unreachableBare',
+            {origin: req.url, reason: 'network error'},
+          ),
+        ),
+      )
+    }
+    xhr.onabort = () => {
+      detach()
+      settle(() => reject(xhrAbortError()))
+    }
+    try {
+      xhr.send(req.body)
+    } catch (err) {
+      detach()
+      settle(() => reject(err instanceof Error ? err : new Error('Upload failed.')))
+    }
+  })
+}
+
+/** "Remind me to add alt text" pref (repair X7.4 step 7, default off): a
+ * single device-global key — NOT the versioned device schema, so no
+ * schema migration and no churn in the schema/appearance suites. Survives
+ * sign-out like other device prefs; best-effort on write failure. */
+const REMIND_ALT_KEY = 'keystone.remindAltText'
+
+export function readRemindAltText(store: KeyValueStore): boolean {
+  try {
+    return store.getItem(REMIND_ALT_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function writeRemindAltText(store: KeyValueStore, value: boolean): void {
+  try {
+    if (value) store.setItem(REMIND_ALT_KEY, '1')
+    else store.removeItem(REMIND_ALT_KEY)
+  } catch {
+    // Best-effort (repair X1.3 S12 discipline): the in-memory choice still
+    // applies for this mount.
+  }
+}
+
+/** Once-per-session video-metadata notice (repair X7.4 step 6): videos are
+ * never re-encoded, so their metadata ships unchanged — said once, then
+ * dismissed for the session. Module state keyed by session id (no store
+ * shape change); the test seam resets it. */
+const videoNoticedSessions = new Set<string>()
+
+export function shouldShowVideoNotice(sessionId: string, hasVideo: boolean): boolean {
+  return hasVideo && !videoNoticedSessions.has(sessionId)
+}
+
+export function dismissVideoNotice(sessionId: string): void {
+  videoNoticedSessions.add(sessionId)
+}
+
+export function resetVideoNoticesForTests(): void {
+  videoNoticedSessions.clear()
+}
+
+/** True for a caller-cancellation failure in either fedi error class
+ * (`kind: 'aborted'` survives the transports' adaptation). Pure. */
+function isAbortedUpload(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    (err as {kind?: unknown; code?: unknown}).kind === 'aborted'
+  )
+}
+
 /** Upload one file through the owning session's backend. The per-file
  * `sensitive` flag rides WITH the upload (Misskey-family `isSensitive`);
  * when false/absent the field is never sent, so a default upload keeps the
  * server's non-sensitive default. */
 export async function uploadOne(
   backend: Backend,
-  file: File,
-  opts: {alt?: string; sensitive?: boolean; target?: UploadTarget} = {},
-): Promise<{id: string}> {
+  file: File | UploadFileRef,
+  opts: {
+    alt?: string
+    sensitive?: boolean
+    target?: UploadTarget
+    /** Display name (drives the stripped output name); defaults to the
+     * source's own name. */
+    name?: string
+    /** MIME override (the picker's explicit value); defaults to the
+     * source's own type. */
+    mimeType?: string | null
+    /** D9 opt-out (repair X7.4 step 6): skip the strip + re-encode. */
+    keepOriginal?: boolean
+    signal?: AbortSignal
+    onProgress?: (loaded: number, total: number | null) => void
+    uploadImpl?: UploadRequestImpl
+  } = {},
+): Promise<{id: string; processing: boolean}> {
   const {alt = '', sensitive = false, target = {}} = opts
-  const media = await backend.uploadMedia(file, {
+  const mime = sourceMimeType(file, opts.mimeType)
+  // D9 default (repair X7.4 step 6): strip + re-encode unless the upload
+  // opted out with Keep-original. The stripped source (smaller, metadata-
+  // free) is what the guards and the transport see.
+  const finalSource = opts.keepOriginal
+    ? file
+    : (
+        await stripImageForUpload(file, opts.name ?? file.name ?? 'upload', mime)
+      ).source
+  const media = await backend.uploadMedia(finalSource, {
     ...(alt ? {comment: alt} : {}),
     ...(sensitive ? {isSensitive: true} : {}),
     ...(target.folderId ? {folderId: target.folderId} : {}),
     ...(target.force !== undefined ? {force: target.force} : {}),
+    ...(opts.signal ? {signal: opts.signal} : {}),
+    ...(opts.onProgress ? {onProgress: opts.onProgress} : {}),
+    ...(opts.uploadImpl ? {uploadImpl: opts.uploadImpl} : {}),
   })
-  return {id: media.id}
+  // A null URL IS the processing state (Mastodon async media, M13) — the
+  // caller renders "still processing", never `done`.
+  return {id: media.id, processing: media.url == null}
+}
+
+/** Per-run hooks for `uploadAll` (repair X7.4): cancellation, progress,
+ * and the sender override are supplied by the owning hook (`useUploads`);
+ * direct callers (tests, Drive) omit them for the sequential default. */
+export interface UploadRunOpts {
+  /** Max parallel uploads (repair X7.4 step 4); default 3, minimum 1. */
+  concurrency?: number
+  /** Per-item abort signal (repair X7.4 step 1); absent = not cancellable. */
+  signalFor?: (key: string) => AbortSignal | undefined
+  /** Per-item byte progress (repair X7.4 step 1). */
+  onProgress?: (key: string, loaded: number, total: number | null) => void
+  /** Per-item sender override (web XHR for byte progress). */
+  implFor?: (key: string, source: File | UploadFileRef) => UploadRequestImpl | undefined
 }
 
 /**
- * Upload every not-yet-done item sequentially, reporting per-item status
- * (`onUpdate`). Returns the media ids in order, or null if any failed (the
- * failure stays on its item for retry; successful items are not re-sent).
- * Neither transport reports bytes, so progress is per-file state.
+ * Upload every not-yet-done item with up to `concurrency` parallel
+ * requests (repair X7.4 step 4), reporting per-item status (`onUpdate`).
+ * Returns the media ids in ITEM order, or null if any failed (the failure
+ * stays on its item for retry; successful items are never re-sent —
+ * `uploadAll` keeps successes on retry).
+ *
+ * Neither transport reports bytes, so progress is per-file state unless
+ * the run supplies `onProgress` (web XHR).
+ *
+ * `processing` rows (M13: stored, URL not ready) are re-checked through
+ * `Backend.updateMedia` when the backend offers it — the description write
+ * doubles as the read-back, so a finished row flips to `done` with its
+ * current alt text and no extra request shape is needed. A row that is
+ * still processing keeps its id (the server accepts processing
+ * attachments) but is never marked `done` with a null URL.
  *
  * `target` carries the Drive folder (and optional `force`) for this batch;
  * the default is the Drive root.
@@ -270,57 +653,110 @@ export async function uploadOne(
 export async function uploadAll(
   backend: Backend,
   items: UploadItem[],
-  files: Map<string, File>,
+  files: Map<string, File | UploadFileRef>,
   onUpdate: (key: string, patch: Partial<UploadItem>) => void,
   target: UploadTarget = {},
   caps: AttachmentCaps | null = null,
+  run: UploadRunOpts = {},
 ): Promise<string[] | null> {
-  const ids: string[] = []
-  let failed = false
-  for (const item of items) {
-    // Repair X6.1 F3: skip keys no longer in `files` (removed while the
-    // submit was in flight). A removed upload never attaches its id and
-    // never fails the submit with an error on a row that no longer
-    // exists. Edit-only in intent (the composer disables Remove while
-    // busy); safe for create mode too — a removed file must never send.
-    if (!files.has(item.key)) continue
-    if (item.status === 'done' && item.mediaId) {
-      ids.push(item.mediaId)
-      continue
+  const live = items.filter(i => files.has(i.key))
+  const idFor = new Map<string, string>()
+  for (const item of live) {
+    if ((item.status === 'done' || item.status === 'processing') && item.mediaId) {
+      idFor.set(item.key, item.mediaId)
     }
+  }
+  // Repair X6.1 F3: keys no longer in `files` (removed while the submit was
+  // in flight) are skipped below — a removed upload never attaches its id
+  // and never fails the submit with an error on a row that no longer
+  // exists. Edit-only in intent (the composer disables Remove while
+  // busy); safe for create mode too — a removed file must never send.
+  let failed = false
+  // Phase 1 — re-check `processing` rows (M13): one description write per
+  // row doubles as the freshness read. Sequential and cheap; a row the
+  // server now has ready flips to `done`, the rest keep their ids.
+  if (backend.updateMedia) {
+    for (const item of live) {
+      if (item.status !== 'processing' || !item.mediaId) continue
+      try {
+        const fresh = await backend.updateMedia(item.mediaId, {description: item.alt})
+        if (fresh?.url != null) {
+          onUpdate(item.key, {status: 'done', altAtUpload: item.alt, progress: null})
+        }
+      } catch {
+        // Best-effort: the id stays attachable; the row stays `processing`
+        // and the post still goes through with the honest label.
+      }
+    }
+  }
+  // Phase 2 — upload what still needs bytes, up to `concurrency` at once.
+  const pending = live.filter(i => !idFor.has(i.key))
+  const limit = Math.max(1, Math.floor(run.concurrency ?? 3) || 3)
+  const progressHook = run.onProgress
+  let cursor = 0
+  const uploadNext = async (): Promise<void> => {
+    const item = pending[cursor++]
+    if (!item) return
     const file = files.get(item.key)
     if (!file) {
-      // Unreachable after the `has` guard above (a present key always
-      // has its File); kept as a honest fallback that never attaches.
-      continue
+      // Unreachable after the `live` filter (a present key always has its
+      // source); kept as an honest fallback that never attaches.
+      await uploadNext()
+      return
     }
     // Client bound (R2.3 + repair X6.2 step 2): a known over-cap size never
     // reaches the transport — the failure stays on its item for the user
     // to remove, like any error. The cap is per-kind from the server
     // limits, else the client heap bound; the message carries the real
     // number that applied.
-    const tooBig = attachmentSizeError(item.name, file.size, caps, kindOfMime(file.type))
+    const mime = item.mimeType ?? sourceMimeType(file, null)
+    const tooBig = attachmentSizeError(item.name, sourceSize(file), caps, kindOfMime(mime))
     if (tooBig) {
-      onUpdate(item.key, {status: 'error', error: tooBig})
+      onUpdate(item.key, {status: 'error', error: tooBig, progress: null})
       failed = true
-      continue
+      await uploadNext()
+      return
     }
-    onUpdate(item.key, {status: 'uploading', error: null})
+    onUpdate(item.key, {status: 'uploading', error: null, progress: null})
     try {
-      const {id} = await uploadOne(backend, file, {
+      const {id, processing} = await uploadOne(backend, file, {
         alt: item.alt,
         sensitive: item.sensitive,
         target,
+        name: item.name,
+        mimeType: mime,
+        keepOriginal: item.keepOriginal,
+        signal: run.signalFor?.(item.key),
+        onProgress: progressHook ? (loaded, total) => progressHook(item.key, loaded, total) : undefined,
+        uploadImpl: run.implFor?.(item.key, file),
       })
-      onUpdate(item.key, {status: 'done', mediaId: id, altAtUpload: item.alt})
-      ids.push(id)
+      if (processing) {
+        onUpdate(item.key, {status: 'processing', mediaId: id, altAtUpload: item.alt, progress: null})
+      } else {
+        onUpdate(item.key, {status: 'done', mediaId: id, altAtUpload: item.alt, progress: null})
+      }
+      idFor.set(item.key, id)
     } catch (err) {
-      onUpdate(item.key, {
-        status: 'error',
-        error: err instanceof Error ? err.message : 'Upload failed.',
-      })
+      if (isAbortedUpload(err)) {
+        // Explicit Cancel (repair X7.4 step 1): back to staged for retry.
+        // The batch still fails so the post never drops the file silently.
+        onUpdate(item.key, {status: 'staged', error: null, progress: null})
+      } else {
+        onUpdate(item.key, {
+          status: 'error',
+          error: err instanceof Error ? err.message : 'Upload failed.',
+          progress: null,
+        })
+      }
       failed = true
     }
+    await uploadNext()
+  }
+  await Promise.all(Array.from({length: Math.min(limit, pending.length)}, () => uploadNext()))
+  const ids: string[] = []
+  for (const item of live) {
+    const id = idFor.get(item.key)
+    if (id) ids.push(id)
   }
   return failed ? null : ids
 }
@@ -331,9 +767,14 @@ export function useUploads(
   caps: AttachmentCaps | null = null,
 ) {
   const [items, setItems] = useState<UploadItem[]>([])
-  const files = useMemo(() => new Map<string, File>(), [])
+  const files = useMemo(() => new Map<string, File | UploadFileRef>(), [])
   const itemsRef = useRef(items)
   itemsRef.current = items
+  // Per-item abort controllers (repair X7.4 step 1): one live controller
+  // per key, created at upload start and replaced after it settles or
+  // aborts, so Cancel/Remove always reach the in-flight request and a
+  // retry never reuses a dead signal.
+  const controllers = useMemo(() => new Map<string, AbortController>(), [])
   // The batch target is read at upload time (a folder chosen after staging
   // still applies); a fresh object literal from the caller never re-creates
   // `ensureUploaded`.
@@ -343,24 +784,55 @@ export function useUploads(
   // `ensureUploaded` stable while the numbers stay current.
   const capsRef = useRef(caps)
   capsRef.current = caps
+  const backendRef = useRef(backend)
+  backendRef.current = backend
 
   const patch = useCallback((key: string, p: Partial<UploadItem>) => {
     setItems(cur => cur.map(i => (i.key === key ? {...i, ...p} : i)))
   }, [])
 
+  const signalFor = useCallback(
+    (key: string): AbortSignal => {
+      const cur = controllers.get(key)
+      if (cur && !cur.signal.aborted) return cur.signal
+      const fresh = new AbortController()
+      controllers.set(key, fresh)
+      return fresh.signal
+    },
+    [controllers],
+  )
+
+  // Abort every in-flight upload on unmount (repair X7.4 step 1): uploads
+  // belong to this composer — navigating away never leaves them running
+  // against state that is gone.
+  useEffect(
+    () => () => {
+      for (const c of controllers.values()) {
+        try {
+          c.abort()
+        } catch {
+          // Already settled: nothing to cancel.
+        }
+      }
+      controllers.clear()
+    },
+    [controllers],
+  )
+
   const add = useCallback(
-    (picked: UploadableFile[]): Array<{name: string; limit: number}> => {
+    (picked: UploadableFile[]): Array<{name: string; limit: number; reason: 'too-large'}> => {
       // Client bound (R2.3 + repair X6.2 step 2): over-cap Files are refused
       // before staging — they never enter `files`, so `ensureUploaded`
       // cannot send them. Returns the refused names WITH the cap that
       // applied so the caller reports the real number honestly.
-      const refused: Array<{name: string; limit: number}> = []
+      const refused: Array<{name: string; limit: number; reason: 'too-large'}> = []
       const created: Array<{key: string; p: UploadableFile}> = []
       for (const [i, p] of picked.entries()) {
-        const kind = kindOfMime(p.file.type)
-        const tooBig = attachmentSizeError(p.name, p.file.size, capsRef.current, kind)
+        const mime = p.mimeType ?? sourceMimeType(p.file, null)
+        const kind = kindOfMime(mime)
+        const tooBig = attachmentSizeError(p.name, sourceSize(p.file), capsRef.current, kind)
         if (tooBig) {
-          refused.push({name: p.name, limit: attachmentCapFor(kind, capsRef.current)})
+          refused.push({name: p.name, limit: attachmentCapFor(kind, capsRef.current), reason: 'too-large'})
           continue
         }
         created.push({
@@ -381,6 +853,10 @@ export function useUploads(
             alt: '',
             sensitive: false,
             error: null,
+            progress: null,
+            mimeType: p.mimeType ?? sourceMimeType(p.file, null),
+            keepOriginal: false,
+            hadGps: p.hadGps ?? null,
           }),
         ),
       ])
@@ -389,12 +865,33 @@ export function useUploads(
     [files],
   )
 
+  /** Cancel one in-flight upload (repair X7.4 step 1): the request aborts
+   * and the row returns to `staged` for retry (the worker maps the abort).
+   * An idle row is untouched. */
+  const cancel = useCallback(
+    (key: string) => {
+      controllers.get(key)?.abort()
+    },
+    [controllers],
+  )
+
   const remove = useCallback(
     (key: string) => {
+      // Removing an item aborts its request (repair X7.4 step 1) ...
+      controllers.get(key)?.abort()
+      controllers.delete(key)
+      const item = itemsRef.current.find(i => i.key === key)
       files.delete(key)
       setItems(cur => cur.filter(i => i.key !== key))
+      // ... and, when the server already stored it, issues a best-effort
+      // delete. Misskey removes the Drive file; Mastodon has no media
+      // delete, so the id is just dropped. Never blocks the UI.
+      const mediaId = item?.mediaId
+      if (mediaId && (item?.status === 'done' || item?.status === 'processing')) {
+        void backendRef.current?.drive?.deleteFile(mediaId)?.catch(() => {})
+      }
     },
-    [files],
+    [controllers, files],
   )
 
   /** Alt text: sent with the upload, and — where the backend exposes
@@ -407,17 +904,37 @@ export function useUploads(
     [patch],
   )
 
+  /** D9 opt-out (repair X7.4 step 6): send this upload's original bytes
+   * unchanged. Applies to the next upload run; fixed once sent. */
+  const setKeepOriginal = useCallback(
+    (key: string, keepOriginal: boolean) => patch(key, {keepOriginal}),
+    [patch],
+  )
+
   const ensureUploaded = useCallback(async (): Promise<string[] | null> => {
     if (!backend) return null
-    return uploadAll(backend, itemsRef.current, files, patch, targetRef.current, capsRef.current)
-  }, [backend, files, patch])
+    return uploadAll(backend, itemsRef.current, files, patch, targetRef.current, capsRef.current, {
+      concurrency: 3,
+      signalFor,
+      onProgress: (key, loaded, total) => patch(key, {progress: {loaded, total}}),
+      implFor: (_key, source) => (isUploadFileRef(source) ? undefined : webXhrUpload),
+    })
+  }, [backend, files, patch, signalFor])
 
   const clear = useCallback(() => {
+    for (const c of controllers.values()) {
+      try {
+        c.abort()
+      } catch {
+        // Already settled.
+      }
+    }
+    controllers.clear()
     files.clear()
     setItems([])
-  }, [files])
+  }, [controllers, files])
 
-  return {items, add, remove, setAlt, setSensitive, ensureUploaded, clear}
+  return {items, add, remove, cancel, setAlt, setSensitive, setKeepOriginal, ensureUploaded, clear}
 }
 
 // --- Edit post (C7) ------------------------------------------------------------

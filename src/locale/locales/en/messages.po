@@ -29,40 +29,52 @@ msgstr " (default)"
 msgid ", selected"
 msgstr ", selected"
 
+#. placeholder {0}: overCap[0].name
 #. placeholder {0}: tooLarge[0].name
+#. placeholder {1}: formatByteLimit(overCap[0].limit)
 #. placeholder {1}: formatByteLimit(tooLarge[0].limit)
-#: src/components/Composer/Composer.tsx:857
+#: src/components/Composer/Composer.tsx:910
 #: src/screens/Note.tsx:383
 msgid "\"{0}\" is too large to attach (limit {1})."
 msgstr "\"{0}\" is too large to attach (limit {1})."
 
 #: src/components/Composer/CompactComposer.tsx:491
-#: src/components/Composer/ComposerSections.tsx:585
-#: src/components/Composer/ComposerSections.tsx:587
-#: src/components/Composer/ComposerSections.tsx:631
+#: src/components/Composer/ComposerSections.tsx:636
+#: src/components/Composer/ComposerSections.tsx:638
+#: src/components/Composer/ComposerSections.tsx:682
 msgid "(no text)"
 msgstr "(no text)"
 
-#: src/components/Composer/ComposerSections.tsx:578
+#: src/components/Composer/ComposerSections.tsx:629
 msgid "(poll / CW only)"
 msgstr "(poll / CW only)"
 
+#. placeholder {0}: unreadable.length
+#: src/components/Composer/Composer.tsx:901
+msgid "{0, plural, one {# file could not be read. Try again or pick other photos.} other {# files could not be read. Try again or pick other photos.}}"
+msgstr "{0, plural, one {# file could not be read. Try again or pick other photos.} other {# files could not be read. Try again or pick other photos.}}"
+
+#. placeholder {0}: overCap.length
 #. placeholder {0}: tooLarge.length
-#: src/components/Composer/Composer.tsx:862
+#: src/components/Composer/Composer.tsx:915
 #: src/screens/Note.tsx:387
 msgid "{0, plural, one {# file was too large to attach.} other {# files were too large to attach.}}"
 msgstr "{0, plural, one {# file was too large to attach.} other {# files were too large to attach.}}"
 
 #. placeholder {0}: names[0]
 #. placeholder {1}: rest === 1 ? '' : 's'
-#: src/components/Post/PostCard.tsx:157
+#: src/components/Post/PostCard.tsx:158
 msgid "{0} and {rest} other{1} boosted"
 msgstr "{0} and {rest} other{1} boosted"
 
 #. placeholder {0}: displayNameOf(post.author)
-#: src/components/Post/PostCard.tsx:155
+#: src/components/Post/PostCard.tsx:156
 msgid "{0} boosted"
 msgstr "{0} boosted"
+
+#: src/components/Composer/Composer.tsx:1241
+msgid "{imagesMissingAlt, plural, one {# attached image has no alt text.} other {# attached images have no alt text.}}"
+msgstr "{imagesMissingAlt, plural, one {# attached image has no alt text.} other {# attached images have no alt text.}}"
 
 #: src/screens/HomeFeed.tsx:378
 msgid "{newCount} new posts"
@@ -92,7 +104,7 @@ msgstr "{unread} new"
 msgid "{what} is not available in this build yet."
 msgstr "{what} is not available in this build yet."
 
-#: src/components/Composer/ComposerSections.tsx:538
+#: src/components/Composer/ComposerSections.tsx:589
 msgid "@user or @user@host"
 msgstr "@user or @user@host"
 
@@ -102,8 +114,8 @@ msgstr "a poll ended"
 
 #: src/components/Composer/CompactComposer.tsx:300
 #: src/components/Composer/CompactComposer.tsx:310
-#: src/components/Composer/Composer.tsx:1341
-#: src/components/Composer/Composer.tsx:1357
+#: src/components/Composer/Composer.tsx:1410
+#: src/components/Composer/Composer.tsx:1426
 msgid "A post cannot have both media and a poll."
 msgstr "A post cannot have both media and a poll."
 
@@ -128,7 +140,7 @@ msgid "Accessibility and display"
 msgstr "Accessibility and display"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:58
+#: src/lib/localeErrors.ts:60
 msgid "errors.shape.account"
 msgstr "Account {id} returned an unexpected response shape."
 
@@ -163,7 +175,7 @@ msgid "Accounts whose reposts are hidden."
 msgstr "Accounts whose reposts are hidden."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:73
+#: src/lib/localeErrors.ts:75
 msgid "errors.compose.actionFailed"
 msgstr "Action failed."
 
@@ -175,12 +187,12 @@ msgstr "Action failed."
 msgid "Action failed."
 msgstr "Action failed."
 
-#: src/components/Composer/ComposerSections.tsx:543
+#: src/components/Composer/ComposerSections.tsx:594
 msgid "Add"
 msgstr "Add"
 
 #: src/components/Composer/CompactComposer.tsx:222
-#: src/components/Composer/Composer.tsx:1202
+#: src/components/Composer/Composer.tsx:1271
 msgid "Add a comment"
 msgstr "Add a comment"
 
@@ -210,7 +222,7 @@ msgstr "Add choice"
 msgid "Add filter"
 msgstr "Add filter"
 
-#: src/components/Composer/ComposerSections.tsx:532
+#: src/components/Composer/ComposerSections.tsx:583
 msgid "Add recipient"
 msgstr "Add recipient"
 
@@ -234,7 +246,7 @@ msgstr "Add to clip"
 msgid "Add to list"
 msgstr "Add to list"
 
-#: src/components/Composer/ComposerSections.tsx:543
+#: src/components/Composer/ComposerSections.tsx:594
 #: src/components/Settings/FiltersSection.tsx:120
 msgid "Adding…"
 msgstr "Adding…"
@@ -243,7 +255,7 @@ msgstr "Adding…"
 msgid "Admin metrics and public server info. No changes can be made here."
 msgstr "Admin metrics and public server info. No changes can be made here."
 
-#: src/components/Composer/Composer.tsx:1386
+#: src/components/Composer/Composer.tsx:1462
 #: src/components/Profile/ProfileTabs.tsx:24
 msgid "All"
 msgstr "All"
@@ -308,7 +320,7 @@ msgid "Antennas"
 msgstr "Antennas"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:30
+#: src/lib/localeErrors.ts:32
 msgid "errors.network.apiError"
 msgstr "API error: HTTP {status}"
 
@@ -339,21 +351,21 @@ msgstr "Attach media"
 msgid "Attach media ({0} attached)"
 msgstr "Attach media ({0} attached)"
 
-#: src/components/Composer/ComposerSections.tsx:362
+#: src/components/Composer/ComposerSections.tsx:413
 msgid "Attached to this post"
 msgstr "Attached to this post"
 
 #: src/components/Composer/CompactComposer.tsx:300
-#: src/components/Composer/Composer.tsx:1358
+#: src/components/Composer/Composer.tsx:1427
 #: src/screens/Note.tsx:617
 msgid "Attachment limit reached."
 msgstr "Attachment limit reached."
 
-#: src/components/Composer/Composer.tsx:1244
+#: src/components/Composer/Composer.tsx:1313
 msgid "Audience"
 msgstr "Audience"
 
-#: src/components/Post/PostMediaGrid.tsx:448
+#: src/components/Post/PostMediaGrid.tsx:493
 msgid "Audio unavailable"
 msgstr "Audio unavailable"
 
@@ -431,8 +443,8 @@ msgid "Browser sign-in — approve on {0}."
 msgstr "Browser sign-in — approve on {0}."
 
 #: src/components/Composer/CompactComposer.tsx:202
-#: src/components/Composer/Composer.tsx:1162
-#: src/components/Composer/ComposerSections.tsx:614
+#: src/components/Composer/Composer.tsx:1219
+#: src/components/Composer/ComposerSections.tsx:665
 #: src/components/Post/ReportChooser.tsx:201
 #: src/components/RichText.tsx:404
 #: src/components/Settings/FiltersSection.tsx:152
@@ -442,6 +454,10 @@ msgstr "Browser sign-in — approve on {0}."
 #: src/screens/Notifications.tsx:861
 msgid "Cancel"
 msgstr "Cancel"
+
+#: src/components/Composer/ComposerSections.tsx:363
+msgid "Cancel upload"
+msgstr "Cancel upload"
 
 #: src/routes.ts:390
 msgid "Channel"
@@ -551,7 +567,7 @@ msgstr "Close"
 msgid "Close dialog"
 msgstr "Close dialog"
 
-#: src/components/Composer/Composer.tsx:210
+#: src/components/Composer/Composer.tsx:214
 msgid "Close without saving your changes?"
 msgstr "Close without saving your changes?"
 
@@ -591,7 +607,7 @@ msgstr "Continue"
 msgid "Conversation"
 msgstr "Conversation"
 
-#: src/components/Post/PostCard.tsx:489
+#: src/components/Post/PostCard.tsx:493
 #: src/components/richtext/MatrixHover.tsx:30
 msgid "Copied"
 msgstr "Copied"
@@ -633,7 +649,7 @@ msgstr "Could not accept that request."
 msgid "Could not add the filter."
 msgstr "Could not add the filter."
 
-#: src/components/Composer/ComposerSections.tsx:618
+#: src/components/Composer/ComposerSections.tsx:669
 msgid "Could not cancel."
 msgstr "Could not cancel."
 
@@ -641,7 +657,7 @@ msgstr "Could not cancel."
 msgid "Could not clear notifications."
 msgstr "Could not clear notifications."
 
-#: src/components/Composer/ComposerSections.tsx:689
+#: src/components/Composer/ComposerSections.tsx:740
 msgid "Could not delete."
 msgstr "Could not delete."
 
@@ -687,11 +703,11 @@ msgstr "Could not load notification settings."
 msgid "Could not load notifications."
 msgstr "Could not load notifications."
 
-#: src/components/Composer/ComposerSections.tsx:604
+#: src/components/Composer/ComposerSections.tsx:655
 msgid "Could not load scheduled posts."
 msgstr "Could not load scheduled posts."
 
-#: src/components/Composer/ComposerSections.tsx:670
+#: src/components/Composer/ComposerSections.tsx:721
 msgid "Could not load server drafts."
 msgstr "Could not load server drafts."
 
@@ -744,27 +760,32 @@ msgid "errors.network.unreachableBare"
 msgstr "Could not reach {origin} ({reason})."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:27
+#: src/lib/localeErrors.ts:29
 msgid "errors.network.unreachableOrigin"
 msgstr "Could not reach {origin} ({reason}). Is the server running and the host correct?"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:26
+#: src/lib/localeErrors.ts:28
 msgid "errors.network.unreachableInstance"
 msgstr "Could not reach the instance ({reason}). Is the host correct?"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:28
+#: src/lib/localeErrors.ts:30
 msgid "errors.network.unreachableServer"
 msgstr "Could not reach the server ({reason}). Is it running?"
+
+#. placeholder {0}: unreadable[0].name
+#: src/components/Composer/Composer.tsx:896
+msgid "Could not read \"{0}\". Try again or pick another photo."
+msgstr "Could not read \"{0}\". Try again or pick another photo."
 
 #: src/components/Settings/FiltersSection.tsx:87
 msgid "Could not remove the filter."
 msgstr "Could not remove the filter."
 
-#: src/components/Composer/ComposerSections.tsx:485
-#: src/components/Composer/ComposerSections.tsx:499
-#: src/components/Composer/ComposerSections.tsx:509
+#: src/components/Composer/ComposerSections.tsx:536
+#: src/components/Composer/ComposerSections.tsx:550
+#: src/components/Composer/ComposerSections.tsx:560
 msgid "Could not resolve \"{raw}\"."
 msgstr "Could not resolve \"{raw}\"."
 
@@ -772,12 +793,12 @@ msgstr "Could not resolve \"{raw}\"."
 msgid "Could not save notification settings."
 msgstr "Could not save notification settings."
 
-#: src/components/Composer/Composer.tsx:470
+#: src/components/Composer/Composer.tsx:504
 msgid "Could not save the draft on this device."
 msgstr "Could not save the draft on this device."
 
-#: src/components/Composer/Composer.tsx:988
-#: src/components/Composer/ComposerSections.tsx:658
+#: src/components/Composer/Composer.tsx:1043
+#: src/components/Composer/ComposerSections.tsx:709
 msgid "Could not save the draft."
 msgstr "Could not save the draft."
 
@@ -790,7 +811,7 @@ msgid "Could not save the filter."
 msgstr "Could not save the filter."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:37
+#: src/lib/localeErrors.ts:39
 msgid "errors.auth.savePending"
 msgstr "Could not save the sign-in state (session storage blocked) — the redirect flow cannot continue safely."
 
@@ -829,7 +850,7 @@ msgstr "Current language."
 msgid "custom emoji"
 msgstr "custom emoji"
 
-#: src/components/Composer/Composer.tsx:1325
+#: src/components/Composer/Composer.tsx:1394
 msgid "CW"
 msgstr "CW"
 
@@ -854,7 +875,7 @@ msgstr "Default"
 msgid "Default. Colourful open-source set."
 msgstr "Default. Colourful open-source set."
 
-#: src/components/Composer/ComposerSections.tsx:685
+#: src/components/Composer/ComposerSections.tsx:736
 #: src/components/Post/menuModel.ts:456
 #: src/components/Post/menuModel.ts:458
 #: src/components/Post/menuModel.ts:461
@@ -880,17 +901,17 @@ msgstr "Delete this draft"
 msgid "Delete this post?"
 msgstr "Delete this post?"
 
-#: src/components/Composer/ComposerSections.tsx:286
-#: src/components/Composer/ComposerSections.tsx:368
+#: src/components/Composer/ComposerSections.tsx:300
+#: src/components/Composer/ComposerSections.tsx:419
 msgid "Describe the media"
 msgstr "Describe the media"
 
-#: src/components/Composer/ComposerSections.tsx:274
-#: src/components/Composer/ComposerSections.tsx:364
+#: src/components/Composer/ComposerSections.tsx:288
+#: src/components/Composer/ComposerSections.tsx:415
 msgid "Description (alt text)"
 msgstr "Description (alt text)"
 
-#: src/components/Composer/Composer.tsx:446
+#: src/components/Composer/Composer.tsx:480
 msgid "Direct and specified posts aren't autosaved on this device. Use Save to keep a copy."
 msgstr "Direct and specified posts aren't autosaved on this device. Use Save to keep a copy."
 
@@ -899,11 +920,11 @@ msgid "Direct message"
 msgstr "Direct message"
 
 #: src/components/Composer/CloseConfirmDialog.tsx:27
-#: src/components/Composer/Composer.tsx:212
+#: src/components/Composer/Composer.tsx:216
 msgid "Discard"
 msgstr "Discard"
 
-#: src/components/Composer/Composer.tsx:209
+#: src/components/Composer/Composer.tsx:213
 msgid "Discard changes?"
 msgstr "Discard changes?"
 
@@ -948,7 +969,7 @@ msgid "Double-tap to zoom"
 msgstr "Double-tap to zoom"
 
 #: src/components/Composer/CompactComposer.tsx:471
-#: src/components/Composer/Composer.tsx:1375
+#: src/components/Composer/Composer.tsx:1444
 msgid "Drafts"
 msgstr "Drafts"
 
@@ -1002,7 +1023,7 @@ msgstr "Edited"
 msgid "Editing the first keyword. The rest of this group stay as they are: {0}"
 msgstr "Editing the first keyword. The rest of this group stay as they are: {0}"
 
-#: src/components/Composer/Composer.tsx:1183
+#: src/components/Composer/Composer.tsx:1252
 msgid "Editing your post"
 msgstr "Editing your post"
 
@@ -1010,7 +1031,7 @@ msgstr "Editing your post"
 msgid "Either"
 msgstr "Either"
 
-#: src/components/Composer/Composer.tsx:1323
+#: src/components/Composer/Composer.tsx:1392
 msgid "Emoji"
 msgstr "Emoji"
 
@@ -1041,7 +1062,7 @@ msgid "Expand sidebar"
 msgstr "Expand sidebar"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:64
+#: src/lib/localeErrors.ts:66
 msgid "errors.shape.expectedList"
 msgstr "Expected a {kind} list (HTTP {status})."
 
@@ -1064,7 +1085,7 @@ msgstr "Export"
 msgid "External account: sign-in and requests go to {0}, not this app's home server."
 msgstr "External account: sign-in and requests go to {0}, not this app's home server."
 
-#: src/components/Composer/ComposerSections.tsx:271
+#: src/components/Composer/ComposerSections.tsx:285
 #: src/screens/Note.tsx:589
 msgid "failed"
 msgstr "failed"
@@ -1095,7 +1116,7 @@ msgid "Feeds never show sample data when signed out."
 msgstr "Feeds never show sample data when signed out."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:66
+#: src/lib/localeErrors.ts:68
 msgid "errors.compose.fileTooLarge"
 msgstr "File is too large ({kb} KB — limit is 10 MB)."
 
@@ -1196,6 +1217,10 @@ msgstr "gave you a role"
 msgid "Google’s set."
 msgstr "Google’s set."
 
+#: src/components/Composer/ComposerSections.tsx:259
+msgid "Got it"
+msgstr "Got it"
+
 #: src/screens/Notifications.tsx:717
 msgid "Grouped"
 msgstr "Grouped"
@@ -1216,17 +1241,22 @@ msgstr "Hidden from global timelines"
 msgid "Hidden until closed"
 msgstr "Hidden until closed"
 
-#: src/components/Post/PostCard.tsx:1024
+#: src/components/Post/PostCard.tsx:1028
+#: src/components/Post/PostMediaGrid.tsx:687
 msgid "Hide"
 msgstr "Hide"
 
-#: src/components/Post/PostCard.tsx:1023
+#: src/components/Post/PostCard.tsx:1027
 msgid "Hide content"
 msgstr "Hide content"
 
 #: src/components/Settings/DisplaySection.tsx:192
 msgid "Hide quotes the author has not approved behind a tap-to-reveal row. Off shows every quote."
 msgstr "Hide quotes the author has not approved behind a tap-to-reveal row. Off shows every quote."
+
+#: src/components/Post/PostMediaGrid.tsx:684
+msgid "Hide sensitive media"
+msgstr "Hide sensitive media"
 
 #: src/components/Composer/ComposerSections.tsx:223
 msgid "Hide totals"
@@ -1251,7 +1281,7 @@ msgstr "How post bodies, bios and quotes render."
 msgid "I've approved — continue"
 msgstr "I've approved — continue"
 
-#: src/components/Composer/ComposerSections.tsx:552
+#: src/components/Composer/ComposerSections.tsx:603
 msgid "IDs are sent verbatim on this server."
 msgstr "IDs are sent verbatim on this server."
 
@@ -1267,23 +1297,23 @@ msgstr "Import"
 msgid "Import another file"
 msgstr "Import another file"
 
-#: src/components/Composer/ComposerSections.tsx:424
+#: src/components/Composer/ComposerSections.tsx:475
 msgid "In 1 hour"
 msgstr "In 1 hour"
 
 #: src/components/Composer/CompactComposer.tsx:331
-#: src/components/Composer/ComposerSections.tsx:725
+#: src/components/Composer/ComposerSections.tsx:776
 #: src/screens/Note.tsx:636
 msgid "Insert emoji"
 msgstr "Insert emoji"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:68
+#: src/lib/localeErrors.ts:70
 msgid "errors.feeds.invalidDescriptor"
 msgstr "Invalid feed descriptor."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:67
+#: src/lib/localeErrors.ts:69
 msgid "errors.filter.invalidRegex"
 msgstr "Invalid regular expression on line {line}."
 
@@ -1295,8 +1325,12 @@ msgstr "invited you to a chat room"
 msgid "It may be deleted, suspended, or unreachable."
 msgstr "It may be deleted, suspended, or unreachable."
 
+#: src/components/Composer/ComposerSections.tsx:335
+msgid "Keep original"
+msgstr "Keep original"
+
 #: src/components/Composer/CloseConfirmDialog.tsx:33
-#: src/components/Composer/Composer.tsx:218
+#: src/components/Composer/Composer.tsx:222
 msgid "Keep writing"
 msgstr "Keep writing"
 
@@ -1309,7 +1343,7 @@ msgstr "Keystone"
 msgid "Keystone modern or terminal."
 msgstr "Keystone modern or terminal."
 
-#: src/components/Composer/Composer.tsx:1308
+#: src/components/Composer/Composer.tsx:1377
 #: src/components/Settings/LanguageSection.tsx:31
 #: src/routes.ts:445
 msgid "Language"
@@ -1432,13 +1466,18 @@ msgid "Local"
 msgstr "Local"
 
 #: src/components/Composer/CompactComposer.tsx:435
-#: src/components/Composer/Composer.tsx:1259
+#: src/components/Composer/Composer.tsx:1328
 msgid "Local only"
 msgstr "Local only"
 
-#: src/components/Composer/ComposerSections.tsx:312
+#: src/components/Composer/ComposerSections.tsx:326
+#: src/components/Composer/ComposerSections.tsx:344
 msgid "Locked after upload"
 msgstr "Locked after upload"
+
+#: src/components/Composer/ComposerSections.tsx:342
+msgid "Locked while uploading"
+msgstr "Locked while uploading"
 
 #: src/components/Post/ReportChooser.tsx:45
 msgid "Malicious links, fake engagement, or repetitive replies"
@@ -1448,7 +1487,7 @@ msgstr "Malicious links, fake engagement, or repetitive replies"
 msgid "Mark all read"
 msgstr "Mark all read"
 
-#: src/components/Composer/Composer.tsx:1302
+#: src/components/Composer/Composer.tsx:1371
 msgid "Mark media sensitive"
 msgstr "Mark media sensitive"
 
@@ -1476,23 +1515,23 @@ msgstr "Matrix handle: {userId}. Tap to copy."
 msgid "Matrix is a secure and decentralized messaging protocol. You can message this user from Element, or any other Matrix chat client."
 msgstr "Matrix is a secure and decentralized messaging protocol. You can message this user from Element, or any other Matrix chat client."
 
-#: src/components/Composer/Composer.tsx:1351
+#: src/components/Composer/Composer.tsx:1420
 #: src/components/Profile/ProfileTabs.tsx:28
 msgid "Media"
 msgstr "Media"
 
-#: src/components/Composer/Composer.tsx:842
+#: src/components/Composer/Composer.tsx:876
 #: src/screens/Note.tsx:372
 msgid "Media library access was denied. Allow access to attach photos or videos."
 msgstr "Media library access was denied. Allow access to attach photos or videos."
 
-#: src/components/Composer/Composer.tsx:844
+#: src/components/Composer/Composer.tsx:878
 #: src/screens/Note.tsx:374
 msgid "Media library access was denied. Enable it in the system settings to attach photos or videos."
 msgstr "Media library access was denied. Enable it in the system settings to attach photos or videos."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:56
+#: src/lib/localeErrors.ts:58
 msgid "errors.shape.mediaLookup"
 msgstr "Media lookup returned an unexpected response shape."
 
@@ -1631,17 +1670,17 @@ msgstr "News is not available on this server."
 msgid "Next"
 msgstr "Next"
 
-#: src/components/Composer/ComposerSections.tsx:434
+#: src/components/Composer/ComposerSections.tsx:485
 msgid "Next week 9:00"
 msgstr "Next week 9:00"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:43
+#: src/lib/localeErrors.ts:45
 msgid "errors.unsupported.noAccountFound"
 msgstr "No account found for {acct}."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:42
+#: src/lib/localeErrors.ts:44
 msgid "errors.unsupported.noAccountRef"
 msgstr "No account reference given."
 
@@ -1663,7 +1702,7 @@ msgstr "No clip picker is connected to this view."
 msgid "No composer is connected to this view."
 msgstr "No composer is connected to this view."
 
-#: src/components/Composer/ComposerSections.tsx:570
+#: src/components/Composer/ComposerSections.tsx:621
 msgid "No drafts on this device."
 msgstr "No drafts on this device."
 
@@ -1704,19 +1743,19 @@ msgid "No profiles found."
 msgstr "No profiles found."
 
 #: src/components/Composer/CompactComposer.tsx:421
-#: src/components/Composer/Composer.tsx:1276
+#: src/components/Composer/Composer.tsx:1345
 msgid "No quotes for this post"
 msgstr "No quotes for this post"
 
-#: src/components/Composer/ComposerSections.tsx:566
+#: src/components/Composer/ComposerSections.tsx:617
 msgid "No saved drafts."
 msgstr "No saved drafts."
 
-#: src/components/Composer/ComposerSections.tsx:606
+#: src/components/Composer/ComposerSections.tsx:657
 msgid "No scheduled posts."
 msgstr "No scheduled posts."
 
-#: src/components/Composer/ComposerSections.tsx:672
+#: src/components/Composer/ComposerSections.tsx:723
 msgid "No server drafts."
 msgstr "No server drafts."
 
@@ -1835,8 +1874,8 @@ msgstr "on"
 msgid "On"
 msgstr "On"
 
-#: src/components/Composer/ComposerSections.tsx:569
-#: src/components/Composer/ComposerSections.tsx:576
+#: src/components/Composer/ComposerSections.tsx:620
+#: src/components/Composer/ComposerSections.tsx:627
 msgid "On this device"
 msgstr "On this device"
 
@@ -1866,7 +1905,7 @@ msgid "Only show authorized quotes"
 msgstr "Only show authorized quotes"
 
 #: src/components/Composer/CompactComposer.tsx:428
-#: src/components/Composer/Composer.tsx:1285
+#: src/components/Composer/Composer.tsx:1354
 msgid "Only this post refuses quotes. The account-wide setting is in Settings → Account."
 msgstr "Only this post refuses quotes. The account-wide setting is in Settings → Account."
 
@@ -1874,12 +1913,12 @@ msgstr "Only this post refuses quotes. The account-wide setting is in Settings �
 msgid "Only your followers"
 msgstr "Only your followers"
 
-#: src/components/Post/PostMediaGrid.tsx:558
+#: src/components/Post/PostMediaGrid.tsx:603
 msgid "Open"
 msgstr "Open"
 
 #. placeholder {0}: item.name || item.kind
-#: src/components/Post/PostMediaGrid.tsx:557
+#: src/components/Post/PostMediaGrid.tsx:602
 msgid "Open attachment {0}"
 msgstr "Open attachment {0}"
 
@@ -1888,7 +1927,7 @@ msgstr "Open attachment {0}"
 msgid "Open in Keystone"
 msgstr "Open in Keystone"
 
-#: src/components/Post/PostMediaGrid.tsx:529
+#: src/components/Post/PostMediaGrid.tsx:574
 msgid "Open in viewer"
 msgstr "Open in viewer"
 
@@ -1903,18 +1942,18 @@ msgid "Open link: {0}"
 msgstr "Open link: {0}"
 
 #. placeholder {0}: mediaLabel(item)
-#: src/components/Post/PostMediaGrid.tsx:528
+#: src/components/Post/PostMediaGrid.tsx:573
 msgid "Open media: {0}"
 msgstr "Open media: {0}"
 
-#: src/components/Post/PostMediaGrid.tsx:171
+#: src/components/Post/PostMediaGrid.tsx:205
 msgid "Open media: {label}"
 msgstr "Open media: {label}"
 
 #. placeholder {0}: displayNameOf(effective.author)
-#: src/components/Post/PostCard.tsx:978
-#: src/components/Post/PostCard.tsx:1051
-#: src/components/Post/PostCard.tsx:1074
+#: src/components/Post/PostCard.tsx:982
+#: src/components/Post/PostCard.tsx:1055
+#: src/components/Post/PostCard.tsx:1078
 msgid "Open post by {0}"
 msgstr "Open post by {0}"
 
@@ -1927,9 +1966,9 @@ msgstr "Open profile"
 #. placeholder {0}: displayNameOf(shownAccount)
 #: src/components/Notification/NotificationRow.tsx:270
 #: src/components/Notification/NotificationRow.tsx:287
-#: src/components/Post/PostCard.tsx:234
-#: src/components/Post/PostCard.tsx:959
-#: src/components/Post/PostCard.tsx:1005
+#: src/components/Post/PostCard.tsx:238
+#: src/components/Post/PostCard.tsx:963
+#: src/components/Post/PostCard.tsx:1009
 msgid "Open profile of {0}"
 msgstr "Open profile of {0}"
 
@@ -1975,17 +2014,21 @@ msgstr "Opening the approval page."
 msgid "Opening…"
 msgstr "Opening…"
 
+#: src/components/Composer/ComposerSections.tsx:357
+msgid "Originals may include location and device data."
+msgstr "Originals may include location and device data."
+
 #: src/components/Settings/PrivacySection.tsx:119
 msgid "OS screenshot blocking"
 msgstr "OS screenshot blocking"
 
 #: src/components/Composer/CompactComposer.tsx:366
-#: src/components/Composer/Composer.tsx:1170
+#: src/components/Composer/Composer.tsx:1227
 #: src/screens/Note.tsx:484
 msgid "Over the character limit."
 msgstr "Over the character limit."
 
-#: src/components/Composer/Composer.tsx:1218
+#: src/components/Composer/Composer.tsx:1287
 msgid "Over the limit"
 msgstr "Over the limit"
 
@@ -2011,12 +2054,12 @@ msgstr "Palette"
 msgid "Password"
 msgstr "Password"
 
-#: src/components/Post/PostMediaGrid.tsx:523
+#: src/components/Post/PostMediaGrid.tsx:568
 msgid "Pause"
 msgstr "Pause"
 
 #. placeholder {0}: mediaLabel(item)
-#: src/components/Post/PostMediaGrid.tsx:514
+#: src/components/Post/PostMediaGrid.tsx:559
 msgid "Pause {0}"
 msgstr "Pause {0}"
 
@@ -2034,12 +2077,12 @@ msgid "Pin to profile"
 msgstr "Pin to profile"
 
 #: src/components/Post/badges.ts:30
-#: src/components/Post/PostCard.tsx:555
+#: src/components/Post/PostCard.tsx:559
 msgid "Pinned"
 msgstr "Pinned"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:38
+#: src/lib/localeErrors.ts:40
 msgid "errors.unsupported.pinned"
 msgstr "Pinned-post listings are not available on this server."
 
@@ -2047,32 +2090,32 @@ msgstr "Pinned-post listings are not available on this server."
 msgid "Plain text"
 msgstr "Plain text"
 
-#: src/components/Post/PostMediaGrid.tsx:369
-#: src/components/Post/PostMediaGrid.tsx:523
+#: src/components/Post/PostMediaGrid.tsx:414
+#: src/components/Post/PostMediaGrid.tsx:568
 msgid "Play"
 msgstr "Play"
 
 #. placeholder {0}: mediaLabel(item)
-#: src/components/Post/PostMediaGrid.tsx:365
-#: src/components/Post/PostMediaGrid.tsx:514
+#: src/components/Post/PostMediaGrid.tsx:410
+#: src/components/Post/PostMediaGrid.tsx:559
 msgid "Play {0}"
 msgstr "Play {0}"
 
-#: src/components/Composer/Composer.tsx:1333
+#: src/components/Composer/Composer.tsx:1402
 msgid "Poll"
 msgstr "Poll"
 
-#: src/components/Composer/Composer.tsx:665
+#: src/components/Composer/Composer.tsx:699
 msgid "Polls must stay open at least 5 minutes on this server."
 msgstr "Polls must stay open at least 5 minutes on this server."
 
 #: src/components/Composer/CompactComposer.tsx:188
-#: src/components/Composer/Composer.tsx:1165
+#: src/components/Composer/Composer.tsx:1222
 #: src/components/shell/Sidebar.tsx:350
 msgid "Post"
 msgstr "Post"
 
-#: src/components/Composer/ComposerSections.tsx:417
+#: src/components/Composer/ComposerSections.tsx:468
 msgid "Post at (ISO time)"
 msgstr "Post at (ISO time)"
 
@@ -2090,7 +2133,7 @@ msgid "Post now instead"
 msgstr "Post now instead"
 
 #: src/components/Composer/CompactComposer.tsx:226
-#: src/components/Composer/Composer.tsx:1206
+#: src/components/Composer/Composer.tsx:1275
 msgid "Post text"
 msgstr "Post text"
 
@@ -2109,7 +2152,7 @@ msgid "posted your scheduled note"
 msgstr "posted your scheduled note"
 
 #: src/components/Composer/CompactComposer.tsx:366
-#: src/components/Composer/Composer.tsx:1172
+#: src/components/Composer/Composer.tsx:1229
 #: src/screens/Note.tsx:486
 msgid "Posting..."
 msgstr "Posting..."
@@ -2215,11 +2258,11 @@ msgid "reacted to your post"
 msgstr "reacted to your post"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:40
+#: src/lib/localeErrors.ts:42
 msgid "errors.unsupported.reactions"
 msgstr "Reaction listings are not available on this server."
 
-#: src/components/Composer/Composer.tsx:1384
+#: src/components/Composer/Composer.tsx:1460
 msgid "Reactions"
 msgstr "Reactions"
 
@@ -2231,7 +2274,7 @@ msgstr "Reactions and emoji"
 msgid "Read"
 msgstr "Read"
 
-#: src/components/Composer/ComposerSections.tsx:266
+#: src/components/Composer/ComposerSections.tsx:276
 #: src/screens/Note.tsx:584
 msgid "ready to upload"
 msgstr "ready to upload"
@@ -2279,12 +2322,16 @@ msgid "Related tags"
 msgstr "Related tags"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:54
+#: src/lib/localeErrors.ts:56
 msgid "errors.shape.relationships"
 msgstr "Relationships returned an unexpected response shape."
 
-#: src/components/Composer/ComposerSections.tsx:320
-#: src/components/Composer/ComposerSections.tsx:383
+#: src/components/Composer/Composer.tsx:1447
+msgid "Remind me about alt text"
+msgstr "Remind me about alt text"
+
+#: src/components/Composer/ComposerSections.tsx:371
+#: src/components/Composer/ComposerSections.tsx:434
 #: src/components/Settings/FiltersSection.tsx:181
 #: src/screens/Note.tsx:598
 msgid "Remove"
@@ -2325,7 +2372,7 @@ msgstr "Reply, {0} replies"
 #. placeholder {0}: replyTarget.author.acct
 #. placeholder {0}: replyTo.author.acct
 #: src/components/Composer/ComposerSections.tsx:152
-#: src/components/Post/PostCard.tsx:933
+#: src/components/Post/PostCard.tsx:937
 msgid "Replying to @{0}"
 msgstr "Replying to @{0}"
 
@@ -2373,9 +2420,14 @@ msgid "errors.network.timeoutInstance"
 msgstr "Request timed out ({target}): the instance did not answer within {n}s. Retry."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:25
+#: src/lib/localeErrors.ts:27
 msgid "errors.network.timeoutServer"
 msgstr "Request timed out ({target}): the server did not answer within {n}s. Retry, or check the dev-server terminal."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:26
+msgid "errors.network.aborted"
+msgstr "Request was cancelled."
 
 #: src/components/Profile/UserHoverCard.tsx:194
 msgid "Requested"
@@ -2398,11 +2450,11 @@ msgstr "Requires an admin or moderator account on this server."
 msgid "Reset"
 msgstr "Reset"
 
-#: src/components/Post/PostCard.tsx:1122
+#: src/components/Post/PostCard.tsx:1126
 msgid "Resolving quote…"
 msgstr "Resolving quote…"
 
-#: src/components/Composer/ComposerSections.tsx:680
+#: src/components/Composer/ComposerSections.tsx:731
 msgid "Restore"
 msgstr "Restore"
 
@@ -2411,7 +2463,7 @@ msgstr "Restore"
 msgid "Restore draft: {0}"
 msgstr "Restore draft: {0}"
 
-#: src/components/Composer/Composer.tsx:400
+#: src/components/Composer/Composer.tsx:404
 msgid "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 
@@ -2446,7 +2498,7 @@ msgid "Review accounts waiting for your approval."
 msgstr "Review accounts waiting for your approval."
 
 #: src/components/Composer/CompactComposer.tsx:181
-#: src/components/Composer/Composer.tsx:1165
+#: src/components/Composer/Composer.tsx:1222
 #: src/components/Settings/FiltersSection.tsx:145
 #: src/components/Settings/WordFields.tsx:132
 #: src/screens/Notifications.tsx:203
@@ -2454,7 +2506,7 @@ msgstr "Review accounts waiting for your approval."
 msgid "Save"
 msgstr "Save"
 
-#: src/components/Composer/ComposerSections.tsx:703
+#: src/components/Composer/ComposerSections.tsx:754
 msgid "Save current as server draft"
 msgstr "Save current as server draft"
 
@@ -2478,12 +2530,12 @@ msgstr "Saving notification settings."
 msgid "Saving the filter policy."
 msgstr "Saving the filter policy."
 
-#: src/components/Composer/Composer.tsx:1150
+#: src/components/Composer/Composer.tsx:1207
 #: src/components/Composer/ComposerSections.tsx:68
 #: src/components/Composer/ComposerSections.tsx:176
 #: src/components/Composer/ComposerSections.tsx:252
-#: src/components/Composer/ComposerSections.tsx:351
-#: src/components/Composer/ComposerSections.tsx:703
+#: src/components/Composer/ComposerSections.tsx:402
+#: src/components/Composer/ComposerSections.tsx:754
 #: src/components/Settings/DomainBlocks.tsx:159
 #: src/components/Settings/WordFields.tsx:132
 #: src/screens/Notifications.tsx:203
@@ -2492,8 +2544,8 @@ msgid "Saving…"
 msgstr "Saving…"
 
 #: src/components/Composer/CompactComposer.tsx:183
-#: src/components/Composer/Composer.tsx:1165
-#: src/components/Composer/Composer.tsx:1365
+#: src/components/Composer/Composer.tsx:1222
+#: src/components/Composer/Composer.tsx:1434
 msgid "Schedule"
 msgstr "Schedule"
 
@@ -2501,15 +2553,15 @@ msgstr "Schedule"
 msgid "Schedule…"
 msgstr "Schedule…"
 
-#: src/components/Composer/ComposerSections.tsx:600
+#: src/components/Composer/ComposerSections.tsx:651
 msgid "Scheduled posts"
 msgstr "Scheduled posts"
 
-#: src/components/Composer/Composer.tsx:676
+#: src/components/Composer/Composer.tsx:710
 msgid "Scheduled posts must be scheduled at least 5 minutes ahead on this server."
 msgstr "Scheduled posts must be scheduled at least 5 minutes ahead on this server."
 
-#: src/components/Composer/ComposerSections.tsx:441
+#: src/components/Composer/ComposerSections.tsx:492
 msgid "Scheduled time must be in the future."
 msgstr "Scheduled time must be in the future."
 
@@ -2558,15 +2610,18 @@ msgstr "Send an anonymized copy of this report to that server's moderators as we
 msgid "Send report"
 msgstr "Send report"
 
-#: src/components/Composer/ComposerSections.tsx:306
+#: src/components/Composer/ComposerSections.tsx:320
 msgid "Sensitive"
 msgstr "Sensitive"
 
 #: src/components/Lightbox.tsx:186
-#: src/components/Post/PostMediaGrid.tsx:594
-#: src/components/Post/PostMediaGrid.tsx:623
+#: src/components/Post/PostMediaGrid.tsx:660
 msgid "Sensitive media hidden — tap to show"
 msgstr "Sensitive media hidden — tap to show"
+
+#: src/components/Post/PostMediaGrid.tsx:636
+msgid "Sensitive media hidden. The author marked this media sensitive."
+msgstr "Sensitive media hidden. The author marked this media sensitive."
 
 #: src/components/Notification/NotificationRow.tsx:106
 msgid "sent a notification"
@@ -2584,7 +2639,7 @@ msgstr "sent an update"
 msgid "Server"
 msgstr "Server"
 
-#: src/components/Composer/ComposerSections.tsx:666
+#: src/components/Composer/ComposerSections.tsx:717
 msgid "Server drafts"
 msgstr "Server drafts"
 
@@ -2593,7 +2648,7 @@ msgstr "Server drafts"
 msgid "Server insight"
 msgstr "Server insight"
 
-#: src/components/Composer/Composer.tsx:1221
+#: src/components/Composer/Composer.tsx:1290
 msgid "Server limits couldn't be verified — posting won't be blocked."
 msgstr "Server limits couldn't be verified — posting won't be blocked."
 
@@ -2603,7 +2658,7 @@ msgid "errors.network.redirect"
 msgstr "Server redirected the request (HTTP {status}); refusing to follow with credentials."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:29
+#: src/lib/localeErrors.ts:31
 msgid "errors.network.badJson"
 msgstr "Server returned a non-JSON body (HTTP {status}) for {target}."
 
@@ -2627,11 +2682,12 @@ msgid "Sharing or copying it can expose it beyond its audience."
 msgstr "Sharing or copying it can expose it beyond its audience."
 
 #: src/components/Lightbox.tsx:188
-#: src/components/Post/PostCard.tsx:1024
+#: src/components/Post/PostCard.tsx:1028
+#: src/components/Post/PostMediaGrid.tsx:662
 msgid "Show"
 msgstr "Show"
 
-#: src/components/Post/PostCard.tsx:1023
+#: src/components/Post/PostCard.tsx:1027
 msgid "Show content"
 msgstr "Show content"
 
@@ -2643,11 +2699,11 @@ msgstr "Show Federated tab"
 msgid "Show hidden quote"
 msgstr "Show hidden quote"
 
-#: src/components/Post/PostCard.tsx:1113
+#: src/components/Post/PostCard.tsx:1117
 msgid "Show less"
 msgstr "Show less"
 
-#: src/components/Post/PostCard.tsx:1112
+#: src/components/Post/PostCard.tsx:1116
 msgid "Show less of this post"
 msgstr "Show less of this post"
 
@@ -2659,12 +2715,12 @@ msgstr "Show Local even while Social is available. Local always shows when Socia
 msgid "Show Local tab"
 msgstr "Show Local tab"
 
-#: src/components/Post/PostCard.tsx:1100
+#: src/components/Post/PostCard.tsx:1104
 #: src/screens/Notifications.tsx:548
 msgid "Show more"
 msgstr "Show more"
 
-#: src/components/Post/PostCard.tsx:1099
+#: src/components/Post/PostCard.tsx:1103
 msgid "Show more of this post"
 msgstr "Show more of this post"
 
@@ -2680,18 +2736,13 @@ msgstr "Show more replies…"
 msgid "Show next image"
 msgstr "Show next image"
 
-#: src/components/Post/PostCard.tsx:1035
+#: src/components/Post/PostCard.tsx:1039
 msgid "Show original"
 msgstr "Show original"
 
 #: src/components/Lightbox.tsx:581
 msgid "Show previous image"
 msgstr "Show previous image"
-
-#: src/components/Post/PostMediaGrid.tsx:587
-#: src/components/Post/PostMediaGrid.tsx:622
-msgid "Show sensitive media. The author marked this media sensitive."
-msgstr "Show sensitive media. The author marked this media sensitive."
 
 #: src/components/Post/TagBubble.tsx:65
 msgid "Show tags"
@@ -2701,11 +2752,11 @@ msgstr "Show tags"
 msgid "Show the Federated timeline alongside the default tab."
 msgstr "Show the Federated timeline alongside the default tab."
 
-#: src/components/Post/PostCard.tsx:1035
+#: src/components/Post/PostCard.tsx:1039
 msgid "Show translation"
 msgstr "Show translation"
 
-#: src/components/Post/PostCard.tsx:1039
+#: src/components/Post/PostCard.tsx:1043
 msgid "Showing original · Show translation?"
 msgstr "Showing original · Show translation?"
 
@@ -2783,7 +2834,7 @@ msgstr "Sign in to see suggested users."
 msgid "Sign in to see this feed."
 msgstr "Sign in to see this feed."
 
-#: src/components/Post/PostCard.tsx:457
+#: src/components/Post/PostCard.tsx:461
 msgid "Sign in to vote."
 msgstr "Sign in to vote."
 
@@ -2815,7 +2866,7 @@ msgid "Sign out everywhere"
 msgstr "Sign out everywhere"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:33
+#: src/lib/localeErrors.ts:35
 msgid "errors.auth.signinFailed"
 msgstr "Sign-in failed."
 
@@ -2875,6 +2926,10 @@ msgstr "Soft words, hard words, muted servers."
 msgid "Soft-muted"
 msgstr "Soft-muted"
 
+#: src/components/Composer/Composer.tsx:922
+msgid "Some attachments could not be added."
+msgstr "Some attachments could not be added."
+
 #: src/screens/Note.tsx:425
 msgid "Some attachments failed to upload. Retry or remove them."
 msgstr "Some attachments failed to upload. Retry or remove them."
@@ -2894,14 +2949,18 @@ msgid "Spam"
 msgstr "Spam"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:59
+#: src/lib/localeErrors.ts:61
 msgid "errors.shape.status"
 msgstr "Status {id} returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:55
+#: src/lib/localeErrors.ts:57
 msgid "errors.shape.statusContext"
 msgstr "Status context returned an unexpected response shape."
+
+#: src/components/Composer/ComposerSections.tsx:282
+msgid "Still processing…"
+msgstr "Still processing…"
 
 #: src/components/Settings/TransferSections.tsx:100
 msgid "Submitting the import…"
@@ -2916,7 +2975,7 @@ msgid "Submitting…"
 msgstr "Submitting…"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:63
+#: src/lib/localeErrors.ts:65
 msgid "errors.shape.suggestions"
 msgstr "Suggestions returned an unexpected response shape."
 
@@ -2959,7 +3018,7 @@ msgid "errors.validation.hostInvalid"
 msgstr "That host does not look like a valid instance address."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:41
+#: src/lib/localeErrors.ts:43
 msgid "errors.unsupported.featured"
 msgstr "The featured-notes listing is not available on this server."
 
@@ -2975,37 +3034,37 @@ msgid "The label says {0}, but this link opens {1} ({2}). Open it?"
 msgstr "The label says {0}, but this link opens {1} ({2}). Open it?"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:31
+#: src/lib/localeErrors.ts:33
 msgid "errors.auth.noKeystoneToken"
 msgstr "The server did not issue a Keystone token for this session."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:47
+#: src/lib/localeErrors.ts:49
 msgid "errors.shape.createdList"
 msgstr "The server did not return the created list."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:46
+#: src/lib/localeErrors.ts:48
 msgid "errors.shape.createdPost"
 msgstr "The server did not return the created post."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:52
+#: src/lib/localeErrors.ts:54
 msgid "errors.shape.noScheduled"
 msgstr "The server did not return the scheduled status."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:48
+#: src/lib/localeErrors.ts:50
 msgid "errors.shape.updatedList"
 msgstr "The server did not return the updated list."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:49
+#: src/lib/localeErrors.ts:51
 msgid "errors.shape.updatedProfile"
 msgstr "The server did not return the updated profile."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:50
+#: src/lib/localeErrors.ts:52
 msgid "errors.shape.uploadedMedia"
 msgstr "The server did not return the uploaded media."
 
@@ -3015,12 +3074,12 @@ msgid "The server is throttling requests right now. Wait a moment, then try agai
 msgstr "The server is throttling requests right now. Wait a moment, then try again."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:32
+#: src/lib/localeErrors.ts:34
 msgid "errors.auth.noCredentials"
 msgstr "The server registered an app but did not return usable credentials."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:51
+#: src/lib/localeErrors.ts:53
 msgid "errors.shape.noTranslation"
 msgstr "The server returned no translation for this post."
 
@@ -3028,12 +3087,12 @@ msgstr "The server returned no translation for this post."
 msgid "The server returned the file directly ({payloadBytes} bytes)."
 msgstr "The server returned the file directly ({payloadBytes} bytes)."
 
-#: src/components/Post/PostMediaGrid.tsx:448
+#: src/components/Post/PostMediaGrid.tsx:493
 msgid "The server sent no audio URL."
 msgstr "The server sent no audio URL."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:39
+#: src/lib/localeErrors.ts:41
 msgid "errors.unsupported.social"
 msgstr "The social timeline is not available on this server."
 
@@ -3051,7 +3110,7 @@ msgid "This account has moved to {0}."
 msgstr "This account has moved to {0}."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:34
+#: src/lib/localeErrors.ts:36
 msgid "errors.auth.mfaRequired"
 msgstr "This account requires two-factor authentication. Enter your code to finish signing in."
 
@@ -3064,13 +3123,17 @@ msgstr "This device"
 msgid "This link looks misleading"
 msgstr "This link looks misleading"
 
+#: src/components/Composer/ComposerSections.tsx:355
+msgid "This photo contains location data, which will be sent unchanged."
+msgstr "This photo contains location data, which will be sent unchanged."
+
 #: src/components/Post/menuModel.ts:328
 #: src/components/Post/menuModel.ts:354
 msgid "This post has no known link."
 msgstr "This post has no known link."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:53
+#: src/lib/localeErrors.ts:55
 msgid "errors.shape.noPoll"
 msgstr "This post has no poll to vote in."
 
@@ -3100,7 +3163,7 @@ msgid "This server does not support editing posts."
 msgstr "This server does not support editing posts."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:65
+#: src/lib/localeErrors.ts:67
 msgid "errors.reactions.likeUnsupported"
 msgstr "This server does not support likes yet."
 
@@ -3144,7 +3207,7 @@ msgid "This server has no personal domain blocks."
 msgstr "This server has no personal domain blocks."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:45
+#: src/lib/localeErrors.ts:47
 msgid "errors.unsupported.profileField"
 msgstr "This server has no profile field for {fields}."
 
@@ -3180,16 +3243,16 @@ msgstr "This sign-in predates a permission Keystone now uses."
 msgid "This sign-in response did not match the server. Please start again."
 msgstr "This sign-in response did not match the server. Please start again."
 
-#: src/components/Post/PostCard.tsx:545
+#: src/components/Post/PostCard.tsx:549
 msgid "Thread muted"
 msgstr "Thread muted"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:57
+#: src/lib/localeErrors.ts:59
 msgid "errors.shape.timeline"
 msgstr "Timeline {kind} returned an unexpected response shape (HTTP {status})."
 
-#: src/components/Composer/ComposerSections.tsx:429
+#: src/components/Composer/ComposerSections.tsx:480
 msgid "Tomorrow 9:00"
 msgstr "Tomorrow 9:00"
 
@@ -3198,26 +3261,26 @@ msgstr "Tomorrow 9:00"
 msgid "Translate"
 msgstr "Translate"
 
-#: src/components/Post/PostCard.tsx:1042
+#: src/components/Post/PostCard.tsx:1046
 msgid "Translated · Show original?"
 msgstr "Translated · Show original?"
 
 #. placeholder {0}: shownTranslation.sourceLang
-#: src/components/Post/PostCard.tsx:1041
+#: src/components/Post/PostCard.tsx:1045
 msgid "Translated from {0} · Show original?"
 msgstr "Translated from {0} · Show original?"
 
-#: src/components/Post/PostCard.tsx:531
+#: src/components/Post/PostCard.tsx:535
 msgid "Translation is handled by your server — this text will be sent to it."
 msgstr "Translation is handled by your server — this text will be sent to it."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:62
+#: src/lib/localeErrors.ts:64
 msgid "errors.shape.trendingLinks"
 msgstr "Trending links returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:61
+#: src/lib/localeErrors.ts:63
 msgid "errors.shape.trendingStatuses"
 msgstr "Trending posts returned an unexpected response shape."
 
@@ -3226,7 +3289,7 @@ msgid "Trending tags are not available on this server."
 msgstr "Trending tags are not available on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:60
+#: src/lib/localeErrors.ts:62
 msgid "errors.shape.trendingTags"
 msgstr "Trending tags returned an unexpected response shape."
 
@@ -3242,7 +3305,7 @@ msgid "Two-factor code ({0})"
 msgstr "Two-factor code ({0})"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:35
+#: src/lib/localeErrors.ts:37
 msgid "errors.auth.mfaFailed"
 msgstr "Two-factor sign-in failed."
 
@@ -3266,7 +3329,7 @@ msgstr "Type a query to search posts."
 msgid "Type a tag to search."
 msgstr "Type a tag to search."
 
-#: src/components/Post/PostMediaGrid.tsx:561
+#: src/components/Post/PostMediaGrid.tsx:606
 msgid "Unavailable"
 msgstr "Unavailable"
 
@@ -3320,7 +3383,7 @@ msgstr "Unmute to see their posts again."
 msgid "Unpin from profile"
 msgstr "Unpin from profile"
 
-#: src/components/Post/PostCard.tsx:555
+#: src/components/Post/PostCard.tsx:559
 msgid "Unpinned"
 msgstr "Unpinned"
 
@@ -3332,19 +3395,32 @@ msgstr "Unsaved draft"
 msgid "Unsent posts on this device"
 msgstr "Unsent posts on this device"
 
-#: src/components/Composer/ComposerSections.tsx:270
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:25
+msgid "errors.network.timeoutUpload"
+msgstr "Upload timed out after {n}s: the file may already be on the server. Check before retrying."
+
+#: src/components/Composer/ComposerSections.tsx:284
 #: src/screens/Note.tsx:588
 msgid "uploaded"
 msgstr "uploaded"
+
+#. placeholder {0}: Math.round((u.progress.loaded / u.progress.total) * 100)
+#: src/components/Composer/ComposerSections.tsx:279
+msgid "Uploading {0}%"
+msgstr "Uploading {0}%"
 
 #: src/components/Settings/TransferSections.tsx:98
 msgid "Uploading to your Drive…"
 msgstr "Uploading to your Drive…"
 
-#: src/components/Composer/ComposerSections.tsx:268
 #: src/screens/Note.tsx:586
 msgid "uploading..."
 msgstr "uploading..."
+
+#: src/components/Composer/ComposerSections.tsx:280
+msgid "Uploading…"
+msgstr "Uploading…"
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:17
@@ -3374,7 +3450,7 @@ msgid "Verify"
 msgstr "Verify"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:36
+#: src/lib/localeErrors.ts:38
 msgid "errors.auth.noVerifyAccount"
 msgstr "verify_credentials did not return an account."
 
@@ -3387,7 +3463,11 @@ msgstr "Verifying with your server…"
 msgid "Verifying…"
 msgstr "Verifying…"
 
-#: src/components/Post/PostCard.tsx:918
+#: src/components/Composer/Composer.tsx:424
+msgid "Videos are sent unchanged, including any location or device data they carry."
+msgstr "Videos are sent unchanged, including any location or device data they carry."
+
+#: src/components/Post/PostCard.tsx:922
 msgid "View edit history"
 msgstr "View edit history"
 
@@ -3421,12 +3501,12 @@ msgstr "Vote"
 msgid "voted in your poll"
 msgstr "voted in your poll"
 
-#: src/components/Post/PostCard.tsx:590
+#: src/components/Post/PostCard.tsx:594
 msgid "We'll show you fewer posts like this."
 msgstr "We'll show you fewer posts like this."
 
 #: src/components/Composer/CompactComposer.tsx:223
-#: src/components/Composer/Composer.tsx:1203
+#: src/components/Composer/Composer.tsx:1272
 msgid "What's happening?"
 msgstr "What's happening?"
 
@@ -3491,7 +3571,7 @@ msgid "Write something first."
 msgstr "Write something first."
 
 #: src/components/Composer/CompactComposer.tsx:220
-#: src/components/Composer/Composer.tsx:1200
+#: src/components/Composer/Composer.tsx:1269
 msgid "Write your reply"
 msgstr "Write your reply"
 
@@ -3504,7 +3584,7 @@ msgid "You believe it breaks the law"
 msgstr "You believe it breaks the law"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:44
+#: src/lib/localeErrors.ts:46
 msgid "errors.unsupported.boostVisibility"
 msgstr "You can only change boost visibility for accounts you follow."
 
@@ -3535,6 +3615,6 @@ msgstr "Your device font. No downloads."
 msgid "Your export is ready — find it in Notifications."
 msgstr "Your export is ready — find it in Notifications."
 
-#: src/components/Composer/Composer.tsx:476
+#: src/components/Composer/Composer.tsx:510
 msgid "Your oldest draft was removed to make room for this one."
 msgstr "Your oldest draft was removed to make room for this one."

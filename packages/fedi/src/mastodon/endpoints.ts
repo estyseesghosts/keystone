@@ -26,6 +26,8 @@
 import { MastoHttpError } from "./client";
 import { ApiError, FediError } from "../core/errors";
 import type { MastoClient, QueryValue } from "./client";
+import { appendUploadFile } from "../core/backend";
+import type { UploadFileRef, UploadProgress, UploadRequestImpl } from "../core/backend";
 import { adaptAccount, adaptRelationship, adaptStatus, isAccountRow, isStatusRow, noteSkippedRow } from "./adapt";
 import { safeHttpUrl } from "../core/content/ast";
 import type { StatusBody } from "./compose";
@@ -851,12 +853,12 @@ export async function fetchStatusHistory(
 export async function updateCredentialImage(
   client: MastoClient,
   kind: "avatar" | "banner",
-  file: File,
+  file: File | UploadFileRef,
 ): Promise<CredentialAccount> {
   const form = new FormData();
   // Exactly one key: the web client's `updateAccount`/`uploadImage` sends
   // `avatar` or `header` (never both for a single change).
-  form.append(kind === "avatar" ? "avatar" : "header", file);
+  appendUploadFile(form, kind === "avatar" ? "avatar" : "header", file, "upload");
   const res = await client.patchFormData<CredentialAccount>(
     "/api/v1/accounts/update_credentials",
     form,
@@ -1375,12 +1377,220 @@ export async function fetchCustomEmojis(client: MastoClient): Promise<WireCustom
 export async function getMedia(
   client: MastoClient,
   id: string,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<MediaAttachment> {
-  const res = await client.get<MediaAttachment>(`/api/v1/media/${encodeURIComponent(id)}`);
+  const res = await client.get<MediaAttachment>(
+    `/api/v1/media/${encodeURIComponent(id)}`,
+    undefined,
+    {...(opts.signal ? {signal: opts.signal} : {})},
+  );
   if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
     throw new FediError("Media lookup returned an unexpected response shape.", "errors.shape.mediaLookup");
   }
   return res.data;
+}
+
+/** Multipart upload options (repair X7.4): the scaled deadline comes from
+ * the caller (`uploadTimeoutForBytes` on the byte size); cancellation,
+ * byte progress, and the injectable sender ride along. */
+export interface MediaUploadOpts {
+  timeoutMs: number;
+  signal?: AbortSignal;
+  onProgress?: UploadProgress;
+  uploadImpl?: UploadRequestImpl;
+}
+
+/** `POST /api/v2/media` as multipart (repair X7.4): the upload half of
+ * `Backend.uploadMedia` (the processing poll lives in the backend). The
+ * default path rides the client's form-data POST (manual redirects, the
+ * body read inside the deadline); an injected sender (web XHR) moves the
+ * bytes with progress under the same deadline/stall contract, and its
+ * final URL is origin-checked because XHR follows redirects itself.
+ * Throws raw `MastoHttpError` like every other endpoint function — the
+ * backend adapts at the boundary — except the upload timeout, which
+ * carries the distinct `errors.network.timeoutUpload` code from the start
+ * (the file may already be stored; never "the instance did not answer"). */
+export async function uploadMediaAttachment(
+  client: MastoClient,
+  form: FormData,
+  opts: MediaUploadOpts,
+): Promise<MediaAttachment> {
+  if (!opts.uploadImpl) {
+    const res = await client.postFormData<MediaAttachment>("/api/v2/media", form, {
+      timeoutMs: opts.timeoutMs,
+      ...(opts.signal ? {signal: opts.signal} : {}),
+    });
+    return requireMediaAttachment(res.data);
+  }
+  const url = `${client.origin}/api/v2/media`;
+  const headers: Record<string, string> = {};
+  if (client.token) headers.Authorization = `Bearer ${client.token}`;
+  const ctrl = new AbortController();
+  let timedOut = false;
+  let stalled = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctrl.abort();
+  }, opts.timeoutMs);
+  // Stall detection: 60 s without a progress byte aborts distinctly. It
+  // arms only after the first event (see the Misskey transport).
+  let lastProgressAt = 0;
+  const stallTimer = setInterval(() => {
+    if (lastProgressAt !== 0 && Date.now() - lastProgressAt > 60_000) {
+      stalled = true;
+      ctrl.abort();
+    }
+  }, 5_000);
+  const onCallerAbort = () => ctrl.abort();
+  if (opts.signal) {
+    if (opts.signal.aborted) ctrl.abort();
+    else opts.signal.addEventListener("abort", onCallerAbort, {once: true});
+  }
+  const reportProgress = opts.onProgress
+    ? (loaded: number, total: number | null) => {
+        lastProgressAt = Date.now();
+        try {
+          opts.onProgress?.(loaded, total);
+        } catch {
+          // A throwing listener must not fail the upload.
+        }
+      }
+    : undefined;
+  try {
+    const up = await opts.uploadImpl({
+      url,
+      method: "POST",
+      headers,
+      body: form,
+      signal: ctrl.signal,
+      timeoutMs: opts.timeoutMs,
+      ...(reportProgress ? {onProgress: reportProgress} : {}),
+    });
+    if (up.responseUrl && !isSameOrigin(client.origin, up.responseUrl)) {
+      throw new MastoHttpError({
+        kind: "redirect",
+        code: "errors.network.redirect",
+        params: {status: up.status},
+        status: up.status,
+        origin: client.origin,
+        method: "POST",
+        path: "/api/v2/media",
+        message: `Server redirected the request; refusing to follow with credentials.`,
+      });
+    }
+    if (up.status < 200 || up.status >= 300) {
+      throw new MastoHttpError({
+        kind: "http",
+        code: "errors.network.apiError",
+        params: {status: up.status},
+        status: up.status,
+        body: parseUploadBody(up.bodyText),
+        origin: client.origin,
+        method: "POST",
+        path: "/api/v2/media",
+        message: uploadErrorMessage(up.bodyText, up.status),
+      });
+    }
+    return requireMediaAttachment(parseUploadBody(up.bodyText));
+  } catch (err) {
+    if (err instanceof MastoHttpError && err.kind === "redirect") throw err;
+    if (timedOut || stalled) {
+      const n = Math.round(opts.timeoutMs / 1000);
+      throw new MastoHttpError({
+        kind: "timeout",
+        code: "errors.network.timeoutUpload",
+        params: {target: "POST /api/v2/media", n},
+        origin: client.origin,
+        method: "POST",
+        path: "/api/v2/media",
+        message: stalled
+          ? `Upload stalled (no progress for 60s) to /api/v2/media: the connection may have dropped and the file may already be on the server. Check before retrying.`
+          : `Upload to /api/v2/media timed out after ${n}s: the file may already be on the server. Check before retrying.`,
+      });
+    }
+    // NOTE: never `err instanceof DOMException` — Hermes/RN may not
+    // provide the global (repair X2.2 step 5); the name check covers
+    // DOMException and cross-realm aborts alike.
+    const isAbort =
+      typeof err === "object" && err !== null && (err as {name?: unknown}).name === "AbortError";
+    if (isAbort) {
+      throw new MastoHttpError({
+        kind: "aborted",
+        code: "errors.network.aborted",
+        params: {target: "POST /api/v2/media"},
+        origin: client.origin,
+        method: "POST",
+        path: "/api/v2/media",
+        message: `Request was cancelled (POST /api/v2/media).`,
+      });
+    }
+    if (err instanceof MastoHttpError) throw err;
+    const reason = err instanceof Error ? err.message : "network error";
+    throw new MastoHttpError({
+      kind: "network",
+      code: "errors.network.unreachableOrigin",
+      params: {origin: client.origin, reason},
+      origin: client.origin,
+      method: "POST",
+      path: "/api/v2/media",
+      message: `Could not reach ${client.origin} (${reason}). Is the server running and the host correct?`,
+    });
+  } finally {
+    clearTimeout(timer);
+    clearInterval(stallTimer);
+    opts.signal?.removeEventListener("abort", onCallerAbort);
+  }
+}
+
+/** The server answered the upload: require the media row (never an empty
+ * 202). Pure shape check shared by both sender paths. */
+function requireMediaAttachment(data: unknown): MediaAttachment {
+  if (!data || typeof data !== "object" || !("id" in data)) {
+    throw new FediError(
+      "The server did not return the uploaded media.",
+      "errors.shape.uploadedMedia",
+    );
+  }
+  return data as MediaAttachment;
+}
+
+/** Tolerant body parse for the injectable-sender path (mirrors the
+ * transport's text-first rule): empty stays undefined, JSON parses, an
+ * HTML/plain error page stays a string. Pure. */
+function parseUploadBody(raw: string): unknown {
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/** Best human-readable message for a failed upload POST (mirrors the
+ * transport's `messageFromBody` subset: server `{error}` text wins, then
+ * a short plain body, then the status). Pure. */
+function uploadErrorMessage(raw: string, status: number): string {
+  const data = parseUploadBody(raw);
+  if (data !== null && typeof data === "object") {
+    const rec = data as {error?: unknown; error_description?: unknown};
+    if (typeof rec.error_description === "string" && rec.error_description.trim()) {
+      return rec.error_description;
+    }
+    if (typeof rec.error === "string" && rec.error.trim()) return rec.error;
+  }
+  if (typeof data === "string" && data.trim() && data.length < 300) return data.trim();
+  return `API error: HTTP ${status}`;
+}
+
+/** True when `url` stays on `origin` (the injectable sender follows
+ * redirects itself — XHR always does — so the transport re-checks the
+ * final URL; a cross-origin hop with credentials is refused). Pure. */
+function isSameOrigin(origin: string, url: string): boolean {
+  try {
+    return new URL(url, origin).origin === new URL(origin).origin;
+  } catch {
+    return false;
+  }
 }
 
 /** `POST /api/v1/statuses/:id/translate` (contract §4, §9 gating is the

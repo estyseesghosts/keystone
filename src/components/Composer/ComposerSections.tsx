@@ -252,6 +252,16 @@ export function UploadsSection({c}: {c: ComposerController}) {
   const lockedReason = i18n._(msg`Saving…`)
   return (
     <>
+      {c.videoNotice ?? null ? (
+        <View style={c.styles.row} testID="composer-video-notice">
+          <Caption color="muted">{c.videoNotice}</Caption>
+          <Chip
+            label={i18n._(msg`Got it`)}
+            onPress={() => c.dismissVideoNotice()}
+            testID="composer-video-notice-dismiss"
+          />
+        </View>
+      ) : null}
       {c.uploads.items.map(u => (
         <View key={u.key} style={c.styles.media} testID={`composer-upload-${u.key}`}>
           {u.previewUri ? (
@@ -265,10 +275,14 @@ export function UploadsSection({c}: {c: ComposerController}) {
               {u.status === 'staged'
                 ? i18n._(msg`ready to upload`)
                 : u.status === 'uploading'
-                  ? i18n._(msg`uploading...`)
-                  : u.status === 'done'
-                    ? i18n._(msg`uploaded`)
-                    : (u.error ?? i18n._(msg`failed`))}
+                  ? u.progress && u.progress.total
+                    ? i18n._(msg`Uploading ${Math.round((u.progress.loaded / u.progress.total) * 100)}%`)
+                    : i18n._(msg`Uploading…`)
+                  : u.status === 'processing'
+                    ? i18n._(msg`Still processing…`)
+                    : u.status === 'done'
+                      ? i18n._(msg`uploaded`)
+                      : (u.error ?? i18n._(msg`failed`))}
             </Caption>
             <TextField
               label={i18n._(msg`Description (alt text)`)}
@@ -314,8 +328,45 @@ export function UploadsSection({c}: {c: ComposerController}) {
                 onPress={() => c.uploads.setSensitive(u.key, !u.sensitive)}
                 testID={`composer-upload-sensitive-${u.key}`}
               />
+              {/* D9 opt-out (repair X7.4 step 6): send this upload's
+                  original bytes unchanged. Fixed once the file is on the
+                  server (like sensitivity); frozen while an edit saves. */}
+              <Chip
+                label={i18n._(msg`Keep original`)}
+                selected={u.keepOriginal ?? false}
+                disabled={locked || u.status === 'done' || u.status === 'uploading'}
+                disabledReason={
+                  locked
+                    ? lockedReason
+                    : u.status === 'uploading'
+                      ? i18n._(msg`Locked while uploading`)
+                      : u.status === 'done'
+                        ? i18n._(msg`Locked after upload`)
+                        : undefined
+                }
+                onPress={() => c.uploads.setKeepOriginal(u.key, !(u.keepOriginal ?? false))}
+                testID={`composer-upload-keep-${u.key}`}
+              />
             </View>
+            {u.keepOriginal ?? false ? (
+              <Caption color="muted" testID={`composer-upload-gps-${u.key}`}>
+                {u.hadGps === true
+                  ? i18n._(
+                      msg`This photo contains location data, which will be sent unchanged.`,
+                    )
+                  : i18n._(msg`Originals may include location and device data.`)}
+              </Caption>
+            ) : null}
           </View>
+          {u.status === 'uploading' ? (
+            <Chip
+              label={i18n._(msg`Cancel upload`)}
+              disabled={locked}
+              disabledReason={locked ? lockedReason : undefined}
+              onPress={() => c.uploads.cancel(u.key)}
+              testID={`composer-upload-cancel-${u.key}`}
+            />
+          ) : null}
           <Chip
             label={i18n._(msg`Remove`)}
             disabled={locked}

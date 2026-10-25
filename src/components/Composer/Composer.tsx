@@ -41,6 +41,10 @@ import {
   useSaveServerDraft,
   useSessionCustomEmojis,
   useUploads,
+  dismissVideoNotice as dismissVideoNoticeForSession,
+  readRemindAltText,
+  shouldShowVideoNotice,
+  writeRemindAltText,
 } from '#/state/queries/composer'
 import {
   clearOpenDraftId,
@@ -401,6 +405,36 @@ export function useComposerController({
       : null,
   )
   const [busy, setBusy] = useState(false)
+  // Repair X7.4 step 7: "remind me to add alt text" pref (default off,
+  // device-global key, not the versioned schema). While on, the Post
+  // button shows a non-blocking note for staged images without alt text.
+  const [remindAlt, setRemindAltState] = useState(() => readRemindAltText(store))
+  const setRemindAlt = useCallback((v: boolean) => {
+    setRemindAltState(v)
+    writeRemindAltText(store, v)
+  }, [store])
+  // Repair X7.4 step 6: videos are never re-encoded, so their metadata
+  // ships unchanged — warned once per session, dismissible.
+  const [, setVideoTick] = useState(0)
+  const hasVideoUpload = uploads.items.some(u =>
+    (u.mimeType ?? '').toLowerCase().startsWith('video/'),
+  )
+  const videoNotice = shouldShowVideoNotice(session.id, hasVideoUpload)
+    ? i18n._(
+        msg`Videos are sent unchanged, including any location or device data they carry.`,
+      )
+    : null
+  const dismissVideoNotice = useCallback(() => {
+    dismissVideoNoticeForSession(session.id)
+    setVideoTick(t => t + 1)
+  }, [session.id])
+  // Staged images without alt text (repair X7.4 step 7): counted for the
+  // non-blocking Post-button note. Only known images count — unknown
+  // types stay the server's verdict, never a nag.
+  const imagesMissingAlt = uploads.items.filter(
+    u => (u.mimeType ?? '').toLowerCase().startsWith('image/') && u.alt.trim() === '',
+  ).length
+  const showAltNote = remindAlt && imagesMissingAlt > 0
   // Latest-state refs (repair X6.1 F3): alt/description writes owed at
   // submit read the CURRENT text, not the closure from press time — a
   // description typed between press and the media-edit call still wins.
@@ -849,22 +883,43 @@ export function useComposerController({
       if (result.kind === 'cancelled') return
       // Over-cap files never stage: the picker pre-filters by asset size
       // and `uploads.add` re-checks by File size — report the real cap
-      // that applied to each file, never a literal.
+      // that applied to each file, never a literal. Unreadable assets
+      // (repair X7.4 step 3: iCloud-only and friends) report their own
+      // reason and never discard the other picks.
       const refused = uploads.add(result.files)
-      const tooLarge = [...result.rejected, ...refused]
-      if (tooLarge.length === 1) {
+      const rejected = [...result.rejected, ...refused]
+      const overCap = rejected.filter(r => r.reason !== 'unreadable')
+      const unreadable = rejected.filter(r => r.reason === 'unreadable')
+      if (unreadable.length > 0 && overCap.length === 0) {
+        if (unreadable.length === 1) {
+          setError(
+            i18n._(msg`Could not read "${unreadable[0].name}". Try again or pick another photo.`),
+          )
+        } else {
+          setError(
+            i18n._(
+              plural(unreadable.length, {
+                one: `# file could not be read. Try again or pick other photos.`,
+                other: `# files could not be read. Try again or pick other photos.`,
+              }),
+            ),
+          )
+        }
+      } else if (overCap.length === 1 && unreadable.length === 0) {
         setError(
-          i18n._(msg`"${tooLarge[0].name}" is too large to attach (limit ${formatByteLimit(tooLarge[0].limit)}).`),
+          i18n._(msg`"${overCap[0].name}" is too large to attach (limit ${formatByteLimit(overCap[0].limit)}).`),
         )
-      } else if (tooLarge.length > 1) {
+      } else if (overCap.length > 1 && unreadable.length === 0) {
         setError(
           i18n._(
-            plural(tooLarge.length, {
+            plural(overCap.length, {
               one: `# file was too large to attach.`,
               other: `# files were too large to attach.`,
             }),
           ),
         )
+      } else if (rejected.length > 0) {
+        setError(i18n._(msg`Some attachments could not be added.`))
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not open the media picker.')
@@ -1119,6 +1174,7 @@ export function useComposerController({
     theme, family, gates, limitsQuery, limits, limitsUnverified, emojis, uploads, create,
     id, state, caret, setCaret, error, setError, busy, showDrafts, setShowDrafts,
     notice, setNotice, attachTargets, resetAfterPost,
+    remindAlt, setRemindAlt, videoNotice, dismissVideoNotice, imagesMissingAlt, showAltNote,
     pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
     submit, addMedia, styles, restore, drafts, setSeededAlt, removeSeeded,
@@ -1136,6 +1192,7 @@ export function Composer(props: ComposerProps) {
     id, state, caret, setCaret, error, busy, showDrafts, setShowDrafts,
     notice, pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
+    remindAlt, setRemindAlt, imagesMissingAlt, showAltNote,
     submit, addMedia, styles, restore, drafts,
     confirmingClose, saveAndClose, discardAndClose, keepWriting, requestClose,
     session, backend, store, draftId, editing, onClose,
@@ -1176,6 +1233,18 @@ export function Composer(props: ComposerProps) {
           compact
         />
       </View>
+      {/* Repair X7.4 step 7: non-blocking alt-text note (the post stays
+          submittable — this never gates). */}
+      {showAltNote ? (
+        <Caption color="muted" testID="composer-alt-note">
+          {i18n._(
+            plural(imagesMissingAlt, {
+              one: `# attached image has no alt text.`,
+              other: `# attached images have no alt text.`,
+            }),
+          )}
+        </Caption>
+      ) : null}
 
       <ReplyPreviewSection c={controller} />
       {editing ? (
@@ -1373,6 +1442,13 @@ export function Composer(props: ComposerProps) {
           />
         ) : null}
         <Chip label={i18n._(msg`Drafts`)} onPress={() => setShowDrafts(v => !v)} testID="composer-drafts-toggle" />
+        {/* Repair X7.4 step 7: the alt-text reminder pref (default off). */}
+        <Chip
+          label={i18n._(msg`Remind me about alt text`)}
+          selected={remindAlt}
+          onPress={() => setRemindAlt(!remindAlt)}
+          testID="composer-remind-alt"
+        />
       </View>
 
       <ScheduleSection c={controller} />

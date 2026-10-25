@@ -260,7 +260,9 @@ export function ProfileEditorScreen() {
     setImageError(null)
     let picked: Awaited<ReturnType<typeof pickProfileImage>>
     try {
-      picked = await pickProfileImage()
+      // Repair X7.4 step 8: the pick is cropped/resized to the kind's
+      // target aspect before upload (avatar 400 px, banner 1500 px wide).
+      picked = await pickProfileImage(kind)
     } catch (err) {
       setImageError(
         err instanceof Error ? err.message : 'Could not open the photo picker.',

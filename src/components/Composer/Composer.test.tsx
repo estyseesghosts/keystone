@@ -543,8 +543,12 @@ describe('Composer', () => {
     fireEvent.press(screen.getByTestId('composer-submit'))
     await waitFor(() => expect(backend.uploadMedia).toHaveBeenCalledTimes(1))
     // The flag rides WITH the upload (Misskey `isSensitive`), before the
-    // post create call.
-    expect(backend.uploadMedia).toHaveBeenCalledWith(expect.any(File), {isSensitive: true})
+    // post create call. The opts also carry the per-upload abort signal
+    // (repair X7.4 step 1), so the assertion is a subset match.
+    expect(backend.uploadMedia).toHaveBeenCalledWith(
+      expect.any(File),
+      expect.objectContaining({isSensitive: true}),
+    )
     expect(backend.createPost).toHaveBeenCalledWith(expect.objectContaining({mediaIds: ['m1']}))
   })
 
@@ -560,7 +564,7 @@ describe('Composer', () => {
     fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
     fireEvent.press(screen.getByTestId('composer-submit'))
     await waitFor(() => expect(backend.uploadMedia).toHaveBeenCalledTimes(1))
-    expect(backend.uploadMedia).toHaveBeenCalledWith(expect.any(File), {})
+    expect(backend.uploadMedia).toHaveBeenCalledWith(expect.any(File), expect.objectContaining({}))
   })
 
   it('shows denied access instead of a silent cancel', async () => {
@@ -572,7 +576,7 @@ describe('Composer', () => {
   })
 
   it('refuses an over-cap pick with an honest error and stages nothing', async () => {
-    pickMediaMock.mockResolvedValueOnce({kind: 'picked', files: [], rejected: [{name: 'huge.mp4', limit: 100}]})
+    pickMediaMock.mockResolvedValueOnce({kind: 'picked', files: [], rejected: [{name: 'huge.mp4', limit: 100, reason: 'too-large'}]})
     setup('sharkey')
     fireEvent.press(screen.getByTestId('composer-media-add'))
     expect(await screen.findByTestId('composer-error')).toHaveTextContent(/too large/)

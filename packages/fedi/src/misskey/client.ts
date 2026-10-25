@@ -37,6 +37,14 @@ import {
 } from "../core/http";
 import type { ServerFlavor } from "../core/detect";
 import type { Session } from "../core/sessions";
+import {
+  appendUploadFile,
+  uploadSizeOf,
+  uploadTimeoutForBytes,
+  type UploadFileRef,
+  type UploadProgress,
+  type UploadRequestImpl,
+} from "../core/backend";
 import { ApiError, FediError } from "../core/errors";
 
 /** Dev-only API census (see the Mastodon transport): one console line
@@ -84,6 +92,13 @@ export interface UploadOptions {
   /** Caller cancellation (repair X3.1): explicit Cancel only — unmount
    * never cancels a write. */
   signal?: AbortSignal;
+  /** Byte progress (repair X7.4): fetch never reports upload bytes, so the
+   * default path never calls it; an injected `uploadImpl` (web XHR) does.
+   * The stall detector arms only after the first event. */
+  onProgress?: UploadProgress;
+  /** Injectable multipart sender (repair X7.4, web XHR for byte progress).
+   * Defaults to the client's fetch seam. */
+  uploadImpl?: UploadRequestImpl;
 }
 
 export interface MisskeyClient {
@@ -93,7 +108,7 @@ export interface MisskeyClient {
   /** Unauthenticated call (login, token checks): no credential at all. */
   callPublic<T>(endpoint: string, params?: Record<string, unknown>): Promise<T>;
   /** Multipart Drive upload (`drive/files/create` is FormData, never JSON). */
-  upload<T>(file: File, opts?: UploadOptions): Promise<T>;
+  upload<T>(file: File | UploadFileRef, opts?: UploadOptions): Promise<T>;
 }
 
 /** Per-call options for `MisskeyClient.call` (repair X3.1): cancellation
@@ -108,6 +123,18 @@ export interface CallOptions {
 export type WireCall = <T>(endpoint: string, params?: Record<string, unknown>) => Promise<T>;
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** True when `url` stays on `origin` (the injectable upload sender follows
+ * redirects itself — XHR always does — so the transport re-checks the final
+ * URL before trusting the body; a cross-origin hop with credentials is
+ * refused exactly like a manual-redirect 3xx). Pure. */
+function isSameOrigin(origin: string, url: string): boolean {
+  try {
+    return new URL(url, origin).origin === new URL(origin).origin;
+  } catch {
+    return false;
+  }
+}
 
 /** Build the request path for an endpoint, refusing anything that would
  * escape the session's origin (defence in depth — `apiCall` endpoints are
@@ -274,19 +301,26 @@ export function createMisskeyClient(
     session,
     call: (endpoint, params, opts) => call(endpoint, params ?? {}, true, opts ?? {}),
     callPublic: (endpoint, params) => call(endpoint, params ?? {}, false),
-    async upload<T>(file: File, uploadOpts: UploadOptions = {}): Promise<T> {
+    async upload<T>(file: File | UploadFileRef, uploadOpts: UploadOptions = {}): Promise<T> {
       // `drive/files/create` is multipart FormData (file + credential as
       // fields) — the fetch implementation sets the multipart boundary,
       // never by hand. The deadline covers headers AND the body read
       // (repair X2.2 step 3): the timer is cleared only after `text()`
       // settles, and a 3xx is refused before any second request — the
       // `i` field must never be re-posted elsewhere.
+      //
+      // Repair X7.4: native references go on as `{uri, name, type}` (never
+      // read into JS); the deadline scales with the byte size (min 60 s,
+      // +30 s per 10 MB, max 15 min) instead of the flat client default,
+      // and a 60 s stall (no progress bytes) aborts distinctly. Both
+      // timeouts report `errors.network.timeoutUpload` — the file may
+      // already be stored — never "the instance did not answer".
       const path = endpointPath(session.origin, "drive/files/create");
       const form = new FormData();
       if (authStyleFor(session.flavor) === "body-i" && session.token) {
         form.append("i", session.token);
       }
-      form.append("file", file, file.name);
+      appendUploadFile(form, "file", file, "upload");
       if (uploadOpts.isSensitive !== undefined) {
         form.append("isSensitive", String(uploadOpts.isSensitive));
       }
@@ -303,11 +337,33 @@ export function createMisskeyClient(
       let response: Response;
       let raw: string;
       const uploadCtrl = new AbortController();
+      const deadlineMs = uploadTimeoutForBytes(uploadSizeOf(file));
       let uploadTimedOut = false;
+      let uploadStalled = false;
       const uploadTimer = setTimeout(() => {
         uploadTimedOut = true;
         uploadCtrl.abort();
-      }, timeoutMs);
+      }, deadlineMs);
+      // Stall detection (repair X7.4): 60 s without a progress byte aborts
+      // distinctly. It arms only after the FIRST progress event — the fetch
+      // path reports no bytes, so a healthy-but-slow fetch must never trip
+      // it; the scaled deadline above is its only guard.
+      let lastProgressAt = 0;
+      const STALL_MS = 60_000;
+      const stallTimer = setInterval(() => {
+        if (lastProgressAt !== 0 && Date.now() - lastProgressAt > STALL_MS) {
+          uploadStalled = true;
+          uploadCtrl.abort();
+        }
+      }, 5_000);
+      const reportProgress: UploadProgress = (loaded, total) => {
+        lastProgressAt = Date.now();
+        try {
+          uploadOpts.onProgress?.(loaded, total);
+        } catch {
+          // A throwing listener must not fail the upload.
+        }
+      };
       // Caller cancellation (repair X3.1): explicit Cancel only — the
       // upload keeps running across unmount.
       const onCallerAbort = () => uploadCtrl.abort();
@@ -316,45 +372,61 @@ export function createMisskeyClient(
         else uploadOpts.signal.addEventListener("abort", onCallerAbort, { once: true });
       }
       try {
-        response = await (opts.fetchImpl ?? defaultFetchImpl)(`${session.origin}${path}`, {
-          method: "POST",
-          credentials: "omit",
-          // Never follow a 3xx with the `i` field (repair X2.2 step 1).
-          redirect: "manual",
-          body: form,
-          headers: authHeaders(session),
-          signal: uploadCtrl.signal,
-        });
-        if (isRedirectStatus(response.status)) {
-          throw new FediError(
-            `Server redirected the request (HTTP ${response.status}); refusing to follow with credentials.`,
-            "errors.network.redirect",
-            { status: response.status },
-          );
+        if (uploadOpts.uploadImpl) {
+          const up = await uploadOpts.uploadImpl({
+            url: `${session.origin}${path}`,
+            method: "POST",
+            headers: authHeaders(session),
+            body: form,
+            signal: uploadCtrl.signal,
+            timeoutMs: deadlineMs,
+            onProgress: uploadOpts.onProgress ? reportProgress : undefined,
+          });
+          if (up.responseUrl && !isSameOrigin(session.origin, up.responseUrl)) {
+            throw new FediError(
+              `Server redirected the request; refusing to follow with credentials.`,
+              "errors.network.redirect",
+              { status: up.status },
+            );
+          }
+          response = new Response(up.status === 204 ? null : up.bodyText, { status: up.status });
+          raw = up.status === 204 ? "" : up.bodyText;
+        } else {
+          response = await (opts.fetchImpl ?? defaultFetchImpl)(`${session.origin}${path}`, {
+            method: "POST",
+            credentials: "omit",
+            // Never follow a 3xx with the `i` field (repair X2.2 step 1).
+            redirect: "manual",
+            body: form,
+            headers: authHeaders(session),
+            signal: uploadCtrl.signal,
+          });
+          if (isRedirectStatus(response.status)) {
+            throw new FediError(
+              `Server redirected the request (HTTP ${response.status}); refusing to follow with credentials.`,
+              "errors.network.redirect",
+              { status: response.status },
+            );
+          }
+          // 204 / empty-body tolerance + envelope errors, exactly as before —
+          // the body read stays inside the deadline (see above).
+          raw = response.status === 204 ? "" : await response.text();
         }
-        // 204 / empty-body tolerance + envelope errors, exactly as before —
-        // the body read stays inside the deadline (see above).
-        raw = response.status === 204 ? "" : await response.text();
       } catch (err) {
         if (err instanceof FediError && err.code === "errors.network.redirect") throw err;
-        if (!uploadTimedOut && uploadOpts.signal?.aborted) {
+        if (!uploadTimedOut && !uploadStalled && uploadOpts.signal?.aborted) {
           throw new ApiError("Request was cancelled.", 0, "errors.network.aborted", "aborted", {
             status: 0,
           });
         }
-        if (uploadTimedOut) {
-          const seconds = Math.round(timeoutMs / 1000);
-          if (session.hosting === "third-party") {
-            throw new FediError(
-              `Request timed out (${session.origin}${path}): the instance did not answer within ${seconds}s. Retry.`,
-              "errors.network.timeoutInstance",
-              { target: `${session.origin}${path}`, n: seconds },
-            );
-          }
+        if (uploadTimedOut || uploadStalled) {
+          const seconds = Math.round(deadlineMs / 1000);
           throw new FediError(
-            `Request timed out (drive/files/create): the server did not answer within ${seconds}s. Retry, or check the dev-server terminal.`,
-            "errors.network.timeoutServer",
-            { target: "drive/files/create", n: seconds },
+            uploadStalled
+              ? `Upload stalled (no progress for 60s) to drive/files/create: the connection may have dropped and the file may already be on the server. Check before retrying.`
+              : `Upload to drive/files/create timed out after ${seconds}s: the file may already be on the server. Check before retrying.`,
+            "errors.network.timeoutUpload",
+            { target: "drive/files/create", n: uploadStalled ? 60 : seconds },
           );
         }
         const reason = err instanceof Error ? err.message : "network error";
@@ -372,6 +444,7 @@ export function createMisskeyClient(
         );
       } finally {
         clearTimeout(uploadTimer);
+        clearInterval(stallTimer);
         uploadOpts.signal?.removeEventListener("abort", onCallerAbort);
       }
       let payload: unknown;

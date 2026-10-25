@@ -138,6 +138,115 @@ export interface UploadMediaOpts {
   folderId?: string | null;
   force?: boolean;
   signal?: AbortSignal;
+  /** Byte progress for multipart uploads (repair X7.4): called with bytes
+   * sent and the total when known (null when the transport cannot know
+   * it — e.g. chunked fetch on native). Transports that cannot observe
+   * bytes never call it; the UI then shows an honest indeterminate state.
+   * Never throws (a throwing listener must not fail the upload). */
+  onProgress?: UploadProgress;
+  /** Injectable multipart sender (repair X7.4): the app provides the
+   * web XHR sender (byte progress via `upload.onprogress`) per call; the
+   * transports default to fetch (no byte events). Pure function type —
+   * `packages/fedi` never names `XMLHttpRequest` itself. */
+  uploadImpl?: UploadRequestImpl;
+}
+
+/** React Native upload reference (repair X7.4): native uploads append the
+ * `{uri, name, type}` FormData form (no whole-file `fetch(uri).blob()`
+ * into JS memory). `size` carries the picker's byte count when known
+ * (null/unknown leaves the verdict to the server); the upload deadline
+ * scales from it (see `uploadTimeoutForBytes`). Plain data — pure TS. */
+export interface UploadFileRef {
+  uri: string;
+  name: string;
+  type: string;
+  size?: number | null;
+}
+
+/** True for a native `{uri, name, type}` reference (as opposed to a web
+ * `File`). Duck-typed on `uri` so Hermes (which may lack the `File`
+ * global) never needs an `instanceof` check. Pure. */
+export function isUploadFileRef(file: File | UploadFileRef): file is UploadFileRef {
+  return (
+    typeof file === "object" &&
+    file !== null &&
+    typeof (file as { uri?: unknown }).uri === "string"
+  );
+}
+
+/** Byte size of an upload source, or null when unknown (native reference
+ * without a count). Unknown sizes are never blocked client-side — the
+ * server stays the verdict. Pure. */
+export function uploadSizeOf(file: File | UploadFileRef): number | null {
+  if (isUploadFileRef(file)) {
+    return typeof file.size === "number" && Number.isFinite(file.size) && file.size > 0
+      ? file.size
+      : null;
+  }
+  return typeof file.size === "number" && Number.isFinite(file.size) && file.size > 0
+    ? file.size
+    : null;
+}
+
+/** Size-scaled multipart deadline (repair X7.4, networking M8): min 60 s,
+ * +30 s per 10 MB (rounded up, so a small photo still gets 90 s of
+ * headroom), max 15 min. Unknown sizes take the 60 s floor. Pure. */
+export function uploadTimeoutForBytes(size: number | null | undefined): number {
+  const MIN_MS = 60_000;
+  const STEP_MS = 30_000;
+  const STEP_BYTES = 10 * 1024 * 1024;
+  const MAX_MS = 15 * 60_000;
+  if (typeof size !== "number" || !Number.isFinite(size) || size <= 0) return MIN_MS;
+  return Math.min(MAX_MS, MIN_MS + Math.ceil(size / STEP_BYTES) * STEP_MS);
+}
+
+/** Byte-progress callback: bytes sent + total (null when unknowable). */
+export type UploadProgress = (loaded: number, total: number | null) => void;
+
+/** One multipart request, as the injectable sender sees it. The transport
+ * owns auth headers, the URL, and the deadline/stall timers; the sender
+ * only moves the bytes, reports progress, and honours `signal`. Pure. */
+export interface UploadRequestOpts {
+  url: string;
+  method: "POST" | "PATCH";
+  headers: Record<string, string>;
+  body: FormData;
+  signal?: AbortSignal;
+  timeoutMs: number;
+  onProgress?: UploadProgress;
+}
+
+/** What the injectable sender answers: HTTP status, the raw body text
+ * (the transport parses it), and the final URL when the sender follows
+ * redirects itself (XHR always does) so the transport can refuse a
+ * cross-origin hop with credentials. Pure. */
+export interface UploadRequestResult {
+  status: number;
+  bodyText: string;
+  responseUrl?: string;
+}
+
+/** Injectable multipart sender (see `UploadMediaOpts.uploadImpl`). */
+export type UploadRequestImpl = (req: UploadRequestOpts) => Promise<UploadRequestResult>;
+
+/** Append an upload source to multipart form data under `field`: a native
+ * reference goes on as `{uri, name, type}` (never read into JS), a web
+ * `File` as-is with its name. Pure. */
+export function appendUploadFile(
+  form: FormData,
+  field: string,
+  file: File | UploadFileRef,
+  fallbackName: string,
+): void {
+  if (isUploadFileRef(file)) {
+    form.append(field, {
+      uri: file.uri,
+      name: file.name || fallbackName,
+      type: file.type,
+    } as unknown as Blob);
+    return;
+  }
+  form.append(field, file, file.name || fallbackName);
 }
 
 /** Post-upload media edit (clickstone §1.7). `description` is alt text;
@@ -1342,7 +1451,7 @@ export interface Backend {
    * image endpoint leaves it undefined and the editor disables the row WITH
    * a reason. Present on both shipped families.
    */
-  uploadProfileImage?(kind: ProfileImageKind, file: File): Promise<Account>;
+  uploadProfileImage?(kind: ProfileImageKind, file: File | UploadFileRef): Promise<Account>;
 
   // --- Mutes and blocks (plan §2.2) ---
   mutes(opts?: PageOpts): Promise<Page<Account>>;
@@ -1408,7 +1517,7 @@ export interface Backend {
 
   // --- Server services (plan §2.2) ---
   customEmojis(): Promise<CustomEmoji[]>;
-  uploadMedia(file: File, opts?: UploadMediaOpts): Promise<Media>;
+  uploadMedia(file: File | UploadFileRef, opts?: UploadMediaOpts): Promise<Media>;
   /** Edit an uploaded attachment's description (alt text) — and, on the
    * Mastodon family, its crop focus. Returns the server's media row.
    * Optional: absent where the family has no endpoint, which leaves the
