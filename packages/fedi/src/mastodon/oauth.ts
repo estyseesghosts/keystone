@@ -25,6 +25,7 @@ import {
   request,
 } from "./client";
 import { FediError } from "../core/errors";
+import { randomToken as secureRandomToken } from "../core/random";
 import { OAUTH_APPS_KEY, utf8Hex, type KeyValueStore } from "../core/sessions";
 import type { ServerFlavor } from "../core/detect";
 import type {
@@ -530,21 +531,12 @@ export async function registerApp(opts: {
 
 // --- PKCE + state ---------------------------------------------------------
 
-/** Cryptographically random URL-safe string (state, code_verifier). */
+/** Cryptographically random URL-safe string (state, code_verifier). Throws a
+ * typed `FediError('errors.crypto.unavailable')` when no CSPRNG exists —
+ * never `Math.random`: a predictable verifier/state would be worse than a
+ * loud failure. */
 export function randomToken(bytes = 32): string {
-  const buf = new Uint8Array(bytes);
-  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
-    crypto.getRandomValues(buf);
-  } else {
-    for (let i = 0; i < bytes; i += 1) buf[i] = Math.floor(Math.random() * 256);
-  }
-  let binary = "";
-  for (const b of buf) binary += String.fromCharCode(b);
-  const base64 =
-    typeof btoa === "function"
-      ? btoa(binary)
-      : Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return secureRandomToken(bytes);
 }
 
 /**

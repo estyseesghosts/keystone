@@ -19,11 +19,13 @@
  *    targets shipped code.
  * 2. `SEAM_ALLOWLIST` below grandfathers exactly the modules that ARE the
  *    platform edge: `core/http` owns the single lazy `fetch` default every
- *    other transport falls back to, and the two stream transports construct
- *    sockets from the platform `WebSocket`. Re-plumbing every other
- *    transport through an injected seam (`fetchImpl` threading) is done —
+ *    other transport falls back to, the two stream transports construct
+ *    sockets from the platform `WebSocket`, and `core/random.ts` reads the
+ *    platform CSPRNG. Re-plumbing every other transport through an
+ *    injected seam (`fetchImpl` threading) is done —
  *    every other fedi file, and every new file, stays banned. Do not extend
- *    this list without that re-plumb.
+ *    this list without that re-plumb (or a program-blessed seam like X2.1's,
+ *    documented at the entry).
  *
  * Our own implementation of the plan §1.2 `no-ui-in-fedi` gate.
  * (Patterns from Bluesky's lint setup; code is ours — see ADR-0001.)
@@ -72,6 +74,13 @@ const SEAM_ALLOWLIST = new Map([
   ['core/http.ts', new Set(['fetch'])],
   ['misskey/stream.ts', new Set(['globalThis'])],
   ['mastodon/stream.ts', new Set(['globalThis'])],
+  // Repair X2.1: `core/random.ts` is the CSPRNG seam — it must read the
+  // platform `globalThis.crypto` at call time (there is no injectable
+  // alternative for a module-level entropy source, and threading a
+  // `cryptoImpl` through every OAuth/compose call site would push the
+  // ambient authority outward, not remove it). `Math.random` fallback is
+  // banned by the slice; this entry covers the read, nothing else.
+  ['core/random.ts', new Set(['globalThis'])],
 ])
 
 function checkSource(context, value, node) {

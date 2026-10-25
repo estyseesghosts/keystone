@@ -8,6 +8,7 @@
 // (Slice 4), Akkoma's `local` audience (detected-only, never chosen here).
 
 import type { Visibility } from "../core/models";
+import { randomBytes } from "../core/random";
 
 /** The audiences this composer offers. `local` is Akkoma-only and is never
  * sent; a reply to a `local` post defaults to `unlisted` (see below). */
@@ -193,11 +194,14 @@ export function buildStatusBody(input: StatusBodyInput): StatusBodyResult {
 
 /** 32 lowercase hex characters from the platform CSPRNG. `crypto.randomUUID`
  * is avoided on purpose: it is missing in some insecure (LAN http) contexts,
- * while `getRandomValues` is available in all of them. */
+ * while `getRandomValues` is available in all of them. Throws a typed
+ * `FediError('errors.crypto.unavailable')` when no CSPRNG exists — never
+ * `Math.random`. */
 export function newIdempotencyKey(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  const bytes = randomBytes(16);
+  let out = "";
+  for (const b of bytes) out += b.toString(16).padStart(2, "0");
+  return out;
 }
 
 /** One Idempotency-Key per logical post attempt (contract §1). A retry of the
@@ -216,6 +220,45 @@ export function attemptKeyFor(
   const fingerprint = JSON.stringify(body);
   if (prev !== null && prev.fingerprint === fingerprint) return prev;
   return { fingerprint, key: makeKey() };
+}
+
+/** Retry stability without touching the backend (X2.1): one key per body
+ * fingerprint for five minutes. The backend still mints per call today;
+ * the composer-side caller (X6.2) resolves the key through here so a
+ * timeout followed by a retry sends the SAME `Idempotency-Key` and the
+ * server dedupes instead of double-posting. */
+export const STABLE_ATTEMPT_KEY_TTL_MS = 5 * 60 * 1000;
+
+const stableAttemptKeys = new Map<string, { key: string; expiresAt: number }>();
+
+/** Key for `fingerprint` (usually `JSON.stringify(body)`): the cached key
+ * when the same fingerprint recurs inside the TTL, a fresh key otherwise.
+ * Any change to the body is a new fingerprint, hence a new attempt. Throws
+ * without a CSPRNG. Callers spanning sessions prefix the session id into
+ * the fingerprint. */
+export function stableIdempotencyKey(fingerprint: string, now: number = Date.now()): string {
+  const hit = stableAttemptKeys.get(fingerprint);
+  if (hit && hit.expiresAt > now) return hit.key;
+  if (stableAttemptKeys.size > 500) {
+    for (const [k, v] of stableAttemptKeys) {
+      if (v.expiresAt <= now) stableAttemptKeys.delete(k);
+    }
+  }
+  const key = newIdempotencyKey();
+  stableAttemptKeys.set(fingerprint, { key, expiresAt: now + STABLE_ATTEMPT_KEY_TTL_MS });
+  return key;
+}
+
+/** `AttemptKey` for a wire body: same body within the TTL reuses its key;
+ * any change mints a new attempt. */
+export function attemptKeyForBody(body: StatusBody, now?: number): AttemptKey {
+  const fingerprint = JSON.stringify(body);
+  return { fingerprint, key: stableIdempotencyKey(fingerprint, now) };
+}
+
+/** Test-only: drop the stable-key cache. */
+export function clearStableIdempotencyKeys(): void {
+  stableAttemptKeys.clear();
 }
 
 /** Fields a legacy Misskey draft can carry that this composer cannot send.

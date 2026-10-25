@@ -12,6 +12,7 @@
 // (`FediError`); `message` is the fixed English fallback.
 
 import { FediError } from "../core/errors";
+import { randomUuid } from "../core/random";
 import type { Account } from "../core/models";
 import { adaptMe } from "./adapt";
 import type { MeDetailed, SigninResponse } from "./wire";
@@ -62,10 +63,7 @@ export async function signinFlow(
 }
 
 function newSessionId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+  return randomUuid();
 }
 
 interface MiauthCheckResponse {

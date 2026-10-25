@@ -72,6 +72,13 @@ tester.run('no-ui-in-fedi', rule, {
       code: `const WS = globalThis.WebSocket`,
       filename: 'packages/fedi/src/mastodon/stream.ts',
     },
+    {
+      // CSPRNG seam (repair X2.1): the random module reads the platform
+      // crypto at call time — the one documented `globalThis` exception
+      // outside the stream transports.
+      code: `const c = globalThis.crypto`,
+      filename: 'packages/fedi/src/core/random.ts',
+    },
   ],
   invalid: [
     {
@@ -206,7 +213,7 @@ tester.run('no-ui-in-fedi', rule, {
     },
     {
       // The allowlist is per-file: `globalThis` is banned outside the two
-      // stream transports.
+      // stream transports and the CSPRNG seam (`core/random.ts`).
       code: `const WS = globalThis.WebSocket`,
       filename: 'packages/fedi/src/core/sessions.ts',
       errors: [{messageId: 'noBrowserGlobal'}],

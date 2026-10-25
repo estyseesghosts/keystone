@@ -27,6 +27,7 @@
 // internal tokens).
 
 import { KEYSTONE_APP_NAME, KEYSTONE_PERMISSIONS } from "./auth";
+import { randomUuid } from "../core/random";
 import { ApiError, FediError } from "../core/errors";
 import { defaultFetchImpl, type FetchImpl } from "../core/http";
 import {
@@ -124,10 +125,7 @@ export function externalOrigin(
 }
 
 export function newExternalSessionId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+  return randomUuid();
 }
 
 /** The host-instance authorize URL Keystone opens in a new tab.
