@@ -39,9 +39,13 @@ import {
   type ContentNode,
 } from "./ast";
 
-/** MFM `fn` names the old renderer implemented (styling only — motion,
- * size, color, blur, rotate, allow-listed fonts). Anything else degrades
- * to its children at parse time, never dropped, never interpreted. */
+/** MFM `fn` names the renderer implements or knowingly degrades
+ * (styling, color, ruby/unixtime content, motion). Anything else
+ * degrades to its children at parse time, never dropped, never
+ * interpreted. Decorative-only names (`sparkle`, `jump`, `twitch`,
+ * `flip`, `mirror`, `border`, `position`, `crop`, motion, `blur`)
+ * survive as nodes so the renderer — not the parser — decides the
+ * degradation, without losing text. */
 const KNOWN_FN: ReadonlySet<string> = new Set([
   "tada",
   "jelly",
@@ -57,6 +61,7 @@ const KNOWN_FN: ReadonlySet<string> = new Set([
   "scale",
   "color",
   "colour",
+  "fg",
   "bg",
   "background",
   "blur",
@@ -65,7 +70,27 @@ const KNOWN_FN: ReadonlySet<string> = new Set([
   "font",
   "small",
   "center",
+  "ruby",
+  "unixtime",
+  "border",
+  "position",
+  "crop",
+  "flip",
+  "mirror",
+  "sparkle",
+  "jump",
+  "twitch",
 ]);
+
+/** Size decorations that compound multiplicatively (`x2..x4`, `size`,
+ * `scale`) — flattened past nesting depth 2 (F4). */
+const SIZE_FN: ReadonlySet<string> = new Set(["x2", "x3", "x4", "size", "scale"]);
+
+/** Total `fn` nesting cap (F4): past 8 deep, degrade to children. */
+const MAX_FN_DEPTH = 8;
+/** Size-`fn` nesting cap (F4): past 2 deep, flatten to children. The
+ * renderer additionally clamps the accumulated size to 4x the base. */
+const MAX_SIZE_DEPTH = 2;
 
 /** Split MFM text on newlines: each `\n` is one `br`, so a blank line is
  * a `br` pair — the same paragraph boundary `fromHtml` emits. Empty
@@ -85,9 +110,13 @@ function textNodes(text: string): ContentNode[] {
   return out;
 }
 
-function childrenOf(node: { children?: readonly MfmNode[] }): ContentNode[] {
+function childrenOf(
+  node: { children?: readonly MfmNode[] },
+  fnDepth: number,
+  sizeDepth: number,
+): ContentNode[] {
   const out: ContentNode[] = [];
-  for (const child of node.children ?? []) out.push(...convertNode(child));
+  for (const child of node.children ?? []) out.push(...convertNodeAt(child, fnDepth, sizeDepth));
   return out;
 }
 
@@ -96,27 +125,32 @@ function safeHref(raw: string): string | null {
 }
 
 /** One MFM node → AST nodes (usually exactly one; `fn`-unknown and
- * `plain` splice to their children). Pure. */
+ * `plain` splice to their children). `fnDepth` counts enclosing `fn`
+ * nodes, `sizeDepth` enclosing size-`fn` nodes (F4 caps). Pure. */
 export function convertNode(node: MfmNode): ContentNode[] {
+  return convertNodeAt(node, 0, 0);
+}
+
+function convertNodeAt(node: MfmNode, fnDepth: number, sizeDepth: number): ContentNode[] {
   switch (node.type) {
     case "text":
       return textNodes(node.props.text);
     case "plain":
       return node.children.flatMap((child) => textNodes(child.props.text));
     case "bold":
-      return [bold(childrenOf(node))];
+      return [bold(childrenOf(node, fnDepth, sizeDepth))];
     case "italic":
-      return [italic(childrenOf(node))];
+      return [italic(childrenOf(node, fnDepth, sizeDepth))];
     case "strike":
-      return [strike(childrenOf(node))];
+      return [strike(childrenOf(node, fnDepth, sizeDepth))];
     case "small":
-      return [fnNode("small", {}, childrenOf(node))];
+      return [fnNode("small", {}, childrenOf(node, fnDepth, sizeDepth))];
     case "inlineCode":
       return [codeNode(node.props.code)];
     case "blockCode":
       return [codeBlock(node.props.lang, node.props.code)];
     case "quote":
-      return [quoteNode(childrenOf(node))];
+      return [quoteNode(childrenOf(node, fnDepth, sizeDepth))];
     case "mention":
       return [mention(null, [t(node.props.acct)])];
     case "hashtag":
@@ -128,7 +162,7 @@ export function convertNode(node: MfmNode): ContentNode[] {
     }
     case "link": {
       const href = safeHref(node.props.url);
-      const children = childrenOf(node);
+      const children = childrenOf(node, fnDepth, sizeDepth);
       // A link labelled exactly one hashtag is the hashtag: redirect
       // links on tags are never honored (phishing surface), so the href
       // is dropped and no link node survives to embed, chip, or unfurl.
@@ -151,11 +185,24 @@ export function convertNode(node: MfmNode): ContentNode[] {
     case "unicodeEmoji":
       return [unicodeEmoji(node.props.emoji)];
     case "center":
-      return [fnNode("center", {}, childrenOf(node))];
+      return [fnNode("center", {}, childrenOf(node, fnDepth, sizeDepth))];
     case "fn": {
       const name = String(node.props.name ?? "").toLowerCase();
-      if (!KNOWN_FN.has(name)) return childrenOf(node);
-      return [fnNode(name, { ...node.props.args }, childrenOf(node))];
+      if (!KNOWN_FN.has(name)) return childrenOf(node, fnDepth, sizeDepth);
+      // Nesting caps (F4): a hostile `$[x4 …]` tower flattens instead of
+      // compounding forever. Sizes flatten past depth 2; everything
+      // flattens past total depth 8. Content is never lost — only the
+      // decoration level is dropped.
+      if (fnDepth >= MAX_FN_DEPTH) return childrenOf(node, fnDepth, sizeDepth);
+      const size = SIZE_FN.has(name);
+      if (size && sizeDepth >= MAX_SIZE_DEPTH) return childrenOf(node, fnDepth, sizeDepth);
+      return [
+        fnNode(
+          name,
+          { ...node.props.args },
+          childrenOf(node, fnDepth + 1, sizeDepth + (size ? 1 : 0)),
+        ),
+      ];
     }
     case "search":
       return [t(node.props.content)];

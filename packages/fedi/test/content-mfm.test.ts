@@ -1,7 +1,7 @@
 // MFM → AST tests (slice 2.4): full node coverage, `fn` degradation,
 // newline/paragraph breaks, empty and unparseable input.
 import { contentFromMfm, convertNode } from "../src/core/content/fromMfm";
-import { textOf } from "../src/core/content/ast";
+import { textOf, type ContentNode } from "../src/core/content/ast";
 import { plainFromMfm } from "../src/core/models";
 import { parse } from "mfm-js";
 describe("inline formatting", () => {
@@ -313,5 +313,63 @@ describe("plain projection parity (R2.1)", () => {
     const x = "@foxtails.me@bsky.brid.gy #über";
     expect(textOf(contentFromMfm(x))).toBe("@foxtails.me@bsky.brid.gy #über");
     expect(plainFromMfm(x)).toBe("foxtails.me@bsky.brid.gy über");
+  });
+});
+
+describe("X6.3 MFM function coverage (M17)", () => {
+  it("keeps the new decorative functions as fn nodes, degrading at render", () => {
+    for (const name of ["sparkle", "jump", "twitch", "flip", "mirror"]) {
+      expect(contentFromMfm(`$[${name} hi]`)).toEqual([
+        { kind: "fn", name, args: {}, children: [{ kind: "text", text: "hi" }] },
+      ]);
+    }
+    expect(contentFromMfm("$[border.width=2 hi]")).toEqual([
+      { kind: "fn", name: "border", args: { width: "2" }, children: [{ kind: "text", text: "hi" }] },
+    ]);
+    expect(contentFromMfm("$[position.x=1 hi]")).toEqual([
+      { kind: "fn", name: "position", args: { x: "1" }, children: [{ kind: "text", text: "hi" }] },
+    ]);
+    expect(contentFromMfm("$[crop.x=1 hi]")).toEqual([
+      { kind: "fn", name: "crop", args: { x: "1" }, children: [{ kind: "text", text: "hi" }] },
+    ]);
+  });
+
+  it("keeps ruby, unixtime, and fg as fn nodes with their args", () => {
+    expect(contentFromMfm("$[ruby 漢字 かんじ]")).toEqual([
+      { kind: "fn", name: "ruby", args: {}, children: [{ kind: "text", text: "漢字 かんじ" }] },
+    ]);
+    expect(contentFromMfm("$[unixtime 1720000000]")).toEqual([
+      { kind: "fn", name: "unixtime", args: {}, children: [{ kind: "text", text: "1720000000" }] },
+    ]);
+    expect(contentFromMfm("$[fg.color=ff0000 hi]")).toEqual([
+      { kind: "fn", name: "fg", args: { color: "ff0000" }, children: [{ kind: "text", text: "hi" }] },
+    ]);
+  });
+
+  it("flattens size functions past nesting depth 2", () => {
+    expect(contentFromMfm("$[x4 $[x4 $[x4 hi]]]")).toEqual([
+      {
+        kind: "fn",
+        name: "x4",
+        args: {},
+        children: [
+          { kind: "fn", name: "x4", args: {}, children: [{ kind: "text", text: "hi" }] },
+        ],
+      },
+    ]);
+  });
+
+  it("caps total fn nesting at 8, keeping the content", () => {
+    let src = "hi";
+    for (let i = 0; i < 10; i++) src = `$[spin ${src}]`;
+    const nodes = contentFromMfm(src);
+    let depth = 0;
+    let cur: ContentNode[] = nodes;
+    while (cur.length === 1 && cur[0].kind === "fn") {
+      depth += 1;
+      cur = (cur[0] as Extract<ContentNode, { kind: "fn" }>).children;
+    }
+    expect(depth).toBe(8);
+    expect(cur).toEqual([{ kind: "text", text: "hi" }]);
   });
 });

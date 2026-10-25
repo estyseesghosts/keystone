@@ -27,7 +27,7 @@ import {
   validTranslatedHandle,
   type ContentNode,
 } from "./ast";
-import { contentFromHtml } from "./fromHtml";
+import { coalesceText, contentFromHtml } from "./fromHtml";
 
 const FIELD_MARKDOWN_PATTERN = /\[([^\[\]\n]+)\]\(([^)\s]+)\)/g;
 const FIELD_TOKEN_PATTERN =
@@ -45,11 +45,6 @@ const FIELD_OPAQUE: ReadonlySet<ContentNode["kind"]> = new Set([
 
 function pushFieldText(out: ContentNode[], s: string): void {
   if (s.length === 0) return;
-  const last = out[out.length - 1];
-  if (last && last.kind === "text") {
-    out[out.length - 1] = t(last.text + s);
-    return;
-  }
   out.push(t(s));
 }
 
@@ -169,7 +164,9 @@ function expandFieldNodes(nodes: ContentNode[]): ContentNode[] {
  * live markdown links, bare URLs, and mention chips. The field scanner
  * can split a federated Matrix ID into a hosted mention plus a dangling
  * `:server` suffix, so the Matrix merge runs again after expansion
- * (same rule as both content parsers). Never throws. */
+ * (same rule as both content parsers), then adjacent text runs merge
+ * in one linear pass (same quadratic fix as the HTML path). Never
+ * throws. */
 export function contentFromFieldValue(value: string | null | undefined): ContentNode[] {
   if (typeof value !== "string" || value.length === 0) return [];
   let nodes: ContentNode[];
@@ -178,5 +175,5 @@ export function contentFromFieldValue(value: string | null | undefined): Content
   } catch {
     return [t(value)];
   }
-  return mergeMatrixMentions(expandFieldNodes(nodes));
+  return coalesceText(mergeMatrixMentions(expandFieldNodes(nodes)));
 }

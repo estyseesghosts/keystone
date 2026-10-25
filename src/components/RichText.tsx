@@ -88,6 +88,9 @@ type Ctx = {
   authorHost: string | null
   emojiStyle: EmojiStyle
   size: number
+  /** Unscaled body size: accumulated `$[x…]`/`size` growth clamps to 4x
+   * this (F4 — a hostile nest can never blow out the row). */
+  baseSize: number
   onMentionPress?: (href: string | null, label: string) => void
   onHashtagPress?: (tag: string) => void
   onLinkPress?: (href: string) => void
@@ -165,19 +168,34 @@ function Fn({node, ctx, depth}: {node: Extract<ContentNode, {kind: 'fn'}>; ctx: 
     case 'x3':
     case 'x4': {
       const mult = node.name === 'x2' ? 2 : node.name === 'x3' ? 3 : 4
-      return scaled(ctx.size * mult)
+      // F4: accumulated growth clamps to 4x the base size — a hostile
+      // `$[x4 …]` tower parses flat past depth 2 and renders flat here.
+      const next = Math.min(ctx.size * mult, ctx.baseSize * 4)
+      if (next === ctx.size) return inner
+      return scaled(next)
     }
     case 'size':
     case 'scale': {
       const mult = clampNum(fnArg(node.args, 'n', 'size', 'x'), 0.5, 4, 1)
       if (mult === 1) return inner
-      return scaled(ctx.size * mult)
+      const next = Math.min(ctx.size * mult, ctx.baseSize * 4)
+      if (next === ctx.size) return inner
+      return scaled(next)
     }
     case 'small':
       return scaled(ctx.size * 0.85)
     case 'color':
-    case 'colour': {
-      const color = safeHexColor(fnArg(node.args, 'color', 'colour', 'c'))
+    case 'colour':
+    case 'fg': {
+      // MFM args cannot carry `#` (it starts a hashtag), so bare hex
+      // (`$[fg.color=ff0000 …]`) normalizes before the allow-list check.
+      // Anything else still degrades to the children.
+      const raw = fnArg(node.args, 'color', 'colour', 'c')
+      const hex =
+        raw !== null && !raw.startsWith('#') && /^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(raw)
+          ? `#${raw}`
+          : raw
+      const color = safeHexColor(hex)
       if (color === null) return inner
       return <Text style={{color}}>{inner}</Text>
     }
@@ -202,6 +220,44 @@ function Fn({node, ctx, depth}: {node: Extract<ContentNode, {kind: 'fn'}>; ctx: 
       // Nested occurrences center best-effort; top-level `center` hoists
       // to a block in Flow so the whole paragraph centers.
       return <Text style={{textAlign: 'center'}}>{inner}</Text>
+    case 'ruby': {
+      // No ruby primitive on any target: the base plus its reading in
+      // parens, the reading set small. `$[ruby base rt]` splits on the
+      // last space; anything else degrades to the children.
+      const parts = labelOf(node.children).trim().split(/\s+/).filter(p => p.length > 0)
+      if (parts.length < 2) return inner
+      const rt = parts.pop() as string
+      const base = parts.join(' ')
+      return (
+        <Text>
+          {base}
+          <Text style={{fontSize: ctx.size * 0.7}}>{` (${rt})`}</Text>
+        </Text>
+      )
+    }
+    case 'unixtime': {
+      // A Unix timestamp as a date, not raw digits. Device locale until
+      // the X9.5 app-locale formatter lands (it owns this call site);
+      // unparseable content degrades to the children.
+      const raw = labelOf(node.children).trim().split(/\s+/)[0] ?? ''
+      const sec = Number(raw)
+      if (!Number.isFinite(sec) || sec <= 0) return inner
+      const ms = sec < 1e12 ? sec * 1000 : sec
+      const date = new Date(ms)
+      if (Number.isNaN(date.getTime())) return inner
+      return <Text>{date.toLocaleString()}</Text>
+    }
+    case 'sparkle':
+    case 'jump':
+    case 'twitch':
+    case 'flip':
+    case 'mirror':
+    case 'border':
+    case 'position':
+    case 'crop':
+      // Motion/crop/position/border have no honest static primitive:
+      // children only, content never dropped.
+      return inner
     default:
       return inner
   }
@@ -596,6 +652,7 @@ export function RichText({
       authorHost,
       emojiStyle,
       size: scaledSize,
+      baseSize: scaledSize,
       onMentionPress,
       onHashtagPress,
       onLinkPress,

@@ -671,6 +671,15 @@ describe("contentFromFieldValue", () => {
       { kind: "text", text: ":30 ok" },
     ]);
   });
+
+  it("X6.3: parses a large field value with many tokens in under 300 ms", () => {
+    const value = "hello @user@example.com see https://example.com/x ".repeat(2000);
+    const start = Date.now();
+    const nodes = contentFromFieldValue(value);
+    expect(Date.now() - start).toBeLessThan(300);
+    expect(nodes.length).toBeGreaterThan(0);
+    expect(textOf(nodes)).toContain("@user@example.com");
+  });
 });
 
 describe("collectBareLinkHrefs", () => {

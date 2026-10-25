@@ -343,3 +343,41 @@ describe('RichText plain projection (auto vs plain)', () => {
     }
   })
 })
+
+describe('RichText X6.3 size clamp and new decorations', () => {
+  it('clamps 20 nested x4 to 4x the base size', () => {
+    let src = 'hi'
+    for (let i = 0; i < 20; i++) src = `$[x4 ${src}]`
+    renderRichText(<RichText nodes={contentFromMfm(src)} />)
+    expect(fontSizeOf('hi')).toBeLessThanOrEqual(60)
+  })
+
+  it('applies fg like color, tolerating bare MFM hex', () => {
+    renderRichText(<RichText nodes={contentFromMfm('$[fg.color=ff0000 hi]')} />)
+    const flat = StyleSheet.flatten(screen.getByText('hi').props.style) as {color?: string}
+    // eslint-disable-next-line keystone/no-hardcoded-color -- expected MFM color value
+    expect(flat?.color).toBe('#ff0000')
+  })
+
+  it('renders ruby base plus its reading, never raw source', () => {
+    const {toJSON} = renderRichText(<RichText nodes={contentFromMfm('$[ruby 漢字 かんじ]')} />)
+    const json = JSON.stringify(toJSON())
+    expect(json).not.toContain('$[ruby')
+    expect(json).toContain('漢字')
+    expect(json).toContain('かんじ')
+  })
+
+  it('renders unixtime as a date, never raw digits', () => {
+    renderRichText(<RichText nodes={contentFromMfm('$[unixtime 1720000000]')} />)
+    expect(screen.queryByText('1720000000')).toBeNull()
+  })
+
+  it('degrades sparkle, jump and flip to their children', () => {
+    renderRichText(<RichText nodes={contentFromMfm('$[sparkle gleam]')} />)
+    expect(screen.getByText('gleam')).toBeTruthy()
+    renderRichText(<RichText nodes={contentFromMfm('$[jump hop]')} />)
+    expect(screen.getByText('hop')).toBeTruthy()
+    renderRichText(<RichText nodes={contentFromMfm('$[flip over]')} />)
+    expect(screen.getByText('over')).toBeTruthy()
+  })
+})

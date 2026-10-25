@@ -560,3 +560,121 @@ describe("P4.2 fromHtml gaps (non-XSS: parser branches the XSS suite never hits)
     expect(contentFromHtml("<blockquote><p>  </p></blockquote>")).toEqual([]);
   });
 });
+
+describe("X6.3 hostile nesting (F5: depth-32 degradation, never throws)", () => {
+  it("never throws on 5000 nested <b>", () => {
+    const html = "<b>".repeat(5000) + "x" + "</b>".repeat(5000);
+    let nodes: ContentNode[] = [];
+    expect(() => {
+      nodes = contentFromHtml(html);
+    }).not.toThrow();
+    expect(nodes.length).toBeGreaterThan(0);
+    expect(textOf(nodes)).toContain("x");
+  });
+
+  it("never throws on 3000 nested list wrappers", () => {
+    const html = "<ul><li>".repeat(3000) + "x" + "</li></ul>".repeat(3000);
+    let nodes: ContentNode[] = [];
+    expect(() => {
+      nodes = contentFromHtml(html);
+    }).not.toThrow();
+    expect(nodes.length).toBeGreaterThan(0);
+    expect(textOf(nodes)).toContain("x");
+  });
+
+  it("never throws on 3000 nested blockquotes", () => {
+    const html = "<blockquote>".repeat(3000) + "x" + "</blockquote>".repeat(3000);
+    let nodes: ContentNode[] = [];
+    expect(() => {
+      nodes = contentFromHtml(html);
+    }).not.toThrow();
+    expect(nodes.length).toBeGreaterThan(0);
+    expect(textOf(nodes)).toContain("x");
+  });
+
+  it("degrades past depth 32 to plain text instead of dropping content", () => {
+    const html = "<b>".repeat(40) + "deep" + "</b>".repeat(40);
+    let nodes: ContentNode[] = [];
+    expect(() => {
+      nodes = contentFromHtml(html);
+    }).not.toThrow();
+    expect(textOf(nodes)).toContain("deep");
+  });
+
+  it("caps input at 200 KB", () => {
+    const html = "<p>" + "x".repeat(200 * 1024 + 1024) + "</p>";
+    let nodes: ContentNode[] = [];
+    expect(() => {
+      nodes = contentFromHtml(html);
+    }).not.toThrow();
+    expect(nodes.length).toBeGreaterThan(0);
+    expect(textOf(nodes).length).toBeLessThanOrEqual(200 * 1024 + 3);
+  });
+
+  it("parses 100k adjacent spans in under 300 ms (quadratic fix)", () => {
+    const html = "<span>x</span>".repeat(100000);
+    const start = Date.now();
+    const nodes = contentFromHtml(html);
+    expect(Date.now() - start).toBeLessThan(300);
+    expect(textOf(nodes).length).toBeGreaterThan(0);
+  });
+
+  it("parses 10k adjacent spans within the cap in under 300 ms", () => {
+    const html = "<b>v</b>".repeat(10000);
+    const start = Date.now();
+    const nodes = contentFromHtml(html);
+    expect(Date.now() - start).toBeLessThan(300);
+    expect(textOf(nodes)).toBe("v".repeat(10000));
+  });
+});
+
+describe("X6.3 fidelity (F13: ordered lists, tables, img alt)", () => {
+  it("numbers ordered list items", () => {
+    const nodes = contentFromHtml("<ol><li>one</li><li>two</li></ol>");
+    // Adjacent text coalesces (the `1. ` prefix merges with its item —
+    // same as the ul bullet/content join below); numbering is pinned by
+    // the prefix text and the full projection.
+    expect(nodes[0]).toEqual({ kind: "text", text: "1. one" });
+    expect(plainTextOf(nodes)).toBe("1. one\n\n2. two");
+  });
+
+  it("keeps unordered lists on bullets, skipping empty items", () => {
+    expect(contentFromHtml("<ul><li>one</li><li>two</li></ul>")).toEqual([
+      { kind: "bullet" },
+      t("one"),
+      br(),
+      br(),
+      { kind: "bullet" },
+      t("two"),
+    ]);
+  });
+
+  it("skips empty ordered items but keeps numbering", () => {
+    const nodes = contentFromHtml("<ol><li>one</li><li></li><li>three</li></ol>");
+    expect(plainTextOf(nodes)).toBe("1. one\n\n3. three");
+  });
+
+  it("separates table cells with a space", () => {
+    const nodes = contentFromHtml("<table><tr><td>a</td><td>b</td></tr></table>");
+    expect(textOf(nodes).trim()).toBe("a b");
+  });
+
+  it("breaks table rows", () => {
+    const nodes = contentFromHtml("<table><tr><td>a</td></tr><tr><td>b</td></tr></table>");
+    expect(nodes.filter((n) => n.kind === "br").length).toBe(2);
+    expect(textOf(nodes)).toContain("a");
+    expect(textOf(nodes)).toContain("b");
+  });
+
+  it("falls back to alt text for non-emoji images, still no load", () => {
+    expect(contentFromHtml('<p><img src="https://a.b/photo.png" alt="a sunset"></p>')).toEqual([
+      { kind: "text", text: "a sunset" },
+    ]);
+    // No alt, no node — never a blind fetch.
+    expect(contentFromHtml('<p><img src="https://a.b/photo.png"></p>')).toEqual([]);
+    // The emoji-gated path is unchanged: unsafe src still drops.
+    expect(
+      contentFromHtml('<p><img class="emojione" alt=":x:" src="javascript:alert(1)"></p>'),
+    ).toEqual([]);
+  });
+});

@@ -56,6 +56,15 @@ interface DomNode {
   children?: DomNode[];
 }
 
+/** Hard input caps (F5): absurd server payloads degrade instead of
+ * throwing or stalling the feed. */
+const MAX_HTML_CHARS = 200 * 1024;
+/** Walker depth cap (F5): past this, a subtree degrades to its plain
+ * text — content survives, the stack does not grow. */
+const MAX_DEPTH = 32;
+/** Alt-text fallback bound (F13): a lone `alt` is content, not a novel. */
+const MAX_ALT_TEXT = 500;
+
 /** Tags whose CONTENT is dropped entirely (dangerous or mXSS carriers).
  * Anything else off the allow-list degrades to its children — text
  * survives, the tag never renders. */
@@ -94,7 +103,9 @@ const DROP_SUBTREE_TAGS: ReadonlySet<string> = new Set([
 
 /** Block-level tags: their converted children join the parent flow with
  * a `br` pair (blank line) on each side. `ul`/`ol` are transparent
- * wrappers — their `li` children are the blocks. */
+ * wrappers — their `li` children are the blocks (see `convertList`).
+ * `tr` is a block so table rows break; cells stay inline with a space
+ * separator (F13). */
 const BLOCK_TAGS: ReadonlySet<string> = new Set([
   "p",
   "h1",
@@ -106,6 +117,7 @@ const BLOCK_TAGS: ReadonlySet<string> = new Set([
   "li",
   "blockquote",
   "pre",
+  "tr",
 ]);
 
 /** The only `img` that survives: a custom-emoji image (either server's
@@ -133,19 +145,26 @@ function attrsOf(node: DomNode): Record<string, string> {
 
 /** Visible text of a subtree (for `<pre>`/`<code>` payloads and emoji
  * shortcode fallbacks). Script/style subtrees never reach here — they
- * are dropped before conversion. */
+ * are dropped before conversion. Iterative: deep hostile nesting must
+ * not grow the stack (F5). */
 function innerText(node: DomNode): string {
-  if (node.type === "text" || node.type === "cdata") return node.data ?? "";
-  let out = "";
-  for (const child of node.children ?? []) {
-    if (child.type === "tag") {
-      if (child.name === "br") out += "\n";
-      else out += innerText(child);
-    } else {
-      out += innerText(child);
+  const parts: string[] = [];
+  const stack: DomNode[] = [node];
+  while (stack.length > 0) {
+    const cur = stack.pop();
+    if (cur === undefined) break;
+    if (cur.type === "text" || cur.type === "cdata") {
+      if (cur.data) parts.push(cur.data);
+      continue;
     }
+    if (cur.type === "tag" && (cur.name ?? "").toLowerCase() === "br") {
+      parts.push("\n");
+      continue;
+    }
+    const kids = cur.children ?? [];
+    for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i]);
   }
-  return out;
+  return parts.join("");
 }
 
 const SHORTCODE_PATTERN = /^:([A-Za-z0-9_+-]+(?:@[A-Za-z0-9.-]+)?):$/;
@@ -181,12 +200,38 @@ function stemOf(src: string): string | null {
 
 function pushText(out: ContentNode[], text: string): void {
   if (text.length === 0) return;
-  const last = out[out.length - 1];
-  if (last && last.kind === "text") {
-    out[out.length - 1] = t(last.text + text);
-    return;
-  }
   out.push(t(text));
+}
+
+/** Merge adjacent text runs in one linear pass (array join, not
+ * repeated concatenation — the 100k-span quadratic fix, F13). Runs
+ * into containers too; trees from the depth-capped walkers are
+ * shallow, so this recursion is bounded. Pure. Exported for the
+ * profile-field scanner, which has the same hot loop. */
+export function coalesceText(nodes: readonly ContentNode[]): ContentNode[] {
+  const out: ContentNode[] = [];
+  let buf: string[] | null = null;
+  const flush = (): void => {
+    if (buf !== null) {
+      out.push(t(buf.join("")));
+      buf = null;
+    }
+  };
+  for (const node of nodes) {
+    if (node.kind === "text") {
+      if (buf === null) buf = [node.text];
+      else buf.push(node.text);
+      continue;
+    }
+    flush();
+    if ("children" in node) {
+      out.push({ ...node, children: coalesceText(node.children) } as ContentNode);
+    } else {
+      out.push(node);
+    }
+  }
+  flush();
+  return out;
 }
 
 /** Convert one element's children in flow mode: block children are
@@ -194,13 +239,15 @@ function pushText(out: ContentNode[], text: string): void {
  * text next to a block boundary is source formatting (pretty-printed
  * HTML), not content — browsers collapse it, so it is dropped rather
  * than becoming a literal run that renders as extra blank lines. Inline
- * spacing (`a <b>b</b>`) never qualifies: its neighbors are not blocks. */
-function convertFlow(children: readonly DomNode[], out: ContentNode[]): void {
+ * spacing (`a <b>b</b>`) never qualifies: its neighbors are not blocks.
+ * `depth` is the DOM depth of `children`; past `MAX_DEPTH` nodes
+ * degrade to plain text (F5). */
+function convertFlow(children: readonly DomNode[], out: ContentNode[], depth: number): void {
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
     if (child.type === "tag" && BLOCK_TAGS.has((child.name ?? "").toLowerCase())) {
       const block: ContentNode[] = [];
-      convertElement(child, block);
+      convertElement(child, block, depth);
       if (isBlankContent(block)) continue;
       if (out.length > 0) {
         out.push(br(), br());
@@ -213,7 +260,7 @@ function convertFlow(children: readonly DomNode[], out: ContentNode[]): void {
       const next = children[i + 1];
       if (isBlockTag(prev) || isBlockTag(next)) continue;
     }
-    convertNode(child, out);
+    convertNode(child, out, depth);
   }
 }
 
@@ -225,18 +272,22 @@ function isBlockTag(node: DomNode | undefined): boolean {
 /** Convert the children of a transparent wrapper (span, div, unknown
  * tags, degraded anchors): blocks inside still break, so a `<div>`
  * wrapping paragraphs keeps its line structure. */
-function convertTransparent(node: DomNode, out: ContentNode[]): void {
-  convertFlow(node.children ?? [], out);
+function convertTransparent(node: DomNode, out: ContentNode[], depth: number): void {
+  convertFlow(node.children ?? [], out, depth + 1);
 }
 
 /** Convert one element KNOWN to be a block (`p`, headings, `li`,
- * `blockquote`, `pre`) — its own tag is consumed, children flow inline
- * except nested blocks. */
-function convertElement(node: DomNode, out: ContentNode[]): void {
+ * `blockquote`, `pre`, `tr`) — its own tag is consumed, children flow
+ * inline except nested blocks. Depth-capped (F5). */
+function convertElement(node: DomNode, out: ContentNode[], depth: number): void {
+  if (depth > MAX_DEPTH) {
+    pushText(out, innerText(node));
+    return;
+  }
   const tag = (node.name ?? "").toLowerCase();
   if (tag === "blockquote") {
     const inner: ContentNode[] = [];
-    convertFlow(node.children ?? [], inner);
+    convertFlow(node.children ?? [], inner, depth + 1);
     if (!isBlankContent(inner)) out.push(quoteNode(inner));
     return;
   }
@@ -246,12 +297,11 @@ function convertElement(node: DomNode, out: ContentNode[]): void {
     return;
   }
   // Lists have no AST list node: `ul`/`ol` are transparent wrappers and
-  // each `li` opens with a `bullet()` marker (the renderer owns the glyph,
-  // never server text — so a pruned tag block can never leave a stray
-  // "• "). An `li` with no other content is skipped, like a blank block.
+  // each `li` opens with a marker (see `convertList`). A bare `li`
+  // outside any list keeps the bullet marker here, like before.
   if (tag === "li") {
     const inner: ContentNode[] = [bullet()];
-    convertFlow(node.children ?? [], inner);
+    convertFlow(node.children ?? [], inner, depth + 1);
     if (!isBlankContent(inner)) out.push(...inner);
     return;
   }
@@ -259,29 +309,32 @@ function convertElement(node: DomNode, out: ContentNode[]): void {
   // render) instead of flattening to bold body.
   if (tag.length === 2 && tag[0] === "h" && tag[1] >= "1" && tag[1] <= "6") {
     const inner: ContentNode[] = [];
-    convertFlow(node.children ?? [], inner);
+    convertFlow(node.children ?? [], inner, depth + 1);
     if (!isBlankContent(inner)) out.push(heading(Number(tag[1]) as HeadingLevel, inner));
     return;
   }
-  convertFlow(node.children ?? [], out);
+  convertFlow(node.children ?? [], out, depth + 1);
 }
 
 /** Convert one anchor: mention/hashtag/plain-link by class + data-tag,
  * degraded to its children when the href is unsafe or missing. */
-function convertAnchor(node: DomNode, out: ContentNode[]): void {
+function convertAnchor(node: DomNode, out: ContentNode[], depth: number): void {
   const attribs = attrsOf(node);
   const href = safeUrl(attribs["href"]);
   const inner: ContentNode[] = [];
-  convertTransparent(node, inner);
+  convertTransparent(node, inner, depth + 1);
+  // Labels split across several DOM nodes (e.g. `@` + `<span>u</span>`)
+  // merge here so the single-label checks below see one label.
+  const kids = coalesceText(inner);
   if (href === null) {
-    out.push(...inner);
+    out.push(...kids);
     return;
   }
   const classes = classList(attribs["class"]);
   const isMention = classes.includes("mention");
   const isHashtag = classes.includes("hashtag") || (attribs["data-tag"] ?? "").length > 0;
   if (isMention && !isHashtag) {
-    out.push(mention(href, inner));
+    out.push(mention(href, kids));
     return;
   }
   if (isHashtag) {
@@ -291,21 +344,21 @@ function convertAnchor(node: DomNode, out: ContentNode[]): void {
       ...(attribs["data-tag"] ? { "data-tag": attribs["data-tag"] } : {}),
     });
     if (tag !== null) {
-      out.push(hashtag(tag, href, inner.length > 0 ? inner : [t(`#${tag}`)]));
+      out.push(hashtag(tag, href, kids.length > 0 ? kids : [t(`#${tag}`)]));
       return;
     }
   }
   // A link labelled exactly one hashtag is the hashtag (pixelfed-style
   // redirect links): same phishing rule as MFM — the href dies here, so
   // no embed, no chip, no browser. Anything richer stays a link.
-  const redirectTag = hashtagLabelOf(inner);
+  const redirectTag = hashtagLabelOf(kids);
   if (redirectTag !== null) {
     out.push(hashtag(redirectTag, null, [t(`#${redirectTag}`)]));
     return;
   }
   // A Matrix-ID label is the Matrix user (href dropped — the chip
   // never navigates, so no URL survives to embed or unfurl).
-  const redirectMatrix = matrixLabelOf(inner);
+  const redirectMatrix = matrixLabelOf(kids);
   if (redirectMatrix !== null) {
     out.push(matrix(redirectMatrix, [t(redirectMatrix)]));
     return;
@@ -317,18 +370,24 @@ function convertAnchor(node: DomNode, out: ContentNode[]): void {
   // remotely — and taps resolve the label first, so a mismatched URL
   // can never hijack the chip into a browser. Anything richer stays a
   // link.
-  const redirectMention = mentionLabelOf(inner);
+  const redirectMention = mentionLabelOf(kids);
   if (redirectMention !== null) {
     out.push(mention(href, [t(redirectMention)]));
     return;
   }
-  out.push(link(href, inner));
+  out.push(link(href, kids));
 }
 
-/** Convert one emoji-gated image, or drop it. */
+/** Convert one emoji-gated image; a non-emoji image contributes its
+ * `alt` text when it has one (F13 accessibility fallback — still no
+ * load, no tracking pixel), otherwise it is dropped. */
 function convertEmojiImage(node: DomNode, out: ContentNode[]): void {
   const attribs = attrsOf(node);
-  if (!isEmojiImage(attribs)) return;
+  if (!isEmojiImage(attribs)) {
+    const alt = (attribs["alt"] ?? "").trim();
+    if (alt.length > 0) pushText(out, alt.slice(0, MAX_ALT_TEXT));
+    return;
+  }
   const src = safeHttpUrl(attribs["src"]);
   if (src === null) return;
   const code =
@@ -342,8 +401,40 @@ function convertEmojiImage(node: DomNode, out: ContentNode[]): void {
   out.push(customEmoji(code.name, code.host, src));
 }
 
-/** Convert one node in inline position. */
-function convertNode(node: DomNode, out: ContentNode[]): void {
+/** `ul`/`ol` are transparent wrappers; each `li` is a block
+ * (blank-line separated, like a bare `li`) opening with a marker — a
+ * `bullet()` for `ul`, a `1. ` text run for `ol` (F13: the renderer owns
+ * the bullet glyph but numbers are content). Blank items are skipped;
+ * `ol` numbering counts every `li` so it matches the server's list. */
+function convertList(node: DomNode, ordered: boolean, out: ContentNode[], depth: number): void {
+  let n = 0;
+  for (const child of node.children ?? []) {
+    if (child.type === "tag" && (child.name ?? "").toLowerCase() === "li") {
+      n += 1;
+      const inner: ContentNode[] = [];
+      if (depth + 1 > MAX_DEPTH) {
+        pushText(inner, innerText(child));
+      } else {
+        convertFlow(child.children ?? [], inner, depth + 1);
+      }
+      if (isBlankContent(inner)) continue;
+      if (out.length > 0) {
+        out.push(br(), br());
+      }
+      out.push(...(ordered ? [t(`${n}. `), ...inner] : [bullet(), ...inner]));
+      continue;
+    }
+    convertNode(child, out, depth + 1);
+  }
+}
+
+/** Convert one node in inline position. Depth-capped (F5): past
+ * `MAX_DEPTH` the subtree degrades to its plain text. */
+function convertNode(node: DomNode, out: ContentNode[], depth: number): void {
+  if (depth > MAX_DEPTH) {
+    pushText(out, innerText(node));
+    return;
+  }
   if (node.type === "text" || node.type === "cdata") {
     pushText(out, node.data ?? "");
     return;
@@ -374,21 +465,25 @@ function convertNode(node: DomNode, out: ContentNode[]): void {
     return;
   }
   if (tag === "a") {
-    convertAnchor(node, out);
+    convertAnchor(node, out, depth);
+    return;
+  }
+  if (tag === "ol" || tag === "ul") {
+    convertList(node, tag === "ol", out, depth);
     return;
   }
   switch (tag) {
     case "strong":
     case "b": {
       const inner: ContentNode[] = [];
-      convertTransparent(node, inner);
+      convertTransparent(node, inner, depth + 1);
       out.push(bold(inner));
       return;
     }
     case "em":
     case "i": {
       const inner: ContentNode[] = [];
-      convertTransparent(node, inner);
+      convertTransparent(node, inner, depth + 1);
       out.push(italic(inner));
       return;
     }
@@ -396,7 +491,7 @@ function convertNode(node: DomNode, out: ContentNode[]): void {
     case "del":
     case "strike": {
       const inner: ContentNode[] = [];
-      convertTransparent(node, inner);
+      convertTransparent(node, inner, depth + 1);
       out.push(strike(inner));
       return;
     }
@@ -414,7 +509,7 @@ function convertNode(node: DomNode, out: ContentNode[]): void {
       // chip — the anchor child carries the link. Never dropped, never a
       // block; the renderer styles the chip.
       if (classes.includes("mchip")) {
-        convertTransparent(node, out);
+        convertTransparent(node, out, depth + 1);
         return;
       }
       const kids = node.children ?? [];
@@ -427,42 +522,74 @@ function convertNode(node: DomNode, out: ContentNode[]): void {
         out.push(unicodeEmoji((kids[0].data ?? "").trim()));
         return;
       }
-      convertTransparent(node, out);
+      convertTransparent(node, out, depth + 1);
       return;
     }
     case "center": {
       const inner: ContentNode[] = [];
-      convertTransparent(node, inner);
+      convertTransparent(node, inner, depth + 1);
       out.push(fnNode("center", {}, inner));
+      return;
+    }
+    case "td":
+    case "th": {
+      // Table cells have no AST node: the content survives inline and
+      // cells separate with a space (F13). Rows break via `tr`, which is
+      // a block tag; `table`/`thead`/`tbody`/`tfoot` stay transparent.
+      const inner: ContentNode[] = [];
+      convertTransparent(node, inner, depth + 1);
+      if (!isBlankContent(inner)) {
+        out.push(...inner);
+        pushText(out, " ");
+      }
       return;
     }
     default:
       // Unknown tag: degrade to children — text survives, the tag never
       // renders. `div`, lists (`ul`/`ol`), headings handled as blocks
       // above are NOT lost structurally: nested blocks still break.
-      convertTransparent(node, out);
+      convertTransparent(node, out, depth + 1);
       return;
   }
 }
 
 /** Parse server HTML into the shared AST. Never throws on malformed
- * input — unparseable markup yields no nodes. Entity-decoded once by
- * the parser; output renders as constructed nodes, never HTML. Pure. */
+ * input — unparseable markup yields no nodes, hostile nesting degrades
+ * to plain text, oversize input is capped, and any internal failure
+ * falls back to the stripped text. Entity-decoded once by the parser;
+ * output renders as constructed nodes, never HTML. Pure. */
 export function contentFromHtml(html: string | null | undefined): ContentNode[] {
   if (typeof html !== "string" || html.length === 0) return [];
-  let doc: { children?: DomNode[] };
+  const capped = html.length > MAX_HTML_CHARS ? html.slice(0, MAX_HTML_CHARS) : html;
   try {
-    doc = parseDocument(html) as unknown as { children?: DomNode[] };
+    let doc: { children?: DomNode[] };
+    try {
+      doc = parseDocument(capped) as unknown as { children?: DomNode[] };
+    } catch {
+      return fallbackNodes(capped);
+    }
+    const out: ContentNode[] = [];
+    convertFlow(doc.children ?? [], out, 0);
+    // No trailing paragraph break: the last block's separator is structure,
+    // not content.
+    while (out.length > 0 && out[out.length - 1].kind === "br") out.pop();
+    // Coalesce first (adjacent runs merge into single text nodes), then
+    // rejoin Matrix IDs split across the mention/text boundary. The
+    // merge cannot create adjacent texts (it consumes the text it splits),
+    // so one pass each is enough.
+    return mergeMatrixMentions(coalesceText(out));
+  } catch {
+    return fallbackNodes(capped);
+  }
+}
+
+/** Last-resort projection: tags stripped, text kept (never throws). */
+function fallbackNodes(html: string): ContentNode[] {
+  let text = "";
+  try {
+    text = html.replace(/<[^>]*>?/g, "").slice(0, MAX_HTML_CHARS);
   } catch {
     return [];
   }
-  const out: ContentNode[] = [];
-  convertFlow(doc.children ?? [], out);
-  // No trailing paragraph break: the last block's separator is structure,
-  // not content.
-  while (out.length > 0 && out[out.length - 1].kind === "br") out.pop();
-  // Mastodon's autolinker shreds Matrix IDs (links `@name` as a
-  // hallucinated local mention, leaves `:server` dangling): rejoin them
-  // here, same rule as the MFM path.
-  return mergeMatrixMentions(out);
+  return text.length > 0 ? [t(text)] : [];
 }
