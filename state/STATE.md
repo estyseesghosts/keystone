@@ -5,13 +5,14 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **289 suites / 4098 tests**,
+Gate baseline (last green on main): **290 suites / 4107 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. X10.1 done (committed green; 289 suites / 4098 tests; keyboard layer
-   stack + modal focus + rings; no coordinator changes).
-2. X10.2 contrast/disabled next (solo), then Wave 11 deps/tests/docs.
+1. Wave 10 done (X10.1+X10.2 committed green; 290 suites / 4107 tests;
+   WCAG matrix test live; no coordinator changes).
+2. Wave 11 next: X11.1 (deps/config) + X11.2 (test quality) + X11.3
+   (docs) — check file-disjointness, then dispatch.
 3. Signing/App Links skipped (owner); no non-English translations.
 
 Blockers / owner-open:

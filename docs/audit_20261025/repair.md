@@ -1797,7 +1797,7 @@ Audit: a11y 6, 7, 8, 11, 12, 13 (counter); rn-ui M4 (announce half); media M15 (
 
 ## X10.2 - Contrast and disabled states
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x10.2.md` (slice) + `state/logs/2026-10-25-repair25-x10.2-coordinator.md` (batch-green); WCAG matrix test live; 290 suites / 4107 tests green at X10.2 commit)
 Branch: `repair25-x10.2-contrast`
 Audit: a11y 9
 
