@@ -20,6 +20,11 @@ import {NoteScreen, isChainCapped} from './Note'
 
 const mockNavigate = jest.fn()
 const mockGoBack = jest.fn()
+const mockGoBackOrFeed = jest.fn()
+jest.mock('#/components/shell/shellNav', () => ({
+  ...jest.requireActual('#/components/shell/shellNav'),
+  goBackOrFeed: (...args: Array<unknown>) => (mockGoBackOrFeed as (...a: Array<unknown>) => void)(...args),
+}))
 // Captured focus callbacks: the mock records instead of subscribing, so
 // tests drive "mount focus" vs "return focus" deterministically. Like the
 // real hook, subscribing while focused executes immediately — mount and
@@ -389,6 +394,7 @@ describe('NoteScreen detail tabs (F19)', () => {
 
 describe('NoteScreen delete navigation (F20)', () => {
   it('leaves the detail when the focused post is deleted', async () => {
+    mockGoBackOrFeed.mockClear()
     const {postShadowStore} = await import('#/state/cache')
     postShadowStore.reset()
     setup(fakeBackend())
@@ -397,7 +403,7 @@ describe('NoteScreen delete navigation (F20)', () => {
     act(() => {
       postShadowStore.patch(SESSION.id, 'p1', {isDeleted: true})
     })
-    expect(mockGoBack).toHaveBeenCalled()
+    expect(mockGoBackOrFeed).toHaveBeenCalled()
   })
 })
 

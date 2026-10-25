@@ -1,7 +1,14 @@
 import {getStateFromPath} from '@react-navigation/native'
 import {I18nProvider} from '@lingui/react'
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {fireEvent, render, screen} from '@testing-library/react-native'
 import * as Linking from 'expo-linking'
+
+import {createMemoryStore} from '@keystone/fedi'
+
+import type {TokenVault} from '#/storage'
+import {createSessionStore} from '#/state/session/store'
+import {SessionProvider} from '#/state/session/SessionProvider'
 
 import {Navigation} from '#/Navigation'
 import {
@@ -251,6 +258,48 @@ describe('Navigation', () => {
       </I18nProvider>,
     )
     expect(screen.getByTestId('sys-debug-light')).toBeTruthy()
+  })
+
+  // rn-ui M5: tab-only routes stay registered with no session, so a
+  // signed-out cold open renders the screen's honest signed-out state —
+  // never a silent fall-through to Home.
+  describe('signed-out cold opens of tab routes (rn-ui M5)', () => {
+    const memVault = (): TokenVault => ({
+      getToken: () => Promise.resolve(null),
+      setToken: () => Promise.resolve(),
+      removeToken: () => Promise.resolve(),
+    })
+
+    function renderColdOpen(path: string) {
+      const parsed = linking.getStateFromPath?.(path, linking.config)
+      expect(parsed).toBeDefined()
+      const store = createSessionStore({
+        storage: createMemoryStore(),
+        vault: memVault(),
+        homeOrigin: 'https://app.example',
+      })
+      render(
+        <I18nProvider i18n={i18n}>
+          <QueryClientProvider client={new QueryClient()}>
+            <SessionProvider store={store} homeOrigin="https://app.example">
+              <Navigation
+                initialState={JSON.parse(JSON.stringify(parsed)) as {routes: {name: string}[]}}
+              />
+            </SessionProvider>
+          </QueryClientProvider>
+        </I18nProvider>,
+      )
+    }
+
+    it('opens /notifications on its signed-out state', async () => {
+      renderColdOpen('/notifications')
+      expect(await screen.findByText('Sign in to see notifications.')).toBeTruthy()
+    })
+
+    it('opens /users/x on its signed-out state', async () => {
+      renderColdOpen('/users/x')
+      expect(await screen.findByText('Sign in to see profiles.')).toBeTruthy()
+    })
   })
 })
 

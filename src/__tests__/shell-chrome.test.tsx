@@ -511,8 +511,10 @@ describe('sidebar collapse toggle (width-independent)', () => {
   })
 })
 
-describe('widgets column (width-gated)', () => {
-  // Widgets are a web-shell column; the native shell never mounts them.
+describe('widgets column (removed until widgets exist, rn-ui L6)', () => {
+  // The RightNav stub is gone: no width earns it back, and the feed keeps
+  // the wide column. These pin the absence at the widths that used to
+  // mount it. (Still web-shell only; the native shell never had it.)
   let restoreOs: {restore: () => void} | null = null
   beforeEach(() => {
     restoreOs = jest.replaceProperty(Platform, 'OS', 'web')
@@ -521,26 +523,26 @@ describe('widgets column (width-gated)', () => {
     restoreOs?.restore()
     restoreOs = null
   })
-  it('shows widgets on a wide window with the full sidebar', async () => {
+  it('mounts no widgets stub on a wide window with the full sidebar', async () => {
     widthHolder.width = 1280
     await renderShell({signedIn: true, family: 'mastodon'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.getByTestId('right-nav')).toBeTruthy()
+    expect(screen.queryByTestId('right-nav')).toBeNull()
   })
 
-  it('hides widgets when the feed + full sidebar fill the window', async () => {
+  it('mounts no widgets stub when the feed + full sidebar fill the window', async () => {
     widthHolder.width = 1050
     await renderShell({signedIn: true, family: 'mastodon'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     expect(screen.queryByTestId('right-nav')).toBeNull()
   })
 
-  it('collapsing the sidebar earns the widgets back', async () => {
+  it('collapsing the sidebar still mounts no widgets stub', async () => {
     widthHolder.width = 1050
     await renderShell({signedIn: true, family: 'mastodon'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     expect(screen.queryByTestId('right-nav')).toBeNull()
     fireEvent.press(screen.getByTestId('sidebar-collapse'))
-    expect(screen.getByTestId('right-nav')).toBeTruthy()
+    expect(screen.queryByTestId('right-nav')).toBeNull()
   })
 })

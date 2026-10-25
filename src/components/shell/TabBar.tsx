@@ -34,6 +34,14 @@ const MOBILE_LABELS: Record<keyof TabParamList, string> = {
 const SIGNED_IN_TABS: (keyof TabParamList)[] = ['Home', 'Network', 'Explore', 'Notifications', 'User']
 const SIGNED_OUT_TABS: (keyof TabParamList)[] = ['Home', 'Network', 'Explore', 'Login']
 
+// Non-inset chrome height of the mobile tab bar, read by overlays that
+// float above it (`ToastHost`, `ComposeFab` clearance): container top
+// padding 6 + tab content (vertical padding 9*2 + 20px icon + 3 gap +
+// 12px label) + container bottom padding 12 + 1px top border = 72. The
+// home-indicator inset stacks on top at the call site. Keep in sync with
+// `styles` below.
+export const SHELL_TAB_BAR_HEIGHT = 72
+
 export function ShellTabBar({leaf}: {leaf: LeafState}) {
   const session = useOptionalActiveSession()
   const alf = useAlfTheme()

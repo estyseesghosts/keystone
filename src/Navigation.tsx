@@ -1,5 +1,5 @@
 import {useMemo, useState} from 'react'
-import {Platform, StyleSheet, View} from 'react-native'
+import {StyleSheet, View} from 'react-native'
 import {
   DarkTheme,
   DefaultTheme,
@@ -14,9 +14,7 @@ import {msg} from '@lingui/macro'
 
 import {useTheme as useAlfTheme} from '#/alf'
 import {useShellLayout} from '#/alf/breakpoints'
-import {useViewportWidth} from '#/alf/useViewportWidth'
 import {butterflyPx} from '#/alf/tokens'
-import {Body} from '#/alf/typography'
 import {ScopeUpgradeBanner} from '#/components/ScopeUpgradeBanner'
 import {navigationRef} from '#/navigationRef'
 import {
@@ -92,18 +90,6 @@ export {
 export {goBackOrFeed, NotificationsUnreadBadge} from '#/components/shell/shellNav'
 export {handleLine} from '#/components/shell/Sidebar'
 
-// Widgets column (Phase 5 stub): 300 content + 16 padding per side.
-const RIGHT_NAV_WIDTH = 300 + 32
-
-function RightNav() {
-  const {i18n} = useLingui()
-  return (
-    <View style={{width: RIGHT_NAV_WIDTH, paddingHorizontal: 16, paddingVertical: 16}} testID="right-nav">
-      <Body color="faint">{i18n._(msg`Widgets land in Phase 5.`)}</Body>
-    </View>
-  )
-}
-
 const Tab = createBottomTabNavigator<TabParamList>()
 const Stack = createNativeStackNavigator<StackParamList>()
 
@@ -129,20 +115,22 @@ function MainTabs() {
         component={ExploreScreen}
         options={{tabBarLabel: i18n._(msg`Explore`)}}
       />
-      {session ? (
-        <>
-          <Tab.Screen
-            name="Notifications"
-            component={NotificationsScreen}
-            options={{tabBarLabel: i18n._(msg`Notifications`)}}
-          />
-          <Tab.Screen
-            name="User"
-            component={UserScreen}
-            options={{tabBarLabel: i18n._(msg`Profile`)}}
-          />
-        </>
-      ) : (
+      {/*
+        rn-ui M5: Notifications + User stay registered with no session so a
+        signed-out deep link (`/notifications`, `/users/:id`) lands on
+        their honest signed-out state instead of falling through to Home.
+        The tab bar itself still shows Sign in (see `ShellTabBar`). */}
+      <Tab.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{tabBarLabel: i18n._(msg`Notifications`)}}
+      />
+      <Tab.Screen
+        name="User"
+        component={UserScreen}
+        options={{tabBarLabel: i18n._(msg`Profile`)}}
+      />
+      {session ? null : (
         <Tab.Screen
           name="Login"
           component={LoginScreen}
@@ -159,7 +147,6 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
   // Manual collapse/expand overrides the width-derived layout on desktop;
   // mobile is always mobile (the override never applies there).
   const layout = effectiveSidebarLayout(autoLayout, sidebarMode)
-  const viewportWidth = useViewportWidth()
   const [leaf, setLeaf] = useState<LeafState>({name: undefined})
   const alf = useAlfTheme()
   // Runtime deploy base (hosting boot in Root.tsx): subscribe, never a
@@ -177,17 +164,9 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
     [shellBase],
   )
   const mobile = layout === 'mobile'
-  // Widgets render only when the feed keeps its full 600 AND the 332px
-  // widgets column (300 + padding) fits beside the *effective* sidebar —
-  // collapsing the sidebar can earn the widgets back on narrow windows.
-  // Without widgets the feed widens to mainColMaxWide instead of leaving
-  // the freed space empty.
-  const sidebarWidth = layout === 'full' ? butterflyPx.sidebarMin : butterflyPx.railWidth
-  const wide =
-    Platform.OS === 'web' &&
-    !mobile &&
-    viewportWidth >= sidebarWidth + butterflyPx.mainColMax + RIGHT_NAV_WIDTH
-  const feedMaxWidth = wide ? butterflyPx.mainColMax : butterflyPx.mainColMaxWide
+  // rn-ui L6: no widgets column until widgets exist — the feed always takes
+  // the wide column instead of leaving a stub rail beside it.
+  const feedMaxWidth = butterflyPx.mainColMaxWide
   // The compose overlay takes over the whole viewport (v1): the mobile
   // strip stays out of its way while it is focused.
   const stripVisible = mobile && leaf.name !== 'Compose'
@@ -237,8 +216,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
           {mobile ? null : <Sidebar layout={layout} leaf={leaf} />}
           {/* Feed column: flexes with the window; the capped inner feed
               centers, so leftover space becomes L/R padding on large
-              screens. The widgets rail beside it is a fixed width,
-              mounted only when it fits (see `wide` above). */}
+              screens. */}
           <View style={[styles.maincol, mobile ? styles.maincolMobile : styles.maincolCenter]}>
             {stripVisible ? <MobileStrip leaf={leaf} /> : null}
             {/* 0.8 — global, per-session permission/scope prompt. Reads
@@ -306,7 +284,6 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               </Stack.Navigator>
             </View>
           </View>
-          {wide ? <RightNav /> : null}
           {mobile ? <ShellTabBar leaf={leaf} /> : null}
         </View>
       </PostHandlersProvider>

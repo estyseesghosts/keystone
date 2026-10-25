@@ -14,9 +14,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {FlatList, Image, Keyboard, Pressable as RNPressable, RefreshControl, StyleSheet, TextInput, View, type View as ViewType} from 'react-native'
 import {
   useFocusEffect,
-  useNavigation,
   useRoute,
-  type NavigationProp,
   type RouteProp,
 } from '@react-navigation/native'
 
@@ -54,6 +52,7 @@ import {SignInButton} from '#/components/SignInButton'
 import {MediaIcon, SmileIcon} from '#/components/icons'
 import {usePostShadowState} from '#/state/cache'
 import {navigationRef} from '#/navigationRef'
+import {goBackOrFeed} from '#/components/shell/shellNav'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
@@ -1109,7 +1108,6 @@ function FullSubtree({
 
 export function NoteScreen() {
   const route = useRoute<RouteProp<RootParamList, 'Note'>>()
-  const nav = useNavigation<NavigationProp<RootParamList>>()
   const id = route.params.id
   const {session, backend} = useActiveBackend()
   const sessionId = session?.id ?? null
@@ -1120,10 +1118,12 @@ export function NoteScreen() {
   const focused = thread.data?.focused ?? null
   // Deleting the focused post blanks its card (shadow isDeleted): leave
   // the detail for the previous screen instead (v1 `navigate("/")`, F20).
+  // A deep-linked Note has no back history, so the shared shell fallback
+  // takes the feed instead of logging an unhandled action (rn-ui L3).
   const shadow = usePostShadowState(sessionId ?? '', focused?.id ?? '')
   useEffect(() => {
-    if (shadow?.isDeleted) nav.goBack()
-  }, [shadow?.isDeleted, nav])
+    if (shadow?.isDeleted) goBackOrFeed()
+  }, [shadow?.isDeleted])
   // Detail tabs (v1 `Note` parity, F19): replies live below the
   // composer entry; boosts and reactions list the actors.
   const [tab, setTab] = useState<'replies' | 'reposts' | 'reactions'>('replies')
