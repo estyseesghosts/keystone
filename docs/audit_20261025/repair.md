@@ -506,8 +506,8 @@ followers-only post never appear in the persisted blob.
 
 ## X1.5 - Runtime 401 handling
 
-Status: not started
-Branch: `repair25-x1.5-runtime-401`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x1.5.md`; 226 suites / 3188 tests green at Wave-1 commit)
+Branch: `repair25-x1.5-runtime-401` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: sessions-cache 4
 
 **Goal.** A token revoked while the app runs is detected and the session is
@@ -576,8 +576,8 @@ directly; use config plugins.
 
 ## X2.1 - A real random source, everywhere
 
-Status: not started
-Branch: `repair25-x2.1-crypto`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x2.1.md`; ADR none (seam+polyfill, recorded in DECISIONS); 231 suites / 3301 tests green at Wave-2 commit)
+Branch: `repair25-x2.1-crypto` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: networking H1, L2; mastodon 2, 8 (key stability); security L3 (PKCE half); misskey M8
 
 **Goal.** No `Math.random` anywhere in a security path; the native
@@ -721,8 +721,8 @@ recorded with every mitigation that does not need signing.
 
 ## X2.4 - Outbound URL policy (SSRF / tracking)
 
-Status: not started
-Branch: `repair25-x2.4-outbound-urls`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x2.4.md`; 231 suites / 3301 tests green at Wave-2 commit)
+Branch: `repair25-x2.4-outbound-urls` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: privacy 5 (guard half); networking M9; richtext F7 (guard half)
 
 **Goal.** One shared predicate decides whether the device may fetch a

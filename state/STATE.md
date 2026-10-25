@@ -5,17 +5,17 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **217 suites / 2967 tests**,
+Gate baseline (last green on main): **231 suites / 3301 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Wave 0 done (X0.1–X0.4 committed). Wave 1 batch 1 done: X1.1
-   (vault + ADR 0011), X1.4 (cache policy), X1.6 (platform config)
-   committed — **222 suites / 3113 tests** green.
-2. Wave 1 batch 2: X1.2 (purge) then X1.3 (storage resilience —
-   renames a key X1.2 owns), then X1.5 (401 handling).
-3. Waves 2+ in order; D8=yes (build X4.5); signing/App Links skipped
-   (owner); no non-English translations (English catalog only).
+1. Waves 0–1 done. Wave 2 batch 1 done: X2.1 (crypto seam +
+   polyfill) + X2.4 (outbound URL policy) committed.
+   (Coordinator fallout in those commits: random.ts lint-seam entry,
+   db8 byte fix, un-awaited stream-cleanup fix.)
+2. Wave 2 batch 2: X2.2 (transport) + X2.3 (auth/links) + X2.5
+   (privacy) in parallel (file-disjoint).
+3. Wave 2 batch 2: X2.2 + X2.3 + X2.5 in parallel; then Wave 3.
 
 Blockers / owner-open:
 - Rig `:3101`/`:3102` refused; device not run by agents — all live
