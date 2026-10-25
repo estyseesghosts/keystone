@@ -202,7 +202,7 @@ export function ChatThread({
   const onRefresh = useCallback(() => {
     if (thread.queryKey) trimQueryToFirstPage(queryClient, thread.queryKey)
     void thread.refetch()
-  }, [queryClient, thread.queryKey, thread.refetch])
+  }, [queryClient, thread])
 
   const send = async () => {
     const text = draft.trim()

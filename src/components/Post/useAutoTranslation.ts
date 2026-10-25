@@ -143,15 +143,22 @@ export function useAutoTranslation(args: {
   // decideTranslation's foreign-script misfire path (the text genuinely
   // changed, so it is NOT redundant) and still shows. Both checks run on
   // the merged value so manual + auto share one rule.
-  const decided = rawTranslation
-    ? decideTranslation(effective.content.plain, rawTranslation, srcLang)
-    : null
+  const decided = useMemo(
+    () => (rawTranslation ? decideTranslation(effective.content.plain, rawTranslation, srcLang) : null),
+    [rawTranslation, effective.content.plain, srcLang],
+  )
   const sameLanguageResult =
     rawTranslation !== null && isSameLanguagePost(rawTranslation.sourceLang, srcLang)
-  const shownTranslation =
-    rawTranslation && decided?.show === true && !(sameLanguageResult && decided.label !== null)
-      ? {sourceLang: decided.label, text: rawTranslation.text}
-      : null
+  // Memoized derivation (X8.4): the translated-nodes memo below keys on
+  // this object, so it must hold its identity while its inputs are unchanged
+  // (an inline conditional would invalidate it every render).
+  const shownTranslation = useMemo(
+    () =>
+      rawTranslation && decided?.show === true && !(sameLanguageResult && decided.label !== null)
+        ? {sourceLang: decided.label, text: rawTranslation.text}
+        : null,
+    [rawTranslation, decided, sameLanguageResult],
+  )
   // The translated body replaces the original; the header above it
   // toggles back and forth. Hidden with the CW gate so a closed warning
   // never leaks the translated text early.
@@ -167,7 +174,7 @@ export function useAutoTranslation(args: {
       shownTranslation
         ? contentFromTranslatedText(shownTranslation.text, originalTags)
         : null,
-    [shownTranslation?.text, originalTags],
+    [shownTranslation, originalTags],
   )
   return {
     shownTranslation,

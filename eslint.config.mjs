@@ -47,9 +47,9 @@ export default [
       'keystone/query-key-session-first': 'error',
       'keystone/no-inner-html': 'error',
       'keystone/no-literal-ui-string': 'error',
-      // X8.4 raises exhaustive-deps to error after the cleanup pass.
+      // Promoted to error by X8.4 (cleanup pass landed, warning set is empty).
       'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/exhaustive-deps': 'error',
     },
   },
   {

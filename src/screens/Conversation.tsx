@@ -106,7 +106,7 @@ export function ConversationScreen() {
     })
     // Mark-read is a fire-once effect per thread, not a render input;
     // `markRead` is the stable mutation object from the hook.
-  }, [conversation, id])
+  }, [conversation, id, markRead])
 
   if (!session || !backend) {
     return (

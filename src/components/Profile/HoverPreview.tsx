@@ -377,6 +377,7 @@ export function HoverLayer({
   // mounted box (viewport-relative already — the layer is fixed) and
   // shift it in with an edge margin; re-run when card content resizes
   // (banner/avatar loads changing its height).
+  /* eslint-disable react-hooks/exhaustive-deps -- `pos` is an intentional re-trigger: re-clamp after repositioning (the `setFix(null)` reset above is a no-op render when already null, so without `pos` a moved card would keep stale coordinates). `cardRef` is a stable ref object, never a dep. */
   useEffect(() => {
     if (!host || fix !== null || typeof document === 'undefined') return
     const el = cardRef.current
@@ -396,6 +397,7 @@ export function HoverLayer({
     ro.observe(el)
     return () => ro.disconnect()
   }, [host, pos, fix])
+  /* eslint-enable react-hooks/exhaustive-deps */
   if (!host) {
     // No DOM (native test renderer) — portaling is impossible, so render
     // the card box inline. Production native never reaches here (the

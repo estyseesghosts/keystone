@@ -138,7 +138,7 @@ export function ProfileEditorScreen() {
       cancelled = true
     }
     // Load once per backend identity; the family switch re-seeds the form.
-  }, [backend])
+  }, [backend, fieldCap])
 
   // v1-style overlay: the `ProfileEdit` route is a transparent modal, so
   // this screen renders as a floating card over a dismissible scrim. Every

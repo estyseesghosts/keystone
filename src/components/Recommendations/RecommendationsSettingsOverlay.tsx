@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useRef, useState} from 'react'
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {Modal, Platform, ScrollView, StyleSheet, Switch, View} from 'react-native'
 
 import {atoms} from '#/alf/atoms'
@@ -182,6 +182,22 @@ export function RecommendationsSettingsOverlay({
     }
   }, [open])
 
+  const dirty = useMemo(
+    () => (draft && baseline ? JSON.stringify(draft) !== JSON.stringify(baseline) : false),
+    [draft, baseline],
+  )
+
+  // Stable close (dirty/confirming-gated): the keydown effect below and the
+  // chrome buttons share one identity, so Escape always reaches the current
+  // gate state instead of a stale closure (X8.4).
+  const requestClose = useCallback(() => {
+    if (dirty && !confirming) {
+      setConfirming(true)
+      return
+    }
+    onClose()
+  }, [dirty, confirming, onClose])
+
   useEffect(() => {
     if (!open || Platform.OS !== 'web' || typeof document === 'undefined') return
     const onKey = (e: KeyboardEvent) => {
@@ -192,22 +208,9 @@ export function RecommendationsSettingsOverlay({
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, draft, baseline])
-
-  const dirty = useMemo(
-    () => (draft && baseline ? JSON.stringify(draft) !== JSON.stringify(baseline) : false),
-    [draft, baseline],
-  )
+  }, [open, requestClose])
 
   if (!open) return null
-
-  function requestClose() {
-    if (dirty && !confirming) {
-      setConfirming(true)
-      return
-    }
-    onClose()
-  }
 
   async function save() {
     if (!draft || !sessionId) return

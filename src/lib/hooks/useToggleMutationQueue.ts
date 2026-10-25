@@ -115,7 +115,7 @@ export function useToggleMutationQueue<T>(options: ToggleQueueOptions<T>): Toggl
   const queue = useMemo(
     () =>
       createToggleQueue<T>({
-        initial: options.initial,
+        initial: latest.current.initial,
         equals: (a, b) => (latest.current.equals ?? Object.is)(a, b),
         run: (from, to) => latest.current.run(from, to),
         onOptimistic: v => latest.current.onOptimistic?.(v),

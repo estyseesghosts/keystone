@@ -79,6 +79,7 @@ export function UserScreen() {
   const [error, setError] = useState<unknown>(null)
   const generationRef = useRef(0)
 
+  /* eslint-disable react-hooks/exhaustive-deps -- `routeId`/`routeAcct` reach this callback only through `targetId`, whose changes already recreate `load` and retrigger the `[load]` effect below; listing them would fire a stale-profile fetch on every route change (the generation guard would drop it, but the request is real). */
   const load = useCallback(async () => {
     if (!session || !backend || !targetId) {
       setLoading(false)
@@ -115,6 +116,7 @@ export function UserScreen() {
       if (generationRef.current === generation) setLoading(false)
     }
   }, [session, backend, targetId])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
     setAccount(null)

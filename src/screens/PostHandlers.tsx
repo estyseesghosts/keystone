@@ -122,7 +122,7 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
             : {}),
       }
     },
-    [store, qc],
+    [store, qc, nav],
   )
 
   const handlers = useMemo<PostCardHandlers>(

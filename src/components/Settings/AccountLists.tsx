@@ -64,6 +64,7 @@ export function AccountList({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  /* eslint-disable react-hooks/exhaustive-deps -- `load` takes the backend as a parameter and closes over nothing, and callers pass inline arrows, so listing it would refetch on every parent render; `refreshKey` is the intentional reload signal (read by change, not by value). */
   useEffect(() => {
     let cancelled = false
     if (!backend) return
@@ -80,6 +81,7 @@ export function AccountList({
       cancelled = true
     }
   }, [backend, refreshKey])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const act = async (id: string) => {
     if (!backend || busy) return

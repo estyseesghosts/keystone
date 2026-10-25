@@ -616,12 +616,7 @@ function LivePostCard(props: PostCardProps) {
       isOwn,
       actions.bookmark,
       actions.delete,
-      handlers.onEdit,
-      handlers.onRedraft,
-      handlers.onClip,
-      handlers.user,
-      handlers.userFor,
-      handlers.targetLang,
+      handlers,
       effective,
       sessionId,
       queryClient,
@@ -721,9 +716,11 @@ const PostCardView = memo(function PostCardView({
   // press (native press bubbling): stamp link taps so the body press can
   // stand down when one just landed.
   const linkGuard = useRef(0)
-  const markLink = () => {
+  // Stable stamp (ref-only, so the identity never changes): the press
+  // callbacks below keep their identities for RichText's `ctx` memo.
+  const markLink = useCallback(() => {
     linkGuard.current = Date.now()
-  }
+  }, [])
 
   // A pure repost shows the ORIGINAL with a boost header; a quote is
   // its own post (appearNoteOf encodes exactly this).
@@ -829,7 +826,7 @@ const PostCardView = memo(function PostCardView({
       if (onLinkPress) onLinkPress(href)
       else void Linking.openURL(href).catch(toastError)
     },
-    [onLinkPress],
+    [onLinkPress, markLink],
   )
   const handleMentionPress = useCallback(
     (href: string | null, label: string) => {
@@ -837,7 +834,7 @@ const PostCardView = memo(function PostCardView({
       if (onMentionPress) onMentionPress(href, label)
       else defaultMentionPress(href, label)
     },
-    [onMentionPress],
+    [onMentionPress, markLink],
   )
   const handleHashtagPress = useCallback(
     (tag: string) => {
@@ -845,7 +842,7 @@ const PostCardView = memo(function PostCardView({
       if (onHashtagPress) onHashtagPress(tag)
       else defaultHashtagPress(tag)
     },
-    [onHashtagPress],
+    [onHashtagPress, markLink],
   )
   const openPost = useCallback(() => {
     if (Date.now() - linkGuard.current < 400) return
@@ -855,7 +852,7 @@ const PostCardView = memo(function PostCardView({
     if (Date.now() - linkGuard.current < 400) return
     openPostDetail(quoted.id)
   }, [])
-  const handleReveal = useCallback(() => setQuoteRevealed(true), [])
+  const handleReveal = useCallback(() => setQuoteRevealed(true), [setQuoteRevealed])
   const handleOpenMedia = useCallback(
     (items: Media[], index: number) => setLightbox({items, index}),
     [],

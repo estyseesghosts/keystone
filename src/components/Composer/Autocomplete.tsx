@@ -61,7 +61,7 @@ export function useSuggestions(
       cancelled = true
       clearTimeout(timer)
     }
-  }, [tkey, backend])
+  }, [tkey, backend, trigger])
 
   const suggestions = useMemo<Suggestion[]>(() => {
     if (!trigger) return []

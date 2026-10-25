@@ -59,7 +59,7 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
     return () => {
       cancelled = true
     }
-  }, [backend])
+  }, [filters])
 
   const add = async () => {
     const clean = phrase.trim()
