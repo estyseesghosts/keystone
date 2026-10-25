@@ -1725,7 +1725,7 @@ Audit: a11y 15
 
 ## X9.7 - Error codes, not display text, from `packages/fedi`
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x9.7.md` (slice) + `state/logs/2026-10-25-repair25-x9.7-coordinator.md` (batch-green); 88-code union, grep gate live; 288 suites / 4075 tests green at X9.7 commit)
 Branch: `repair25-x9.7-error-codes`
 Audit: networking L1 (consumer); security L2 (toast echo); i18n requirement
 
