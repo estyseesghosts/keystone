@@ -108,6 +108,28 @@ describe("adaptNote (all three Misskey flavors)", () => {
     );
   });
 
+  it("resolves local reaction urls from a bare-key packed map (X5.3)", () => {
+    const wrapped = adaptNote(fixture<Note>("misskey", "note.json"));
+    const bare = adaptNote(fixture<Note>("misskey", "note-bare.json"));
+    expect(wrapped.reactions?.entries.find((e) => e.key === ":blobcat:")?.url).toBe(
+      "https://misskey.example.com/emoji/blobcat.webp",
+    );
+    expect(bare.reactions?.entries.find((e) => e.key === ":blobcat:")?.url).toBe(
+      "https://misskey.example.com/emoji/blobcat.webp",
+    );
+  });
+
+  it("resolves remote reaction urls from a bare-key packed map (X5.3)", () => {
+    const wrapped = adaptNote(fixture<Note>("sharkey", "note.json"));
+    const bare = adaptNote(fixture<Note>("sharkey", "note-bare.json"));
+    expect(wrapped.reactions?.entries[1].url).toBe(
+      "https://remote.example.com/emoji/wave.png",
+    );
+    expect(bare.reactions?.entries[1].url).toBe(
+      "https://remote.example.com/emoji/wave.png",
+    );
+  });
+
   it("records the absence of a packed myReaction (never faked)", () => {
     const notif = fixture<NotificationItem>("misskey", "notification.json");
     const post = adaptNote(notif.note as Note);
@@ -453,10 +475,13 @@ describe("cursors and pages", () => {
     expect(encodeCursor(null)).toBeNull();
   });
 
-  it("pageOf ends on a short or empty page (the app's walk guard)", () => {
+  it("pageOf ends only on an empty page (M15); short pages still carry a cursor", () => {
     const note = fixture<NotificationItem>("misskey", "notification.json").note as Note;
+    // 1 < 5: the listing is NOT exhausted (post-filtering servers return
+    // short pages while more exist) — the page carries a cursor and the
+    // UI fetches once more. Only the empty page ends the feed.
     const short = pageOf([note], 5, adaptNote);
-    expect(short.end).toBe(true); // 1 < 5: the listing is exhausted
+    expect(short.end).toBe(false);
     expect(decodeCursor(short.cursor)).toEqual({ untilId: note.id });
     const empty = pageOf([], 5, adaptNote);
     expect(empty.end).toBe(true);

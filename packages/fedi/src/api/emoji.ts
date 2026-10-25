@@ -8,7 +8,6 @@
 // the UI localizes).
 
 import {
-  bareEmojiName,
   customEmojiNameFromReaction,
   stripEmojiColons,
 } from "../misskey/emoji";
@@ -147,34 +146,10 @@ export function sameEmojiKey(a: string, b: string): boolean {
   return localA && localB;
 }
 
-/** Resolve a code against a packed per-object map (`reactionEmojis`,
- * `emojis`): tries the exact inner (`name@host`) first, then — for
- * LOCAL codes only (`:name:`, `:name@.:`) — the bare name, plus
- * colon-wrapped variants of each (tolerant of either key shape).
- * Remote codes (`:name@host:`) never fall back to the bare name: a
- * packed bare key is a *local* emoji and rendering it under a remote
- * code would show the wrong image. Accepts the code with or without
- * surrounding colons. Pure. */
-export function lookupPackedEmojis(
-  packed: Record<string, string> | null | undefined,
-  code: string,
-): string | null {
-  if (!packed) return null;
-  const trimmed = code.trim();
-  if (trimmed.length === 0) return null;
-  const inner = stripEmojiColons(trimmed) ?? trimmed;
-  const { host } = splitEmojiInner(inner);
-  const local = host === "" || host === ".";
-  const bare = bareEmojiName(inner);
-  const candidates = local
-    ? [inner, bare, `:${inner}:`, `:${bare}:`]
-    : [inner, `:${inner}:`];
-  for (const key of candidates) {
-    const url = packed[key];
-    if (typeof url === "string" && url.length > 0) return url;
-  }
-  return null;
-}
+// Packed-emoji lookup lives in `core/emoji` so the Misskey adapter and
+// the app share one implementation (see `core/emoji.ts` for the lookup
+// order and the local-only bare-name rule).
+export { lookupPackedEmojis } from "../core/emoji";
 
 export interface CustomEmojiGroup {
   category: string;

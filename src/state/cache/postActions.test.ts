@@ -130,3 +130,78 @@ describe('postActionController queue ordering (P4.2)', () => {
     await fav
   })
 })
+
+describe('postActionController reaction emoji resolution (X5.3)', () => {
+  const reactionCaps = () => capsWith('reactions', 'favourites_distinct_from_reactions')
+  const reactingBackend = () =>
+    ({
+      capabilities: reactionCaps(),
+      react: async () => undefined,
+      unreact: async () => undefined,
+    }) as unknown as Backend
+
+  it('treats a bare-key packed url as known (no pendingEmoji)', async () => {
+    const store = createPostShadowStore()
+    const controller = createPostActionController({store})
+    const post = makePost({
+      reactions: {
+        total: 1,
+        entries: [{key: ':blobcat:', count: 1, mine: false, url: null}],
+        mine: null,
+        myReactions: [],
+        urls: {blobcat: 'https://misskey.example.com/emoji/blobcat.webp'},
+      },
+    })
+    await controller.setReaction('sA', reactingBackend(), post, ':blobcat:')
+    expect(store.get('sA', post.id)?.pendingEmoji ?? null).toBeNull()
+  })
+
+  it('treats a colon-wrapped packed url as known (no pendingEmoji)', async () => {
+    const store = createPostShadowStore()
+    const controller = createPostActionController({store})
+    const post = makePost({
+      reactions: {
+        total: 1,
+        entries: [{key: ':blobcat:', count: 1, mine: false, url: null}],
+        mine: null,
+        myReactions: [],
+        urls: {':blobcat:': 'https://misskey.example.com/emoji/blobcat.webp'},
+      },
+    })
+    await controller.setReaction('sA', reactingBackend(), post, ':blobcat:')
+    expect(store.get('sA', post.id)?.pendingEmoji ?? null).toBeNull()
+  })
+
+  it('keeps an unknown custom reaction pending', async () => {
+    const store = createPostShadowStore()
+    const controller = createPostActionController({store})
+    const post = makePost()
+    await controller.setReaction('sA', reactingBackend(), post, ':missing@x.example:')
+    expect(store.get('sA', post.id)?.pendingEmoji).toBe(':missing@x.example:')
+  })
+
+  it('a like-shortcut re-read with a bare-key map stays known (no pendingEmoji)', async () => {
+    const store = createPostShadowStore()
+    const controller = createPostActionController({store})
+    const fresh = makePost({
+      reactions: {
+        total: 1,
+        // Adapted before the fix, the entry url would be null for a
+        // bare-key map; the postActions lookup must still resolve it.
+        entries: [{key: ':blobcat:', count: 1, mine: false, url: null}],
+        mine: ':blobcat:',
+        myReactions: [':blobcat:'],
+        urls: {blobcat: 'https://misskey.example.com/emoji/blobcat.webp'},
+      },
+    })
+    const backend = {
+      capabilities: reactionCaps(),
+      react: async () => undefined,
+      unreact: async () => undefined,
+      like: {like: async () => undefined, isSupported: () => null},
+      post: async () => fresh,
+    } as unknown as Backend
+    await controller.setReaction('sA', backend, makePost(), '❤')
+    expect(store.get('sA', 'p1')?.pendingEmoji ?? null).toBeNull()
+  })
+})

@@ -89,7 +89,6 @@ export {
   groupCustomByCategory,
   isHeartReaction,
   isLikeActive,
-  lookupPackedEmojis,
   parseLikeEmoji,
   parseStoredList,
   removeFavourite,
@@ -100,6 +99,7 @@ export {
   touchRecent,
   visibleReactions,
 } from "./api/emoji";
+export { lookupPackedEmojis } from "./core/emoji";
 export type {
   CustomEmojiGroup,
   NamePart,

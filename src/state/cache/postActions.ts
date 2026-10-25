@@ -1,7 +1,7 @@
 import {useCallback, useMemo, useSyncExternalStore} from 'react'
 import {useQueryClient, type QueryClient} from '@tanstack/react-query'
 
-import {backendForSession, isHeartReaction, LikeUnsupportedError, type Backend, type Post} from '@keystone/fedi'
+import {backendForSession, isHeartReaction, LikeUnsupportedError, lookupPackedEmojis, type Backend, type Post} from '@keystone/fedi'
 
 import {
   createToggleQueue,
@@ -152,7 +152,7 @@ export function createPostActionController(deps: {
         v == null ||
         !isCustomKey(v) ||
         !!emojiUrl ||
-        !!post.reactions?.urls[v] ||
+        lookupPackedEmojis(post.reactions?.urls, v) != null ||
         !!post.reactions?.entries.find(e => e.key === v)?.url
       const write = (v: string | null, emojiUrl?: string | null) =>
         store.patch(sessionId, post.id, {
@@ -209,7 +209,7 @@ export function createPostActionController(deps: {
             const known =
               mine == null ||
               !isCustomKey(mine) ||
-              !!urls[mine] ||
+              lookupPackedEmojis(urls, mine) != null ||
               !!fresh?.reactions?.entries.some(e => e.key === mine && e.url)
             store.patch(sessionId, post.id, {
               myReaction: mine,
