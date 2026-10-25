@@ -9,10 +9,10 @@ Gate baseline (last green on main): **292 suites / 4123 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. X11.2 done (committed green; 292 suites / 4123 tests; factories +
-   no-any rule live (v8 AST shape fixed); --forceExit kept with
-   handles evidence — see coord log).
-2. X11.3 docs sync next (solo), then Wave 12 close-out.
+1. Wave 11 done (X11.1–X11.3 committed; 292 suites / 4123 tests stands;
+   docs synced incl. orphaned X3.4 line — see coord log).
+2. Wave 12 close-out next: X12.1 (owner checklists — collect every `not
+   verified` line), then X12.2 (final verification + Status-after-repair).
 3. Signing/App Links skipped (owner); no non-English translations.
 
 Blockers / owner-open:

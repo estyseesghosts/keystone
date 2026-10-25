@@ -1865,7 +1865,7 @@ Audit: build 4 (remaining), 8; misskey/mastodon test gaps (remaining)
 
 ## X11.3 - Docs sync
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x11.3.md` (slice) + `state/logs/2026-10-25-repair25-x11.3-coordinator.md` (batch-green); docs-only, gates unaffected; 292 suites / 4123 tests stands)
 Branch: `repair25-x11.3-docs`
 Audit: misskey M1 (doc), build 1; DECISIONS hygiene
 
