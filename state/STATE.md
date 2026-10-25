@@ -5,17 +5,17 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **266 suites / 3792 tests**,
+Gate baseline (last green on main): **267 suites / 3814 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Wave 6 in progress: X6.1–X6.3 committed (X6.2 step 6 attemptKey
+1. Wave 6 done (X6.1–X6.5 committed; X6.2 step 6 attemptKey
    blocked → tracked follow-up). (Coordinator fallout: missing
-   import, plural two-arg form, TTL fixture timestamps, coalesced
-   ol-node pin, mount-fetch race wait.)
-2. Wave 6 batch 2: X6.4 (link disclosure) + X6.5 (keyboard) in
-   parallel (file-disjoint).
-3. Wave 7 (X7.1–X7.4) next; signing/App Links skipped (owner); no
+   import, plural two-arg, TTL fixtures, ol-node pin, mount-fetch
+   wait, literal-label msg routing.)
+2. Wave 7 batch 1: X7.1 (lightbox) + X7.2 (players) in parallel
+   (file-disjoint); then X7.3+X7.4 in parallel.
+3. Wave 8 next; signing/App Links skipped (owner); no
    non-English translations (English catalog only).
 
 Blockers / owner-open:

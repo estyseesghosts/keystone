@@ -1352,8 +1352,8 @@ Audit: richtext F4, F5, F13 (fidelity, quadratic); misskey M17 (fn)
 
 ## X6.4 - Link and emoji disclosure, line clamp
 
-Status: not started
-Branch: `repair25-x6.4-link-disclosure`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x6.4.md`; 267 suites / 3814 tests green at Wave-6 commit)
+Branch: `repair25-x6.4-link-disclosure` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: richtext F6, F7 (AST half), F8
 
 **Steps.**
@@ -1377,8 +1377,8 @@ Audit: richtext F6, F7 (AST half), F8
 
 ## X6.5 - Composer UI layout checks
 
-Status: not started
-Branch: `repair25-x6.5-composer-device`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x6.5.md`; 267 suites / 3814 tests green at Wave-6 commit)
+Branch: `repair25-x6.5-composer-device` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: rn-ui L5
 
 **Goal.** One keyboard-compensation mechanism per platform.
