@@ -252,6 +252,16 @@ export type PostCardProps = {
   /** Fold long bodies to the timeline budget with a Show more/less
    * toggle (F13). Feeds fold; the detail screen passes false. */
   foldBody?: boolean
+  /** Compact thread-context row (Note ancestors, X-style context above
+   * the focused post): smaller body text, no action bar, no reaction
+   * counts — avatar + name + body stay. Feed default is false, so
+   * existing callers render exactly as before. */
+  context?: boolean
+  /** Hide the "Replying to @…" caption even when reply data exists.
+   * The thread view sets this when the replied-to post is the row
+   * rendered directly above (the spine already says it). Feeds never
+   * set it — their default (false) keeps the caption. */
+  hideReplyContext?: boolean
   testID?: string
   /** Screen-supplied composer/picker callbacks (override the context). */
   handlers?: PostCardHandlers
@@ -599,6 +609,8 @@ const PostCardView = memo(function PostCardView({
   onLinkPress,
   renoters,
   foldBody = true,
+  context = false,
+  hideReplyContext = false,
   testID,
   live,
   sessionId,
@@ -718,7 +730,8 @@ const PostCardView = memo(function PostCardView({
     if (effective.uri) void resolveRemotePostUrl(effective.uri)
   }, [effective.uri])
 
-  const replyTarget = post.replyToId !== null ? (post.reply ?? null) : null
+  const replyTarget =
+    !hideReplyContext && post.replyToId !== null ? (post.reply ?? null) : null
 
   // Link presses keep working when the card supplies no handler (the
   // RichText defaults: external URLs open out, bare tags open the tag
@@ -962,6 +975,7 @@ const PostCardView = memo(function PostCardView({
               sessionId={sessionId}
               authorHost={effective.author.host}
               emojiStyle={emojiStyle}
+              size={context ? 13 : 15}
               backend={backend}
               linkTitles={linkTitles}
               hideLoneLinkChipFor={hideLoneLinkChipFor}
@@ -984,6 +998,7 @@ const PostCardView = memo(function PostCardView({
               sessionId={sessionId}
               authorHost={effective.author.host}
               emojiStyle={emojiStyle}
+              size={context ? 13 : 15}
               backend={backend}
               linkTitles={linkTitles}
               hideLoneLinkChipFor={hideLoneLinkChipFor}
@@ -1050,24 +1065,26 @@ const PostCardView = memo(function PostCardView({
         {!bodyHidden && effective.card === null && unfurlUrl !== null && (
           <UnfurledLinkCard url={unfurlUrl} auto={linkPreviewAuto} testID={`post-unfurl-${post.id}`} />
         )}
-        <ReactionChips
-          reactions={effective.reactions}
-          capabilities={capabilities}
-          sessionId={sessionId}
-          authorHost={effective.author.host}
-          pendingKeys={live?.actions.shadowed.pendingEmojiKeys}
-          likeEmoji={likeEmoji}
-          onToggle={
-            live && live.actions.reaction.gate.enabled
-              ? key =>
-                  void live.actions.reaction
-                    .set(live.actions.reaction.value === key ? null : key)
-                    .catch(toastError)
-              : undefined
-          }
-          testID={`post-reactions-${post.id}`}
-        />
-        {live ? (
+        {!context && (
+          <ReactionChips
+            reactions={effective.reactions}
+            capabilities={capabilities}
+            sessionId={sessionId}
+            authorHost={effective.author.host}
+            pendingKeys={live?.actions.shadowed.pendingEmojiKeys}
+            likeEmoji={likeEmoji}
+            onToggle={
+              live && live.actions.reaction.gate.enabled
+                ? key =>
+                    void live.actions.reaction
+                      .set(live.actions.reaction.value === key ? null : key)
+                      .catch(toastError)
+                : undefined
+            }
+            testID={`post-reactions-${post.id}`}
+          />
+        )}
+        {context ? null : live ? (
           <ActionBar
             post={effective}
             actions={live.actions}

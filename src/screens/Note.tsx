@@ -723,11 +723,15 @@ function InClipsRow({backend, postId}: {backend: Backend; postId: string}) {
 // BEFORE the card so the spine runs under the avatar (avatars sit on
 // the line); it is pointer-transparent so card taps are unaffected.
 // PostCard still owns card-tap navigation to its own Note screen.
+// `hideReplyContext` is adjacency-driven (the row directly above is the
+// parent, so the "Replying to" caption would repeat the spine): callers
+// compute it, never PostCard's feed default.
 function ReplyRowView({
   post,
   sessionId,
   topStub,
   bottomStub,
+  hideReplyContext = false,
 }: {
   post: Post
   sessionId: string
@@ -735,6 +739,8 @@ function ReplyRowView({
   topStub: boolean
   /** A shown child row sits directly below this one. */
   bottomStub: boolean
+  /** The parent post is the row directly above: hide its caption. */
+  hideReplyContext?: boolean
 }) {
   const theme = useTheme()
   return (
@@ -769,7 +775,79 @@ function ReplyRowView({
           ) : null}
         </View>
       ) : null}
-      <PostCard post={post} sessionId={sessionId} testID={`reply-${post.id}`} />
+      <PostCard
+        post={post}
+        sessionId={sessionId}
+        testID={`reply-${post.id}`}
+        hideReplyContext={hideReplyContext}
+      />
+    </View>
+  )
+}
+
+// One compact ancestor row (X-style context above the focused post):
+// avatar + name + smaller body only (PostCard `context`: no action bar,
+// no reaction counts), spine-connected down to the focused post with the
+// SAME avatar-column spine idiom as the reply chains (same SPINE_X /
+// JOINT / WIDTH, same under-card overlay) — no new visual language.
+// `hideReplyContext` is adjacency-driven like the reply rows: the parent
+// is the row directly above, so its caption would repeat the spine.
+function AncestorRowView({
+  post,
+  sessionId,
+  topStub,
+  bottomStub,
+  hideReplyContext,
+}: {
+  post: Post
+  sessionId: string
+  /** A shown ancestor sits directly above (this row's parent). */
+  topStub: boolean
+  /** A shown post row (next ancestor, or the focused post) sits below. */
+  bottomStub: boolean
+  /** The parent post is the row directly above: hide its caption. */
+  hideReplyContext: boolean
+}) {
+  const theme = useTheme()
+  return (
+    <View testID={`ancestor-row-${post.id}`}>
+      {topStub || bottomStub ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          {topStub ? (
+            <View
+              testID={`ancestor-spine-top-${post.id}`}
+              style={{
+                position: 'absolute',
+                left: SPINE_X - SPINE_WIDTH / 2,
+                top: 0,
+                height: SPINE_JOINT,
+                width: SPINE_WIDTH,
+                backgroundColor: theme.palette.border,
+              }}
+            />
+          ) : null}
+          {bottomStub ? (
+            <View
+              testID={`ancestor-spine-bottom-${post.id}`}
+              style={{
+                position: 'absolute',
+                left: SPINE_X - SPINE_WIDTH / 2,
+                top: SPINE_JOINT,
+                bottom: 0,
+                width: SPINE_WIDTH,
+                backgroundColor: theme.palette.border,
+              }}
+            />
+          ) : null}
+        </View>
+      ) : null}
+      <PostCard
+        post={post}
+        sessionId={sessionId}
+        testID={`ancestor-${post.id}`}
+        context
+        hideReplyContext={hideReplyContext}
+      />
     </View>
   )
 }
@@ -872,6 +950,7 @@ function ChainSpine({
         sessionId={sessionId}
         topStub
         bottomStub={level < 2 ? oldest !== null : revealed && items.length > 0}
+        hideReplyContext
       />
       {replies.isPending ? <ChainLoading parentId={shown.id} /> : null}
       {replies.isError ? (
@@ -956,6 +1035,7 @@ function RootReply({
         sessionId={sessionId}
         topStub={false}
         bottomStub={oldest !== null}
+        hideReplyContext={false}
       />
       {replies.isPending ? <ChainLoading parentId={shown.id} /> : null}
       {replies.isError ? (
@@ -1016,6 +1096,7 @@ function FullSubtree({
         sessionId={sessionId}
         topStub={isFirst}
         bottomStub={loaded && items.length > 0}
+        hideReplyContext={isFirst}
       />
       {replies.isPending ? <ChainLoading parentId={shown.id} /> : null}
       {replies.isError ? (
@@ -1148,9 +1229,26 @@ export function NoteScreen() {
           renderItem={({item}) => <RootReply sessionId={sessionId} backend={backend} child={item} />}
           ListHeaderComponent={
             <>
-              {thread.data.ancestors.map(a => (
-                <PostCard key={a.id} post={a} sessionId={sessionId} testID={`ancestor-${a.id}`} />
-              ))}
+              {thread.data.ancestors.map((a, i) => {
+                // Adjacency suppression: hide the caption only when the
+                // replied-to post is the row directly above (the spine
+                // already says it). The first ancestor keeps its caption
+                // when its parent is outside the shown chain.
+                const prev = i > 0 ? thread.data.ancestors[i - 1] : null
+                const hide =
+                  prev !== null &&
+                  appearNoteOf(a).replyToId === appearNoteOf(prev).id
+                return (
+                  <AncestorRowView
+                    key={a.id}
+                    post={a}
+                    sessionId={sessionId}
+                    topStub={i > 0}
+                    bottomStub
+                    hideReplyContext={hide}
+                  />
+                )
+              })}
               {thread.data.incomplete ? (
                 <View style={[atoms.px_md, atoms.py_sm]}>
                   <Caption color="faint">Earlier reply context unavailable.</Caption>
@@ -1166,7 +1264,34 @@ export function NoteScreen() {
                   },
                 ]}
                 testID={`focused-${focused.id}`}>
-                <PostCard post={focused} sessionId={sessionId} foldBody={false} />
+                {thread.data.ancestors.length > 0 ? (
+                  <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+                    <View
+                      testID={`focused-spine-top-${focused.id}`}
+                      style={{
+                        position: 'absolute',
+                        left: SPINE_X - SPINE_WIDTH / 2,
+                        top: 0,
+                        height: SPINE_JOINT,
+                        width: SPINE_WIDTH,
+                        backgroundColor: theme.palette.border,
+                      }}
+                    />
+                  </View>
+                ) : null}
+                <PostCard
+                  post={focused}
+                  sessionId={sessionId}
+                  foldBody={false}
+                  hideReplyContext={
+                    thread.data.ancestors.length > 0 &&
+                    !thread.data.incomplete &&
+                    appearNoteOf(focused).replyToId ===
+                      appearNoteOf(
+                        thread.data.ancestors[thread.data.ancestors.length - 1],
+                      ).id
+                  }
+                />
               </View>
               <InClipsRow backend={backend} postId={focused.id} />
               <InlineReply session={session} backend={backend} focused={focused} threadId={id} />

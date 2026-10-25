@@ -26,8 +26,11 @@ parent-child-only spine stubs, composer font reverted to body metrics —
 (2026-10-26): avatar hover anchor hugs the 40×40 box (was a full-height
 strip), media pressable shrink-wraps the fitted frame (was full row
 width) — **217 suites / 2963 tests** green. Log:
-`state/logs/2026-10-26-clicktargets.md`. Next: owner verifies on web
-against `docs/clicktargets/correct-*.png`.
+`state/logs/2026-10-26-clicktargets.md`. Deep chains fixed
+(2026-10-26): compact spine-connected ancestors, adjacency-driven
+"Replying to" suppression, focused distinction kept — **217 suites /
+2967 tests** green. Log: `state/logs/2026-10-26-deep-chains.md`.
+Next: owner verifies on web against `docs/deep-chains/`.
 
 Repair program 2026-10-24 (audit `docs/audit_20261024/`): ALL WAVES
 MERGED on `main` — Wave 0 (`c817c30`), Wave 1 (`4625769`), Wave 2

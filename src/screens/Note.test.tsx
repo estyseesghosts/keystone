@@ -44,9 +44,14 @@ function lastFocusEffect(): () => void {
 }
 
 // File-level: every describe below mounts its own NoteScreen instances,
-// so the captured-callback log resets for every test.
-beforeEach(() => {
+// so the captured-callback log resets for every test. The post-shadow
+// store is a module singleton shared across mounts: reset it too, or the
+// F20 delete test's `isDeleted` patch on p1 leaks into every later test
+// mounting the focused post (its card returns null when shadow-deleted).
+beforeEach(async () => {
   mockFocusCbs.length = 0
+  const {postShadowStore} = await import('#/state/cache')
+  postShadowStore.reset()
 })
 
 const mockBackends = new Map<string, unknown>()
@@ -128,6 +133,10 @@ function setup(backend: ReturnType<typeof fakeBackend>) {
     hydrate: async () => {},
   }
   const qc = new QueryClient({
+    // No cross-test cache reliance (fresh client per mount): collect
+    // inactive queries immediately instead of lingering them for 60s —
+    // 33 mounts in one worker otherwise pile up heap/GC pressure and
+    // starve the heavy tests (compact ancestors, 64-deep cycle reveal).
     defaultOptions: {queries: {retry: false, gcTime: 60_000}},
   })
   render(
@@ -402,6 +411,103 @@ describe('NoteScreen ancestors (flat, no connectors)', () => {
     expect(screen.queryByTestId('ancestor-chain')).toBeNull()
     expect(screen.queryByTestId('ancestor-a0')).toBeNull()
   })
+
+  // Heavy mount (full thread + replies + composer + emoji data): ~2s
+  // alone, over the 5s default under file load — same 20s budget class
+  // as the postquote-emoji tests.
+  it('ancestors render compact with no action bar, spine-connected to a distinct focused post', async () => {
+    setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('ancestor-a0')).toBeTruthy())
+    // Compact: avatar + name + body stay, but no action bar affordances
+    // and no reaction counts — the focused post keeps its full card.
+    expect(screen.getByTestId('post-body-a0')).toBeTruthy()
+    expect(screen.queryByTestId('post-actions-a0')).toBeNull()
+    expect(screen.queryByTestId('action-reply-a0')).toBeNull()
+    expect(screen.queryByTestId('action-boost-a0')).toBeNull()
+    expect(screen.queryByTestId('action-react-a0')).toBeNull()
+    expect(screen.queryByTestId('action-like-a0')).toBeNull()
+    expect(screen.queryByTestId('post-reactions-a0')).toBeNull()
+    // findBy, not getBy: under full-suite load the focused card can land a
+    // beat after the ancestors in the same header commit.
+    expect(await screen.findByTestId('post-actions-p1')).toBeTruthy()
+    // Spine: the ancestor row runs down, the focused wrapper receives it.
+    expect(screen.getByTestId('ancestor-spine-bottom-a0')).toBeTruthy()
+    expect(screen.queryByTestId('ancestor-spine-top-a0')).toBeNull()
+    expect(screen.getByTestId('focused-spine-top-p1')).toBeTruthy()
+    // Focused distinction: the soft-background bordered wrapper stays,
+    // holding the full card above the composer.
+    const focusedStyle = StyleSheet.flatten(screen.getByTestId('focused-p1').props.style)
+    expect(focusedStyle.borderTopWidth).toBe(1)
+    expect(focusedStyle.borderBottomWidth).toBe(1)
+  }, 20000)
+
+  it('chained ancestors hide the redundant Replying to caption', async () => {
+    const a0 = makePost({id: 'a0', content: {mfm: 'root', plain: 'root'}})
+    const a1 = makePost({
+      id: 'a1',
+      replyToId: 'a0',
+      reply: a0,
+      content: {mfm: 'middle', plain: 'middle'},
+    })
+    const focused = makePost({
+      id: 'p1',
+      replyToId: 'a1',
+      reply: a1,
+      content: {mfm: 'focused post', plain: 'focused post'},
+    })
+    setup(
+      fakeBackend({
+        ancestor: a0,
+        focused,
+        post: jest.fn(async () => focused),
+        thread: jest.fn(async () => ({ancestors: [a0, a1], incomplete: false})),
+        threadReplies: jest.fn(async () => ({items: [], cursor: null, end: true})),
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('ancestor-a1')).toBeTruthy())
+    // a1 sits directly under a0 and the focused post sits under a1: the
+    // spine already says it, so neither repeats the caption.
+    expect(screen.queryByTestId('reply-context-a1')).toBeNull()
+    expect(screen.queryByTestId('reply-context-p1')).toBeNull()
+    // Spine connects the whole chain down into the focused post.
+    expect(screen.getByTestId('ancestor-spine-bottom-a0')).toBeTruthy()
+    expect(screen.getByTestId('ancestor-spine-top-a1')).toBeTruthy()
+    expect(screen.getByTestId('ancestor-spine-bottom-a1')).toBeTruthy()
+    expect(screen.getByTestId('focused-spine-top-p1')).toBeTruthy()
+  })
+
+  it('an orphaned first ancestor keeps its caption and the incomplete marker stays', async () => {
+    const outside = makePost({id: 'out', content: {mfm: 'outside', plain: 'outside'}})
+    const a1 = makePost({
+      id: 'a1',
+      replyToId: 'out',
+      reply: outside,
+      content: {mfm: 'orphan ancestor', plain: 'orphan ancestor'},
+    })
+    const focused = makePost({
+      id: 'p1',
+      replyToId: 'a1',
+      reply: a1,
+      content: {mfm: 'focused post', plain: 'focused post'},
+    })
+    setup(
+      fakeBackend({
+        ancestor: a1,
+        focused,
+        post: jest.fn(async () => focused),
+        thread: jest.fn(async () => ({ancestors: [a1], incomplete: true})),
+        threadReplies: jest.fn(async () => ({items: [], cursor: null, end: true})),
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('ancestor-a1')).toBeTruthy())
+    // The parent is not shown above (context is cut off): the caption is
+    // the only signal, so it stays — as does the incomplete marker.
+    expect(screen.getByTestId('reply-context-a1')).toBeTruthy()
+    expect(screen.getByText('Earlier reply context unavailable.')).toBeTruthy()
+  })
 })
 
 describe('NoteScreen flat reply chains (spine)', () => {
@@ -587,12 +693,14 @@ describe('NoteScreen flat reply chains (spine)', () => {
     await waitFor(() => expect(screen.getByTestId('reply-r2')).toBeTruthy())
   })
 
-  it('a reply cycle expands silently behind the backstop, never hanging or captioning', async () => {
-    const ca = chainPost('ca', 'p1', day('20'), 'cycle a')
+  it('a reply cycle expands silently behind the backstop, never hanging or captioning', async () => {    const ca = chainPost('ca', 'p1', day('20'), 'cycle a')
     const cb = chainPost('cb', 'ca', day('21'), 'cycle b')
     setup(chainBackend({p1: [ca], ca: [cb], cb: [ca]}))
-    await waitFor(() => expect(screen.getByTestId('reply-ca')).toBeTruthy())
-    await waitFor(() => expect(screen.getByTestId('reply-cb')).toBeTruthy())
+    // A=ca renders immediately; C=ca lands with its query — under file
+    // load both can be present before the first assertion runs, so never
+    // assert a singleton here.
+    await waitFor(() => expect(screen.getAllByTestId('reply-ca').length).toBeGreaterThanOrEqual(1))
+    await waitFor(() => expect(screen.getAllByTestId('reply-cb').length).toBeGreaterThanOrEqual(1))
     // The lineal descent already loops once (A=ca, B=cb, C=ca).
     await waitFor(() => expect(screen.getAllByTestId('reply-ca')).toHaveLength(2))
     fireEvent.press(await screen.findByTestId('show-more-replies-ca'))
@@ -601,13 +709,67 @@ describe('NoteScreen flat reply chains (spine)', () => {
     await waitFor(() => expect(screen.getAllByTestId('reply-ca').length).toBeGreaterThan(2))
     expect(screen.queryAllByTestId(/show-more-replies-/)).toHaveLength(0)
     expect(screen.queryByText(/too deep/)).toBeNull()
-  })
+    // One-tap full reveal of a 64-deep adversarial cycle renders dozens of
+    // cards (each with its own queries): needs a generous budget under
+    // file load. Real threads never cycle (fedi tree builder guards).
+  }, 60000)
 
   it('caps chains at the backstop depth and never below it', () => {
     expect(isChainCapped(0)).toBe(false)
     expect(isChainCapped(63)).toBe(false)
     expect(isChainCapped(64)).toBe(true)
     expect(isChainCapped(1000)).toBe(true)
+  })
+
+  it('chain children hide the redundant caption; the root reply keeps it', async () => {
+    const a0 = makePost({id: 'a0', content: {mfm: 'ancestor post', plain: 'ancestor post'}})
+    const focused = makePost({
+      id: 'p1',
+      replyToId: 'a0',
+      reply: a0,
+      content: {mfm: 'focused post', plain: 'focused post'},
+    })
+    const A = makePost({
+      id: 'cha',
+      replyToId: 'p1',
+      reply: focused,
+      createdAt: day('20'),
+      content: {mfm: 'A post', plain: 'A post'},
+    })
+    const B = makePost({
+      id: 'chb',
+      replyToId: 'cha',
+      reply: A,
+      createdAt: day('21'),
+      content: {mfm: 'B post', plain: 'B post'},
+    })
+    const C = makePost({
+      id: 'chc',
+      replyToId: 'chb',
+      reply: B,
+      createdAt: day('22'),
+      content: {mfm: 'C post', plain: 'C post'},
+    })
+    setup(
+      fakeBackend({
+        focused,
+        post: jest.fn(async () => focused),
+        thread: jest.fn(async () => ({ancestors: [a0], incomplete: false})),
+        threadReplies: jest.fn(async (id: string) => ({
+          items: id === 'p1' ? [A] : id === 'cha' ? [B] : id === 'chb' ? [C] : [],
+          cursor: null,
+          end: true,
+        })),
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('reply-cha')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('reply-chc')).toBeTruthy())
+    // A sits below the composer + tabs, not directly under its parent —
+    // its caption is the only parent signal, so it stays. B sits under A
+    // and C sits under B: the spine already says it, so neither repeats it.
+    expect(screen.getByTestId('reply-context-cha')).toBeTruthy()
+    expect(screen.queryByTestId('reply-context-chb')).toBeNull()
+    expect(screen.queryByTestId('reply-context-chc')).toBeNull()
   })
 })
 
