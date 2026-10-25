@@ -9,6 +9,7 @@
 import {useEffect, useState} from 'react'
 import {View} from 'react-native'
 import {useRoute, type RouteProp} from '@react-navigation/native'
+import {msg} from '@lingui/macro'
 
 import {isUnsupportedError, type Antenna, type FeedDescriptor} from '@keystone/fedi'
 
@@ -18,19 +19,22 @@ import {Button} from '#/components/Button'
 import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
 
 import {antennaSummaryLine} from './Antennas'
 
-function flagsLine(antenna: Antenna): string {
+/** Display line for the antenna's boolean flags (all-false reads as the
+ * honest "no extra filters"). Pure. */
+export function antennaFlagsLine(antenna: Antenna): string {
   const flags: string[] = []
-  if (antenna.caseSensitive) flags.push('case-sensitive')
-  if (antenna.localOnly) flags.push('local only')
-  if (antenna.excludeBots) flags.push('no bots')
-  if (antenna.withReplies) flags.push('with replies')
-  if (antenna.withFile) flags.push('with files')
-  return flags.length > 0 ? flags.join(' · ') : 'no extra filters'
+  if (antenna.caseSensitive) flags.push(i18n._(msg`case-sensitive`))
+  if (antenna.localOnly) flags.push(i18n._(msg`local only`))
+  if (antenna.excludeBots) flags.push(i18n._(msg`no bots`))
+  if (antenna.withReplies) flags.push(i18n._(msg`with replies`))
+  if (antenna.withFile) flags.push(i18n._(msg`with files`))
+  return flags.length > 0 ? flags.join(' · ') : i18n._(msg`no extra filters`)
 }
 
 export function AntennaScreen() {
@@ -74,9 +78,11 @@ export function AntennaScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="antenna-screen">
-        <Pagehead title="Antenna" />
-        <Body>Sign in to see this antenna.</Body>
-        <Caption color="faint">Antennas never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Antenna`)} />
+        <Body>{i18n._(msg`Sign in to see this antenna.`)}</Body>
+        <Caption color="faint">
+          {i18n._(msg`Antennas never show sample data when signed out.`)}
+        </Caption>
         <SignInButton />
       </View>
     )
@@ -89,8 +95,8 @@ export function AntennaScreen() {
   ) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="antenna-screen">
-        <Pagehead title="Antenna" />
-        <Body>Antennas are not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Antenna`)} />
+        <Body>{i18n._(msg`Antennas are not available on this server.`)}</Body>
       </View>
     )
   }
@@ -98,7 +104,7 @@ export function AntennaScreen() {
   if (antennaState === 'loading') {
     return (
       <View style={atoms.flex1} testID="antenna-screen">
-        <Pagehead title="Antenna" />
+        <Pagehead title={i18n._(msg`Antenna`)} />
         <SkeletonList variant="post" testID="antenna-loading" />
       </View>
     )
@@ -107,11 +113,11 @@ export function AntennaScreen() {
   if (antennaState === 'error') {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]} testID="antenna-screen">
-        <Pagehead title="Antenna" />
-        <Body>Could not load this antenna.</Body>
-        <Caption color="faint">Check your connection and try again.</Caption>
+        <Pagehead title={i18n._(msg`Antenna`)} />
+        <Body>{i18n._(msg`Could not load this antenna.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Check your connection and try again.`)}</Caption>
         <Button
-          label="Retry"
+          label={i18n._(msg`Retry`)}
           variant="secondary"
           onPress={() => {
             setAntennaState('loading')
@@ -136,8 +142,8 @@ export function AntennaScreen() {
   if (antennaState === 'missing' || !antenna) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="antenna-screen">
-        <Pagehead title="Antenna" />
-        <Body>This antenna does not exist.</Body>
+        <Pagehead title={i18n._(msg`Antenna`)} />
+        <Body>{i18n._(msg`This antenna does not exist.`)}</Body>
       </View>
     )
   }
@@ -148,7 +154,7 @@ export function AntennaScreen() {
       <Pagehead title={antenna.name} />
       <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]} testID="antenna-params">
         <Caption color="faint">{antennaSummaryLine(antenna)}</Caption>
-        <Caption color="faint">{flagsLine(antenna)}</Caption>
+        <Caption color="faint">{antennaFlagsLine(antenna)}</Caption>
       </View>
       <FeedView sessionId={session.id} descriptor={descriptor} testID="antenna-feed" />
     </View>

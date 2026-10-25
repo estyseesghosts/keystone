@@ -12,6 +12,7 @@
 import {useCallback, useEffect, useState} from 'react'
 import {Image, View} from 'react-native'
 import {useRoute, type RouteProp} from '@react-navigation/native'
+import {msg} from '@lingui/macro'
 
 import {ApiError, isUnsupportedError, type Channel, type FeedDescriptor} from '@keystone/fedi'
 
@@ -21,6 +22,7 @@ import {Button} from '#/components/Button'
 import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
 
@@ -39,11 +41,13 @@ function FollowButton({
   return (
     <View style={[atoms.row, atoms.gap_sm]}>
       <Button
-        label={following ? 'Unfollow' : 'Follow'}
+        label={following ? i18n._(msg`Unfollow`) : i18n._(msg`Follow`)}
         variant={following ? 'secondary' : 'primary'}
         disabled={busy || unknown}
         disabledReason={
-          unknown ? 'This server does not report whether you follow this channel.' : undefined
+          unknown
+            ? i18n._(msg`This server does not report whether you follow this channel.`)
+            : undefined
         }
         onPress={() => {
           if (busy) return
@@ -99,9 +103,11 @@ export function ChannelScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="channel-screen">
-        <Pagehead title="Channel" />
-        <Body>Sign in to see this channel.</Body>
-        <Caption color="faint">Channels never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Channel`)} />
+        <Body>{i18n._(msg`Sign in to see this channel.`)}</Body>
+        <Caption color="faint">
+          {i18n._(msg`Channels never show sample data when signed out.`)}
+        </Caption>
         <SignInButton />
       </View>
     )
@@ -110,8 +116,8 @@ export function ChannelScreen() {
   if (state === 'unsupported' || !channelsApi || !capable) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="channel-screen">
-        <Pagehead title="Channel" />
-        <Body>Channels are not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Channel`)} />
+        <Body>{i18n._(msg`Channels are not available on this server.`)}</Body>
       </View>
     )
   }
@@ -119,7 +125,7 @@ export function ChannelScreen() {
   if (state === 'loading') {
     return (
       <View style={atoms.flex1} testID="channel-screen">
-        <Pagehead title="Channel" />
+        <Pagehead title={i18n._(msg`Channel`)} />
         <SkeletonList variant="post" testID="channel-loading" />
       </View>
     )
@@ -128,10 +134,15 @@ export function ChannelScreen() {
   if (state === 'error') {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]} testID="channel-screen">
-        <Pagehead title="Channel" />
-        <Body>Could not load this channel.</Body>
-        <Caption color="faint">Check your connection and try again.</Caption>
-        <Button label="Retry" variant="secondary" onPress={() => void load()} testID="channel-retry" />
+        <Pagehead title={i18n._(msg`Channel`)} />
+        <Body>{i18n._(msg`Could not load this channel.`)}</Body>
+        <Caption color="faint">{i18n._(msg`Check your connection and try again.`)}</Caption>
+        <Button
+          label={i18n._(msg`Retry`)}
+          variant="secondary"
+          onPress={() => void load()}
+          testID="channel-retry"
+        />
       </View>
     )
   }
@@ -139,8 +150,8 @@ export function ChannelScreen() {
   if (state === 'missing' || !channel) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="channel-screen">
-        <Pagehead title="Channel" />
-        <Body>This channel does not exist.</Body>
+        <Pagehead title={i18n._(msg`Channel`)} />
+        <Body>{i18n._(msg`This channel does not exist.`)}</Body>
       </View>
     )
   }
@@ -159,7 +170,9 @@ export function ChannelScreen() {
           />
         ) : null}
         {channel.description ? <Body>{channel.description}</Body> : null}
-        {channel.isArchived ? <Caption color="faint">This channel is archived.</Caption> : null}
+        {channel.isArchived ? (
+          <Caption color="faint">{i18n._(msg`This channel is archived.`)}</Caption>
+        ) : null}
         <FollowButton
           channel={channel}
           onToggle={async () => {
@@ -171,7 +184,9 @@ export function ChannelScreen() {
               setChannel(prev => (prev ? {...prev, isFollowing: !wasFollowing} : prev))
             } catch (err) {
               setActionError(
-                err instanceof Error ? err.message : 'Could not update the channel follow.',
+                err instanceof Error
+                  ? err.message
+                  : i18n._(msg`Could not update the channel follow.`),
               )
             }
           }}

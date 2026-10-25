@@ -15,7 +15,7 @@ import {SessionProvider} from '#/state/session/SessionProvider'
 import {ThemeProvider} from '#/alf/index'
 
 import {AdminInsightScreen} from './AdminInsight'
-import {insightKeyLabel, measureDisplayValue, visiblePeers} from './AdminInsight'
+import {activityLine, insightKeyLabel, measureDisplayValue, visiblePeers} from './AdminInsight'
 import {formatBytes, queueCountDisplay} from './AdminInsight'
 
 const mockNavigate = jest.fn()
@@ -142,6 +142,15 @@ describe('AdminInsight pure helpers', () => {
     expect(shown).toHaveLength(20)
     expect(remaining).toBe(5)
     expect(visiblePeers(['a.example']).remaining).toBe(0)
+  })
+
+  it('renders activity weeks through the catalog, never parsing counts', () => {
+    expect(
+      activityLine({week: '1729468800', statuses: '12', logins: '3', registrations: '1'}),
+    ).toBe('Week 1729468800: 12 posts, 3 logins, 1 sign-ups')
+    expect(activityLine({week: 'w', statuses: null, logins: null, registrations: null})).toBe(
+      'Week w: — posts',
+    )
   })
 })
 

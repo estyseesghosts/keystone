@@ -11,7 +11,7 @@ import {useCallback, useEffect, useRef, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
 
-import {msg} from '@lingui/macro'
+import {msg, plural} from '@lingui/macro'
 
 import {
   isUnsupportedError,
@@ -38,12 +38,32 @@ const PAGE_SIZE = 20
 
 type ChannelsTab = 'mine' | 'server'
 
+/** One-line channel summary (members · notes · archived · following).
+ * Counts are real numbers, so they use `plural`. Pure. */
 export function channelSummaryLine(channel: Channel): string {
   const bits: string[] = []
-  if (channel.usersCount != null) bits.push(`${channel.usersCount} members`)
-  if (channel.notesCount != null) bits.push(`${channel.notesCount} notes`)
-  if (channel.isArchived) bits.push('archived')
-  if (channel.isFollowing) bits.push('following')
+  if (channel.usersCount != null) {
+    bits.push(
+      i18n._(
+        plural(channel.usersCount, {
+          one: '# member',
+          other: '# members',
+        }),
+      ),
+    )
+  }
+  if (channel.notesCount != null) {
+    bits.push(
+      i18n._(
+        plural(channel.notesCount, {
+          one: '# note',
+          other: '# notes',
+        }),
+      ),
+    )
+  }
+  if (channel.isArchived) bits.push(i18n._(msg`archived`))
+  if (channel.isFollowing) bits.push(i18n._(msg`following`))
   return bits.join(' · ')
 }
 
@@ -60,7 +80,7 @@ function ChannelRow({
       <Pressable
         onPress={onOpen}
         accessibilityRole="link"
-        accessibilityLabel={`${channel.name}. Open channel.`}
+        accessibilityLabel={i18n._(msg`${channel.name}. Open channel.`)}
         testID={`channels-open-${channel.id}`}>
         <Body>{channel.name}</Body>
       </Pressable>
@@ -180,9 +200,11 @@ export function ChannelsScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="channels-screen">
-        <Pagehead title="Channels" />
-        <Body>Sign in to see channels.</Body>
-        <Caption color="faint">Channels never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Channels`)} />
+        <Body>{i18n._(msg`Sign in to see channels.`)}</Body>
+        <Caption color="faint">
+          {i18n._(msg`Channels never show sample data when signed out.`)}
+        </Caption>
         <SignInButton />
       </View>
     )
@@ -193,33 +215,33 @@ export function ChannelsScreen() {
   if (unsupported || !channelsApi || !capable) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="channels-screen">
-        <Pagehead title="Channels" />
-        <Body>Channels are not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Channels`)} />
+        <Body>{i18n._(msg`Channels are not available on this server.`)}</Body>
       </View>
     )
   }
 
   return (
     <View style={atoms.flex1} testID="channels-screen">
-      <Pagehead title="Channels" />
+      <Pagehead title={i18n._(msg`Channels`)} />
       <Tabs
         tabs={[
-          {key: 'mine', label: 'My channels'},
-          {key: 'server', label: 'Server channels'},
+          {key: 'mine', label: i18n._(msg`My channels`)},
+          {key: 'server', label: i18n._(msg`Server channels`)},
         ]}
         active={tab}
         onChange={setTab}
         testID="channels-tabs"
         testIDPrefix="channels-tab"
-        accessibilityLabel="Channels"
+        accessibilityLabel={i18n._(msg`Channels`)}
       />
       {loading ? (
         <SkeletonList variant="row" testID="channels-loading" />
       ) : error ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load channels.</Body>
+          <Body>{i18n._(msg`Could not load channels.`)}</Body>
           <Button
-            label="Retry"
+            label={i18n._(msg`Retry`)}
             variant="secondary"
             onPress={() => {
               setLoading(true)
@@ -257,9 +279,9 @@ export function ChannelsScreen() {
           ListEmptyComponent={
             tab === 'mine' ? (
               <View style={[atoms.centered, atoms.gap_sm, atoms.p_md]}>
-                <Body>You are not following any channels yet.</Body>
+                <Body>{i18n._(msg`You are not following any channels yet.`)}</Body>
                 <Button
-                  label="Browse server channels"
+                  label={i18n._(msg`Browse server channels`)}
                   variant="secondary"
                   onPress={() => setTab('server')}
                   testID="channels-browse-server"
@@ -267,7 +289,7 @@ export function ChannelsScreen() {
               </View>
             ) : (
               <View style={[atoms.centered, atoms.p_md]}>
-                <Body>No channels found on this server.</Body>
+                <Body>{i18n._(msg`No channels found on this server.`)}</Body>
               </View>
             )
           }

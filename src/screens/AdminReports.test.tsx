@@ -19,6 +19,7 @@ import {ThemeProvider} from '#/alf/index'
 import {AdminReportScreen} from './AdminReportDetail'
 import {
   AdminReportsScreen,
+  queueRowSummary,
   reportCategoryLabel,
   reportResolutionLabel,
   reportRowTitle,
@@ -190,6 +191,25 @@ describe('AdminReports pure helpers', () => {
     expect(reportRowTitle(queuedReport())).toBe('reporter → spammer')
     expect(sameIdSet(['a', 'b'], ['b', 'a'])).toBe(true)
     expect(sameIdSet(['a'], ['a', 'b'])).toBe(false)
+  })
+
+  it('summarizes a queue row through the catalog with real plurals', () => {
+    expect(queueRowSummary(queuedReport())).toBe('Open · Spam · 2 posts · 1 rule')
+    expect(
+      queueRowSummary(
+        queuedReport({
+          state: 'resolved',
+          category: null,
+          forwarded: true,
+          statusIds: ['101'],
+          ruleIds: [],
+          assignee: account('12', 'mod'),
+        }),
+      ),
+    ).toBe('Resolved · No category · forwarded · 1 post · mod')
+    expect(
+      queueRowSummary(queuedReport({forwarded: false, statusIds: [], ruleIds: []})),
+    ).toBe('Open · Spam')
   })
 })
 

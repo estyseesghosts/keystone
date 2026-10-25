@@ -19,6 +19,7 @@
 
 import {useCallback, useEffect, useMemo, useState} from 'react'
 import {FlatList, Image, RefreshControl, View} from 'react-native'
+import {msg} from '@lingui/macro'
 
 import {
   contentFromHtml,
@@ -38,6 +39,7 @@ import {Pagehead} from '#/components/Pagehead'
 import {RichText} from '#/components/RichText'
 import {SignInButton} from '#/components/SignInButton'
 import {formatRelativeTime} from '#/components/Post/time'
+import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 
 const PAGE_SIZE = 50
@@ -70,9 +72,9 @@ export function sortAnnouncementsNewestFirst(items: readonly Announcement[]): An
 /** The read indicator the server supports: a known state, or "unknown"
  * when the pack carried no read flag (signed-out/fork). */
 export function announcementReadLabel(announcement: Announcement): string {
-  if (announcement.isRead === true) return 'Read'
-  if (announcement.isRead === false) return 'Unread'
-  return 'Read state unknown'
+  if (announcement.isRead === true) return i18n._(msg`Read`)
+  if (announcement.isRead === false) return i18n._(msg`Unread`)
+  return i18n._(msg`Read state unknown`)
 }
 
 function AnnouncementRow({
@@ -93,9 +95,9 @@ function AnnouncementRow({
   const nodes = useMemo(() => announcementNodes(announcement), [announcement])
   const unread = announcement.isRead === false
   const disabledReason = !dismissable
-    ? 'This server does not support marking announcements as read.'
+    ? i18n._(msg`This server does not support marking announcements as read.`)
     : dismissUnsupported
-      ? 'This server does not provide the announcement dismiss endpoint.'
+      ? i18n._(msg`This server does not provide the announcement dismiss endpoint.`)
       : undefined
   return (
     <View
@@ -123,15 +125,18 @@ function AnnouncementRow({
         </Caption>
         {announcement.endsAt ? (
           <Caption color="faint">
-            Until {new Date(announcement.endsAt).toLocaleDateString()}
-            {announcement.allDay ? ' (all day)' : ''}
+            {announcement.allDay
+              ? i18n._(
+                  msg`Until ${new Date(announcement.endsAt).toLocaleDateString()} (all day)`,
+                )
+              : i18n._(msg`Until ${new Date(announcement.endsAt).toLocaleDateString()}`)}
           </Caption>
         ) : null}
       </View>
       {unread ? (
         <View style={[atoms.row, atoms.gap_sm]}>
           <Button
-            label={busy ? 'Marking…' : 'Mark as read'}
+            label={busy ? i18n._(msg`Marking…`) : i18n._(msg`Mark as read`)}
             variant="secondary"
             disabled={busy || disabledReason !== undefined}
             disabledReason={disabledReason}
@@ -203,7 +208,7 @@ export function AnnouncementsScreen() {
         setItems(prev => (prev ?? []).map(a => (a.id === id ? {...a, isRead: true} : a)))
       } catch (err) {
         if (isUnsupportedError(err)) setDismissUnsupported(true)
-        else setDismissError('Could not mark the announcement as read.')
+        else setDismissError(i18n._(msg`Could not mark the announcement as read.`))
       } finally {
         setDismissing(null)
       }
@@ -216,9 +221,11 @@ export function AnnouncementsScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="announcements-screen">
-        <Pagehead title="Announcements" />
-        <Body>Sign in to read server announcements.</Body>
-        <Caption color="faint">Announcements never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Announcements`)} />
+        <Body>{i18n._(msg`Sign in to read server announcements.`)}</Body>
+        <Caption color="faint">
+          {i18n._(msg`Announcements never show sample data when signed out.`)}
+        </Caption>
         <SignInButton />
       </View>
     )
@@ -229,10 +236,10 @@ export function AnnouncementsScreen() {
   if (unsupported || !announcementsApi || !capable) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="announcements-screen">
-        <Pagehead title="Announcements" />
-        <Body>Announcements are not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Announcements`)} />
+        <Body>{i18n._(msg`Announcements are not available on this server.`)}</Body>
         <Caption color="faint">
-          This server does not publish the announcement endpoints Keystone reads.
+          {i18n._(msg`This server does not publish the announcement endpoints Keystone reads.`)}
         </Caption>
       </View>
     )
@@ -240,15 +247,15 @@ export function AnnouncementsScreen() {
 
   return (
     <View style={atoms.flex1} testID="announcements-screen">
-      <Pagehead title="Announcements" />
+      <Pagehead title={i18n._(msg`Announcements`)} />
       {dismissError ? <Caption color="faint">{dismissError}</Caption> : null}
       {loading ? (
         <SkeletonList variant="row" testID="announcements-loading" />
       ) : error ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load announcements.</Body>
+          <Body>{i18n._(msg`Could not load announcements.`)}</Body>
           <Button
-            label="Retry"
+            label={i18n._(msg`Retry`)}
             variant="secondary"
             onPress={() => {
               setLoading(true)
@@ -282,7 +289,7 @@ export function AnnouncementsScreen() {
           }
           ListEmptyComponent={
             <View style={[atoms.centered, atoms.p_md]}>
-              <Body>No announcements from this server.</Body>
+              <Body>{i18n._(msg`No announcements from this server.`)}</Body>
             </View>
           }
         />

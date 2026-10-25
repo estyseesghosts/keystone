@@ -1,6 +1,7 @@
 import {useSyncExternalStore} from 'react'
 
 import {i18n, type Messages} from '@lingui/core'
+import {useLingui} from '@lingui/react'
 
 import type {KeyValueStore} from '@keystone/fedi'
 
@@ -261,6 +262,22 @@ export function formatCompactCount(locale: LocaleCode, n: number): string {
     }).format(n)
   } catch {
     return String(n)
+  }
+}
+
+/**
+ * Provider-tolerant `i18n` for shared chrome (repair X9.4): inside an
+ * `I18nProvider` this returns the context instance (reactive, re-renders on
+ * `activate`); in a bare tree (unit tests, previews — no provider) it falls
+ * back to the app singleton (same object `Root` provides, render-time
+ * strings, never a throw). The call itself is unconditional, so the
+ * rules-of-hooks hold; only the missing-context throw is caught.
+ */
+export function useI18n(): typeof i18n {
+  try {
+    return useLingui().i18n as unknown as typeof i18n
+  } catch {
+    return i18n
   }
 }
 

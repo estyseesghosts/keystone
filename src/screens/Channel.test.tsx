@@ -118,6 +118,17 @@ describe('Channel screen', () => {
     }
   })
 
+  it('renders translated signed-out chrome, never sample data', async () => {
+    const {done} = await setup()
+    try {
+      expect(screen.getByText('Sign in to see this channel.')).toBeTruthy()
+      expect(screen.getByText('Channels never show sample data when signed out.')).toBeTruthy()
+      expect(screen.queryByTestId('channel-header')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
   it('is honestly unavailable without a channels module', async () => {
     const {done} = await setup({backend: {family: 'mastodon', capabilities: {}}})
     try {

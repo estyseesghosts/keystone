@@ -7,7 +7,7 @@ import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {render, screen} from '@testing-library/react-native'
 
-import {createMemoryStore} from '@keystone/fedi'
+import {createMemoryStore, type Antenna} from '@keystone/fedi'
 
 import type {TokenVault} from '#/storage'
 import {__setStorageForTests, appStorage} from '#/storage'
@@ -17,7 +17,7 @@ import {ThemeProvider} from '#/alf/index'
 
 import {makePost} from '#/components/__tests__/fixtures'
 
-import {AntennaScreen} from './Antenna'
+import {AntennaScreen, antennaFlagsLine} from './Antenna'
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
@@ -157,5 +157,12 @@ describe('Antenna screen', () => {
     } finally {
       done()
     }
+  })
+
+  it('labels antenna flags through the catalog', () => {
+    expect(antennaFlagsLine(antenna as Antenna)).toBe('case-sensitive · no bots')
+    expect(
+      antennaFlagsLine({...antenna, caseSensitive: false, excludeBots: false} as Antenna),
+    ).toBe('no extra filters')
   })
 })

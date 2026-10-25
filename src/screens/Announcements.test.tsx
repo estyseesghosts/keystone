@@ -243,4 +243,19 @@ describe('Announcements screen', () => {
     expect(announcementReadLabel(announcement({isRead: true}))).toBe('Read')
     expect(announcementReadLabel(announcement({isRead: false}))).toBe('Unread')
   })
+
+  it('renders the translated expiry line for all-day announcements', async () => {
+    const backend = fullBackend({
+      list: jest.fn(async () => [
+        announcement({endsAt: '2026-12-31T00:00:00.000Z', allDay: true}),
+      ]),
+    })
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText(/Until/)).toBeTruthy()
+      expect(screen.getByText(/\(all day\)/)).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
 })

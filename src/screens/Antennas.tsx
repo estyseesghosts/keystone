@@ -10,6 +10,7 @@
 import {useCallback, useEffect, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 import {useNavigation, type NavigationProp} from '@react-navigation/native'
+import {msg} from '@lingui/macro'
 
 import {isPermissionError, isUnsupportedError, type Antenna, type AntennaSrc} from '@keystone/fedi'
 
@@ -22,14 +23,37 @@ import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 
 const SOURCES: AntennaSrc[] = ['home', 'all', 'users', 'users_blacklist']
 
+/** Display label for a closed antenna-source enum value. The codes come
+ * from the server, but the set is closed (the four self-contained sources
+ * this screen offers), so they render through the catalog with identical
+ * English — never guessed, never hidden. Pure. */
+export function antennaSrcLabel(src: AntennaSrc): string {
+  switch (src) {
+    case 'home':
+      return i18n._(msg`home`)
+    case 'all':
+      return i18n._(msg`all`)
+    case 'users':
+      return i18n._(msg`users`)
+    case 'users_blacklist':
+      return i18n._(msg`users_blacklist`)
+    default:
+      return src
+  }
+}
+
 export function antennaSummaryLine(antenna: Antenna): string {
   const keywords = antenna.keywords.map(g => g.join(' ')).join(' / ')
-  return keywords.length > 0 ? `${antenna.src} · ${keywords}` : antenna.src
+  // Keywords are user data: they interpolate as values, never translated.
+  return keywords.length > 0
+    ? i18n._(msg`${antennaSrcLabel(antenna.src)} · ${keywords}`)
+    : antennaSrcLabel(antenna.src)
 }
 
 function CreateRow({onCreate}: {onCreate: (body: Omit<Antenna, 'id'>) => Promise<void>}) {
@@ -62,7 +86,7 @@ function CreateRow({onCreate}: {onCreate: (body: Omit<Antenna, 'id'>) => Promise
       setSrc('all')
       setKeywords('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create the antenna.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not create the antenna.`))
     } finally {
       setBusy(false)
     }
@@ -70,10 +94,10 @@ function CreateRow({onCreate}: {onCreate: (body: Omit<Antenna, 'id'>) => Promise
   return (
     <View style={[atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="antennas-create">
       <TextField
-        label="New antenna"
+        label={i18n._(msg`New antenna`)}
         value={name}
         onChangeText={setName}
-        placeholder="Antenna name"
+        placeholder={i18n._(msg`Antenna name`)}
         error={error ?? undefined}
         testID="antennas-create-input"
       />
@@ -81,7 +105,7 @@ function CreateRow({onCreate}: {onCreate: (body: Omit<Antenna, 'id'>) => Promise
         {SOURCES.map(option => (
           <Button
             key={option}
-            label={option}
+            label={antennaSrcLabel(option)}
             variant={src === option ? 'primary' : 'secondary'}
             disabled={busy}
             onPress={() => setSrc(option)}
@@ -90,14 +114,14 @@ function CreateRow({onCreate}: {onCreate: (body: Omit<Antenna, 'id'>) => Promise
         ))}
       </View>
       <TextField
-        label="Keywords (space-separated, all must match)"
+        label={i18n._(msg`Keywords (space-separated, all must match)`)}
         value={keywords}
         onChangeText={setKeywords}
-        placeholder="keyword1 keyword2"
+        placeholder={i18n._(msg`keyword1 keyword2`)}
         testID="antennas-create-keywords"
       />
       <Button
-        label={busy ? 'Creating…' : 'Create antenna'}
+        label={busy ? i18n._(msg`Creating…`) : i18n._(msg`Create antenna`)}
         variant="primary"
         disabled={busy || !valid}
         onPress={() => void submit()}
@@ -138,7 +162,7 @@ function AntennaRow({
       await onRename(trimmed)
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not rename the antenna.')
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not rename the antenna.`))
     } finally {
       setBusy(false)
     }
@@ -149,7 +173,7 @@ function AntennaRow({
       <Pressable
         onPress={onOpen}
         accessibilityRole="link"
-        accessibilityLabel={`${antenna.name}. Open antenna.`}
+        accessibilityLabel={i18n._(msg`${antenna.name}. Open antenna.`)}
         testID={`antennas-open-${antenna.id}`}>
         <Body>{antenna.name}</Body>
       </Pressable>
@@ -157,23 +181,23 @@ function AntennaRow({
       {editing ? (
         <View style={[atoms.gap_sm]}>
           <TextField
-            label="Antenna name"
+            label={i18n._(msg`Antenna name`)}
             value={draft}
             onChangeText={setDraft}
-            placeholder="Antenna name"
+            placeholder={i18n._(msg`Antenna name`)}
             error={error ?? undefined}
             testID={`antennas-rename-input-${antenna.id}`}
           />
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label={busy ? 'Saving…' : 'Save'}
+              label={busy ? i18n._(msg`Saving…`) : i18n._(msg`Save`)}
               variant="primary"
               disabled={busy || draft.trim().length === 0}
               onPress={() => void save()}
               testID={`antennas-rename-save-${antenna.id}`}
             />
             <Button
-              label="Cancel"
+              label={i18n._(msg`Cancel`)}
               variant="secondary"
               disabled={busy}
               onPress={() => {
@@ -187,7 +211,7 @@ function AntennaRow({
       ) : (
         <View style={[atoms.row, atoms.gap_sm]}>
           <Button
-            label="Rename"
+            label={i18n._(msg`Rename`)}
             variant="secondary"
             disabled={busy}
             onPress={() => setEditing(true)}
@@ -197,17 +221,19 @@ function AntennaRow({
       )}
       {pendingDelete ? (
         <View style={[atoms.gap_sm]}>
-          <Caption color="faint">Delete “{antenna.name}”? This cannot be undone.</Caption>
+          <Caption color="faint">
+            {i18n._(msg`Delete “${antenna.name}”? This cannot be undone.`)}
+          </Caption>
           <View style={[atoms.row, atoms.gap_sm]}>
             <Button
-              label="Confirm delete"
+              label={i18n._(msg`Confirm delete`)}
               variant="secondary"
               disabled={busy}
               onPress={() => void onDelete()}
               testID={`antennas-delete-confirm-${antenna.id}`}
             />
             <Button
-              label="Keep"
+              label={i18n._(msg`Keep`)}
               variant="secondary"
               disabled={busy}
               onPress={onCancelDelete}
@@ -218,7 +244,7 @@ function AntennaRow({
       ) : (
         <View style={[atoms.row, atoms.gap_sm]}>
           <Button
-            label="Delete"
+            label={i18n._(msg`Delete`)}
             variant="secondary"
             disabled={busy}
             onPress={onArmDelete}
@@ -282,9 +308,11 @@ export function AntennasScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="antennas-screen">
-        <Pagehead title="Antennas" />
-        <Body>Sign in to see your antennas.</Body>
-        <Caption color="faint">Antennas never show sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Antennas`)} />
+        <Body>{i18n._(msg`Sign in to see your antennas.`)}</Body>
+        <Caption color="faint">
+          {i18n._(msg`Antennas never show sample data when signed out.`)}
+        </Caption>
         <SignInButton />
       </View>
     )
@@ -293,21 +321,21 @@ export function AntennasScreen() {
   if (unsupported || (!backend.antennas && !loading)) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="antennas-screen">
-        <Pagehead title="Antennas" />
-        <Body>Antennas are not available on this server.</Body>
+        <Pagehead title={i18n._(msg`Antennas`)} />
+        <Body>{i18n._(msg`Antennas are not available on this server.`)}</Body>
       </View>
     )
   }
 
   return (
     <View style={atoms.flex1} testID="antennas-screen">
-      <Pagehead title="Antennas" />
+      <Pagehead title={i18n._(msg`Antennas`)} />
       {/* Misskey lists live here too: one collections row per concept, so
           Antennas carries the entry point to Lists (where they are edited). */}
       {session?.family === 'misskey' ? (
         <View style={[atoms.px_md, atoms.py_sm]}>
           <Button
-            label="Lists"
+            label={i18n._(msg`Lists`)}
             variant="secondary"
             onPress={() => navigation.navigate('Lists')}
             testID="antennas-lists-link"
@@ -326,13 +354,23 @@ export function AntennasScreen() {
         <SkeletonList variant="row" testID="antennas-loading" />
       ) : denied ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Your account cannot view antennas here.</Body>
-          <Button label="Retry" variant="secondary" onPress={() => void load()} testID="antennas-retry" />
+          <Body>{i18n._(msg`Your account cannot view antennas here.`)}</Body>
+          <Button
+            label={i18n._(msg`Retry`)}
+            variant="secondary"
+            onPress={() => void load()}
+            testID="antennas-retry"
+          />
         </View>
       ) : error ? (
         <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>Could not load antennas.</Body>
-          <Button label="Retry" variant="secondary" onPress={() => void load()} testID="antennas-retry" />
+          <Body>{i18n._(msg`Could not load antennas.`)}</Body>
+          <Button
+            label={i18n._(msg`Retry`)}
+            variant="secondary"
+            onPress={() => void load()}
+            testID="antennas-retry"
+          />
         </View>
       ) : (
         <FlatList
@@ -348,7 +386,9 @@ export function AntennasScreen() {
                   const updated = await backend.antennas.update(item.id, {...item, name})
                   setAntennas(prev => (prev ?? []).map(a => (a.id === item.id ? updated : a)))
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : 'Could not rename the antenna.')
+                  setActionError(
+                    err instanceof Error ? err.message : i18n._(msg`Could not rename the antenna.`),
+                  )
                   throw err
                 }
               }}
@@ -360,7 +400,9 @@ export function AntennasScreen() {
                   setAntennas(prev => (prev ?? []).filter(a => a.id !== item.id))
                   setPendingDeleteId(null)
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : 'Could not delete the antenna.')
+                  setActionError(
+                    err instanceof Error ? err.message : i18n._(msg`Could not delete the antenna.`),
+                  )
                 }
               }}
               pendingDelete={pendingDeleteId === item.id}
@@ -383,7 +425,7 @@ export function AntennasScreen() {
           }
           ListEmptyComponent={
             <View style={[atoms.centered, atoms.p_md]}>
-              <Body>You have no antennas yet.</Body>
+              <Body>{i18n._(msg`You have no antennas yet.`)}</Body>
             </View>
           }
         />

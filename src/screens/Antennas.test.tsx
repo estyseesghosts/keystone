@@ -3,7 +3,7 @@
 
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
-import {createMemoryStore} from '@keystone/fedi'
+import {createMemoryStore, type Antenna} from '@keystone/fedi'
 
 import type {TokenVault} from '#/storage'
 import {__setStorageForTests, appStorage} from '#/storage'
@@ -11,7 +11,7 @@ import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {ThemeProvider} from '#/alf/index'
 
-import {AntennasScreen} from './Antennas'
+import {AntennasScreen, antennaSrcLabel, antennaSummaryLine} from './Antennas'
 
 const mockNavigate = jest.fn()
 
@@ -210,5 +210,12 @@ describe('Antennas screen', () => {
     } finally {
       done()
     }
+  })
+
+  it('labels sources and summaries through the catalog', () => {
+    expect(antennaSrcLabel('home')).toBe('home')
+    expect(antennaSrcLabel('users_blacklist')).toBe('users_blacklist')
+    expect(antennaSummaryLine(antenna() as Antenna)).toBe('all · cat kitten')
+    expect(antennaSummaryLine(antenna({keywords: []}) as Antenna)).toBe('all')
   })
 })

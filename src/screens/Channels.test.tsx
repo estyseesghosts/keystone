@@ -13,7 +13,7 @@ import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {ThemeProvider} from '#/alf/index'
 
-import {ChannelsScreen} from './Channels'
+import {ChannelsScreen, channelSummaryLine} from './Channels'
 
 const mockNavigate = jest.fn()
 
@@ -317,5 +317,18 @@ describe('Channels screen', () => {
     } finally {
       done()
     }
+  })
+
+  it('summarizes channels through the catalog with real plurals', () => {
+    expect(
+      channelSummaryLine({id: 'ch1', name: 'General', usersCount: 5, notesCount: 4}),
+    ).toBe('5 members · 4 notes')
+    expect(channelSummaryLine({id: 'ch1', name: 'Solo', usersCount: 1, notesCount: 1})).toBe(
+      '1 member · 1 note',
+    )
+    expect(channelSummaryLine({id: 'ch1', name: 'Old', isArchived: true, isFollowing: true})).toBe(
+      'archived · following',
+    )
+    expect(channelSummaryLine({id: 'ch1', name: 'Bare'})).toBe('')
   })
 })

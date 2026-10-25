@@ -21,6 +21,8 @@
 
 import {useMemo} from 'react'
 import {RefreshControl, ScrollView, View} from 'react-native'
+import {msg, plural} from '@lingui/macro'
+import type {MessageDescriptor} from '@lingui/core'
 
 import {
   contentFromHtml,
@@ -41,6 +43,7 @@ import {Loader} from '#/components/Loader'
 import {Pagehead} from '#/components/Pagehead'
 import {RichText} from '#/components/RichText'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useReportRules} from '#/state/queries/reports'
 import {
@@ -49,27 +52,29 @@ import {
   type AdminSectionStatus,
 } from '#/state/queries/adminInsight'
 
-const MEASURE_LABELS: Record<string, string> = {
-  active_users: 'Active users',
-  new_users: 'New users',
-  instance_accounts: 'Local accounts',
-  instance_statuses: 'Local posts',
-  opened_reports: 'Open reports',
-  resolved_reports: 'Resolved reports',
+const MEASURE_LABELS: Record<string, MessageDescriptor> = {
+  active_users: msg`Active users`,
+  new_users: msg`New users`,
+  instance_accounts: msg`Local accounts`,
+  instance_statuses: msg`Local posts`,
+  opened_reports: msg`Open reports`,
+  resolved_reports: msg`Resolved reports`,
 }
 
-const DIMENSION_LABELS: Record<string, string> = {
-  sources: 'Posting apps',
-  servers: 'Remote servers',
-  languages: 'Languages',
-  space_usage: 'Storage use',
+const DIMENSION_LABELS: Record<string, MessageDescriptor> = {
+  sources: msg`Posting apps`,
+  servers: msg`Remote servers`,
+  languages: msg`Languages`,
+  space_usage: msg`Storage use`,
 }
 
 /** Display label for a measure/dimension key (unknown keys render as-is —
- * never hidden, never guessed). Pure. */
+ * never hidden, never guessed; server-supplied keys are never translated).
+ * Pure; the catalog lookup runs at call time so the app locale applies. */
 export function insightKeyLabel(kind: 'measure' | 'dimension', key: string): string {
   const table = kind === 'measure' ? MEASURE_LABELS : DIMENSION_LABELS
-  return table[key] ?? key
+  const found = table[key]
+  return found ? i18n._(found) : key
 }
 
 /** Byte counts the Misskey hardware snapshot reports, rendered as
@@ -167,12 +172,12 @@ function SectionState({
   if (status === 'error') {
     return (
       <View style={[atoms.gap_sm]}>
-        <Body>Could not load this section.</Body>
+        <Body>{i18n._(msg`Could not load this section.`)}</Body>
         {error instanceof Error && error.message ? (
           <Caption color="faint">{error.message}</Caption>
         ) : null}
         <Button
-          label="Retry"
+          label={i18n._(msg`Retry`)}
           variant="secondary"
           onPress={retry}
           testID={`${testID}-retry`}
@@ -183,6 +188,18 @@ function SectionState({
   return null
 }
 
+/** One activity-week line. Counts stay server strings (never parsed — the
+ * domain keeps them as strings), so each count wraps in its own message
+ * instead of `plural`. Pure. */
+export function activityLine(w: InstanceActivityWeek): string {
+  const bits = [
+    i18n._(msg`${w.statuses ?? '—'} posts`),
+    ...(w.logins != null ? [i18n._(msg`${w.logins} logins`)] : []),
+    ...(w.registrations != null ? [i18n._(msg`${w.registrations} sign-ups`)] : []),
+  ]
+  return i18n._(msg`Week ${w.week}: ${bits.join(', ')}`)
+}
+
 function MeasuresSection({section}: {section: AdminSection<AdminMeasure[]>}) {
   if (section.status !== 'ready' || !section.data) {
     return (
@@ -191,8 +208,10 @@ function MeasuresSection({section}: {section: AdminSection<AdminMeasure[]>}) {
         error={section.error}
         retry={section.retry}
         testID="admin-insight-measures"
-        deniedReason="Your account may not read admin metrics on this server (missing scope or staff role)."
-        absentReason="This server does not provide admin metrics."
+        deniedReason={i18n._(
+          msg`Your account may not read admin metrics on this server (missing scope or staff role).`,
+        )}
+        absentReason={i18n._(msg`This server does not provide admin metrics.`)}
       />
     )
   }
@@ -202,8 +221,9 @@ function MeasuresSection({section}: {section: AdminSection<AdminMeasure[]>}) {
         <View key={m.key} testID={`admin-insight-measure-${m.key}`}>
           <Body>{insightKeyLabel('measure', m.key)}</Body>
           <Caption color="faint">
-            {measureDisplayValue(m)}
-            {m.previousTotal ? ` (was ${m.previousTotal})` : ''}
+            {m.previousTotal
+              ? i18n._(msg`${measureDisplayValue(m)} (was ${m.previousTotal})`)
+              : measureDisplayValue(m)}
           </Caption>
         </View>
       ))}
@@ -219,8 +239,8 @@ function DimensionsSection({section}: {section: AdminSection<AdminDimension[]>})
         error={section.error}
         retry={section.retry}
         testID="admin-insight-dimensions"
-        deniedReason="Your account may not read admin breakdowns on this server."
-        absentReason="This server does not provide admin breakdowns."
+        deniedReason={i18n._(msg`Your account may not read admin breakdowns on this server.`)}
+        absentReason={i18n._(msg`This server does not provide admin breakdowns.`)}
       />
     )
   }
@@ -248,8 +268,8 @@ function PeersSection({section}: {section: AdminSection<string[]>}) {
         error={section.error}
         retry={section.retry}
         testID="admin-insight-peers"
-        deniedReason="Your account may not read the peer list on this server."
-        absentReason="This server does not publish its peer list."
+        deniedReason={i18n._(msg`Your account may not read the peer list on this server.`)}
+        absentReason={i18n._(msg`This server does not publish its peer list.`)}
       />
     )
   }
@@ -257,8 +277,13 @@ function PeersSection({section}: {section: AdminSection<string[]>}) {
   return (
     <View style={[atoms.gap_sm]} testID="admin-insight-peers">
       <Caption color="faint">
-        {section.data.length} peered {section.data.length === 1 ? 'domain' : 'domains'}
-        {remaining > 0 ? ` (showing ${shown.length})` : ''}
+        {i18n._(
+          plural(section.data.length, {
+            one: '# peered domain',
+            other: '# peered domains',
+          }),
+        )}
+        {remaining > 0 ? i18n._(msg` (showing ${shown.length})`) : ''}
       </Caption>
       {shown.map(domain => (
         <Caption key={domain}>{domain}</Caption>
@@ -285,15 +310,17 @@ function DescriptionSection({
         error={section.error}
         retry={section.retry}
         testID="admin-insight-description"
-        deniedReason="Your account may not read the extended description on this server."
-        absentReason="This server publishes no extended description."
+        deniedReason={i18n._(
+          msg`Your account may not read the extended description on this server.`,
+        )}
+        absentReason={i18n._(msg`This server publishes no extended description.`)}
       />
     )
   }
   return (
     <View style={[atoms.gap_sm]} testID="admin-insight-description">
       {section.data.updatedAt ? (
-        <Caption color="faint">Updated {section.data.updatedAt}</Caption>
+        <Caption color="faint">{i18n._(msg`Updated ${section.data.updatedAt}`)}</Caption>
       ) : null}
       {nodes.length > 0 ? <RichText nodes={nodes} /> : null}
     </View>
@@ -308,8 +335,8 @@ function ActivitySection({section}: {section: AdminSection<InstanceActivityWeek[
         error={section.error}
         retry={section.retry}
         testID="admin-insight-activity"
-        deniedReason="Your account may not read server activity on this server."
-        absentReason="This server publishes no activity counters."
+        deniedReason={i18n._(msg`Your account may not read server activity on this server.`)}
+        absentReason={i18n._(msg`This server publishes no activity counters.`)}
       />
     )
   }
@@ -317,9 +344,7 @@ function ActivitySection({section}: {section: AdminSection<InstanceActivityWeek[
     <View style={[atoms.gap_sm]} testID="admin-insight-activity">
       {section.data.slice(0, 4).map(w => (
         <Caption key={w.week} color="faint">
-          Week {w.week}: {w.statuses ?? '—'} posts
-          {w.logins != null ? `, ${w.logins} logins` : ''}
-          {w.registrations != null ? `, ${w.registrations} sign-ups` : ''}
+          {activityLine(w)}
         </Caption>
       ))}
     </View>
@@ -339,24 +364,26 @@ function MisskeyServerInfoSection({
         error={section.error}
         retry={section.retry}
         testID="admin-insight-server-info"
-        deniedReason="Your account may not read server hardware on this server (missing scope or staff role)."
-        absentReason="This server does not provide a hardware snapshot."
+        deniedReason={i18n._(
+          msg`Your account may not read server hardware on this server (missing scope or staff role).`,
+        )}
+        absentReason={i18n._(msg`This server does not provide a hardware snapshot.`)}
       />
     )
   }
   const info = section.data
   return (
     <View style={[atoms.gap_sm]} testID="admin-insight-server-info">
-      <Caption color="faint">Machine {info.machine || '—'}</Caption>
-      <Caption color="faint">OS {info.os || '—'}</Caption>
-      <Caption color="faint">Node {info.node || '—'}</Caption>
-      <Caption color="faint">PostgreSQL {info.psql || '—'}</Caption>
+      <Caption color="faint">{i18n._(msg`Machine ${info.machine || '—'}`)}</Caption>
+      <Caption color="faint">{i18n._(msg`OS ${info.os || '—'}`)}</Caption>
+      <Caption color="faint">{i18n._(msg`Node ${info.node || '—'}`)}</Caption>
+      <Caption color="faint">{i18n._(msg`PostgreSQL ${info.psql || '—'}`)}</Caption>
       <Caption color="faint">
-        CPU {info.cpu.model || '—'} × {info.cpu.cores ?? '—'}
+        {i18n._(msg`CPU ${info.cpu.model || '—'} × ${info.cpu.cores ?? '—'}`)}
       </Caption>
-      <Caption color="faint">Memory {formatBytes(info.memTotal)}</Caption>
+      <Caption color="faint">{i18n._(msg`Memory ${formatBytes(info.memTotal)}`)}</Caption>
       <Caption color="faint">
-        Disk {formatBytes(info.fsUsed)} of {formatBytes(info.fsTotal)}
+        {i18n._(msg`Disk ${formatBytes(info.fsUsed)} of ${formatBytes(info.fsTotal)}`)}
       </Caption>
     </View>
   )
@@ -375,8 +402,8 @@ function MisskeyInstanceMetaSection({
         error={section.error}
         retry={section.retry}
         testID="admin-insight-instance-meta"
-        deniedReason="Instance settings need an admin account on this server."
-        absentReason="This server does not provide instance settings."
+        deniedReason={i18n._(msg`Instance settings need an admin account on this server.`)}
+        absentReason={i18n._(msg`This server does not provide instance settings.`)}
       />
     )
   }
@@ -385,14 +412,19 @@ function MisskeyInstanceMetaSection({
     <View style={[atoms.gap_sm]} testID="admin-insight-instance-meta">
       {meta.name ? <Body>{meta.name}</Body> : null}
       {meta.description ? <Caption color="faint">{meta.description}</Caption> : null}
-      <Caption color="faint">Version {meta.version || '—'}</Caption>
+      <Caption color="faint">{i18n._(msg`Version ${meta.version || '—'}`)}</Caption>
       {meta.uri ? <Caption color="faint">{meta.uri}</Caption> : null}
       {meta.maintainerName ? (
-        <Caption color="faint">Maintainer {meta.maintainerName}</Caption>
+        <Caption color="faint">{i18n._(msg`Maintainer ${meta.maintainerName}`)}</Caption>
       ) : null}
       <Caption color="faint">
-        Registration {meta.disableRegistration ? 'closed' : 'open'}
-        {meta.emailRequiredForSignup ? ' (email required)' : ''}
+        {meta.disableRegistration
+          ? meta.emailRequiredForSignup
+            ? i18n._(msg`Registration closed (email required)`)
+            : i18n._(msg`Registration closed`)
+          : meta.emailRequiredForSignup
+            ? i18n._(msg`Registration open (email required)`)
+            : i18n._(msg`Registration open`)}
       </Caption>
     </View>
   )
@@ -411,8 +443,10 @@ function MisskeyQueueStatsSection({
         error={section.error}
         retry={section.retry}
         testID="admin-insight-queue-stats"
-        deniedReason="Your account may not read queue stats on this server (missing scope or staff role)."
-        absentReason="This server does not provide queue stats."
+        deniedReason={i18n._(
+          msg`Your account may not read queue stats on this server (missing scope or staff role).`,
+        )}
+        absentReason={i18n._(msg`This server does not provide queue stats.`)}
       />
     )
   }
@@ -428,10 +462,9 @@ function MisskeyQueueStatsSection({
         <View key={name} testID={`admin-insight-queue-${name.replace(/ /g, '-')}`}>
           <Body>{name}</Body>
           <Caption color="faint">
-            {queueCountDisplay(counts.active)} active ·{' '}
-            {queueCountDisplay(counts.waiting)} waiting ·{' '}
-            {queueCountDisplay(counts.delayed)} delayed ·{' '}
-            {queueCountDisplay(counts.failed)} failed
+            {i18n._(
+              msg`${queueCountDisplay(counts.active)} active · ${queueCountDisplay(counts.waiting)} waiting · ${queueCountDisplay(counts.delayed)} delayed · ${queueCountDisplay(counts.failed)} failed`,
+            )}
           </Caption>
         </View>
       ))}
@@ -452,15 +485,20 @@ function MisskeyOnlineCountSection({
         error={section.error}
         retry={section.retry}
         testID="admin-insight-online-count"
-        deniedReason="Your account may not read the online count on this server."
-        absentReason="This server does not publish an online count."
+        deniedReason={i18n._(msg`Your account may not read the online count on this server.`)}
+        absentReason={i18n._(msg`This server does not publish an online count.`)}
       />
     )
   }
   return (
     <View style={[atoms.gap_sm]} testID="admin-insight-online-count">
       <Body>
-        {section.data} {section.data === 1 ? 'user' : 'users'} online now
+        {i18n._(
+          plural(section.data, {
+            one: '# user online now',
+            other: '# users online now',
+          }),
+        )}
       </Body>
     </View>
   )
@@ -475,9 +513,11 @@ export function AdminInsightScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="admin-insight-screen">
-        <Pagehead title="Server insight" />
-        <Body>Sign in to read server insight.</Body>
-        <Caption color="faint">Server insight never shows sample data when signed out.</Caption>
+        <Pagehead title={i18n._(msg`Server insight`)} />
+        <Body>{i18n._(msg`Sign in to read server insight.`)}</Body>
+        <Caption color="faint">
+          {i18n._(msg`Server insight never shows sample data when signed out.`)}
+        </Caption>
         <SignInButton />
       </View>
     )
@@ -486,19 +526,19 @@ export function AdminInsightScreen() {
   if (!insight.gate.ok) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="admin-insight-screen">
-        <Pagehead title="Server insight" />
+        <Pagehead title={i18n._(msg`Server insight`)} />
         {insight.gate.reason === 'not-staff' ? (
           <>
-            <Body>Requires an admin or moderator account.</Body>
+            <Body>{i18n._(msg`Requires an admin or moderator account.`)}</Body>
             <Caption color="faint">
-              This server reports your account as neither admin nor moderator.
+              {i18n._(msg`This server reports your account as neither admin nor moderator.`)}
             </Caption>
           </>
         ) : (
           <>
-            <Body>Server insight is not available on this server.</Body>
+            <Body>{i18n._(msg`Server insight is not available on this server.`)}</Body>
             <Caption color="faint">
-              Keystone reads Mastodon- and Misskey-family insight endpoints only.
+              {i18n._(msg`Keystone reads Mastodon- and Misskey-family insight endpoints only.`)}
             </Caption>
           </>
         )}
@@ -540,34 +580,46 @@ export function AdminInsightScreen() {
         />
       }>
       <View style={[atoms.p_md, atoms.gap_md]}>
-        <Pagehead title="Server insight" />
+        <Pagehead title={i18n._(msg`Server insight`)} />
         {isMisskey ? (
           <>
-            <SectionShell title="Server" testID="admin-insight-section-server-hw">
+            <SectionShell
+              title={i18n._(msg`Server`)}
+              testID="admin-insight-section-server-hw">
               <MisskeyServerInfoSection section={insight.serverInfo} />
               <MisskeyOnlineCountSection section={insight.onlineUsersCount} />
             </SectionShell>
-            <SectionShell title="Instance" testID="admin-insight-section-instance">
+            <SectionShell
+              title={i18n._(msg`Instance`)}
+              testID="admin-insight-section-instance">
               <MisskeyInstanceMetaSection section={insight.instanceMeta} />
             </SectionShell>
-            <SectionShell title="Queues" testID="admin-insight-section-queues">
+            <SectionShell
+              title={i18n._(msg`Queues`)}
+              testID="admin-insight-section-queues">
               <MisskeyQueueStatsSection section={insight.queueStats} />
             </SectionShell>
           </>
         ) : (
           <>
-            <SectionShell title="Metrics" testID="admin-insight-section-metrics">
+            <SectionShell
+              title={i18n._(msg`Metrics`)}
+              testID="admin-insight-section-metrics">
               <MeasuresSection section={insight.measures} />
               <DimensionsSection section={insight.dimensions} />
             </SectionShell>
-            <SectionShell title="Server info" testID="admin-insight-section-server">
+            <SectionShell
+              title={i18n._(msg`Server info`)}
+              testID="admin-insight-section-server">
               <PeersSection section={insight.peers} />
               <DescriptionSection section={insight.extendedDescription} />
               <ActivitySection section={insight.activity} />
             </SectionShell>
           </>
         )}
-        <SectionShell title="Server rules" testID="admin-insight-section-rules">
+        <SectionShell
+          title={i18n._(msg`Server rules`)}
+          testID="admin-insight-section-rules">
           {rules.status === 'ready' ? (
             <View style={[atoms.gap_sm]} testID="admin-insight-rules">
               {rules.rules.map(r => (
@@ -578,7 +630,7 @@ export function AdminInsightScreen() {
             <Loader testID="admin-insight-rules-loading" />
           ) : (
             <Caption color="faint" testID="admin-insight-rules-absent">
-              This server publishes no rule list.
+              {i18n._(msg`This server publishes no rule list.`)}
             </Caption>
           )}
         </SectionShell>

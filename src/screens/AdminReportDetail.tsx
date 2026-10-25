@@ -15,6 +15,7 @@
 import {useState} from 'react'
 import {ScrollView, TextInput, View} from 'react-native'
 import {useRoute} from '@react-navigation/native'
+import {msg, plural} from '@lingui/macro'
 
 import {
   REPORT_CATEGORIES,
@@ -29,6 +30,7 @@ import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
+import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useReportRules} from '#/state/queries/reports'
 import {
@@ -61,7 +63,11 @@ function IdList({label, ids, testID}: {label: string; ids: readonly string[]; te
       {ids.slice(0, 10).map(id => (
         <Caption key={id}>{id}</Caption>
       ))}
-      {ids.length > 10 ? <Caption color="faint">+{ids.length - 10} more</Caption> : null}
+      {ids.length > 10 ? (
+        <Caption color="faint">
+          {i18n._(plural(ids.length - 10, {one: '+# more', other: '+# more'}))}
+        </Caption>
+      ) : null}
     </View>
   )
 }
@@ -101,14 +107,14 @@ function ConfirmShell({
       {error ? <Caption testID={`admin-report-confirm-${action}-error`}>{error}</Caption> : null}
       <View style={[atoms.row, atoms.gap_sm]}>
         <Button
-          label={busy ? 'Working…' : 'Confirm'}
+          label={busy ? i18n._(msg`Working…`) : i18n._(msg`Confirm`)}
           variant="primary"
           disabled={busy || confirmDisabled === true}
           onPress={onConfirm}
           testID={`admin-report-confirm-${action}-yes`}
         />
         <Button
-          label="Cancel"
+          label={i18n._(msg`Cancel`)}
           variant="secondary"
           disabled={busy}
           onPress={onCancel}
@@ -144,8 +150,8 @@ export function AdminReportScreen() {
   if (!session || !backend) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="admin-report-screen">
-        <Pagehead title="Report" />
-        <Body>Sign in to moderate reports.</Body>
+        <Pagehead title={i18n._(msg`Report`)} />
+        <Body>{i18n._(msg`Sign in to moderate reports.`)}</Body>
         <SignInButton />
       </View>
     )
@@ -155,19 +161,19 @@ export function AdminReportScreen() {
   if (!gate.ok) {
     return (
       <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="admin-report-screen">
-        <Pagehead title="Report" />
+        <Pagehead title={i18n._(msg`Report`)} />
         {gate.reason === 'not-staff' ? (
           <>
-            <Body>Requires an admin or moderator account.</Body>
+            <Body>{i18n._(msg`Requires an admin or moderator account.`)}</Body>
             <Caption color="faint">
-              This server reports your account as neither admin nor moderator.
+              {i18n._(msg`This server reports your account as neither admin nor moderator.`)}
             </Caption>
           </>
         ) : (
           <>
-            <Body>Reports are not available on this server.</Body>
+            <Body>{i18n._(msg`Reports are not available on this server.`)}</Body>
             <Caption color="faint">
-              Keystone reads Mastodon- and Misskey-family report queues only.
+              {i18n._(msg`Keystone reads Mastodon- and Misskey-family report queues only.`)}
             </Caption>
           </>
         )}
@@ -185,7 +191,9 @@ export function AdminReportScreen() {
     recategorize.isPending ||
     updateNote.isPending ||
     forward.isPending
-  const denyReason = 'Your account may not moderate reports on this server (missing scope or staff role).'
+  const denyReason = i18n._(
+    msg`Your account may not moderate reports on this server (missing scope or staff role).`,
+  )
   const isMisskey = backend.family === 'misskey'
 
   const onMutationError = (e: unknown) => {
@@ -193,7 +201,9 @@ export function AdminReportScreen() {
       setWriteDenied(true)
       setActionError(denyReason)
     } else {
-      setActionError(e instanceof Error ? e.message : 'Could not complete this action.')
+      setActionError(
+        e instanceof Error ? e.message : i18n._(msg`Could not complete this action.`),
+      )
     }
   }
 
@@ -205,24 +215,26 @@ export function AdminReportScreen() {
   return (
     <ScrollView style={[atoms.flex1]} testID="admin-report-screen">
       <View style={[atoms.p_md, atoms.gap_md]}>
-      <Pagehead title="Report" />
+      <Pagehead title={i18n._(msg`Report`)} />
       {detail.report.status === 'loading' || detail.report.status === 'gated' ? (
         <View style={[atoms.centered, atoms.py_sm]}>
           <Loader testID="admin-report-loading" />
         </View>
       ) : detail.report.status === 'denied' ? (
         <Caption color="faint" testID="admin-report-denied">
-          Your account may not read this report on this server (missing scope or staff role).
+          {i18n._(
+            msg`Your account may not read this report on this server (missing scope or staff role).`,
+          )}
         </Caption>
       ) : detail.report.status === 'absent' || detail.report.status === 'empty' ? (
         <Caption color="faint" testID="admin-report-absent">
-          This report is not available. Open it from the queue list.
+          {i18n._(msg`This report is not available. Open it from the queue list.`)}
         </Caption>
       ) : detail.report.status === 'error' ? (
         <View style={[atoms.gap_sm]}>
-          <Body>Could not load this report.</Body>
+          <Body>{i18n._(msg`Could not load this report.`)}</Body>
           <Button
-            label="Retry"
+            label={i18n._(msg`Retry`)}
             variant="secondary"
             onPress={detail.report.retry}
             testID="admin-report-retry"
@@ -236,32 +248,46 @@ export function AdminReportScreen() {
             </Heading>
             {report.comment ? <Body>{report.comment}</Body> : null}
             <Caption color="faint">
-              {reportCategoryLabel(report.category)}
-              {report.forwarded ? ' · forwarded to remote server' : ' · not forwarded'}
+              {report.forwarded
+                ? i18n._(
+                    msg`${reportCategoryLabel(report.category)} · forwarded to remote server`,
+                  )
+                : i18n._(msg`${reportCategoryLabel(report.category)} · not forwarded`)}
             </Caption>
             <Caption color="faint">
-              Assignee: {report.assignee ? reportActorLabel(report.assignee) : 'Unassigned'}
+              {report.assignee
+                ? i18n._(msg`Assignee: ${reportActorLabel(report.assignee)}`)
+                : i18n._(msg`Assignee: Unassigned`)}
             </Caption>
             {report.resolution ? (
               <Caption color="faint">
-                Verdict: {reportResolutionLabel(report.resolution)}
-                {report.actionTakenBy ? ` by ${reportActorLabel(report.actionTakenBy)}` : ''}
-                {report.actionTakenAt ? ` at ${report.actionTakenAt}` : ''}
+                {i18n._(
+                  msg`Verdict: ${reportResolutionLabel(report.resolution)}${report.actionTakenBy ? ` by ${reportActorLabel(report.actionTakenBy)}` : ''}${report.actionTakenAt ? ` at ${report.actionTakenAt}` : ''}`,
+                )}
               </Caption>
             ) : report.actionTakenBy ? (
               <Caption color="faint">
-                Action by {reportActorLabel(report.actionTakenBy)}
-                {report.actionTakenAt ? ` at ${report.actionTakenAt}` : ''}
+                {i18n._(
+                  msg`Action by ${reportActorLabel(report.actionTakenBy)}${report.actionTakenAt ? ` at ${report.actionTakenAt}` : ''}`,
+                )}
               </Caption>
             ) : null}
             {report.moderationNote ? (
               <Caption color="faint" testID="admin-report-note">
-                Moderator note: {report.moderationNote}
+                {i18n._(msg`Moderator note: ${report.moderationNote}`)}
               </Caption>
             ) : null}
           </View>
-          <IdList label="Status ids" ids={report.statusIds} testID="admin-report-status-ids" />
-          <IdList label="Rule ids" ids={report.ruleIds} testID="admin-report-rule-ids" />
+          <IdList
+            label={i18n._(msg`Status ids`)}
+            ids={report.statusIds}
+            testID="admin-report-status-ids"
+          />
+          <IdList
+            label={i18n._(msg`Rule ids`)}
+            ids={report.ruleIds}
+            testID="admin-report-rule-ids"
+          />
           {writeDenied ? (
             <Caption color="faint" testID="admin-report-write-denied">
               {denyReason}
@@ -270,7 +296,7 @@ export function AdminReportScreen() {
           <View style={[atoms.gap_sm]} testID="admin-report-actions">
             {typeof queue?.assignToSelf === 'function' ? (
               <Button
-                label="Claim for me"
+                label={i18n._(msg`Claim for me`)}
                 variant="secondary"
                 disabled={busy || writeDenied}
                 disabledReason={writeDenied ? denyReason : undefined}
@@ -283,7 +309,7 @@ export function AdminReportScreen() {
             ) : null}
             {typeof queue?.unassign === 'function' ? (
               <Button
-                label="Release claim"
+                label={i18n._(msg`Release claim`)}
                 variant="secondary"
                 disabled={busy || writeDenied}
                 disabledReason={writeDenied ? denyReason : undefined}
@@ -295,7 +321,7 @@ export function AdminReportScreen() {
               />
             ) : null}
             <Button
-              label="Resolve"
+              label={i18n._(msg`Resolve`)}
               variant="secondary"
               disabled={busy || writeDenied}
               disabledReason={writeDenied ? denyReason : undefined}
@@ -308,7 +334,7 @@ export function AdminReportScreen() {
             />
             {typeof queue?.reopen === 'function' ? (
               <Button
-                label="Reopen"
+                label={i18n._(msg`Reopen`)}
                 variant="secondary"
                 disabled={busy || writeDenied}
                 disabledReason={writeDenied ? denyReason : undefined}
@@ -321,7 +347,7 @@ export function AdminReportScreen() {
             ) : null}
             {typeof queue?.recategorize === 'function' ? (
               <Button
-                label="Change category"
+                label={i18n._(msg`Change category`)}
                 variant="secondary"
                 disabled={busy || writeDenied}
                 disabledReason={writeDenied ? denyReason : undefined}
@@ -340,13 +366,13 @@ export function AdminReportScreen() {
                   style={{minHeight: 44}}
                   value={noteDraft ?? report.moderationNote ?? ''}
                   onChangeText={setNoteDraft}
-                  placeholder="Moderator note (empty clears it)"
+                  placeholder={i18n._(msg`Moderator note (empty clears it)`)}
                   editable={!busy}
                   multiline
                   testID="admin-report-note-input"
                 />
                 <Button
-                  label="Save note"
+                  label={i18n._(msg`Save note`)}
                   variant="secondary"
                   disabled={busy || writeDenied}
                   disabledReason={writeDenied ? denyReason : undefined}
@@ -360,11 +386,15 @@ export function AdminReportScreen() {
             ) : null}
             {typeof queue?.forward === 'function' ? (
               <Button
-                label="Forward to remote server"
+                label={i18n._(msg`Forward to remote server`)}
                 variant="secondary"
                 disabled={busy || writeDenied || report.forwarded}
                 disabledReason={
-                  writeDenied ? denyReason : report.forwarded ? 'Already forwarded.' : undefined
+                  writeDenied
+                    ? denyReason
+                    : report.forwarded
+                      ? i18n._(msg`Already forwarded.`)
+                      : undefined
                 }
                 onPress={() => {
                   setActionError(null)
@@ -376,7 +406,7 @@ export function AdminReportScreen() {
           </View>
           {confirming === 'assign' ? (
             <ConfirmShell
-              title="Claim this report for yourself?"
+              title={i18n._(msg`Claim this report for yourself?`)}
               action="assign"
               busy={assign.isPending}
               error={actionError}
@@ -391,7 +421,7 @@ export function AdminReportScreen() {
           ) : null}
           {confirming === 'unassign' ? (
             <ConfirmShell
-              title="Release your claim on this report?"
+              title={i18n._(msg`Release your claim on this report?`)}
               action="unassign"
               busy={unassign.isPending}
               error={actionError}
@@ -406,7 +436,7 @@ export function AdminReportScreen() {
           ) : null}
           {confirming === 'resolve' ? (
             <ConfirmShell
-              title="Resolve this report?"
+              title={i18n._(msg`Resolve this report?`)}
               action="resolve"
               busy={resolve.isPending}
               error={actionError}
@@ -422,7 +452,13 @@ export function AdminReportScreen() {
                   {(['accept', 'reject', null] as const).map(v => (
                     <Button
                       key={String(v)}
-                      label={v == null ? 'No verdict' : v === 'accept' ? 'Accept' : 'Reject'}
+                      label={
+                        v == null
+                          ? reportResolutionLabel(null)
+                          : v === 'accept'
+                            ? i18n._(msg`Accept`)
+                            : i18n._(msg`Reject`)
+                      }
                       variant={verdict === v ? 'primary' : 'secondary'}
                       onPress={() => setVerdict(v)}
                       testID={`admin-report-verdict-${String(v)}`}
@@ -434,7 +470,7 @@ export function AdminReportScreen() {
           ) : null}
           {confirming === 'reopen' ? (
             <ConfirmShell
-              title="Reopen this resolved report?"
+              title={i18n._(msg`Reopen this resolved report?`)}
               action="reopen"
               busy={reopen.isPending}
               error={actionError}
@@ -449,7 +485,7 @@ export function AdminReportScreen() {
           ) : null}
           {confirming === 'recategorize' ? (
             <ConfirmShell
-              title="Change the category?"
+              title={i18n._(msg`Change the category?`)}
               action="recategorize"
               busy={recategorize.isPending}
               confirmDisabled={
@@ -506,7 +542,11 @@ export function AdminReportScreen() {
           ) : null}
           {confirming === 'note' ? (
             <ConfirmShell
-              title={`Save this moderator note?${(noteDraft ?? report.moderationNote ?? '') === '' ? ' (Empty clears the note.)' : ''}`}
+              title={
+                (noteDraft ?? report.moderationNote ?? '') === ''
+                  ? i18n._(msg`Save this moderator note? (Empty clears the note.)`)
+                  : i18n._(msg`Save this moderator note?`)
+              }
               action="note"
               busy={updateNote.isPending}
               error={actionError}
@@ -521,7 +561,7 @@ export function AdminReportScreen() {
           ) : null}
           {confirming === 'forward' ? (
             <ConfirmShell
-              title="Forward this report to the target's home server?"
+              title={i18n._(msg`Forward this report to the target's home server?`)}
               action="forward"
               busy={forward.isPending}
               error={actionError}
