@@ -223,6 +223,20 @@
       "recordedAt": null,
       "unverified": "No grouped-capable server on the rig (live Akkoma 404s the v2 endpoint); shaped from the documented entity, not recorded. The emoji_reaction group exercises an extension type no live server emits yet."
     },
+    "mastodon/notification-requests.json": {
+      "endpoint": "GET /api/v1/notifications/requests (request rows with packed accounts)",
+      "source": "synthesised",
+      "synthesisedFrom": ["Mastodon NotificationRequest entity shape (id, created_at, account)", "packages/fedi/src/mastodon/wire.ts (Account)"],
+      "recordedAt": null,
+      "unverified": "No requests-capable server on the rig; shaped from the documented entity, not recorded. The last two rows exercise the tolerant paths (null account, missing id)."
+    },
+    "mastodon/notification-policy.json": {
+      "endpoint": "GET /api/v2/notifications/policy (filter switches + pending summary)",
+      "source": "synthesised",
+      "synthesisedFrom": ["Mastodon NotificationPolicy entity shape (filter_not_following, filter_not_followers, filter_new_accounts, filter_private_mentions, summary)", "packages/fedi/src/mastodon/wire.ts"],
+      "recordedAt": null,
+      "unverified": "No policy-capable server on the rig; shaped from the documented entity, not recorded."
+    },
     "akkoma/status.json": {
       "endpoint": "GET /api/v1/accounts/:id/statuses (Akkoma shape)",
       "source": "synthesised",

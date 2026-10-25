@@ -108,6 +108,12 @@ export type FeatureKey =
   | "lists_exclusive"
   | "bookmarks"
   | "favourites_distinct_from_reactions"
+  // Filtered notification requests + filter policy (Mastodon 4.3+,
+  // repair X4.5). Probe-backed ONLY: no flavor row below seeds it, so it
+  // reads "unknown" until a real requests/policy call caches a per-origin
+  // verdict (the `like.ts` pattern) — a flavor label never proves a
+  // backport absent or present.
+  | "notification_requests"
   // Server services
   | "translation"
   | "streaming"
@@ -155,6 +161,7 @@ export const FEATURE_KEYS: readonly FeatureKey[] = [
   "lists_exclusive",
   "bookmarks",
   "favourites_distinct_from_reactions",
+  "notification_requests",
   "translation",
   "streaming",
   "password_grant",

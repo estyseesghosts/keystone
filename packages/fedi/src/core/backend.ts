@@ -359,6 +359,70 @@ export interface FollowRequest {
   followee: Account;
 }
 
+// --- Filtered notification requests (Mastodon 4.3+, repair X4.5) ----------
+//
+// Mastodon 4.3+ files notifications from filtered accounts under "requests"
+// instead of the main list. The domain rows are deliberately thin: the
+// request carries who asked (null when the server packed no usable
+// account — never an invented profile); the policy carries the four
+// server-side filter switches plus the pending counters the entry badge
+// reads. A null switch/count means the server did not say — the UI
+// disables that row with a reason instead of guessing, and `updatePolicy`
+// never sends it back.
+
+/** One row of the filtered-notifications inbox. */
+export interface NotificationRequest {
+  id: string;
+  /** Server timestamp when sent; null when the server omitted it. */
+  createdAt: string | null;
+  /** The requesting account; null when unpacked/unusable. */
+  account: Account | null;
+}
+
+/** The viewer's notification filter policy. */
+export interface NotificationPolicy {
+  filterNotFollowing: boolean | null;
+  filterNotFollowers: boolean | null;
+  filterNewAccounts: boolean | null;
+  filterPrivateMentions: boolean | null;
+  pendingRequestsCount: number | null;
+  pendingNotificationsCount: number | null;
+}
+
+/** Policy update: only defined fields are sent (never a guessed switch). */
+export interface NotificationPolicyPatch {
+  filterNotFollowing?: boolean;
+  filterNotFollowers?: boolean;
+  filterNewAccounts?: boolean;
+  filterPrivateMentions?: boolean;
+}
+
+/**
+ * Filtered-notifications inbox + filter policy (Mastodon 4.3+).
+ *
+ * Optional like every capability-gated member: present on the
+ * Mastodon-family backend (every flavor — the probe decides, never the
+ * flavor label), absent on the Misskey family (no such endpoints). A
+ * server without the routes answers 404/405 and the member reports the
+ * honest unsupported verdict — the UI hides the entry with a reason,
+ * never an error wall. Support is probed once per origin and cached; a
+ * flavor label never proves absence (a backport may add the endpoints).
+ */
+export interface NotificationRequestsApi {
+  /** One inbox page, newest first (Link-paged, same end rule as feeds). */
+  list(opts?: PageOpts): Promise<Page<NotificationRequest>>;
+  /** Merge one request into the main notifications. */
+  accept(id: string): Promise<void>;
+  /** Drop one request. */
+  dismiss(id: string): Promise<void>;
+  /** The current filter policy (this call also probes support). */
+  policy(opts?: SignalOpts): Promise<NotificationPolicy>;
+  /** Save policy switches; answers the server's stored policy. */
+  updatePolicy(patch: NotificationPolicyPatch): Promise<NotificationPolicy>;
+  /** Endpoint presence by origin: true/false, or null when unprobed. */
+  isSupported(): boolean | null;
+}
+
 /** Notification filter presets (maps to includeTypes/excludeTypes — no
  * second list UI; blacklist = mutes, whitelist = followingOrFollower
  * scoping, mutuals = mutualFollow, followed = following). The values are
@@ -1335,6 +1399,12 @@ export interface Backend {
    * Mastodon family). Optional for the same reason as `dismissNotification`;
    * destructive, so the UI always confirms first. */
   clearNotifications?(): Promise<void>;
+  /** Filtered-notifications inbox + filter policy (Mastodon 4.3+,
+   * repair X4.5). Optional: present on the Mastodon-family backend, absent
+   * on the Misskey family (no such endpoints) — the UI hides the surface
+   * with a reason, never an error wall. Support is probed per origin
+   * (`isSupported()`), never flavor-guessed. */
+  notificationRequests?: NotificationRequestsApi;
 
   // --- Server services (plan §2.2) ---
   customEmojis(): Promise<CustomEmoji[]>;

@@ -1,0 +1,10 @@
+{
+  "filter_not_following": true,
+  "filter_not_followers": false,
+  "filter_new_accounts": true,
+  "filter_private_mentions": false,
+  "summary": {
+    "pending_requests_count": 2,
+    "pending_notifications_count": 5
+  }
+}

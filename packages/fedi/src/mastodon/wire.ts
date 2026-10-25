@@ -373,6 +373,38 @@ export interface Notification {
   pleroma?: { is_seen?: boolean; is_muted?: boolean; [key: string]: unknown };
 }
 
+// --- Filtered notification requests + filter policy (Mastodon 4.3+) --------
+//
+// `GET /api/v1/notifications/requests` answers a Link-paged array of
+// request rows (each names the requesting account); `POST
+// .../requests/:id/accept|dismiss` merges/drops one row; `GET|PATCH
+// /api/v2/notifications/policy` reads/writes the four filter switches
+// plus the pending counters. Field names are exact wire spellings;
+// everything is optional-tolerant here so fork drift degrades in the
+// adapter, never at the type boundary.
+
+/** `GET /api/v1/notifications/requests` row. */
+export interface NotificationRequest {
+  id: ID;
+  created_at?: string | null;
+  account?: Account | null;
+}
+
+/** `GET /api/v2/notifications/policy` summary counters. */
+export interface NotificationPolicySummary {
+  pending_requests_count?: number | null;
+  pending_notifications_count?: number | null;
+}
+
+/** `GET|PATCH /api/v2/notifications/policy` body. */
+export interface NotificationPolicy {
+  filter_not_following?: boolean;
+  filter_not_followers?: boolean;
+  filter_new_accounts?: boolean;
+  filter_private_mentions?: boolean;
+  summary?: NotificationPolicySummary | null;
+}
+
 // --- Relationships --------------------------------------------------------
 
 /** Contract §6 field list; Akkoma adds `requested_by`/`subscribing`. */

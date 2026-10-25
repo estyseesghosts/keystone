@@ -167,6 +167,10 @@ import { createClient, isAuthError, toApiError as clientToApiError } from "./cli
 import type { MastoClient, QueryValue } from "./client";
 import { listsContaining as listsContainingMasto, addToList as addToListMasto, removeFromList as removeFromListMasto } from "./listMembership";
 import {
+  createNotificationRequestsApi,
+  notificationRequestsSupportFor,
+} from "./notificationRequests";
+import {
   deleteFeaturedTag,
   featureTag,
   fetchFeaturedTags,
@@ -314,7 +318,16 @@ export function createMastodonBackend(
   const client = guarded(rawClient);
   const flavor: ServerFlavor = opts.flavor ?? "unknown";
   const streamOrigin = opts.streamingOrigin ?? null;
-  const capabilities: Capabilities = buildCapabilities(flavor, opts.evidence ?? {});
+  // Static flavor-table floor. `notification_requests` is NOT seeded here
+  // (repair X4.5: probe, never flavor-guess) — the getter below overlays
+  // the per-origin probe verdict once a real requests/policy call caches
+  // one, and reads "unknown" until then.
+  const baseCapabilities: Capabilities = buildCapabilities(flavor, opts.evidence ?? {});
+  function probedCapabilities(): Capabilities {
+    const verdict = notificationRequestsSupportFor(client.origin);
+    if (verdict === null) return baseCapabilities;
+    return { ...baseCapabilities, notification_requests: verdict ? "supported" : "unsupported" };
+  }
 
   // --- paging seams -------------------------------------------------------
 
@@ -467,7 +480,11 @@ export function createMastodonBackend(
 
   return {
     family: "mastodon",
-    capabilities,
+    // Live view over the probe cache (repair X4.5): the static flavor
+    // floor until a requests/policy verdict lands, then the probed value.
+    get capabilities(): Capabilities {
+      return probedCapabilities();
+    },
 
     // --- Feeds and posts ---------------------------------------------------
 
@@ -1233,6 +1250,14 @@ export function createMastodonBackend(
       await clearNotifications(client);
     },
 
+    // Filtered notification requests + filter policy (Mastodon 4.3+,
+    // repair X4.5). Present on every Mastodon-family flavor — the probe
+    // decides support per origin, never the flavor label (a 404 caches
+    // unsupported; auth/timeout/5xx rethrow and cache nothing). Without
+    // support the UI hides the entry with a reason and every filtered
+    // item stays in the main list, so nothing silently vanishes.
+    notificationRequests: createNotificationRequestsApi(client),
+
     // --- Server services -----------------------------------------------------
 
     async customEmojis(): Promise<CustomEmoji[]> {
@@ -1470,7 +1495,7 @@ export function createMastodonBackend(
       async create(name, fields = {}) {
         const res = await client.post<ListRow>("/api/v1/lists", {
           title: name,
-          ...listFieldsBody(fields, capabilities),
+          ...listFieldsBody(fields, baseCapabilities),
         });
         if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
           throw new FediError("The server did not return the created list.", "errors.shape.createdList");
@@ -1480,7 +1505,7 @@ export function createMastodonBackend(
       async update(id, patch) {
         const res = await client.put<ListRow>(
           `/api/v1/lists/${encodeURIComponent(id)}`,
-          { title: patch.name, ...listFieldsBody(patch, capabilities) },
+          { title: patch.name, ...listFieldsBody(patch, baseCapabilities) },
         );
         if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
           throw new FediError("The server did not return the updated list.", "errors.shape.updatedList");

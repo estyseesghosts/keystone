@@ -11,14 +11,19 @@ import {useEffect, useMemo, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 import {useQueryClient, type InfiniteData} from '@tanstack/react-query'
 
-import {msg} from '@lingui/macro'
+import {msg, plural} from '@lingui/macro'
 
 import {
+  handleOf,
   httpStatusOf,
   isUnsupportedError,
   notificationFilterPresets,
   type Backend,
+  type Cursor,
   type Notification,
+  type NotificationPolicy,
+  type NotificationPolicyPatch,
+  type NotificationRequest,
   type Page,
 } from '@keystone/fedi'
 
@@ -202,6 +207,354 @@ function ReceiveConfigSection({backend}: {backend: Backend}) {
             disabledReason={i18n._(msg`Saving notification settings.`)}
             testID="notifications-settings-save"
           />
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+// --- Filtered notification requests (Mastodon 4.3+, repair X4.5) -------------
+//
+// Mastodon 4.3+ files notifications from filtered accounts under "requests"
+// instead of the main list; without support every filtered item stays in
+// the MAIN list, so nothing ever silently vanishes. Support is probed,
+// never flavor-guessed: the entry shows while unknown, hides WITH a reason
+// when a requests/policy call 404/405s, and opens the inbox + policy
+// editor when the server answers.
+//
+// State here is per-screen (the section remounts per session via `key` at
+// the call site) — the queries directory is owned by other slices, so no
+// cached query keys are added and switching accounts refetches from
+// scratch. Dismiss/clear regions below belong to X4.1 and are untouched.
+
+type PolicyFilterKey = keyof NotificationPolicyPatch
+
+function NotificationRequestsSection({backend, sessionId}: {backend: Backend; sessionId: string}) {
+  const api = backend.notificationRequests ?? null
+  const [support, setSupport] = useState<'unknown' | 'supported' | 'unsupported'>(() => {
+    if (api == null) return 'unsupported'
+    const probed = api.isSupported()
+    return probed === true ? 'supported' : probed === false ? 'unsupported' : 'unknown'
+  })
+  const [open, setOpen] = useState(false)
+  const [policy, setPolicy] = useState<NotificationPolicy | null>(null)
+  const [draft, setDraft] = useState<NotificationPolicyPatch>({})
+  const [policyLoading, setPolicyLoading] = useState(false)
+  const [policyError, setPolicyError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [items, setItems] = useState<NotificationRequest[]>([])
+  const [cursor, setCursor] = useState<Cursor | null>(null)
+  const [end, setEnd] = useState(true)
+  const [listLoading, setListLoading] = useState(false)
+  const [listError, setListError] = useState<string | null>(null)
+  const [pendingIds, setPendingIds] = useState<string[]>([])
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  // Probe-on-mount via the policy read (one request per origin per launch
+  // at most: the verdict caches in the backend module). No member (Misskey
+  // family) never probes — there is nothing to ask.
+  useEffect(() => {
+    if (api == null) return
+    if (api.isSupported() === false) {
+      setSupport('unsupported')
+      return
+    }
+    let cancelled = false
+    setPolicyLoading(true)
+    setPolicyError(null)
+    void api
+      .policy()
+      .then(p => {
+        if (cancelled) return
+        setPolicy(p)
+        setDraft({
+          ...(p.filterNotFollowing == null ? {} : {filterNotFollowing: p.filterNotFollowing}),
+          ...(p.filterNotFollowers == null ? {} : {filterNotFollowers: p.filterNotFollowers}),
+          ...(p.filterNewAccounts == null ? {} : {filterNewAccounts: p.filterNewAccounts}),
+          ...(p.filterPrivateMentions == null ? {} : {filterPrivateMentions: p.filterPrivateMentions}),
+        })
+        setSupport('supported')
+      })
+      .catch(err => {
+        if (cancelled) return
+        if (isUnsupportedError(err)) setSupport('unsupported')
+        else setPolicyError(i18n._(msg`Could not load the filter policy.`))
+      })
+      .finally(() => {
+        if (!cancelled) setPolicyLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [api, sessionId])
+
+  const loadList = (nextCursor: Cursor | null, append: boolean) => {
+    if (api == null || listLoading) return
+    setListLoading(true)
+    setListError(null)
+    void api
+      .list({cursor: nextCursor, limit: 20})
+      .then(page => {
+        setItems(prev =>
+          append
+            ? [...prev, ...page.items.filter(i => !prev.some(p => p.id === i.id))]
+            : page.items,
+        )
+        setCursor(page.cursor)
+        setEnd(page.end)
+        setSupport('supported')
+      })
+      .catch(err => {
+        if (isUnsupportedError(err)) setSupport('unsupported')
+        else setListError(i18n._(msg`Could not load filtered notifications.`))
+      })
+      .finally(() => setListLoading(false))
+  }
+
+  const toggleOpen = () => {
+    const next = !open
+    setOpen(next)
+    if (next && items.length === 0 && !listLoading) loadList(null, false)
+  }
+
+  const runRequestAction = (id: string, kind: 'accept' | 'dismiss') => {
+    if (api == null || pendingIds.includes(id)) return
+    setPendingIds(prev => [...prev, id])
+    setActionError(null)
+    void (kind === 'accept' ? api.accept(id) : api.dismiss(id))
+      .then(() => {
+        setItems(prev => prev.filter(i => i.id !== id))
+        // The badge count is server state: refetch it, never a local guess.
+        return api.policy()
+      })
+      .then(p => setPolicy(p))
+      .catch(err => {
+        if (isUnsupportedError(err)) setSupport('unsupported')
+        else
+          setActionError(
+            kind === 'accept'
+              ? i18n._(msg`Could not accept that request.`)
+              : i18n._(msg`Could not dismiss that request.`),
+          )
+      })
+      .finally(() => setPendingIds(prev => prev.filter(x => x !== id)))
+  }
+
+  const savePolicy = () => {
+    if (api == null || saving) return
+    const patch: NotificationPolicyPatch = {
+      ...(policy?.filterNotFollowing == null || draft.filterNotFollowing === undefined
+        ? {}
+        : {filterNotFollowing: draft.filterNotFollowing}),
+      ...(policy?.filterNotFollowers == null || draft.filterNotFollowers === undefined
+        ? {}
+        : {filterNotFollowers: draft.filterNotFollowers}),
+      ...(policy?.filterNewAccounts == null || draft.filterNewAccounts === undefined
+        ? {}
+        : {filterNewAccounts: draft.filterNewAccounts}),
+      ...(policy?.filterPrivateMentions == null || draft.filterPrivateMentions === undefined
+        ? {}
+        : {filterPrivateMentions: draft.filterPrivateMentions}),
+    }
+    setSaving(true)
+    setSaveError(null)
+    void api
+      .updatePolicy(patch)
+      .then(p => {
+        setPolicy(p)
+        setDraft({
+          ...(p.filterNotFollowing == null ? {} : {filterNotFollowing: p.filterNotFollowing}),
+          ...(p.filterNotFollowers == null ? {} : {filterNotFollowers: p.filterNotFollowers}),
+          ...(p.filterNewAccounts == null ? {} : {filterNewAccounts: p.filterNewAccounts}),
+          ...(p.filterPrivateMentions == null ? {} : {filterPrivateMentions: p.filterPrivateMentions}),
+        })
+      })
+      .catch(err => {
+        if (isUnsupportedError(err)) setSupport('unsupported')
+        else setSaveError(i18n._(msg`Could not save the filter policy.`))
+      })
+      .finally(() => setSaving(false))
+  }
+
+  if (api == null) {
+    return (
+      <View style={[atoms.px_md, atoms.py_sm]}>
+        <Caption color="faint" testID="notifications-requests-unavailable">
+          {i18n._(msg`Filtered notifications are only on Mastodon-family servers. Everything stays in the main list.`)}
+        </Caption>
+      </View>
+    )
+  }
+
+  if (support === 'unsupported') {
+    return (
+      <View style={[atoms.px_md, atoms.py_sm]}>
+        <Caption color="faint" testID="notifications-requests-unavailable">
+          {i18n._(msg`Filtered notifications are not on this server. Everything stays in the main list.`)}
+        </Caption>
+      </View>
+    )
+  }
+
+  const policyRows: Array<{key: PolicyFilterKey; label: string}> = [
+    {key: 'filterNotFollowing', label: i18n._(msg`From people you don't follow`)},
+    {key: 'filterNotFollowers', label: i18n._(msg`From people who don't follow you`)},
+    {key: 'filterNewAccounts', label: i18n._(msg`From new accounts`)},
+    {key: 'filterPrivateMentions', label: i18n._(msg`Private mentions`)},
+  ]
+  const pending = policy?.pendingRequestsCount
+
+  return (
+    <View style={[atoms.px_md, atoms.py_sm]}>
+      <Button
+        label={i18n._(msg`Filtered notifications`)}
+        variant="secondary"
+        onPress={toggleOpen}
+        disabled={policyLoading}
+        disabledReason={i18n._(msg`Loading the filter policy.`)}
+        testID="notifications-requests-entry"
+      />
+      {typeof pending === 'number' && pending > 0 ? (
+        <Caption color="faint" testID="notifications-requests-count">
+          {i18n._(
+            plural(pending, {
+              one: '# filtered notification',
+              other: '# filtered notifications',
+            }),
+          )}
+        </Caption>
+      ) : null}
+      {policyLoading ? <Loader testID="notifications-requests-policy-loading" /> : null}
+      {policyError ? <Caption color="faint">{policyError}</Caption> : null}
+      {policyError ? (
+        <Button
+          label={i18n._(msg`Retry`)}
+          variant="secondary"
+          onPress={() => {
+            if (api.isSupported() === false) setSupport('unsupported')
+            else {
+              setPolicyLoading(true)
+              setPolicyError(null)
+              void api
+                .policy()
+                .then(p => {
+                  setPolicy(p)
+                  setDraft({
+                    ...(p.filterNotFollowing == null
+                      ? {}
+                      : {filterNotFollowing: p.filterNotFollowing}),
+                    ...(p.filterNotFollowers == null
+                      ? {}
+                      : {filterNotFollowers: p.filterNotFollowers}),
+                    ...(p.filterNewAccounts == null ? {} : {filterNewAccounts: p.filterNewAccounts}),
+                    ...(p.filterPrivateMentions == null
+                      ? {}
+                      : {filterPrivateMentions: p.filterPrivateMentions}),
+                  })
+                  setSupport('supported')
+                })
+                .catch(err => {
+                  if (isUnsupportedError(err)) setSupport('unsupported')
+                  else setPolicyError(i18n._(msg`Could not load the filter policy.`))
+                })
+                .finally(() => setPolicyLoading(false))
+            }
+          }}
+          testID="notifications-requests-policy-retry"
+        />
+      ) : null}
+      {policy != null && !policyLoading ? (
+        <View testID="notifications-requests-policy">
+          <Caption color="faint">
+            {i18n._(msg`Choose which notifications wait here instead of the main list.`)}
+          </Caption>
+          {policyRows.map(row => (
+            <View key={row.key} testID={`notifications-requests-policy-${row.key}`}>
+              <Caption>{row.label}</Caption>
+              {policy[row.key] == null ? (
+                <Caption color="faint" testID={`notifications-requests-policy-${row.key}-unknown`}>
+                  {i18n._(msg`Not reported by this server.`)}
+                </Caption>
+              ) : (
+                <Tabs
+                  tabs={[
+                    {key: 'on', label: i18n._(msg`On`)},
+                    {key: 'off', label: i18n._(msg`Off`)},
+                  ]}
+                  active={(draft[row.key] ?? policy[row.key] ?? false) ? 'on' : 'off'}
+                  onChange={key => setDraft(d => ({...d, [row.key]: key === 'on'}))}
+                  testID={`notifications-requests-policy-${row.key}-options`}
+                  testIDPrefix={`notifications-requests-policy-${row.key}-option`}
+                  accessibilityLabel={row.label}
+                />
+              )}
+            </View>
+          ))}
+          <Button
+            label={saving ? i18n._(msg`Saving…`) : i18n._(msg`Save`)}
+            variant="primary"
+            onPress={savePolicy}
+            disabled={saving}
+            disabledReason={i18n._(msg`Saving the filter policy.`)}
+            testID="notifications-requests-policy-save"
+          />
+          {saveError ? <Caption color="faint">{saveError}</Caption> : null}
+        </View>
+      ) : null}
+      {open ? (
+        <View testID="notifications-requests-list">
+          {listLoading && items.length === 0 ? (
+            <Loader testID="notifications-requests-loading" />
+          ) : null}
+          {listError ? <Caption color="faint">{listError}</Caption> : null}
+          {listError ? (
+            <Button
+              label={i18n._(msg`Retry`)}
+              variant="secondary"
+              onPress={() => loadList(null, false)}
+              testID="notifications-requests-retry"
+            />
+          ) : null}
+          {items.map(req => {
+            const busy = pendingIds.includes(req.id)
+            return (
+              <View key={req.id} testID={`notification-request-${req.id}`}>
+                <Body>{req.account ? handleOf(req.account) : i18n._(msg`Someone`)}</Body>
+                <Button
+                  label={busy ? i18n._(msg`Accepting…`) : i18n._(msg`Accept`)}
+                  variant="secondary"
+                  onPress={() => runRequestAction(req.id, 'accept')}
+                  disabled={busy}
+                  disabledReason={i18n._(msg`Working on this request.`)}
+                  testID={`notification-request-accept-${req.id}`}
+                />
+                <Button
+                  label={busy ? i18n._(msg`Dismissing…`) : i18n._(msg`Dismiss`)}
+                  variant="secondary"
+                  onPress={() => runRequestAction(req.id, 'dismiss')}
+                  disabled={busy}
+                  disabledReason={i18n._(msg`Working on this request.`)}
+                  testID={`notification-request-dismiss-${req.id}`}
+                />
+              </View>
+            )
+          })}
+          {!listLoading && items.length === 0 && listError == null ? (
+            <Body>{i18n._(msg`No filtered notifications.`)}</Body>
+          ) : null}
+          {!end && !listLoading ? (
+            <Button
+              label={i18n._(msg`Show more`)}
+              variant="secondary"
+              onPress={() => loadList(cursor, true)}
+              testID="notifications-requests-more"
+            />
+          ) : null}
+          {listLoading && items.length > 0 ? (
+            <Loader testID="notifications-requests-more-loading" />
+          ) : null}
+          {actionError ? <Caption color="faint">{actionError}</Caption> : null}
         </View>
       ) : null}
     </View>
@@ -428,6 +781,11 @@ export function NotificationsScreen() {
             {actionError ? <Caption color="faint">{actionError}</Caption> : null}
           </View>
           <ReceiveConfigSection backend={backend} />
+          <NotificationRequestsSection
+            key={session.id}
+            backend={backend}
+            sessionId={session.id}
+          />
           {query.isPending ? (
             <SkeletonList variant="account" testID="notifications-loading" />
           ) : query.isError && items.length === 0 ? (

@@ -177,6 +177,7 @@ export {
   reactionsSupported,
 } from "./mastodon/instance";
 export * from "./mastodon/oauth";
+export * from "./mastodon/notificationRequests";
 export * from "./mastodon/pagination";
 export * from "./mastodon/presentation";
 export * from "./mastodon/quoteMarker";

@@ -1,0 +1,61 @@
+[
+  {
+    "id": "701",
+    "created_at": "2026-10-20T10:00:00.000Z",
+    "account": {
+      "id": "2",
+      "username": "alice",
+      "acct": "alice",
+      "display_name": "Alice",
+      "locked": false,
+      "bot": false,
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "note": "<p>hello</p>",
+      "url": "https://mastodon.example/@alice",
+      "avatar": null,
+      "avatar_static": null,
+      "header": null,
+      "header_static": null,
+      "followers_count": 3,
+      "following_count": 5,
+      "statuses_count": 11,
+      "emojis": [],
+      "fields": []
+    }
+  },
+  {
+    "id": "702",
+    "created_at": "2026-10-20T11:00:00.000Z",
+    "account": {
+      "id": "9",
+      "username": "stranger",
+      "acct": "stranger@remote.example",
+      "display_name": "",
+      "locked": true,
+      "bot": false,
+      "created_at": "2026-09-01T00:00:00.000Z",
+      "note": "<p>new here</p>",
+      "url": "https://remote.example/@stranger",
+      "avatar": null,
+      "avatar_static": null,
+      "header": null,
+      "header_static": null,
+      "followers_count": 0,
+      "following_count": 1,
+      "statuses_count": 2,
+      "emojis": [],
+      "fields": []
+    }
+  },
+  {
+    "id": "703",
+    "created_at": "2026-10-20T12:00:00.000Z",
+    "account": null
+  },
+  {
+    "created_at": "2026-10-20T13:00:00.000Z",
+    "account": {
+      "id": "nope"
+    }
+  }
+]
