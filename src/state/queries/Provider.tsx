@@ -6,6 +6,7 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import type {KeyValueStore} from '@keystone/fedi'
 
 import {appKeyValueStore} from '#/storage'
+import {createQueryPurger, registerSessionPurger} from '#/state/session/purge'
 
 import {
   QUERY_PERSIST_KEY,
@@ -105,5 +106,9 @@ export function QueryProvider({children, client, persister}: QueryProviderProps)
       stopPersisting()
     }
   }, [queryClient, activePersister])
+  // Session purge (repair X1.2): the session store lives outside React and
+  // cannot see this client, so it purges query state through this registry.
+  // Nothing else in this file is the purge slice's to touch.
+  useEffect(() => registerSessionPurger(createQueryPurger(queryClient)), [queryClient])
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 }

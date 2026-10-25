@@ -1,5 +1,7 @@
 import {z} from 'zod'
 
+import type {KeyValueStore} from '@keystone/fedi'
+
 // Versioned app storage schema (slice 2.5).
 //
 // Two scopes share one `KeyValueStore` (MMKV on device, the same seam
@@ -126,6 +128,17 @@ export const DEVICE_KEY = 'keystone.device'
  * another's — including same-user/different-origin pairs. */
 export function accountKeyFor(sessionId: string): string {
   return `keystone.account.${sessionId}`
+}
+
+/** Remove the per-account scope for a session (sign-out purge, X1.2).
+ * The device scope (`DEVICE_KEY`) is untouched. Never throws. */
+export function purgeAccountScope(store: KeyValueStore, sessionId: string): void {
+  if (!sessionId) return
+  try {
+    store.removeItem(accountKeyFor(sessionId))
+  } catch {
+    // Best-effort: local sign-out completes even on storage failure.
+  }
 }
 
 /** JSON-parse + schema-validate, falling back on ANY failure (missing

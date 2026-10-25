@@ -33,10 +33,18 @@ import {appStorage} from '#/storage'
 
 export type HomeTab = 'home' | 'recommendations'
 
+/** MMKV key for the per-account home tab restore (sign-out purge, X1.2,
+ * deletes it). The tab is per session, so one account's tab never
+ * surfaces for another. */
+export function homeTabKeyFor(sessionId: string): string {
+  if (!sessionId) throw new Error('homeTabKeyFor requires a sessionId')
+  return `keystone.homeTab:${sessionId}`
+}
+
 function readHomeTab(sessionId: string | null): HomeTab {
   if (!sessionId) return 'home'
   try {
-    return appStorage().getItem(`keystone.homeTab:${sessionId}`) === 'recommendations'
+    return appStorage().getItem(homeTabKeyFor(sessionId)) === 'recommendations'
       ? 'recommendations'
       : 'home'
   } catch {
@@ -94,7 +102,7 @@ export function HomeScreen() {
     setTab(next)
     if (sessionId) {
       try {
-        appStorage().setItem(`keystone.homeTab:${sessionId}`, next)
+        appStorage().setItem(homeTabKeyFor(sessionId), next)
       } catch {
         // Storage unavailable: the tab lasts for this mount only.
       }

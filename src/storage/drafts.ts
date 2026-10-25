@@ -104,6 +104,19 @@ function write(store: KeyValueStore, sessionId: string, drafts: LocalDraft[]): v
   )
 }
 
+/** Remove every draft and the open-draft pointer for a session (sign-out
+ * purge, X1.2). Never throws. */
+export function purgeDrafts(store: KeyValueStore, sessionId: string): void {
+  if (!sessionId) return
+  for (const key of [draftsKeyFor(sessionId), openDraftKeyFor(sessionId)]) {
+    try {
+      store.removeItem(key)
+    } catch {
+      // Best-effort: local sign-out completes even on storage failure.
+    }
+  }
+}
+
 /** True when there is nothing worth saving. */
 export function isDraftEmpty(
   d: Pick<LocalDraft, 'text' | 'cw' | 'pollChoices' | 'visibleUserIds'>,

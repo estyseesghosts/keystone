@@ -15,6 +15,8 @@ import {
   sessionId,
   sessionWithoutToken,
   setActiveSessionId,
+  SESSIONS_KEY,
+  STORE_VERSION,
   type ServerFamily,
   type ServerFlavor,
   type Session,
@@ -29,6 +31,14 @@ import {
   type SecureTokenVault,
   type TokenVault,
 } from '#/storage'
+
+import {
+  clearAllQueries,
+  purgeAllPersistedSessions,
+  purgeSessionMemory,
+  purgeSessionStorage,
+  removeSessionQueries,
+} from './purge'
 
 // App session store (slice 2.5 + ADR 0011): active-session id + session
 // records, persisted through the 2.1 `KeyValueStore` seam so the SAME core
@@ -314,6 +324,88 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
   const tokens = new Map<string, string>()
   const vaultListeners = new Set<(failure: VaultFailure) => void>()
 
+  // Operation chain (repair X1.2, S5/S6): every read-modify-write that
+  // crosses an `await` (`add`, `remove`, `dropLocal`, `hydrate`,
+  // `signOutEverywhere`) runs inside `serialize`, so a `remove` can never
+  // land between `hydrate`'s vault read and its envelope write (no
+  // resurrection), and a second concurrent `hydrate` (the provider mounts
+  // once per tree) simply runs after the first instead of interleaving.
+  // Sync ops (`switch`, `initialize`, `refresh`) stay outside the chain —
+  // they touch no async state.
+  let opChain: Promise<void> = Promise.resolve()
+
+  function serialize<T>(work: () => Promise<T>): Promise<T> {
+    const run = opChain.then(work, work)
+    opChain = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    return run
+  }
+
+  // Recency for D3 (repair X1.2): removing the active session activates
+  // the most recently USED remaining session, not merely the list head
+  // (`switch` does not reorder the envelope, so the head is only
+  // most-recently-ADDED). In-memory only: after a restart the envelope
+  // order breaks ties, and no storage shape changes for it.
+  const lastUsed = new Map<string, number>()
+  let useTick = 0
+
+  function markUsed(id: string): void {
+    useTick += 1
+    lastUsed.set(id, useTick)
+  }
+
+  /** Most recently used of `remaining`. Iterated in envelope order with a
+   * strict-greater replacement, so the envelope head wins ties (a fresh
+   * boot with no usage history keeps today's order). */
+  function mostRecentlyUsed(remaining: Session[]): Session {
+    let best = remaining[0]
+    for (const session of remaining.slice(1)) {
+      if ((lastUsed.get(session.id) ?? 0) > (lastUsed.get(best.id) ?? 0)) best = session
+    }
+    return best
+  }
+
+  // Order-preserving envelope rewrite (repair X1.2, step 4): hydrate must
+  // never reorder the list, but fedi's `saveSession` prepends. This writes
+  // the envelope in one shot — same `{version, active, sessions}` shape
+  // `readStore` validates (`SESSIONS_KEY`, `STORE_VERSION`), rows already
+  // normalized — preserving order and the active pointer. Callers re-read
+  // first and only pass rows that still exist.
+  function rewriteEnvelopeRows(rows: Session[]): void {
+    const active = getActiveSessionId(storage, homeOrigin)
+    try {
+      storage.setItem(SESSIONS_KEY, JSON.stringify({version: STORE_VERSION, active, sessions: rows}))
+    } catch {
+      // Storage unavailable: the in-memory map still serves this run.
+    }
+  }
+
+  // D3 (repair X1.2): after erasing sessions, keep a surviving active
+  // session untouched (syncing a stale mirror to it); when the removed
+  // session WAS active, activate the most recently used remaining one;
+  // when none remains, drop to signed-out.
+  function fixActiveAfterRemoval(): void {
+    const remaining = readSessions()
+    if (remaining.length === 0) {
+      setActiveSessionId(storage, null, homeOrigin)
+      writeMirror(null)
+      return
+    }
+    const resolved = resolveActiveId(getActiveSessionId(storage, homeOrigin), readMirror(), remaining)
+    if (resolved) {
+      if (getActiveSessionId(storage, homeOrigin) !== resolved) {
+        setActiveSessionId(storage, resolved, homeOrigin)
+      }
+      if (readMirror() !== resolved) writeMirror(resolved)
+      return
+    }
+    const next = mostRecentlyUsed(remaining)
+    setActiveSessionId(storage, next.id, homeOrigin)
+    writeMirror(next.id)
+  }
+
   /** True for OS-backed vaults (native SecureStore). Plain `TokenVault`
    * stubs (web, tests) run the legacy envelope-keeps-token path.
    * The parameter is the union (not `TokenVault` alone): `SecureTokenVault`
@@ -348,30 +440,29 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
   }
 
   /**
-   * Rewrite one envelope row tokenless. Re-reads by id first so a
-   * concurrently removed session is never resurrected (S5; full
-   * serialization is X1.2's). Returns true when a write happened.
-   */
-  function scrubEnvelopeToken(id: string): boolean {
-    const current = readSessions().find(s => s.id === id) ?? null
-    if (!current || !current.token) return false
-    saveSession(storage, sessionWithoutToken(current), homeOrigin)
-    return true
-  }
-
-  /**
-   * Boot migration + hydration for OS vaults (ADR 0011). For every stored
-   * session: a vault token wins and any envelope duplicate is scrubbed; an
-   * envelope-only token is moved into the vault (verified with a read-back,
-   * then the row is rewritten tokenless); a failed write keeps the session
-   * usable in memory for this run, keeps the envelope copy until verified,
-   * and emits. A session with neither fails visibly (re-auth next launch).
+   * Boot migration + hydration for OS vaults (ADR 0011, repair X1.2 step
+   * 4). For every stored session: a vault token wins and any envelope
+   * duplicate is scrubbed; an envelope-only token is moved into the vault
+   * (verified with a read-back, then the row is rewritten tokenless); a
+   * failed write keeps the session usable in memory for this run, keeps
+   * the envelope copy until verified, and emits. A session with neither
+   * fails visibly (re-auth next launch).
+   *
+   * Every envelope mutation goes through one order-preserving
+   * `rewriteEnvelopeRows` at the end (hydrate never reorders), and every
+   * write is preceded by a re-read that skips sessions gone or changed
+   * under us (S5). The whole body runs inside `serialize` (see `hydrate`).
    */
   async function hydrateSecure(secure: SecureTokenVault): Promise<void> {
-    let changed = false
+    // Rows to scrub, with the envelope token each decision was based on —
+    // the final rewrite only touches rows that still carry it (S5).
+    const scrubBasis = new Map<string, string>()
+    let touched = false
     for (const seen of readSessions()) {
-      // Re-read by id immediately before each write: a concurrently
-      // removed session is never resurrected (S5; X1.2 serializes fully).
+      // Re-read by id immediately before each step: a concurrently
+      // removed session is never resurrected, and a changed token wins
+      // over the stale snapshot (S5; the chain makes this
+      // defense-in-depth, not the only guard).
       const current = readSessions().find(s => s.id === seen.id) ?? null
       if (!current) {
         tokens.delete(seen.id)
@@ -385,10 +476,12 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         vaultToken = null
       }
       if (vaultToken) {
-        tokens.set(current.id, vaultToken)
+        if (tokens.get(current.id) !== vaultToken) {
+          tokens.set(current.id, vaultToken)
+          touched = true
+        }
         // The vault wins (existing semantics) — drop any envelope duplicate.
-        if (envelopeToken && envelopeToken !== vaultToken) changed = scrubEnvelopeToken(current.id) || changed
-        else if (envelopeToken) changed = scrubEnvelopeToken(current.id) || changed
+        if (envelopeToken) scrubBasis.set(current.id, envelopeToken)
       } else if (envelopeToken) {
         // Pre-migration (or legacy-writer) row: move it into the vault.
         let stored = false
@@ -403,7 +496,10 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
           } catch {
             // Ignore — the entry is already unusable.
           }
-          tokens.set(current.id, envelopeToken)
+          if (tokens.get(current.id) !== envelopeToken) {
+            tokens.set(current.id, envelopeToken)
+            touched = true
+          }
           emitVaultFailure({sessionId: current.id, origin: current.origin, kind: 'token'})
           continue
         }
@@ -413,20 +509,40 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         } catch {
           verified = null
         }
-        tokens.set(current.id, envelopeToken)
+        if (tokens.get(current.id) !== envelopeToken) {
+          tokens.set(current.id, envelopeToken)
+          touched = true
+        }
         if (verified === envelopeToken) {
-          changed = scrubEnvelopeToken(current.id) || changed
+          scrubBasis.set(current.id, envelopeToken)
         } else {
           emitVaultFailure({sessionId: current.id, origin: current.origin, kind: 'token'})
         }
       } else {
         // Vault entry lost while the envelope is clean: the session cannot
         // authenticate until the user signs in again.
-        tokens.delete(current.id)
+        if (tokens.has(current.id)) {
+          tokens.delete(current.id)
+          touched = true
+        }
         emitVaultFailure({sessionId: current.id, origin: current.origin, kind: 'token'})
       }
     }
-    if (changed) emit()
+    let changed = false
+    if (scrubBasis.size > 0) {
+      // Final re-read: only rows that still exist AND still carry the
+      // envelope token the decision was based on are rewritten, in list
+      // order (no resurrection, no reorder, no clobbering a concurrently
+      // refreshed token).
+      const rows = readSessions()
+      const targets = rows.filter(s => s.token && scrubBasis.get(s.id) === s.token)
+      if (targets.length > 0) {
+        const ids = new Set(targets.map(s => s.id))
+        rewriteEnvelopeRows(rows.map(s => (ids.has(s.id) ? sessionWithoutToken(s) : s)))
+        changed = true
+      }
+    }
+    if (changed || touched) emit()
   }
 
   /**
@@ -518,16 +634,34 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
   }
 
   /** Drop a session WITHOUT server revoke (dead-token path: revoking with
-   * a 401 token is a doomed round-trip; local state still clears). */
-  function dropLocal(id: string): void {
-    const existing = readSessions().find(s => s.id === id)
-    if (!existing) return
-    removeSession(storage, id, homeOrigin)
-    permissionDenied.delete(id)
-    tokens.delete(id)
-    void vault.removeToken(id, existing.origin)
-    if (readMirror() === id) writeMirror(null)
-    emit()
+   * a 401 token is a doomed round-trip; local state still clears).
+   * Serialized with `hydrate`/`remove` (S5) and purges every trace (X1.2
+   * step 2); D3 applies when the dropped session was active. */
+  async function dropLocal(id: string): Promise<void> {
+    return serialize(async () => {
+      const activeBefore = resolveActiveId(
+        getActiveSessionId(storage, homeOrigin),
+        readMirror(),
+        readSessions(),
+      )
+      const existing = readSessions().find(s => s.id === id)
+      if (!existing) return
+      await removeSessionQueries(id)
+      removeSession(storage, id, homeOrigin)
+      permissionDenied.delete(id)
+      tokens.delete(id)
+      lastUsed.delete(id)
+      try {
+        await vault.removeToken(id, existing.origin)
+      } catch {
+        // Local state clears regardless of vault failure.
+      }
+      purgeSessionStorage(storage, id)
+      purgeSessionMemory(id)
+      if (activeBefore === id) fixActiveAfterRemoval()
+      else if (readMirror() === id) writeMirror(activeBefore)
+      emit()
+    })
   }
 
   /** Uncached scope/permission health for one session id (or the active
@@ -645,63 +779,89 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         ...(input.user ? {user: input.user} : {}),
         ...(input.evidence ? {evidence: input.evidence} : {}),
       }
-      // A fresh sign-in replaces the credential: any earlier refusal no
-      // longer describes this token (same id — id is origin + account).
-      permissionDenied.delete(session.id)
-      if (isSecureVault(vault)) {
-        // Secret-free envelope (ADR 0011): the token lives in the OS vault
-        // (+ this run's memory map), never in MMKV.
-        saveSession(storage, sessionWithoutToken(session), homeOrigin)
-        let stored = false
-        try {
-          stored = await vault.setToken(session.id, session.origin, session.token)
-        } catch {
-          stored = false
-        }
-        if (!stored) {
-          // Clear a possibly stale entry so it can never win later; the
-          // session stays usable in memory for this run (the failure is
-          // surfaced, and next launch asks to sign in again).
+      // Serialized (X1.2): the envelope write and the vault write must not
+      // interleave with a concurrent `hydrate` (spurious vault-failure
+      // emit) or `signOutEverywhere` (fresh sign-in swallowed).
+      return serialize(async () => {
+        // A fresh sign-in replaces the credential: any earlier refusal no
+        // longer describes this token (same id — id is origin + account).
+        permissionDenied.delete(session.id)
+        if (isSecureVault(vault)) {
+          // Secret-free envelope (ADR 0011): the token lives in the OS vault
+          // (+ this run's memory map), never in MMKV.
+          saveSession(storage, sessionWithoutToken(session), homeOrigin)
+          let stored = false
           try {
-            await vault.removeToken(session.id, session.origin)
+            stored = await vault.setToken(session.id, session.origin, session.token)
           } catch {
-            // Ignore — the entry is already unusable.
+            stored = false
           }
-          tokens.set(session.id, session.token)
-          emitVaultFailure({sessionId: session.id, origin: session.origin, kind: 'token'})
+          if (!stored) {
+            // Clear a possibly stale entry so it can never win later; the
+            // session stays usable in memory for this run (the failure is
+            // surfaced, and next launch asks to sign in again).
+            try {
+              await vault.removeToken(session.id, session.origin)
+            } catch {
+              // Ignore — the entry is already unusable.
+            }
+            tokens.set(session.id, session.token)
+            emitVaultFailure({sessionId: session.id, origin: session.origin, kind: 'token'})
+          } else {
+            tokens.set(session.id, session.token)
+          }
         } else {
+          // Web / dev vault (D2): the envelope keeps the token copy, as today.
+          saveSession(storage, session, homeOrigin)
+          await vault.setToken(session.id, session.origin, session.token)
           tokens.set(session.id, session.token)
         }
-      } else {
-        // Web / dev vault (D2): the envelope keeps the token copy, as today.
-        saveSession(storage, session, homeOrigin)
-        await vault.setToken(session.id, session.origin, session.token)
-        tokens.set(session.id, session.token)
-      }
-      setActiveSessionId(storage, session.id, homeOrigin)
-      writeMirror(session.id)
-      emit()
-      return session
+        setActiveSessionId(storage, session.id, homeOrigin)
+        writeMirror(session.id)
+        markUsed(session.id)
+        emit()
+        return session
+      })
     },
 
     switch(id: string): boolean {
       if (!readSessions().some(s => s.id === id)) return false
       setActiveSessionId(storage, id, homeOrigin)
       writeMirror(id)
+      markUsed(id)
       emit()
       return true
     },
 
     async remove(id: string): Promise<void> {
-      const existing = resolveSession(id)
-      if (!existing) return
-      await revoke(existing)
-      removeSession(storage, id, homeOrigin)
-      permissionDenied.delete(id)
-      tokens.delete(id)
-      await vault.removeToken(id, existing.origin)
-      if (readMirror() === id) writeMirror(null)
-      emit()
+      return serialize(async () => {
+        const activeBefore = resolveActiveId(
+          getActiveSessionId(storage, homeOrigin),
+          readMirror(),
+          readSessions(),
+        )
+        const existing = resolveSession(id)
+        if (!existing) return
+        await revoke(existing)
+        // Re-read: a concurrent erase already dropped the row (S5). The
+        // chain makes this defense-in-depth — no store op interleaves.
+        if (!readSessions().some(s => s.id === id)) return
+        await removeSessionQueries(id)
+        removeSession(storage, id, homeOrigin)
+        permissionDenied.delete(id)
+        tokens.delete(id)
+        lastUsed.delete(id)
+        try {
+          await vault.removeToken(id, existing.origin)
+        } catch {
+          // Local state clears regardless of vault failure.
+        }
+        purgeSessionStorage(storage, id)
+        purgeSessionMemory(id)
+        if (activeBefore === id) fixActiveAfterRemoval()
+        else if (readMirror() === id) writeMirror(activeBefore)
+        emit()
+      })
     },
 
     async signOut(id?: string): Promise<void> {
@@ -711,40 +871,121 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     },
 
     async signOutEverywhere(): Promise<void> {
-      const sessions = readSessions().map(attach)
-      for (const session of sessions) {
-        await revoke(session)
-      }
-      for (const session of sessions) {
-        removeSession(storage, session.id, homeOrigin)
-        permissionDenied.delete(session.id)
-        tokens.delete(session.id)
-        await vault.removeToken(session.id, session.origin)
-      }
-      setActiveSessionId(storage, null, homeOrigin)
-      writeMirror(null)
-      emit()
+      return serialize(async () => {
+        const snapshot = readSessions().map(attach)
+        const removedIds = new Set(snapshot.map(s => s.id))
+        // Parallel revokes with the per-revoke timeout kept (revoke never
+        // throws; allSettled is belt-and-braces). Sequential awaits here
+        // used to stall a fresh sign-in for 8s per account (S6).
+        await Promise.allSettled(snapshot.map(session => revoke(session)))
+        // Re-read per id: a session added while revokes were in flight is
+        // NOT in the snapshot and survives with its active pointer (S6).
+        for (const session of snapshot) {
+          if (!readSessions().some(s => s.id === session.id)) continue
+          await removeSessionQueries(session.id)
+          removeSession(storage, session.id, homeOrigin)
+          permissionDenied.delete(session.id)
+          tokens.delete(session.id)
+          lastUsed.delete(session.id)
+          try {
+            await vault.removeToken(session.id, session.origin)
+          } catch {
+            // Local state clears regardless of vault failure.
+          }
+          purgeSessionStorage(storage, session.id)
+          purgeSessionMemory(session.id)
+        }
+        await clearAllQueries()
+        purgeAllPersistedSessions(storage)
+        // Clear the active pointer/mirror ONLY when the active id is among
+        // the removed ids (S6); D3 applies to whatever remains.
+        const remaining = readSessions()
+        const resolved = resolveActiveId(
+          getActiveSessionId(storage, homeOrigin),
+          readMirror(),
+          remaining,
+        )
+        if (!resolved || removedIds.has(resolved)) fixActiveAfterRemoval()
+        else if (readMirror() !== resolved) writeMirror(resolved)
+        emit()
+      })
     },
 
     async hydrate(): Promise<void> {
-      if (isSecureVault(vault)) {
-        await hydrateSecure(vault)
-        await migrateAppSecrets(vault)
-        return
-      }
-      // Web / dev vault (D2): vault-wins overlay, envelope copy stands.
-      let changed = false
-      for (const session of readSessions()) {
-        const vaultToken = await vault.getToken(session.id, session.origin)
-        if (vaultToken != null && vaultToken !== '' && vaultToken !== session.token) {
-          saveSession(storage, {...session, token: vaultToken}, homeOrigin)
-          changed = true
+      // Serialized with erase paths (S5/S6): a concurrent `remove` can
+      // neither resurrect through the writes below nor lose a fresh token
+      // to a stale overlay. Two concurrent `hydrate` calls (the provider
+      // mounts once per tree; StrictMode remounts) simply run in order —
+      // the second sees the first's work and no-ops.
+      return serialize(async () => {
+        if (isSecureVault(vault)) {
+          await hydrateSecure(vault)
+          await migrateAppSecrets(vault)
+          return
         }
-        const live = vaultToken || session.token
-        if (live) tokens.set(session.id, live)
-        else tokens.delete(session.id)
-      }
-      if (changed) emit()
+        // Web / dev vault (D2): vault-wins overlay, envelope copy stands.
+        // Collect overlays first (re-reading per session, skipping rows
+        // gone or refreshed under us — S5), then apply in ONE
+        // order-preserving rewrite (hydrate never reorders). Each overlay
+        // carries the envelope token it was computed from (`seen`, the
+        // pre-await snapshot); a row refreshed since keeps its fresh token
+        // in both the envelope and the map.
+        const overlay = new Map<string, {basis: string; next: string}>()
+        let touched = false
+        for (const seen of readSessions()) {
+          let vaultToken: string | null = null
+          try {
+            vaultToken = await vault.getToken(seen.id, seen.origin)
+          } catch {
+            vaultToken = null
+          }
+          const current = readSessions().find(s => s.id === seen.id) ?? null
+          if (!current) {
+            if (tokens.has(seen.id)) {
+              tokens.delete(seen.id)
+              touched = true
+            }
+            continue
+          }
+          const refreshed = current.token !== seen.token
+          if (!refreshed && vaultToken != null && vaultToken !== '' && vaultToken !== seen.token) {
+            overlay.set(current.id, {basis: seen.token, next: vaultToken})
+          }
+          const live = refreshed ? current.token : vaultToken || current.token
+          if (live) {
+            if (tokens.get(current.id) !== live) {
+              tokens.set(current.id, live)
+              touched = true
+            }
+          } else if (tokens.has(current.id)) {
+            tokens.delete(current.id)
+            touched = true
+          }
+        }
+        let changed = false
+        if (overlay.size > 0) {
+          const rows = readSessions()
+          const applicable = rows.filter(s => {
+            const pending = overlay.get(s.id)
+            return pending !== undefined && s.token === pending.basis && s.token !== pending.next
+          })
+          if (applicable.length > 0) {
+            const nextById = new Map<string, string>()
+            for (const s of applicable) {
+              const pending = overlay.get(s.id)
+              if (pending) nextById.set(s.id, pending.next)
+            }
+            rewriteEnvelopeRows(
+              rows.map(s => {
+                const next = nextById.get(s.id)
+                return next !== undefined ? {...s, token: next} : s
+              }),
+            )
+            changed = true
+          }
+        }
+        if (changed || touched) emit()
+      })
     },
 
     onSessionVaultFailed(listener: (failure: VaultFailure) => void): () => void {
@@ -783,7 +1024,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         return {ok: true, reason: 'ok', cleared: false}
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
-          dropLocal(id)
+          await dropLocal(id)
           return {ok: false, reason: 'unauthorized', cleared: true}
         }
         if (err instanceof ApiError && err.status === 403) {

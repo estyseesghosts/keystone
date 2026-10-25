@@ -165,14 +165,17 @@ describe('remove / sign-out', () => {
     expect(store.list()).toHaveLength(1)
   })
 
-  it('signOut defaults to the active session', async () => {
-    const {store} = setup()
+  it('signOut defaults to the active session, then D3 activates the next remaining one', async () => {
+    const {storage, store} = setup()
     await store.add(sessionA())
     const b = await store.add(sessionB())
     expect(store.activeId()).toBe(b.id)
     await store.signOut()
     expect(store.list().map(s => s.id)).toEqual([`${ORIGIN_A} alice`])
-    expect(store.activeId()).toBeNull()
+    // D3 (repair X1.2): the remaining session becomes active instead of
+    // dropping to signed-out while an account is stored.
+    expect(store.activeId()).toBe(`${ORIGIN_A} alice`)
+    expect(readDeviceState(storage).activeSessionId).toBe(`${ORIGIN_A} alice`)
   })
 
   it('signOutEverywhere revokes each session and empties the store', async () => {
