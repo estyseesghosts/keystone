@@ -5,19 +5,17 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **231 suites / 3301 tests**,
+Gate baseline (last green on main): **248 suites / 3465 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Waves 0–1 done. Wave 2 batch 1 done: X2.1 (crypto seam +
-   polyfill) + X2.4 (outbound URL policy) committed.
-   (Coordinator fallout in those commits: random.ts lint-seam entry,
-   db8 byte fix, un-awaited stream-cleanup fix.)
-2. Wave 2 batch 2 done: X2.2 (transport) + X2.3 (auth/links +
-   ADR 0012) + X2.5 (privacy) committed — **243 suites / 3397 tests**
-   green. (Coordinator: PrivacySection mounted in Display screen;
-   X2.2/X2.3 follow-ups sent back to slice agents and landed.)
-3. Wave 3 (X3.1–X3.5) in conflict-table order next.
+1. Waves 0–2 done. Wave 3 batch 1 done: X3.1 (cancel) + X3.3
+   (paging) + X3.5 (boot) committed. (Coordinator fallout in those
+   commits: misskey fetchImpl closure, expo-linking test mock,
+   waitFor settle, signal-arg matchers, PrivacySection mount point.)
+2. Wave 3 batch 2: X3.2 (online/focus) then X3.4 (streams) —
+   sequential, both touch streaming.ts.
+3. Wave 4 (X4.1–X4.5, mastodon backend in order) next.
 
 Blockers / owner-open:
 - Rig `:3101`/`:3102` refused; device not run by agents — all live

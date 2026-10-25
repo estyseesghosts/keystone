@@ -803,8 +803,8 @@ equivalent), `src/components/Post/menuModel.ts`, tests.
 
 ## X3.1 - Cancellation end to end
 
-Status: not started
-Branch: `repair25-x3.1-cancellation`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x3.1.md`; 248 suites / 3465 tests green at Wave-3 commit)
+Branch: `repair25-x3.1-cancellation` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: networking M2
 
 **Goal.** React Query's `signal` cancels in-flight network work.
@@ -867,8 +867,8 @@ new `src/state/queries/lifecycle.ts`, `src/state/streaming.ts`, tests,
 
 ## X3.3 - Paging storm and refetch fan-out
 
-Status: not started
-Branch: `repair25-x3.3-paging`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x3.3.md`; 248 suites / 3465 tests green at Wave-3 commit)
+Branch: `repair25-x3.3-paging` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: networking H2, L6; rn-ui L1, L4
 
 **Goal.** A failed page never causes a request loop; 429 is honoured.
@@ -952,8 +952,8 @@ Audit: networking M4, M5, M6, L4, L7; misskey M12, M13; mastodon 13, 14
 
 ## X3.5 - Boot never blocks
 
-Status: not started
-Branch: `repair25-x3.5-boot`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x3.5.md`; 248 suites / 3465 tests green at Wave-3 commit)
+Branch: `repair25-x3.5-boot` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: rn-ui M6
 
 **Goal.** A stalled network can never leave a blank app.
