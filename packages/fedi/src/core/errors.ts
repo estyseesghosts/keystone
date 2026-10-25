@@ -14,6 +14,108 @@ export interface ErrorCode {
   params?: Record<string, unknown>;
 }
 
+/** Every UI-facing error code the data layer can throw (X9.7). The single
+ * source of truth: the UI's message table is typed
+ * `Record<FediErrorCode, …>` so a new entry here fails typecheck until it
+ * has a message, and the fedi scan test (`test/error-codes.test.ts`) fails
+ * when a fedi throw site uses a code missing here. Server wire codes
+ * (`PERMISSION_DENIED`, `QUOTE_DISABLED_FOR_USER`, …) are NOT listed — they
+ * ride `ApiError.code` as data and render through the generic fallback. */
+export const FEDI_ERROR_CODES = [
+  "errors.account.refRequired",
+  "errors.auth.extraStep",
+  "errors.auth.mfaFailed",
+  "errors.auth.mfaRequired",
+  "errors.auth.miauthTimeout",
+  "errors.auth.noCredentials",
+  "errors.auth.noKeystoneToken",
+  "errors.auth.noVerifyAccount",
+  "errors.auth.savePending",
+  "errors.auth.signinFailed",
+  "errors.chat.messageRequired",
+  "errors.compose.fileTooLarge",
+  "errors.compose.limitsUnavailable",
+  "errors.crypto.unavailable",
+  "errors.feeds.invalidDescriptor",
+  "errors.filter.invalidRegex",
+  "errors.network.aborted",
+  "errors.network.apiError",
+  "errors.network.badJson",
+  "errors.network.badPath",
+  "errors.network.crossOrigin",
+  "errors.network.redirect",
+  "errors.network.timeoutInstance",
+  "errors.network.timeoutServer",
+  "errors.network.timeoutUpload",
+  "errors.network.unreachableBare",
+  "errors.network.unreachableInstance",
+  "errors.network.unreachableOrigin",
+  "errors.network.unreachableServer",
+  "errors.origin.insecure",
+  "errors.poll.partialVote",
+  "errors.reactions.likeUnsupported",
+  "errors.report.commentRequired",
+  "errors.session.missingId",
+  "errors.shape.account",
+  "errors.shape.conversation",
+  "errors.shape.createdList",
+  "errors.shape.createdPost",
+  "errors.shape.customEmojis",
+  "errors.shape.emptyReportPatch",
+  "errors.shape.expectedList",
+  "errors.shape.markers",
+  "errors.shape.mediaLookup",
+  "errors.shape.mediaUpdate",
+  "errors.shape.noAccountFound",
+  "errors.shape.noConversationFound",
+  "errors.shape.noPoll",
+  "errors.shape.noScheduled",
+  "errors.shape.notificationPolicy",
+  "errors.shape.notificationRequests",
+  "errors.shape.noTranslation",
+  "errors.shape.relationships",
+  "errors.shape.reportLookup",
+  "errors.shape.status",
+  "errors.shape.statusContext",
+  "errors.shape.statusHistory",
+  "errors.shape.suggestions",
+  "errors.shape.tag",
+  "errors.shape.timeline",
+  "errors.shape.trendingLinks",
+  "errors.shape.trendingStatuses",
+  "errors.shape.trendingTags",
+  "errors.shape.updatedList",
+  "errors.shape.updatedProfile",
+  "errors.shape.uploadedFile",
+  "errors.shape.uploadedMedia",
+  "errors.stream.unavailable",
+  "errors.unsupported.adminInsight",
+  "errors.unsupported.antennas",
+  "errors.unsupported.bookmarks",
+  "errors.unsupported.boostVisibility",
+  "errors.unsupported.channels",
+  "errors.unsupported.clips",
+  "errors.unsupported.explore",
+  "errors.unsupported.featured",
+  "errors.unsupported.lists",
+  "errors.unsupported.markers",
+  "errors.unsupported.noAccountFound",
+  "errors.unsupported.noAccountRef",
+  "errors.unsupported.pinned",
+  "errors.unsupported.profileField",
+  "errors.unsupported.reactions",
+  "errors.unsupported.recommendations",
+  "errors.unsupported.reportDecision",
+  "errors.unsupported.social",
+  "errors.validation.hostInvalid",
+  "errors.validation.hostRequired",
+  "errors.validation.hostScheme",
+] as const;
+
+/** A UI-facing error code. Kept in sync with the throw sites by the
+ * `localeErrors` union test (every entry must have a descriptor). */
+export type FediErrorCode = (typeof FEDI_ERROR_CODES)[number];
+
 /** Base error for the data layer: an English message plus its code. */
 export class FediError extends Error {
   readonly code: string;

@@ -12,6 +12,7 @@ import {
   attachmentSizeError,
   FediError,
   fetchComposeLimits,
+  formatByteLimit,
   isUploadFileRef,
   kindOfMime,
   type AttachmentCaps,
@@ -46,6 +47,11 @@ export {
 } from '@keystone/fedi'
 
 import {patchPostInCaches} from '#/state/cache'
+
+import {msg} from '@lingui/macro'
+
+import {errorText} from '#/lib/localeErrors'
+import {i18n} from '#/locale/i18n'
 
 import {createQueryKey, feedQueryKey} from './keys'
 import {throwIfAborted} from './retry'
@@ -713,9 +719,17 @@ export async function uploadAll(
     // limits, else the client heap bound; the message carries the real
     // number that applied.
     const mime = item.mimeType ?? sourceMimeType(file, null)
-    const tooBig = attachmentSizeError(item.name, sourceSize(file), caps, kindOfMime(mime))
+    const kind = kindOfMime(mime)
+    const tooBig = attachmentSizeError(item.name, sourceSize(file), caps, kind)
     if (tooBig) {
-      onUpdate(item.key, {status: 'error', error: tooBig, progress: null})
+      // The fedi message stays unrendered (never display text from the
+      // data layer): the row shows the same localized refusal the picker
+      // path renders, with the real cap that applied.
+      onUpdate(item.key, {
+        status: 'error',
+        error: i18n._(msg`"${item.name}" is too large to attach (limit ${formatByteLimit(attachmentCapFor(kind, caps))}).`),
+        progress: null,
+      })
       failed = true
       await uploadNext()
       return
@@ -747,7 +761,7 @@ export async function uploadAll(
       } else {
         onUpdate(item.key, {
           status: 'error',
-          error: err instanceof Error ? err.message : 'Upload failed.',
+          error: errorText(i18n, err, 'Upload failed.'),
           progress: null,
         })
       }

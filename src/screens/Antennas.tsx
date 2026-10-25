@@ -23,6 +23,7 @@ import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
@@ -86,7 +87,7 @@ function CreateRow({onCreate}: {onCreate: (body: Omit<Antenna, 'id'>) => Promise
       setSrc('all')
       setKeywords('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not create the antenna.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not create the antenna.`)))
     } finally {
       setBusy(false)
     }
@@ -162,7 +163,7 @@ function AntennaRow({
       await onRename(trimmed)
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not rename the antenna.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not rename the antenna.`)))
     } finally {
       setBusy(false)
     }
@@ -387,7 +388,7 @@ export function AntennasScreen() {
                   setAntennas(prev => (prev ?? []).map(a => (a.id === item.id ? updated : a)))
                 } catch (err) {
                   setActionError(
-                    err instanceof Error ? err.message : i18n._(msg`Could not rename the antenna.`),
+                    errorText(i18n, err, i18n._(msg`Could not rename the antenna.`))
                   )
                   throw err
                 }
@@ -401,7 +402,7 @@ export function AntennasScreen() {
                   setPendingDeleteId(null)
                 } catch (err) {
                   setActionError(
-                    err instanceof Error ? err.message : i18n._(msg`Could not delete the antenna.`),
+                    errorText(i18n, err, i18n._(msg`Could not delete the antenna.`))
                   )
                 }
               }}

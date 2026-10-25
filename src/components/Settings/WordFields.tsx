@@ -13,7 +13,6 @@ import {
   isPermissionError,
   parseMutedInstances,
   parseWordFilters,
-  WordFilterParseError,
   type Account,
   type Backend,
 } from '@keystone/fedi'
@@ -22,6 +21,7 @@ import {atoms} from '#/alf/atoms'
 import {Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 
 import {SettingRow} from './rows'
@@ -91,13 +91,9 @@ export function WordField({
     try {
       parsed = field === 'mutedInstances' ? parseMutedInstances(value) : parseWordFilters(value)
     } catch (err) {
-      setError(
-        err instanceof WordFilterParseError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : i18n._(msg`Could not save.`),
-      )
+      // A bad `/regex/` line renders its localized code (`{line}` carried
+      // in params); anything else the contextual fallback — never raw text.
+      setError(errorText(i18n, err, i18n._(msg`Could not save.`)))
       return
     }
     setBusy(true)
@@ -107,7 +103,7 @@ export function WordField({
       onSaved()
     } catch (err) {
       if (isPermissionError(err)) setError(i18n._(msg`Your account cannot change this setting.`))
-      else setError(err instanceof Error ? err.message : i18n._(msg`Could not save.`))
+      else setError(errorText(i18n, err, i18n._(msg`Could not save.`)))
     } finally {
       setBusy(false)
     }

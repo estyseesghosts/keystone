@@ -6,6 +6,7 @@ import {msg} from '@lingui/macro'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {useSessionStore, useSessions} from '#/state/session/SessionProvider'
 
@@ -42,7 +43,7 @@ export function AccountSwitcher({onAddAccount}: {onAddAccount: () => void}) {
         setError(i18n._(msg`Signed out, but the token could not be revoked on the server.`))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Sign-out failed.`))
+      setError(errorText(i18n, err, i18n._(msg`Sign-out failed.`)))
     } finally {
       setBusyId(null)
     }

@@ -89,7 +89,12 @@ function LiveHandlersProvider({children}: {children: React.ReactNode}) {
             const mastodon = s.family === 'mastodon'
             // Misskey's `users/report-abuse` requires a non-empty comment;
             // Mastodon can file a report with the post + category alone.
-            if (!mastodon && !text) throw new Error(i18n._(msg`Add a reason for the report.`))
+            // Local validation (already translated): toast and stop — this
+            // never becomes an error, so no code is needed for it.
+            if (!mastodon && !text) {
+              showToast(i18n._(msg`Add a reason for the report.`))
+              return
+            }
             await backend.reportAccount(
               post.author.id,
               mastodon

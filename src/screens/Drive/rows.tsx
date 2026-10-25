@@ -23,6 +23,7 @@ import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
 import {postBodyNodes} from '#/components/Post/body'
 import {RichText} from '#/components/RichText'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {formatBytes as formatAppBytes} from '#/locale/format'
 
@@ -67,7 +68,7 @@ export function FolderRow({
       await onRename(trimmed)
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not rename the folder.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not rename the folder.`)))
     } finally {
       setBusy(false)
     }
@@ -229,7 +230,7 @@ export function FileRow({
       await onRename(trimmed)
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not rename the file.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not rename the file.`)))
     } finally {
       setBusy(false)
     }
@@ -305,7 +306,7 @@ export function FileRow({
               setError(null)
               void onToggleSensitive()
                 .catch((err: unknown) => {
-                  setError(err instanceof Error ? err.message : i18n._(msg`Could not update the file.`))
+                  setError(errorText(i18n, err, i18n._(msg`Could not update the file.`)))
                 })
                 .finally(() => setBusy(false))
             }}

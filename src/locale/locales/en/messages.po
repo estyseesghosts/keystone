@@ -13,11 +13,11 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/components/Profile/UserHoverCard.tsx:286
+#: src/components/Profile/UserHoverCard.tsx:281
 msgid " · automated"
 msgstr " · automated"
 
-#: src/components/Profile/UserHoverCard.tsx:285
+#: src/components/Profile/UserHoverCard.tsx:280
 msgid " · locked"
 msgstr " · locked"
 
@@ -26,7 +26,7 @@ msgid " (default)"
 msgstr " (default)"
 
 #. placeholder {0}: shown.length
-#: src/screens/AdminInsight.tsx:281
+#: src/screens/AdminInsight.tsx:284
 msgid " (showing {0})"
 msgstr " (showing {0})"
 
@@ -34,18 +34,21 @@ msgstr " (showing {0})"
 msgid ", selected"
 msgstr ", selected"
 
+#. placeholder {0}: item.name
 #. placeholder {0}: overCap[0].name
 #. placeholder {0}: tooLarge[0].name
+#. placeholder {1}: formatByteLimit(attachmentCapFor(kind, caps))
 #. placeholder {1}: formatByteLimit(overCap[0].limit)
 #. placeholder {1}: formatByteLimit(tooLarge[0].limit)
-#: src/components/Composer/Composer.tsx:910
-#: src/screens/Note.tsx:394
+#: src/components/Composer/Composer.tsx:911
+#: src/screens/Note.tsx:395
+#: src/state/queries/composer.ts:730
 msgid "\"{0}\" is too large to attach (limit {1})."
 msgstr "\"{0}\" is too large to attach (limit {1})."
 
 #. placeholder {0}: rejected.name
 #. placeholder {1}: formatByteLimit(rejected.limit)
-#: src/screens/Drive.tsx:188
+#: src/screens/Drive.tsx:189
 msgid "\"{0}\" is too large to upload (limit {1})."
 msgstr "\"{0}\" is too large to upload (limit {1})."
 
@@ -54,13 +57,13 @@ msgid "(empty message)"
 msgstr "(empty message)"
 
 #: src/components/Composer/CompactComposer.tsx:500
-#: src/components/Composer/ComposerSections.tsx:635
-#: src/components/Composer/ComposerSections.tsx:637
-#: src/components/Composer/ComposerSections.tsx:681
+#: src/components/Composer/ComposerSections.tsx:636
+#: src/components/Composer/ComposerSections.tsx:638
+#: src/components/Composer/ComposerSections.tsx:682
 msgid "(no text)"
 msgstr "(no text)"
 
-#: src/components/Composer/ComposerSections.tsx:628
+#: src/components/Composer/ComposerSections.tsx:629
 msgid "(poll / CW only)"
 msgstr "(poll / CW only)"
 
@@ -83,14 +86,14 @@ msgid "{0, plural, one {{1} post} other {{2} posts}}"
 msgstr "{0, plural, one {{1} post} other {{2} posts}}"
 
 #. placeholder {0}: unreadable.length
-#: src/components/Composer/Composer.tsx:901
+#: src/components/Composer/Composer.tsx:902
 msgid "{0, plural, one {# file could not be read. Try again or pick other photos.} other {# files could not be read. Try again or pick other photos.}}"
 msgstr "{0, plural, one {# file could not be read. Try again or pick other photos.} other {# files could not be read. Try again or pick other photos.}}"
 
 #. placeholder {0}: overCap.length
 #. placeholder {0}: tooLarge.length
-#: src/components/Composer/Composer.tsx:915
-#: src/screens/Note.tsx:398
+#: src/components/Composer/Composer.tsx:916
+#: src/screens/Note.tsx:399
 msgid "{0, plural, one {# file was too large to attach.} other {# files were too large to attach.}}"
 msgstr "{0, plural, one {# file was too large to attach.} other {# files were too large to attach.}}"
 
@@ -102,12 +105,12 @@ msgstr "{0, plural, one {# member} other {# members}}"
 #. placeholder {0}: channel.notesCount
 #. placeholder {0}: clip.notesCount
 #: src/screens/Channels.tsx:58
-#: src/screens/Clips.tsx:132
+#: src/screens/Clips.tsx:133
 msgid "{0, plural, one {# note} other {# notes}}"
 msgstr "{0, plural, one {# note} other {# notes}}"
 
 #. placeholder {0}: section.data.length
-#: src/screens/AdminInsight.tsx:276
+#: src/screens/AdminInsight.tsx:279
 msgid "{0, plural, one {# peered domain} other {# peered domains}}"
 msgstr "{0, plural, one {# peered domain} other {# peered domains}}"
 
@@ -122,7 +125,7 @@ msgid "{0, plural, one {# rule} other {# rules}}"
 msgstr "{0, plural, one {# rule} other {# rules}}"
 
 #. placeholder {0}: section.data
-#: src/screens/AdminInsight.tsx:492
+#: src/screens/AdminInsight.tsx:495
 msgid "{0, plural, one {# user online now} other {# users online now}}"
 msgstr "{0, plural, one {# user online now} other {# users online now}}"
 
@@ -137,22 +140,22 @@ msgid "{0, plural, one {# voter} other {# voters}}"
 msgstr "{0, plural, one {# voter} other {# voters}}"
 
 #. placeholder {0}: ids.length - 10
-#: src/screens/AdminReportDetail.tsx:68
+#: src/screens/AdminReportDetail.tsx:69
 msgid "{0, plural, one {+# more} other {+# more}}"
 msgstr "{0, plural, one {+# more} other {+# more}}"
 
 #. placeholder {0}: antennaSrcLabel(antenna.src)
-#: src/screens/Antennas.tsx:55
+#: src/screens/Antennas.tsx:56
 msgid "{0} · {keywords}"
 msgstr "{0} · {keywords}"
 
 #. placeholder {0}: reportCategoryLabel(report.category)
-#: src/screens/AdminReportDetail.tsx:253
+#: src/screens/AdminReportDetail.tsx:254
 msgid "{0} · forwarded to remote server"
 msgstr "{0} · forwarded to remote server"
 
 #. placeholder {0}: reportCategoryLabel(report.category)
-#: src/screens/AdminReportDetail.tsx:255
+#: src/screens/AdminReportDetail.tsx:256
 msgid "{0} · not forwarded"
 msgstr "{0} · not forwarded"
 
@@ -163,7 +166,7 @@ msgstr "{0} · Open attachment"
 
 #. placeholder {0}: measureDisplayValue(m)
 #. placeholder {1}: m.previousTotal
-#: src/screens/AdminInsight.tsx:220
+#: src/screens/AdminInsight.tsx:223
 msgid "{0} (was {1})"
 msgstr "{0} (was {1})"
 
@@ -171,7 +174,7 @@ msgstr "{0} (was {1})"
 #. placeholder {1}: queueCountDisplay(counts.waiting)
 #. placeholder {2}: queueCountDisplay(counts.delayed)
 #. placeholder {3}: queueCountDisplay(counts.failed)
-#: src/screens/AdminInsight.tsx:461
+#: src/screens/AdminInsight.tsx:464
 msgid "{0} active · {1} waiting · {2} delayed · {3} failed"
 msgstr "{0} active · {1} waiting · {2} delayed · {3} failed"
 
@@ -186,12 +189,12 @@ msgid "{0} boosted"
 msgstr "{0} boosted"
 
 #. placeholder {0}: w.logins
-#: src/screens/AdminInsight.tsx:192
+#: src/screens/AdminInsight.tsx:195
 msgid "{0} logins"
 msgstr "{0} logins"
 
 #. placeholder {0}: w.statuses ?? '—'
-#: src/screens/AdminInsight.tsx:191
+#: src/screens/AdminInsight.tsx:194
 msgid "{0} posts"
 msgstr "{0} posts"
 
@@ -203,7 +206,7 @@ msgid "{0} profile picture"
 msgstr "{0} profile picture"
 
 #. placeholder {0}: w.registrations
-#: src/screens/AdminInsight.tsx:193
+#: src/screens/AdminInsight.tsx:196
 msgid "{0} sign-ups"
 msgstr "{0} sign-ups"
 
@@ -214,7 +217,7 @@ msgid "{0}. {1}"
 msgstr "{0}. {1}"
 
 #. placeholder {0}: antenna.name
-#: src/screens/Antennas.tsx:176
+#: src/screens/Antennas.tsx:177
 msgid "{0}. Open antenna."
 msgstr "{0}. Open antenna."
 
@@ -229,7 +232,7 @@ msgid "{0}. Open chat room."
 msgstr "{0}. Open chat room."
 
 #. placeholder {0}: clip.name
-#: src/screens/Clips.tsx:125
+#: src/screens/Clips.tsx:126
 msgid "{0}. Open clip."
 msgstr "{0}. Open clip."
 
@@ -239,7 +242,7 @@ msgid "{0}. Open conversation."
 msgstr "{0}. Open conversation."
 
 #. placeholder {0}: list.name
-#: src/screens/Lists.tsx:261
+#: src/screens/Lists.tsx:262
 msgid "{0}. Open list."
 msgstr "{0}. Open list."
 
@@ -264,7 +267,7 @@ msgstr "{followersExact} followers. Open followers list."
 msgid "{followingExact} following. Open following list."
 msgstr "{followingExact} following. Open following list."
 
-#: src/components/Composer/Composer.tsx:1241
+#: src/components/Composer/Composer.tsx:1242
 msgid "{imagesMissingAlt, plural, one {# attached image has no alt text.} other {# attached images have no alt text.}}"
 msgstr "{imagesMissingAlt, plural, one {# attached image has no alt text.} other {# attached images have no alt text.}}"
 
@@ -276,7 +279,7 @@ msgstr "{newCount} new posts"
 msgid "{newPostsCount, plural, one {Show {newPostsCount} new post} other {Show {newPostsCount} new posts}}"
 msgstr "{newPostsCount, plural, one {Show {newPostsCount} new post} other {Show {newPostsCount} new posts}}"
 
-#: src/components/Profile/UserHoverCard.tsx:202
+#: src/components/Profile/UserHoverCard.tsx:197
 msgid "{notes} notes · {following} following · {followers} followers"
 msgstr "{notes} notes · {following} following · {followers} followers"
 
@@ -325,9 +328,14 @@ msgstr "{unread} new"
 msgid "{what} is not available in this build yet."
 msgstr "{what} is not available in this build yet."
 
-#: src/components/Composer/ComposerSections.tsx:588
+#: src/components/Composer/ComposerSections.tsx:589
 msgid "@user or @user@host"
 msgstr "@user or @user@host"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:83
+msgid "errors.chat.messageRequired"
+msgstr "A chat message needs text or a file."
 
 #: src/components/Profile/AccountReactions.tsx:103
 msgid "A note you cannot see."
@@ -339,8 +347,8 @@ msgstr "a poll ended"
 
 #: src/components/Composer/CompactComposer.tsx:301
 #: src/components/Composer/CompactComposer.tsx:311
-#: src/components/Composer/Composer.tsx:1410
-#: src/components/Composer/Composer.tsx:1426
+#: src/components/Composer/Composer.tsx:1411
+#: src/components/Composer/Composer.tsx:1427
 msgid "A post cannot have both media and a poll."
 msgstr "A post cannot have both media and a poll."
 
@@ -348,18 +356,28 @@ msgstr "A post cannot have both media and a poll."
 msgid "A pure grey system — no accent colour."
 msgstr "A pure grey system — no accent colour."
 
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:82
+msgid "errors.report.commentRequired"
+msgstr "A report needs a reason on this server."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:78
+msgid "errors.session.missingId"
+msgstr "A session id is required."
+
 #: src/components/Settings/DisplaySection.tsx:251
 msgid "A variation within a theme."
 msgstr "A variation within a theme."
 
-#: src/components/ProfileActions/ProfileActions.tsx:105
-#: src/screens/AdminReportDetail.tsx:459
+#: src/components/ProfileActions/ProfileActions.tsx:106
+#: src/screens/AdminReportDetail.tsx:460
 #: src/screens/Notifications.tsx:552
 msgid "Accept"
 msgstr "Accept"
 
 #. Accept a follow request
-#: src/screens/FollowRequests.tsx:72
+#: src/screens/FollowRequests.tsx:73
 msgctxt "button"
 msgid "Accept"
 msgstr "Accept"
@@ -382,7 +400,7 @@ msgid "Accessibility and display"
 msgstr "Accessibility and display"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:60
+#: src/lib/localeErrors.ts:67
 msgid "errors.shape.account"
 msgstr "Account {id} returned an unexpected response shape."
 
@@ -390,7 +408,7 @@ msgstr "Account {id} returned an unexpected response shape."
 msgid "Account actions are not connected to this view yet."
 msgstr "Account actions are not connected to this view yet."
 
-#: src/components/shell/AccountMenu.tsx:197
+#: src/components/shell/AccountMenu.tsx:198
 msgid "Account menu"
 msgstr "Account menu"
 
@@ -398,13 +416,13 @@ msgstr "Account menu"
 msgid "Account relations are not connected to this view yet."
 msgstr "Account relations are not connected to this view yet."
 
-#: src/components/Settings/AccountSection.tsx:132
-#: src/components/Settings/AccountSection.tsx:142
-#: src/components/Settings/AccountSection.tsx:167
+#: src/components/Settings/AccountSection.tsx:133
+#: src/components/Settings/AccountSection.tsx:143
+#: src/components/Settings/AccountSection.tsx:168
 msgid "Account-wide: other servers cannot quote your posts."
 msgstr "Account-wide: other servers cannot quote your posts."
 
-#: src/components/shell/AccountMenu.tsx:94
+#: src/components/shell/AccountMenu.tsx:95
 msgid "Accounts"
 msgstr "Accounts"
 
@@ -418,34 +436,33 @@ msgstr "Accounts whose reposts are hidden."
 
 #. placeholder {0}: reportActorLabel(report.actionTakenBy)
 #. placeholder {1}: report.actionTakenAt ? ` at ${report.actionTakenAt}` : ''
-#: src/screens/AdminReportDetail.tsx:271
+#: src/screens/AdminReportDetail.tsx:272
 msgid "Action by {0}{1}"
 msgstr "Action by {0}{1}"
 
-#: src/components/Profile/UserHoverCard.tsx:101
-#: src/components/Settings/AccountLists.tsx:94
-#: src/components/Settings/DomainBlocks.tsx:101
-#: src/components/Settings/DomainBlocks.tsx:122
-#: src/components/Settings/MuteBlockSearch.tsx:114
-#: src/screens/Tag.tsx:110
+#: src/components/Settings/AccountLists.tsx:95
+#: src/components/Settings/DomainBlocks.tsx:102
+#: src/components/Settings/DomainBlocks.tsx:123
+#: src/components/Settings/MuteBlockSearch.tsx:115
+#: src/screens/Tag.tsx:111
 msgid "Action failed."
 msgstr "Action failed."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:75
+#: src/lib/localeErrors.ts:113
 msgid "errors.compose.actionFailed"
 msgstr "Action failed."
 
-#: src/screens/AdminInsight.tsx:57
+#: src/screens/AdminInsight.tsx:58
 msgid "Active users"
 msgstr "Active users"
 
-#: src/components/Composer/ComposerSections.tsx:593
+#: src/components/Composer/ComposerSections.tsx:594
 msgid "Add"
 msgstr "Add"
 
 #: src/components/Composer/CompactComposer.tsx:223
-#: src/components/Composer/Composer.tsx:1271
+#: src/components/Composer/Composer.tsx:1272
 msgid "Add a comment"
 msgstr "Add a comment"
 
@@ -453,7 +470,7 @@ msgstr "Add a comment"
 msgid "Add a favourite"
 msgstr "Add a favourite"
 
-#: src/components/Settings/FiltersSection.tsx:110
+#: src/components/Settings/FiltersSection.tsx:111
 msgid "Add a filter"
 msgstr "Add a filter"
 
@@ -462,17 +479,17 @@ msgid "Add a poll"
 msgstr "Add a poll"
 
 #: src/components/Post/ReportChooser.tsx:196
-#: src/screens/PostHandlers.tsx:92
+#: src/screens/PostHandlers.tsx:95
 msgid "Add a reason for the report."
 msgstr "Add a reason for the report."
 
-#: src/components/AccountSwitcher.tsx:29
-#: src/components/AccountSwitcher.tsx:95
-#: src/components/shell/AccountMenu.tsx:134
+#: src/components/AccountSwitcher.tsx:30
+#: src/components/AccountSwitcher.tsx:96
+#: src/components/shell/AccountMenu.tsx:135
 msgid "Add account"
 msgstr "Add account"
 
-#: src/components/Composer/ComposerSections.tsx:200
+#: src/components/Composer/ComposerSections.tsx:201
 msgid "Add choice"
 msgstr "Add choice"
 
@@ -480,19 +497,19 @@ msgstr "Add choice"
 msgid "Add favourite"
 msgstr "Add favourite"
 
-#: src/screens/ProfileEditor.tsx:454
+#: src/screens/ProfileEditor.tsx:451
 msgid "Add field"
 msgstr "Add field"
 
-#: src/components/Settings/FiltersSection.tsx:125
+#: src/components/Settings/FiltersSection.tsx:126
 msgid "Add filter"
 msgstr "Add filter"
 
-#: src/screens/Clips.tsx:142
+#: src/screens/Clips.tsx:143
 msgid "Add here"
 msgstr "Add here"
 
-#: src/components/Composer/ComposerSections.tsx:582
+#: src/components/Composer/ComposerSections.tsx:583
 msgid "Add recipient"
 msgstr "Add recipient"
 
@@ -500,7 +517,7 @@ msgstr "Add recipient"
 #. placeholder {0}: l.name
 #: src/components/Post/menuModel.ts:383
 #: src/components/Post/menuModel.ts:386
-#: src/components/ProfileActions/ProfileActions.tsx:162
+#: src/components/ProfileActions/ProfileActions.tsx:163
 msgid "Add to {0}"
 msgstr "Add to {0}"
 
@@ -515,16 +532,16 @@ msgid "Add to clip"
 msgstr "Add to clip"
 
 #: src/components/Post/menuModel.ts:245
-#: src/components/ProfileActions/ProfileActions.tsx:153
+#: src/components/ProfileActions/ProfileActions.tsx:154
 msgid "Add to list"
 msgstr "Add to list"
 
-#: src/components/ProfileActions/ProfileActions.tsx:93
+#: src/components/ProfileActions/ProfileActions.tsx:94
 msgid "Add to list…"
 msgstr "Add to list…"
 
 #. placeholder {0}: item.name
-#: src/screens/Clips.tsx:395
+#: src/screens/Clips.tsx:396
 msgid "Added to {0}"
 msgstr "Added to {0}"
 
@@ -532,20 +549,25 @@ msgstr "Added to {0}"
 msgid "Adding a post to favorites."
 msgstr "Adding a post to favorites."
 
-#: src/components/Composer/ComposerSections.tsx:593
-#: src/components/Settings/FiltersSection.tsx:125
+#: src/components/Composer/ComposerSections.tsx:594
+#: src/components/Settings/FiltersSection.tsx:126
 msgid "Adding…"
 msgstr "Adding…"
 
-#: src/components/Settings/AccountSection.tsx:230
+#: src/components/Settings/AccountSection.tsx:231
 msgid "Admin metrics and public server info. No changes can be made here."
 msgstr "Admin metrics and public server info. No changes can be made here."
 
-#: src/screens/Antennas.tsx:41
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:94
+msgid "errors.shape.reportLookup"
+msgstr "Admin report lookup returned an unexpected response shape."
+
+#: src/screens/Antennas.tsx:42
 msgid "all"
 msgstr "all"
 
-#: src/components/Composer/Composer.tsx:1462
+#: src/components/Composer/Composer.tsx:1463
 #: src/components/Profile/ProfileTabs.tsx:24
 #: src/screens/Notifications.tsx:104
 msgid "All"
@@ -580,7 +602,7 @@ msgstr "Already at the last image"
 msgid "Already at the smallest size."
 msgstr "Already at the smallest size."
 
-#: src/screens/AdminReportDetail.tsx:396
+#: src/screens/AdminReportDetail.tsx:397
 msgid "Already forwarded."
 msgstr "Already forwarded."
 
@@ -601,7 +623,12 @@ msgstr "Always dark."
 msgid "Always light."
 msgstr "Always light."
 
-#: src/components/shell/AccountMenu.tsx:148
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:81
+msgid "errors.account.refRequired"
+msgstr "An account lookup needs an id or a username."
+
+#: src/components/shell/AccountMenu.tsx:149
 #: src/routes.ts:406
 #: src/screens/Announcements.tsx:225
 #: src/screens/Announcements.tsx:240
@@ -617,7 +644,7 @@ msgstr "Announcements are not available on this server."
 msgid "Announcements never show sample data when signed out."
 msgstr "Announcements never show sample data when signed out."
 
-#: src/screens/Login.tsx:583
+#: src/screens/Login.tsx:584
 msgid "Another server"
 msgstr "Another server"
 
@@ -630,9 +657,9 @@ msgstr "Another server"
 msgid "Antenna"
 msgstr "Antenna"
 
-#: src/screens/Antennas.tsx:100
-#: src/screens/Antennas.tsx:184
-#: src/screens/Antennas.tsx:187
+#: src/screens/Antennas.tsx:101
+#: src/screens/Antennas.tsx:185
+#: src/screens/Antennas.tsx:188
 msgid "Antenna name"
 msgstr "Antenna name"
 
@@ -642,33 +669,38 @@ msgstr "antennas"
 
 #: src/components/shell/Sidebar.tsx:103
 #: src/routes.ts:388
-#: src/screens/Antennas.tsx:311
-#: src/screens/Antennas.tsx:324
-#: src/screens/Antennas.tsx:332
+#: src/screens/Antennas.tsx:312
+#: src/screens/Antennas.tsx:325
+#: src/screens/Antennas.tsx:333
 msgid "Antennas"
 msgstr "Antennas"
 
-#: src/screens/Lists.tsx:440
+#: src/screens/Lists.tsx:441
 msgctxt "navigation button"
 msgid "Antennas"
 msgstr "Antennas"
 
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:98
+msgid "errors.unsupported.antennas"
+msgstr "Antennas are not available on this server."
+
 #: src/screens/Antenna.tsx:99
-#: src/screens/Antennas.tsx:325
+#: src/screens/Antennas.tsx:326
 msgid "Antennas are not available on this server."
 msgstr "Antennas are not available on this server."
 
 #: src/screens/Antenna.tsx:84
-#: src/screens/Antennas.tsx:314
+#: src/screens/Antennas.tsx:315
 msgid "Antennas never show sample data when signed out."
 msgstr "Antennas never show sample data when signed out."
 
-#: src/screens/Lists.tsx:42
+#: src/screens/Lists.tsx:43
 msgid "Any followed user"
 msgstr "Any followed user"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:32
+#: src/lib/localeErrors.ts:37
 msgid "errors.network.apiError"
 msgstr "API error: HTTP {status}"
 
@@ -677,7 +709,7 @@ msgid "Applies to posts, reactions, and the emoji picker. System uses your devic
 msgstr "Applies to posts, reactions, and the emoji picker. System uses your device font."
 
 #. placeholder {0}: detection.origin
-#: src/screens/Login.tsx:646
+#: src/screens/Login.tsx:647
 msgid "Approve on {0}, then continue here."
 msgstr "Approve on {0}, then continue here."
 
@@ -690,29 +722,29 @@ msgid "Art set for unicode emoji everywhere."
 msgstr "Art set for unicode emoji everywhere."
 
 #. placeholder {0}: reportActorLabel(report.assignee)
-#: src/screens/AdminReportDetail.tsx:259
+#: src/screens/AdminReportDetail.tsx:260
 msgid "Assignee: {0}"
 msgstr "Assignee: {0}"
 
-#: src/screens/AdminReportDetail.tsx:260
+#: src/screens/AdminReportDetail.tsx:261
 msgid "Assignee: Unassigned"
 msgstr "Assignee: Unassigned"
 
 #: src/components/Composer/CompactComposer.tsx:298
-#: src/screens/Note.tsx:626
-#: src/screens/Note.tsx:628
-#: src/screens/Note.tsx:631
+#: src/screens/Note.tsx:627
+#: src/screens/Note.tsx:629
+#: src/screens/Note.tsx:632
 msgid "Attach media"
 msgstr "Attach media"
 
 #. placeholder {0}: c.uploads.items.length
 #. placeholder {0}: uploads.items.length
 #: src/components/Composer/CompactComposer.tsx:298
-#: src/screens/Note.tsx:630
+#: src/screens/Note.tsx:631
 msgid "Attach media ({0} attached)"
 msgstr "Attach media ({0} attached)"
 
-#: src/components/Composer/ComposerSections.tsx:412
+#: src/components/Composer/ComposerSections.tsx:413
 msgid "Attached to this post"
 msgstr "Attached to this post"
 
@@ -740,12 +772,12 @@ msgid "Attachment is still processing."
 msgstr "Attachment is still processing."
 
 #: src/components/Composer/CompactComposer.tsx:301
-#: src/components/Composer/Composer.tsx:1427
-#: src/screens/Note.tsx:628
+#: src/components/Composer/Composer.tsx:1428
+#: src/screens/Note.tsx:629
 msgid "Attachment limit reached."
 msgstr "Attachment limit reached."
 
-#: src/components/Composer/Composer.tsx:1313
+#: src/components/Composer/Composer.tsx:1314
 msgid "Audience"
 msgstr "Audience"
 
@@ -757,7 +789,7 @@ msgstr "Audio unavailable"
 msgid "Authors whose style matches your taste."
 msgstr "Authors whose style matches your taste."
 
-#: src/screens/ProfileEditor.tsx:374
+#: src/screens/ProfileEditor.tsx:371
 msgid "Automated account"
 msgstr "Automated account"
 
@@ -773,7 +805,7 @@ msgstr "Automatic"
 msgid "Automatic for public posts"
 msgstr "Automatic for public posts"
 
-#: src/screens/ProfileEditor.tsx:467
+#: src/screens/ProfileEditor.tsx:464
 msgid "Avatar"
 msgstr "Avatar"
 
@@ -783,8 +815,8 @@ msgstr "Back"
 
 #. Go back to the top-level menu
 #. Go back to the top-level menu
-#: src/components/Post/PostMenu.tsx:182
-#: src/components/Post/PostMenu.tsx:187
+#: src/components/Post/PostMenu.tsx:185
+#: src/components/Post/PostMenu.tsx:190
 msgctxt "menu navigation"
 msgid "Back"
 msgstr "Back"
@@ -794,14 +826,14 @@ msgstr "Back"
 #. Go back to the previous screen
 #. Go back to the previous screen
 #: src/components/Pagehead.tsx:44
-#: src/screens/ProfileEditor.tsx:188
-#: src/screens/ProfileEditor.tsx:211
+#: src/screens/ProfileEditor.tsx:189
+#: src/screens/ProfileEditor.tsx:212
 #: src/screens/settings/SectionShell.tsx:21
 msgctxt "navigation"
 msgid "Back"
 msgstr "Back"
 
-#: src/screens/AuthCallback.tsx:230
+#: src/screens/AuthCallback.tsx:231
 msgid "Back to sign in"
 msgstr "Back to sign in"
 
@@ -809,30 +841,30 @@ msgstr "Back to sign in"
 msgid "Back up emoji prefs"
 msgstr "Back up emoji prefs"
 
-#: src/screens/ProfileEditor.tsx:487
+#: src/screens/ProfileEditor.tsx:484
 msgid "Banner"
 msgstr "Banner"
 
-#: src/screens/Note.tsx:1341
+#: src/screens/Note.tsx:1342
 msgid "Be the first to reply."
 msgstr "Be the first to reply."
 
-#: src/screens/ProfileEditor.tsx:360
+#: src/screens/ProfileEditor.tsx:357
 msgid "Bio"
 msgstr "Bio"
 
-#: src/screens/ProfileEditor.tsx:360
+#: src/screens/ProfileEditor.tsx:357
 msgid "Bio (MFM)"
 msgstr "Bio (MFM)"
 
-#: src/screens/ProfileEditor.tsx:390
+#: src/screens/ProfileEditor.tsx:387
 msgid "Birthday"
 msgstr "Birthday"
 
 #: src/components/Post/menuModel.ts:216
 #: src/components/Post/menuModel.ts:253
-#: src/components/ProfileActions/ProfileActions.tsx:81
-#: src/components/Settings/MuteBlockSearch.tsx:202
+#: src/components/ProfileActions/ProfileActions.tsx:82
+#: src/components/Settings/MuteBlockSearch.tsx:203
 msgid "Block"
 msgstr "Block"
 
@@ -840,11 +872,11 @@ msgstr "Block"
 msgid "Block {handle}?"
 msgstr "Block {handle}?"
 
-#: src/components/Settings/DomainBlocks.tsx:148
+#: src/components/Settings/DomainBlocks.tsx:149
 msgid "Block a domain"
 msgstr "Block a domain"
 
-#: src/components/Settings/DomainBlocks.tsx:164
+#: src/components/Settings/DomainBlocks.tsx:165
 msgid "Block domain"
 msgstr "Block domain"
 
@@ -860,13 +892,13 @@ msgstr "Blocked"
 msgid "Blocked accounts"
 msgstr "Blocked accounts"
 
-#: src/components/Settings/DomainBlocks.tsx:35
-#: src/components/Settings/DomainBlocks.tsx:132
-#: src/components/Settings/DomainBlocks.tsx:142
+#: src/components/Settings/DomainBlocks.tsx:36
+#: src/components/Settings/DomainBlocks.tsx:133
+#: src/components/Settings/DomainBlocks.tsx:143
 msgid "Blocked domains"
 msgstr "Blocked domains"
 
-#: src/components/ProfileActions/ProfileActions.tsx:37
+#: src/components/ProfileActions/ProfileActions.tsx:38
 msgid "Blocked you"
 msgstr "Blocked you"
 
@@ -891,11 +923,16 @@ msgctxt "saved posts screen title"
 msgid "Bookmarks"
 msgstr "Bookmarks"
 
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:99
+msgid "errors.unsupported.bookmarks"
+msgstr "Bookmarks are not available on this server."
+
 #: src/screens/Favorites.tsx:35
 msgid "Bookmarks are not available on this server."
 msgstr "Bookmarks are not available on this server."
 
-#: src/components/Post/ActionBar.tsx:186
+#: src/components/Post/ActionBar.tsx:179
 msgid "Boost"
 msgstr "Boost"
 
@@ -911,7 +948,7 @@ msgstr "Boost for posts liked by similar-taste users."
 msgid "Boosting (renoting) a post."
 msgstr "Boosting (renoting) a post."
 
-#: src/screens/Note.tsx:213
+#: src/screens/Note.tsx:214
 msgid "boosts"
 msgstr "boosts"
 
@@ -924,7 +961,7 @@ msgid "Browse server channels"
 msgstr "Browse server channels"
 
 #. placeholder {0}: detection.origin
-#: src/screens/Login.tsx:634
+#: src/screens/Login.tsx:635
 msgid "Browser sign-in — approve on {0}."
 msgstr "Browser sign-in — approve on {0}."
 
@@ -933,41 +970,41 @@ msgid "by {shown}"
 msgstr "by {shown}"
 
 #: src/components/Composer/CompactComposer.tsx:203
-#: src/components/Composer/Composer.tsx:1219
-#: src/components/Composer/ComposerSections.tsx:664
+#: src/components/Composer/Composer.tsx:1220
+#: src/components/Composer/ComposerSections.tsx:665
 #: src/components/Post/ReportChooser.tsx:201
 #: src/components/RichText.tsx:406
-#: src/components/Settings/FiltersSection.tsx:157
-#: src/screens/AdminReportDetail.tsx:117
-#: src/screens/Antennas.tsx:200
+#: src/components/Settings/FiltersSection.tsx:158
+#: src/screens/AdminReportDetail.tsx:118
+#: src/screens/Antennas.tsx:201
 #: src/screens/ChatRooms.tsx:197
 #: src/screens/ChatThread.tsx:120
-#: src/screens/Clips.tsx:174
+#: src/screens/Clips.tsx:175
 #: src/screens/Conversation.tsx:219
 #: src/screens/Conversations.tsx:89
-#: src/screens/Login.tsx:653
-#: src/screens/Login.tsx:691
-#: src/screens/Login.tsx:758
+#: src/screens/Login.tsx:654
+#: src/screens/Login.tsx:692
+#: src/screens/Login.tsx:759
 #: src/screens/Notifications.tsx:888
-#: src/screens/ProfileEditor.tsx:514
+#: src/screens/ProfileEditor.tsx:511
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/screens/Drive/rows.tsx:102
-#: src/screens/Drive/rows.tsx:268
+#: src/screens/Drive/rows.tsx:103
+#: src/screens/Drive/rows.tsx:269
 #: src/screens/Drive/upload.tsx:64
-#: src/screens/Lists.tsx:296
+#: src/screens/Lists.tsx:297
 msgctxt "button"
 msgid "Cancel"
 msgstr "Cancel"
 
 #. Close the menu without doing anything
-#: src/components/Post/PostMenu.tsx:169
+#: src/components/Post/PostMenu.tsx:172
 msgctxt "dialog button"
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/components/Composer/ComposerSections.tsx:362
+#: src/components/Composer/ComposerSections.tsx:363
 msgid "Cancel upload"
 msgstr "Cancel upload"
 
@@ -975,20 +1012,20 @@ msgstr "Cancel upload"
 msgid "case-sensitive"
 msgstr "case-sensitive"
 
-#: src/screens/AdminReportDetail.tsx:350
+#: src/screens/AdminReportDetail.tsx:351
 msgid "Change category"
 msgstr "Change category"
 
-#: src/screens/AdminReportDetail.tsx:488
+#: src/screens/AdminReportDetail.tsx:489
 msgid "Change the category?"
 msgstr "Change the category?"
 
 #: src/routes.ts:390
-#: src/screens/Channel.tsx:106
-#: src/screens/Channel.tsx:119
-#: src/screens/Channel.tsx:128
-#: src/screens/Channel.tsx:137
-#: src/screens/Channel.tsx:153
+#: src/screens/Channel.tsx:107
+#: src/screens/Channel.tsx:120
+#: src/screens/Channel.tsx:129
+#: src/screens/Channel.tsx:138
+#: src/screens/Channel.tsx:154
 msgid "Channel"
 msgstr "Channel"
 
@@ -1001,12 +1038,17 @@ msgstr "Channel"
 msgid "Channels"
 msgstr "Channels"
 
-#: src/screens/Channel.tsx:120
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:100
+msgid "errors.unsupported.channels"
+msgstr "Channels are not available on this server."
+
+#: src/screens/Channel.tsx:121
 #: src/screens/Channels.tsx:219
 msgid "Channels are not available on this server."
 msgstr "Channels are not available on this server."
 
-#: src/screens/Channel.tsx:109
+#: src/screens/Channel.tsx:110
 #: src/screens/Channels.tsx:206
 msgid "Channels never show sample data when signed out."
 msgstr "Channels never show sample data when signed out."
@@ -1037,7 +1079,7 @@ msgstr "Chat room"
 msgid "Chats never show sample data when signed out."
 msgstr "Chats never show sample data when signed out."
 
-#: src/components/Settings/TransferSections.tsx:329
+#: src/components/Settings/TransferSections.tsx:333
 msgid "Check for the file"
 msgstr "Check for the file"
 
@@ -1045,37 +1087,37 @@ msgstr "Check for the file"
 #: src/components/PostFeed/PostFeed.tsx:206
 #: src/components/Recommendations/RecommendationsFeed.tsx:105
 #: src/screens/Antenna.tsx:118
-#: src/screens/Channel.tsx:139
+#: src/screens/Channel.tsx:140
 #: src/screens/Clip.tsx:98
 #: src/screens/HomeFeed.tsx:368
 #: src/screens/List.tsx:98
 msgid "Check your connection and try again."
 msgstr "Check your connection and try again."
 
-#: src/components/Settings/TransferSections.tsx:329
-#: src/screens/Login.tsx:623
-#: src/screens/Login.tsx:649
+#: src/components/Settings/TransferSections.tsx:333
+#: src/screens/Login.tsx:624
+#: src/screens/Login.tsx:650
 msgid "Checking…"
 msgstr "Checking…"
 
 #. placeholder {0}: i + 1
-#: src/components/Composer/ComposerSections.tsx:186
+#: src/components/Composer/ComposerSections.tsx:187
 msgid "Choice {0}"
 msgstr "Choice {0}"
 
-#: src/screens/Clips.tsx:311
+#: src/screens/Clips.tsx:312
 msgid "Choose a clip for this post."
 msgstr "Choose a clip for this post."
 
-#: src/screens/ProfileEditor.tsx:476
+#: src/screens/ProfileEditor.tsx:473
 msgid "Choose avatar"
 msgstr "Choose avatar"
 
-#: src/screens/ProfileEditor.tsx:495
+#: src/screens/ProfileEditor.tsx:492
 msgid "Choose banner"
 msgstr "Choose banner"
 
-#: src/components/Settings/TransferSections.tsx:169
+#: src/components/Settings/TransferSections.tsx:173
 msgid "Choose file"
 msgstr "Choose file"
 
@@ -1092,15 +1134,15 @@ msgstr "Choose which notifications wait here instead of the main list."
 msgid "Choose who notifies you, per type. Empty means the server default."
 msgstr "Choose who notifies you, per type. Empty means the server default."
 
-#: src/components/Settings/TransferSections.tsx:164
+#: src/components/Settings/TransferSections.tsx:168
 msgid "Choosing…"
 msgstr "Choosing…"
 
-#: src/screens/AdminReportDetail.tsx:299
+#: src/screens/AdminReportDetail.tsx:300
 msgid "Claim for me"
 msgstr "Claim for me"
 
-#: src/screens/AdminReportDetail.tsx:409
+#: src/screens/AdminReportDetail.tsx:410
 msgid "Claim this report for yourself?"
 msgstr "Claim this report for yourself?"
 
@@ -1143,9 +1185,9 @@ msgstr "Clearing…"
 msgid "Clip"
 msgstr "Clip"
 
-#: src/screens/Clips.tsx:56
-#: src/screens/Clips.tsx:151
-#: src/screens/Clips.tsx:154
+#: src/screens/Clips.tsx:57
+#: src/screens/Clips.tsx:152
+#: src/screens/Clips.tsx:155
 msgid "Clip name"
 msgstr "Clip name"
 
@@ -1161,9 +1203,9 @@ msgstr "clips"
 
 #: src/components/shell/Sidebar.tsx:101
 #: src/routes.ts:384
-#: src/screens/Clips.tsx:291
-#: src/screens/Clips.tsx:302
-#: src/screens/Clips.tsx:310
+#: src/screens/Clips.tsx:292
+#: src/screens/Clips.tsx:303
+#: src/screens/Clips.tsx:311
 msgid "Clips"
 msgstr "Clips"
 
@@ -1172,30 +1214,35 @@ msgctxt "navigation button"
 msgid "Clips"
 msgstr "Clips"
 
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:101
+msgid "errors.unsupported.clips"
+msgstr "Clips are not available on this server."
+
 #: src/screens/Clip.tsx:79
-#: src/screens/Clips.tsx:303
+#: src/screens/Clips.tsx:304
 msgid "Clips are not available on this server."
 msgstr "Clips are not available on this server."
 
 #: src/screens/Clip.tsx:69
-#: src/screens/Clips.tsx:293
+#: src/screens/Clips.tsx:294
 msgid "Clips never show sample data when signed out."
 msgstr "Clips never show sample data when signed out."
 
 #: src/components/Lightbox.tsx:578
-#: src/screens/Compose.tsx:211
-#: src/screens/Compose.tsx:219
-#: src/screens/Compose.tsx:227
+#: src/screens/Compose.tsx:212
+#: src/screens/Compose.tsx:220
+#: src/screens/Compose.tsx:228
 msgid "Close"
 msgstr "Close"
 
 #. Close the profile editor
-#: src/screens/ProfileEditor.tsx:174
+#: src/screens/ProfileEditor.tsx:175
 msgctxt "navigation"
 msgid "Close"
 msgstr "Close"
 
-#: src/screens/Compose.tsx:151
+#: src/screens/Compose.tsx:152
 msgid "Close composer"
 msgstr "Close composer"
 
@@ -1205,8 +1252,8 @@ msgstr "Close dialog"
 
 #. Close the profile editor
 #. Close the profile editor
-#: src/screens/ProfileEditor.tsx:157
-#: src/screens/ProfileEditor.tsx:169
+#: src/screens/ProfileEditor.tsx:158
+#: src/screens/ProfileEditor.tsx:170
 msgctxt "navigation"
 msgid "Close editor"
 msgstr "Close editor"
@@ -1216,12 +1263,12 @@ msgstr "Close editor"
 msgid "Close recommendations settings"
 msgstr "Close recommendations settings"
 
-#: src/components/Composer/Composer.tsx:214
+#: src/components/Composer/Composer.tsx:215
 msgid "Close without saving your changes?"
 msgstr "Close without saving your changes?"
 
-#: src/screens/Login.tsx:684
-#: src/screens/Login.tsx:752
+#: src/screens/Login.tsx:685
+#: src/screens/Login.tsx:753
 msgid "Code"
 msgstr "Code"
 
@@ -1238,7 +1285,7 @@ msgstr "Colour mode"
 msgid "Colour mode, text size, emoji art."
 msgstr "Colour mode, text size, emoji art."
 
-#: src/screens/Drive/detail.tsx:151
+#: src/screens/Drive/detail.tsx:152
 msgctxt "drive file detail field"
 msgid "Comment"
 msgstr "Comment"
@@ -1251,18 +1298,18 @@ msgstr "completed your export"
 msgid "Configure recommendations"
 msgstr "Configure recommendations"
 
-#: src/screens/AdminReportDetail.tsx:110
+#: src/screens/AdminReportDetail.tsx:111
 msgid "Confirm"
 msgstr "Confirm"
 
-#: src/screens/Antennas.tsx:229
-#: src/screens/Clips.tsx:205
+#: src/screens/Antennas.tsx:230
+#: src/screens/Clips.tsx:206
 msgid "Confirm delete"
 msgstr "Confirm delete"
 
-#: src/screens/Drive/rows.tsx:122
-#: src/screens/Drive/rows.tsx:326
-#: src/screens/Lists.tsx:329
+#: src/screens/Drive/rows.tsx:123
+#: src/screens/Drive/rows.tsx:327
+#: src/screens/Lists.tsx:330
 msgctxt "button"
 msgid "Confirm delete"
 msgstr "Confirm delete"
@@ -1272,12 +1319,12 @@ msgid "Connecting…"
 msgstr "Connecting…"
 
 #: src/components/Composer/CompactComposer.tsx:339
-#: src/components/Composer/ComposerSections.tsx:54
+#: src/components/Composer/ComposerSections.tsx:55
 msgid "Content warning"
 msgstr "Content warning"
 
-#: src/screens/Login.tsx:623
-#: src/screens/Login.tsx:738
+#: src/screens/Login.tsx:624
+#: src/screens/Login.tsx:739
 msgid "Continue"
 msgstr "Continue"
 
@@ -1326,19 +1373,19 @@ msgstr "Copy username"
 msgid "Could not accept that request."
 msgstr "Could not accept that request."
 
-#: src/components/Settings/FiltersSection.tsx:74
+#: src/components/Settings/FiltersSection.tsx:75
 msgid "Could not add the filter."
 msgstr "Could not add the filter."
 
-#: src/screens/Clips.tsx:398
+#: src/screens/Clips.tsx:399
 msgid "Could not add to the clip."
 msgstr "Could not add to the clip."
 
-#: src/screens/FollowRequests.tsx:55
+#: src/screens/FollowRequests.tsx:56
 msgid "Could not answer the request."
 msgstr "Could not answer the request."
 
-#: src/components/Composer/ComposerSections.tsx:668
+#: src/components/Composer/ComposerSections.tsx:669
 msgid "Could not cancel."
 msgstr "Could not cancel."
 
@@ -1346,31 +1393,31 @@ msgstr "Could not cancel."
 msgid "Could not clear notifications."
 msgstr "Could not clear notifications."
 
-#: src/screens/AdminReportDetail.tsx:205
+#: src/screens/AdminReportDetail.tsx:206
 msgid "Could not complete this action."
 msgstr "Could not complete this action."
 
-#: src/screens/Antennas.tsx:89
+#: src/screens/Antennas.tsx:90
 msgid "Could not create the antenna."
 msgstr "Could not create the antenna."
 
-#: src/screens/Clips.tsx:45
+#: src/screens/Clips.tsx:46
 msgid "Could not create the clip."
 msgstr "Could not create the clip."
 
-#: src/screens/Drive.tsx:419
+#: src/screens/Drive.tsx:420
 msgid "Could not create the folder."
 msgstr "Could not create the folder."
 
-#: src/screens/Lists.tsx:158
+#: src/screens/Lists.tsx:159
 msgid "Could not create the list."
 msgstr "Could not create the list."
 
-#: src/screens/Antennas.tsx:404
+#: src/screens/Antennas.tsx:405
 msgid "Could not delete the antenna."
 msgstr "Could not delete the antenna."
 
-#: src/screens/Clips.tsx:380
+#: src/screens/Clips.tsx:381
 msgid "Could not delete the clip."
 msgstr "Could not delete the clip."
 
@@ -1379,15 +1426,15 @@ msgstr "Could not delete the clip."
 msgid "Could not delete the conversation."
 msgstr "Could not delete the conversation."
 
-#: src/screens/Drive.tsx:305
+#: src/screens/Drive.tsx:306
 msgid "Could not delete the file."
 msgstr "Could not delete the file."
 
-#: src/screens/Drive.tsx:379
+#: src/screens/Drive.tsx:380
 msgid "Could not delete the folder."
 msgstr "Could not delete the folder."
 
-#: src/screens/Lists.tsx:493
+#: src/screens/Lists.tsx:494
 msgid "Could not delete the list."
 msgstr "Could not delete the list."
 
@@ -1396,7 +1443,7 @@ msgstr "Could not delete the list."
 msgid "Could not delete the message."
 msgstr "Could not delete the message."
 
-#: src/components/Composer/ComposerSections.tsx:739
+#: src/components/Composer/ComposerSections.tsx:740
 msgid "Could not delete."
 msgstr "Could not delete."
 
@@ -1408,11 +1455,11 @@ msgstr "Could not dismiss that notification."
 msgid "Could not dismiss that request."
 msgstr "Could not dismiss that request."
 
-#: src/components/Settings/TransferSections.tsx:91
+#: src/components/Settings/TransferSections.tsx:95
 msgid "Could not import."
 msgstr "Could not import."
 
-#: src/screens/Note.tsx:252
+#: src/screens/Note.tsx:253
 msgid "Could not load {kindName}."
 msgstr "Could not load {kindName}."
 
@@ -1420,7 +1467,7 @@ msgstr "Could not load {kindName}."
 msgid "Could not load announcements."
 msgstr "Could not load announcements."
 
-#: src/screens/Antennas.tsx:367
+#: src/screens/Antennas.tsx:368
 msgid "Could not load antennas."
 msgstr "Could not load antennas."
 
@@ -1432,7 +1479,7 @@ msgstr "Could not load channels."
 msgid "Could not load chats."
 msgstr "Could not load chats."
 
-#: src/screens/Clips.tsx:346
+#: src/screens/Clips.tsx:347
 msgid "Could not load clips."
 msgstr "Could not load clips."
 
@@ -1440,11 +1487,11 @@ msgstr "Could not load clips."
 msgid "Could not load custom emoji."
 msgstr "Could not load custom emoji."
 
-#: src/screens/Drive.tsx:264
+#: src/screens/Drive.tsx:265
 msgid "Could not load drive."
 msgstr "Could not load drive."
 
-#: src/screens/Drive/detail.tsx:66
+#: src/screens/Drive/detail.tsx:67
 msgid "Could not load file details."
 msgstr "Could not load file details."
 
@@ -1452,11 +1499,11 @@ msgstr "Could not load file details."
 msgid "Could not load filtered notifications."
 msgstr "Could not load filtered notifications."
 
-#: src/components/Settings/FiltersSection.tsx:57
+#: src/components/Settings/FiltersSection.tsx:58
 msgid "Could not load filters."
 msgstr "Could not load filters."
 
-#: src/screens/FollowRequests.tsx:168
+#: src/screens/FollowRequests.tsx:169
 msgid "Could not load follow requests."
 msgstr "Could not load follow requests."
 
@@ -1468,7 +1515,7 @@ msgstr "Could not load followers."
 msgid "Could not load following."
 msgstr "Could not load following."
 
-#: src/screens/Lists.tsx:464
+#: src/screens/Lists.tsx:465
 msgid "Could not load lists."
 msgstr "Could not load lists."
 
@@ -1481,7 +1528,7 @@ msgstr "Could not load messages."
 msgid "Could not load more channels."
 msgstr "Could not load more channels."
 
-#: src/screens/Drive.tsx:162
+#: src/screens/Drive.tsx:163
 msgid "Could not load more files."
 msgstr "Could not load more files."
 
@@ -1494,11 +1541,11 @@ msgstr "Could not load more followers."
 msgid "Could not load more messages."
 msgstr "Could not load more messages."
 
-#: src/screens/explore/NewsTab.tsx:181
+#: src/screens/explore/NewsTab.tsx:182
 msgid "Could not load more news."
 msgstr "Could not load more news."
 
-#: src/screens/Drive/detail.tsx:112
+#: src/screens/Drive/detail.tsx:113
 msgid "Could not load more notes."
 msgstr "Could not load more notes."
 
@@ -1513,12 +1560,12 @@ msgstr "Could not load more posts."
 msgid "Could not load more."
 msgstr "Could not load more."
 
-#: src/screens/explore/NewsTab.tsx:131
+#: src/screens/explore/NewsTab.tsx:132
 msgid "Could not load news."
 msgstr "Could not load news."
 
-#: src/screens/Drive/detail.tsx:88
-#: src/screens/Drive/detail.tsx:197
+#: src/screens/Drive/detail.tsx:89
+#: src/screens/Drive/detail.tsx:198
 msgid "Could not load notes for this file."
 msgstr "Could not load notes for this file."
 
@@ -1538,16 +1585,16 @@ msgstr "Could not load reactions."
 msgid "Could not load recommendations."
 msgstr "Could not load recommendations."
 
-#: src/screens/Note.tsx:884
-#: src/screens/Note.tsx:1323
+#: src/screens/Note.tsx:885
+#: src/screens/Note.tsx:1324
 msgid "Could not load replies."
 msgstr "Could not load replies."
 
-#: src/components/Composer/ComposerSections.tsx:654
+#: src/components/Composer/ComposerSections.tsx:655
 msgid "Could not load scheduled posts."
 msgstr "Could not load scheduled posts."
 
-#: src/components/Composer/ComposerSections.tsx:720
+#: src/components/Composer/ComposerSections.tsx:721
 msgid "Could not load server drafts."
 msgstr "Could not load server drafts."
 
@@ -1564,7 +1611,7 @@ msgstr "Could not load the filter policy."
 msgid "Could not load the message history."
 msgstr "Could not load the message history."
 
-#: src/screens/Compose.tsx:200
+#: src/screens/Compose.tsx:201
 msgid "Could not load the post."
 msgstr "Could not load the post."
 
@@ -1572,11 +1619,16 @@ msgstr "Could not load the post."
 msgid "Could not load the queue."
 msgstr "Could not load the queue."
 
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:76
+msgid "errors.compose.limitsUnavailable"
+msgstr "Could not load the server limits."
+
 #: src/screens/Antenna.tsx:117
 msgid "Could not load this antenna."
 msgstr "Could not load this antenna."
 
-#: src/screens/Channel.tsx:138
+#: src/screens/Channel.tsx:139
 msgid "Could not load this channel."
 msgstr "Could not load this channel."
 
@@ -1592,7 +1644,7 @@ msgstr "Could not load this conversation."
 msgid "Could not load this feed."
 msgstr "Could not load this feed."
 
-#: src/screens/Tag.tsx:83
+#: src/screens/Tag.tsx:84
 msgid "Could not load this hashtag."
 msgstr "Could not load this hashtag."
 
@@ -1604,29 +1656,29 @@ msgstr "Could not load this list."
 msgid "Could not load this profile."
 msgstr "Could not load this profile."
 
-#: src/screens/AdminReportDetail.tsx:235
+#: src/screens/AdminReportDetail.tsx:236
 msgid "Could not load this report."
 msgstr "Could not load this report."
 
-#: src/screens/AdminInsight.tsx:170
+#: src/screens/AdminInsight.tsx:175
 msgid "Could not load this section."
 msgstr "Could not load this section."
 
-#: src/screens/Note.tsx:1215
+#: src/screens/Note.tsx:1216
 msgid "Could not load this thread."
 msgstr "Could not load this thread."
 
-#: src/components/ProfileActions/ProfileActions.tsx:155
+#: src/components/ProfileActions/ProfileActions.tsx:156
 msgid "Could not load your lists."
 msgstr "Could not load your lists."
 
-#: src/screens/ProfileEditor.tsx:137
-#: src/screens/ProfileEditor.tsx:208
+#: src/screens/ProfileEditor.tsx:138
+#: src/screens/ProfileEditor.tsx:209
 msgid "Could not load your profile."
 msgstr "Could not load your profile."
 
-#: src/components/Settings/AccountLists.tsx:78
-#: src/components/Settings/DomainBlocks.tsx:73
+#: src/components/Settings/AccountLists.tsx:79
+#: src/components/Settings/DomainBlocks.tsx:74
 msgid "Could not load."
 msgstr "Could not load."
 
@@ -1642,15 +1694,20 @@ msgstr "Could not mark notifications read."
 msgid "Could not mark the announcement as read."
 msgstr "Could not mark the announcement as read."
 
-#: src/screens/Drive.tsx:194
+#: src/screens/Drive.tsx:195
 msgid "Could not open the file picker."
 msgstr "Could not open the file picker."
 
-#: src/screens/Note.tsx:406
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:79
+msgid "errors.stream.unavailable"
+msgstr "Could not open the live connection."
+
+#: src/screens/Note.tsx:407
 msgid "Could not open the media picker."
 msgstr "Could not open the media picker."
 
-#: src/screens/ProfileEditor.tsx:287
+#: src/screens/ProfileEditor.tsx:286
 msgid "Could not open the photo picker."
 msgstr "Could not open the photo picker."
 
@@ -1663,8 +1720,8 @@ msgstr "Could not open this attachment."
 #: src/components/Post/PostMediaGrid.tsx:615
 #: src/components/richtext/mentionRouting.ts:35
 #: src/components/richtext/mentionRouting.ts:38
-#: src/screens/explore/NewsTab.tsx:35
-#: src/screens/explore/NewsTab.tsx:38
+#: src/screens/explore/NewsTab.tsx:36
+#: src/screens/explore/NewsTab.tsx:39
 msgid "Could not open this link."
 msgstr "Could not open this link."
 
@@ -1672,65 +1729,65 @@ msgstr "Could not open this link."
 msgid "could not post your scheduled note"
 msgstr "could not post your scheduled note"
 
-#: src/screens/Note.tsx:465
+#: src/screens/Note.tsx:466
 msgid "Could not post."
 msgstr "Could not post."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:23
+#: src/lib/localeErrors.ts:28
 msgid "errors.network.unreachableBare"
 msgstr "Could not reach {origin} ({reason})."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:29
+#: src/lib/localeErrors.ts:34
 msgid "errors.network.unreachableOrigin"
 msgstr "Could not reach {origin} ({reason}). Is the server running and the host correct?"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:28
+#: src/lib/localeErrors.ts:33
 msgid "errors.network.unreachableInstance"
 msgstr "Could not reach the instance ({reason}). Is the host correct?"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:30
+#: src/lib/localeErrors.ts:35
 msgid "errors.network.unreachableServer"
 msgstr "Could not reach the server ({reason}). Is it running?"
 
 #. placeholder {0}: unreadable[0].name
-#: src/components/Composer/Composer.tsx:896
+#: src/components/Composer/Composer.tsx:897
 msgid "Could not read \"{0}\". Try again or pick another photo."
 msgstr "Could not read \"{0}\". Try again or pick another photo."
 
-#: src/components/Settings/FiltersSection.tsx:87
+#: src/components/Settings/FiltersSection.tsx:88
 msgid "Could not remove the filter."
 msgstr "Could not remove the filter."
 
-#: src/screens/Antennas.tsx:165
-#: src/screens/Antennas.tsx:390
+#: src/screens/Antennas.tsx:166
+#: src/screens/Antennas.tsx:391
 msgid "Could not rename the antenna."
 msgstr "Could not rename the antenna."
 
-#: src/screens/Clips.tsx:114
-#: src/screens/Clips.tsx:368
+#: src/screens/Clips.tsx:115
+#: src/screens/Clips.tsx:369
 msgid "Could not rename the clip."
 msgstr "Could not rename the clip."
 
-#: src/screens/Drive/rows.tsx:232
+#: src/screens/Drive/rows.tsx:233
 msgid "Could not rename the file."
 msgstr "Could not rename the file."
 
-#: src/screens/Drive/rows.tsx:70
+#: src/screens/Drive/rows.tsx:71
 msgid "Could not rename the folder."
 msgstr "Could not rename the folder."
 
-#: src/screens/Lists.tsx:250
-#: src/screens/Lists.tsx:481
+#: src/screens/Lists.tsx:251
+#: src/screens/Lists.tsx:482
 msgid "Could not rename the list."
 msgstr "Could not rename the list."
 
-#: src/components/Composer/ComposerSections.tsx:535
-#: src/components/Composer/ComposerSections.tsx:549
-#: src/components/Composer/ComposerSections.tsx:559
+#: src/components/Composer/ComposerSections.tsx:536
+#: src/components/Composer/ComposerSections.tsx:550
+#: src/components/Composer/ComposerSections.tsx:560
 msgid "Could not resolve \"{raw}\"."
 msgstr "Could not resolve \"{raw}\"."
 
@@ -1742,12 +1799,12 @@ msgstr "Could not save notification settings."
 msgid "Could not save recommendations settings."
 msgstr "Could not save recommendations settings."
 
-#: src/components/Composer/Composer.tsx:504
+#: src/components/Composer/Composer.tsx:505
 msgid "Could not save the draft on this device."
 msgstr "Could not save the draft on this device."
 
-#: src/components/Composer/Composer.tsx:1043
-#: src/components/Composer/ComposerSections.tsx:708
+#: src/components/Composer/Composer.tsx:1044
+#: src/components/Composer/ComposerSections.tsx:709
 msgid "Could not save the draft."
 msgstr "Could not save the draft."
 
@@ -1755,26 +1812,26 @@ msgstr "Could not save the draft."
 msgid "Could not save the filter policy."
 msgstr "Could not save the filter policy."
 
-#: src/components/Settings/FiltersSection.tsx:104
+#: src/components/Settings/FiltersSection.tsx:105
 msgid "Could not save the filter."
 msgstr "Could not save the filter."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:39
+#: src/lib/localeErrors.ts:46
 msgid "errors.auth.savePending"
 msgstr "Could not save the sign-in state (session storage blocked) — the redirect flow cannot continue safely."
 
-#: src/screens/ProfileEditor.tsx:258
+#: src/screens/ProfileEditor.tsx:257
 msgid "Could not save your profile."
 msgstr "Could not save your profile."
 
-#: src/components/Settings/AccountSection.tsx:159
-#: src/components/Settings/WordFields.tsx:99
-#: src/components/Settings/WordFields.tsx:110
+#: src/components/Settings/AccountSection.tsx:160
+#: src/components/Settings/WordFields.tsx:96
+#: src/components/Settings/WordFields.tsx:106
 msgid "Could not save."
 msgstr "Could not save."
 
-#: src/screens/explore/UsersTab.tsx:58
+#: src/screens/explore/UsersTab.tsx:59
 msgid "Could not search profiles."
 msgstr "Could not search profiles."
 
@@ -1784,23 +1841,23 @@ msgstr "Could not search profiles."
 msgid "Could not send the message."
 msgstr "Could not send the message."
 
-#: src/components/Settings/TransferSections.tsx:92
+#: src/components/Settings/TransferSections.tsx:95
 msgid "Could not start the export."
 msgstr "Could not start the export."
 
-#: src/screens/Channel.tsx:189
+#: src/screens/Channel.tsx:188
 msgid "Could not update the channel follow."
 msgstr "Could not update the channel follow."
 
-#: src/screens/Drive/rows.tsx:308
+#: src/screens/Drive/rows.tsx:309
 msgid "Could not update the file."
 msgstr "Could not update the file."
 
-#: src/screens/ProfileEditor.tsx:330
+#: src/screens/ProfileEditor.tsx:327
 msgid "Could not upload that picture."
 msgstr "Could not upload that picture."
 
-#: src/screens/Drive.tsx:217
+#: src/screens/Drive.tsx:218
 msgid "Could not upload the file."
 msgstr "Could not upload the file."
 
@@ -1822,29 +1879,29 @@ msgstr "Couldn't submit your vote. Try again."
 
 #. placeholder {0}: info.cpu.model || '—'
 #. placeholder {1}: info.cpu.cores ?? '—'
-#: src/screens/AdminInsight.tsx:377
+#: src/screens/AdminInsight.tsx:380
 msgid "CPU {0} × {1}"
 msgstr "CPU {0} × {1}"
 
-#: src/screens/Antennas.tsx:124
+#: src/screens/Antennas.tsx:125
 msgid "Create antenna"
 msgstr "Create antenna"
 
-#: src/screens/Clips.tsx:68
+#: src/screens/Clips.tsx:69
 msgid "Create clip"
 msgstr "Create clip"
 
-#: src/screens/Drive.tsx:401
+#: src/screens/Drive.tsx:402
 msgctxt "button"
 msgid "Create folder"
 msgstr "Create folder"
 
-#: src/screens/Lists.tsx:185
+#: src/screens/Lists.tsx:186
 msgctxt "button"
 msgid "Create list"
 msgstr "Create list"
 
-#: src/screens/Drive/detail.tsx:137
+#: src/screens/Drive/detail.tsx:138
 msgctxt "drive file detail field"
 msgid "Created"
 msgstr "Created"
@@ -1853,19 +1910,19 @@ msgstr "Created"
 msgid "created an access token"
 msgstr "created an access token"
 
-#: src/screens/Antennas.tsx:124
-#: src/screens/Clips.tsx:68
+#: src/screens/Antennas.tsx:125
+#: src/screens/Clips.tsx:69
 msgid "Creating…"
 msgstr "Creating…"
 
-#: src/screens/Drive.tsx:400
-#: src/screens/Lists.tsx:184
+#: src/screens/Drive.tsx:401
+#: src/screens/Lists.tsx:185
 msgctxt "button"
 msgid "Creating…"
 msgstr "Creating…"
 
-#: src/components/AccountSwitcher.tsx:66
-#: src/components/shell/AccountMenu.tsx:105
+#: src/components/AccountSwitcher.tsx:67
+#: src/components/shell/AccountMenu.tsx:106
 msgid "Current account"
 msgstr "Current account"
 
@@ -1877,11 +1934,16 @@ msgstr "Current language."
 msgid "custom emoji"
 msgstr "custom emoji"
 
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:91
+msgid "errors.shape.customEmojis"
+msgstr "Custom emojis returned an unexpected response shape."
+
 #: src/components/Settings/ReactionsSection.tsx:108
 msgid "Custom like emoji"
 msgstr "Custom like emoji"
 
-#: src/components/Composer/Composer.tsx:1394
+#: src/components/Composer/Composer.tsx:1395
 msgid "CW"
 msgstr "CW"
 
@@ -1922,21 +1984,21 @@ msgstr "Default"
 msgid "Default. Colourful open-source set."
 msgstr "Default. Colourful open-source set."
 
-#: src/components/Composer/ComposerSections.tsx:735
+#: src/components/Composer/ComposerSections.tsx:736
 #: src/components/Post/menuModel.ts:456
 #: src/components/Post/menuModel.ts:458
 #: src/components/Post/menuModel.ts:461
-#: src/screens/Antennas.tsx:247
+#: src/screens/Antennas.tsx:248
 #: src/screens/ChatThread.tsx:129
-#: src/screens/Clips.tsx:223
+#: src/screens/Clips.tsx:224
 #: src/screens/Conversation.tsx:228
 #: src/screens/Conversations.tsx:98
 msgid "Delete"
 msgstr "Delete"
 
-#: src/screens/Drive/rows.tsx:150
-#: src/screens/Drive/rows.tsx:349
-#: src/screens/Lists.tsx:347
+#: src/screens/Drive/rows.tsx:151
+#: src/screens/Drive/rows.tsx:350
+#: src/screens/Lists.tsx:348
 msgctxt "button"
 msgid "Delete"
 msgstr "Delete"
@@ -1944,11 +2006,11 @@ msgstr "Delete"
 #. placeholder {0}: antenna.name
 #. placeholder {0}: clip.name
 #. placeholder {0}: file.name
-#: src/screens/Antennas.tsx:225
-#: src/screens/Clips.tsx:202
-#: src/screens/Drive/rows.tsx:118
-#: src/screens/Drive/rows.tsx:319
-#: src/screens/Lists.tsx:325
+#: src/screens/Antennas.tsx:226
+#: src/screens/Clips.tsx:203
+#: src/screens/Drive/rows.tsx:119
+#: src/screens/Drive/rows.tsx:320
+#: src/screens/Lists.tsx:326
 msgid "Delete “{0}”? This cannot be undone."
 msgstr "Delete “{0}”? This cannot be undone."
 
@@ -1986,7 +2048,7 @@ msgstr "Delete this post?"
 msgid "Deleting…"
 msgstr "Deleting…"
 
-#: src/screens/Drive/rows.tsx:325
+#: src/screens/Drive/rows.tsx:326
 msgctxt "button"
 msgid "Deleting…"
 msgstr "Deleting…"
@@ -2003,13 +2065,13 @@ msgstr "Demote standalone replies lacking context."
 msgid "Demote very short text."
 msgstr "Demote very short text."
 
-#: src/components/Composer/ComposerSections.tsx:299
-#: src/components/Composer/ComposerSections.tsx:418
+#: src/components/Composer/ComposerSections.tsx:300
+#: src/components/Composer/ComposerSections.tsx:419
 msgid "Describe the media"
 msgstr "Describe the media"
 
-#: src/components/Composer/ComposerSections.tsx:287
-#: src/components/Composer/ComposerSections.tsx:414
+#: src/components/Composer/ComposerSections.tsx:288
+#: src/components/Composer/ComposerSections.tsx:415
 msgid "Description (alt text)"
 msgstr "Description (alt text)"
 
@@ -2019,7 +2081,7 @@ msgid "Description (optional)"
 msgstr "Description (optional)"
 
 #. Open file details
-#: src/screens/Drive/rows.tsx:282
+#: src/screens/Drive/rows.tsx:283
 msgctxt "button"
 msgid "Details"
 msgstr "Details"
@@ -2037,7 +2099,7 @@ msgstr "Device only: the server refused the value."
 msgid "Device only: this server has no default-reaction field."
 msgstr "Device only: this server has no default-reaction field."
 
-#: src/components/Composer/Composer.tsx:480
+#: src/components/Composer/Composer.tsx:481
 msgid "Direct and specified posts aren't autosaved on this device. Use Save to keep a copy."
 msgstr "Direct and specified posts aren't autosaved on this device. Use Save to keep a copy."
 
@@ -2050,7 +2112,7 @@ msgid "Direct message"
 msgstr "Direct message"
 
 #: src/components/Composer/CloseConfirmDialog.tsx:27
-#: src/components/Composer/Composer.tsx:216
+#: src/components/Composer/Composer.tsx:217
 msgid "Discard"
 msgstr "Discard"
 
@@ -2058,12 +2120,12 @@ msgstr "Discard"
 msgid "Discard changes"
 msgstr "Discard changes"
 
-#: src/components/Composer/Composer.tsx:213
+#: src/components/Composer/Composer.tsx:214
 msgid "Discard changes?"
 msgstr "Discard changes?"
 
 #: src/routes.ts:398
-#: src/screens/explore/NewsTab.tsx:79
+#: src/screens/explore/NewsTab.tsx:80
 #: src/screens/NewsDiscussions.tsx:32
 #: src/screens/NewsDiscussions.tsx:43
 #: src/screens/NewsDiscussions.tsx:52
@@ -2071,7 +2133,7 @@ msgid "Discussions"
 msgstr "Discussions"
 
 #. placeholder {0}: link.title
-#: src/screens/explore/NewsTab.tsx:74
+#: src/screens/explore/NewsTab.tsx:75
 msgid "Discussions about {0}"
 msgstr "Discussions about {0}"
 
@@ -2081,7 +2143,7 @@ msgstr "Discussions never show sample data when signed out."
 
 #. placeholder {0}: formatBytes(info.fsUsed)
 #. placeholder {1}: formatBytes(info.fsTotal)
-#: src/screens/AdminInsight.tsx:381
+#: src/screens/AdminInsight.tsx:384
 msgid "Disk {0} of {1}"
 msgstr "Disk {0} of {1}"
 
@@ -2104,25 +2166,25 @@ msgstr "Dismissing a notification is not on this server."
 msgid "Dismissing…"
 msgstr "Dismissing…"
 
-#: src/screens/ProfileEditor.tsx:353
+#: src/screens/ProfileEditor.tsx:350
 msgid "Display name"
 msgstr "Display name"
 
-#: src/components/Settings/DomainBlocks.tsx:36
-#: src/components/Settings/DomainBlocks.tsx:133
+#: src/components/Settings/DomainBlocks.tsx:37
+#: src/components/Settings/DomainBlocks.tsx:134
 msgid "Domains whose accounts and posts are hidden for you."
 msgstr "Domains whose accounts and posts are hidden for you."
 
-#: src/components/Settings/DomainBlocks.tsx:144
+#: src/components/Settings/DomainBlocks.tsx:145
 msgid "Domains whose accounts and posts are hidden for you. Personal blocks only."
 msgstr "Domains whose accounts and posts are hidden for you. Personal blocks only."
 
-#: src/screens/Tag.tsx:159
-#: src/screens/Tag.tsx:170
+#: src/screens/Tag.tsx:160
+#: src/screens/Tag.tsx:171
 msgid "Don't feature on profile"
 msgstr "Don't feature on profile"
 
-#: src/components/Settings/TransferSections.tsx:102
+#: src/components/Settings/TransferSections.tsx:106
 msgid "Done."
 msgstr "Done."
 
@@ -2131,7 +2193,7 @@ msgid "Double-tap to zoom"
 msgstr "Double-tap to zoom"
 
 #: src/components/Composer/CompactComposer.tsx:480
-#: src/components/Composer/Composer.tsx:1444
+#: src/components/Composer/Composer.tsx:1445
 msgid "Drafts"
 msgstr "Drafts"
 
@@ -2149,18 +2211,18 @@ msgid "Drive"
 msgstr "Drive"
 
 #. js-lingui-explicit-id
-#: src/screens/Drive.tsx:227
-#: src/screens/Drive.tsx:240
-#: src/screens/Drive.tsx:248
+#: src/screens/Drive.tsx:228
+#: src/screens/Drive.tsx:241
+#: src/screens/Drive.tsx:249
 msgctxt "file storage screen title"
 msgid "drive.title"
 msgstr "Drive"
 
-#: src/screens/Drive.tsx:241
+#: src/screens/Drive.tsx:242
 msgid "Drive is not available on this server."
 msgstr "Drive is not available on this server."
 
-#: src/screens/Drive.tsx:230
+#: src/screens/Drive.tsx:231
 msgid "Drive never shows sample data when signed out."
 msgstr "Drive never shows sample data when signed out."
 
@@ -2172,7 +2234,7 @@ msgstr "Each post renders through its own source parser."
 msgid "Each slider multiplies how much a factor counts: 0 ignores it, 1 keeps the default, 2 doubles it."
 msgstr "Each slider multiplies how much a factor counts: 0 ignores it, 1 keeps the default, 2 doubles it."
 
-#: src/screens/Note.tsx:1257
+#: src/screens/Note.tsx:1258
 msgid "Earlier reply context unavailable."
 msgstr "Earlier reply context unavailable."
 
@@ -2183,7 +2245,7 @@ msgstr "earned an achievement"
 #: src/components/Post/menuModel.ts:394
 #: src/components/Post/menuModel.ts:396
 #: src/components/Post/menuModel.ts:397
-#: src/components/Settings/FiltersSection.tsx:177
+#: src/components/Settings/FiltersSection.tsx:178
 msgid "Edit"
 msgstr "Edit"
 
@@ -2197,7 +2259,7 @@ msgid "Edit memo"
 msgstr "Edit memo"
 
 #: src/routes.ts:424
-#: src/screens/ProfileEditor.tsx:345
+#: src/screens/ProfileEditor.tsx:342
 #: src/screens/User.tsx:191
 msgid "Edit profile"
 msgstr "Edit profile"
@@ -2212,11 +2274,11 @@ msgid "Edited · {0}"
 msgstr "Edited · {0}"
 
 #. placeholder {0}: siblingKeywordsOf( f, ).join(', ')
-#: src/components/Settings/FiltersSection.tsx:166
+#: src/components/Settings/FiltersSection.tsx:167
 msgid "Editing the first keyword. The rest of this group stay as they are: {0}"
 msgstr "Editing the first keyword. The rest of this group stay as they are: {0}"
 
-#: src/components/Composer/Composer.tsx:1252
+#: src/components/Composer/Composer.tsx:1253
 msgid "Editing your post"
 msgstr "Editing your post"
 
@@ -2224,7 +2286,7 @@ msgstr "Editing your post"
 msgid "Either"
 msgstr "Either"
 
-#: src/components/Composer/Composer.tsx:1392
+#: src/components/Composer/Composer.tsx:1393
 msgid "Emoji"
 msgstr "Emoji"
 
@@ -2234,7 +2296,7 @@ msgid "Emoji style"
 msgstr "Emoji style"
 
 #. Language-code example in the input placeholder; keep as-is
-#: src/screens/ProfileEditor.tsx:416
+#: src/screens/ProfileEditor.tsx:413
 msgid "en"
 msgstr "en"
 
@@ -2242,7 +2304,7 @@ msgstr "en"
 msgid "Enable recommendations"
 msgstr "Enable recommendations"
 
-#: src/components/Settings/DomainBlocks.tsx:86
+#: src/components/Settings/DomainBlocks.tsx:87
 msgid "Enter a domain like example.com."
 msgstr "Enter a domain like example.com."
 
@@ -2252,7 +2314,7 @@ msgid "Enter an emoji first."
 msgstr "Enter an emoji first."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:16
+#: src/lib/localeErrors.ts:21
 msgid "errors.validation.hostRequired"
 msgstr "Enter an instance host, e.g. example.com."
 
@@ -2262,12 +2324,12 @@ msgstr "Every notification is deleted on the server. This cannot be undone."
 
 #. Example domain in the input placeholder; keep unless a localized example reads better
 #. Example domain in the input placeholder; keep unless a localized example reads better
-#: src/components/Settings/DomainBlocks.tsx:155
+#: src/components/Settings/DomainBlocks.tsx:156
 #: src/components/Settings/MutesSection.tsx:109
 msgid "example.com"
 msgstr "example.com"
 
-#: src/screens/Login.tsx:619
+#: src/screens/Login.tsx:620
 msgid "example.social"
 msgstr "example.social"
 
@@ -2276,7 +2338,7 @@ msgid "Expand sidebar"
 msgstr "Expand sidebar"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:66
+#: src/lib/localeErrors.ts:73
 msgid "errors.shape.expectedList"
 msgstr "Expected a {kind} list (HTTP {status})."
 
@@ -2291,11 +2353,11 @@ msgctxt "navigation"
 msgid "Explore"
 msgstr "Explore"
 
-#: src/screens/Explore.tsx:363
+#: src/screens/Explore.tsx:364
 msgid "Explore never shows sample data when signed out."
 msgstr "Explore never shows sample data when signed out."
 
-#: src/components/Settings/TransferSections.tsx:306
+#: src/components/Settings/TransferSections.tsx:310
 #: src/routes.ts:441
 #: src/screens/settings/meta.ts:27
 msgid "Export"
@@ -2306,12 +2368,12 @@ msgid "Export likes, pins, and hides to a file; import them back."
 msgstr "Export likes, pins, and hides to a file; import them back."
 
 #. placeholder {0}: session.origin
-#: src/components/Settings/AccountSection.tsx:96
+#: src/components/Settings/AccountSection.tsx:97
 msgid "External account: sign-in and requests go to {0}, not this app's home server."
 msgstr "External account: sign-in and requests go to {0}, not this app's home server."
 
-#: src/components/Composer/ComposerSections.tsx:284
-#: src/screens/Note.tsx:600
+#: src/components/Composer/ComposerSections.tsx:285
+#: src/screens/Note.tsx:601
 msgid "failed"
 msgstr "failed"
 
@@ -2349,7 +2411,7 @@ msgid "Favourite emoji"
 msgstr "Favourite emoji"
 
 #: src/components/EmojiPicker/model.ts:89
-#: src/screens/Clips.tsx:317
+#: src/screens/Clips.tsx:318
 msgid "Favourites"
 msgstr "Favourites"
 
@@ -2362,8 +2424,8 @@ msgstr "Favourites"
 msgid "Favourites are not available on this server."
 msgstr "Favourites are not available on this server."
 
-#: src/screens/Tag.tsx:159
-#: src/screens/Tag.tsx:170
+#: src/screens/Tag.tsx:160
+#: src/screens/Tag.tsx:171
 msgid "Feature on profile"
 msgstr "Feature on profile"
 
@@ -2371,7 +2433,7 @@ msgstr "Feature on profile"
 msgid "Featured"
 msgstr "Featured"
 
-#: src/screens/Tag.tsx:171
+#: src/screens/Tag.tsx:172
 msgid "Featured hashtags are not available on this server."
 msgstr "Featured hashtags are not available on this server."
 
@@ -2389,22 +2451,22 @@ msgid "Feeds never show sample data when signed out."
 msgstr "Feeds never show sample data when signed out."
 
 #. placeholder {0}: i + 1
-#: src/screens/ProfileEditor.tsx:433
+#: src/screens/ProfileEditor.tsx:430
 msgid "Field {0} name"
 msgstr "Field {0} name"
 
 #. placeholder {0}: i + 1
-#: src/screens/ProfileEditor.tsx:439
+#: src/screens/ProfileEditor.tsx:436
 msgid "Field {0} value"
 msgstr "Field {0} value"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:68
+#: src/lib/localeErrors.ts:75
 msgid "errors.compose.fileTooLarge"
 msgstr "File is too large ({kb} KB — limit is 10 MB)."
 
-#: src/screens/Drive/rows.tsx:248
-#: src/screens/Drive/rows.tsx:251
+#: src/screens/Drive/rows.tsx:249
+#: src/screens/Drive/rows.tsx:252
 msgctxt "drive file name input"
 msgid "File name"
 msgstr "File name"
@@ -2421,7 +2483,7 @@ msgstr "Filtered notifications are not on this server. Everything stays in the m
 msgid "Filtered notifications are only on Mastodon-family servers. Everything stays in the main list."
 msgstr "Filtered notifications are only on Mastodon-family servers. Everything stays in the main list."
 
-#: src/components/Settings/FiltersSection.tsx:132
+#: src/components/Settings/FiltersSection.tsx:133
 msgid "Filters"
 msgstr "Filters"
 
@@ -2434,15 +2496,15 @@ msgstr "Final score"
 msgid "Final score: {0}"
 msgstr "Final score: {0}"
 
-#: src/screens/ProfileEditor.tsx:499
+#: src/screens/ProfileEditor.tsx:496
 msgid "Finish the avatar upload first."
 msgstr "Finish the avatar upload first."
 
-#: src/screens/ProfileEditor.tsx:480
+#: src/screens/ProfileEditor.tsx:477
 msgid "Finish the banner upload first."
 msgstr "Finish the banner upload first."
 
-#: src/screens/AuthCallback.tsx:226
+#: src/screens/AuthCallback.tsx:227
 msgid "Finishing sign-in"
 msgstr "Finishing sign-in"
 
@@ -2450,31 +2512,31 @@ msgstr "Finishing sign-in"
 msgid "Flat"
 msgstr "Flat"
 
-#: src/screens/Drive.tsx:393
-#: src/screens/Drive/rows.tsx:82
-#: src/screens/Drive/rows.tsx:85
+#: src/screens/Drive.tsx:394
+#: src/screens/Drive/rows.tsx:83
+#: src/screens/Drive/rows.tsx:86
 msgctxt "drive folder name input"
 msgid "Folder name"
 msgstr "Folder name"
 
-#: src/screens/Drive.tsx:349
+#: src/screens/Drive.tsx:350
 msgctxt "drive section header"
 msgid "Folders"
 msgstr "Folders"
 
-#: src/components/Profile/UserHoverCard.tsx:195
-#: src/components/ProfileActions/ProfileActions.tsx:29
-#: src/screens/Channel.tsx:44
+#: src/components/Profile/UserHoverCard.tsx:190
+#: src/components/ProfileActions/ProfileActions.tsx:30
+#: src/screens/Channel.tsx:45
 msgid "Follow"
 msgstr "Follow"
 
-#: src/components/ProfileActions/ProfileActions.tsx:35
+#: src/components/ProfileActions/ProfileActions.tsx:36
 msgid "Follow back"
 msgstr "Follow back"
 
-#: src/screens/Tag.tsx:121
-#: src/screens/Tag.tsx:144
-#: src/screens/Tag.tsx:150
+#: src/screens/Tag.tsx:122
+#: src/screens/Tag.tsx:145
+#: src/screens/Tag.tsx:151
 msgid "Follow hashtag"
 msgstr "Follow hashtag"
 
@@ -2487,11 +2549,11 @@ msgstr "Follow lists never show sample data when signed out."
 msgid "Follow request pending."
 msgstr "Follow request pending."
 
-#: src/components/Settings/AccountSection.tsx:200
+#: src/components/Settings/AccountSection.tsx:201
 msgid "Follow requests"
 msgstr "Follow requests"
 
-#: src/screens/FollowRequests.tsx:156
+#: src/screens/FollowRequests.tsx:157
 msgid "Follow requests are not available on this server."
 msgstr "Follow requests are not available on this server."
 
@@ -2499,7 +2561,7 @@ msgstr "Follow requests are not available on this server."
 msgid "Follow the device setting."
 msgstr "Follow the device setting."
 
-#: src/screens/ProfileEditor.tsx:404
+#: src/screens/ProfileEditor.tsx:401
 msgid "Followed message"
 msgstr "Followed message"
 
@@ -2546,7 +2608,7 @@ msgstr "Followers are not available on this server."
 msgid "following"
 msgstr "following"
 
-#: src/components/ProfileActions/ProfileActions.tsx:31
+#: src/components/ProfileActions/ProfileActions.tsx:32
 #: src/routes.ts:420
 #: src/screens/Notifications.tsx:73
 msgid "Following"
@@ -2582,9 +2644,9 @@ msgid "Follows"
 msgstr "Follows"
 
 #. js-lingui-explicit-id
-#: src/screens/FollowRequests.tsx:142
-#: src/screens/FollowRequests.tsx:155
-#: src/screens/FollowRequests.tsx:163
+#: src/screens/FollowRequests.tsx:143
+#: src/screens/FollowRequests.tsx:156
+#: src/screens/FollowRequests.tsx:164
 msgctxt "follow requests screen"
 msgid "followRequests.title"
 msgstr "Follows"
@@ -2597,7 +2659,7 @@ msgstr "Follows you."
 msgid "Font"
 msgstr "Font"
 
-#: src/screens/AdminReportDetail.tsx:564
+#: src/screens/AdminReportDetail.tsx:565
 msgid "Forward this report to the target's home server?"
 msgstr "Forward this report to the target's home server?"
 
@@ -2613,7 +2675,7 @@ msgstr "Forward to {remoteHost}: off"
 msgid "Forward to {remoteHost}: on"
 msgstr "Forward to {remoteHost}: on"
 
-#: src/screens/AdminReportDetail.tsx:389
+#: src/screens/AdminReportDetail.tsx:390
 msgid "Forward to remote server"
 msgstr "Forward to remote server"
 
@@ -2645,7 +2707,7 @@ msgstr "Good click"
 msgid "Google’s set."
 msgstr "Google’s set."
 
-#: src/components/Composer/ComposerSections.tsx:258
+#: src/components/Composer/ComposerSections.tsx:259
 msgid "Got it"
 msgstr "Got it"
 
@@ -2661,7 +2723,7 @@ msgstr "Grouped rows are not on this server — showing a flat list."
 msgid "Hard word mutes"
 msgstr "Hard word mutes"
 
-#: src/screens/Tag.tsx:122
+#: src/screens/Tag.tsx:123
 msgid "Hashtag following needs a Mastodon-family server."
 msgstr "Hashtag following needs a Mastodon-family server."
 
@@ -2699,11 +2761,11 @@ msgstr "Hide {0}"
 msgid "Hide content"
 msgstr "Hide content"
 
-#: src/screens/Lists.tsx:123
+#: src/screens/Lists.tsx:124
 msgid "Hide members in Home"
 msgstr "Hide members in Home"
 
-#: src/components/ProfileActions/ProfileActions.tsx:88
+#: src/components/ProfileActions/ProfileActions.tsx:89
 msgid "Hide on this device"
 msgstr "Hide on this device"
 
@@ -2715,11 +2777,11 @@ msgstr "Hide quotes the author has not approved behind a tap-to-reveal row. Off 
 msgid "Hide sensitive media"
 msgstr "Hide sensitive media"
 
-#: src/components/Composer/ComposerSections.tsx:222
+#: src/components/Composer/ComposerSections.tsx:223
 msgid "Hide totals"
 msgstr "Hide totals"
 
-#: src/screens/Antennas.tsx:39
+#: src/screens/Antennas.tsx:40
 msgid "home"
 msgstr "home"
 
@@ -2757,11 +2819,11 @@ msgstr "How post bodies, bios and quotes render."
 msgid "How strongly each interaction nudges your interests toward similar posts."
 msgstr "How strongly each interaction nudges your interests toward similar posts."
 
-#: src/screens/Login.tsx:649
+#: src/screens/Login.tsx:650
 msgid "I've approved — continue"
 msgstr "I've approved — continue"
 
-#: src/components/Composer/ComposerSections.tsx:602
+#: src/components/Composer/ComposerSections.tsx:603
 msgid "IDs are sent verbatim on this server."
 msgstr "IDs are sent verbatim on this server."
 
@@ -2778,15 +2840,15 @@ msgstr "Image unavailable"
 msgid "Import"
 msgstr "Import"
 
-#: src/components/Settings/TransferSections.tsx:168
+#: src/components/Settings/TransferSections.tsx:172
 msgid "Import another file"
 msgstr "Import another file"
 
-#: src/components/Composer/ComposerSections.tsx:474
+#: src/components/Composer/ComposerSections.tsx:475
 msgid "In 1 hour"
 msgstr "In 1 hour"
 
-#: src/screens/Note.tsx:702
+#: src/screens/Note.tsx:703
 msgid "In clips"
 msgstr "In clips"
 
@@ -2807,16 +2869,16 @@ msgid "Insert {0}"
 msgstr "Insert {0}"
 
 #: src/components/Composer/CompactComposer.tsx:332
-#: src/components/Composer/ComposerSections.tsx:775
-#: src/screens/Note.tsx:647
+#: src/components/Composer/ComposerSections.tsx:776
+#: src/screens/Note.tsx:648
 msgid "Insert emoji"
 msgstr "Insert emoji"
 
-#: src/screens/AdminInsight.tsx:588
+#: src/screens/AdminInsight.tsx:591
 msgid "Instance"
 msgstr "Instance"
 
-#: src/screens/AdminInsight.tsx:400
+#: src/screens/AdminInsight.tsx:403
 msgid "Instance settings need an admin account on this server."
 msgstr "Instance settings need an admin account on this server."
 
@@ -2829,12 +2891,12 @@ msgid "Interested in"
 msgstr "Interested in"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:70
+#: src/lib/localeErrors.ts:108
 msgid "errors.feeds.invalidDescriptor"
 msgstr "Invalid feed descriptor."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:69
+#: src/lib/localeErrors.ts:107
 msgid "errors.filter.invalidRegex"
 msgstr "Invalid regular expression on line {line}."
 
@@ -2842,7 +2904,7 @@ msgstr "Invalid regular expression on line {line}."
 msgid "invited you to a chat room"
 msgstr "invited you to a chat room"
 
-#: src/screens/Note.tsx:1216
+#: src/screens/Note.tsx:1217
 msgid "It may be deleted, private, or on an unreachable server."
 msgstr "It may be deleted, private, or on an unreachable server."
 
@@ -2850,17 +2912,17 @@ msgstr "It may be deleted, private, or on an unreachable server."
 msgid "It may be deleted, suspended, or unreachable."
 msgstr "It may be deleted, suspended, or unreachable."
 
-#: src/screens/Antennas.tsx:236
-#: src/screens/Clips.tsx:212
+#: src/screens/Antennas.tsx:237
+#: src/screens/Clips.tsx:213
 msgid "Keep"
 msgstr "Keep"
 
 #. Keep the file; cancel deletion
 #. Keep the folder; cancel deletion
 #. Keep the list; cancel deletion
-#: src/screens/Drive/rows.tsx:132
-#: src/screens/Drive/rows.tsx:338
-#: src/screens/Lists.tsx:336
+#: src/screens/Drive/rows.tsx:133
+#: src/screens/Drive/rows.tsx:339
+#: src/screens/Lists.tsx:337
 msgctxt "button"
 msgid "Keep"
 msgstr "Keep"
@@ -2869,12 +2931,12 @@ msgstr "Keep"
 msgid "Keep editing"
 msgstr "Keep editing"
 
-#: src/components/Composer/ComposerSections.tsx:334
+#: src/components/Composer/ComposerSections.tsx:335
 msgid "Keep original"
 msgstr "Keep original"
 
 #: src/components/Composer/CloseConfirmDialog.tsx:33
-#: src/components/Composer/Composer.tsx:222
+#: src/components/Composer/Composer.tsx:223
 msgid "Keep writing"
 msgstr "Keep writing"
 
@@ -2892,33 +2954,33 @@ msgstr "Keystone debug ({name})"
 msgid "Keystone modern or terminal."
 msgstr "Keystone modern or terminal."
 
-#: src/screens/AdminInsight.tsx:536
+#: src/screens/AdminInsight.tsx:539
 msgid "Keystone reads Mastodon- and Misskey-family insight endpoints only."
 msgstr "Keystone reads Mastodon- and Misskey-family insight endpoints only."
 
-#: src/screens/AdminReportDetail.tsx:176
+#: src/screens/AdminReportDetail.tsx:177
 #: src/screens/AdminReportsList.tsx:181
 msgid "Keystone reads Mastodon- and Misskey-family report queues only."
 msgstr "Keystone reads Mastodon- and Misskey-family report queues only."
 
-#: src/screens/Antennas.tsx:120
+#: src/screens/Antennas.tsx:121
 msgid "keyword1 keyword2"
 msgstr "keyword1 keyword2"
 
-#: src/screens/Antennas.tsx:117
+#: src/screens/Antennas.tsx:118
 msgid "Keywords (space-separated, all must match)"
 msgstr "Keywords (space-separated, all must match)"
 
-#: src/components/Composer/Composer.tsx:1377
+#: src/components/Composer/Composer.tsx:1378
 #: src/components/Settings/LanguageSection.tsx:31
 #: src/routes.ts:445
-#: src/screens/ProfileEditor.tsx:412
+#: src/screens/ProfileEditor.tsx:409
 #: src/screens/settings/meta.ts:31
 msgid "Language"
 msgstr "Language"
 
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:382
-#: src/screens/AdminInsight.tsx:68
+#: src/screens/AdminInsight.tsx:69
 msgid "Languages"
 msgstr "Languages"
 
@@ -2956,15 +3018,15 @@ msgstr "Like emoji and picker favourites."
 msgid "Like word mutes, but matching posts never load."
 msgstr "Like word mutes, but matching posts never load."
 
-#: src/components/Post/ActionBar.tsx:213
+#: src/components/Post/ActionBar.tsx:206
 msgid "Like, {count} likes"
 msgstr "Like, {count} likes"
 
-#: src/components/Post/ActionBar.tsx:232
+#: src/components/Post/ActionBar.tsx:225
 msgid "Like, {total} reactions"
 msgstr "Like, {total} reactions"
 
-#: src/components/Post/ActionBar.tsx:231
+#: src/components/Post/ActionBar.tsx:224
 msgid "Liked with {mine} — remove reaction"
 msgstr "Liked with {mine} — remove reaction"
 
@@ -2993,9 +3055,9 @@ msgctxt "user list screen"
 msgid "list.title"
 msgstr "List"
 
-#: src/screens/Lists.tsx:169
-#: src/screens/Lists.tsx:268
-#: src/screens/Lists.tsx:271
+#: src/screens/Lists.tsx:170
+#: src/screens/Lists.tsx:269
+#: src/screens/Lists.tsx:272
 msgctxt "list name input"
 msgid "List name"
 msgstr "List name"
@@ -3006,24 +3068,29 @@ msgstr "lists"
 
 #: src/components/shell/Sidebar.tsx:105
 #: src/routes.ts:380
-#: src/screens/Antennas.tsx:338
+#: src/screens/Antennas.tsx:339
 msgid "Lists"
 msgstr "Lists"
 
 #. js-lingui-explicit-id
-#: src/screens/Lists.tsx:415
-#: src/screens/Lists.tsx:426
-#: src/screens/Lists.tsx:434
+#: src/screens/Lists.tsx:416
+#: src/screens/Lists.tsx:427
+#: src/screens/Lists.tsx:435
 msgid "lists.title"
 msgstr "Lists"
 
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:103
+msgid "errors.unsupported.lists"
+msgstr "Lists are not available on this server."
+
 #: src/screens/List.tsx:79
-#: src/screens/Lists.tsx:427
+#: src/screens/Lists.tsx:428
 msgid "Lists are not available on this server."
 msgstr "Lists are not available on this server."
 
 #: src/screens/List.tsx:69
-#: src/screens/Lists.tsx:417
+#: src/screens/Lists.tsx:418
 msgid "Lists never show sample data when signed out."
 msgstr "Lists never show sample data when signed out."
 
@@ -3039,7 +3106,7 @@ msgstr "Live updates stopped"
 msgid "Live updates unavailable"
 msgstr "Live updates unavailable"
 
-#: src/screens/Drive.tsx:447
+#: src/screens/Drive.tsx:448
 #: src/screens/Followers.tsx:301
 #: src/screens/Following.tsx:301
 msgctxt "button"
@@ -3047,17 +3114,17 @@ msgid "Load more"
 msgstr "Load more"
 
 #. placeholder {0}: kindLabel(kind)
-#: src/screens/Note.tsx:272
+#: src/screens/Note.tsx:273
 msgid "Load more {0}"
 msgstr "Load more {0}"
 
-#: src/screens/Drive/detail.tsx:225
+#: src/screens/Drive/detail.tsx:226
 msgctxt "button"
 msgid "Load more notes"
 msgstr "Load more notes"
 
-#: src/screens/Note.tsx:1356
 #: src/screens/Note.tsx:1357
+#: src/screens/Note.tsx:1358
 msgid "Load more replies"
 msgstr "Load more replies"
 
@@ -3069,11 +3136,11 @@ msgstr "Load previews automatically on public posts only. Never for direct, foll
 msgid "Loading"
 msgstr "Loading"
 
-#: src/components/Settings/AccountSection.tsx:173
+#: src/components/Settings/AccountSection.tsx:174
 msgid "Loading account…"
 msgstr "Loading account…"
 
-#: src/screens/Tag.tsx:138
+#: src/screens/Tag.tsx:139
 msgid "Loading hashtag state…"
 msgstr "Loading hashtag state…"
 
@@ -3086,7 +3153,7 @@ msgstr "Loading Keystone"
 msgid "Loading more messages…"
 msgstr "Loading more messages…"
 
-#: src/screens/Drive/detail.tsx:184
+#: src/screens/Drive/detail.tsx:185
 msgid "Loading notes…"
 msgstr "Loading notes…"
 
@@ -3116,18 +3183,18 @@ msgstr "Loading this server's rules…"
 
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:349
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:351
-#: src/components/Settings/AccountLists.tsx:103
-#: src/components/Settings/DomainBlocks.tsx:171
-#: src/components/Settings/FiltersSection.tsx:134
+#: src/components/Settings/AccountLists.tsx:104
+#: src/components/Settings/DomainBlocks.tsx:172
+#: src/components/Settings/FiltersSection.tsx:135
 #: src/screens/ChatThread.tsx:223
-#: src/screens/Login.tsx:565
-#: src/screens/Note.tsx:272
-#: src/screens/Note.tsx:1350
+#: src/screens/Login.tsx:566
+#: src/screens/Note.tsx:273
+#: src/screens/Note.tsx:1351
 msgid "Loading…"
 msgstr "Loading…"
 
-#: src/screens/Drive.tsx:446
-#: src/screens/Drive/detail.tsx:224
+#: src/screens/Drive.tsx:447
+#: src/screens/Drive/detail.tsx:225
 #: src/screens/Followers.tsx:300
 #: src/screens/Following.tsx:300
 msgctxt "button"
@@ -3138,7 +3205,7 @@ msgstr "Loading…"
 msgid "Local"
 msgstr "Local"
 
-#: src/screens/AdminInsight.tsx:59
+#: src/screens/AdminInsight.tsx:60
 msgid "Local accounts"
 msgstr "Local accounts"
 
@@ -3147,19 +3214,19 @@ msgid "local only"
 msgstr "local only"
 
 #: src/components/Composer/CompactComposer.tsx:444
-#: src/components/Composer/Composer.tsx:1328
+#: src/components/Composer/Composer.tsx:1329
 msgid "Local only"
 msgstr "Local only"
 
-#: src/screens/AdminInsight.tsx:60
+#: src/screens/AdminInsight.tsx:61
 msgid "Local posts"
 msgstr "Local posts"
 
-#: src/screens/ProfileEditor.tsx:382
+#: src/screens/ProfileEditor.tsx:379
 msgid "Location"
 msgstr "Location"
 
-#: src/screens/ProfileEditor.tsx:367
+#: src/screens/ProfileEditor.tsx:364
 msgid "Locked account"
 msgstr "Locked account"
 
@@ -3167,22 +3234,22 @@ msgstr "Locked account"
 msgid "Locked account."
 msgstr "Locked account."
 
-#: src/components/Composer/ComposerSections.tsx:325
-#: src/components/Composer/ComposerSections.tsx:343
+#: src/components/Composer/ComposerSections.tsx:326
+#: src/components/Composer/ComposerSections.tsx:344
 msgid "Locked after upload"
 msgstr "Locked after upload"
 
-#: src/components/Composer/ComposerSections.tsx:341
+#: src/components/Composer/ComposerSections.tsx:342
 msgid "Locked while uploading"
 msgstr "Locked while uploading"
 
 #. placeholder {0}: info.machine || '—'
-#: src/screens/AdminInsight.tsx:372
+#: src/screens/AdminInsight.tsx:375
 msgid "Machine {0}"
 msgstr "Machine {0}"
 
 #. placeholder {0}: meta.maintainerName
-#: src/screens/AdminInsight.tsx:413
+#: src/screens/AdminInsight.tsx:416
 msgid "Maintainer {0}"
 msgstr "Maintainer {0}"
 
@@ -3200,25 +3267,40 @@ msgstr "Mark all read"
 msgid "Mark as read"
 msgstr "Mark as read"
 
-#: src/components/Composer/Composer.tsx:1371
+#: src/components/Composer/Composer.tsx:1372
 msgid "Mark media sensitive"
 msgstr "Mark media sensitive"
 
-#: src/screens/Drive/rows.tsx:298
+#: src/screens/Drive/rows.tsx:299
 msgid "Mark not sensitive"
 msgstr "Mark not sensitive"
 
-#: src/screens/Drive/rows.tsx:299
+#: src/screens/Drive/rows.tsx:300
 msgid "Mark sensitive"
 msgstr "Mark sensitive"
 
-#: src/screens/ProfileEditor.tsx:375
+#: src/screens/ProfileEditor.tsx:372
 msgid "Mark this account as a bot."
 msgstr "Mark this account as a bot."
 
 #: src/screens/Notifications.tsx:717
 msgid "Mark-all-read is not on this server."
 msgstr "Mark-all-read is not on this server."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:90
+msgid "errors.shape.markers"
+msgstr "Markers returned an unexpected response shape."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:87
+msgid "errors.shape.conversation"
+msgstr "Marking conversation {id} read returned an unexpected response shape."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:105
+msgid "errors.unsupported.markers"
+msgstr "Marking notifications read is not on this server."
 
 #: src/screens/Notifications.tsx:780
 msgid "Marking notifications read."
@@ -3234,7 +3316,7 @@ msgid "Marking…"
 msgstr "Marking…"
 
 #. placeholder {0}: me.acct
-#: src/screens/ProfileEditor.tsx:348
+#: src/screens/ProfileEditor.tsx:345
 msgid "Mastodon server · @{0}"
 msgstr "Mastodon server · @{0}"
 
@@ -3250,40 +3332,40 @@ msgstr "Matrix handle: {userId}. Tap to copy."
 msgid "Matrix is a secure and decentralized messaging protocol. You can message this user from Element, or any other Matrix chat client."
 msgstr "Matrix is a secure and decentralized messaging protocol. You can message this user from Element, or any other Matrix chat client."
 
-#: src/components/Composer/Composer.tsx:1420
+#: src/components/Composer/Composer.tsx:1421
 #: src/components/Profile/ProfileTabs.tsx:28
 msgid "Media"
 msgstr "Media"
 
-#: src/components/Composer/Composer.tsx:876
-#: src/screens/Note.tsx:383
+#: src/components/Composer/Composer.tsx:877
+#: src/screens/Note.tsx:384
 msgid "Media library access was denied. Allow access to attach photos or videos."
 msgstr "Media library access was denied. Allow access to attach photos or videos."
 
-#: src/screens/Drive.tsx:177
+#: src/screens/Drive.tsx:178
 msgid "Media library access was denied. Allow access to pick a file."
 msgstr "Media library access was denied. Allow access to pick a file."
 
-#: src/components/Composer/Composer.tsx:878
-#: src/screens/Note.tsx:385
+#: src/components/Composer/Composer.tsx:879
+#: src/screens/Note.tsx:386
 msgid "Media library access was denied. Enable it in the system settings to attach photos or videos."
 msgstr "Media library access was denied. Enable it in the system settings to attach photos or videos."
 
-#: src/screens/Drive.tsx:178
+#: src/screens/Drive.tsx:179
 msgid "Media library access was denied. Enable it in the system settings to pick a file."
 msgstr "Media library access was denied. Enable it in the system settings to pick a file."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:58
+#: src/lib/localeErrors.ts:65
 msgid "errors.shape.mediaLookup"
 msgstr "Media lookup returned an unexpected response shape."
 
-#: src/screens/Lists.tsx:41
+#: src/screens/Lists.tsx:42
 msgid "Members of the list"
 msgstr "Members of the list"
 
 #. placeholder {0}: formatBytes(info.memTotal)
-#: src/screens/AdminInsight.tsx:379
+#: src/screens/AdminInsight.tsx:382
 msgid "Memory {0}"
 msgstr "Memory {0}"
 
@@ -3321,44 +3403,44 @@ msgstr "Messaging is not implemented in Keystone yet — this client has no DM o
 msgid "Messaging is not implemented in Keystone yet for this server — chat support here is unverified, so this client has no chat screen for it. The gap is here, not on your server."
 msgstr "Messaging is not implemented in Keystone yet for this server — chat support here is unverified, so this client has no chat screen for it. The gap is here, not on your server."
 
-#: src/screens/AdminInsight.tsx:601
+#: src/screens/AdminInsight.tsx:604
 msgid "Metrics"
 msgstr "Metrics"
 
 #. placeholder {0}: me.acct
-#: src/screens/ProfileEditor.tsx:349
+#: src/screens/ProfileEditor.tsx:346
 msgid "Misskey-family server · @{0}"
 msgstr "Misskey-family server · @{0}"
 
-#: src/components/Settings/AccountSection.tsx:260
+#: src/components/Settings/AccountSection.tsx:261
 msgid "Moderate user reports. Every change asks for confirmation first."
 msgstr "Moderate user reports. Every change asks for confirmation first."
 
-#: src/screens/AdminReportDetail.tsx:369
+#: src/screens/AdminReportDetail.tsx:370
 msgid "Moderator note (empty clears it)"
 msgstr "Moderator note (empty clears it)"
 
 #. placeholder {0}: report.moderationNote
-#: src/screens/AdminReportDetail.tsx:277
+#: src/screens/AdminReportDetail.tsx:278
 msgid "Moderator note: {0}"
 msgstr "Moderator note: {0}"
 
-#: src/components/ProfileActions/ProfileActions.tsx:118
+#: src/components/ProfileActions/ProfileActions.tsx:119
 msgid "More"
 msgstr "More"
 
 #: src/components/Composer/CompactComposer.tsx:357
-#: src/components/Post/PostMenu.tsx:48
+#: src/components/Post/PostMenu.tsx:51
 msgid "More options"
 msgstr "More options"
 
-#: src/components/Composer/ComposerSections.tsx:215
+#: src/components/Composer/ComposerSections.tsx:216
 msgid "Multiple choice"
 msgstr "Multiple choice"
 
 #: src/components/Post/menuModel.ts:251
-#: src/components/ProfileActions/ProfileActions.tsx:74
-#: src/components/Settings/MuteBlockSearch.tsx:168
+#: src/components/ProfileActions/ProfileActions.tsx:75
+#: src/components/Settings/MuteBlockSearch.tsx:169
 msgid "Mute"
 msgstr "Mute"
 
@@ -3366,16 +3448,16 @@ msgstr "Mute"
 msgid "Mute boosts"
 msgstr "Mute boosts"
 
-#: src/components/Settings/MuteBlockSearch.tsx:122
+#: src/components/Settings/MuteBlockSearch.tsx:123
 msgid "Mute or block an account"
 msgstr "Mute or block an account"
 
-#: src/components/Settings/MuteBlockSearch.tsx:185
+#: src/components/Settings/MuteBlockSearch.tsx:186
 msgid "Mute reposts"
 msgstr "Mute reposts"
 
-#: src/screens/Tag.tsx:126
-#: src/screens/Tag.tsx:176
+#: src/screens/Tag.tsx:127
+#: src/screens/Tag.tsx:177
 msgid "Mute this hashtag"
 msgstr "Mute this hashtag"
 
@@ -3419,26 +3501,26 @@ msgstr "My channels"
 msgid "My Network"
 msgstr "My Network"
 
-#: src/components/shell/AccountMenu.tsx:169
+#: src/components/shell/AccountMenu.tsx:170
 #: src/components/shell/Sidebar.tsx:206
 msgid "My Uploads"
 msgstr "My Uploads"
 
-#: src/screens/Drive/detail.tsx:122
+#: src/screens/Drive/detail.tsx:123
 msgctxt "drive file detail field"
 msgid "Name"
 msgstr "Name"
 
-#: src/components/Settings/DomainBlocks.tsx:40
+#: src/components/Settings/DomainBlocks.tsx:41
 msgid "Needs a Mastodon-family server."
 msgstr "Needs a Mastodon-family server."
 
-#: src/components/Settings/AccountSection.tsx:133
+#: src/components/Settings/AccountSection.tsx:134
 #: src/components/Settings/MutesSection.tsx:120
 msgid "Needs a Misskey-family server."
 msgstr "Needs a Misskey-family server."
 
-#: src/components/Settings/TransferSections.tsx:349
+#: src/components/Settings/TransferSections.tsx:353
 msgid "Needs a Misskey-family server. Mastodon has no import/export API — use the instance website."
 msgstr "Needs a Misskey-family server. Mastodon has no import/export API — use the instance website."
 
@@ -3446,7 +3528,7 @@ msgstr "Needs a Misskey-family server. Mastodon has no import/export API — use
 msgid "Needs a native screenshot-blocking module (not installed)."
 msgstr "Needs a native screenshot-blocking module (not installed)."
 
-#: src/components/Settings/FiltersSection.tsx:217
+#: src/components/Settings/FiltersSection.tsx:218
 msgid "Needs a server with word filters (this one has none)."
 msgstr "Needs a server with word filters (this one has none)."
 
@@ -3479,20 +3561,20 @@ msgstr "Never load previews; show server cards only."
 msgid "New"
 msgstr "New"
 
-#: src/screens/Antennas.tsx:97
+#: src/screens/Antennas.tsx:98
 msgid "New antenna"
 msgstr "New antenna"
 
-#: src/screens/Clips.tsx:53
+#: src/screens/Clips.tsx:54
 msgid "New clip"
 msgstr "New clip"
 
-#: src/screens/Drive.tsx:390
+#: src/screens/Drive.tsx:391
 msgctxt "drive folder creation"
 msgid "New folder"
 msgstr "New folder"
 
-#: src/screens/Lists.tsx:166
+#: src/screens/Lists.tsx:167
 msgctxt "list creation"
 msgid "New list"
 msgstr "New list"
@@ -3501,7 +3583,7 @@ msgstr "New list"
 msgid "New post"
 msgstr "New post"
 
-#: src/screens/AdminInsight.tsx:58
+#: src/screens/AdminInsight.tsx:59
 msgid "New users"
 msgstr "New users"
 
@@ -3509,7 +3591,7 @@ msgstr "New users"
 msgid "News"
 msgstr "News"
 
-#: src/screens/explore/NewsTab.tsx:146
+#: src/screens/explore/NewsTab.tsx:147
 msgid "News is not available on this server."
 msgstr "News is not available on this server."
 
@@ -3517,34 +3599,39 @@ msgstr "News is not available on this server."
 msgid "Next"
 msgstr "Next"
 
-#: src/components/Composer/ComposerSections.tsx:484
+#: src/components/Composer/ComposerSections.tsx:485
 msgid "Next week 9:00"
 msgstr "Next week 9:00"
 
-#: src/screens/Drive/detail.tsx:146
+#: src/screens/Drive/detail.tsx:147
 msgctxt "drive file detail value"
 msgid "No"
 msgstr "No"
 
-#: src/screens/Note.tsx:251
+#: src/screens/Note.tsx:252
 msgid "No {kindName} listing on this server."
 msgstr "No {kindName} listing on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:45
+#: src/lib/localeErrors.ts:86
+msgid "errors.shape.noAccountFound"
+msgstr "No account found for {acct}."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:52
 msgid "errors.unsupported.noAccountFound"
 msgstr "No account found for {acct}."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:44
+#: src/lib/localeErrors.ts:51
 msgid "errors.unsupported.noAccountRef"
 msgstr "No account reference given."
 
-#: src/components/Settings/MuteBlockSearch.tsx:141
+#: src/components/Settings/MuteBlockSearch.tsx:142
 msgid "No accounts found."
 msgstr "No accounts found."
 
-#: src/components/AccountSwitcher.tsx:28
+#: src/components/AccountSwitcher.tsx:29
 msgid "No accounts yet."
 msgstr "No accounts yet."
 
@@ -3572,17 +3659,22 @@ msgstr "No chat rooms yet."
 msgid "No clip picker is connected to this view."
 msgstr "No clip picker is connected to this view."
 
-#: src/components/Post/ActionBar.tsx:200
-#: src/components/Post/ActionBar.tsx:258
+#: src/components/Post/ActionBar.tsx:193
+#: src/components/Post/ActionBar.tsx:251
 #: src/components/Post/menuModel.ts:448
 msgid "No composer is connected to this view."
 msgstr "No composer is connected to this view."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:85
+msgid "errors.shape.noConversationFound"
+msgstr "No conversation found for {id}."
 
 #: src/screens/Conversations.tsx:225
 msgid "No conversations yet."
 msgstr "No conversations yet."
 
-#: src/screens/Drive/detail.tsx:152
+#: src/screens/Drive/detail.tsx:153
 msgctxt "drive file detail value"
 msgid "No description"
 msgstr "No description"
@@ -3591,7 +3683,7 @@ msgstr "No description"
 msgid "No description."
 msgstr "No description."
 
-#: src/components/Composer/ComposerSections.tsx:620
+#: src/components/Composer/ComposerSections.tsx:621
 msgid "No drafts on this device."
 msgstr "No drafts on this device."
 
@@ -3619,12 +3711,12 @@ msgstr "No favourites yet. Add one below, or star emoji in the picker."
 msgid "No filtered notifications."
 msgstr "No filtered notifications."
 
-#: src/components/Settings/FiltersSection.tsx:136
+#: src/components/Settings/FiltersSection.tsx:137
 msgid "No filters. Matching posts stay hidden once you add one."
 msgstr "No filters. Matching posts stay hidden once you add one."
 
 #. js-lingui-explicit-id
-#: src/screens/FollowRequests.tsx:195
+#: src/screens/FollowRequests.tsx:196
 msgid "followRequests.empty"
 msgstr "No follow requests."
 
@@ -3643,12 +3735,12 @@ msgstr "No message composer is connected to this view yet."
 msgid "No messages yet."
 msgstr "No messages yet."
 
-#: src/screens/explore/NewsTab.tsx:164
+#: src/screens/explore/NewsTab.tsx:165
 msgid "No news right now."
 msgstr "No news right now."
 
 #. js-lingui-explicit-id
-#: src/screens/Drive/detail.tsx:208
+#: src/screens/Drive/detail.tsx:209
 msgid "drive.detail.notesEmpty"
 msgstr "No notes use this file."
 
@@ -3656,7 +3748,7 @@ msgstr "No notes use this file."
 msgid "No notifications."
 msgstr "No notifications."
 
-#: src/screens/Lists.tsx:43
+#: src/screens/Lists.tsx:44
 msgctxt "list replies policy"
 msgid "No one"
 msgstr "No one"
@@ -3669,12 +3761,12 @@ msgstr "No posts yet"
 msgid "No profile URL known."
 msgstr "No profile URL known."
 
-#: src/screens/explore/UsersTab.tsx:69
+#: src/screens/explore/UsersTab.tsx:70
 msgid "No profiles found."
 msgstr "No profiles found."
 
 #: src/components/Composer/CompactComposer.tsx:430
-#: src/components/Composer/Composer.tsx:1345
+#: src/components/Composer/Composer.tsx:1346
 msgid "No quotes for this post"
 msgstr "No quotes for this post"
 
@@ -3686,15 +3778,15 @@ msgstr "No reports in this view."
 msgid "No revisions on this server."
 msgstr "No revisions on this server."
 
-#: src/components/Composer/ComposerSections.tsx:616
+#: src/components/Composer/ComposerSections.tsx:617
 msgid "No saved drafts."
 msgstr "No saved drafts."
 
-#: src/components/Composer/ComposerSections.tsx:656
+#: src/components/Composer/ComposerSections.tsx:657
 msgid "No scheduled posts."
 msgstr "No scheduled posts."
 
-#: src/components/Composer/ComposerSections.tsx:722
+#: src/components/Composer/ComposerSections.tsx:723
 msgid "No server drafts."
 msgstr "No server drafts."
 
@@ -3702,11 +3794,11 @@ msgstr "No server drafts."
 msgid "No text in this revision."
 msgstr "No text in this revision."
 
-#: src/screens/Explore.tsx:172
+#: src/screens/Explore.tsx:173
 msgid "No trending tags right now."
 msgstr "No trending tags right now."
 
-#: src/screens/explore/UsersTab.tsx:161
+#: src/screens/explore/UsersTab.tsx:162
 msgid "No trending users right now."
 msgstr "No trending users right now."
 
@@ -3715,12 +3807,12 @@ msgid "No verdict"
 msgstr "No verdict"
 
 #. placeholder {0}: info.node || '—'
-#: src/screens/AdminInsight.tsx:374
+#: src/screens/AdminInsight.tsx:377
 msgid "Node {0}"
 msgstr "Node {0}"
 
-#: src/components/Settings/AccountLists.tsx:105
-#: src/components/Settings/DomainBlocks.tsx:173
+#: src/components/Settings/AccountLists.tsx:106
+#: src/components/Settings/DomainBlocks.tsx:174
 msgid "None."
 msgstr "None."
 
@@ -3746,12 +3838,12 @@ msgid "Not offered yet."
 msgstr "Not offered yet."
 
 #: src/components/Recommendations/RecommendationsFeed.tsx:101
-#: src/components/Settings/AccountSection.tsx:143
+#: src/components/Settings/AccountSection.tsx:144
 #: src/screens/HomeFeed.tsx:362
 msgid "Not on this server."
 msgstr "Not on this server."
 
-#: src/screens/Drive/detail.tsx:157
+#: src/screens/Drive/detail.tsx:158
 msgctxt "drive file detail value"
 msgid "Not processed yet"
 msgstr "Not processed yet"
@@ -3760,7 +3852,7 @@ msgstr "Not processed yet"
 msgid "Not reported by this server."
 msgstr "Not reported by this server."
 
-#: src/components/Settings/TransferSections.tsx:338
+#: src/components/Settings/TransferSections.tsx:342
 msgid "Not there yet — the server builds the file in the background."
 msgstr "Not there yet — the server builds the file in the background."
 
@@ -3774,7 +3866,7 @@ msgid "Not wired yet — the app ships one light/dark pair."
 msgstr "Not wired yet — the app ships one light/dark pair."
 
 #: src/routes.ts:372
-#: src/screens/Note.tsx:1195
+#: src/screens/Note.tsx:1196
 msgid "Note"
 msgstr "Note"
 
@@ -3786,20 +3878,25 @@ msgstr "notes"
 msgid "Notes"
 msgstr "Notes"
 
-#: src/screens/Drive/detail.tsx:180
+#: src/screens/Drive/detail.tsx:181
 msgid "Notes using this file"
 msgstr "Notes using this file"
 
 #: src/components/Recommendations/RecommendationsFeed.tsx:149
 #: src/screens/HomeFeed.tsx:454
-#: src/screens/Note.tsx:262
-#: src/screens/Note.tsx:1340
+#: src/screens/Note.tsx:263
+#: src/screens/Note.tsx:1341
 msgid "Nothing here yet."
 msgstr "Nothing here yet."
 
 #: src/components/Post/menuModel.ts:201
 msgid "Nothing to copy."
 msgstr "Nothing to copy."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:95
+msgid "errors.shape.emptyReportPatch"
+msgstr "Nothing to update: set a category or rule ids first."
 
 #: src/screens/Notifications.tsx:740
 msgid "Notification filters"
@@ -3808,6 +3905,11 @@ msgstr "Notification filters"
 #: src/screens/Notifications.tsx:758
 msgid "Notification grouping"
 msgstr "Notification grouping"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:93
+msgid "errors.shape.notificationRequests"
+msgstr "Notification requests returned an unexpected response shape (HTTP {status})."
 
 #: src/screens/Notifications.tsx:145
 #: src/screens/Notifications.tsx:195
@@ -3841,7 +3943,7 @@ msgstr "Notify about new posts"
 msgid "off"
 msgstr "off"
 
-#: src/components/Settings/AccountSection.tsx:170
+#: src/components/Settings/AccountSection.tsx:171
 #: src/components/Settings/DisplaySection.tsx:201
 #: src/components/Settings/DisplaySection.tsx:223
 #: src/components/Settings/FeedsSection.tsx:41
@@ -3857,7 +3959,7 @@ msgstr "Off"
 msgid "on"
 msgstr "on"
 
-#: src/components/Settings/AccountSection.tsx:170
+#: src/components/Settings/AccountSection.tsx:171
 #: src/components/Settings/DisplaySection.tsx:201
 #: src/components/Settings/DisplaySection.tsx:223
 #: src/components/Settings/FeedsSection.tsx:41
@@ -3866,8 +3968,8 @@ msgstr "on"
 msgid "On"
 msgstr "On"
 
-#: src/components/Composer/ComposerSections.tsx:619
-#: src/components/Composer/ComposerSections.tsx:626
+#: src/components/Composer/ComposerSections.tsx:620
+#: src/components/Composer/ComposerSections.tsx:627
 msgid "On this device"
 msgstr "On this device"
 
@@ -3883,11 +3985,11 @@ msgstr "one group per line…"
 msgid "One host per line. Matching is case-sensitive."
 msgstr "One host per line. Matching is case-sensitive."
 
-#: src/components/Settings/FiltersSection.tsx:110
+#: src/components/Settings/FiltersSection.tsx:111
 msgid "One phrase; matches everywhere."
 msgstr "One phrase; matches everywhere."
 
-#: src/screens/ProfileEditor.tsx:267
+#: src/screens/ProfileEditor.tsx:266
 msgid "Only available on Misskey-family servers."
 msgstr "Only available on Misskey-family servers."
 
@@ -3901,7 +4003,7 @@ msgid "Only show authorized quotes"
 msgstr "Only show authorized quotes"
 
 #: src/components/Composer/CompactComposer.tsx:437
-#: src/components/Composer/Composer.tsx:1354
+#: src/components/Composer/Composer.tsx:1355
 msgid "Only this post refuses quotes. The account-wide setting is in Settings → Account."
 msgstr "Only this post refuses quotes. The account-wide setting is in Settings → Account."
 
@@ -3928,7 +4030,7 @@ msgid "Open attachment {label}"
 msgstr "Open attachment {label}"
 
 #. placeholder {0}: c.name
-#: src/screens/Note.tsx:712
+#: src/screens/Note.tsx:713
 msgid "Open clip {0}"
 msgstr "Open clip {0}"
 
@@ -3952,7 +4054,7 @@ msgstr "Open link"
 #: src/components/Post/LinkCard.tsx:244
 #: src/components/RichText.tsx:415
 #: src/components/RichText.tsx:508
-#: src/screens/explore/NewsTab.tsx:48
+#: src/screens/explore/NewsTab.tsx:49
 msgid "Open link: {0}"
 msgstr "Open link: {0}"
 
@@ -3972,7 +4074,7 @@ msgstr "Open media: {label}"
 msgid "Open post by {0}"
 msgstr "Open post by {0}"
 
-#: src/components/Profile/UserHoverCard.tsx:196
+#: src/components/Profile/UserHoverCard.tsx:191
 msgid "Open profile"
 msgstr "Open profile"
 
@@ -3986,7 +4088,7 @@ msgstr "Open profile"
 #: src/components/Post/PostCard.tsx:1011
 #: src/screens/Followers.tsx:52
 #: src/screens/Following.tsx:52
-#: src/screens/Note.tsx:197
+#: src/screens/Note.tsx:198
 msgid "Open profile of {0}"
 msgstr "Open profile of {0}"
 
@@ -3999,7 +4101,7 @@ msgstr "Open profile of the notifier"
 msgid "Open profile: {name}"
 msgstr "Open profile: {name}"
 
-#: src/components/Settings/AccountSection.tsx:263
+#: src/components/Settings/AccountSection.tsx:264
 msgid "Open queue"
 msgstr "Open queue"
 
@@ -4008,7 +4110,7 @@ msgstr "Open queue"
 msgid "Open quoted post by {0}"
 msgstr "Open quoted post by {0}"
 
-#: src/screens/AdminInsight.tsx:61
+#: src/screens/AdminInsight.tsx:62
 msgid "Open reports"
 msgstr "Open reports"
 
@@ -4025,14 +4127,14 @@ msgstr "Open the chat room"
 msgid "Open the post"
 msgstr "Open the post"
 
-#: src/screens/Login.tsx:639
-#: src/screens/Login.tsx:741
+#: src/screens/Login.tsx:640
+#: src/screens/Login.tsx:742
 msgid "Opening the approval page."
 msgstr "Opening the approval page."
 
-#: src/screens/Login.tsx:636
-#: src/screens/Login.tsx:672
-#: src/screens/Login.tsx:738
+#: src/screens/Login.tsx:637
+#: src/screens/Login.tsx:673
+#: src/screens/Login.tsx:739
 msgid "Opening…"
 msgstr "Opening…"
 
@@ -4041,12 +4143,12 @@ msgstr "Opening…"
 msgid "Original · {0}"
 msgstr "Original · {0}"
 
-#: src/components/Composer/ComposerSections.tsx:356
+#: src/components/Composer/ComposerSections.tsx:357
 msgid "Originals may include location and device data."
 msgstr "Originals may include location and device data."
 
 #. placeholder {0}: info.os || '—'
-#: src/screens/AdminInsight.tsx:373
+#: src/screens/AdminInsight.tsx:376
 msgid "OS {0}"
 msgstr "OS {0}"
 
@@ -4059,12 +4161,12 @@ msgid "Other"
 msgstr "Other"
 
 #: src/components/Composer/CompactComposer.tsx:375
-#: src/components/Composer/Composer.tsx:1227
-#: src/screens/Note.tsx:495
+#: src/components/Composer/Composer.tsx:1228
+#: src/screens/Note.tsx:496
 msgid "Over the character limit."
 msgstr "Over the character limit."
 
-#: src/components/Composer/Composer.tsx:1287
+#: src/components/Composer/Composer.tsx:1288
 msgid "Over the limit"
 msgstr "Over the limit"
 
@@ -4085,8 +4187,13 @@ msgstr "Pages ship in a later slice."
 msgid "Palette"
 msgstr "Palette"
 
-#: src/screens/Login.tsx:661
-#: src/screens/Login.tsx:767
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:80
+msgid "errors.poll.partialVote"
+msgstr "Part of the vote was recorded before it failed."
+
+#: src/screens/Login.tsx:662
+#: src/screens/Login.tsx:768
 msgid "Password"
 msgstr "Password"
 
@@ -4103,16 +4210,16 @@ msgstr "Pause {0}"
 msgid "Per-type notification settings are only available on Misskey-family servers."
 msgstr "Per-type notification settings are only available on Misskey-family servers."
 
-#: src/screens/ProfileEditor.tsx:296
+#: src/screens/ProfileEditor.tsx:295
 msgid "Photo access is off for this app. Allow it in your device settings to change your picture."
 msgstr "Photo access is off for this app. Allow it in your device settings to change your picture."
 
-#: src/screens/ProfileEditor.tsx:295
+#: src/screens/ProfileEditor.tsx:294
 msgid "Photo access was denied. Try again and allow access when your device asks."
 msgstr "Photo access was denied. Try again and allow access when your device asks."
 
-#: src/components/Settings/FiltersSection.tsx:112
-#: src/components/Settings/FiltersSection.tsx:144
+#: src/components/Settings/FiltersSection.tsx:113
+#: src/components/Settings/FiltersSection.tsx:145
 msgid "Phrase"
 msgstr "Phrase"
 
@@ -4155,7 +4262,7 @@ msgid "Pinned at the top of the emoji picker, after recents."
 msgstr "Pinned at the top of the emoji picker, after recents."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:40
+#: src/lib/localeErrors.ts:47
 msgid "errors.unsupported.pinned"
 msgstr "Pinned-post listings are not available on this server."
 
@@ -4174,7 +4281,7 @@ msgstr "Play"
 msgid "Play {0}"
 msgstr "Play {0}"
 
-#: src/components/Composer/Composer.tsx:1402
+#: src/components/Composer/Composer.tsx:1403
 msgid "Poll"
 msgstr "Poll"
 
@@ -4182,17 +4289,17 @@ msgstr "Poll"
 msgid "Polls"
 msgstr "Polls"
 
-#: src/components/Composer/Composer.tsx:699
+#: src/components/Composer/Composer.tsx:700
 msgid "Polls must stay open at least 5 minutes on this server."
 msgstr "Polls must stay open at least 5 minutes on this server."
 
 #: src/components/Composer/CompactComposer.tsx:189
-#: src/components/Composer/Composer.tsx:1222
+#: src/components/Composer/Composer.tsx:1223
 #: src/components/shell/Sidebar.tsx:350
 msgid "Post"
 msgstr "Post"
 
-#: src/components/Composer/ComposerSections.tsx:467
+#: src/components/Composer/ComposerSections.tsx:468
 msgid "Post at (ISO time)"
 msgstr "Post at (ISO time)"
 
@@ -4205,7 +4312,7 @@ msgstr "Post at a later time"
 msgid "Post content"
 msgstr "Post content"
 
-#: src/screens/Note.tsx:1313
+#: src/screens/Note.tsx:1314
 msgid "Post details"
 msgstr "Post details"
 
@@ -4214,13 +4321,13 @@ msgid "Post now instead"
 msgstr "Post now instead"
 
 #: src/components/Composer/CompactComposer.tsx:227
-#: src/components/Composer/Composer.tsx:1275
+#: src/components/Composer/Composer.tsx:1276
 msgid "Post text"
 msgstr "Post text"
 
-#: src/screens/Note.tsx:516
-#: src/screens/Note.tsx:570
-#: src/screens/Note.tsx:572
+#: src/screens/Note.tsx:517
+#: src/screens/Note.tsx:571
+#: src/screens/Note.tsx:573
 msgid "Post your reply"
 msgstr "Post your reply"
 
@@ -4233,22 +4340,22 @@ msgid "posted your scheduled note"
 msgstr "posted your scheduled note"
 
 #. placeholder {0}: info.psql || '—'
-#: src/screens/AdminInsight.tsx:375
+#: src/screens/AdminInsight.tsx:378
 msgid "PostgreSQL {0}"
 msgstr "PostgreSQL {0}"
 
-#: src/screens/AdminInsight.tsx:66
+#: src/screens/AdminInsight.tsx:67
 msgid "Posting apps"
 msgstr "Posting apps"
 
 #: src/components/Composer/CompactComposer.tsx:375
-#: src/components/Composer/Composer.tsx:1229
-#: src/screens/Note.tsx:497
+#: src/components/Composer/Composer.tsx:1230
+#: src/screens/Note.tsx:498
 msgid "Posting..."
 msgstr "Posting..."
 
 #: src/components/Composer/CompactComposer.tsx:369
-#: src/screens/Note.tsx:490
+#: src/screens/Note.tsx:491
 msgid "Posting…"
 msgstr "Posting…"
 
@@ -4303,7 +4410,7 @@ msgstr "Privacy shield"
 msgid "Private mentions"
 msgstr "Private mentions"
 
-#: src/components/shell/AccountMenu.tsx:140
+#: src/components/shell/AccountMenu.tsx:141
 #: src/components/shell/TabBar.tsx:30
 #: src/Navigation.tsx:131
 #: src/routes.ts:370
@@ -4311,11 +4418,11 @@ msgid "Profile"
 msgstr "Profile"
 
 #. placeholder {0}: fields.length
-#: src/screens/ProfileEditor.tsx:428
+#: src/screens/ProfileEditor.tsx:425
 msgid "Profile fields ({0}/{fieldCap})"
 msgstr "Profile fields ({0}/{fieldCap})"
 
-#: src/screens/ProfileEditor.tsx:301
+#: src/screens/ProfileEditor.tsx:300
 msgid "Profile pictures cannot be changed on this server."
 msgstr "Profile pictures cannot be changed on this server."
 
@@ -4323,7 +4430,7 @@ msgstr "Profile pictures cannot be changed on this server."
 msgid "Profile posts"
 msgstr "Profile posts"
 
-#: src/components/Profile/UserHoverCard.tsx:189
+#: src/components/Profile/UserHoverCard.tsx:184
 msgid "Profile preview for {name}"
 msgstr "Profile preview for {name}"
 
@@ -4335,17 +4442,17 @@ msgstr "Profiles never show sample data when signed out."
 msgid "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 msgstr "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 
-#: src/screens/Clips.tsx:139
+#: src/screens/Clips.tsx:140
 msgid "Public"
 msgstr "Public"
 
-#: src/screens/Clips.tsx:61
-#: src/screens/Clips.tsx:159
+#: src/screens/Clips.tsx:62
+#: src/screens/Clips.tsx:160
 msgid "Public: off"
 msgstr "Public: off"
 
-#: src/screens/Clips.tsx:61
-#: src/screens/Clips.tsx:159
+#: src/screens/Clips.tsx:62
+#: src/screens/Clips.tsx:160
 msgid "Public: on"
 msgstr "Public: on"
 
@@ -4354,13 +4461,13 @@ msgstr "Public: on"
 msgid "Pull to refresh."
 msgstr "Pull to refresh."
 
-#: src/screens/AdminInsight.tsx:593
+#: src/screens/AdminInsight.tsx:596
 msgid "Queues"
 msgstr "Queues"
 
 #: src/components/Composer/CompactComposer.tsx:188
-#: src/components/Post/ActionBar.tsx:195
-#: src/components/Post/ActionBar.tsx:198
+#: src/components/Post/ActionBar.tsx:188
+#: src/components/Post/ActionBar.tsx:191
 msgid "Quote"
 msgstr "Quote"
 
@@ -4386,12 +4493,12 @@ msgid "Ranking factors"
 msgstr "Ranking factors"
 
 #: src/screens/HomeFeed.tsx:362
-#: src/screens/Note.tsx:1208
+#: src/screens/Note.tsx:1209
 #: src/screens/User.tsx:150
 msgid "Rate limited by the server."
 msgstr "Rate limited by the server."
 
-#: src/components/Post/ActionBar.tsx:281
+#: src/components/Post/ActionBar.tsx:274
 msgid "React with emoji"
 msgstr "React with emoji"
 
@@ -4415,16 +4522,16 @@ msgid "Reaction"
 msgstr "Reaction"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:42
+#: src/lib/localeErrors.ts:49
 msgid "errors.unsupported.reactions"
 msgstr "Reaction listings are not available on this server."
 
-#: src/screens/Note.tsx:212
+#: src/screens/Note.tsx:213
 msgid "reactions"
 msgstr "reactions"
 
-#: src/components/Composer/Composer.tsx:1460
-#: src/screens/Note.tsx:1306
+#: src/components/Composer/Composer.tsx:1461
+#: src/screens/Note.tsx:1307
 #: src/screens/Notifications.tsx:108
 msgid "Reactions"
 msgstr "Reactions"
@@ -4448,8 +4555,8 @@ msgstr "Read"
 msgid "Read state unknown"
 msgstr "Read state unknown"
 
-#: src/components/Composer/ComposerSections.tsx:275
-#: src/screens/Note.tsx:595
+#: src/components/Composer/ComposerSections.tsx:276
+#: src/screens/Note.tsx:596
 msgid "ready to upload"
 msgstr "ready to upload"
 
@@ -4478,6 +4585,11 @@ msgstr "Recommend NSFW posts"
 msgid "Recommendations"
 msgstr "Recommendations"
 
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:104
+msgid "errors.unsupported.recommendations"
+msgstr "Recommendations are not available on this server."
+
 #: src/components/StreamBadge.tsx:43
 msgid "Reconnecting…"
 msgstr "Reconnecting…"
@@ -4492,45 +4604,45 @@ msgstr "Recorded {0} of {1} choices. Retry sends only the rest."
 msgid "Refresh remote data"
 msgstr "Refresh remote data"
 
-#: src/components/Settings/AccountSection.tsx:131
-#: src/components/Settings/AccountSection.tsx:141
-#: src/components/Settings/AccountSection.tsx:166
+#: src/components/Settings/AccountSection.tsx:132
+#: src/components/Settings/AccountSection.tsx:142
+#: src/components/Settings/AccountSection.tsx:167
 msgid "Refuse incoming quotes"
 msgstr "Refuse incoming quotes"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:19
+#: src/lib/localeErrors.ts:24
 msgid "errors.network.crossOrigin"
 msgstr "Refusing to send this request: the URL points at a different origin than the session's."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:21
+#: src/lib/localeErrors.ts:26
 msgid "errors.origin.insecure"
 msgstr "Refusing to use insecure http for \"{host}\". Use https or a local test host."
 
-#: src/screens/AdminInsight.tsx:419
+#: src/screens/AdminInsight.tsx:422
 msgid "Registration closed"
 msgstr "Registration closed"
 
-#: src/screens/AdminInsight.tsx:418
+#: src/screens/AdminInsight.tsx:421
 msgid "Registration closed (email required)"
 msgstr "Registration closed (email required)"
 
-#: src/screens/AdminInsight.tsx:422
+#: src/screens/AdminInsight.tsx:425
 msgid "Registration open"
 msgstr "Registration open"
 
-#: src/screens/AdminInsight.tsx:421
+#: src/screens/AdminInsight.tsx:424
 msgid "Registration open (email required)"
 msgstr "Registration open (email required)"
 
-#: src/components/ProfileActions/ProfileActions.tsx:106
-#: src/screens/AdminReportDetail.tsx:460
+#: src/components/ProfileActions/ProfileActions.tsx:107
+#: src/screens/AdminReportDetail.tsx:461
 msgid "Reject"
 msgstr "Reject"
 
 #. Reject a follow request
-#: src/screens/FollowRequests.tsx:84
+#: src/screens/FollowRequests.tsx:85
 msgctxt "button"
 msgid "Reject"
 msgstr "Reject"
@@ -4539,24 +4651,24 @@ msgstr "Reject"
 msgid "Rejected"
 msgstr "Rejected"
 
-#: src/screens/Explore.tsx:135
+#: src/screens/Explore.tsx:136
 msgid "Related tags"
 msgstr "Related tags"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:56
+#: src/lib/localeErrors.ts:63
 msgid "errors.shape.relationships"
 msgstr "Relationships returned an unexpected response shape."
 
-#: src/screens/AdminReportDetail.tsx:312
+#: src/screens/AdminReportDetail.tsx:313
 msgid "Release claim"
 msgstr "Release claim"
 
-#: src/screens/AdminReportDetail.tsx:424
+#: src/screens/AdminReportDetail.tsx:425
 msgid "Release your claim on this report?"
 msgstr "Release your claim on this report?"
 
-#: src/components/Composer/Composer.tsx:1447
+#: src/components/Composer/Composer.tsx:1448
 msgid "Remind me about alt text"
 msgstr "Remind me about alt text"
 
@@ -4564,14 +4676,14 @@ msgstr "Remind me about alt text"
 msgid "Remote"
 msgstr "Remote"
 
-#: src/screens/AdminInsight.tsx:67
+#: src/screens/AdminInsight.tsx:68
 msgid "Remote servers"
 msgstr "Remote servers"
 
-#: src/components/Composer/ComposerSections.tsx:370
-#: src/components/Composer/ComposerSections.tsx:433
-#: src/components/Settings/FiltersSection.tsx:186
-#: src/screens/Note.tsx:609
+#: src/components/Composer/ComposerSections.tsx:371
+#: src/components/Composer/ComposerSections.tsx:434
+#: src/components/Settings/FiltersSection.tsx:187
+#: src/screens/Note.tsx:610
 msgid "Remove"
 msgstr "Remove"
 
@@ -4582,33 +4694,33 @@ msgid "Remove"
 msgstr "Remove"
 
 #. placeholder {0}: u.name
-#: src/screens/Note.tsx:607
+#: src/screens/Note.tsx:608
 msgid "Remove {0}"
 msgstr "Remove {0}"
 
-#: src/screens/ProfileEditor.tsx:445
+#: src/screens/ProfileEditor.tsx:442
 msgid "Remove field"
 msgstr "Remove field"
 
 #. placeholder {0}: bmLabel.toLowerCase()
 #. placeholder {0}: l.name
 #: src/components/Post/menuModel.ts:383
-#: src/components/ProfileActions/ProfileActions.tsx:162
+#: src/components/ProfileActions/ProfileActions.tsx:163
 msgid "Remove from {0}"
 msgstr "Remove from {0}"
 
-#: src/components/Composer/ComposerSections.tsx:208
+#: src/components/Composer/ComposerSections.tsx:209
 msgid "Remove last"
 msgstr "Remove last"
 
-#: src/screens/Antennas.tsx:214
-#: src/screens/Clips.tsx:188
+#: src/screens/Antennas.tsx:215
+#: src/screens/Clips.tsx:189
 msgid "Rename"
 msgstr "Rename"
 
-#: src/screens/Drive/rows.tsx:143
-#: src/screens/Drive/rows.tsx:289
-#: src/screens/Lists.tsx:310
+#: src/screens/Drive/rows.tsx:144
+#: src/screens/Drive/rows.tsx:290
+#: src/screens/Lists.tsx:311
 msgctxt "button"
 msgid "Rename"
 msgstr "Rename"
@@ -4619,19 +4731,19 @@ msgctxt "recommendation factor"
 msgid "Renote"
 msgstr "Renote"
 
-#: src/screens/AdminReportDetail.tsx:337
+#: src/screens/AdminReportDetail.tsx:338
 msgid "Reopen"
 msgstr "Reopen"
 
-#: src/screens/AdminReportDetail.tsx:473
+#: src/screens/AdminReportDetail.tsx:474
 msgid "Reopen this resolved report?"
 msgstr "Reopen this resolved report?"
 
-#: src/screens/ProfileEditor.tsx:476
+#: src/screens/ProfileEditor.tsx:473
 msgid "Replace avatar"
 msgstr "Replace avatar"
 
-#: src/screens/ProfileEditor.tsx:495
+#: src/screens/ProfileEditor.tsx:492
 msgid "Replace banner"
 msgstr "Replace banner"
 
@@ -4640,13 +4752,13 @@ msgid "replied to you"
 msgstr "replied to you"
 
 #: src/components/Profile/ProfileTabs.tsx:26
-#: src/screens/Note.tsx:1304
+#: src/screens/Note.tsx:1305
 msgid "Replies"
 msgstr "Replies"
 
 #: src/components/Composer/CompactComposer.tsx:186
 #: src/screens/Conversation.tsx:202
-#: src/screens/Note.tsx:490
+#: src/screens/Note.tsx:491
 msgid "Reply"
 msgstr "Reply"
 
@@ -4661,13 +4773,13 @@ msgid "Reply engaged by author"
 msgstr "Reply engaged by author"
 
 #. placeholder {0}: formatCount(locale, post.counts.replies)
-#: src/components/Post/ActionBar.tsx:254
+#: src/components/Post/ActionBar.tsx:247
 msgid "Reply, {0} replies"
 msgstr "Reply, {0} replies"
 
 #. placeholder {0}: replyTarget.author.acct
 #. placeholder {0}: replyTo.author.acct
-#: src/components/Composer/ComposerSections.tsx:150
+#: src/components/Composer/ComposerSections.tsx:151
 #: src/components/Post/PostCard.tsx:939
 msgid "Replying to @{0}"
 msgstr "Replying to @{0}"
@@ -4680,9 +4792,9 @@ msgstr "Replying to a post."
 #: src/components/Post/menuModel.ts:275
 #: src/components/Post/menuModel.ts:285
 #: src/routes.ts:412
-#: src/screens/AdminReportDetail.tsx:153
-#: src/screens/AdminReportDetail.tsx:164
-#: src/screens/AdminReportDetail.tsx:218
+#: src/screens/AdminReportDetail.tsx:154
+#: src/screens/AdminReportDetail.tsx:165
+#: src/screens/AdminReportDetail.tsx:219
 msgid "Report"
 msgstr "Report"
 
@@ -4690,11 +4802,11 @@ msgstr "Report"
 msgid "Report {handle}"
 msgstr "Report {handle}"
 
-#: src/screens/PostHandlers.tsx:107
+#: src/screens/PostHandlers.tsx:112
 msgid "Report sent"
 msgstr "Report sent"
 
-#: src/components/Settings/AccountSection.tsx:259
+#: src/components/Settings/AccountSection.tsx:260
 #: src/routes.ts:410
 #: src/screens/AdminReportsList.tsx:156
 #: src/screens/AdminReportsList.tsx:169
@@ -4702,16 +4814,16 @@ msgstr "Report sent"
 msgid "Reports"
 msgstr "Reports"
 
-#: src/screens/AdminReportDetail.tsx:174
+#: src/screens/AdminReportDetail.tsx:175
 #: src/screens/AdminReportsList.tsx:179
 msgid "Reports are not available on this server."
 msgstr "Reports are not available on this server."
 
-#: src/components/Post/ActionBar.tsx:263
+#: src/components/Post/ActionBar.tsx:256
 msgid "Repost options"
 msgstr "Repost options"
 
-#: src/components/Post/ActionBar.tsx:263
+#: src/components/Post/ActionBar.tsx:256
 msgid "Repost options, already reposted"
 msgstr "Repost options, already reposted"
 
@@ -4724,7 +4836,7 @@ msgstr "Repost-muted accounts"
 msgid "reposted your post"
 msgstr "reposted your post"
 
-#: src/screens/Note.tsx:1305
+#: src/screens/Note.tsx:1306
 #: src/screens/Notifications.tsx:110
 msgid "Reposts"
 msgstr "Reposts"
@@ -4738,27 +4850,27 @@ msgid "Reposts unmuted"
 msgstr "Reposts unmuted"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:22
+#: src/lib/localeErrors.ts:27
 msgid "errors.network.badPath"
 msgstr "Request path must start with \"/\": got \"{path}\"."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:24
+#: src/lib/localeErrors.ts:29
 msgid "errors.network.timeoutInstance"
 msgstr "Request timed out ({target}): the instance did not answer within {n}s. Retry."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:27
+#: src/lib/localeErrors.ts:32
 msgid "errors.network.timeoutServer"
 msgstr "Request timed out ({target}): the server did not answer within {n}s. Retry, or check the dev-server terminal."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:26
+#: src/lib/localeErrors.ts:31
 msgid "errors.network.aborted"
 msgstr "Request was cancelled."
 
-#: src/components/Profile/UserHoverCard.tsx:194
-#: src/components/ProfileActions/ProfileActions.tsx:33
+#: src/components/Profile/UserHoverCard.tsx:189
+#: src/components/ProfileActions/ProfileActions.tsx:34
 msgid "Requested"
 msgstr "Requested"
 
@@ -4766,25 +4878,25 @@ msgstr "Requested"
 msgid "requested to follow you"
 msgstr "requested to follow you"
 
-#: src/components/Settings/TransferSections.tsx:306
+#: src/components/Settings/TransferSections.tsx:310
 msgid "Requesting…"
 msgstr "Requesting…"
 
-#: src/screens/FollowRequests.tsx:145
+#: src/screens/FollowRequests.tsx:146
 msgid "Requests never show sample data when signed out."
 msgstr "Requests never show sample data when signed out."
 
-#: src/screens/ProfileEditor.tsx:368
+#: src/screens/ProfileEditor.tsx:365
 msgid "Require approval for new followers."
 msgstr "Require approval for new followers."
 
-#: src/components/Settings/AccountSection.tsx:238
-#: src/components/Settings/AccountSection.tsx:268
+#: src/components/Settings/AccountSection.tsx:239
+#: src/components/Settings/AccountSection.tsx:269
 msgid "Requires an admin or moderator account on this server."
 msgstr "Requires an admin or moderator account on this server."
 
-#: src/screens/AdminInsight.tsx:527
-#: src/screens/AdminReportDetail.tsx:167
+#: src/screens/AdminInsight.tsx:530
+#: src/screens/AdminReportDetail.tsx:168
 #: src/screens/AdminReportsList.tsx:172
 msgid "Requires an admin or moderator account."
 msgstr "Requires an admin or moderator account."
@@ -4797,11 +4909,11 @@ msgstr "Reset"
 msgid "Reset to heart"
 msgstr "Reset to heart"
 
-#: src/screens/AdminReportDetail.tsx:324
+#: src/screens/AdminReportDetail.tsx:325
 msgid "Resolve"
 msgstr "Resolve"
 
-#: src/screens/AdminReportDetail.tsx:439
+#: src/screens/AdminReportDetail.tsx:440
 msgid "Resolve this report?"
 msgstr "Resolve this report?"
 
@@ -4809,7 +4921,7 @@ msgstr "Resolve this report?"
 msgid "Resolved"
 msgstr "Resolved"
 
-#: src/screens/AdminInsight.tsx:62
+#: src/screens/AdminInsight.tsx:63
 msgid "Resolved reports"
 msgstr "Resolved reports"
 
@@ -4817,7 +4929,7 @@ msgstr "Resolved reports"
 msgid "Resolving quote…"
 msgstr "Resolving quote…"
 
-#: src/components/Composer/ComposerSections.tsx:730
+#: src/components/Composer/ComposerSections.tsx:731
 msgid "Restore"
 msgstr "Restore"
 
@@ -4826,7 +4938,7 @@ msgstr "Restore"
 msgid "Restore draft: {0}"
 msgstr "Restore draft: {0}"
 
-#: src/components/Composer/Composer.tsx:404
+#: src/components/Composer/Composer.tsx:405
 msgid "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 
@@ -4836,36 +4948,36 @@ msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach i
 #: src/components/Recommendations/RecommendationsFeed.tsx:107
 #: src/components/Recommendations/RecommendationsFeed.tsx:167
 #: src/components/StreamBadge.tsx:77
-#: src/screens/AdminInsight.tsx:175
-#: src/screens/AdminReportDetail.tsx:237
+#: src/screens/AdminInsight.tsx:178
+#: src/screens/AdminReportDetail.tsx:238
 #: src/screens/AdminReportsList.tsx:226
 #: src/screens/Announcements.tsx:259
 #: src/screens/Antenna.tsx:120
-#: src/screens/Antennas.tsx:359
-#: src/screens/Antennas.tsx:369
-#: src/screens/Channel.tsx:141
+#: src/screens/Antennas.tsx:360
+#: src/screens/Antennas.tsx:370
+#: src/screens/Channel.tsx:142
 #: src/screens/Channels.tsx:244
 #: src/screens/Channels.tsx:301
 #: src/screens/ChatRooms.tsx:154
 #: src/screens/ChatThread.tsx:229
 #: src/screens/ChatThread.tsx:279
 #: src/screens/Clip.tsx:100
-#: src/screens/Clips.tsx:338
-#: src/screens/Clips.tsx:348
+#: src/screens/Clips.tsx:339
+#: src/screens/Clips.tsx:349
 #: src/screens/Conversation.tsx:158
 #: src/screens/Conversations.tsx:192
 #: src/screens/Conversations.tsx:242
-#: src/screens/Explore.tsx:162
-#: src/screens/explore/NewsTab.tsx:157
-#: src/screens/explore/NewsTab.tsx:213
-#: src/screens/explore/UsersTab.tsx:59
-#: src/screens/explore/UsersTab.tsx:151
+#: src/screens/Explore.tsx:163
+#: src/screens/explore/NewsTab.tsx:158
+#: src/screens/explore/NewsTab.tsx:214
+#: src/screens/explore/UsersTab.tsx:60
+#: src/screens/explore/UsersTab.tsx:152
 #: src/screens/HomeFeed.tsx:370
 #: src/screens/HomeFeed.tsx:472
-#: src/screens/Note.tsx:254
-#: src/screens/Note.tsx:890
-#: src/screens/Note.tsx:1220
-#: src/screens/Note.tsx:1329
+#: src/screens/Note.tsx:255
+#: src/screens/Note.tsx:891
+#: src/screens/Note.tsx:1221
+#: src/screens/Note.tsx:1330
 #: src/screens/NoteHistory.tsx:125
 #: src/screens/Notifications.tsx:459
 #: src/screens/Notifications.tsx:540
@@ -4887,37 +4999,37 @@ msgstr "Retry"
 #. Retry loading the drive
 #. Retry loading the drive
 #. Retry loading the list
-#: src/screens/Drive.tsx:256
-#: src/screens/Drive.tsx:266
-#: src/screens/Drive/detail.tsx:171
-#: src/screens/Drive/detail.tsx:200
+#: src/screens/Drive.tsx:257
+#: src/screens/Drive.tsx:267
+#: src/screens/Drive/detail.tsx:172
+#: src/screens/Drive/detail.tsx:201
 #: src/screens/Followers.tsx:240
 #: src/screens/Followers.tsx:288
 #: src/screens/Following.tsx:240
 #: src/screens/Following.tsx:288
-#: src/screens/FollowRequests.tsx:170
+#: src/screens/FollowRequests.tsx:171
 #: src/screens/List.tsx:100
-#: src/screens/Lists.tsx:460
-#: src/screens/Lists.tsx:465
+#: src/screens/Lists.tsx:461
+#: src/screens/Lists.tsx:466
 msgctxt "button"
 msgid "Retry"
 msgstr "Retry"
 
-#: src/screens/Note.tsx:889
-#: src/screens/Note.tsx:1328
+#: src/screens/Note.tsx:890
+#: src/screens/Note.tsx:1329
 msgid "Retry loading replies"
 msgstr "Retry loading replies"
 
-#: src/components/Settings/AccountSection.tsx:201
+#: src/components/Settings/AccountSection.tsx:202
 msgid "Review accounts waiting for your approval."
 msgstr "Review accounts waiting for your approval."
 
-#: src/screens/Drive/rows.tsx:176
+#: src/screens/Drive/rows.tsx:177
 msgctxt "drive root folder"
 msgid "Root"
 msgstr "Root"
 
-#: src/screens/AdminReportDetail.tsx:287
+#: src/screens/AdminReportDetail.tsx:288
 msgid "Rule ids"
 msgstr "Rule ids"
 
@@ -4926,22 +5038,22 @@ msgid "Rule violation"
 msgstr "Rule violation"
 
 #: src/components/Composer/CompactComposer.tsx:182
-#: src/components/Composer/Composer.tsx:1222
+#: src/components/Composer/Composer.tsx:1223
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:376
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:526
-#: src/components/Settings/FiltersSection.tsx:150
-#: src/components/Settings/WordFields.tsx:132
-#: src/screens/Antennas.tsx:193
-#: src/screens/Clips.tsx:167
+#: src/components/Settings/FiltersSection.tsx:151
+#: src/components/Settings/WordFields.tsx:128
+#: src/screens/Antennas.tsx:194
+#: src/screens/Clips.tsx:168
 #: src/screens/Notifications.tsx:230
 #: src/screens/Notifications.tsx:522
-#: src/screens/ProfileEditor.tsx:508
+#: src/screens/ProfileEditor.tsx:505
 msgid "Save"
 msgstr "Save"
 
-#: src/screens/Drive/rows.tsx:94
-#: src/screens/Drive/rows.tsx:260
-#: src/screens/Lists.tsx:288
+#: src/screens/Drive/rows.tsx:95
+#: src/screens/Drive/rows.tsx:261
+#: src/screens/Lists.tsx:289
 msgctxt "button"
 msgid "Save"
 msgstr "Save"
@@ -4956,7 +5068,7 @@ msgstr "Save"
 msgid "Save changes"
 msgstr "Save changes"
 
-#: src/components/Composer/ComposerSections.tsx:753
+#: src/components/Composer/ComposerSections.tsx:754
 msgid "Save current as server draft"
 msgstr "Save current as server draft"
 
@@ -4964,7 +5076,7 @@ msgstr "Save current as server draft"
 msgid "Save draft"
 msgstr "Save draft"
 
-#: src/screens/AdminReportDetail.tsx:375
+#: src/screens/AdminReportDetail.tsx:376
 msgid "Save note"
 msgstr "Save note"
 
@@ -4972,19 +5084,19 @@ msgstr "Save note"
 msgid "Save this draft to finish it later, or discard it."
 msgstr "Save this draft to finish it later, or discard it."
 
-#: src/screens/AdminReportDetail.tsx:548
+#: src/screens/AdminReportDetail.tsx:549
 msgid "Save this moderator note?"
 msgstr "Save this moderator note?"
 
-#: src/screens/AdminReportDetail.tsx:547
+#: src/screens/AdminReportDetail.tsx:548
 msgid "Save this moderator note? (Empty clears the note.)"
 msgstr "Save this moderator note? (Empty clears the note.)"
 
-#: src/components/Settings/WordFields.tsx:106
+#: src/components/Settings/WordFields.tsx:102
 msgid "Saved."
 msgstr "Saved."
 
-#: src/screens/ProfileEditor.tsx:508
+#: src/screens/ProfileEditor.tsx:505
 msgid "Saving"
 msgstr "Saving"
 
@@ -4996,34 +5108,34 @@ msgstr "Saving notification settings."
 msgid "Saving the filter policy."
 msgstr "Saving the filter policy."
 
-#: src/components/Composer/Composer.tsx:1207
-#: src/components/Composer/ComposerSections.tsx:65
-#: src/components/Composer/ComposerSections.tsx:175
-#: src/components/Composer/ComposerSections.tsx:251
-#: src/components/Composer/ComposerSections.tsx:401
-#: src/components/Composer/ComposerSections.tsx:753
+#: src/components/Composer/Composer.tsx:1208
+#: src/components/Composer/ComposerSections.tsx:66
+#: src/components/Composer/ComposerSections.tsx:176
+#: src/components/Composer/ComposerSections.tsx:252
+#: src/components/Composer/ComposerSections.tsx:402
+#: src/components/Composer/ComposerSections.tsx:754
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:325
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:376
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:526
-#: src/components/Settings/DomainBlocks.tsx:164
-#: src/components/Settings/WordFields.tsx:132
-#: src/screens/Antennas.tsx:193
-#: src/screens/Clips.tsx:167
+#: src/components/Settings/DomainBlocks.tsx:165
+#: src/components/Settings/WordFields.tsx:128
+#: src/screens/Antennas.tsx:194
+#: src/screens/Clips.tsx:168
 #: src/screens/Notifications.tsx:230
 #: src/screens/Notifications.tsx:522
 msgid "Saving…"
 msgstr "Saving…"
 
-#: src/screens/Drive/rows.tsx:93
-#: src/screens/Drive/rows.tsx:259
-#: src/screens/Lists.tsx:287
+#: src/screens/Drive/rows.tsx:94
+#: src/screens/Drive/rows.tsx:260
+#: src/screens/Lists.tsx:288
 msgctxt "button"
 msgid "Saving…"
 msgstr "Saving…"
 
 #: src/components/Composer/CompactComposer.tsx:184
-#: src/components/Composer/Composer.tsx:1222
-#: src/components/Composer/Composer.tsx:1434
+#: src/components/Composer/Composer.tsx:1223
+#: src/components/Composer/Composer.tsx:1435
 msgid "Schedule"
 msgstr "Schedule"
 
@@ -5031,24 +5143,24 @@ msgstr "Schedule"
 msgid "Schedule…"
 msgstr "Schedule…"
 
-#: src/components/Composer/ComposerSections.tsx:650
+#: src/components/Composer/ComposerSections.tsx:651
 msgid "Scheduled posts"
 msgstr "Scheduled posts"
 
-#: src/components/Composer/Composer.tsx:710
+#: src/components/Composer/Composer.tsx:711
 msgid "Scheduled posts must be scheduled at least 5 minutes ahead on this server."
 msgstr "Scheduled posts must be scheduled at least 5 minutes ahead on this server."
 
-#: src/components/Composer/ComposerSections.tsx:491
+#: src/components/Composer/ComposerSections.tsx:492
 msgid "Scheduled time must be in the future."
 msgstr "Scheduled time must be in the future."
 
 #: src/components/Explore/ExploreSearchBar.tsx:69
-#: src/components/Settings/MuteBlockSearch.tsx:134
+#: src/components/Settings/MuteBlockSearch.tsx:135
 #: src/components/shell/TabBar.tsx:28
 #: src/routes.ts:366
-#: src/screens/Explore.tsx:360
-#: src/screens/Explore.tsx:371
+#: src/screens/Explore.tsx:361
+#: src/screens/Explore.tsx:372
 msgid "Search"
 msgstr "Search"
 
@@ -5058,7 +5170,7 @@ msgctxt "explore search field"
 msgid "Search"
 msgstr "Search"
 
-#: src/components/Settings/MuteBlockSearch.tsx:126
+#: src/components/Settings/MuteBlockSearch.tsx:127
 msgid "Search accounts"
 msgstr "Search accounts"
 
@@ -5066,7 +5178,7 @@ msgstr "Search accounts"
 msgid "Search emoji"
 msgstr "Search emoji"
 
-#: src/components/Settings/MuteBlockSearch.tsx:93
+#: src/components/Settings/MuteBlockSearch.tsx:94
 msgid "Search failed."
 msgstr "Search failed."
 
@@ -5078,13 +5190,18 @@ msgstr "Search this user's notes"
 msgid "Search users, tags, and posts"
 msgstr "Search users, tags, and posts"
 
-#: src/components/Settings/MuteBlockSearch.tsx:123
+#: src/components/Settings/MuteBlockSearch.tsx:124
 msgid "Search, then mute or block. Changes apply immediately."
 msgstr "Search, then mute or block. Changes apply immediately."
 
-#: src/components/Settings/MuteBlockSearch.tsx:134
+#: src/components/Settings/MuteBlockSearch.tsx:135
 msgid "Searching…"
 msgstr "Searching…"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:77
+msgid "errors.crypto.unavailable"
+msgstr "Secure random values are unavailable on this device."
 
 #: src/screens/ChatThread.tsx:303
 msgid "Send"
@@ -5108,16 +5225,16 @@ msgstr "Send report"
 msgid "Sending…"
 msgstr "Sending…"
 
-#: src/components/Composer/ComposerSections.tsx:319
+#: src/components/Composer/ComposerSections.tsx:320
 msgid "Sensitive"
 msgstr "Sensitive"
 
-#: src/screens/Drive/detail.tsx:142
+#: src/screens/Drive/detail.tsx:143
 msgctxt "drive file detail field"
 msgid "Sensitive"
 msgstr "Sensitive"
 
-#: src/screens/Drive/rows.tsx:243
+#: src/screens/Drive/rows.tsx:244
 msgctxt "drive file flag"
 msgid "Sensitive"
 msgstr "Sensitive"
@@ -5143,8 +5260,8 @@ msgstr "sent a test notification"
 msgid "sent an update"
 msgstr "sent an update"
 
-#: src/screens/AdminInsight.tsx:582
-#: src/screens/Login.tsx:613
+#: src/screens/AdminInsight.tsx:585
+#: src/screens/Login.tsx:614
 msgid "Server"
 msgstr "Server"
 
@@ -5152,49 +5269,54 @@ msgstr "Server"
 msgid "Server channels"
 msgstr "Server channels"
 
-#: src/components/Composer/ComposerSections.tsx:716
+#: src/components/Composer/ComposerSections.tsx:717
 msgid "Server drafts"
 msgstr "Server drafts"
 
-#: src/screens/AdminInsight.tsx:607
+#: src/screens/AdminInsight.tsx:610
 msgid "Server info"
 msgstr "Server info"
 
-#: src/components/Settings/AccountSection.tsx:229
+#: src/components/Settings/AccountSection.tsx:230
 #: src/routes.ts:408
-#: src/screens/AdminInsight.tsx:511
-#: src/screens/AdminInsight.tsx:524
-#: src/screens/AdminInsight.tsx:578
+#: src/screens/AdminInsight.tsx:514
+#: src/screens/AdminInsight.tsx:527
+#: src/screens/AdminInsight.tsx:581
 msgid "Server insight"
 msgstr "Server insight"
 
-#: src/screens/AdminInsight.tsx:534
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:97
+msgid "errors.unsupported.adminInsight"
+msgstr "Server insight {scope} is not available on this server."
+
+#: src/screens/AdminInsight.tsx:537
 msgid "Server insight is not available on this server."
 msgstr "Server insight is not available on this server."
 
-#: src/screens/AdminInsight.tsx:514
+#: src/screens/AdminInsight.tsx:517
 msgid "Server insight never shows sample data when signed out."
 msgstr "Server insight never shows sample data when signed out."
 
-#: src/components/Composer/Composer.tsx:1290
+#: src/components/Composer/Composer.tsx:1291
 msgid "Server limits couldn't be verified — posting won't be blocked."
 msgstr "Server limits couldn't be verified — posting won't be blocked."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:20
+#: src/lib/localeErrors.ts:25
 msgid "errors.network.redirect"
 msgstr "Server redirected the request (HTTP {status}); refusing to follow with credentials."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:31
+#: src/lib/localeErrors.ts:36
 msgid "errors.network.badJson"
 msgstr "Server returned a non-JSON body (HTTP {status}) for {target}."
 
-#: src/screens/AdminInsight.tsx:616
+#: src/screens/AdminInsight.tsx:619
 msgid "Server rules"
 msgstr "Server rules"
 
-#: src/components/Settings/FiltersSection.tsx:216
+#: src/components/Settings/FiltersSection.tsx:217
 msgid "Server-side phrases that hide matching posts everywhere."
 msgstr "Server-side phrases that hide matching posts everywhere."
 
@@ -5206,7 +5328,7 @@ msgstr "Server-side phrases."
 msgid "Session info and sign out."
 msgstr "Session info and sign out."
 
-#: src/components/shell/AccountMenu.tsx:159
+#: src/components/shell/AccountMenu.tsx:160
 #: src/components/shell/Sidebar.tsx:189
 #: src/routes.ts:447
 #: src/screens/Settings.tsx:49
@@ -5269,11 +5391,11 @@ msgstr "Show more"
 msgid "Show more of this post"
 msgstr "Show more of this post"
 
-#: src/screens/Note.tsx:866
+#: src/screens/Note.tsx:867
 msgid "Show more replies"
 msgstr "Show more replies"
 
-#: src/screens/Note.tsx:867
+#: src/screens/Note.tsx:868
 msgid "Show more replies…"
 msgstr "Show more replies…"
 
@@ -5293,7 +5415,7 @@ msgstr "Show original"
 msgid "Show previous image"
 msgstr "Show previous image"
 
-#: src/screens/Lists.tsx:106
+#: src/screens/Lists.tsx:107
 msgid "Show replies from"
 msgstr "Show replies from"
 
@@ -5313,7 +5435,7 @@ msgstr "Show translation"
 msgid "Showing original · Show translation?"
 msgstr "Showing original · Show translation?"
 
-#: src/components/Settings/DomainBlocks.tsx:197
+#: src/components/Settings/DomainBlocks.tsx:198
 msgid "Showing the first 100 blocked domains."
 msgstr "Showing the first 100 blocked domains."
 
@@ -5328,9 +5450,9 @@ msgstr "Shown everywhere"
 #: src/components/SignInButton.tsx:21
 #: src/Navigation.tsx:137
 #: src/routes.ts:453
-#: src/screens/Login.tsx:572
-#: src/screens/Login.tsx:663
-#: src/screens/Login.tsx:769
+#: src/screens/Login.tsx:573
+#: src/screens/Login.tsx:664
+#: src/screens/Login.tsx:770
 msgid "Sign in"
 msgstr "Sign in"
 
@@ -5350,7 +5472,7 @@ msgstr "Sign in again to refresh server features."
 msgid "Sign in again to refresh this account's permissions."
 msgstr "Sign in again to refresh this account's permissions."
 
-#: src/screens/Tag.tsx:202
+#: src/screens/Tag.tsx:203
 msgid "Sign in to browse this tag."
 msgstr "Sign in to browse this tag."
 
@@ -5359,11 +5481,11 @@ msgstr "Sign in to browse this tag."
 msgid "Sign in to do this."
 msgstr "Sign in to do this."
 
-#: src/screens/ProfileEditor.tsx:186
+#: src/screens/ProfileEditor.tsx:187
 msgid "Sign in to edit your profile."
 msgstr "Sign in to edit your profile."
 
-#: src/screens/Explore.tsx:362
+#: src/screens/Explore.tsx:363
 msgid "Sign in to explore."
 msgstr "Sign in to explore."
 
@@ -5375,7 +5497,7 @@ msgstr "Sign in to load this server's rules."
 msgid "Sign in to manage mutes and blocks."
 msgstr "Sign in to manage mutes and blocks."
 
-#: src/components/Settings/FiltersSection.tsx:207
+#: src/components/Settings/FiltersSection.tsx:208
 msgid "Sign in to manage word filters."
 msgstr "Sign in to manage word filters."
 
@@ -5383,20 +5505,20 @@ msgstr "Sign in to manage word filters."
 msgid "Sign in to mark notifications read."
 msgstr "Sign in to mark notifications read."
 
-#: src/screens/AdminReportDetail.tsx:154
+#: src/screens/AdminReportDetail.tsx:155
 #: src/screens/AdminReportsList.tsx:157
 msgid "Sign in to moderate reports."
 msgstr "Sign in to moderate reports."
 
-#: src/components/Settings/TransferSections.tsx:359
+#: src/components/Settings/TransferSections.tsx:363
 msgid "Sign in to move data in."
 msgstr "Sign in to move data in."
 
-#: src/components/Settings/TransferSections.tsx:416
+#: src/components/Settings/TransferSections.tsx:420
 msgid "Sign in to move data out."
 msgstr "Sign in to move data out."
 
-#: src/screens/Compose.tsx:210
+#: src/screens/Compose.tsx:211
 msgid "Sign in to post."
 msgstr "Sign in to post."
 
@@ -5404,7 +5526,7 @@ msgstr "Sign in to post."
 msgid "Sign in to read server announcements."
 msgstr "Sign in to read server announcements."
 
-#: src/screens/AdminInsight.tsx:512
+#: src/screens/AdminInsight.tsx:515
 msgid "Sign in to read server insight."
 msgstr "Sign in to read server insight."
 
@@ -5424,7 +5546,7 @@ msgid "Sign in to see channels."
 msgstr "Sign in to see channels."
 
 #. js-lingui-explicit-id
-#: src/screens/FollowRequests.tsx:143
+#: src/screens/FollowRequests.tsx:144
 msgid "followRequests.signedOut"
 msgstr "Sign in to see follow requests."
 
@@ -5446,7 +5568,7 @@ msgstr "Sign in to see notifications."
 msgid "Sign in to see profiles."
 msgstr "Sign in to see profiles."
 
-#: src/screens/explore/UsersTab.tsx:142
+#: src/screens/explore/UsersTab.tsx:143
 msgid "Sign in to see suggested users."
 msgstr "Sign in to see suggested users."
 
@@ -5458,7 +5580,7 @@ msgstr "Sign in to see the discussion."
 msgid "Sign in to see this antenna."
 msgstr "Sign in to see this antenna."
 
-#: src/screens/Channel.tsx:107
+#: src/screens/Channel.tsx:108
 msgid "Sign in to see this channel."
 msgstr "Sign in to see this channel."
 
@@ -5479,20 +5601,20 @@ msgstr "Sign in to see this history."
 msgid "list.signedOut"
 msgstr "Sign in to see this list."
 
-#: src/screens/Note.tsx:1198
+#: src/screens/Note.tsx:1199
 msgid "Sign in to see this thread."
 msgstr "Sign in to see this thread."
 
-#: src/screens/Antennas.tsx:312
+#: src/screens/Antennas.tsx:313
 msgid "Sign in to see your antennas."
 msgstr "Sign in to see your antennas."
 
-#: src/screens/Clips.tsx:292
+#: src/screens/Clips.tsx:293
 msgid "Sign in to see your clips."
 msgstr "Sign in to see your clips."
 
 #. js-lingui-explicit-id
-#: src/screens/Drive.tsx:228
+#: src/screens/Drive.tsx:229
 msgid "drive.signedOut"
 msgstr "Sign in to see your drive."
 
@@ -5502,7 +5624,7 @@ msgid "favorites.signedOut"
 msgstr "Sign in to see your favorites."
 
 #. js-lingui-explicit-id
-#: src/screens/Lists.tsx:416
+#: src/screens/Lists.tsx:417
 msgid "lists.signedOut"
 msgstr "Sign in to see your lists."
 
@@ -5511,45 +5633,45 @@ msgid "Sign in to vote."
 msgstr "Sign in to vote."
 
 #. placeholder {0}: props.serverName
-#: src/screens/Login.tsx:736
+#: src/screens/Login.tsx:737
 msgid "Sign in with {0} in the browser."
 msgstr "Sign in with {0} in the browser."
 
-#: src/screens/Login.tsx:636
-#: src/screens/Login.tsx:672
+#: src/screens/Login.tsx:637
+#: src/screens/Login.tsx:673
 msgid "Sign in with browser"
 msgstr "Sign in with browser"
 
 #. placeholder {0}: props.serverName
-#: src/screens/Login.tsx:765
+#: src/screens/Login.tsx:766
 msgid "Sign in with your {0} account."
 msgstr "Sign in with your {0} account."
 
-#: src/components/AccountSwitcher.tsx:78
+#: src/components/AccountSwitcher.tsx:79
 #: src/components/ErrorBoundary.tsx:115
 msgid "Sign out"
 msgstr "Sign out"
 
-#: src/components/shell/AccountMenu.tsx:123
+#: src/components/shell/AccountMenu.tsx:124
 msgid "Sign out {name}"
 msgstr "Sign out {name}"
 
-#: src/components/AccountSwitcher.tsx:89
+#: src/components/AccountSwitcher.tsx:90
 msgid "Sign out everywhere"
 msgstr "Sign out everywhere"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:35
+#: src/lib/localeErrors.ts:40
 msgid "errors.auth.signinFailed"
 msgstr "Sign-in failed."
 
-#: src/components/AccountSwitcher.tsx:45
+#: src/components/AccountSwitcher.tsx:46
 msgid "Sign-out failed."
 msgstr "Sign-out failed."
 
 #. placeholder {0}: session.accountId
 #. placeholder {1}: session.origin
-#: src/components/Settings/AccountSection.tsx:79
+#: src/components/Settings/AccountSection.tsx:80
 msgid "Signed in as {0} on {1}."
 msgstr "Signed in as {0} on {1}."
 
@@ -5561,7 +5683,7 @@ msgstr "signed in to your account"
 msgid "Signed out of {label}: session expired"
 msgstr "Signed out of {label}: session expired"
 
-#: src/components/AccountSwitcher.tsx:42
+#: src/components/AccountSwitcher.tsx:43
 msgid "Signed out, but the token could not be revoked on the server."
 msgstr "Signed out, but the token could not be revoked on the server."
 
@@ -5569,21 +5691,21 @@ msgstr "Signed out, but the token could not be revoked on the server."
 msgid "Signed out: likes and favourites save to this device only, under a shared account."
 msgstr "Signed out: likes and favourites save to this device only, under a shared account."
 
-#: src/components/Settings/AccountSection.tsx:59
-#: src/components/Settings/AccountSection.tsx:80
+#: src/components/Settings/AccountSection.tsx:60
+#: src/components/Settings/AccountSection.tsx:81
 msgid "Signed out. Add an account to sign in."
 msgstr "Signed out. Add an account to sign in."
 
-#: src/screens/Login.tsx:772
+#: src/screens/Login.tsx:773
 msgid "Signing in."
 msgstr "Signing in."
 
-#: src/screens/Login.tsx:663
-#: src/screens/Login.tsx:769
+#: src/screens/Login.tsx:664
+#: src/screens/Login.tsx:770
 msgid "Signing in…"
 msgstr "Signing in…"
 
-#: src/screens/Drive/detail.tsx:132
+#: src/screens/Drive/detail.tsx:133
 msgctxt "drive file detail field"
 msgid "Size"
 msgstr "Size"
@@ -5608,11 +5730,11 @@ msgstr "Soft words, hard words, muted servers."
 msgid "Soft-muted"
 msgstr "Soft-muted"
 
-#: src/components/Composer/Composer.tsx:922
+#: src/components/Composer/Composer.tsx:923
 msgid "Some attachments could not be added."
 msgstr "Some attachments could not be added."
 
-#: src/screens/Note.tsx:436
+#: src/screens/Note.tsx:437
 msgid "Some attachments failed to upload. Retry or remove them."
 msgstr "Some attachments failed to upload. Retry or remove them."
 
@@ -5634,17 +5756,13 @@ msgstr "Something else"
 msgid "Something went wrong"
 msgstr "Something went wrong"
 
-#: src/components/Post/PostMenu.tsx:29
-msgid "Something went wrong."
-msgstr "Something went wrong."
-
 #: src/components/Post/ReportChooser.tsx:45
 #: src/screens/AdminReportsList.tsx:51
 msgid "Spam"
 msgstr "Spam"
 
 #. Example filter phrase in the input placeholder; localize the example word if it reads better
-#: src/components/Settings/FiltersSection.tsx:116
+#: src/components/Settings/FiltersSection.tsx:117
 msgid "spoiler"
 msgstr "spoiler"
 
@@ -5658,32 +5776,37 @@ msgstr ""
 "/^advertisement/i"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:61
+#: src/lib/localeErrors.ts:68
 msgid "errors.shape.status"
 msgstr "Status {id} returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:57
+#: src/lib/localeErrors.ts:64
 msgid "errors.shape.statusContext"
 msgstr "Status context returned an unexpected response shape."
 
-#: src/screens/AdminReportDetail.tsx:282
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:88
+msgid "errors.shape.statusHistory"
+msgstr "Status history returned an unexpected response shape."
+
+#: src/screens/AdminReportDetail.tsx:283
 msgid "Status ids"
 msgstr "Status ids"
 
-#: src/components/Composer/ComposerSections.tsx:281
+#: src/components/Composer/ComposerSections.tsx:282
 msgid "Still processing…"
 msgstr "Still processing…"
 
-#: src/components/ProfileActions/ProfileActions.tsx:88
+#: src/components/ProfileActions/ProfileActions.tsx:89
 msgid "Stop hiding on this device"
 msgstr "Stop hiding on this device"
 
-#: src/screens/AdminInsight.tsx:69
+#: src/screens/AdminInsight.tsx:70
 msgid "Storage use"
 msgstr "Storage use"
 
-#: src/components/Settings/TransferSections.tsx:100
+#: src/components/Settings/TransferSections.tsx:104
 msgid "Submitting the import…"
 msgstr "Submitting the import…"
 
@@ -5700,15 +5823,15 @@ msgid "Subtotal"
 msgstr "Subtotal"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:65
+#: src/lib/localeErrors.ts:72
 msgid "errors.shape.suggestions"
 msgstr "Suggestions returned an unexpected response shape."
 
-#: src/components/AccountSwitcher.tsx:69
+#: src/components/AccountSwitcher.tsx:70
 msgid "Switch"
 msgstr "Switch"
 
-#: src/components/shell/AccountMenu.tsx:114
+#: src/components/shell/AccountMenu.tsx:115
 msgid "Switch to {name}"
 msgstr "Switch to {name}"
 
@@ -5720,6 +5843,11 @@ msgstr "System"
 #: src/routes.ts:376
 msgid "Tag"
 msgstr "Tag"
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:84
+msgid "errors.shape.tag"
+msgstr "Tag {name} returned an unexpected response shape."
 
 #: src/components/Explore/ExploreTabBar.tsx:18
 #: src/components/Post/TagBubble.tsx:76
@@ -5742,12 +5870,12 @@ msgstr "Tap to load"
 msgid "Text size"
 msgstr "Text size"
 
-#: src/components/ProfileActions/ProfileActions.tsx:54
+#: src/components/ProfileActions/ProfileActions.tsx:55
 msgid "That did not work."
 msgstr "That did not work."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:18
+#: src/lib/localeErrors.ts:23
 msgid "errors.validation.hostInvalid"
 msgstr "That host does not look like a valid instance address."
 
@@ -5761,6 +5889,11 @@ msgstr "The app language."
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:43
+msgid "errors.auth.miauthTimeout"
+msgstr "The approval was not completed in time. Approve on your server, then try again."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:50
 msgid "errors.unsupported.featured"
 msgstr "The featured-notes listing is not available on this server."
 
@@ -5775,6 +5908,16 @@ msgstr "The issue does not fit another category"
 msgid "The label says {0}, but this link opens {1} ({2}). Open it?"
 msgstr "The label says {0}, but this link opens {1} ({2}). Open it?"
 
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:89
+msgid "errors.shape.mediaUpdate"
+msgstr "The media update returned an unexpected response shape."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:92
+msgid "errors.shape.notificationPolicy"
+msgstr "The notification policy returned an unexpected response shape."
+
 #: src/components/Settings/ReactionsSection.tsx:101
 msgid "The one-tap like on every post. Saved on this device; sent to the server where supported."
 msgstr "The one-tap like on every post. Saved on this device; sent to the server where supported."
@@ -5788,57 +5931,62 @@ msgid "The queue never shows sample data when signed out."
 msgstr "The queue never shows sample data when signed out."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:33
+#: src/lib/localeErrors.ts:38
 msgid "errors.auth.noKeystoneToken"
 msgstr "The server did not issue a Keystone token for this session."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:49
+#: src/lib/localeErrors.ts:56
 msgid "errors.shape.createdList"
 msgstr "The server did not return the created list."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:48
+#: src/lib/localeErrors.ts:55
 msgid "errors.shape.createdPost"
 msgstr "The server did not return the created post."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:54
+#: src/lib/localeErrors.ts:61
 msgid "errors.shape.noScheduled"
 msgstr "The server did not return the scheduled status."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:50
+#: src/lib/localeErrors.ts:57
 msgid "errors.shape.updatedList"
 msgstr "The server did not return the updated list."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:51
+#: src/lib/localeErrors.ts:58
 msgid "errors.shape.updatedProfile"
 msgstr "The server did not return the updated profile."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:52
+#: src/lib/localeErrors.ts:96
+msgid "errors.shape.uploadedFile"
+msgstr "The server did not return the uploaded file."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:59
 msgid "errors.shape.uploadedMedia"
 msgstr "The server did not return the uploaded media."
 
 #: src/screens/HomeFeed.tsx:367
-#: src/screens/Note.tsx:1210
+#: src/screens/Note.tsx:1211
 #: src/screens/User.tsx:153
 msgid "The server is throttling requests right now. Wait a moment, then try again."
 msgstr "The server is throttling requests right now. Wait a moment, then try again."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:34
+#: src/lib/localeErrors.ts:39
 msgid "errors.auth.noCredentials"
 msgstr "The server registered an app but did not return usable credentials."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:53
+#: src/lib/localeErrors.ts:60
 msgid "errors.shape.noTranslation"
 msgstr "The server returned no translation for this post."
 
-#: src/components/Settings/TransferSections.tsx:319
+#: src/components/Settings/TransferSections.tsx:323
 msgid "The server returned the file directly ({payloadBytes} bytes)."
 msgstr "The server returned the file directly ({payloadBytes} bytes)."
 
@@ -5856,7 +6004,7 @@ msgid "The server sent no video URL."
 msgstr "The server sent no video URL."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:41
+#: src/lib/localeErrors.ts:48
 msgid "errors.unsupported.social"
 msgstr "The social timeline is not available on this server."
 
@@ -5868,16 +6016,16 @@ msgstr "Theme"
 msgid "There are no notifications to clear."
 msgstr "There are no notifications to clear."
 
-#: src/screens/Tag.tsx:127
-#: src/screens/Tag.tsx:177
+#: src/screens/Tag.tsx:128
+#: src/screens/Tag.tsx:178
 msgid "There is no hashtag-mute endpoint on this server; use a keyword filter instead."
 msgstr "There is no hashtag-mute endpoint on this server; use a keyword filter instead."
 
-#: src/screens/Compose.tsx:226
+#: src/screens/Compose.tsx:227
 msgid "There is nothing to redraft here."
 msgstr "There is nothing to redraft here."
 
-#: src/components/ProfileActions/ProfileActions.tsx:63
+#: src/components/ProfileActions/ProfileActions.tsx:64
 msgid "This account has blocked you."
 msgstr "This account has blocked you."
 
@@ -5887,7 +6035,12 @@ msgid "This account has moved to {0}."
 msgstr "This account has moved to {0}."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:36
+#: src/lib/localeErrors.ts:42
+msgid "errors.auth.extraStep"
+msgstr "This account needs an extra sign-in step that Keystone does not support."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:41
 msgid "errors.auth.mfaRequired"
 msgstr "This account requires two-factor authentication. Enter your code to finish signing in."
 
@@ -5895,11 +6048,11 @@ msgstr "This account requires two-factor authentication. Enter your code to fini
 msgid "This antenna does not exist."
 msgstr "This antenna does not exist."
 
-#: src/screens/Channel.tsx:154
+#: src/screens/Channel.tsx:155
 msgid "This channel does not exist."
 msgstr "This channel does not exist."
 
-#: src/screens/Channel.tsx:174
+#: src/screens/Channel.tsx:175
 msgid "This channel is archived."
 msgstr "This channel is archived."
 
@@ -5907,12 +6060,12 @@ msgstr "This channel is archived."
 msgid "This clip does not exist."
 msgstr "This clip does not exist."
 
-#: src/components/Settings/AccountSection.tsx:58
-#: src/components/Settings/AccountSection.tsx:76
+#: src/components/Settings/AccountSection.tsx:59
+#: src/components/Settings/AccountSection.tsx:77
 msgid "This device"
 msgstr "This device"
 
-#: src/screens/Drive.tsx:435
+#: src/screens/Drive.tsx:436
 msgid "This folder has no files yet."
 msgstr "This folder has no files yet."
 
@@ -5934,7 +6087,7 @@ msgstr "This list does not exist."
 msgid "This list is not visible to you."
 msgstr "This list is not visible to you."
 
-#: src/components/Composer/ComposerSections.tsx:354
+#: src/components/Composer/ComposerSections.tsx:355
 msgid "This photo contains location data, which will be sent unchanged."
 msgstr "This photo contains location data, which will be sent unchanged."
 
@@ -5944,7 +6097,7 @@ msgid "This post has no known link."
 msgstr "This post has no known link."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:55
+#: src/lib/localeErrors.ts:62
 msgid "errors.shape.noPoll"
 msgstr "This post has no poll to vote in."
 
@@ -5961,66 +6114,66 @@ msgstr "This post is from an account you follow. It's still scored and ranked li
 msgid "This post isn't public"
 msgstr "This post isn't public"
 
-#: src/screens/AdminReportDetail.tsx:231
+#: src/screens/AdminReportDetail.tsx:232
 msgid "This report is not available. Open it from the queue list."
 msgstr "This report is not available. Open it from the queue list."
 
-#: src/screens/Login.tsx:577
+#: src/screens/Login.tsx:578
 msgid "This server"
 msgstr "This server"
 
-#: src/screens/ProfileEditor.tsx:461
+#: src/screens/ProfileEditor.tsx:458
 msgid "This server allows at most {fieldCap} profile fields."
 msgstr "This server allows at most {fieldCap} profile fields."
 
-#: src/screens/Lists.tsx:190
-#: src/screens/Lists.tsx:196
+#: src/screens/Lists.tsx:191
+#: src/screens/Lists.tsx:197
 msgid "This server build cannot create lists."
 msgstr "This server build cannot create lists."
 
-#: src/screens/Lists.tsx:350
-#: src/screens/Lists.tsx:355
+#: src/screens/Lists.tsx:351
+#: src/screens/Lists.tsx:356
 msgid "This server build cannot delete lists."
 msgstr "This server build cannot delete lists."
 
-#: src/screens/Lists.tsx:313
-#: src/screens/Lists.tsx:318
+#: src/screens/Lists.tsx:314
+#: src/screens/Lists.tsx:319
 msgid "This server build cannot rename lists."
 msgstr "This server build cannot rename lists."
 
-#: src/screens/Lists.tsx:60
+#: src/screens/Lists.tsx:61
 msgid "This server cannot choose who replies are shown from."
 msgstr "This server cannot choose who replies are shown from."
 
-#: src/screens/Lists.tsx:68
+#: src/screens/Lists.tsx:69
 msgid "This server cannot hide list members from Home."
 msgstr "This server cannot hide list members from Home."
 
-#: src/screens/Tag.tsx:69
+#: src/screens/Tag.tsx:70
 msgid "This server cannot report hashtag state."
 msgstr "This server cannot report hashtag state."
 
-#: src/screens/Login.tsx:729
+#: src/screens/Login.tsx:730
 msgid "This server could not be identified. Try another server."
 msgstr "This server could not be identified. Try another server."
 
-#: src/screens/AdminInsight.tsx:365
+#: src/screens/AdminInsight.tsx:368
 msgid "This server does not provide a hardware snapshot."
 msgstr "This server does not provide a hardware snapshot."
 
-#: src/screens/AdminInsight.tsx:238
+#: src/screens/AdminInsight.tsx:241
 msgid "This server does not provide admin breakdowns."
 msgstr "This server does not provide admin breakdowns."
 
-#: src/screens/AdminInsight.tsx:209
+#: src/screens/AdminInsight.tsx:212
 msgid "This server does not provide admin metrics."
 msgstr "This server does not provide admin metrics."
 
-#: src/screens/AdminInsight.tsx:401
+#: src/screens/AdminInsight.tsx:404
 msgid "This server does not provide instance settings."
 msgstr "This server does not provide instance settings."
 
-#: src/screens/AdminInsight.tsx:444
+#: src/screens/AdminInsight.tsx:447
 msgid "This server does not provide queue stats."
 msgstr "This server does not provide queue stats."
 
@@ -6040,11 +6193,11 @@ msgstr "This server does not provide the DM inbox Keystone reads, or this build 
 msgid "This server does not publish a list of rules."
 msgstr "This server does not publish a list of rules."
 
-#: src/screens/AdminInsight.tsx:484
+#: src/screens/AdminInsight.tsx:487
 msgid "This server does not publish an online count."
 msgstr "This server does not publish an online count."
 
-#: src/screens/AdminInsight.tsx:267
+#: src/screens/AdminInsight.tsx:270
 msgid "This server does not publish its peer list."
 msgstr "This server does not publish its peer list."
 
@@ -6052,7 +6205,7 @@ msgstr "This server does not publish its peer list."
 msgid "This server does not publish the announcement endpoints Keystone reads."
 msgstr "This server does not publish the announcement endpoints Keystone reads."
 
-#: src/screens/Channel.tsx:49
+#: src/screens/Channel.tsx:50
 msgid "This server does not report whether you follow this channel."
 msgstr "This server does not report whether you follow this channel."
 
@@ -6060,12 +6213,12 @@ msgstr "This server does not report whether you follow this channel."
 msgid "This server does not support editing posts."
 msgstr "This server does not support editing posts."
 
-#: src/screens/Drive/detail.tsx:162
+#: src/screens/Drive/detail.tsx:163
 msgid "This server does not support file details. Showing the values from the file list."
 msgstr "This server does not support file details. Showing the values from the file list."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:67
+#: src/lib/localeErrors.ts:74
 msgid "errors.reactions.likeUnsupported"
 msgstr "This server does not support likes yet."
 
@@ -6073,23 +6226,23 @@ msgstr "This server does not support likes yet."
 msgid "This server does not support marking announcements as read."
 msgstr "This server does not support marking announcements as read."
 
-#: src/components/Post/ActionBar.tsx:200
+#: src/components/Post/ActionBar.tsx:193
 msgid "This server does not support quote posts."
 msgstr "This server does not support quote posts."
 
-#: src/screens/Drive/detail.tsx:188
+#: src/screens/Drive/detail.tsx:189
 msgid "This server does not support showing notes that use a file."
 msgstr "This server does not support showing notes that use a file."
 
-#: src/screens/Tag.tsx:105
+#: src/screens/Tag.tsx:106
 msgid "This server does not support that hashtag action."
 msgstr "This server does not support that hashtag action."
 
-#: src/components/Settings/TransferSections.tsx:87
+#: src/components/Settings/TransferSections.tsx:90
 msgid "This server has no {kind} export."
 msgstr "This server has no {kind} export."
 
-#: src/components/Settings/TransferSections.tsx:85
+#: src/components/Settings/TransferSections.tsx:88
 msgid "This server has no {kind} import."
 msgstr "This server has no {kind} import."
 
@@ -6105,7 +6258,7 @@ msgstr "This server has no clips."
 msgid "This server has no DM inbox Keystone can open."
 msgstr "This server has no DM inbox Keystone can open."
 
-#: src/screens/ProfileEditor.tsx:271
+#: src/screens/ProfileEditor.tsx:270
 msgid "This server has no endpoint for profile pictures, so they cannot be changed here."
 msgstr "This server has no endpoint for profile pictures, so they cannot be changed here."
 
@@ -6113,19 +6266,19 @@ msgstr "This server has no endpoint for profile pictures, so they cannot be chan
 msgid "This server has no equivalent for this timeline."
 msgstr "This server has no equivalent for this timeline."
 
-#: src/components/Settings/TransferSections.tsx:84
+#: src/components/Settings/TransferSections.tsx:87
 msgid "This server has no notes import (a Sharkey/fork endpoint)."
 msgstr "This server has no notes import (a Sharkey/fork endpoint)."
 
-#: src/components/Settings/DomainBlocks.tsx:39
-#: src/components/Settings/DomainBlocks.tsx:70
-#: src/components/Settings/DomainBlocks.tsx:97
-#: src/components/Settings/DomainBlocks.tsx:118
+#: src/components/Settings/DomainBlocks.tsx:40
+#: src/components/Settings/DomainBlocks.tsx:71
+#: src/components/Settings/DomainBlocks.tsx:98
+#: src/components/Settings/DomainBlocks.tsx:119
 msgid "This server has no personal domain blocks."
 msgstr "This server has no personal domain blocks."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:47
+#: src/lib/localeErrors.ts:54
 msgid "errors.unsupported.profileField"
 msgstr "This server has no profile field for {fields}."
 
@@ -6141,7 +6294,7 @@ msgstr "This server has no recommendations."
 msgid "This server has no repost-mute list."
 msgstr "This server has no repost-mute list."
 
-#: src/screens/Tag.tsx:80
+#: src/screens/Tag.tsx:81
 msgid "This server has no state for this hashtag yet."
 msgstr "This server has no state for this hashtag yet."
 
@@ -6149,11 +6302,11 @@ msgstr "This server has no state for this hashtag yet."
 msgid "This server has no translation service."
 msgstr "This server has no translation service."
 
-#: src/screens/Lists.tsx:69
+#: src/screens/Lists.tsx:70
 msgid "This server has not reported exclusive lists."
 msgstr "This server has not reported exclusive lists."
 
-#: src/screens/Lists.tsx:61
+#: src/screens/Lists.tsx:62
 msgid "This server has not reported list reply settings."
 msgstr "This server has not reported list reply settings."
 
@@ -6166,20 +6319,25 @@ msgstr "This server keeps no edit history."
 msgid "This server lists no rules."
 msgstr "This server lists no rules."
 
-#: src/screens/AdminInsight.tsx:334
+#: src/screens/AdminInsight.tsx:337
 msgid "This server publishes no activity counters."
 msgstr "This server publishes no activity counters."
 
-#: src/screens/AdminInsight.tsx:311
+#: src/screens/AdminInsight.tsx:314
 msgid "This server publishes no extended description."
 msgstr "This server publishes no extended description."
 
-#: src/screens/AdminInsight.tsx:628
+#: src/screens/AdminInsight.tsx:631
 msgid "This server publishes no rule list."
 msgstr "This server publishes no rule list."
 
-#: src/screens/AdminInsight.tsx:529
-#: src/screens/AdminReportDetail.tsx:169
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:106
+msgid "errors.unsupported.reportDecision"
+msgstr "This server records no verdict on resolved reports."
+
+#: src/screens/AdminInsight.tsx:532
+#: src/screens/AdminReportDetail.tsx:170
 #: src/screens/AdminReportsList.tsx:174
 msgid "This server reports your account as neither admin nor moderator."
 msgstr "This server reports your account as neither admin nor moderator."
@@ -6196,15 +6354,15 @@ msgstr "This sign-in is missing permissions Keystone uses."
 msgid "This sign-in predates a permission Keystone now uses."
 msgstr "This sign-in predates a permission Keystone now uses."
 
-#: src/screens/AuthCallback.tsx:153
-#: src/screens/Login.tsx:412
-#: src/screens/Login.tsx:440
-#: src/screens/Login.tsx:482
-#: src/screens/Login.tsx:496
+#: src/screens/AuthCallback.tsx:154
+#: src/screens/Login.tsx:413
+#: src/screens/Login.tsx:441
+#: src/screens/Login.tsx:483
+#: src/screens/Login.tsx:497
 msgid "This sign-in response did not match the server. Please start again."
 msgstr "This sign-in response did not match the server. Please start again."
 
-#: src/screens/Tag.tsx:213
+#: src/screens/Tag.tsx:214
 msgid "This tag is empty."
 msgstr "This tag is empty."
 
@@ -6212,16 +6370,16 @@ msgstr "This tag is empty."
 msgid "Thread muted"
 msgstr "Thread muted"
 
-#: src/screens/Note.tsx:1199
+#: src/screens/Note.tsx:1200
 msgid "Threads never show sample data when signed out."
 msgstr "Threads never show sample data when signed out."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:59
+#: src/lib/localeErrors.ts:66
 msgid "errors.shape.timeline"
 msgstr "Timeline {kind} returned an unexpected response shape (HTTP {status})."
 
-#: src/components/Composer/ComposerSections.tsx:479
+#: src/components/Composer/ComposerSections.tsx:480
 msgid "Tomorrow 9:00"
 msgstr "Tomorrow 9:00"
 
@@ -6244,25 +6402,30 @@ msgid "Translation is handled by your server — this text will be sent to it."
 msgstr "Translation is handled by your server — this text will be sent to it."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:64
+#: src/lib/localeErrors.ts:71
 msgid "errors.shape.trendingLinks"
 msgstr "Trending links returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:63
+#: src/lib/localeErrors.ts:102
+msgid "errors.unsupported.explore"
+msgstr "Trending posts are not available on this server."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:70
 msgid "errors.shape.trendingStatuses"
 msgstr "Trending posts returned an unexpected response shape."
 
-#: src/screens/Explore.tsx:153
+#: src/screens/Explore.tsx:154
 msgid "Trending tags are not available on this server."
 msgstr "Trending tags are not available on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:62
+#: src/lib/localeErrors.ts:69
 msgid "errors.shape.trendingTags"
 msgstr "Trending tags returned an unexpected response shape."
 
-#: src/screens/explore/UsersTab.tsx:134
+#: src/screens/explore/UsersTab.tsx:135
 msgid "Trending users are not available on this server."
 msgstr "Trending users are not available on this server."
 
@@ -6278,38 +6441,38 @@ msgstr "Tune how the recommendations feed (the ✨ tab) picks posts for you."
 
 #. placeholder {0}: mfa.challengeTypes[0] ?? 'totp'
 #. placeholder {0}: props.mfa.challengeTypes[0] ?? 'totp'
-#: src/screens/Login.tsx:683
-#: src/screens/Login.tsx:751
+#: src/screens/Login.tsx:684
+#: src/screens/Login.tsx:752
 msgid "Two-factor code ({0})"
 msgstr "Two-factor code ({0})"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:37
+#: src/lib/localeErrors.ts:44
 msgid "errors.auth.mfaFailed"
 msgstr "Two-factor sign-in failed."
 
-#: src/screens/Drive/detail.tsx:127
+#: src/screens/Drive/detail.tsx:128
 msgctxt "drive file detail field"
 msgid "Type"
 msgstr "Type"
 
-#: src/screens/explore/UsersTab.tsx:125
+#: src/screens/explore/UsersTab.tsx:126
 msgid "Type a profile name to search."
 msgstr "Type a profile name to search."
 
-#: src/screens/Explore.tsx:154
+#: src/screens/Explore.tsx:155
 msgid "Type a query above to browse a tag."
 msgstr "Type a query above to browse a tag."
 
-#: src/screens/explore/UsersTab.tsx:135
+#: src/screens/explore/UsersTab.tsx:136
 msgid "Type a query above to search profiles."
 msgstr "Type a query above to search profiles."
 
-#: src/screens/Explore.tsx:218
+#: src/screens/Explore.tsx:219
 msgid "Type a query to search posts."
 msgstr "Type a query to search posts."
 
-#: src/screens/Explore.tsx:127
+#: src/screens/Explore.tsx:128
 msgid "Type a tag to search."
 msgstr "Type a tag to search."
 
@@ -6326,10 +6489,10 @@ msgid "Unavailable"
 msgstr "Unavailable"
 
 #: src/components/Post/menuModel.ts:253
-#: src/components/ProfileActions/ProfileActions.tsx:39
-#: src/components/ProfileActions/ProfileActions.tsx:81
-#: src/components/Settings/DomainBlocks.tsx:185
-#: src/components/Settings/MuteBlockSearch.tsx:194
+#: src/components/ProfileActions/ProfileActions.tsx:40
+#: src/components/ProfileActions/ProfileActions.tsx:82
+#: src/components/Settings/DomainBlocks.tsx:186
+#: src/components/Settings/MuteBlockSearch.tsx:195
 #: src/components/Settings/MutesSection.tsx:139
 msgid "Unblock"
 msgstr "Unblock"
@@ -6342,17 +6505,17 @@ msgstr "Unblock to interact again."
 msgid "Unblocked"
 msgstr "Unblocked"
 
-#: src/components/Post/ActionBar.tsx:186
+#: src/components/Post/ActionBar.tsx:179
 msgid "Undo boost"
 msgstr "Undo boost"
 
-#: src/components/Profile/UserHoverCard.tsx:192
-#: src/screens/Channel.tsx:44
+#: src/components/Profile/UserHoverCard.tsx:187
+#: src/screens/Channel.tsx:45
 msgid "Unfollow"
 msgstr "Unfollow"
 
-#: src/screens/Tag.tsx:144
-#: src/screens/Tag.tsx:150
+#: src/screens/Tag.tsx:145
+#: src/screens/Tag.tsx:151
 msgid "Unfollow hashtag"
 msgstr "Unfollow hashtag"
 
@@ -6366,8 +6529,8 @@ msgstr "Unhide"
 msgid "Unicode groups"
 msgstr "Unicode groups"
 
-#: src/screens/Drive/detail.tsx:138
-#: src/screens/Drive/rows.tsx:37
+#: src/screens/Drive/detail.tsx:139
+#: src/screens/Drive/rows.tsx:38
 msgctxt "drive file detail value"
 msgid "Unknown"
 msgstr "Unknown"
@@ -6377,14 +6540,14 @@ msgstr "Unknown"
 msgid "Unknown account"
 msgstr "Unknown account"
 
-#: src/components/Post/ActionBar.tsx:213
+#: src/components/Post/ActionBar.tsx:206
 msgid "Unlike, {count} likes"
 msgstr "Unlike, {count} likes"
 
 #: src/components/Post/menuModel.ts:251
-#: src/components/ProfileActions/ProfileActions.tsx:74
-#: src/components/Settings/MuteBlockSearch.tsx:160
-#: src/components/Settings/MuteBlockSearch.tsx:177
+#: src/components/ProfileActions/ProfileActions.tsx:75
+#: src/components/Settings/MuteBlockSearch.tsx:161
+#: src/components/Settings/MuteBlockSearch.tsx:178
 #: src/components/Settings/MutesSection.tsx:130
 msgid "Unmute"
 msgstr "Unmute"
@@ -6451,7 +6614,7 @@ msgid "Until {0} (all day)"
 msgstr "Until {0} (all day)"
 
 #. placeholder {0}: section.data.updatedAt
-#: src/screens/AdminInsight.tsx:318
+#: src/screens/AdminInsight.tsx:321
 msgid "Updated {0}"
 msgstr "Updated {0}"
 
@@ -6461,17 +6624,17 @@ msgid "Upload"
 msgstr "Upload"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:25
+#: src/lib/localeErrors.ts:30
 msgid "errors.network.timeoutUpload"
 msgstr "Upload timed out after {n}s: the file may already be on the server. Check before retrying."
 
-#: src/components/Composer/ComposerSections.tsx:283
-#: src/screens/Note.tsx:599
+#: src/components/Composer/ComposerSections.tsx:284
+#: src/screens/Note.tsx:600
 msgid "uploaded"
 msgstr "uploaded"
 
 #. placeholder {0}: media.name
-#: src/screens/Drive.tsx:212
+#: src/screens/Drive.tsx:213
 msgid "Uploaded “{0}”."
 msgstr "Uploaded “{0}”."
 
@@ -6481,19 +6644,19 @@ msgid "Uploading “{0}”…"
 msgstr "Uploading “{0}”…"
 
 #. placeholder {0}: Math.round((u.progress.loaded / u.progress.total) * 100)
-#: src/components/Composer/ComposerSections.tsx:278
+#: src/components/Composer/ComposerSections.tsx:279
 msgid "Uploading {0}%"
 msgstr "Uploading {0}%"
 
-#: src/components/Settings/TransferSections.tsx:98
+#: src/components/Settings/TransferSections.tsx:102
 msgid "Uploading to your Drive…"
 msgstr "Uploading to your Drive…"
 
-#: src/screens/Note.tsx:597
+#: src/screens/Note.tsx:598
 msgid "uploading..."
 msgstr "uploading..."
 
-#: src/components/Composer/ComposerSections.tsx:279
+#: src/components/Composer/ComposerSections.tsx:280
 #: src/components/Profile/ProfileEditorRows.tsx:144
 msgid "Uploading…"
 msgstr "Uploading…"
@@ -6504,21 +6667,21 @@ msgid "Uploading…"
 msgstr "Uploading…"
 
 #. placeholder {0}: selectedFolder.name
-#: src/screens/Drive.tsx:328
+#: src/screens/Drive.tsx:329
 msgid "Uploads go to “{0}”."
 msgstr "Uploads go to “{0}”."
 
-#: src/screens/Drive.tsx:329
+#: src/screens/Drive.tsx:330
 msgid "Uploads go to Root."
 msgstr "Uploads go to Root."
 
-#: src/screens/Drive/detail.tsx:156
+#: src/screens/Drive/detail.tsx:157
 msgctxt "drive file detail field"
 msgid "URL"
 msgstr "URL"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:17
+#: src/lib/localeErrors.ts:22
 msgid "errors.validation.hostScheme"
 msgstr "Use an http(s) instance address, e.g. example.com."
 
@@ -6526,16 +6689,16 @@ msgstr "Use an http(s) instance address, e.g. example.com."
 msgid "User"
 msgstr "User"
 
-#: src/screens/Login.tsx:660
-#: src/screens/Login.tsx:766
+#: src/screens/Login.tsx:661
+#: src/screens/Login.tsx:767
 msgid "Username"
 msgstr "Username"
 
-#: src/components/Settings/MuteBlockSearch.tsx:129
+#: src/components/Settings/MuteBlockSearch.tsx:130
 msgid "username or handle"
 msgstr "username or handle"
 
-#: src/screens/Antennas.tsx:43
+#: src/screens/Antennas.tsx:44
 msgid "users"
 msgstr "users"
 
@@ -6543,38 +6706,38 @@ msgstr "users"
 msgid "Users"
 msgstr "Users"
 
-#: src/screens/Antennas.tsx:45
+#: src/screens/Antennas.tsx:46
 msgid "users_blacklist"
 msgstr "users_blacklist"
 
 #. placeholder {0}: reportResolutionLabel(report.resolution)
 #. placeholder {1}: report.actionTakenBy ? ` by ${reportActorLabel(report.actionTakenBy)}` : ''
 #. placeholder {2}: report.actionTakenAt ? ` at ${report.actionTakenAt}` : ''
-#: src/screens/AdminReportDetail.tsx:265
+#: src/screens/AdminReportDetail.tsx:266
 msgid "Verdict: {0}{1}{2}"
 msgstr "Verdict: {0}{1}{2}"
 
-#: src/screens/Login.tsx:686
-#: src/screens/Login.tsx:754
+#: src/screens/Login.tsx:687
+#: src/screens/Login.tsx:755
 msgid "Verify"
 msgstr "Verify"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:38
+#: src/lib/localeErrors.ts:45
 msgid "errors.auth.noVerifyAccount"
 msgstr "verify_credentials did not return an account."
 
-#: src/screens/AuthCallback.tsx:227
+#: src/screens/AuthCallback.tsx:228
 msgid "Verifying with your server…"
 msgstr "Verifying with your server…"
 
-#: src/screens/Login.tsx:686
-#: src/screens/Login.tsx:754
+#: src/screens/Login.tsx:687
+#: src/screens/Login.tsx:755
 msgid "Verifying…"
 msgstr "Verifying…"
 
 #. placeholder {0}: meta.version || '—'
-#: src/screens/AdminInsight.tsx:410
+#: src/screens/AdminInsight.tsx:413
 msgid "Version {0}"
 msgstr "Version {0}"
 
@@ -6583,7 +6746,7 @@ msgstr "Version {0}"
 msgid "Video unavailable"
 msgstr "Video unavailable"
 
-#: src/components/Composer/Composer.tsx:424
+#: src/components/Composer/Composer.tsx:425
 msgid "Videos are sent unchanged, including any location or device data they carry."
 msgstr "Videos are sent unchanged, including any location or device data they carry."
 
@@ -6591,7 +6754,7 @@ msgstr "Videos are sent unchanged, including any location or device data they ca
 msgid "View edit history"
 msgstr "View edit history"
 
-#: src/components/Settings/AccountSection.tsx:233
+#: src/components/Settings/AccountSection.tsx:234
 msgid "View insight"
 msgstr "View insight"
 
@@ -6600,7 +6763,7 @@ msgstr "View insight"
 msgid "View on remote instance"
 msgstr "View on remote instance"
 
-#: src/components/Settings/AccountSection.tsx:204
+#: src/components/Settings/AccountSection.tsx:205
 msgid "View requests"
 msgstr "View requests"
 
@@ -6621,7 +6784,7 @@ msgstr "Vote"
 msgid "voted in your poll"
 msgstr "voted in your poll"
 
-#: src/components/ProfileActions/ProfileActions.tsx:104
+#: src/components/ProfileActions/ProfileActions.tsx:105
 msgid "Wants to follow you."
 msgstr "Wants to follow you."
 
@@ -6631,7 +6794,7 @@ msgstr "We'll show you fewer posts like this."
 
 #. placeholder {0}: w.week
 #. placeholder {1}: bits.join(', ')
-#: src/screens/AdminInsight.tsx:195
+#: src/screens/AdminInsight.tsx:198
 msgid "Week {0}: {1}"
 msgstr "Week {0}: {1}"
 
@@ -6644,7 +6807,7 @@ msgid "What you post yourself."
 msgstr "What you post yourself."
 
 #: src/components/Composer/CompactComposer.tsx:224
-#: src/components/Composer/Composer.tsx:1272
+#: src/components/Composer/Composer.tsx:1273
 msgid "What's happening?"
 msgstr "What's happening?"
 
@@ -6698,7 +6861,7 @@ msgstr "with replies"
 msgid "Word and server mutes"
 msgstr "Word and server mutes"
 
-#: src/components/Settings/FiltersSection.tsx:215
+#: src/components/Settings/FiltersSection.tsx:216
 #: src/routes.ts:443
 #: src/screens/settings/meta.ts:29
 msgid "Word filters"
@@ -6717,14 +6880,14 @@ msgstr "Words, servers, accounts."
 msgid "Working on this request."
 msgstr "Working on this request."
 
-#: src/components/AccountSwitcher.tsx:96
-#: src/components/shell/AccountMenu.tsx:125
-#: src/screens/AdminReportDetail.tsx:110
+#: src/components/AccountSwitcher.tsx:97
+#: src/components/shell/AccountMenu.tsx:126
+#: src/screens/AdminReportDetail.tsx:111
 msgid "Working…"
 msgstr "Working…"
 
-#: src/screens/FollowRequests.tsx:71
-#: src/screens/FollowRequests.tsx:83
+#: src/screens/FollowRequests.tsx:72
+#: src/screens/FollowRequests.tsx:84
 msgctxt "button"
 msgid "Working…"
 msgstr "Working…"
@@ -6743,16 +6906,16 @@ msgstr "Write a message…"
 msgid "Write a post"
 msgstr "Write a post"
 
-#: src/screens/Note.tsx:499
+#: src/screens/Note.tsx:500
 msgid "Write something first."
 msgstr "Write something first."
 
 #: src/components/Composer/CompactComposer.tsx:221
-#: src/components/Composer/Composer.tsx:1269
+#: src/components/Composer/Composer.tsx:1270
 msgid "Write your reply"
 msgstr "Write your reply"
 
-#: src/screens/Drive/detail.tsx:145
+#: src/screens/Drive/detail.tsx:146
 msgctxt "drive file detail value"
 msgid "Yes"
 msgstr "Yes"
@@ -6770,7 +6933,7 @@ msgid "You believe it breaks the law"
 msgstr "You believe it breaks the law"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:46
+#: src/lib/localeErrors.ts:53
 msgid "errors.unsupported.boostVisibility"
 msgstr "You can only change boost visibility for accounts you follow."
 
@@ -6778,7 +6941,7 @@ msgstr "You can only change boost visibility for accounts you follow."
 msgid "You cannot send a message to yourself."
 msgstr "You cannot send a message to yourself."
 
-#: src/screens/ProfileEditor.tsx:254
+#: src/screens/ProfileEditor.tsx:255
 msgid "You do not have permission to update this profile. Sign in again and retry."
 msgstr "You do not have permission to update this profile. Sign in again and retry."
 
@@ -6786,24 +6949,24 @@ msgstr "You do not have permission to update this profile. Sign in again and ret
 msgid "You follow this account."
 msgstr "You follow this account."
 
-#: src/screens/Antennas.tsx:428
+#: src/screens/Antennas.tsx:429
 msgid "You have no antennas yet."
 msgstr "You have no antennas yet."
 
-#: src/screens/Clips.tsx:417
+#: src/screens/Clips.tsx:418
 msgid "You have no clips yet."
 msgstr "You have no clips yet."
 
-#: src/screens/Drive.tsx:436
+#: src/screens/Drive.tsx:437
 msgid "You have no files yet."
 msgstr "You have no files yet."
 
 #. js-lingui-explicit-id
-#: src/screens/Lists.tsx:516
+#: src/screens/Lists.tsx:517
 msgid "lists.empty"
 msgstr "You have no lists yet."
 
-#: src/components/ProfileActions/ProfileActions.tsx:156
+#: src/components/ProfileActions/ProfileActions.tsx:157
 msgid "You have no lists yet."
 msgstr "You have no lists yet."
 
@@ -6816,78 +6979,78 @@ msgstr "You have unsaved changes. Save them or discard?"
 msgid "Your account"
 msgstr "Your account"
 
-#: src/screens/Tag.tsx:108
+#: src/screens/Tag.tsx:109
 msgid "Your account cannot change this hashtag."
 msgstr "Your account cannot change this hashtag."
 
-#: src/components/Settings/WordFields.tsx:109
+#: src/components/Settings/WordFields.tsx:105
 msgid "Your account cannot change this setting."
 msgstr "Your account cannot change this setting."
 
-#: src/components/Settings/DomainBlocks.tsx:99
-#: src/components/Settings/DomainBlocks.tsx:120
-#: src/components/Settings/MuteBlockSearch.tsx:113
-#: src/components/Settings/TransferSections.tsx:80
+#: src/components/Settings/DomainBlocks.tsx:100
+#: src/components/Settings/DomainBlocks.tsx:121
+#: src/components/Settings/MuteBlockSearch.tsx:114
+#: src/components/Settings/TransferSections.tsx:83
 msgid "Your account cannot do that here."
 msgstr "Your account cannot do that here."
 
-#: src/screens/Antennas.tsx:357
+#: src/screens/Antennas.tsx:358
 msgid "Your account cannot view antennas here."
 msgstr "Your account cannot view antennas here."
 
-#: src/screens/Clips.tsx:336
+#: src/screens/Clips.tsx:337
 msgid "Your account cannot view clips here."
 msgstr "Your account cannot view clips here."
 
-#: src/screens/Drive.tsx:254
+#: src/screens/Drive.tsx:255
 msgid "Your account cannot view drive here."
 msgstr "Your account cannot view drive here."
 
-#: src/screens/Lists.tsx:459
+#: src/screens/Lists.tsx:460
 msgid "Your account cannot view lists here."
 msgstr "Your account cannot view lists here."
 
-#: src/screens/Drive/detail.tsx:192
+#: src/screens/Drive/detail.tsx:193
 msgid "Your account cannot view the notes for this file."
 msgstr "Your account cannot view the notes for this file."
 
-#: src/screens/Drive/detail.tsx:65
+#: src/screens/Drive/detail.tsx:66
 msgid "Your account cannot view this file."
 msgstr "Your account cannot view this file."
 
-#: src/screens/AdminReportDetail.tsx:195
+#: src/screens/AdminReportDetail.tsx:196
 msgid "Your account may not moderate reports on this server (missing scope or staff role)."
 msgstr "Your account may not moderate reports on this server (missing scope or staff role)."
 
-#: src/screens/AdminInsight.tsx:237
+#: src/screens/AdminInsight.tsx:240
 msgid "Your account may not read admin breakdowns on this server."
 msgstr "Your account may not read admin breakdowns on this server."
 
-#: src/screens/AdminInsight.tsx:207
+#: src/screens/AdminInsight.tsx:210
 msgid "Your account may not read admin metrics on this server (missing scope or staff role)."
 msgstr "Your account may not read admin metrics on this server (missing scope or staff role)."
 
-#: src/screens/AdminInsight.tsx:442
+#: src/screens/AdminInsight.tsx:445
 msgid "Your account may not read queue stats on this server (missing scope or staff role)."
 msgstr "Your account may not read queue stats on this server (missing scope or staff role)."
 
-#: src/screens/AdminInsight.tsx:333
+#: src/screens/AdminInsight.tsx:336
 msgid "Your account may not read server activity on this server."
 msgstr "Your account may not read server activity on this server."
 
-#: src/screens/AdminInsight.tsx:363
+#: src/screens/AdminInsight.tsx:366
 msgid "Your account may not read server hardware on this server (missing scope or staff role)."
 msgstr "Your account may not read server hardware on this server (missing scope or staff role)."
 
-#: src/screens/AdminInsight.tsx:309
+#: src/screens/AdminInsight.tsx:312
 msgid "Your account may not read the extended description on this server."
 msgstr "Your account may not read the extended description on this server."
 
-#: src/screens/AdminInsight.tsx:483
+#: src/screens/AdminInsight.tsx:486
 msgid "Your account may not read the online count on this server."
 msgstr "Your account may not read the online count on this server."
 
-#: src/screens/AdminInsight.tsx:266
+#: src/screens/AdminInsight.tsx:269
 msgid "Your account may not read the peer list on this server."
 msgstr "Your account may not read the peer list on this server."
 
@@ -6895,7 +7058,7 @@ msgstr "Your account may not read the peer list on this server."
 msgid "Your account may not read the reports queue on this server (missing scope or staff role)."
 msgstr "Your account may not read the reports queue on this server (missing scope or staff role)."
 
-#: src/screens/AdminReportDetail.tsx:226
+#: src/screens/AdminReportDetail.tsx:227
 msgid "Your account may not read this report on this server (missing scope or staff role)."
 msgstr "Your account may not read this report on this server (missing scope or staff role)."
 
@@ -6907,7 +7070,7 @@ msgstr "Your comment is the whole report on this server — categories, rules, p
 msgid "Your device font. No downloads."
 msgstr "Your device font. No downloads."
 
-#: src/components/Settings/TransferSections.tsx:324
+#: src/components/Settings/TransferSections.tsx:328
 msgid "Your export is ready — find it in Notifications."
 msgstr "Your export is ready — find it in Notifications."
 
@@ -6915,15 +7078,15 @@ msgstr "Your export is ready — find it in Notifications."
 msgid "Your liked / disliked topics weight."
 msgstr "Your liked / disliked topics weight."
 
-#: src/components/Composer/Composer.tsx:510
+#: src/components/Composer/Composer.tsx:511
 msgid "Your oldest draft was removed to make room for this one."
 msgstr "Your oldest draft was removed to make room for this one."
 
-#: src/screens/ProfileEditor.tsx:325
+#: src/screens/ProfileEditor.tsx:324
 msgid "Your sign-in is missing the permission to change profile pictures. Sign in again and retry."
 msgstr "Your sign-in is missing the permission to change profile pictures. Sign in again and retry."
 
 #. Date-format example in the input placeholder; keep as-is
-#: src/screens/ProfileEditor.tsx:394
+#: src/screens/ProfileEditor.tsx:391
 msgid "YYYY-MM-DD"
 msgstr "YYYY-MM-DD"

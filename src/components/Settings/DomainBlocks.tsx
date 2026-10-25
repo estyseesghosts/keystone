@@ -20,6 +20,7 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 
 import {PlaceholderRow, SettingRow} from './rows'
@@ -70,7 +71,7 @@ function DomainBlockList({api}: {api: DomainBlocksApi}) {
         setUnavailable(i18n._(msg`This server has no personal domain blocks.`))
         setDomains([])
       } else {
-        setError(err instanceof Error ? err.message : i18n._(msg`Could not load.`))
+        setError(errorText(i18n, err, i18n._(msg`Could not load.`)))
       }
     }
   }, [api])
@@ -98,7 +99,7 @@ function DomainBlockList({api}: {api: DomainBlocksApi}) {
       } else if (isPermissionError(err)) {
         setError(i18n._(msg`Your account cannot do that here.`))
       } else {
-        setError(err instanceof Error ? err.message : i18n._(msg`Action failed.`))
+        setError(errorText(i18n, err, i18n._(msg`Action failed.`)))
       }
     } finally {
       setBusy(false)
@@ -119,7 +120,7 @@ function DomainBlockList({api}: {api: DomainBlocksApi}) {
       } else if (isPermissionError(err)) {
         setError(i18n._(msg`Your account cannot do that here.`))
       } else {
-        setError(err instanceof Error ? err.message : i18n._(msg`Action failed.`))
+        setError(errorText(i18n, err, i18n._(msg`Action failed.`)))
       }
     } finally {
       setBusy(false)

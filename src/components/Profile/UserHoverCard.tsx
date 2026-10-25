@@ -12,7 +12,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
 import {formatCount, useLocale} from '#/locale/i18n'
-import {formatFediError, isKnownErrorCode} from '#/lib/localeErrors'
+import {formatFediError, toCodedError} from '#/lib/localeErrors'
 import {showToast} from '#/lib/toast'
 import {useGraphActions, useRelationship} from '#/state/queries/graph'
 import {useFullAccount} from '#/state/queries/accounts'
@@ -92,14 +92,9 @@ function UserHoverCardLoader({
     try {
       await actions.follow.set(state === 'follow' ? 'following' : 'none')
     } catch (e) {
-      const err = e as {code?: unknown; params?: Record<string, unknown>; message?: unknown}
-      showToast(
-        typeof err.code === 'string' && isKnownErrorCode(err.code)
-          ? formatFediError(i18n, {code: err.code, params: err.params})
-          : typeof err.message === 'string' && err.message
-            ? err.message
-            : i18n._(msg`Action failed.`),
-      )
+      // Coded failures render localized; anything else renders the generic
+      // translated fallback — never the raw message (X9.7, security L2).
+      showToast(formatFediError(i18n, toCodedError(e)))
     } finally {
       setBusy(false)
     }

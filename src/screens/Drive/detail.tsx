@@ -23,6 +23,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Dialog} from '#/components/Dialog'
 import {Loader} from '#/components/Loader'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 
 import {AttachedNoteRow, MetaRow, formatBytes} from './rows'
@@ -63,7 +64,7 @@ export function FileDetailDialog({
       if (isUnsupportedError(err)) setDetailUnsupported(true)
       else if (isPermissionError(err))
         setDetailError(i18n._(msg`Your account cannot view this file.`))
-      else setDetailError(err instanceof Error ? err.message : i18n._(msg`Could not load file details.`))
+      else setDetailError(errorText(i18n, err, i18n._(msg`Could not load file details.`)))
     }
   }, [drive, file.id])
 
@@ -85,7 +86,7 @@ export function FileDetailDialog({
       else if (isPermissionError(err)) setNotesState('denied')
       else {
         setNotesState('error')
-        setNotesError(err instanceof Error ? err.message : i18n._(msg`Could not load notes for this file.`))
+        setNotesError(errorText(i18n, err, i18n._(msg`Could not load notes for this file.`)))
       }
     }
   }, [drive, file.id])
@@ -109,7 +110,7 @@ export function FileDetailDialog({
       setNotesCursor(page.cursor)
       setNotesHasMore(!page.end)
     } catch (err) {
-      setNotesError(err instanceof Error ? err.message : i18n._(msg`Could not load more notes.`))
+      setNotesError(errorText(i18n, err, i18n._(msg`Could not load more notes.`)))
     } finally {
       setNotesLoadingMore(false)
     }

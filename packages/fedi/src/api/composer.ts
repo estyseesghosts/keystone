@@ -8,6 +8,7 @@
 import type { Backend, PostDraft, ReactionAcceptance } from "../core/backend";
 import type { Capabilities, ServerFamily } from "../core/detect";
 import type { Account, Post, VisibilityKind } from "../core/models";
+import { FediError } from "../core/errors";
 import { defaultFetchImpl, type FetchImpl } from "../core/http";
 import { isUnsupportedError, request } from "../mastodon/client";
 import type { InstanceV1, InstanceV2 } from "../mastodon/wire";
@@ -202,7 +203,12 @@ async function fetchComposeLimitsOnce(
     } else {
       v1 = (await request<InstanceV1>(session.origin, "/api/v1/instance", { timeoutMs, fetchImpl })).data ?? null;
     }
-    if (!v2 && !v1) throw new Error("No instance document answered.");
+    if (!v2 && !v1) {
+      throw new FediError(
+        "No instance document answered.",
+        "errors.compose.limitsUnavailable",
+      );
+    }
     const statuses = v2?.configuration?.statuses ?? v1?.configuration?.statuses;
     const media = v2?.configuration?.media_attachments;
     const polls =
@@ -231,7 +237,13 @@ async function fetchComposeLimitsOnce(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
-  if (!res.ok) throw new Error(`meta answered ${res.status}.`);
+  if (!res.ok) {
+    throw new FediError(
+      `The instance metadata request failed (HTTP ${res.status}).`,
+      "errors.compose.limitsUnavailable",
+      { status: res.status },
+    );
+  }
   const body = (await res.json()) as { maxNoteTextLength?: unknown; langs?: unknown };
   return {
     ...defaults,

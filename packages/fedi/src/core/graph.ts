@@ -5,6 +5,7 @@
 import type { Relationship, Account } from "./models";
 import type { Capabilities } from "./detect";
 import type { KeyValueStore } from "./sessions";
+import { FediError } from "./errors";
 
 export type GraphKind = "follow" | "mute" | "block";
 
@@ -97,7 +98,7 @@ export function gateGraph(kind: GraphActionKind, input: GraphGateInput): GraphGa
 export const SOFT_MUTE_KEY_PREFIX = "keystone.softmute.";
 
 export function softMuteKeyFor(sessionId: string): string {
-  if (!sessionId) throw new Error("softMuteKeyFor requires a sessionId");
+  if (!sessionId) throw new FediError("A session id is required.", "errors.session.missingId");
   return `${SOFT_MUTE_KEY_PREFIX}${sessionId}`;
 }
 

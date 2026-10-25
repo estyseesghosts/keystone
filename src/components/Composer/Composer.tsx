@@ -33,6 +33,7 @@ import {useTheme} from '#/alf/index'
 import {radius, space, typeSize} from '#/alf/tokens'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {
   useComposeLimits,
@@ -762,7 +763,7 @@ export function useComposerController({
         onPosted?.('posted')
         onClose?.()
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not save the edit.')
+        setError(errorText(i18n, err, 'Could not save the edit.'))
       } finally {
         submitRef.current = false
         setBusy(false)
@@ -848,14 +849,14 @@ export function useComposerController({
             draft: unquoted.draft,
             scheduledAt: unquoted.scheduledAt,
           })
-          setNotice(err instanceof Error ? err.message : 'The quoted account does not allow quotes; posted without it.')
+          setNotice(errorText(i18n, err, 'The quoted account does not allow quotes; posted without it.'))
           finish(result)
         } catch (retryErr) {
-          setError(retryErr instanceof Error ? retryErr.message : 'Could not post.')
+          setError(errorText(i18n, retryErr, 'Could not post.'))
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not post.')
+      setError(errorText(i18n, err, 'Could not post.'))
     } finally {
       submitRef.current = false
       setBusy(false)
@@ -922,7 +923,7 @@ export function useComposerController({
         setError(i18n._(msg`Some attachments could not be added.`))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not open the media picker.')
+      setError(errorText(i18n, err, 'Could not open the media picker.'))
     }
   }
 
@@ -1040,7 +1041,7 @@ export function useComposerController({
               session.id,
               snapshotDraft(id, state, state.media.length > 0 || uploads.items.length > 0),
             )
-            setError(err instanceof Error ? err.message : i18n._(msg`Could not save the draft.`))
+            setError(errorText(i18n, err, i18n._(msg`Could not save the draft.`)))
             setConfirmingClose(false)
             return
           }

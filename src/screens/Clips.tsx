@@ -22,6 +22,7 @@ import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {showToast} from '#/lib/toast'
 import type {RootParamList} from '#/routes'
@@ -42,7 +43,7 @@ function CreateRow({onCreate}: {onCreate: (name: string, isPublic: boolean) => P
       setName('')
       setIsPublic(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not create the clip.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not create the clip.`)))
     } finally {
       setBusy(false)
     }
@@ -111,7 +112,7 @@ function ClipRow({
       await onRename(trimmed, pub)
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not rename the clip.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not rename the clip.`)))
     } finally {
       setBusy(false)
     }
@@ -365,7 +366,7 @@ export function ClipsScreen() {
                   const updated = await backend.clips.update(item.id, {name, isPublic})
                   setClips(prev => (prev ?? []).map(c => (c.id === item.id ? updated : c)))
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : i18n._(msg`Could not rename the clip.`))
+                  setActionError(errorText(i18n, err, i18n._(msg`Could not rename the clip.`)))
                   throw err
                 }
               }}
@@ -377,7 +378,7 @@ export function ClipsScreen() {
                   setClips(prev => (prev ?? []).filter(c => c.id !== item.id))
                   setPendingDeleteId(null)
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : i18n._(msg`Could not delete the clip.`))
+                  setActionError(errorText(i18n, err, i18n._(msg`Could not delete the clip.`)))
                 }
               }}
               pendingDelete={pendingDeleteId === item.id}
@@ -395,7 +396,7 @@ export function ClipsScreen() {
                         showToast(i18n._(msg`Added to ${item.name}`))
                         navigation.goBack()
                       } catch (err) {
-                        setActionError(err instanceof Error ? err.message : i18n._(msg`Could not add to the clip.`))
+                        setActionError(errorText(i18n, err, i18n._(msg`Could not add to the clip.`)))
                       }
                     }
                   : undefined

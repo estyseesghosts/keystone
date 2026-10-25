@@ -31,6 +31,7 @@ import {CompactComposer} from '#/components/Composer/CompactComposer'
 import {sheetVisibleMaxHeight} from '#/components/Composer/Composer'
 import {Loader} from '#/components/Loader'
 import {Pressable} from '#/components/Pressable'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {takeRedraftSeed, type RedraftSeed} from '#/lib/redraft'
 import type {RootParamList} from '#/routes'
@@ -197,7 +198,7 @@ export function ComposeScreen() {
       editId ? backend.post(editId) : Promise.resolve(null),
     ]).then(
       ([replyTo, quote, editing]) => !cancelled && setTargets({replyTo, quote, editing}),
-      err => !cancelled && setFailed(err instanceof Error ? err.message : i18n._(msg`Could not load the post.`)),
+      err => !cancelled && setFailed(errorText(i18n, err, i18n._(msg`Could not load the post.`)),)
     )
     return () => {
       cancelled = true

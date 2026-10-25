@@ -13,6 +13,7 @@ import type {Account, Backend} from '@keystone/fedi'
 import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 
@@ -75,7 +76,7 @@ export function AccountList({
         if (!cancelled) setItems(list)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : i18n._(msg`Could not load.`))
+        if (!cancelled) setError(errorText(i18n, err, i18n._(msg`Could not load.`)))
       })
     return () => {
       cancelled = true
@@ -91,7 +92,7 @@ export function AccountList({
       await run(backend, id)
       setItems(await load(backend))
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Action failed.`))
+      setError(errorText(i18n, err, i18n._(msg`Action failed.`)))
     } finally {
       setBusy(false)
     }

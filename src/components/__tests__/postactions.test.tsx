@@ -171,7 +171,7 @@ describe('PostMenu UI', () => {
     wrap(<PostMenu postId="p1" sections={[[{key: 'a', label: 'A', run: async () => { throw new Error('boom') }}]]} />)
     fireEvent.press(screen.getByTestId('post-menu-p1'))
     fireEvent.press(screen.getByTestId('post-menu-p1-item-a'))
-    await waitFor(() => expect(toastStore.getSnapshot().map(t => t.message)).toContain('boom'))
+    await waitFor(() => expect(toastStore.getSnapshot().map(t => t.message)).toContain('Action failed.'))
   })
 
   it('opens the user submenu and goes back', () => {
@@ -334,7 +334,7 @@ describe('PostCard write wiring', () => {
     }
     live(post, b)
     fireEvent.press(screen.getByTestId('reaction-👍'))
-    await waitFor(() => expect(toastStore.getSnapshot().map(t => t.message)).toContain('server said no'))
+    await waitFor(() => expect(toastStore.getSnapshot().map(t => t.message)).toContain('Action failed.'))
     expect(screen.getByLabelText('👍, 3')).toBeTruthy()
   })
 
@@ -466,7 +466,7 @@ describe('PostCard write wiring', () => {
     fireEvent.press(screen.getByTestId('post-menu-p1'))
     fireEvent.press(screen.getByTestId('post-menu-p1-item-translate'))
     await waitFor(() =>
-      expect(toastStore.getSnapshot().map(t => t.message)).toContain('no translation service'),
+      expect(toastStore.getSnapshot().map(t => t.message)).toContain('Action failed.'),
     )
     expect(screen.getByTestId('post-body-p1')).toBeTruthy()
     // …and the next tap retries the request and renders the translation.

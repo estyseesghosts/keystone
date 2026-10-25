@@ -6,6 +6,7 @@ import {msg, t} from '@lingui/macro'
 import {useTheme as useAlfTheme} from '#/alf'
 import {Body, Caption} from '#/alf/typography'
 import {AnchoredPopup, PopupDesc, PopupHead, PopupRadioDot, PopupRow, PopupSep} from '#/components/Popup'
+import {errorText} from '#/lib/localeErrors'
 import {navigationRef} from '#/navigationRef'
 import {backendForSession} from '@keystone/fedi'
 import {useOptionalActiveSession, useSessionStore, useSessions} from '#/state/session/SessionProvider'
@@ -84,7 +85,7 @@ function AccountMenu({
     void store
       .signOut(id)
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Sign-out failed.')
+        setError(errorText(i18n, err, 'Sign-out failed.'))
       })
       .finally(() => setBusyId(null))
   }

@@ -42,6 +42,7 @@ import {SignInButton} from '#/components/SignInButton'
 import {ExploreSearchBar} from '#/components/Explore/ExploreSearchBar'
 import {ExploreSuggestPopup} from '#/components/Explore/ExploreSuggestPopup'
 import {ExploreTabBar} from '#/components/Explore/ExploreTabBar'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {applySuggestion, suggestTrigger} from '#/components/Explore/suggest'
 import {exploreTabFromParam, type ExploreTab, type RootParamList} from '#/routes'
@@ -91,7 +92,7 @@ function TagsTab({
         if (!cancelled) setTags(t)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load trending tags.')
+        if (!cancelled) setError(errorText(i18n, err, 'Could not load trending tags.'))
       })
     return () => {
       cancelled = true

@@ -1,5 +1,6 @@
 import type {I18n, MessageDescriptor} from '@lingui/core'
 import {msg} from '@lingui/macro'
+import type {FediErrorCode} from '@keystone/fedi'
 
 // Localized FediError codes (P5). `packages/fedi` never localizes: every
 // failure carries a stable `code` (dotted key) plus `params`. This map
@@ -12,7 +13,11 @@ import {msg} from '@lingui/macro'
 // without inventing new strings. Codes with no v1 entry (feeds,
 // reactions, created/updated lists) ship English-only until v2 adds them.
 
-export const FEDI_ERROR_MESSAGES: Record<string, MessageDescriptor> = {
+// Exhaustive by construction (X9.7): typed `Record<FediErrorCode, …>`
+// so a new code in `packages/fedi` fails typecheck until it has a
+// message here. Runtime lookups for unknown (e.g. server wire) codes
+// fall back to `FALLBACK` below — never raw text.
+export const FEDI_ERROR_MESSAGES: Record<FediErrorCode, MessageDescriptor> = {
   'errors.validation.hostRequired': msg({id: 'errors.validation.hostRequired', message: 'Enter an instance host, e.g. example.com.'}),
   'errors.validation.hostScheme': msg({id: 'errors.validation.hostScheme', message: 'Use an http(s) instance address, e.g. example.com.'}),
   'errors.validation.hostInvalid': msg({id: 'errors.validation.hostInvalid', message: 'That host does not look like a valid instance address.'}),
@@ -34,6 +39,8 @@ export const FEDI_ERROR_MESSAGES: Record<string, MessageDescriptor> = {
   'errors.auth.noCredentials': msg({id: 'errors.auth.noCredentials', message: 'The server registered an app but did not return usable credentials.'}),
   'errors.auth.signinFailed': msg({id: 'errors.auth.signinFailed', message: 'Sign-in failed.'}),
   'errors.auth.mfaRequired': msg({id: 'errors.auth.mfaRequired', message: 'This account requires two-factor authentication. Enter your code to finish signing in.'}),
+  'errors.auth.extraStep': msg({id: 'errors.auth.extraStep', message: 'This account needs an extra sign-in step that Keystone does not support.'}),
+  'errors.auth.miauthTimeout': msg({id: 'errors.auth.miauthTimeout', message: 'The approval was not completed in time. Approve on your server, then try again.'}),
   'errors.auth.mfaFailed': msg({id: 'errors.auth.mfaFailed', message: 'Two-factor sign-in failed.'}),
   'errors.auth.noVerifyAccount': msg({id: 'errors.auth.noVerifyAccount', message: 'verify_credentials did not return an account.'}),
   'errors.auth.savePending': msg({id: 'errors.auth.savePending', message: 'Could not save the sign-in state (session storage blocked) — the redirect flow cannot continue safely.'}),
@@ -66,6 +73,37 @@ export const FEDI_ERROR_MESSAGES: Record<string, MessageDescriptor> = {
   'errors.shape.expectedList': msg({id: 'errors.shape.expectedList', message: 'Expected a {kind} list (HTTP {status}).'}),
   'errors.reactions.likeUnsupported': msg({id: 'errors.reactions.likeUnsupported', message: 'This server does not support likes yet.'}),
   'errors.compose.fileTooLarge': msg({id: 'errors.compose.fileTooLarge', message: 'File is too large ({kb} KB — limit is 10 MB).'}),
+  'errors.compose.limitsUnavailable': msg({id: 'errors.compose.limitsUnavailable', message: 'Could not load the server limits.'}),
+  'errors.crypto.unavailable': msg({id: 'errors.crypto.unavailable', message: 'Secure random values are unavailable on this device.'}),
+  'errors.session.missingId': msg({id: 'errors.session.missingId', message: 'A session id is required.'}),
+  'errors.stream.unavailable': msg({id: 'errors.stream.unavailable', message: 'Could not open the live connection.'}),
+  'errors.poll.partialVote': msg({id: 'errors.poll.partialVote', message: 'Part of the vote was recorded before it failed.'}),
+  'errors.account.refRequired': msg({id: 'errors.account.refRequired', message: 'An account lookup needs an id or a username.'}),
+  'errors.report.commentRequired': msg({id: 'errors.report.commentRequired', message: 'A report needs a reason on this server.'}),
+  'errors.chat.messageRequired': msg({id: 'errors.chat.messageRequired', message: 'A chat message needs text or a file.'}),
+  'errors.shape.tag': msg({id: 'errors.shape.tag', message: 'Tag {name} returned an unexpected response shape.'}),
+  'errors.shape.noConversationFound': msg({id: 'errors.shape.noConversationFound', message: 'No conversation found for {id}.'}),
+  'errors.shape.noAccountFound': msg({id: 'errors.shape.noAccountFound', message: 'No account found for {acct}.'}),
+  'errors.shape.conversation': msg({id: 'errors.shape.conversation', message: 'Marking conversation {id} read returned an unexpected response shape.'}),
+  'errors.shape.statusHistory': msg({id: 'errors.shape.statusHistory', message: 'Status history returned an unexpected response shape.'}),
+  'errors.shape.mediaUpdate': msg({id: 'errors.shape.mediaUpdate', message: 'The media update returned an unexpected response shape.'}),
+  'errors.shape.markers': msg({id: 'errors.shape.markers', message: 'Markers returned an unexpected response shape.'}),
+  'errors.shape.customEmojis': msg({id: 'errors.shape.customEmojis', message: 'Custom emojis returned an unexpected response shape.'}),
+  'errors.shape.notificationPolicy': msg({id: 'errors.shape.notificationPolicy', message: 'The notification policy returned an unexpected response shape.'}),
+  'errors.shape.notificationRequests': msg({id: 'errors.shape.notificationRequests', message: 'Notification requests returned an unexpected response shape (HTTP {status}).'}),
+  'errors.shape.reportLookup': msg({id: 'errors.shape.reportLookup', message: 'Admin report lookup returned an unexpected response shape.'}),
+  'errors.shape.emptyReportPatch': msg({id: 'errors.shape.emptyReportPatch', message: 'Nothing to update: set a category or rule ids first.'}),
+  'errors.shape.uploadedFile': msg({id: 'errors.shape.uploadedFile', message: 'The server did not return the uploaded file.'}),
+  'errors.unsupported.adminInsight': msg({id: 'errors.unsupported.adminInsight', message: 'Server insight {scope} is not available on this server.'}),
+  'errors.unsupported.antennas': msg({id: 'errors.unsupported.antennas', message: 'Antennas are not available on this server.'}),
+  'errors.unsupported.bookmarks': msg({id: 'errors.unsupported.bookmarks', message: 'Bookmarks are not available on this server.'}),
+  'errors.unsupported.channels': msg({id: 'errors.unsupported.channels', message: 'Channels are not available on this server.'}),
+  'errors.unsupported.clips': msg({id: 'errors.unsupported.clips', message: 'Clips are not available on this server.'}),
+  'errors.unsupported.explore': msg({id: 'errors.unsupported.explore', message: 'Trending posts are not available on this server.'}),
+  'errors.unsupported.lists': msg({id: 'errors.unsupported.lists', message: 'Lists are not available on this server.'}),
+  'errors.unsupported.recommendations': msg({id: 'errors.unsupported.recommendations', message: 'Recommendations are not available on this server.'}),
+  'errors.unsupported.markers': msg({id: 'errors.unsupported.markers', message: 'Marking notifications read is not on this server.'}),
+  'errors.unsupported.reportDecision': msg({id: 'errors.unsupported.reportDecision', message: 'This server records no verdict on resolved reports.'}),
   'errors.filter.invalidRegex': msg({id: 'errors.filter.invalidRegex', message: 'Invalid regular expression on line {line}.'}),
   'errors.feeds.invalidDescriptor': msg({id: 'errors.feeds.invalidDescriptor', message: 'Invalid feed descriptor.'}),
 }
@@ -91,6 +129,38 @@ export function formatFediError(
 ): string {
   if (!err || typeof err.code !== 'string')
     return i18n._(FALLBACK.id, undefined, {message: FALLBACK.message})
-  const descriptor = FEDI_ERROR_MESSAGES[err.code] ?? FALLBACK
+  // The table is keyed by the `FediErrorCode` union, but runtime errors
+  // also carry server wire codes — read through a string index so unknown
+  // codes land on the generic fallback instead of failing typecheck.
+  const table: Record<string, MessageDescriptor> =
+    FEDI_ERROR_MESSAGES as unknown as Record<string, MessageDescriptor>
+  const descriptor = table[err.code] ?? FALLBACK
   return i18n._(descriptor.id, {...err.params, ...values}, {message: descriptor.message})
+}
+
+/** A `{code, params}` pair only when `err` carries a KNOWN `FediErrorCode`
+ * with object params — else null (the caller renders its generic text).
+ * This is the single gate between raw throws and user-visible toasts:
+ * nothing it rejects ever has its `message` displayed. Pure. */
+export function toCodedError(err: unknown): CodedError | null {
+  if (typeof err !== 'object' || err === null) return null
+  const code = (err as {code?: unknown}).code
+  if (typeof code !== 'string' || !isKnownErrorCode(code)) return null
+  const params = (err as {params?: unknown}).params
+  return {
+    code,
+    ...(params !== null && typeof params === 'object'
+      ? {params: params as Record<string, unknown>}
+      : {}),
+  }
+}
+
+/** User-facing error text (X9.7): a known code renders its localized
+ * message; anything else renders the caller's contextual `fallback`
+ * (already translated at the call site). Raw error text and server
+ * response text never reach the screen through here. Pure. */
+export function errorText(i18n: I18n, err: unknown, fallback: string): string {
+  const coded = toCodedError(err)
+  if (!coded) return fallback
+  return formatFediError(i18n, coded)
 }

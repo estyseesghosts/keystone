@@ -42,6 +42,7 @@ import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
 import type {UploadableFile} from '#/state/queries/composer'
 import {useActiveBackend} from '#/screens/HomeFeed'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 
 import {FileRow, FolderRow, FolderScope} from './Drive/rows'
@@ -159,7 +160,7 @@ export function DriveScreen() {
       setCursor(page.cursor)
       setHasMore(!page.end)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : i18n._(msg`Could not load more files.`))
+      setActionError(errorText(i18n, err, i18n._(msg`Could not load more files.`)))
     } finally {
       setLoadingMore(false)
     }
@@ -191,7 +192,7 @@ export function DriveScreen() {
       }
       if (result.files.length > 0) setStaged(result.files[0])
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : i18n._(msg`Could not open the file picker.`))
+      setUploadError(errorText(i18n, err, i18n._(msg`Could not open the file picker.`)))
     }
   }, [])
 
@@ -214,7 +215,7 @@ export function DriveScreen() {
       setUploadComment('')
       await loadRef.current()
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : i18n._(msg`Could not upload the file.`))
+      setUploadError(errorText(i18n, err, i18n._(msg`Could not upload the file.`)))
     } finally {
       if (uploadCtrl.current === ctrl) uploadCtrl.current = null
       setUploading(false)
@@ -302,7 +303,7 @@ export function DriveScreen() {
                   setPendingDeleteId(null)
                   setDetailFile(prev => (prev?.id === item.id ? null : prev))
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : i18n._(msg`Could not delete the file.`))
+                  setActionError(errorText(i18n, err, i18n._(msg`Could not delete the file.`)))
                 }
               }}
               pendingDelete={pendingDeleteId === item.id}
@@ -376,7 +377,7 @@ export function DriveScreen() {
                           if (selectedFolderId === folder.id) setSelectedFolderId(null)
                         } catch (err) {
                           setActionError(
-                            err instanceof Error ? err.message : i18n._(msg`Could not delete the folder.`),
+                            errorText(i18n, err, i18n._(msg`Could not delete the folder.`))
                           )
                         }
                       }}
@@ -416,7 +417,7 @@ export function DriveScreen() {
                           })
                           .catch((err: unknown) => {
                             setFolderError(
-                              err instanceof Error ? err.message : i18n._(msg`Could not create the folder.`),
+                              errorText(i18n, err, i18n._(msg`Could not create the folder.`))
                             )
                           })
                           .finally(() => setFolderBusy(false))

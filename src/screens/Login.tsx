@@ -29,6 +29,7 @@ import {Body, Caption, Heading} from '#/alf/typography'
 import {AccountSwitcher} from '#/components/AccountSwitcher'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 import {AUTH_CALLBACK_PATH} from '#/routes'
@@ -145,7 +146,7 @@ export function LoginScreen() {
   const [miauthStatus, setMiauthStatus] = useState<string | null>(null)
 
   const fail = (err: unknown) => {
-    setError(err instanceof Error ? err.message : 'Sign-in failed.')
+    setError(errorText(i18n, err, 'Sign-in failed.'))
   }
 
   const finish = async (result: {

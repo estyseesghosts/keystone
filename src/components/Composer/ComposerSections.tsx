@@ -18,6 +18,7 @@ import {RichText} from '#/components/RichText'
 import {PostQuote} from '#/components/Post/PostQuote'
 import {postBodyNodes, postEmojis} from '#/components/Post/body'
 import {formatRelativeTime} from '#/components/Post/time'
+import {errorText} from '#/lib/localeErrors'
 import {useLocale} from '#/locale/i18n'
 import {formatDateTime, formatDuration} from '#/locale/format'
 import {useNow} from '#/locale/ticker'
@@ -556,7 +557,7 @@ export function RecipientSection({c}: {c: ComposerController}) {
       setError(null)
     } catch (err) {
       // Keep the raw text so the user can retry or edit it.
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not resolve "${raw}".`))
+      setError(errorText(i18n, err, i18n._(msg`Could not resolve "${raw}".`)))
     } finally {
       setResolving(false)
     }
@@ -665,7 +666,7 @@ export function ScheduledListSection({c}: {c: ComposerController}) {
               disabled={cancel.isPending}
               onPress={() =>
                 cancel.mutate(s.id, {
-                  onError: err => c.setError(err instanceof Error ? err.message : i18n._(msg`Could not cancel.`)),
+                  onError: err => c.setError(errorText(i18n, err, i18n._(msg`Could not cancel.`)),)
                 })
               }
               testID={`composer-scheduled-cancel-${s.id}`}
@@ -705,7 +706,7 @@ export function ServerDraftsSection({c}: {c: ComposerController}) {
       // surface through the composer's error line, like every submit.
       await c.saveServerDraftNow()
     } catch (err) {
-      c.setError(err instanceof Error ? err.message : i18n._(msg`Could not save the draft.`))
+      c.setError(errorText(i18n, err, i18n._(msg`Could not save the draft.`)))
     } finally {
       setBusy(false)
     }
@@ -736,7 +737,7 @@ export function ServerDraftsSection({c}: {c: ComposerController}) {
               disabled={del.isPending}
               onPress={() =>
                 del.mutate(d.id, {
-                  onError: err => c.setError(err instanceof Error ? err.message : i18n._(msg`Could not delete.`)),
+                  onError: err => c.setError(errorText(i18n, err, i18n._(msg`Could not delete.`)),)
                 })
               }
               testID={`composer-serverdraft-del-${d.id}`}

@@ -31,6 +31,7 @@ import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 
 // List reply policies (Mastodon `replies_policy`). The labels are Mastodon
@@ -155,7 +156,7 @@ function CreateRow({
       await onCreate(trimmed, chosenListFields(caps, policy, exclusive))
       setName('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not create the list.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not create the list.`)))
     } finally {
       setBusy(false)
     }
@@ -247,7 +248,7 @@ function ListRow({
       await onRename(trimmed, chosenListFields(caps, policy, exclusive))
       setEditing(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not rename the list.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not rename the list.`)))
     } finally {
       setBusy(false)
     }
@@ -478,7 +479,7 @@ export function ListsScreen() {
                   const updated = await backend.lists.update(item.id, {name, ...fields})
                   setLists(prev => (prev ?? []).map(l => (l.id === item.id ? updated : l)))
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : i18n._(msg`Could not rename the list.`))
+                  setActionError(errorText(i18n, err, i18n._(msg`Could not rename the list.`)))
                   throw err
                 }
               }}
@@ -490,7 +491,7 @@ export function ListsScreen() {
                   setLists(prev => (prev ?? []).filter(l => l.id !== item.id))
                   setPendingDeleteId(null)
                 } catch (err) {
-                  setActionError(err instanceof Error ? err.message : i18n._(msg`Could not delete the list.`))
+                  setActionError(errorText(i18n, err, i18n._(msg`Could not delete the list.`)))
                 }
               }}
               pendingDelete={pendingDeleteId === item.id}

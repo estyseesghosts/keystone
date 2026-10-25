@@ -158,9 +158,14 @@ export function isInstanceMuted(
 export class WordFilterParseError extends Error {
   line: number;
   code = "errors.filter.invalidRegex";
+  /** Interpolation params for the UI's message table (X9.7): the
+   * descriptor reads `{line}`, so the coded shape must carry it — a bare
+   * `message` echo would never be translated. */
+  params: Record<string, unknown>;
   constructor(line: number) {
     super(`Invalid regular expression on line ${line}.`);
     this.line = line;
+    this.params = { line };
   }
 }
 

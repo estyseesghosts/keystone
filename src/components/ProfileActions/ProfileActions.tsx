@@ -1,6 +1,7 @@
 import {useState} from 'react'
 import {View} from 'react-native'
 import {msg} from '@lingui/macro'
+import {errorText} from '#/lib/localeErrors'
 import {useI18n} from '#/locale/i18n'
 import type {I18n} from '@lingui/core'
 
@@ -51,7 +52,7 @@ export function ProfileActions({sessionId, account}: {sessionId: string; account
   const state = followButtonState(relationship)
   const run = (p: Promise<void>) => {
     setError(null)
-    p.catch(e => setError(e instanceof Error ? e.message : i18n._(msg`That did not work.`)))
+    p.catch(e => setError(errorText(i18n, e, i18n._(msg`That did not work.`))))
   }
 
   const blockedByThem = state === 'blocked'

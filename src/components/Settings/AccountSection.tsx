@@ -9,6 +9,7 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {AccountSwitcher} from '#/components/AccountSwitcher'
 import {Button} from '#/components/Button'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useHosting} from '#/state/hosting'
@@ -156,7 +157,7 @@ function RejectQuotesRow() {
       setMe(updated)
     } catch (err) {
       if (isUnsupportedError(err)) setSupported(false)
-      else setError(err instanceof Error ? err.message : i18n._(msg`Could not save.`))
+      else setError(errorText(i18n, err, i18n._(msg`Could not save.`)))
     } finally {
       setBusy(false)
     }

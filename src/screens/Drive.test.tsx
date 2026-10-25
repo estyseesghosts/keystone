@@ -399,7 +399,7 @@ describe('Drive screen', () => {
       expect(await screen.findByText('big.png')).toBeTruthy()
       fireEvent.press(screen.getByTestId('drive-upload-submit'))
       expect(await screen.findByTestId('drive-upload-error')).toBeTruthy()
-      expect(screen.getByText('Quota exceeded.')).toBeTruthy()
+      expect(screen.getByText('Could not upload the file.')).toBeTruthy()
       // Not cleared, not faked as uploaded.
       expect(screen.getByTestId('drive-upload-submit')).toBeTruthy()
       expect(screen.queryByTestId('drive-upload-success')).toBeNull()

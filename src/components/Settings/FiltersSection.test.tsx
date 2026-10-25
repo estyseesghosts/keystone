@@ -230,7 +230,7 @@ describe('Filters section CRUD (WS-F)', () => {
       await waitFor(() => expect(backend.filters.delete).toHaveBeenCalled())
       // The row stays (the delete failed) and the error surfaces.
       expect(screen.getByText('spoiler')).toBeTruthy()
-      expect(screen.getByText('nope')).toBeTruthy()
+      expect(screen.getByText('Could not remove the filter.')).toBeTruthy()
     } finally {
       done()
     }

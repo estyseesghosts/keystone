@@ -190,7 +190,7 @@ describe('PostHandlers user actions (WS-D)', () => {
     const {b, user} = await setup()
     b.mute.mockRejectedValueOnce(new Error('server said no'))
     await user.onMute!()
-    expect(toastStore.getSnapshot().map(t => t.message)).toContain('server said no')
+    expect(toastStore.getSnapshot().map(t => t.message)).toContain('Action failed.')
   })
 
   it('DM opener exists only when the backend has the conversations module', async () => {

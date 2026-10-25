@@ -27,6 +27,7 @@ import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useGraphActions} from '#/state/queries/graph'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 
 function RequestRow({
@@ -52,7 +53,7 @@ function RequestRow({
       await actions.followRequest.resolve(accept)
       onResolved(request.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not answer the request.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not answer the request.`)))
     } finally {
       setBusy(false)
     }

@@ -1,71 +1,18 @@
 import {i18n} from '@lingui/core'
+import {FEDI_ERROR_CODES} from '@keystone/fedi'
 
-import {formatFediError, isKnownErrorCode} from './localeErrors'
+import {errorText, formatFediError, isKnownErrorCode, toCodedError} from './localeErrors'
 
 i18n.load('en', {})
 i18n.activate('en')
 
 describe('localeErrors', () => {
-  it('knows every FediError code the data layer throws', () => {
-    const codes = [
-      'errors.validation.hostRequired',
-      'errors.validation.hostScheme',
-      'errors.validation.hostInvalid',
-      'errors.network.crossOrigin',
-      'errors.network.redirect',
-      'errors.origin.insecure',
-      'errors.network.badPath',
-      'errors.network.unreachableBare',
-      'errors.network.timeoutInstance',
-      'errors.network.timeoutUpload',
-      'errors.network.aborted',
-      'errors.network.timeoutServer',
-      'errors.network.unreachableInstance',
-      'errors.network.unreachableOrigin',
-      'errors.network.unreachableServer',
-      'errors.network.badJson',
-      'errors.network.apiError',
-      'errors.auth.noKeystoneToken',
-      'errors.auth.noCredentials',
-      'errors.auth.signinFailed',
-      'errors.auth.mfaRequired',
-      'errors.auth.mfaFailed',
-      'errors.auth.noVerifyAccount',
-      'errors.auth.savePending',
-      'errors.unsupported.pinned',
-      'errors.unsupported.social',
-      'errors.unsupported.reactions',
-      'errors.unsupported.featured',
-      'errors.unsupported.noAccountRef',
-      'errors.unsupported.noAccountFound',
-      'errors.unsupported.boostVisibility',
-      'errors.unsupported.profileField',
-      'errors.shape.createdPost',
-      'errors.shape.createdList',
-      'errors.shape.updatedList',
-      'errors.shape.updatedProfile',
-      'errors.shape.uploadedMedia',
-      'errors.shape.noTranslation',
-      'errors.shape.noScheduled',
-      'errors.shape.noPoll',
-      'errors.shape.relationships',
-      'errors.shape.statusContext',
-      'errors.shape.mediaLookup',
-      'errors.shape.timeline',
-      'errors.shape.account',
-      'errors.shape.status',
-      'errors.shape.trendingTags',
-      'errors.shape.trendingStatuses',
-      'errors.shape.trendingLinks',
-      'errors.shape.suggestions',
-      'errors.shape.expectedList',
-      'errors.reactions.likeUnsupported',
-      'errors.compose.fileTooLarge',
-      'errors.filter.invalidRegex',
-      'errors.feeds.invalidDescriptor',
-    ]
-    expect(codes).toHaveLength(55)
-    for (const code of codes) expect(isKnownErrorCode(code)).toBe(true)
+  it('knows every FediError code the data layer throws (X9.7 union)', () => {
+    // Single source of truth lives in `packages/fedi` (`FEDI_ERROR_CODES`):
+    // a code added there fails typecheck until it has a descriptor here,
+    // and this test fails if the table ever drops one.
+    expect(FEDI_ERROR_CODES.length).toBeGreaterThan(0)
+    for (const code of FEDI_ERROR_CODES) expect(isKnownErrorCode(code)).toBe(true)
   })
 
   it('interpolates params and falls back for unknown codes', () => {
@@ -74,5 +21,30 @@ describe('localeErrors', () => {
     ).toContain('10')
     expect(formatFediError(i18n, {code: 'errors.nope.unknown'})).toBe('Action failed.')
     expect(formatFediError(i18n, null)).toBe('Action failed.')
+  })
+
+  it('toCodedError only passes known codes with object params', () => {
+    expect(toCodedError({code: 'errors.shape.noPoll', params: {}})).toEqual({
+      code: 'errors.shape.noPoll',
+      params: {},
+    })
+    // Server wire codes are data, not UI codes — never passed through.
+    expect(toCodedError({code: 'PERMISSION_DENIED'})).toBeNull()
+    expect(toCodedError({code: 'QUOTE_DISABLED_FOR_USER'})).toBeNull()
+    expect(toCodedError(new Error('boom'))).toBeNull()
+    expect(toCodedError(null)).toBeNull()
+    expect(toCodedError('errors.shape.noPoll')).toBeNull()
+    // Non-object params are dropped rather than rendered.
+    expect(toCodedError({code: 'errors.shape.tag', params: 'x'})).toEqual({
+      code: 'errors.shape.tag',
+    })
+  })
+
+  it('errorText localizes known codes and keeps the caller fallback otherwise', () => {
+    expect(errorText(i18n, {code: 'errors.shape.tag', params: {name: 'cats'}}, 'fallback')).toContain(
+      'cats',
+    )
+    expect(errorText(i18n, new Error('server said no'), 'Could not post.')).toBe('Could not post.')
+    expect(errorText(i18n, {code: 'PERMISSION_DENIED'}, 'fallback')).toBe('fallback')
   })
 })

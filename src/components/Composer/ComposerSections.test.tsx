@@ -125,7 +125,7 @@ describe('RecipientSection', () => {
     fireEvent.press(screen.getByTestId('composer-recipient-add'))
     await waitFor(() => expect(screen.getByTestId('composer-recipient-error')).toBeTruthy())
     expect(screen.getByTestId('composer-recipient-error')).toHaveTextContent(
-      'No account found for bob.',
+      'Could not resolve "bob".',
     )
     // Raw text is kept for retry/edit.
     expect(screen.getByTestId('composer-recipient-input').props.value).toBe('bob')
@@ -509,7 +509,7 @@ describe('ServerDraftsSection', () => {
     saveServerDraftNow.mockRejectedValueOnce(new Error('nope'))
     expect(await screen.findByText('No server drafts.')).toBeTruthy()
     fireEvent.press(screen.getByTestId('composer-serverdraft-save'))
-    await waitFor(() => expect(setError).toHaveBeenCalledWith('nope'))
+    await waitFor(() => expect(setError).toHaveBeenCalledWith('Could not save the draft.'))
   })
 
   it('renders nothing without the serverDrafts sub-module', () => {

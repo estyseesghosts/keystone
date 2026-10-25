@@ -20,6 +20,7 @@ import {atoms} from '#/alf/atoms'
 import {Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {pickTransferFile, transferSizeError} from '#/lib/documentPicker'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useActiveSession} from '#/state/session/SessionProvider'
@@ -75,7 +76,9 @@ const EXPORT_ROWS: Array<{kind: TransferExportKind; title: string; hint: string}
   {kind: 'favorites', title: 'Export favorites', hint: 'Your bookmarks.'},
 ]
 
-/** Honest failure text for a transfer action (never a raw code dump). */
+/** Honest failure text for a transfer action (never a raw code dump, never
+ * the raw message — known codes render localized, anything else the
+ * contextual fallback). */
 function transferErrorMessage(kind: string, action: 'import' | 'export', err: unknown): string {
   if (isPermissionError(err)) return i18n._(msg`Your account cannot do that here.`)
   if (isUnsupportedError(err)) {
@@ -86,10 +89,11 @@ function transferErrorMessage(kind: string, action: 'import' | 'export', err: un
     }
     return i18n._(msg`This server has no ${kind} export.`)
   }
-  if (err instanceof Error && err.message) return err.message
-  return action === 'import'
-    ? i18n._(msg`Could not import.`)
-    : i18n._(msg`Could not start the export.`)
+  return errorText(
+    i18n,
+    err,
+    action === 'import' ? i18n._(msg`Could not import.`) : i18n._(msg`Could not start the export.`),
+  )
 }
 
 function phaseLabel(phase: TransferPhase): string {

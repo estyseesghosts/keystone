@@ -15,6 +15,7 @@ import {Divider} from '#/components/Divider'
 import {Pressable} from '#/components/Pressable'
 import {TextField} from '#/components/forms/TextField'
 import {showToast} from '#/lib/toast'
+import {formatFediError, toCodedError} from '#/lib/localeErrors'
 import {i18n as singletonI18n, useI18n} from '#/locale/i18n'
 
 import type {PostMenuItem, PostMenuSection, ReportChooserValues} from './menuModel'
@@ -26,7 +27,9 @@ const styles = StyleSheet.create({
 })
 
 function errorMessage(e: unknown): string {
-  return e instanceof Error && e.message ? e.message : singletonI18n._(msg`Something went wrong.`)
+  // Coded failures render localized; anything else renders the generic
+  // translated fallback — never the raw message (X9.7, security L2).
+  return formatFediError(singletonI18n, toCodedError(e))
 }
 
 export function PostMenu({

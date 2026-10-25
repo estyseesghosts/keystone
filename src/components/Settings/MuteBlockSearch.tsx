@@ -20,6 +20,7 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 
 import {SettingRow} from './rows'
@@ -90,7 +91,7 @@ export function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChang
         readRenoteMutes(),
       ])
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Search failed.`))
+      setError(errorText(i18n, err, i18n._(msg`Search failed.`)))
     } finally {
       setBusy(false)
     }
@@ -111,7 +112,7 @@ export function MuteBlockSearch({backend, onChanged}: {backend: Backend; onChang
       onChanged()
     } catch (err) {
       if (isPermissionError(err)) setError(i18n._(msg`Your account cannot do that here.`))
-      else setError(err instanceof Error ? err.message : i18n._(msg`Action failed.`))
+      else setError(errorText(i18n, err, i18n._(msg`Action failed.`)))
     } finally {
       setActBusy(false)
     }

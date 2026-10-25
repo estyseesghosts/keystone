@@ -19,6 +19,7 @@ import {Button} from '#/components/Button'
 import {SkeletonList} from '#/components/Skeleton'
 import {Pressable} from '#/components/Pressable'
 import {showToast} from '#/lib/toast'
+import {errorText} from '#/lib/localeErrors'
 import {i18n, useI18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 
@@ -128,7 +129,7 @@ export function NewsTab({backend}: {backend: Backend}) {
         setEnd(page.end)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : i18n._(msg`Could not load news.`))
+        if (!cancelled) setError(errorText(i18n, err, i18n._(msg`Could not load news.`)))
       })
       .finally(() => {
         if (!cancelled) {
@@ -178,7 +179,7 @@ export function NewsTab({backend}: {backend: Backend}) {
         setEnd(page.end)
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : i18n._(msg`Could not load more news.`))
+        setError(errorText(i18n, err, i18n._(msg`Could not load more news.`)))
       })
       .finally(() => {
         loadingRef.current = false

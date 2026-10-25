@@ -14,6 +14,7 @@ import {detectServer, type DetectionEvidence, type ServerFlavor} from '@keystone
 import {atoms} from '#/alf/atoms'
 import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 import {callbackCleanHref} from '#/routes'
@@ -178,7 +179,7 @@ export function AuthCallbackScreen() {
           // Land on the tab shell (see Login `finish`).
           nav.dispatch(CommonActions.reset({index: 0, routes: [{name: 'Main'}]}))
         } catch (err) {
-          setError(err instanceof Error ? err.message : 'Sign-in failed.')
+          setError(errorText(i18n, err, 'Sign-in failed.'))
           setStatus('error')
         }
         return
@@ -214,7 +215,7 @@ export function AuthCallbackScreen() {
         // Land on the tab shell (see Login `finish`).
         nav.dispatch(CommonActions.reset({index: 0, routes: [{name: 'Main'}]}))
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Sign-in failed.')
+        setError(errorText(i18n, err, 'Sign-in failed.'))
         setStatus('error')
       }
     }

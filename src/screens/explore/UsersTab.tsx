@@ -21,6 +21,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {SkeletonList} from '#/components/Skeleton'
 import {SignInButton} from '#/components/SignInButton'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 
@@ -110,7 +111,7 @@ export function UsersTab({backend, submitted}: {backend: Backend; submitted: str
         } else if (err instanceof Error && /401|403/.test(err.message)) {
           setAuth(true)
         } else {
-          setError(err instanceof Error ? err.message : 'Could not load trending users.')
+          setError(errorText(i18n, err, 'Could not load trending users.'))
         }
       })
     return () => {

@@ -30,6 +30,7 @@ import {Button} from '#/components/Button'
 import {Loader} from '#/components/Loader'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useReportRules} from '#/state/queries/reports'
@@ -202,7 +203,7 @@ export function AdminReportScreen() {
       setActionError(denyReason)
     } else {
       setActionError(
-        e instanceof Error ? e.message : i18n._(msg`Could not complete this action.`),
+        errorText(i18n, e, i18n._(msg`Could not complete this action.`))
       )
     }
   }

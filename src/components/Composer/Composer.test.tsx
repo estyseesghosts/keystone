@@ -1077,7 +1077,7 @@ describe('server drafts smart default (slice 3)', () => {
     fireEvent.press(screen.getByTestId('composer-close-save'))
     // Honest error, stays open, nothing dropped: the content is local.
     await waitFor(() => expect(screen.getByTestId('composer-error')).toBeTruthy())
-    expect(screen.getByTestId('composer-error')).toHaveTextContent('boom')
+    expect(screen.getByTestId('composer-error')).toHaveTextContent('API error: HTTP 500')
     expect(onClose).not.toHaveBeenCalled()
     expect(listDrafts(store, s.id).map(d => d.text)).toEqual(['keep me'])
     expect(screen.queryByTestId('composer-close-confirm')).toBeNull()

@@ -276,7 +276,7 @@ describe('TransferSections import flow (upload-then-{fileId})', () => {
       render(tree('import'))
       fireEvent.press(await screen.findByTestId('transfer-import-pick-blocking'))
       expect(await screen.findByTestId('transfer-import-error-blocking')).toBeTruthy()
-      expect(screen.getByText(/permission denied by the OS/)).toBeTruthy()
+      expect(screen.getByText('Could not import.')).toBeTruthy()
       expect(backend.transfer.importFile).not.toHaveBeenCalled()
     } finally {
       done()

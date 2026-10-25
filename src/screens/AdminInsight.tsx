@@ -43,6 +43,7 @@ import {Loader} from '#/components/Loader'
 import {Pagehead} from '#/components/Pagehead'
 import {RichText} from '#/components/RichText'
 import {SignInButton} from '#/components/SignInButton'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {formatBytes as formatAppBytes, formatNumber} from '#/locale/format'
 import {useActiveBackend} from '#/screens/HomeFeed'
@@ -165,12 +166,14 @@ function SectionState({
     )
   }
   if (status === 'error') {
+    // Detail renders the localized code when the failure carries one;
+    // raw messages never reach the screen (X9.7) — the section title
+    // already says what failed, and the logger keeps the reason.
+    const detail = errorText(i18n, error, '')
     return (
       <View style={[atoms.gap_sm]}>
         <Body>{i18n._(msg`Could not load this section.`)}</Body>
-        {error instanceof Error && error.message ? (
-          <Caption color="faint">{error.message}</Caption>
-        ) : null}
+        {detail ? <Caption color="faint">{detail}</Caption> : null}
         <Button
           label={i18n._(msg`Retry`)}
           variant="secondary"

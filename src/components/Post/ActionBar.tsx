@@ -22,7 +22,7 @@ import {HeartIcon, MoreIcon, ReplyIcon, RepostIcon, SmileIcon} from '#/component
 import {Pressable} from '#/components/Pressable'
 import {UnicodeEmoji} from '#/components/EmojiImage'
 import {formatCount, i18n as lingui, useLocale} from '#/locale/i18n'
-import {formatFediError, isKnownErrorCode} from '#/lib/localeErrors'
+import {formatFediError, toCodedError} from '#/lib/localeErrors'
 import {Image, Pressable as RNPressable, type View as ViewType} from 'react-native'
 import {likeKind, type PostActions} from '#/state/cache'
 import {showToast} from '#/lib/toast'
@@ -47,19 +47,12 @@ const styles = StyleSheet.create({
   spacer: {marginStart: 'auto'},
 })
 
-const plainMessage = (e: unknown) =>
-  e instanceof Error && e.message ? e.message : 'Something went wrong.'
 export const toastError = (e: unknown): void => {
-  // Known backend codes render localized (P5); everything else keeps the
-  // server/client English message. Singleton call — safe outside providers.
-  if (typeof e === 'object' && e !== null) {
-    const code = (e as {code?: unknown}).code
-    if (typeof code === 'string' && isKnownErrorCode(code)) {
-      showToast(formatFediError(lingui, e as {code: string; params?: Record<string, unknown>}))
-      return
-    }
-  }
-  showToast(plainMessage(e))
+  // Known backend codes render localized (X9.7); everything else renders
+  // the generic translated fallback — raw error text and server response
+  // text never reach the toast (security L2). The redacted reason still
+  // goes to the logger at the throw site.
+  showToast(formatFediError(lingui, toCodedError(e)))
 }
 
 function ActionContent({

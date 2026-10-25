@@ -9,6 +9,7 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useActiveSession} from '#/state/session/SessionProvider'
@@ -54,7 +55,7 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
         if (!cancelled) setItems(list)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : i18n._(msg`Could not load filters.`))
+        if (!cancelled) setError(errorText(i18n, err, i18n._(msg`Could not load filters.`)))
       })
     return () => {
       cancelled = true
@@ -71,7 +72,7 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
       setItems(list => [...(list ?? []), created])
       setPhrase('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not add the filter.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not add the filter.`)))
     } finally {
       setBusy(false)
     }
@@ -84,7 +85,7 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
       setItems(list => (list ?? []).filter(x => x.id !== id))
       if (editingId === id) setEditingId(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not remove the filter.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not remove the filter.`)))
     }
   }
 
@@ -101,7 +102,7 @@ function FiltersBody({backend}: {backend: Backend & {filters: NonNullable<Backen
       setItems(list => (list ?? []).map(x => (x.id === row.id ? updated : x)))
       setEditingId(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not save the filter.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not save the filter.`)))
     }
   }
 

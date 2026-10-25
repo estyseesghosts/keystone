@@ -1095,6 +1095,8 @@ function unsupportedAdminInsight(scope: string): never {
     `Server insight ${scope} is not available on this server.`,
     404,
     "errors.unsupported.adminInsight",
+    undefined,
+    { scope },
   );
 }
 

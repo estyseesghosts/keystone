@@ -22,6 +22,7 @@ import {Button} from '#/components/Button'
 import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
 import {SignInButton} from '#/components/SignInButton'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import type {RootParamList} from '#/routes'
 import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
@@ -184,9 +185,7 @@ export function ChannelScreen() {
               setChannel(prev => (prev ? {...prev, isFollowing: !wasFollowing} : prev))
             } catch (err) {
               setActionError(
-                err instanceof Error
-                  ? err.message
-                  : i18n._(msg`Could not update the channel follow.`),
+                errorText(i18n, err, i18n._(msg`Could not update the channel follow.`)),
               )
             }
           }}

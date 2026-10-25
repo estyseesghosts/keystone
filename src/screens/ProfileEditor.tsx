@@ -45,6 +45,7 @@ import {
   EditorTextRow,
 } from '#/components/Profile/ProfileEditorRows'
 import {pickProfileImage} from '#/components/Profile/pickProfileImage'
+import {errorText} from '#/lib/localeErrors'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useActiveSession} from '#/state/session/SessionProvider'
@@ -134,7 +135,7 @@ export function ProfileEditorScreen() {
       })
       .catch(err => {
         if (cancelled) return
-        setLoadError(err instanceof Error ? err.message : i18n._(msg`Could not load your profile.`))
+        setLoadError(errorText(i18n, err, i18n._(msg`Could not load your profile.`)))
         setLoading(false)
       })
     return () => {
@@ -252,10 +253,8 @@ export function ProfileEditorScreen() {
         (err: unknown) => {
           if (isPermissionError(err)) {
             setError(i18n._(msg`You do not have permission to update this profile. Sign in again and retry.`))
-          } else if (err instanceof Error) {
-            setError(err.message)
           } else {
-            setError(i18n._(msg`Could not save your profile.`))
+            setError(errorText(i18n, err, i18n._(msg`Could not save your profile.`)))
           }
         },
       )
@@ -284,7 +283,7 @@ export function ProfileEditorScreen() {
       picked = await pickProfileImage(kind)
     } catch (err) {
       setImageError(
-        err instanceof Error ? err.message : i18n._(msg`Could not open the photo picker.`),
+        errorText(i18n, err, i18n._(msg`Could not open the photo picker.`)),
       )
       return
     }
@@ -324,10 +323,8 @@ export function ProfileEditorScreen() {
         setImageError(
           i18n._(msg`Your sign-in is missing the permission to change profile pictures. Sign in again and retry.`),
         )
-      } else if (err instanceof Error) {
-        setImageError(err.message)
       } else {
-        setImageError(i18n._(msg`Could not upload that picture.`))
+        setImageError(errorText(i18n, err, i18n._(msg`Could not upload that picture.`)))
       }
       // Nothing changed server-side: fall back to the last confirmed image.
       setImagePreviews(prev => ({...prev, [kind]: null}))

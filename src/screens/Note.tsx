@@ -56,6 +56,7 @@ import {goBackOrFeed} from '#/components/shell/shellNav'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
+import {errorText} from '#/lib/localeErrors'
 import {i18n} from '#/locale/i18n'
 import {msg, plural} from '@lingui/macro'
 import {useQueryClient} from '@tanstack/react-query'
@@ -403,7 +404,7 @@ function InlineReply({
         )
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not open the media picker.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not open the media picker.`)))
     }
   }
 
@@ -462,7 +463,7 @@ function InlineReply({
       await client.invalidateQueries({queryKey: threadRepliesQueryKey(sessionId, focused.id)})
       await client.invalidateQueries({queryKey: threadQueryKey(sessionId, threadId)})
     } catch (err) {
-      setError(err instanceof Error ? err.message : i18n._(msg`Could not post.`))
+      setError(errorText(i18n, err, i18n._(msg`Could not post.`)))
     } finally {
       setBusy(false)
     }

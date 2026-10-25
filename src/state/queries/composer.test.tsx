@@ -192,7 +192,7 @@ describe('uploadAll', () => {
     )
     expect(ids).toBeNull()
     expect(patches.a.status).toBe('done')
-    expect(patches.b).toMatchObject({status: 'error', error: 'too big'})
+    expect(patches.b).toMatchObject({status: 'error', error: 'Upload failed.'})
   })
 
   it('carries the Drive folder target (folderId/force) and keeps root by default', async () => {

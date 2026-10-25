@@ -49,6 +49,7 @@ import type {
   StreamState,
 } from "../core/backend";
 import type { Notification, Post } from "../core/models";
+import { FediError } from "../core/errors";
 import { adaptChatMessage } from "./chat";
 import { adaptNote, adaptNotification } from "./adapt";
 import type { Note, NotificationItem } from "./wire";
@@ -196,7 +197,7 @@ interface NoteCapture {
 function defaultSocketImpl(): StreamSocketImpl {
   const Impl = (globalThis as { WebSocket?: StreamSocketImpl }).WebSocket;
   if (!Impl) {
-    throw new Error(LIVE_OPEN_MESSAGE);
+    throw new FediError("Could not open the live connection.", "errors.stream.unavailable");
   }
   return Impl;
 }

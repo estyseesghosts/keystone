@@ -230,7 +230,7 @@ describe('ProfileEditorScreen (misskey family)', () => {
       await waitFor(() => expect(screen.getByTestId('profile-editor-name')).toBeTruthy())
       fireEvent.press(screen.getByTestId('profile-editor-save'))
       await waitFor(() => expect(screen.getByTestId('profile-editor-error')).toBeTruthy())
-      expect(screen.getByTestId('profile-editor-error')).toHaveTextContent('invalid birthday')
+      expect(screen.getByTestId('profile-editor-error')).toHaveTextContent('Could not save your profile.')
       expect(mockGoBack).not.toHaveBeenCalled()
     } finally {
       done()
@@ -306,7 +306,9 @@ describe('ProfileEditorScreen (misskey family)', () => {
       await waitFor(() => expect(screen.getByTestId('profile-editor-avatar-choose')).toBeTruthy())
       fireEvent.press(screen.getByTestId('profile-editor-avatar-choose'))
       await waitFor(() => expect(screen.getByTestId('profile-editor-avatar-error')).toBeTruthy())
-      expect(screen.getByTestId('profile-editor-avatar-error')).toHaveTextContent(/too large/)
+      expect(screen.getByTestId('profile-editor-avatar-error')).toHaveTextContent(
+        'Could not upload that picture.',
+      )
       // The rejected local preview was rolled back (me() has no avatar URL).
       expect(screen.getByTestId('profile-editor-avatar-preview').props.source).toBeUndefined()
     } finally {

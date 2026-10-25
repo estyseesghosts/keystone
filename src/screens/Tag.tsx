@@ -14,6 +14,7 @@ import {useCallback, useEffect, useState} from 'react'
 import {View} from 'react-native'
 import {useRoute, type RouteProp} from '@react-navigation/native'
 import {msg} from '@lingui/macro'
+import {errorText} from '#/lib/localeErrors'
 import {useI18n} from '#/locale/i18n'
 
 import {
@@ -80,7 +81,7 @@ function TagActions({backend, tag}: {backend: Backend; tag: string}) {
         setUnavailable(i18n._(msg`This server has no state for this hashtag yet.`))
         setInfo(null)
       } else {
-        setError(err instanceof Error ? err.message : i18n._(msg`Could not load this hashtag.`))
+        setError(errorText(i18n, err, i18n._(msg`Could not load this hashtag.`)))
       }
     } finally {
       setLoading(false)
@@ -107,7 +108,7 @@ function TagActions({backend, tag}: {backend: Backend; tag: string}) {
       } else if (isPermissionError(err)) {
         setError(i18n._(msg`Your account cannot change this hashtag.`))
       } else {
-        setError(err instanceof Error ? err.message : i18n._(msg`Action failed.`))
+        setError(errorText(i18n, err, i18n._(msg`Action failed.`)))
       }
     } finally {
       setBusy(false)

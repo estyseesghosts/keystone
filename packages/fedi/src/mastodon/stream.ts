@@ -33,7 +33,7 @@
 
 import type { FeedChannelState, FeedSource, FeedSubscription, PostUpdateEvent, StreamHandle, StreamState } from "../core/backend";
 import type { Notification, Post } from "../core/models";
-import { redactUrl } from "../core/redact";
+import { FediError } from "../core/errors";
 import { adaptNotification, adaptStatus } from "./adapt";
 import type { Notification as WireNotification, Status as WireStatus } from "./wire";
 
@@ -244,9 +244,11 @@ export function createStreamHandle(
     ? (url: string, protocols?: string[]) => {
         const socket = defaultFactory(url, protocols);
         // The URL never reaches errors verbatim: origins stay out of
-        // messages by rule (see `redactUrl`; this family's URL carries no
-        // token, but the rule is unconditional).
-        if (!socket) throw new Error(`No WebSocket implementation for ${redactUrl(url)}.`);
+        // messages by rule (this family's URL carries no token, and the
+        // coded error below carries no URL at all).
+        if (!socket) {
+          throw new FediError("No WebSocket implementation on this device.", "errors.stream.unavailable");
+        }
         return socket;
       }
     : null;
