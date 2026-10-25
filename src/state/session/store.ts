@@ -274,7 +274,12 @@ export interface SessionStore {
    * `unauthorized/cleared`; 403 (scope/permissions) is NOT cleared — the
    * token may be valid but under-scoped, see `scopeHealth`; network
    * failures never clear. Root wires this at boot (this module only
-   * exposes the hook — it never runs on import/mount). */
+   * exposes the hook — it never runs on import/mount). Repair X1.5:
+   * concurrent verifies for one session share a single `me()`
+   * (single-flight) and a verify that just ran is reused for 30 s
+   * (cool-down, qualified by token); only a fresh `me()` 401 — the
+   * second 401 after the query/mutation that triggered the verify —
+   * drops the session. */
   verifySession(id: string): Promise<SessionVerifyResult>
   /** Re-verify the ACTIVE session. Signed out → `signed-out`, never an
    * error. Same clear-on-401 contract as `verifySession`. */
@@ -324,6 +329,16 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
   // value as the web / pre-migration fallback. Cleared per id on remove.
   const tokens = new Map<string, string>()
   const vaultListeners = new Set<(failure: VaultFailure) => void>()
+  // Runtime 401 verification (repair X1.5): one `me()` in flight per
+  // session (concurrent 401s share it) and a 30 s cool-down per live
+  // token (a verify that just ran is not repeated). Only a fresh 401
+  // from `me()` — the second 401 after the query/mutation that
+  // triggered the verify — drops the session (via `dropLocal`/purge).
+  // 403/network/5xx never drop. Cool-down entries are qualified by
+  // token, so a re-added session (new token) always verifies fresh.
+  const verifyInFlight = new Map<string, Promise<SessionVerifyResult>>()
+  const verifyCooldown = new Map<string, {until: number; token: string; result: SessionVerifyResult}>()
+  const VERIFY_COOLDOWN_MS = 30_000
 
   // Operation chain (repair X1.2, S5/S6): every read-modify-write that
   // crosses an `await` (`add`, `remove`, `dropLocal`, `hydrate`,
@@ -1016,29 +1031,56 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     },
 
     async verifySession(id: string): Promise<SessionVerifyResult> {
-      const session = resolveSession(id)
-      if (!session) return {ok: false, reason: 'unknown-session', cleared: false}
-      let backend: ReturnType<typeof backendForSession>
-      try {
-        backend = backendForSession(session)
-      } catch {
-        return {ok: false, reason: 'error', cleared: false}
-      }
-      try {
-        await backend.me()
-        return {ok: true, reason: 'ok', cleared: false}
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 401) {
-          await dropLocal(id)
-          return {ok: false, reason: 'unauthorized', cleared: true}
+      // Single-flight (repair X1.5): concurrent 401s for one session
+      // share a single `me()` instead of each dropping independently.
+      const shared = verifyInFlight.get(id)
+      if (shared) return shared
+      const work: Promise<SessionVerifyResult> = (async (): Promise<SessionVerifyResult> => {
+        const session = resolveSession(id)
+        if (!session) return {ok: false, reason: 'unknown-session', cleared: false}
+        // Cool-down (repair X1.5): a verify that just ran for this live
+        // token is reused for 30 s instead of hitting the server again.
+        // The token qualifies the entry — a re-added session (new token)
+        // always verifies fresh.
+        const cooled = verifyCooldown.get(id)
+        if (cooled && cooled.token === session.token && Date.now() < cooled.until) {
+          return cooled.result
         }
-        if (err instanceof ApiError && err.status === 403) {
-          // Scope/permission failure: the token may still be valid for its
-          // old surface — never clear, surface `forbidden` + `scopeHealth`.
-          return {ok: false, reason: 'forbidden', cleared: false}
+        let backend: ReturnType<typeof backendForSession>
+        try {
+          backend = backendForSession(session)
+        } catch {
+          return {ok: false, reason: 'error', cleared: false}
         }
-        if (isNetworkFailure(err)) return {ok: false, reason: 'network', cleared: false}
-        return {ok: false, reason: 'error', cleared: false}
+        const remember = (result: SessionVerifyResult): SessionVerifyResult => {
+          verifyCooldown.set(id, {until: Date.now() + VERIFY_COOLDOWN_MS, token: session.token, result})
+          return result
+        }
+        try {
+          await backend.me()
+          return remember({ok: true, reason: 'ok', cleared: false})
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 401) {
+            // The second 401 (the trigger already 401'd): the token is
+            // dead, so drop the session through the X1.2 purge path.
+            verifyCooldown.delete(id)
+            await dropLocal(id)
+            return {ok: false, reason: 'unauthorized', cleared: true}
+          }
+          if (err instanceof ApiError && err.status === 403) {
+            // Scope/permission failure: the token may still be valid for its
+            // old surface — never clear, surface `forbidden` + `scopeHealth`.
+            return remember({ok: false, reason: 'forbidden', cleared: false})
+          }
+          if (isNetworkFailure(err)) return remember({ok: false, reason: 'network', cleared: false})
+          return remember({ok: false, reason: 'error', cleared: false})
+        }
+      })()
+      verifyInFlight.set(id, work)
+      try {
+        return await work
+      } finally {
+        if (verifyInFlight.get(id) === work) verifyInFlight.delete(id)
       }
     },
 

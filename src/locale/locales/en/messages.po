@@ -30,34 +30,36 @@ msgid ", selected"
 msgstr ", selected"
 
 #. placeholder {0}: tooLarge[0]
-#: src/components/Composer/Composer.tsx:536
+#: src/components/Composer/Composer.tsx:641
+#: src/screens/Note.tsx:382
 msgid "\"{0}\" is too large to attach (over 10 MB)."
 msgstr "\"{0}\" is too large to attach (over 10 MB)."
 
-#: src/components/Composer/CompactComposer.tsx:479
-#: src/components/Composer/ComposerSections.tsx:511
-#: src/components/Composer/ComposerSections.tsx:513
-#: src/components/Composer/ComposerSections.tsx:557
+#: src/components/Composer/CompactComposer.tsx:488
+#: src/components/Composer/ComposerSections.tsx:522
+#: src/components/Composer/ComposerSections.tsx:524
+#: src/components/Composer/ComposerSections.tsx:568
 msgid "(no text)"
 msgstr "(no text)"
 
-#: src/components/Composer/ComposerSections.tsx:504
+#: src/components/Composer/ComposerSections.tsx:515
 msgid "(poll / CW only)"
 msgstr "(poll / CW only)"
 
 #. placeholder {0}: names[0]
 #. placeholder {1}: rest === 1 ? '' : 's'
-#: src/components/Post/PostCard.tsx:144
+#: src/components/Post/PostCard.tsx:150
 msgid "{0} and {rest} other{1} boosted"
 msgstr "{0} and {rest} other{1} boosted"
 
 #. placeholder {0}: displayNameOf(post.author)
-#: src/components/Post/PostCard.tsx:142
+#: src/components/Post/PostCard.tsx:148
 msgid "{0} boosted"
 msgstr "{0} boosted"
 
 #. placeholder {0}: tooLarge.length
-#: src/components/Composer/Composer.tsx:538
+#: src/components/Composer/Composer.tsx:643
+#: src/screens/Note.tsx:384
 msgid "{0} files were too large to attach (over 10 MB)."
 msgstr "{0} files were too large to attach (over 10 MB)."
 
@@ -77,15 +79,15 @@ msgstr "{unread} new"
 msgid "{what} is not available in this build yet."
 msgstr "{what} is not available in this build yet."
 
-#: src/components/Composer/ComposerSections.tsx:477
+#: src/components/Composer/ComposerSections.tsx:475
 msgid "@user or @user@host"
 msgstr "@user or @user@host"
 
-#: src/components/Post/PostMediaGrid.tsx:305
+#: src/components/Post/PostMediaGrid.tsx:312
 msgid "⏸ Pause"
 msgstr "⏸ Pause"
 
-#: src/components/Post/PostMediaGrid.tsx:305
+#: src/components/Post/PostMediaGrid.tsx:312
 msgid "▶ Play"
 msgstr "▶ Play"
 
@@ -93,10 +95,10 @@ msgstr "▶ Play"
 msgid "a poll ended"
 msgstr "a poll ended"
 
-#: src/components/Composer/CompactComposer.tsx:291
-#: src/components/Composer/CompactComposer.tsx:301
-#: src/components/Composer/Composer.tsx:737
-#: src/components/Composer/Composer.tsx:750
+#: src/components/Composer/CompactComposer.tsx:300
+#: src/components/Composer/CompactComposer.tsx:310
+#: src/components/Composer/Composer.tsx:1016
+#: src/components/Composer/Composer.tsx:1029
 msgid "A post cannot have both media and a poll."
 msgstr "A post cannot have both media and a poll."
 
@@ -160,12 +162,12 @@ msgstr "Action failed."
 msgid "Action failed."
 msgstr "Action failed."
 
-#: src/components/Composer/ComposerSections.tsx:482
+#: src/components/Composer/ComposerSections.tsx:480
 msgid "Add"
 msgstr "Add"
 
-#: src/components/Composer/CompactComposer.tsx:213
-#: src/components/Composer/Composer.tsx:646
+#: src/components/Composer/CompactComposer.tsx:222
+#: src/components/Composer/Composer.tsx:922
 msgid "Add a comment"
 msgstr "Add a comment"
 
@@ -173,7 +175,7 @@ msgstr "Add a comment"
 msgid "Add a filter"
 msgstr "Add a filter"
 
-#: src/components/Composer/CompactComposer.tsx:298
+#: src/components/Composer/CompactComposer.tsx:307
 msgid "Add a poll"
 msgstr "Add a poll"
 
@@ -187,7 +189,7 @@ msgstr "Add a reason for the report."
 msgid "Add account"
 msgstr "Add account"
 
-#: src/components/Composer/ComposerSections.tsx:178
+#: src/components/Composer/ComposerSections.tsx:176
 msgid "Add choice"
 msgstr "Add choice"
 
@@ -195,7 +197,7 @@ msgstr "Add choice"
 msgid "Add filter"
 msgstr "Add filter"
 
-#: src/components/Composer/ComposerSections.tsx:471
+#: src/components/Composer/ComposerSections.tsx:469
 msgid "Add recipient"
 msgstr "Add recipient"
 
@@ -219,7 +221,7 @@ msgstr "Add to clip"
 msgid "Add to list"
 msgstr "Add to list"
 
-#: src/components/Composer/ComposerSections.tsx:482
+#: src/components/Composer/ComposerSections.tsx:480
 #: src/components/Settings/FiltersSection.tsx:120
 msgid "Adding…"
 msgstr "Adding…"
@@ -228,12 +230,12 @@ msgstr "Adding…"
 msgid "Admin metrics and public server info. No changes can be made here."
 msgstr "Admin metrics and public server info. No changes can be made here."
 
-#: src/components/Composer/Composer.tsx:778
+#: src/components/Composer/Composer.tsx:1057
 #: src/components/Profile/ProfileTabs.tsx:24
 msgid "All"
 msgstr "All"
 
-#: src/components/Composer/CompactComposer.tsx:384
+#: src/components/Composer/CompactComposer.tsx:393
 msgid "All reactions"
 msgstr "All reactions"
 
@@ -302,29 +304,35 @@ msgstr "Approve on {0}, then continue here."
 msgid "Art set for unicode emoji everywhere."
 msgstr "Art set for unicode emoji everywhere."
 
-#: src/components/Composer/CompactComposer.tsx:288
+#: src/components/Composer/CompactComposer.tsx:297
+#: src/screens/Note.tsx:607
+#: src/screens/Note.tsx:609
+#: src/screens/Note.tsx:612
 msgid "Attach media"
 msgstr "Attach media"
 
 #. placeholder {0}: c.uploads.items.length
-#: src/components/Composer/CompactComposer.tsx:288
+#. placeholder {0}: uploads.items.length
+#: src/components/Composer/CompactComposer.tsx:297
+#: src/screens/Note.tsx:611
 msgid "Attach media ({0} attached)"
 msgstr "Attach media ({0} attached)"
 
-#: src/components/Composer/ComposerSections.tsx:308
+#: src/components/Composer/ComposerSections.tsx:306
 msgid "Attached to this post"
 msgstr "Attached to this post"
 
-#: src/components/Composer/CompactComposer.tsx:291
-#: src/components/Composer/Composer.tsx:750
+#: src/components/Composer/CompactComposer.tsx:300
+#: src/components/Composer/Composer.tsx:1029
+#: src/screens/Note.tsx:609
 msgid "Attachment limit reached."
 msgstr "Attachment limit reached."
 
-#: src/components/Composer/Composer.tsx:676
+#: src/components/Composer/Composer.tsx:955
 msgid "Audience"
 msgstr "Audience"
 
-#: src/components/Post/PostMediaGrid.tsx:280
+#: src/components/Post/PostMediaGrid.tsx:287
 msgid "Audio unavailable"
 msgstr "Audio unavailable"
 
@@ -336,7 +344,7 @@ msgstr "Automatic"
 msgid "Back"
 msgstr "Back"
 
-#: src/screens/AuthCallback.tsx:197
+#: src/screens/AuthCallback.tsx:200
 msgid "Back to sign in"
 msgstr "Back to sign in"
 
@@ -393,9 +401,9 @@ msgstr "Boost"
 msgid "Browser sign-in — approve on {0}."
 msgstr "Browser sign-in — approve on {0}."
 
-#: src/components/Composer/CompactComposer.tsx:193
-#: src/components/Composer/Composer.tsx:612
-#: src/components/Composer/ComposerSections.tsx:540
+#: src/components/Composer/CompactComposer.tsx:202
+#: src/components/Composer/Composer.tsx:888
+#: src/components/Composer/ComposerSections.tsx:551
 #: src/components/Post/ReportChooser.tsx:201
 #: src/components/Settings/FiltersSection.tsx:152
 #: src/screens/Login.tsx:630
@@ -437,7 +445,7 @@ msgid "Checking…"
 msgstr "Checking…"
 
 #. placeholder {0}: i + 1
-#: src/components/Composer/ComposerSections.tsx:166
+#: src/components/Composer/ComposerSections.tsx:164
 msgid "Choice {0}"
 msgstr "Choice {0}"
 
@@ -527,8 +535,8 @@ msgstr "completed your export"
 msgid "Connecting…"
 msgstr "Connecting…"
 
-#: src/components/Composer/CompactComposer.tsx:329
-#: src/components/Composer/ComposerSections.tsx:55
+#: src/components/Composer/CompactComposer.tsx:338
+#: src/components/Composer/ComposerSections.tsx:53
 msgid "Content warning"
 msgstr "Content warning"
 
@@ -541,7 +549,7 @@ msgstr "Continue"
 msgid "Conversation"
 msgstr "Conversation"
 
-#: src/components/Post/PostCard.tsx:420
+#: src/components/Post/PostCard.tsx:437
 #: src/components/richtext/MatrixHover.tsx:30
 msgid "Copied"
 msgstr "Copied"
@@ -579,7 +587,7 @@ msgstr "Copy username"
 msgid "Could not add the filter."
 msgstr "Could not add the filter."
 
-#: src/components/Composer/ComposerSections.tsx:544
+#: src/components/Composer/ComposerSections.tsx:555
 msgid "Could not cancel."
 msgstr "Could not cancel."
 
@@ -587,7 +595,7 @@ msgstr "Could not cancel."
 msgid "Could not clear notifications."
 msgstr "Could not clear notifications."
 
-#: src/components/Composer/ComposerSections.tsx:643
+#: src/components/Composer/ComposerSections.tsx:626
 msgid "Could not delete."
 msgstr "Could not delete."
 
@@ -619,11 +627,11 @@ msgstr "Could not load notification settings."
 msgid "Could not load notifications."
 msgstr "Could not load notifications."
 
-#: src/components/Composer/ComposerSections.tsx:530
+#: src/components/Composer/ComposerSections.tsx:541
 msgid "Could not load scheduled posts."
 msgstr "Could not load scheduled posts."
 
-#: src/components/Composer/ComposerSections.tsx:624
+#: src/components/Composer/ComposerSections.tsx:607
 msgid "Could not load server drafts."
 msgstr "Could not load server drafts."
 
@@ -644,9 +652,17 @@ msgstr "Could not load."
 msgid "Could not mark notifications read."
 msgstr "Could not mark notifications read."
 
+#: src/screens/Note.tsx:387
+msgid "Could not open the media picker."
+msgstr "Could not open the media picker."
+
 #: src/components/Notification/NotificationRow.tsx:88
 msgid "could not post your scheduled note"
 msgstr "could not post your scheduled note"
+
+#: src/screens/Note.tsx:446
+msgid "Could not post."
+msgstr "Could not post."
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:21
@@ -672,9 +688,9 @@ msgstr "Could not reach the server ({reason}). Is it running?"
 msgid "Could not remove the filter."
 msgstr "Could not remove the filter."
 
-#: src/components/Composer/ComposerSections.tsx:424
-#: src/components/Composer/ComposerSections.tsx:438
-#: src/components/Composer/ComposerSections.tsx:448
+#: src/components/Composer/ComposerSections.tsx:422
+#: src/components/Composer/ComposerSections.tsx:436
+#: src/components/Composer/ComposerSections.tsx:446
 msgid "Could not resolve \"{raw}\"."
 msgstr "Could not resolve \"{raw}\"."
 
@@ -682,8 +698,12 @@ msgstr "Could not resolve \"{raw}\"."
 msgid "Could not save notification settings."
 msgstr "Could not save notification settings."
 
-#: src/components/Composer/ComposerSections.tsx:612
-#: src/components/Composer/ComposerSections.tsx:659
+#: src/components/Composer/Composer.tsx:363
+msgid "Could not save the draft on this device."
+msgstr "Could not save the draft on this device."
+
+#: src/components/Composer/Composer.tsx:729
+#: src/components/Composer/ComposerSections.tsx:595
 msgid "Could not save the draft."
 msgstr "Could not save the draft."
 
@@ -731,7 +751,7 @@ msgstr "Current language."
 msgid "custom emoji"
 msgstr "custom emoji"
 
-#: src/components/Composer/Composer.tsx:725
+#: src/components/Composer/Composer.tsx:1004
 msgid "CW"
 msgstr "CW"
 
@@ -756,7 +776,7 @@ msgstr "Default"
 msgid "Default. Colourful open-source set."
 msgstr "Default. Colourful open-source set."
 
-#: src/components/Composer/ComposerSections.tsx:639
+#: src/components/Composer/ComposerSections.tsx:622
 #: src/components/Post/menuModel.ts:435
 #: src/components/Post/menuModel.ts:437
 #: src/components/Post/menuModel.ts:440
@@ -774,7 +794,7 @@ msgstr "Delete and redraft"
 msgid "Delete and redraft this post?"
 msgstr "Delete and redraft this post?"
 
-#: src/components/Composer/CompactComposer.tsx:485
+#: src/components/Composer/CompactComposer.tsx:494
 msgid "Delete this draft"
 msgstr "Delete this draft"
 
@@ -782,19 +802,23 @@ msgstr "Delete this draft"
 msgid "Delete this post?"
 msgstr "Delete this post?"
 
-#: src/components/Composer/ComposerSections.tsx:248
-#: src/components/Composer/ComposerSections.tsx:314
+#: src/components/Composer/ComposerSections.tsx:246
+#: src/components/Composer/ComposerSections.tsx:312
 msgid "Describe the media"
 msgstr "Describe the media"
 
-#: src/components/Composer/ComposerSections.tsx:241
-#: src/components/Composer/ComposerSections.tsx:310
+#: src/components/Composer/ComposerSections.tsx:239
+#: src/components/Composer/ComposerSections.tsx:308
 msgid "Description (alt text)"
 msgstr "Description (alt text)"
 
 #: src/routes.ts:404
 msgid "Direct message"
 msgstr "Direct message"
+
+#: src/components/Composer/CloseConfirmDialog.tsx:27
+msgid "Discard"
+msgstr "Discard"
 
 #: src/routes.ts:398
 #: src/screens/explore/NewsTab.tsx:78
@@ -827,13 +851,13 @@ msgstr "Domains whose accounts and posts are hidden for you. Personal blocks onl
 msgid "Done."
 msgstr "Done."
 
-#: src/components/Composer/CompactComposer.tsx:459
-#: src/components/Composer/Composer.tsx:767
+#: src/components/Composer/CompactComposer.tsx:468
+#: src/components/Composer/Composer.tsx:1046
 msgid "Drafts"
 msgstr "Drafts"
 
 #. placeholder {0}: c.drafts.length
-#: src/components/Composer/CompactComposer.tsx:459
+#: src/components/Composer/CompactComposer.tsx:468
 msgid "Drafts ({0})"
 msgstr "Drafts ({0})"
 
@@ -878,7 +902,7 @@ msgstr "Edited"
 msgid "Editing the first keyword. The rest of this group stay as they are: {0}"
 msgstr "Editing the first keyword. The rest of this group stay as they are: {0}"
 
-#: src/components/Composer/Composer.tsx:627
+#: src/components/Composer/Composer.tsx:903
 msgid "Editing your post"
 msgstr "Editing your post"
 
@@ -886,7 +910,7 @@ msgstr "Editing your post"
 msgid "Either"
 msgstr "Either"
 
-#: src/components/Composer/Composer.tsx:723
+#: src/components/Composer/Composer.tsx:1002
 msgid "Emoji"
 msgstr "Emoji"
 
@@ -940,7 +964,8 @@ msgstr "Export"
 msgid "External account: sign-in and requests go to {0}, not this app's home server."
 msgstr "External account: sign-in and requests go to {0}, not this app's home server."
 
-#: src/components/Composer/ComposerSections.tsx:238
+#: src/components/Composer/ComposerSections.tsx:236
+#: src/screens/Note.tsx:581
 msgid "failed"
 msgstr "failed"
 
@@ -978,7 +1003,7 @@ msgstr "File is too large ({kb} KB — limit is 10 MB)."
 msgid "Filters"
 msgstr "Filters"
 
-#: src/screens/AuthCallback.tsx:193
+#: src/screens/AuthCallback.tsx:196
 msgid "Finishing sign-in"
 msgstr "Finishing sign-in"
 
@@ -1059,15 +1084,15 @@ msgstr "Grouped rows are not on this server — showing a flat list."
 msgid "Hard word mutes"
 msgstr "Hard word mutes"
 
-#: src/components/Composer/CompactComposer.tsx:77
+#: src/components/Composer/CompactComposer.tsx:78
 msgid "Hidden from global timelines"
 msgstr "Hidden from global timelines"
 
-#: src/components/Post/PostCard.tsx:924
+#: src/components/Post/PostCard.tsx:944
 msgid "Hide"
 msgstr "Hide"
 
-#: src/components/Post/PostCard.tsx:923
+#: src/components/Post/PostCard.tsx:943
 msgid "Hide content"
 msgstr "Hide content"
 
@@ -1075,7 +1100,7 @@ msgstr "Hide content"
 msgid "Hide quotes the author has not approved behind a tap-to-reveal row. Off shows every quote."
 msgstr "Hide quotes the author has not approved behind a tap-to-reveal row. Off shows every quote."
 
-#: src/components/Composer/ComposerSections.tsx:196
+#: src/components/Composer/ComposerSections.tsx:194
 msgid "Hide totals"
 msgstr "Hide totals"
 
@@ -1094,7 +1119,7 @@ msgstr "How post bodies, bios and quotes render."
 msgid "I've approved — continue"
 msgstr "I've approved — continue"
 
-#: src/components/Composer/ComposerSections.tsx:491
+#: src/components/Composer/ComposerSections.tsx:489
 msgid "IDs are sent verbatim on this server."
 msgstr "IDs are sent verbatim on this server."
 
@@ -1110,12 +1135,13 @@ msgstr "Import"
 msgid "Import another file"
 msgstr "Import another file"
 
-#: src/components/Composer/ComposerSections.tsx:363
+#: src/components/Composer/ComposerSections.tsx:361
 msgid "In 1 hour"
 msgstr "In 1 hour"
 
-#: src/components/Composer/CompactComposer.tsx:322
-#: src/components/Composer/ComposerSections.tsx:675
+#: src/components/Composer/CompactComposer.tsx:331
+#: src/components/Composer/ComposerSections.tsx:657
+#: src/screens/Note.tsx:628
 msgid "Insert emoji"
 msgstr "Insert emoji"
 
@@ -1136,6 +1162,10 @@ msgstr "invited you to a chat room"
 #: src/screens/User.tsx:157
 msgid "It may be deleted, suspended, or unreachable."
 msgstr "It may be deleted, suspended, or unreachable."
+
+#: src/components/Composer/CloseConfirmDialog.tsx:33
+msgid "Keep writing"
+msgstr "Keep writing"
 
 #: src/routes.ts:459
 msgid "Keystone"
@@ -1208,6 +1238,11 @@ msgstr "Live updates stopped"
 msgid "Live updates unavailable"
 msgstr "Live updates unavailable"
 
+#: src/screens/Note.tsx:1334
+#: src/screens/Note.tsx:1335
+msgid "Load more replies"
+msgstr "Load more replies"
+
 #: src/components/Settings/AccountSection.tsx:173
 msgid "Loading account…"
 msgstr "Loading account…"
@@ -1239,12 +1274,12 @@ msgstr "Loading…"
 msgid "Local"
 msgstr "Local"
 
-#: src/components/Composer/CompactComposer.tsx:423
-#: src/components/Composer/Composer.tsx:689
+#: src/components/Composer/CompactComposer.tsx:432
+#: src/components/Composer/Composer.tsx:968
 msgid "Local only"
 msgstr "Local only"
 
-#: src/components/Composer/ComposerSections.tsx:269
+#: src/components/Composer/ComposerSections.tsx:267
 msgid "Locked after upload"
 msgstr "Locked after upload"
 
@@ -1280,16 +1315,18 @@ msgstr "Matrix handle: {userId}. Tap to copy."
 msgid "Matrix is a secure and decentralized messaging protocol. You can message this user from Element, or any other Matrix chat client."
 msgstr "Matrix is a secure and decentralized messaging protocol. You can message this user from Element, or any other Matrix chat client."
 
-#: src/components/Composer/Composer.tsx:747
+#: src/components/Composer/Composer.tsx:1026
 #: src/components/Profile/ProfileTabs.tsx:28
 msgid "Media"
 msgstr "Media"
 
-#: src/components/Composer/Composer.tsx:523
+#: src/components/Composer/Composer.tsx:628
+#: src/screens/Note.tsx:371
 msgid "Media library access was denied. Allow access to attach photos or videos."
 msgstr "Media library access was denied. Allow access to attach photos or videos."
 
-#: src/components/Composer/Composer.tsx:525
+#: src/components/Composer/Composer.tsx:630
+#: src/screens/Note.tsx:373
 msgid "Media library access was denied. Enable it in the system settings to attach photos or videos."
 msgstr "Media library access was denied. Enable it in the system settings to attach photos or videos."
 
@@ -1319,11 +1356,11 @@ msgstr "Messaging is not implemented in Keystone yet for this server — chat su
 msgid "Moderate user reports. Every change asks for confirmation first."
 msgstr "Moderate user reports. Every change asks for confirmation first."
 
-#: src/components/Composer/CompactComposer.tsx:339
+#: src/components/Composer/CompactComposer.tsx:348
 msgid "More options"
 msgstr "More options"
 
-#: src/components/Composer/ComposerSections.tsx:189
+#: src/components/Composer/ComposerSections.tsx:187
 msgid "Multiple choice"
 msgstr "Multiple choice"
 
@@ -1417,7 +1454,7 @@ msgstr "News"
 msgid "News is not available on this server."
 msgstr "News is not available on this server."
 
-#: src/components/Composer/ComposerSections.tsx:373
+#: src/components/Composer/ComposerSections.tsx:371
 msgid "Next week 9:00"
 msgstr "Next week 9:00"
 
@@ -1449,7 +1486,11 @@ msgstr "No clip picker is connected to this view."
 msgid "No composer is connected to this view."
 msgstr "No composer is connected to this view."
 
-#: src/components/Composer/CompactComposer.tsx:466
+#: src/components/Composer/ComposerSections.tsx:507
+msgid "No drafts on this device."
+msgstr "No drafts on this device."
+
+#: src/components/Composer/CompactComposer.tsx:475
 msgid "No drafts yet."
 msgstr "No drafts yet."
 
@@ -1481,20 +1522,20 @@ msgstr "No profile URL known."
 msgid "No profiles found."
 msgstr "No profiles found."
 
-#: src/components/Composer/CompactComposer.tsx:409
-#: src/components/Composer/Composer.tsx:704
+#: src/components/Composer/CompactComposer.tsx:418
+#: src/components/Composer/Composer.tsx:983
 msgid "No quotes for this post"
 msgstr "No quotes for this post"
 
-#: src/components/Composer/ComposerSections.tsx:499
+#: src/components/Composer/ComposerSections.tsx:503
 msgid "No saved drafts."
 msgstr "No saved drafts."
 
-#: src/components/Composer/ComposerSections.tsx:532
+#: src/components/Composer/ComposerSections.tsx:543
 msgid "No scheduled posts."
 msgstr "No scheduled posts."
 
-#: src/components/Composer/ComposerSections.tsx:626
+#: src/components/Composer/ComposerSections.tsx:609
 msgid "No server drafts."
 msgstr "No server drafts."
 
@@ -1602,6 +1643,11 @@ msgstr "on"
 msgid "On"
 msgstr "On"
 
+#: src/components/Composer/ComposerSections.tsx:506
+#: src/components/Composer/ComposerSections.tsx:513
+msgid "On this device"
+msgstr "On this device"
+
 #: src/components/Settings/MutesSection.tsx:84
 msgid "One group per line; words on a line must all match. /regex/ lines stay verbatim."
 msgstr "One group per line; words on a line must all match. /regex/ lines stay verbatim."
@@ -1618,7 +1664,7 @@ msgstr "One host per line. Matching is case-sensitive."
 msgid "One phrase; matches everywhere."
 msgstr "One phrase; matches everywhere."
 
-#: src/components/Composer/CompactComposer.tsx:81
+#: src/components/Composer/CompactComposer.tsx:82
 msgid "Only people you name"
 msgstr "Only people you name"
 
@@ -1627,21 +1673,21 @@ msgstr "Only people you name"
 msgid "Only show authorized quotes"
 msgstr "Only show authorized quotes"
 
-#: src/components/Composer/CompactComposer.tsx:416
-#: src/components/Composer/Composer.tsx:713
+#: src/components/Composer/CompactComposer.tsx:425
+#: src/components/Composer/Composer.tsx:992
 msgid "Only this post refuses quotes. The account-wide setting is in Settings → Account."
 msgstr "Only this post refuses quotes. The account-wide setting is in Settings → Account."
 
-#: src/components/Composer/CompactComposer.tsx:79
+#: src/components/Composer/CompactComposer.tsx:80
 msgid "Only your followers"
 msgstr "Only your followers"
 
-#: src/components/Post/PostMediaGrid.tsx:340
+#: src/components/Post/PostMediaGrid.tsx:347
 msgid "Open"
 msgstr "Open"
 
 #. placeholder {0}: item.name || item.kind
-#: src/components/Post/PostMediaGrid.tsx:339
+#: src/components/Post/PostMediaGrid.tsx:346
 msgid "Open attachment {0}"
 msgstr "Open attachment {0}"
 
@@ -1650,12 +1696,12 @@ msgstr "Open attachment {0}"
 msgid "Open in Keystone"
 msgstr "Open in Keystone"
 
-#: src/components/Post/PostMediaGrid.tsx:311
+#: src/components/Post/PostMediaGrid.tsx:318
 msgid "Open in viewer"
 msgstr "Open in viewer"
 
 #. placeholder {0}: mediaLabel(item)
-#: src/components/Post/PostMediaGrid.tsx:310
+#: src/components/Post/PostMediaGrid.tsx:317
 msgid "Open media: {0}"
 msgstr "Open media: {0}"
 
@@ -1664,9 +1710,9 @@ msgid "Open media: {label}"
 msgstr "Open media: {label}"
 
 #. placeholder {0}: displayNameOf(effective.author)
-#: src/components/Post/PostCard.tsx:878
-#: src/components/Post/PostCard.tsx:951
-#: src/components/Post/PostCard.tsx:973
+#: src/components/Post/PostCard.tsx:898
+#: src/components/Post/PostCard.tsx:971
+#: src/components/Post/PostCard.tsx:994
 msgid "Open post by {0}"
 msgstr "Open post by {0}"
 
@@ -1679,9 +1725,9 @@ msgstr "Open profile"
 #. placeholder {0}: displayNameOf(shownAccount)
 #: src/components/Notification/NotificationRow.tsx:268
 #: src/components/Notification/NotificationRow.tsx:285
-#: src/components/Post/PostCard.tsx:220
-#: src/components/Post/PostCard.tsx:859
-#: src/components/Post/PostCard.tsx:905
+#: src/components/Post/PostCard.tsx:227
+#: src/components/Post/PostCard.tsx:879
+#: src/components/Post/PostCard.tsx:925
 msgid "Open profile of {0}"
 msgstr "Open profile of {0}"
 
@@ -1723,12 +1769,13 @@ msgstr "Opening the approval page."
 msgid "Opening…"
 msgstr "Opening…"
 
-#: src/components/Composer/CompactComposer.tsx:354
-#: src/components/Composer/Composer.tsx:618
+#: src/components/Composer/CompactComposer.tsx:363
+#: src/components/Composer/Composer.tsx:894
+#: src/screens/Note.tsx:476
 msgid "Over the character limit."
 msgstr "Over the character limit."
 
-#: src/components/Composer/Composer.tsx:662
+#: src/components/Composer/Composer.tsx:938
 msgid "Over the limit"
 msgstr "Over the limit"
 
@@ -1755,7 +1802,7 @@ msgid "Password"
 msgstr "Password"
 
 #. placeholder {0}: mediaLabel(item)
-#: src/components/Post/PostMediaGrid.tsx:303
+#: src/components/Post/PostMediaGrid.tsx:310
 msgid "Pause {0}"
 msgstr "Pause {0}"
 
@@ -1773,7 +1820,7 @@ msgid "Pin to profile"
 msgstr "Pin to profile"
 
 #: src/components/Post/badges.ts:30
-#: src/components/Post/PostCard.tsx:463
+#: src/components/Post/PostCard.tsx:480
 msgid "Pinned"
 msgstr "Pinned"
 
@@ -1787,25 +1834,25 @@ msgid "Plain text"
 msgstr "Plain text"
 
 #. placeholder {0}: mediaLabel(item)
-#: src/components/Post/PostMediaGrid.tsx:303
+#: src/components/Post/PostMediaGrid.tsx:310
 msgid "Play {0}"
 msgstr "Play {0}"
 
-#: src/components/Composer/Composer.tsx:731
+#: src/components/Composer/Composer.tsx:1010
 msgid "Poll"
 msgstr "Poll"
 
-#: src/components/Composer/CompactComposer.tsx:179
-#: src/components/Composer/Composer.tsx:615
+#: src/components/Composer/CompactComposer.tsx:188
+#: src/components/Composer/Composer.tsx:891
 #: src/components/shell/Sidebar.tsx:350
 msgid "Post"
 msgstr "Post"
 
-#: src/components/Composer/ComposerSections.tsx:356
+#: src/components/Composer/ComposerSections.tsx:354
 msgid "Post at (ISO time)"
 msgstr "Post at (ISO time)"
 
-#: src/components/Composer/CompactComposer.tsx:442
+#: src/components/Composer/CompactComposer.tsx:451
 msgid "Post at a later time"
 msgstr "Post at a later time"
 
@@ -1814,14 +1861,20 @@ msgstr "Post at a later time"
 msgid "Post content"
 msgstr "Post content"
 
-#: src/components/Composer/CompactComposer.tsx:432
+#: src/components/Composer/CompactComposer.tsx:441
 msgid "Post now instead"
 msgstr "Post now instead"
 
-#: src/components/Composer/CompactComposer.tsx:217
-#: src/components/Composer/Composer.tsx:650
+#: src/components/Composer/CompactComposer.tsx:226
+#: src/components/Composer/Composer.tsx:926
 msgid "Post text"
 msgstr "Post text"
+
+#: src/screens/Note.tsx:497
+#: src/screens/Note.tsx:551
+#: src/screens/Note.tsx:553
+msgid "Post your reply"
+msgstr "Post your reply"
 
 #: src/components/Notification/NotificationRow.tsx:84
 msgid "posted a new note"
@@ -1831,12 +1884,14 @@ msgstr "posted a new note"
 msgid "posted your scheduled note"
 msgstr "posted your scheduled note"
 
-#: src/components/Composer/CompactComposer.tsx:354
-#: src/components/Composer/Composer.tsx:618
+#: src/components/Composer/CompactComposer.tsx:363
+#: src/components/Composer/Composer.tsx:894
+#: src/screens/Note.tsx:478
 msgid "Posting..."
 msgstr "Posting..."
 
-#: src/components/Composer/CompactComposer.tsx:351
+#: src/components/Composer/CompactComposer.tsx:360
+#: src/screens/Note.tsx:471
 msgid "Posting…"
 msgstr "Posting…"
 
@@ -1846,7 +1901,7 @@ msgid "Posts"
 msgstr "Posts"
 
 #. placeholder {0}: new Date(c.state.scheduledAt).toLocaleString()
-#: src/components/Composer/CompactComposer.tsx:441
+#: src/components/Composer/CompactComposer.tsx:450
 msgid "Posts {0}"
 msgstr "Posts {0}"
 
@@ -1881,7 +1936,7 @@ msgstr "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 msgid "Pull to refresh."
 msgstr "Pull to refresh."
 
-#: src/components/Composer/CompactComposer.tsx:178
+#: src/components/Composer/CompactComposer.tsx:187
 #: src/components/Post/ActionBar.tsx:195
 #: src/components/Post/ActionBar.tsx:198
 msgid "Quote"
@@ -1927,7 +1982,7 @@ msgstr "reacted to your post"
 msgid "errors.unsupported.reactions"
 msgstr "Reaction listings are not available on this server."
 
-#: src/components/Composer/Composer.tsx:776
+#: src/components/Composer/Composer.tsx:1055
 msgid "Reactions"
 msgstr "Reactions"
 
@@ -1939,7 +1994,8 @@ msgstr "Reactions and emoji"
 msgid "Read"
 msgstr "Read"
 
-#: src/components/Composer/ComposerSections.tsx:233
+#: src/components/Composer/ComposerSections.tsx:231
+#: src/screens/Note.tsx:576
 msgid "ready to upload"
 msgstr "ready to upload"
 
@@ -1985,18 +2041,24 @@ msgstr "Related tags"
 msgid "errors.shape.relationships"
 msgstr "Relationships returned an unexpected response shape."
 
-#: src/components/Composer/ComposerSections.tsx:276
-#: src/components/Composer/ComposerSections.tsx:324
+#: src/components/Composer/ComposerSections.tsx:274
+#: src/components/Composer/ComposerSections.tsx:322
 #: src/components/Settings/FiltersSection.tsx:181
+#: src/screens/Note.tsx:590
 msgid "Remove"
 msgstr "Remove"
+
+#. placeholder {0}: u.name
+#: src/screens/Note.tsx:588
+msgid "Remove {0}"
+msgstr "Remove {0}"
 
 #. placeholder {0}: bmLabel.toLowerCase()
 #: src/components/Post/menuModel.ts:362
 msgid "Remove from {0}"
 msgstr "Remove from {0}"
 
-#: src/components/Composer/ComposerSections.tsx:184
+#: src/components/Composer/ComposerSections.tsx:182
 msgid "Remove last"
 msgstr "Remove last"
 
@@ -2008,7 +2070,8 @@ msgstr "replied to you"
 msgid "Replies"
 msgstr "Replies"
 
-#: src/components/Composer/CompactComposer.tsx:176
+#: src/components/Composer/CompactComposer.tsx:185
+#: src/screens/Note.tsx:471
 msgid "Reply"
 msgstr "Reply"
 
@@ -2019,8 +2082,8 @@ msgstr "Reply, {0} replies"
 
 #. placeholder {0}: replyTarget.author.acct
 #. placeholder {0}: replyTo.author.acct
-#: src/components/Composer/ComposerSections.tsx:140
-#: src/components/Post/PostCard.tsx:833
+#: src/components/Composer/ComposerSections.tsx:138
+#: src/components/Post/PostCard.tsx:853
 msgid "Replying to @{0}"
 msgstr "Replying to @{0}"
 
@@ -2093,18 +2156,22 @@ msgstr "Requires an admin or moderator account on this server."
 msgid "Reset"
 msgstr "Reset"
 
-#: src/components/Post/PostCard.tsx:1020
+#: src/components/Post/PostCard.tsx:1042
 msgid "Resolving quote…"
 msgstr "Resolving quote…"
 
-#: src/components/Composer/ComposerSections.tsx:634
+#: src/components/Composer/ComposerSections.tsx:617
 msgid "Restore"
 msgstr "Restore"
 
 #. placeholder {0}: d.text.slice(0, 60) || '(no text)'
-#: src/components/Composer/CompactComposer.tsx:477
+#: src/components/Composer/CompactComposer.tsx:486
 msgid "Restore draft: {0}"
 msgstr "Restore draft: {0}"
+
+#: src/components/Composer/Composer.tsx:316
+msgid "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
+msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 
 #: src/components/StreamBadge.tsx:77
 #: src/screens/Explore.tsx:162
@@ -2114,27 +2181,42 @@ msgstr "Restore draft: {0}"
 #: src/screens/explore/UsersTab.tsx:151
 #: src/screens/HomeFeed.tsx:338
 #: src/screens/HomeFeed.tsx:435
+#: src/screens/Note.tsx:871
+#: src/screens/Note.tsx:1307
 #: src/screens/Notifications.tsx:410
 #: src/screens/Notifications.tsx:453
 #: src/screens/User.tsx:161
 msgid "Retry"
 msgstr "Retry"
 
+#: src/screens/Note.tsx:870
+#: src/screens/Note.tsx:1306
+msgid "Retry loading replies"
+msgstr "Retry loading replies"
+
 #: src/components/Settings/AccountSection.tsx:201
 msgid "Review accounts waiting for your approval."
 msgstr "Review accounts waiting for your approval."
 
-#: src/components/Composer/CompactComposer.tsx:172
-#: src/components/Composer/Composer.tsx:615
+#: src/components/Composer/CompactComposer.tsx:181
+#: src/components/Composer/Composer.tsx:891
 #: src/components/Settings/FiltersSection.tsx:145
 #: src/components/Settings/WordFields.tsx:132
 #: src/screens/Notifications.tsx:194
 msgid "Save"
 msgstr "Save"
 
-#: src/components/Composer/ComposerSections.tsx:653
+#: src/components/Composer/ComposerSections.tsx:636
 msgid "Save current as server draft"
 msgstr "Save current as server draft"
+
+#: src/components/Composer/CloseConfirmDialog.tsx:25
+msgid "Save draft"
+msgstr "Save draft"
+
+#: src/components/Composer/CloseConfirmDialog.tsx:24
+msgid "Save this draft to finish it later, or discard it."
+msgstr "Save this draft to finish it later, or discard it."
 
 #: src/components/Settings/WordFields.tsx:106
 msgid "Saved."
@@ -2144,28 +2226,28 @@ msgstr "Saved."
 msgid "Saving notification settings."
 msgstr "Saving notification settings."
 
-#: src/components/Composer/ComposerSections.tsx:653
+#: src/components/Composer/ComposerSections.tsx:636
 #: src/components/Settings/DomainBlocks.tsx:159
 #: src/components/Settings/WordFields.tsx:132
 #: src/screens/Notifications.tsx:194
 msgid "Saving…"
 msgstr "Saving…"
 
-#: src/components/Composer/CompactComposer.tsx:174
-#: src/components/Composer/Composer.tsx:615
-#: src/components/Composer/Composer.tsx:757
+#: src/components/Composer/CompactComposer.tsx:183
+#: src/components/Composer/Composer.tsx:891
+#: src/components/Composer/Composer.tsx:1036
 msgid "Schedule"
 msgstr "Schedule"
 
-#: src/components/Composer/CompactComposer.tsx:432
+#: src/components/Composer/CompactComposer.tsx:441
 msgid "Schedule…"
 msgstr "Schedule…"
 
-#: src/components/Composer/ComposerSections.tsx:526
+#: src/components/Composer/ComposerSections.tsx:537
 msgid "Scheduled posts"
 msgstr "Scheduled posts"
 
-#: src/components/Composer/ComposerSections.tsx:380
+#: src/components/Composer/ComposerSections.tsx:378
 msgid "Scheduled time must be in the future."
 msgstr "Scheduled time must be in the future."
 
@@ -2214,12 +2296,12 @@ msgstr "Send an anonymized copy of this report to that server's moderators as we
 msgid "Send report"
 msgstr "Send report"
 
-#: src/components/Composer/ComposerSections.tsx:263
+#: src/components/Composer/ComposerSections.tsx:261
 msgid "Sensitive"
 msgstr "Sensitive"
 
-#: src/components/Post/PostMediaGrid.tsx:376
-#: src/components/Post/PostMediaGrid.tsx:405
+#: src/components/Post/PostMediaGrid.tsx:383
+#: src/components/Post/PostMediaGrid.tsx:412
 msgid "Sensitive media hidden — tap to show"
 msgstr "Sensitive media hidden — tap to show"
 
@@ -2239,7 +2321,7 @@ msgstr "sent an update"
 msgid "Server"
 msgstr "Server"
 
-#: src/components/Composer/ComposerSections.tsx:620
+#: src/components/Composer/ComposerSections.tsx:603
 msgid "Server drafts"
 msgstr "Server drafts"
 
@@ -2268,11 +2350,11 @@ msgstr "Settings"
 msgid "Share"
 msgstr "Share"
 
-#: src/components/Post/PostCard.tsx:924
+#: src/components/Post/PostCard.tsx:944
 msgid "Show"
 msgstr "Show"
 
-#: src/components/Post/PostCard.tsx:923
+#: src/components/Post/PostCard.tsx:943
 msgid "Show content"
 msgstr "Show content"
 
@@ -2284,11 +2366,11 @@ msgstr "Show Federated tab"
 msgid "Show hidden quote"
 msgstr "Show hidden quote"
 
-#: src/components/Post/PostCard.tsx:1011
+#: src/components/Post/PostCard.tsx:1033
 msgid "Show less"
 msgstr "Show less"
 
-#: src/components/Post/PostCard.tsx:1010
+#: src/components/Post/PostCard.tsx:1032
 msgid "Show less of this post"
 msgstr "Show less of this post"
 
@@ -2300,20 +2382,28 @@ msgstr "Show Local even while Social is available. Local always shows when Socia
 msgid "Show Local tab"
 msgstr "Show Local tab"
 
-#: src/components/Post/PostCard.tsx:998
+#: src/components/Post/PostCard.tsx:1020
 msgid "Show more"
 msgstr "Show more"
 
-#: src/components/Post/PostCard.tsx:997
+#: src/components/Post/PostCard.tsx:1019
 msgid "Show more of this post"
 msgstr "Show more of this post"
 
-#: src/components/Post/PostCard.tsx:935
+#: src/screens/Note.tsx:847
+msgid "Show more replies"
+msgstr "Show more replies"
+
+#: src/screens/Note.tsx:848
+msgid "Show more replies…"
+msgstr "Show more replies…"
+
+#: src/components/Post/PostCard.tsx:955
 msgid "Show original"
 msgstr "Show original"
 
-#: src/components/Post/PostMediaGrid.tsx:369
-#: src/components/Post/PostMediaGrid.tsx:404
+#: src/components/Post/PostMediaGrid.tsx:376
+#: src/components/Post/PostMediaGrid.tsx:411
 msgid "Show sensitive media. The author marked this media sensitive."
 msgstr "Show sensitive media. The author marked this media sensitive."
 
@@ -2325,11 +2415,11 @@ msgstr "Show tags"
 msgid "Show the Federated timeline alongside the default tab."
 msgstr "Show the Federated timeline alongside the default tab."
 
-#: src/components/Post/PostCard.tsx:935
+#: src/components/Post/PostCard.tsx:955
 msgid "Show translation"
 msgstr "Show translation"
 
-#: src/components/Post/PostCard.tsx:939
+#: src/components/Post/PostCard.tsx:959
 msgid "Showing original · Show translation?"
 msgstr "Showing original · Show translation?"
 
@@ -2337,7 +2427,7 @@ msgstr "Showing original · Show translation?"
 msgid "Showing the first 100 blocked domains."
 msgstr "Showing the first 100 blocked domains."
 
-#: src/components/Composer/CompactComposer.tsx:75
+#: src/components/Composer/CompactComposer.tsx:76
 msgid "Shown everywhere"
 msgstr "Shown everywhere"
 
@@ -2407,7 +2497,7 @@ msgstr "Sign in to see suggested users."
 msgid "Sign in to see this feed."
 msgstr "Sign in to see this feed."
 
-#: src/components/Post/PostCard.tsx:388
+#: src/components/Post/PostCard.tsx:405
 msgid "Sign in to vote."
 msgstr "Sign in to vote."
 
@@ -2453,6 +2543,10 @@ msgstr "Signed in as {0} on {1}."
 msgid "signed in to your account"
 msgstr "signed in to your account"
 
+#: src/state/queries/Provider.tsx:70
+msgid "Signed out of {label}: session expired"
+msgstr "Signed out of {label}: session expired"
+
 #: src/components/Settings/AccountSection.tsx:59
 #: src/components/Settings/AccountSection.tsx:80
 msgid "Signed out. Add an account to sign in."
@@ -2486,6 +2580,10 @@ msgstr "Soft words, hard words, muted servers."
 #: src/components/Post/badges.ts:45
 msgid "Soft-muted"
 msgstr "Soft-muted"
+
+#: src/screens/Note.tsx:417
+msgid "Some attachments failed to upload. Retry or remove them."
+msgstr "Some attachments failed to upload. Retry or remove them."
 
 #: src/components/Notification/NotificationRow.tsx:177
 #: src/components/Notification/NotificationRow.tsx:312
@@ -2620,7 +2718,7 @@ msgstr "The server returned no translation for this post."
 msgid "The server returned the file directly ({payloadBytes} bytes)."
 msgstr "The server returned the file directly ({payloadBytes} bytes)."
 
-#: src/components/Post/PostMediaGrid.tsx:280
+#: src/components/Post/PostMediaGrid.tsx:287
 msgid "The server sent no audio URL."
 msgstr "The server sent no audio URL."
 
@@ -2751,7 +2849,7 @@ msgstr "This sign-in is missing permissions Keystone uses."
 msgid "This sign-in predates a permission Keystone now uses."
 msgstr "This sign-in predates a permission Keystone now uses."
 
-#: src/components/Post/PostCard.tsx:453
+#: src/components/Post/PostCard.tsx:470
 msgid "Thread muted"
 msgstr "Thread muted"
 
@@ -2760,7 +2858,7 @@ msgstr "Thread muted"
 msgid "errors.shape.timeline"
 msgstr "Timeline {kind} returned an unexpected response shape (HTTP {status})."
 
-#: src/components/Composer/ComposerSections.tsx:368
+#: src/components/Composer/ComposerSections.tsx:366
 msgid "Tomorrow 9:00"
 msgstr "Tomorrow 9:00"
 
@@ -2769,12 +2867,12 @@ msgstr "Tomorrow 9:00"
 msgid "Translate"
 msgstr "Translate"
 
-#: src/components/Post/PostCard.tsx:942
+#: src/components/Post/PostCard.tsx:962
 msgid "Translated · Show original?"
 msgstr "Translated · Show original?"
 
 #. placeholder {0}: shownTranslation.sourceLang
-#: src/components/Post/PostCard.tsx:941
+#: src/components/Post/PostCard.tsx:961
 msgid "Translated from {0} · Show original?"
 msgstr "Translated from {0} · Show original?"
 
@@ -2833,7 +2931,7 @@ msgstr "Type a query to search posts."
 msgid "Type a tag to search."
 msgstr "Type a tag to search."
 
-#: src/components/Post/PostMediaGrid.tsx:343
+#: src/components/Post/PostMediaGrid.tsx:350
 msgid "Unavailable"
 msgstr "Unavailable"
 
@@ -2887,15 +2985,20 @@ msgstr "Unmute to see their posts again."
 msgid "Unpin from profile"
 msgstr "Unpin from profile"
 
-#: src/components/Post/PostCard.tsx:463
+#: src/components/Post/PostCard.tsx:480
 msgid "Unpinned"
 msgstr "Unpinned"
 
-#: src/components/Composer/CompactComposer.tsx:461
+#: src/components/Composer/CloseConfirmDialog.tsx:23
+msgid "Unsaved draft"
+msgstr "Unsaved draft"
+
+#: src/components/Composer/CompactComposer.tsx:470
 msgid "Unsent posts on this device"
 msgstr "Unsent posts on this device"
 
-#: src/components/Composer/ComposerSections.tsx:237
+#: src/components/Composer/ComposerSections.tsx:235
+#: src/screens/Note.tsx:580
 msgid "uploaded"
 msgstr "uploaded"
 
@@ -2903,7 +3006,8 @@ msgstr "uploaded"
 msgid "Uploading to your Drive…"
 msgstr "Uploading to your Drive…"
 
-#: src/components/Composer/ComposerSections.tsx:235
+#: src/components/Composer/ComposerSections.tsx:233
+#: src/screens/Note.tsx:578
 msgid "uploading..."
 msgstr "uploading..."
 
@@ -2939,7 +3043,7 @@ msgstr "Verify"
 msgid "errors.auth.noVerifyAccount"
 msgstr "verify_credentials did not return an account."
 
-#: src/screens/AuthCallback.tsx:194
+#: src/screens/AuthCallback.tsx:197
 msgid "Verifying with your server…"
 msgstr "Verifying with your server…"
 
@@ -2948,7 +3052,7 @@ msgstr "Verifying with your server…"
 msgid "Verifying…"
 msgstr "Verifying…"
 
-#: src/components/Post/PostCard.tsx:818
+#: src/components/Post/PostCard.tsx:838
 msgid "View edit history"
 msgstr "View edit history"
 
@@ -2969,7 +3073,7 @@ msgstr "View requests"
 msgid "Violates server rules"
 msgstr "Violates server rules"
 
-#: src/components/Composer/CompactComposer.tsx:426
+#: src/components/Composer/CompactComposer.tsx:435
 msgid "Visible only on this server"
 msgstr "Visible only on this server"
 
@@ -2982,12 +3086,12 @@ msgstr "Vote"
 msgid "voted in your poll"
 msgstr "voted in your poll"
 
-#: src/components/Post/PostCard.tsx:498
+#: src/components/Post/PostCard.tsx:515
 msgid "We'll show you fewer posts like this."
 msgstr "We'll show you fewer posts like this."
 
-#: src/components/Composer/CompactComposer.tsx:214
-#: src/components/Composer/Composer.tsx:647
+#: src/components/Composer/CompactComposer.tsx:223
+#: src/components/Composer/Composer.tsx:923
 msgid "What's happening?"
 msgstr "What's happening?"
 
@@ -2995,16 +3099,16 @@ msgstr "What's happening?"
 msgid "Which rules are being violated? Optional"
 msgstr "Which rules are being violated? Optional"
 
-#: src/components/Composer/CompactComposer.tsx:383
+#: src/components/Composer/CompactComposer.tsx:392
 msgid "Who can react"
 msgstr "Who can react"
 
-#: src/components/Composer/CompactComposer.tsx:259
+#: src/components/Composer/CompactComposer.tsx:268
 msgid "Who can see this post"
 msgstr "Who can see this post"
 
 #. placeholder {0}: current.label
-#: src/components/Composer/CompactComposer.tsx:247
+#: src/components/Composer/CompactComposer.tsx:256
 msgid "Who can see this post: {0}. Change audience."
 msgstr "Who can see this post: {0}. Change audience."
 
@@ -3042,8 +3146,12 @@ msgstr "Working…"
 msgid "Write a post"
 msgstr "Write a post"
 
-#: src/components/Composer/CompactComposer.tsx:211
-#: src/components/Composer/Composer.tsx:644
+#: src/screens/Note.tsx:480
+msgid "Write something first."
+msgstr "Write something first."
+
+#: src/components/Composer/CompactComposer.tsx:220
+#: src/components/Composer/Composer.tsx:920
 msgid "Write your reply"
 msgstr "Write your reply"
 
