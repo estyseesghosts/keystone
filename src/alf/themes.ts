@@ -29,7 +29,10 @@ const lightPalette: Palette = {
   raise: '#ececec',
   text: '#111111',
   muted: '#666666',
-  faint: '#999999',
+  // 4.54:1 on bg (WCAG AA normal-text floor is 4.5:1). Non-essential text
+  // only (repair X10.2, audit a11y 9); on bgSoft/raise it drops to ~3.8-4.2:1
+  // (see the contrast test allowlist) so essential text uses muted or text.
+  faint: '#767676',
   border: '#e3e3e3',
   edge: '#d4d4d4',
   borderStrong: '#111111',
@@ -41,7 +44,9 @@ const darkPalette: Palette = {
   raise: '#262626',
   text: '#ededed',
   muted: '#a8a8a8',
-  faint: '#7a7a7a',
+  // 5.47:1 on bg. Same non-essential-only rule as light faint; on raise it
+  // is 4.38:1 (allowlisted, still above the 3:1 large-text/icon floor).
+  faint: '#8a8a8a',
   border: '#2b2b2b',
   edge: '#3d3d3d',
   borderStrong: '#ededed',

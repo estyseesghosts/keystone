@@ -31,6 +31,14 @@ export function Button({
   testID,
 }: ButtonProps) {
   const theme = useTheme()
+  // Disabled label token (repair X10.2, audit a11y 9): `muted` meets 3:1
+  // on every surface in both themes (pinned by the alf contrast test), so
+  // the disabled label never needs an opacity dim to read as disabled.
+  const labelColor: 'text' | 'muted' | undefined = disabled
+    ? 'muted'
+    : variant === 'primary'
+      ? undefined
+      : 'text'
   const styles = StyleSheet.create({
     base: {
       paddingHorizontal: compact ? space.md : space.lg,
@@ -41,13 +49,23 @@ export function Button({
       borderRadius: radius.full,
       alignItems: 'center',
       justifyContent: 'center',
-      opacity: disabled ? 0.5 : 1,
     },
     primary: {backgroundColor: theme.palette.borderStrong},
     secondary: {
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: theme.palette.edge,
+    },
+    // Disabled chrome: never halve the whole button's opacity (that dims
+    // the label too). Instead the fill hollows out to a dashed outline — a
+    // shape/pattern cue, not a colour-only one — while the label above
+    // carries the contrast. Focus/hover/pressed behaviour stays in the
+    // shared Pressable (X10.1); this entry only re-skins the resting box.
+    disabled: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: theme.palette.edge,
+      borderStyle: 'dashed',
     },
   })
   // Compact pills read smaller all over: Caption label, never wrapped.
@@ -65,10 +83,15 @@ export function Button({
       style={[
         styles.base,
         variant === 'primary' ? styles.primary : styles.secondary,
+        disabled && styles.disabled,
       ]}>
       <Label
-        color={variant === 'primary' ? undefined : 'text'}
-        style={variant === 'primary' ? {color: theme.palette.bg} : undefined}
+        color={labelColor}
+        style={
+          variant === 'primary' && !disabled
+            ? {color: theme.palette.bg}
+            : undefined
+        }
         numberOfLines={1}>
         {label}
       </Label>
