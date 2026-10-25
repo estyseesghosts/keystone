@@ -8,7 +8,11 @@ import {
 } from '@tanstack/react-query'
 
 import {
+  attachmentCapFor,
+  attachmentSizeError,
   fetchComposeLimits,
+  kindOfMime,
+  type AttachmentCaps,
   type Backend,
   type ComposeLimits,
   type CustomEmoji,
@@ -18,6 +22,20 @@ import {
   type ScheduledNote,
   type ServerDraft,
   type Session,
+} from '@keystone/fedi'
+
+// Byte-cap helpers live in fedi (`api/composer`, repair X6.2 step 2); the
+// composer re-exports them so existing import sites keep working. The
+// effective cap is per-kind from the server limits, else the client heap
+// bound — never a hard-coded server number.
+export {
+  attachmentCapFor,
+  attachmentSizeError,
+  formatByteLimit,
+  kindOfMime,
+  MAX_MEDIA_BYTES,
+  type AttachmentCaps,
+  type AttachmentKind,
 } from '@keystone/fedi'
 
 import {patchPostInCaches} from '#/state/cache'
@@ -39,12 +57,16 @@ export function customEmojisKey(sessionId: string) {
   return createQueryKey(sessionId, 'custom-emojis')
 }
 
-/** Server character/attachment limits for the session's instance. */
+/** Server character/attachment limits for the session's instance.
+ * Retry lives in fedi (`fetchComposeLimits` backs off internally), so the
+ * query itself does not retry — a dead server surfaces fallback limits
+ * once instead of storming it. */
 export function useComposeLimits(session: Session | null) {
   return useQuery<ComposeLimits>({
     queryKey: composeLimitsKey(session?.id ?? 'signed-out'),
     enabled: !!session,
     staleTime: LIMITS_STALE,
+    retry: false,
     queryFn: ({signal}) => {
       // No signal bag on the limits fetch (repair X3.1): honour a
       // pre-abort, then read (it never throws — defaults on failure).
@@ -87,9 +109,12 @@ function prependToQuery(client: QueryClient, key: readonly unknown[], post: Post
 
 /**
  * Put a freshly created post at the head of the feeds that would show it:
- * the session's home and social timelines and the author's own profile tab.
- * Only keys of THIS session are written. A reply also bumps the parent's
- * reply count wherever the parent is cached. Returns the keys written.
+ * the session's home timeline and the author's own profile tab. Only keys
+ * of THIS session are written. Direct and followers-only posts never enter
+ * a shared timeline cache; replies go only to the profile/thread caches
+ * (never Home/Social); quiet posts (`home`/`unlisted`) never enter Social.
+ * A reply also bumps the parent's reply count wherever the parent is
+ * cached. Returns the keys written.
  */
 export function insertCreatedPost(
   client: QueryClient,
@@ -97,7 +122,15 @@ export function insertCreatedPost(
   post: Post,
   replyToId?: string | null,
 ): string[] {
-  const descriptors = ['timeline|home', 'timeline|social']
+  const kind = post.visibility?.kind
+  const isReply = replyToId != null
+  const descriptors: string[] = []
+  // Public posts land in Home + Social; quiet stays out of Social; DMs,
+  // followers-only, and any reply stay out of both shared timelines.
+  if (!isReply && kind !== 'direct' && kind !== 'followers') {
+    descriptors.push('timeline|home')
+    if (kind !== 'quiet') descriptors.push('timeline|social')
+  }
   descriptors.push(`user|${post.author.id}|${replyToId ? 'replies' : 'posts'}`)
   const written: string[] = []
   for (const d of descriptors) {
@@ -133,23 +166,7 @@ export type CreatePostResult =
   | {kind: 'posted'; post: Post}
   | {kind: 'scheduled'; scheduled: ScheduledNote}
 
-/** Client-side attachment bound (R2.3): files over this size are refused
- * with an honest error before staging or uploading — never read into the
- * Hermes heap. The server may accept larger files; this bound is about not
- * OOMing the client on `fetch(uri) → blob → File`, not about the server's
- * limit. Video is never silently recompressed: over-cap video is refused,
- * not downscaled. */
-export const MAX_MEDIA_BYTES = 10 * 1024 * 1024
-
-/** Honest refusal text for an over-cap attachment, or null when it fits.
- * Unknown sizes (non-finite, zero) pass — the server stays the verdict.
- * Pure. */
-export function attachmentSizeError(name: string, size: number): string | null {
-  if (!Number.isFinite(size) || size <= MAX_MEDIA_BYTES) return null
-  return `"${name}" is too large to attach (over 10 MB).`
-}
-
-/** The create call, separated from React for tests. */
+/** The create-post mutation, separated from React for tests. */
 export async function submitPost(
   backend: Backend,
   input: CreatePostInput,
@@ -256,6 +273,7 @@ export async function uploadAll(
   files: Map<string, File>,
   onUpdate: (key: string, patch: Partial<UploadItem>) => void,
   target: UploadTarget = {},
+  caps: AttachmentCaps | null = null,
 ): Promise<string[] | null> {
   const ids: string[] = []
   let failed = false
@@ -276,9 +294,12 @@ export async function uploadAll(
       // has its File); kept as a honest fallback that never attaches.
       continue
     }
-    // Client bound (R2.3): an over-cap File never reaches the transport —
-    // the failure stays on its item for the user to remove, like any error.
-    const tooBig = attachmentSizeError(item.name, file.size)
+    // Client bound (R2.3 + repair X6.2 step 2): a known over-cap size never
+    // reaches the transport — the failure stays on its item for the user
+    // to remove, like any error. The cap is per-kind from the server
+    // limits, else the client heap bound; the message carries the real
+    // number that applied.
+    const tooBig = attachmentSizeError(item.name, file.size, caps, kindOfMime(file.type))
     if (tooBig) {
       onUpdate(item.key, {status: 'error', error: tooBig})
       failed = true
@@ -304,7 +325,11 @@ export async function uploadAll(
   return failed ? null : ids
 }
 
-export function useUploads(backend: Backend | null, target: UploadTarget = {}) {
+export function useUploads(
+  backend: Backend | null,
+  target: UploadTarget = {},
+  caps: AttachmentCaps | null = null,
+) {
   const [items, setItems] = useState<UploadItem[]>([])
   const files = useMemo(() => new Map<string, File>(), [])
   const itemsRef = useRef(items)
@@ -314,22 +339,28 @@ export function useUploads(backend: Backend | null, target: UploadTarget = {}) {
   // `ensureUploaded`.
   const targetRef = useRef(target)
   targetRef.current = target
+  // Server caps move with the limits query; the ref keeps `add` and
+  // `ensureUploaded` stable while the numbers stay current.
+  const capsRef = useRef(caps)
+  capsRef.current = caps
 
   const patch = useCallback((key: string, p: Partial<UploadItem>) => {
     setItems(cur => cur.map(i => (i.key === key ? {...i, ...p} : i)))
   }, [])
 
   const add = useCallback(
-    (picked: UploadableFile[]): string[] => {
-      // Client bound (R2.3): over-cap Files are refused before staging —
-      // they never enter `files`, so `ensureUploaded` cannot send them.
-      // Returns the refused names for the caller to report honestly.
-      const refused: string[] = []
+    (picked: UploadableFile[]): Array<{name: string; limit: number}> => {
+      // Client bound (R2.3 + repair X6.2 step 2): over-cap Files are refused
+      // before staging — they never enter `files`, so `ensureUploaded`
+      // cannot send them. Returns the refused names WITH the cap that
+      // applied so the caller reports the real number honestly.
+      const refused: Array<{name: string; limit: number}> = []
       const created: Array<{key: string; p: UploadableFile}> = []
       for (const [i, p] of picked.entries()) {
-        const tooBig = attachmentSizeError(p.name, p.file.size)
+        const kind = kindOfMime(p.file.type)
+        const tooBig = attachmentSizeError(p.name, p.file.size, capsRef.current, kind)
         if (tooBig) {
-          refused.push(p.name)
+          refused.push({name: p.name, limit: attachmentCapFor(kind, capsRef.current)})
           continue
         }
         created.push({
@@ -378,7 +409,7 @@ export function useUploads(backend: Backend | null, target: UploadTarget = {}) {
 
   const ensureUploaded = useCallback(async (): Promise<string[] | null> => {
     if (!backend) return null
-    return uploadAll(backend, itemsRef.current, files, patch, targetRef.current)
+    return uploadAll(backend, itemsRef.current, files, patch, targetRef.current, capsRef.current)
   }, [backend, files, patch])
 
   const clear = useCallback(() => {

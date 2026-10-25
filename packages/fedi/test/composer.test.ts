@@ -7,11 +7,14 @@ import {
   buildPostDraft,
   composeDefaultsFor,
   composeGates,
+  composePrefsOf,
   countComposeChars,
   defaultVisibilityFor,
   emptyComposeState,
   fetchComposeLimits,
+  formatByteLimit,
   visibilityOptionsFor,
+  type ComposeLimits,
 } from "../src/api/composer";
 import { createMisskeyBackend, type MisskeyTransport } from "../src/misskey/backend";
 import { createMastodonBackend } from "../src/mastodon/backend";
@@ -470,5 +473,396 @@ describe("fetchComposeLimits", () => {
     expect(l.maxChars).toBe(700);
     expect(l.maxMedia).toBe(2);
     expect(seen.some((u) => u.endsWith("/api/v2/instance"))).toBe(true);
+  });
+});
+
+describe("fetchComposeLimits full (repair X6.2 step 1)", () => {
+  function mastoFetch(v2: unknown, v1Status = 404, v1Body: unknown = {}): jest.Mock {
+    return jest.fn(async (url: string | URL): Promise<Response> => {
+      const u = String(url);
+      if (u.endsWith("/api/v2/instance")) {
+        return v2 === null
+          ? new Response("", { status: 404 })
+          : new Response(JSON.stringify(v2), { status: 200 });
+      }
+      if (u.endsWith("/api/v1/instance")) {
+        return v1Status === 200
+          ? new Response(JSON.stringify(v1Body), { status: 200 })
+          : new Response("", { status: v1Status });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as jest.Mock;
+  }
+
+  it("reads the full Mastodon configuration block with source server", async () => {
+    const fetchImpl = mastoFetch({
+      version: "4.4.3",
+      domain: "m.example",
+      languages: ["en", "ja"],
+      configuration: {
+        statuses: { max_characters: 1000, max_media_attachments: 8, characters_reserved_per_url: 30 },
+        media_attachments: { image_size_limit: 16777216, video_size_limit: 103809024 },
+        polls: { max_options: 4, max_characters_per_option: 25, min_expiration: 300, max_expiration: 2629746 },
+      },
+    });
+    const l = await fetchComposeLimits(
+      { origin: "https://m.example", family: "mastodon" },
+      fetchImpl as unknown as typeof fetch,
+    );
+    expect(l).toEqual({
+      maxChars: 1000,
+      maxCwChars: null,
+      maxMedia: 8,
+      maxImageBytes: 16777216,
+      maxVideoBytes: 103809024,
+      maxPollOptions: 4,
+      maxPollOptionChars: 25,
+      minPollSeconds: 300,
+      maxPollSeconds: 2629746,
+      urlWeight: 30,
+      supportedLanguages: ["en", "ja"],
+      source: "server",
+    });
+    expect(fetchImpl.mock.calls.some(([u]: [string]) => String(u).endsWith("/api/v2/instance"))).toBe(true);
+  });
+
+  it("falls back to v1 on 404 and uses upload_limit + poll_limits generically", async () => {
+    const fetchImpl = mastoFetch(null, 200, {
+      uri: "a.example",
+      title: "akko",
+      version: "2.0",
+      max_toot_chars: 5000,
+      upload_limit: 20971520,
+      poll_limits: { max_options: 10, max_characters_per_option: 140 },
+    });
+    const l = await fetchComposeLimits(
+      { origin: "https://a.example", family: "mastodon" },
+      fetchImpl as unknown as typeof fetch,
+    );
+    expect(l.source).toBe("server");
+    expect(l.maxChars).toBe(5000);
+    // Generic v1 cap backs both kinds when the specific block is absent.
+    expect(l.maxImageBytes).toBe(20971520);
+    expect(l.maxVideoBytes).toBe(20971520);
+    expect(l.maxPollOptions).toBe(10);
+    expect(l.maxPollOptionChars).toBe(140);
+    expect(l.supportedLanguages).toBeNull();
+  });
+
+  it("never falls back on timeout/500: retries, then reports fallback", async () => {
+    const fail = jest.fn(async (): Promise<Response> => new Response("", { status: 500 }));
+    const l = await fetchComposeLimits(
+      { origin: "https://m.example", family: "mastodon" },
+      fail as unknown as typeof fetch,
+      { retries: 2, retryDelayMs: 0 },
+    );
+    expect(l.source).toBe("fallback");
+    expect(l.maxChars).toBe(500);
+    // 1 initial + 2 retries.
+    expect(fail).toHaveBeenCalledTimes(3);
+  });
+
+  it("a transient failure then success resolves server (backoff, no sleep in tests)", async () => {
+    let n = 0;
+    const flaky = jest.fn(async (url: string | URL): Promise<Response> => {
+      n++;
+      if (String(url).endsWith("/api/v1/instance")) return new Response("", { status: 404 });
+      if (n <= 2) throw new Error("net down");
+      return new Response(
+        JSON.stringify({ version: "4.4.3", configuration: { statuses: { max_characters: 750 } } }),
+        { status: 200 },
+      );
+    });
+    const l = await fetchComposeLimits(
+      { origin: "https://m.example", family: "mastodon" },
+      flaky as unknown as typeof fetch,
+      { retries: 3, retryDelayMs: 0 },
+    );
+    expect(l).toMatchObject({ maxChars: 750, source: "server" });
+    expect(n).toBeGreaterThan(1);
+  });
+
+  it("Misskey meta carries chars + langs with source server", async () => {
+    const ok = (async () => ({
+      ok: true,
+      json: async () => ({ maxNoteTextLength: 8192, langs: ["en", "ja"] }),
+    })) as unknown as typeof fetch;
+    const l = await fetchComposeLimits({ origin: "https://s.example", family: "misskey" }, ok);
+    expect(l).toMatchObject({ maxChars: 8192, supportedLanguages: ["en", "ja"], source: "server" });
+    // Family static: Misskey CW cap rides along even when meta says nothing.
+    expect(l.maxCwChars).toBe(100);
+  });
+});
+
+describe("countComposeChars URL trailing punctuation (repair X6.2 step 3)", () => {
+  const cases: Array<[string, string, number]> = [
+    // [family, text, expected]
+    ["mastodon", "see https://x.y/a.", 4 + 23 + 1],
+    ["mastodon", "see https://x.y/a,", 4 + 23 + 1],
+    ["mastodon", "see https://x.y/a!", 4 + 23 + 1],
+    // Balanced closers stay inside the URL (flat 23): only the "(" counts.
+    ["mastodon", "(https://x.y/a)", 1 + 23],
+    ["mastodon", "hi https://example.com/a/very/long/path?x=1", 3 + 23],
+    ["mastodon", "a https://x.y/one. b https://x.y/two!", 2 + 23 + 1 + 3 + 23 + 1],
+    ["misskey", "see https://x.y/a.", "see https://x.y/a.".length],
+  ];
+  it.each(cases)("counts %s %p as %d", (family, text, expected) => {
+    expect(countComposeChars(family as "mastodon" | "misskey", text)).toBe(expected);
+  });
+
+  it("honours a server urlWeight", () => {
+    expect(countComposeChars("mastodon", "see https://x.y/a.", 30)).toBe(4 + 30 + 1);
+  });
+});
+
+describe("buildPostDraft validation (repair X6.2 step 3)", () => {
+  function limitsFor(family: "misskey" | "mastodon", over: Partial<ComposeLimits> = {}): ComposeLimits {
+    const base = composeDefaultsFor(family);
+    return { ...base, ...over };
+  }
+  function vctx(
+    family: "misskey" | "mastodon",
+    flavor: "misskey" | "sharkey" | "mastodon",
+    limits: ComposeLimits,
+  ) {
+    const c = { ...buildCapabilities(flavor, undefined as never) };
+    return { family, gates: composeGates(family, c, null), limits };
+  }
+
+  const validationCases: Array<{
+    name: string;
+    family: "misskey" | "mastodon";
+    flavor: "misskey" | "sharkey" | "mastodon";
+    limits: Partial<ComposeLimits>;
+    state: Parameters<typeof emptyComposeState>[0];
+    ok: boolean;
+  }> = [
+    {
+      name: "Misskey CW over 100 fails, exactly 100 passes",
+      family: "misskey",
+      flavor: "sharkey",
+      limits: {},
+      state: { text: "x", cwEnabled: true, cw: "c".repeat(101) },
+      ok: false,
+    },
+    {
+      name: "Misskey CW at the cap passes",
+      family: "misskey",
+      flavor: "sharkey",
+      limits: {},
+      state: { text: "x", cwEnabled: true, cw: "c".repeat(100) },
+      ok: true,
+    },
+    {
+      name: "duplicate poll choices fail",
+      family: "misskey",
+      flavor: "sharkey",
+      limits: {},
+      state: { text: "x", poll: { choices: ["yes", " yes "], multiple: false, durationSeconds: 60 } },
+      ok: false,
+    },
+    {
+      name: "distinct poll choices pass",
+      family: "misskey",
+      flavor: "sharkey",
+      limits: {},
+      state: { text: "x", poll: { choices: ["yes", "no"], multiple: false, durationSeconds: 60 } },
+      ok: true,
+    },
+    {
+      name: "poll option over the server length fails, at the length passes",
+      family: "mastodon",
+      flavor: "mastodon",
+      limits: { maxPollOptionChars: 5 },
+      state: { text: "x", poll: { choices: ["toolong", "ok"], multiple: false, durationSeconds: 600 } },
+      ok: false,
+    },
+    {
+      name: "poll option at the server length passes",
+      family: "mastodon",
+      flavor: "mastodon",
+      limits: { maxPollOptionChars: 5 },
+      state: { text: "x", poll: { choices: ["five5", "ok"], multiple: false, durationSeconds: 600 } },
+      ok: true,
+    },
+    {
+      name: "poll over the server max expiry fails",
+      family: "mastodon",
+      flavor: "mastodon",
+      limits: { maxPollSeconds: 3600 },
+      state: { text: "x", poll: { choices: ["a", "b"], multiple: false, durationSeconds: 7200 } },
+      ok: false,
+    },
+    {
+      name: "poll under the server min expiry fails",
+      family: "mastodon",
+      flavor: "mastodon",
+      limits: { minPollSeconds: 300 },
+      state: { text: "x", poll: { choices: ["a", "b"], multiple: false, durationSeconds: 60 } },
+      ok: false,
+    },
+    {
+      name: "Mastodon schedule under 5 minutes fails, over passes",
+      family: "mastodon",
+      flavor: "mastodon",
+      limits: {},
+      state: {
+        text: "x",
+        scheduledAt: new Date(Date.now() + 60_000).toISOString(),
+      },
+      ok: false,
+    },
+    {
+      name: "Mastodon schedule over 5 minutes passes",
+      family: "mastodon",
+      flavor: "mastodon",
+      limits: {},
+      state: {
+        text: "x",
+        scheduledAt: new Date(Date.now() + 6 * 60_000).toISOString(),
+      },
+      ok: true,
+    },
+    {
+      name: "specified with only an @mention in text still fails",
+      family: "misskey",
+      flavor: "misskey",
+      limits: {},
+      state: { text: "psst @alice", visibilityRaw: "specified" },
+      ok: false,
+    },
+    {
+      name: "specified with picked recipients passes",
+      family: "misskey",
+      flavor: "misskey",
+      limits: {},
+      state: { text: "psst", visibilityRaw: "specified", visibleUserIds: ["u1"] },
+      ok: true,
+    },
+  ];
+
+  it.each(validationCases)("$name", ({ family, flavor, limits, state, ok }) => {
+    const ctx = vctx(family, flavor, limitsFor(family, limits));
+    // Scheduled cases need the schedule gate on.
+    if (state?.scheduledAt) {
+      ctx.gates = composeGates(family, { ...buildCapabilities(flavor, undefined as never) }, {
+        scheduled: {},
+      } as never);
+    }
+    const r = buildPostDraft(emptyComposeState(state), ctx);
+    expect(r.ok).toBe(ok);
+  });
+});
+
+describe("composePrefsOf + narrowest-unknown default (repair X6.2 step 4)", () => {
+  const mastoMe = (source: Record<string, unknown>) =>
+    ({ ext: { mastodon: { source } } }) as unknown as Parameters<typeof composePrefsOf>[0];
+  const misskeyMe = (me: Record<string, unknown>) =>
+    ({ ext: { me } }) as unknown as Parameters<typeof composePrefsOf>[0];
+
+  it("reads Mastodon source.privacy/sensitive/language", () => {
+    expect(composePrefsOf(mastoMe({ privacy: "unlisted", sensitive: true, language: "ja" }))).toEqual({
+      visibilityRaw: "unlisted",
+      localOnly: false,
+      sensitive: true,
+      language: "ja",
+    });
+  });
+
+  it("reads Misskey defaultNoteVisibility/defaultNoteLocalOnly", () => {
+    expect(composePrefsOf(misskeyMe({ defaultNoteVisibility: "home", defaultNoteLocalOnly: true }))).toEqual({
+      visibilityRaw: "home",
+      localOnly: true,
+      sensitive: false,
+      language: null,
+    });
+  });
+
+  it("null me and unknown shapes read as no prefs", () => {
+    expect(composePrefsOf(null)).toEqual({ visibilityRaw: null, localOnly: false, sensitive: false, language: null });
+    expect(composePrefsOf({} as never).visibilityRaw).toBeNull();
+  });
+
+  it("an unknown preferredRaw narrows, never public", () => {
+    expect(defaultVisibilityFor("mastodon", null, "list:weird").raw).toBe("private");
+    expect(defaultVisibilityFor("misskey", null, "list:weird").raw).toBe("followers");
+    // Known values still round-trip verbatim.
+    expect(defaultVisibilityFor("mastodon", null, "unlisted").raw).toBe("unlisted");
+    // Absent still keeps today's family default.
+    expect(defaultVisibilityFor("mastodon", null).raw).toBe("public");
+    expect(defaultVisibilityFor("misskey", null).raw).toBe("public");
+  });
+
+  it("replies still never widen the parent, even with a wider pref", () => {
+    const parent = { visibility: { kind: "followers", localOnly: false, raw: "followers" } } as never;
+    expect(defaultVisibilityFor("misskey", parent, "public").raw).toBe("followers");
+  });
+});
+
+describe("sensitive/language emission (repair X6.2 step 5)", () => {
+  function vctx(family: "misskey" | "mastodon", flavor: "misskey" | "mastodon") {
+    return {
+      family,
+      gates: composeGates(family, buildCapabilities(flavor, undefined as never), null),
+      limits: composeDefaultsFor(family),
+    };
+  }
+
+  it("Mastodon emits sensitive + language, Misskey drops both", () => {
+    const md = buildPostDraft(
+      emptyComposeState({ text: "hi", sensitive: true, language: "ja" }),
+      vctx("mastodon", "mastodon"),
+    );
+    expect(md.ok).toBe(true);
+    if (md.ok) expect(md.draft).toMatchObject({ sensitive: true, language: "ja" });
+    const mk = buildPostDraft(
+      emptyComposeState({ text: "hi", sensitive: true, language: "ja" }),
+      vctx("misskey", "misskey"),
+    );
+    expect(mk.ok).toBe(true);
+    if (mk.ok) {
+      expect(mk.draft).not.toHaveProperty("sensitive");
+      expect(mk.draft).not.toHaveProperty("language");
+    }
+  });
+
+  it("absent values stay absent on Mastodon (server default wins)", () => {
+    const r = buildPostDraft(emptyComposeState({ text: "hi" }), vctx("mastodon", "mastodon"));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.draft).not.toHaveProperty("sensitive");
+      expect(r.draft).not.toHaveProperty("language");
+    }
+  });
+});
+
+describe("autocomplete unicode (repair X6.2 step 8)", () => {
+  const cases: Array<[string, number, string, string]> = [
+    // [text, caret, kind, query]
+    ["#日本語", 4, "hashtag", "日本語"],
+    ["see #café", 9, "hashtag", "café"],
+    ["hi @josé", 8, "mention", "josé"],
+    ["hi @josé!", 8, "mention", "josé"],
+    ["x :日本", 5, "emoji", "日本"],
+  ];
+  it.each(cases)("triggers %s at %d as %s %p", (text, caret, kind, query) => {
+    const t = autocompleteTriggerAt(text, caret);
+    expect(t).toMatchObject({ kind, query, end: caret });
+    expect(text.slice(t!.start, t!.end)).toBe(`${kind === "mention" ? "@" : kind === "hashtag" ? "#" : ":"}${query}`);
+  });
+
+  it("replaces the full unicode token with no stray characters", () => {
+    const t = autocompleteTriggerAt("#日本語", 4)!;
+    const next = applyCompletion("#日本語", t, "#日本語タグ");
+    expect(next).toEqual({ text: "#日本語タグ ", caret: "#日本語タグ".length + 1 });
+  });
+});
+
+describe("formatByteLimit (repair X6.2 step 2)", () => {
+  it("formats bytes with the runtime locale, never a literal", () => {
+    expect(formatByteLimit(10 * 1024 * 1024)).toMatch(/10/);
+    expect(formatByteLimit(16 * 1024 * 1024)).toMatch(/16/);
+    expect(formatByteLimit(99 * 1024 * 1024)).toMatch(/99/);
+    expect(formatByteLimit(500)).toMatch(/500/);
   });
 });

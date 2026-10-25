@@ -1,7 +1,8 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {ScrollView, StyleSheet, TextInput, View} from 'react-native'
+import {useQuery} from '@tanstack/react-query'
 
-import {msg} from '@lingui/macro'
+import {msg, plural} from '@lingui/macro'
 
 import {
   ApiError,
@@ -9,9 +10,11 @@ import {
   buildPostDraft,
   composeDefaultsFor,
   composeGates,
+  composePrefsOf,
   countComposeChars,
   defaultVisibilityFor,
   emptyComposeState,
+  formatByteLimit,
   isUnsupportedError,
   pendingMediaUpdates,
   visibilityOptionsFor,
@@ -22,6 +25,7 @@ import {
   type Post,
   type ReactionAcceptance,
   type ServerDraft,
+  type ServerFamily,
   type Session,
 } from '@keystone/fedi'
 
@@ -47,9 +51,12 @@ import {
   loadDraft,
   newDraftId,
   saveDraft,
+  saveDraftDetailed,
   setOpenDraftId,
   type LocalDraft,
 } from '#/storage/drafts'
+import {meQueryKey} from '#/state/queries/keys'
+import {STALE} from '#/state/queries/stale'
 
 import {useSuggestions, type Suggestion} from './Autocomplete'
 import {useAutogrowInput, autogrowStyle} from './useAutogrowInput'
@@ -97,6 +104,13 @@ export function sheetVisibleMaxHeight(
   if (platformOS === 'web' || layout !== 'mobile') return undefined
   if (!Number.isFinite(windowHeight) || windowHeight <= 0) return undefined
   return Math.max(0, windowHeight - sheetKeyboardInset(platformOS, keyboardHeight))
+}
+
+/** True when the selected visibility is a direct audience (Misskey
+ * `specified`, Mastodon `direct`) — derived from the option kinds, never
+ * by hardcoding wire strings. */
+export function isDirectVisibility(family: ServerFamily, visibilityRaw: string): boolean {
+  return visibilityOptionsFor(family).find(o => o.raw === visibilityRaw)?.kind === 'direct'
 }
 
 export interface ComposerProps {
@@ -147,6 +161,8 @@ function stateFromDraft(d: LocalDraft): Partial<ComposeState> {
       : null,
     reactionAcceptance: d.reactionAcceptance,
     noQuote: d.noQuote,
+    sensitive: d.sensitive,
+    language: d.language,
     scheduledAt: d.scheduledAt,
   }
 }
@@ -172,6 +188,8 @@ function snapshotDraft(id: string, state: ComposeState, hadMedia: boolean): Loca
     pollDurationSeconds: state.poll?.durationSeconds ?? 86400,
     reactionAcceptance: state.reactionAcceptance,
     noQuote: state.noQuote,
+    sensitive: state.sensitive,
+    language: state.language,
     scheduledAt: state.scheduledAt,
     hadMedia,
   }
@@ -253,9 +271,40 @@ export function useComposerController({
     [family, backend],
   )
   const limitsQuery = useComposeLimits(session)
-  const limits = limitsQuery.data ?? composeDefaultsFor(family)
+  // Partial limits objects (older test doubles, future new fields): fill
+  // any missing key from the family defaults so new reads never see
+  // undefined at runtime.
+  const limits = useMemo(
+    () => ({...composeDefaultsFor(family), ...limitsQuery.data}),
+    [limitsQuery.data, family],
+  )
+  // F10: fallback limits never hard-block posting — the composer warns
+  // instead of disabling. Shown once the query settled, not while pending.
+  const limitsUnverified = limitsQuery.isFetched && limits.source !== 'server'
+  // Per-kind upload caps for the picker and the upload guards (X6.2 step
+  // 2): server values when reported, else the client heap bound.
+  const caps = useMemo(
+    () => ({imageBytes: limits.maxImageBytes ?? null, videoBytes: limits.maxVideoBytes ?? null}),
+    [limits],
+  )
   const emojis = useSessionCustomEmojis(session, backend)
-  const uploads = useUploads(backend, {folderId: uploadFolderId})
+  const uploads = useUploads(backend, {folderId: uploadFolderId}, caps)
+  // Server-side compose defaults (privacy 4): the viewer's own account
+  // carries default visibility / local-only / sensitivity / language.
+  // Read through the shared `me` query key (same cache every other screen
+  // uses — no new query kind), best-effort and never an error surface.
+  // A plain `useQuery` (not `useMe`) so presentational trees without a
+  // session provider can still mount the composer.
+  const prefsQuery = useQuery({
+    queryKey: meQueryKey(session.id),
+    staleTime: STALE.ACCOUNT,
+    // Best-effort: backends without `me` (test doubles) simply get no prefs.
+    enabled: typeof backend.me === 'function',
+    queryFn: ({signal}) => backend.me({signal}),
+  })
+  const prefs = useMemo(() => composePrefsOf(prefsQuery.data ?? null), [prefsQuery.data])
+  const prefsRef = useRef(prefs)
+  prefsRef.current = prefs
   const create = useCreatePost(session, backend)
   const edit = useEditPost(session, backend)
   // Slice 3: the shared server-draft mutation (create-or-update by id +
@@ -322,7 +371,12 @@ export function useComposerController({
     }
     const restored = restoreId ? listDrafts(store, session.id).find(d => d.id === restoreId) : null
     return emptyComposeState({
-      visibilityRaw: defaultVisibilityFor(family, replyTo).raw,
+      visibilityRaw: defaultVisibilityFor(family, replyTo, prefs.visibilityRaw ?? undefined).raw,
+      // Server defaults seed create mode only (never edit mode — the post
+      // is the seed there); a restored draft keeps its own values.
+      localOnly: prefs.localOnly,
+      sensitive: family === 'mastodon' && prefs.sensitive,
+      language: family === 'mastodon' ? prefs.language : null,
       replyTo,
       quote,
       ...(restored ? stateFromDraft(restored) : {}),
@@ -373,37 +427,116 @@ export function useComposerController({
   // Repair X6.1 F2: never in edit mode — an edit seeds non-empty text,
   // so autosaving would write a new-post draft of the old post and set
   // the pointer; a killed edit would then prefill the next new post.
+  // Repair X6.2 step 7 (privacy 7): direct/`specified` drafts never touch
+  // disk on their own — only an explicit Save writes them.
   const postedRef = useRef(false)
   const autosaveFailedRef = useRef(false)
+  const directNoticeRef = useRef(false)
   useEffect(() => {
     if (editing != null) return
     if (postedRef.current) return
+    if (isDirectVisibility(family, state.visibilityRaw)) {
+      directNoticeRef.current = true
+      setNotice(i18n._(msg`Direct and specified posts aren't autosaved on this device. Use Save to keep a copy.`))
+      return
+    }
     const timer = setTimeout(() => {
       // A throwing store (failed reads or writes) counts as a failed
       // save — never let it escape the timer; surface the notice instead.
       // The helpers report booleans on the write half, but a hostile
       // backing can still throw on reads (`listDrafts` → `getItem`).
       let ok = false
+      let evicted = false
       try {
         const draft = snapshotDraft(id, state, state.media.length > 0 || uploads.items.length > 0)
-        const saved = saveDraft(store, session.id, draft)
+        const result = saveDraftDetailed(store, session.id, draft)
         const pointerSaved = isDraftEmpty(draft)
           ? clearOpenDraftId(store, session.id)
           : setOpenDraftId(store, session.id, id)
-        ok = saved && pointerSaved
+        ok = result.saved && pointerSaved
+        evicted = result.evictedOldest
       } catch {
         ok = false
       }
       if (!ok) {
         autosaveFailedRef.current = true
+        directNoticeRef.current = false
         setNotice(i18n._(msg`Could not save the draft on this device.`))
-      } else if (autosaveFailedRef.current) {
+      } else if (evicted) {
+        // The 26th draft pushed the oldest row out — say so instead of
+        // evicting silently.
         autosaveFailedRef.current = false
+        directNoticeRef.current = false
+        setNotice(i18n._(msg`Your oldest draft was removed to make room for this one.`))
+      } else if (autosaveFailedRef.current || directNoticeRef.current) {
+        autosaveFailedRef.current = false
+        directNoticeRef.current = false
         setNotice(null)
       }
     }, 400)
     return () => clearTimeout(timer)
-  }, [state, store, session.id, id, uploads.items.length, editing])
+  }, [state, store, session.id, id, uploads.items.length, editing, family])
+
+  // rn-ui L2: flush a pending autosave on unmount (sidebar navigation,
+  // account switch) instead of losing the last <400 ms of edits. Skipped
+  // after posting/saving/discarding (`postedRef`), in edit mode (edits
+  // never own a draft row), and for direct drafts (never written without
+  // an explicit Save). Failures are silent — the component is gone.
+  const editingRef = useRef(editing)
+  editingRef.current = editing
+  const flushAutosaveRef = useRef(() => {})
+  flushAutosaveRef.current = () => {
+    if (editingRef.current != null || postedRef.current) return
+    const s = stateRef.current
+    if (isDirectVisibility(family, s.visibilityRaw)) return
+    try {
+      const draft = snapshotDraft(id, s, s.media.length > 0 || uploadsItemsRef.current.length > 0)
+      if (saveDraft(store, session.id, draft)) {
+        if (isDraftEmpty(draft)) clearOpenDraftId(store, session.id)
+        else setOpenDraftId(store, session.id, id)
+      }
+    } catch {
+      // Unmounting: nothing to show.
+    }
+  }
+  useEffect(() => () => flushAutosaveRef.current(), [])
+
+  // Async-arriving server defaults (privacy 4): the `me` query usually
+  // resolves after the composer mounts, so apply the prefs once — and only
+  // to a pristine composer, never over user input or a restored draft.
+  // No dep array: exits on the applied flag, so no exhaustive-deps warning.
+  const prefsAppliedRef = useRef(false)
+  useEffect(() => {
+    if (editing != null || prefsAppliedRef.current) return
+    const p = prefsRef.current
+    const hasPrefs = p.visibilityRaw != null || p.localOnly || p.sensitive || p.language != null
+    if (!hasPrefs) return
+    const s = stateRef.current
+    const pristineDefault = defaultVisibilityFor(family, replyTo ?? null).raw
+    const pristine =
+      s.text === '' &&
+      s.cw === '' &&
+      !s.cwEnabled &&
+      s.visibilityRaw === pristineDefault &&
+      !s.localOnly &&
+      !s.sensitive &&
+      s.language == null &&
+      s.media.length === 0 &&
+      s.poll == null &&
+      s.reactionAcceptance == null &&
+      !s.noQuote &&
+      s.scheduledAt == null &&
+      s.visibleUserIds.length === 0 &&
+      uploadsItemsRef.current.length === 0
+    prefsAppliedRef.current = true
+    if (!pristine) return
+    patch({
+      visibilityRaw: defaultVisibilityFor(family, replyTo ?? null, p.visibilityRaw ?? undefined).raw,
+      localOnly: p.localOnly,
+      sensitive: family === 'mastodon' && p.sensitive,
+      language: family === 'mastodon' ? p.language : null,
+    })
+  })
 
   // Draft target restore (C6): the stored draft keeps reply/quote ids only,
   // so re-attach the posts through the owning session's backend. Runs for
@@ -444,7 +577,7 @@ export function useComposerController({
     setCaret(next.caret)
   }
 
-  const count = countComposeChars(family, state.text)
+  const count = countComposeChars(family, state.text, limits.urlWeight)
   const over = count > limits.maxChars
   const options = visibilityOptionsFor(family)
   const mediaFull = uploads.items.length + state.media.length >= limits.maxMedia
@@ -495,9 +628,13 @@ export function useComposerController({
     // Fresh draft after a post: a later save starts a NEW server draft,
     // never overwrites the one just posted.
     setServerDraftId(null)
+    const p = prefsRef.current
     setState(s =>
       emptyComposeState({
-        visibilityRaw: defaultVisibilityFor(family, s.replyTo).raw,
+        visibilityRaw: defaultVisibilityFor(family, s.replyTo, p.visibilityRaw ?? undefined).raw,
+        localOnly: p.localOnly,
+        sensitive: family === 'mastodon' && p.sensitive,
+        language: family === 'mastodon' ? p.language : null,
         replyTo: s.replyTo,
         quote: s.quote,
       }),
@@ -522,6 +659,18 @@ export function useComposerController({
       setError(i18n._(msg`Polls must stay open at least 5 minutes on this server.`))
       submitRef.current = false
       return
+    }
+    // Mastodon requires scheduled posts >= 5 minutes ahead (F11): reject
+    // here with a translated message so the user picks a valid time. The
+    // domain layer rejects too, so a too-soon schedule can never be sent
+    // even if this check is bypassed.
+    if (family === 'mastodon' && state.scheduledAt != null) {
+      const t = Date.parse(state.scheduledAt)
+      if (Number.isFinite(t) && t - Date.now() < 5 * 60_000) {
+        setError(i18n._(msg`Scheduled posts must be scheduled at least 5 minutes ahead on this server.`))
+        submitRef.current = false
+        return
+      }
     }
     // Edit mode (C7): validate the same rules, then save through
     // `backend.editPost` (the hook patches every cached copy).
@@ -581,6 +730,10 @@ export function useComposerController({
       return
     }
     // Validate text rules first (media ids are filled after upload).
+    // F10: unverified (fallback) limits never hard-block the char count —
+    // the local check yields and the server is the verdict. Every other
+    // validation still applies.
+    const effectiveLimits = limitsUnverified ? {...limits, maxChars: Math.max(limits.maxChars, count)} : limits
     const pre = buildPostDraft(
       {
         ...state,
@@ -589,7 +742,7 @@ export function useComposerController({
           ...uploads.items.map(u => ({id: u.mediaId ?? u.key, alt: u.alt, sensitive: u.sensitive})),
         ],
       },
-      {family, gates, limits},
+      {family, gates, limits: effectiveLimits},
     )
     if (!pre.ok) {
       setError(pre.reason)
@@ -621,7 +774,7 @@ export function useComposerController({
         ...state.media,
         ...mediaIds.map(m => ({id: m, alt: ''})),
       ]
-      const built = buildPostDraft({...state, media: allMedia()}, {family, gates, limits})
+      const built = buildPostDraft({...state, media: allMedia()}, {family, gates, limits: effectiveLimits})
       if (!built.ok) {
         setError(built.reason)
         return
@@ -671,7 +824,11 @@ export function useComposerController({
 
   const addMedia = async () => {
     try {
-      const result = await pickMedia({limit: limits.maxMedia - uploads.items.length})
+      const result = await pickMedia({
+        limit: limits.maxMedia - uploads.items.length,
+        imageBytes: caps.imageBytes,
+        videoBytes: caps.videoBytes,
+      })
       // Denied is shown, never a silent cancel (R2.3).
       if (result.kind === 'denied') {
         setError(
@@ -685,13 +842,23 @@ export function useComposerController({
       }
       if (result.kind === 'cancelled') return
       // Over-cap files never stage: the picker pre-filters by asset size
-      // and `uploads.add` re-checks by File size — report both honestly.
+      // and `uploads.add` re-checks by File size — report the real cap
+      // that applied to each file, never a literal.
       const refused = uploads.add(result.files)
       const tooLarge = [...result.rejected, ...refused]
       if (tooLarge.length === 1) {
-        setError(i18n._(msg`"${tooLarge[0]}" is too large to attach (over 10 MB).`))
+        setError(
+          i18n._(msg`"${tooLarge[0].name}" is too large to attach (limit ${formatByteLimit(tooLarge[0].limit)}).`),
+        )
       } else if (tooLarge.length > 1) {
-        setError(i18n._(msg`${tooLarge.length} files were too large to attach (over 10 MB).`))
+        setError(
+          i18n._(
+            plural(tooLarge.length, {
+              one: `# file was too large to attach.`,
+              other: `# files were too large to attach.`,
+            }),
+          ),
+        )
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not open the media picker.')
@@ -943,7 +1110,7 @@ export function useComposerController({
   const drafts = showDrafts ? listDrafts(store, session.id).filter(d => d.id !== id) : []
 
   return {
-    theme, family, gates, limitsQuery, limits, emojis, uploads, create,
+    theme, family, gates, limitsQuery, limits, limitsUnverified, emojis, uploads, create,
     id, state, caret, setCaret, error, setError, busy, showDrafts, setShowDrafts,
     notice, setNotice, attachTargets, resetAfterPost,
     pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
@@ -959,7 +1126,7 @@ export type ComposerController = ReturnType<typeof useComposerController>
 
 export function Composer(props: ComposerProps) {
   const controller = useComposerController(props)
-  const {theme, family, gates, limitsQuery, limits, emojis, uploads, create,
+  const {theme, family, gates, limitsQuery, limits, limitsUnverified, emojis, uploads, create,
     id, state, caret, setCaret, error, busy, showDrafts, setShowDrafts,
     notice, pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
@@ -975,6 +1142,9 @@ export function Composer(props: ComposerProps) {
   // controller's `editBusy`; create-mode behaviour is untouched).
   const editBusy = editing != null && busy
   const busyReason = i18n._(msg`Saving…`)
+  // Repair X6.2 step 5: language options the server reported (never a
+  // faked list — the picker hides when unreported).
+  const languageOptions = limits.supportedLanguages ?? []
   // Floating box rests at 120px and grows with the prose to 480px, then
   // scrolls internally. Same hook as the inline composer.
   const autogrow = useAutogrowInput(120, 480, state.text)
@@ -988,8 +1158,14 @@ export function Composer(props: ComposerProps) {
         <Button
           label={editing ? i18n._(msg`Save`) : state.scheduledAt && gates.schedule.enabled ? i18n._(msg`Schedule`) : i18n._(msg`Post`)}
           onPress={submit}
-          disabled={busy || over}
-          disabledReason={over ? i18n._(msg`Over the character limit.`) : busy ? i18n._(msg`Posting...`) : undefined}
+          disabled={busy || (over && !limitsUnverified)}
+          disabledReason={
+            over && !limitsUnverified
+              ? i18n._(msg`Over the character limit.`)
+              : busy
+                ? i18n._(msg`Posting...`)
+                : undefined
+          }
           testID="composer-submit"
           compact
         />
@@ -1033,7 +1209,12 @@ export function Composer(props: ComposerProps) {
         <Caption color={over ? 'text' : 'muted'} testID="composer-counter">
           {count} / {limits.maxChars}
         </Caption>
-        {over ? <Caption>{i18n._(msg`Over the limit`)}</Caption> : null}
+        {over && !limitsUnverified ? <Caption>{i18n._(msg`Over the limit`)}</Caption> : null}
+        {limitsUnverified ? (
+          <Caption color="muted" testID="composer-limit-unverified">
+            {i18n._(msg`Server limits couldn't be verified — posting won't be blocked.`)}
+          </Caption>
+        ) : null}
       </View>
 
       {error ? (
@@ -1103,6 +1284,34 @@ export function Composer(props: ComposerProps) {
           </Caption>
         )}
       </View>
+
+      {/* Repair X6.2 step 5: Mastodon-family status-level sensitivity and
+          post language (X4.4 `PostDraft` fields). Create mode only — edit
+          mode seeds neither, so showing the controls there would change
+          edit behaviour (X6.1 owns it). The Misskey family has no such
+          wire fields, so the section never renders there. */}
+      {!editing && family === 'mastodon' ? (
+        <View style={styles.row} testID="composer-sensitive-language">
+          <Chip
+            label={i18n._(msg`Mark media sensitive`)}
+            selected={state.sensitive}
+            onPress={() => patch({sensitive: !state.sensitive})}
+            testID="composer-sensitive-toggle"
+          />
+          {languageOptions.length > 0 ? (
+            <Caption color="muted">{i18n._(msg`Language`)}</Caption>
+          ) : null}
+          {languageOptions.map(code => (
+            <Chip
+              key={code}
+              label={code}
+              selected={state.language === code}
+              onPress={() => patch({language: state.language === code ? null : code})}
+              testID={`composer-language-${code}`}
+            />
+          ))}
+        </View>
+      ) : null}
 
       <View style={styles.row}>
         <Chip label={i18n._(msg`Emoji`)} onPress={() => setPickingEmoji(true)} testID="composer-emoji-button" />

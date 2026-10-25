@@ -4,7 +4,9 @@ import {StyleSheet} from 'react-native'
 import {I18nProvider} from '@lingui/react'
 import {i18n} from '@lingui/core'
 
-import {ApiError, buildCapabilities, createMemoryStore, type Backend, type KeyValueStore, type ServerDraftsApi, type Session} from '@keystone/fedi'
+import {ApiError, buildCapabilities, createMemoryStore, fetchComposeLimits, type Account, type Backend, type KeyValueStore, type ServerDraftsApi, type Session} from '@keystone/fedi'
+
+import {meQueryKey} from '#/state/queries/keys'
 
 import {ThemeProvider} from '#/alf/index'
 import {themes, type ThemeName} from '#/alf/themes'
@@ -20,7 +22,20 @@ i18n.activate('en')
 jest.mock('./pickMedia', () => ({pickMedia: jest.fn(async () => ({kind: 'cancelled'}))}))
 jest.mock('@keystone/fedi', () => ({
   ...jest.requireActual('@keystone/fedi'),
-  fetchComposeLimits: jest.fn(async () => ({maxChars: 20, maxMedia: 4, maxPollOptions: 4})),
+  fetchComposeLimits: jest.fn(async () => ({
+    maxChars: 20,
+    maxCwChars: null,
+    maxMedia: 4,
+    maxImageBytes: null,
+    maxVideoBytes: null,
+    maxPollOptions: 4,
+    maxPollOptionChars: null,
+    minPollSeconds: null,
+    maxPollSeconds: null,
+    urlWeight: 23,
+    supportedLanguages: null,
+    source: 'server',
+  })),
 }))
 
 const pickMediaMock = pickMedia as jest.MockedFunction<typeof pickMedia>
@@ -51,6 +66,9 @@ function backendFor(flavor: 'sharkey' | 'mastodon', extra: Partial<Backend> = {}
     customEmojis: jest.fn().mockResolvedValue([{name: 'blobcat', url: 'u'}]),
     search: {},
     uploadMedia: jest.fn().mockResolvedValue({id: 'm1'}),
+    // Viewer account for the server-default prefs (repair X6.2 step 4):
+    // a blank `ext` means "no server prefs", never an error.
+    me: jest.fn().mockResolvedValue({ext: {}}),
     ...extra,
   } as unknown as Backend
 }
@@ -116,7 +134,7 @@ describe('Composer', () => {
         drafts: [
           {
             id: 'dp',
-            updatedAt: 1,
+            updatedAt: Date.now(),
             text: 'vote',
             pollChoices: ['yes', 'no'],
             pollMultiple: false,
@@ -197,7 +215,7 @@ describe('Composer', () => {
       draftsKeyFor(sid),
       JSON.stringify({
         version: 1,
-        drafts: [{id: 'dd', updatedAt: 1, text: 'from before', visibilityRaw: 'followers'}],
+        drafts: [{id: 'dd', updatedAt: Date.now(), text: 'from before', visibilityRaw: 'followers'}],
       }),
     )
     const qc = new QueryClient()
@@ -297,7 +315,7 @@ describe('Composer', () => {
       draftsKeyFor(sid),
       JSON.stringify({
         version: 1,
-        drafts: [{id: 'dd', updatedAt: 1, text: 'reply text', replyToId: 'p1', quoteId: 'p2'}],
+        drafts: [{id: 'dd', updatedAt: Date.now(), text: 'reply text', replyToId: 'p1', quoteId: 'p2'}],
       }),
     )
     const replyTo = makePost({id: 'p1', content: {mfm: 'hello there', plain: 'hello there'}})
@@ -554,7 +572,7 @@ describe('Composer', () => {
   })
 
   it('refuses an over-cap pick with an honest error and stages nothing', async () => {
-    pickMediaMock.mockResolvedValueOnce({kind: 'picked', files: [], rejected: ['huge.mp4']})
+    pickMediaMock.mockResolvedValueOnce({kind: 'picked', files: [], rejected: [{name: 'huge.mp4', limit: 100}]})
     setup('sharkey')
     fireEvent.press(screen.getByTestId('composer-media-add'))
     expect(await screen.findByTestId('composer-error')).toHaveTextContent(/too large/)
@@ -745,7 +763,7 @@ describe('open-draft pointer (slice 1)', () => {
 
   it('submit deletes the draft and clears the pointer', async () => {
     const store = createMemoryStore()
-    seedRow(store, {id: 'd9', updatedAt: 1, text: 'bye'})
+    seedRow(store, {id: 'd9', updatedAt: Date.now(), text: 'bye'})
     setOpenDraftId(store, sid, 'd9')
     const backend = backendFor('sharkey')
     const onClose = jest.fn()
@@ -793,7 +811,7 @@ describe('open-draft pointer (slice 1)', () => {
     const store = createMemoryStore()
     seedRow(store, {
       id: 'dd',
-      updatedAt: 1,
+      updatedAt: Date.now(),
       text: 'full draft',
       cw: 'spoiler',
       cwEnabled: true,
@@ -822,8 +840,10 @@ describe('open-draft pointer (slice 1)', () => {
       selected: true,
     })
     expect(screen.getByTestId('composer-recipient-del-u1')).toBeTruthy()
-    // hadMedia is false: the restore stays silent.
-    expect(screen.queryByTestId('composer-notice')).toBeNull()
+    // hadMedia is false so there is no attachments warning — but the
+    // restored draft is `specified`, and specified drafts are never
+    // autosaved (repair X6.2 step 7), so the direct-draft notice shows.
+    expect(screen.getByTestId('composer-notice')).toHaveTextContent(/aren't autosaved/)
     // Targets re-attach through the same path as `draftId` restores.
     expect(await screen.findByTestId('composer-reply-preview')).toBeTruthy()
     expect(await screen.findByText('hello there')).toBeTruthy()
@@ -831,12 +851,12 @@ describe('open-draft pointer (slice 1)', () => {
 
   it('pointer restore warns about dropped attachments only when media were staged', async () => {
     const store = createMemoryStore()
-    seedRow(store, {id: 'dd', updatedAt: 1, text: 'with media', hadMedia: true})
+    seedRow(store, {id: 'dd', updatedAt: Date.now(), text: 'with media', hadMedia: true})
     setOpenDraftId(store, sid, 'dd')
     const first = renderFresh(store, backendFor('sharkey'))
     expect(screen.getByTestId('composer-notice')).toHaveTextContent(/Attachments aren't kept/)
     first.unmount()
-    seedRow(store, {id: 'dd', updatedAt: 2, text: 'without media', hadMedia: false})
+    seedRow(store, {id: 'dd', updatedAt: Date.now(), text: 'without media', hadMedia: false})
     renderFresh(store, backendFor('sharkey'))
     expect(screen.getByTestId('composer-text').props.value).toBe('without media')
     expect(screen.queryByTestId('composer-notice')).toBeNull()
@@ -879,7 +899,7 @@ describe('open-draft pointer (slice 1)', () => {
 
   it('targeted opens ignore the pointer', () => {
     const store = createMemoryStore()
-    seedRow(store, {id: 'dd', updatedAt: 1, text: 'unrelated'})
+    seedRow(store, {id: 'dd', updatedAt: Date.now(), text: 'unrelated'})
     setOpenDraftId(store, sid, 'dd')
     const replyTo = makePost({id: 'p1', content: {mfm: 'original words', plain: 'original words'}})
     renderFresh(store, backendFor('sharkey'), {replyTo})
@@ -896,8 +916,8 @@ describe('open-draft pointer (slice 1)', () => {
       JSON.stringify({
         version: 1,
         drafts: [
-          {id: 'pa', updatedAt: 1, text: 'from pointer'},
-          {id: 'pb', updatedAt: 2, text: 'from explicit'},
+          {id: 'pa', updatedAt: Date.now(), text: 'from pointer'},
+          {id: 'pb', updatedAt: Date.now(), text: 'from explicit'},
         ],
       }),
     )
@@ -1098,7 +1118,7 @@ describe('server drafts smart default (slice 3)', () => {
     // current composer's own row).
     store.setItem(
       draftsKeyFor(s.id),
-      JSON.stringify({version: 1, drafts: [{id: 'local1', updatedAt: 1, text: 'local words'}]}),
+      JSON.stringify({version: 1, drafts: [{id: 'local1', updatedAt: Date.now(), text: 'local words'}]}),
     )
     fireEvent.changeText(screen.getByTestId('composer-text'), 'typing')
     expect(screen.getByTestId('composer-drafts')).toBeTruthy()
@@ -1111,12 +1131,340 @@ describe('server drafts smart default (slice 3)', () => {
     fireEvent.press(screen.getByTestId('composer-drafts-toggle'))
     store.setItem(
       draftsKeyFor(s.id),
-      JSON.stringify({version: 1, drafts: [{id: 'local1', updatedAt: 1, text: 'local words'}]}),
+      JSON.stringify({version: 1, drafts: [{id: 'local1', updatedAt: Date.now(), text: 'local words'}]}),
     )
     fireEvent.changeText(screen.getByTestId('composer-text'), 'typing')
     expect(screen.getByTestId('composer-drafts')).toBeTruthy()
     expect(screen.getByText('local words')).toBeTruthy()
     expect(screen.queryByText('On this device')).toBeNull()
     expect(screen.queryByTestId('composer-server-drafts')).toBeNull()
+  })
+})
+
+describe('limits verification (repair X6.2 steps 1-2)', () => {
+  const SERVER_LIMITS = {
+    maxChars: 20,
+    maxCwChars: null,
+    maxMedia: 4,
+    maxImageBytes: null,
+    maxVideoBytes: null,
+    maxPollOptions: 4,
+    maxPollOptionChars: null,
+    minPollSeconds: null,
+    maxPollSeconds: null,
+    urlWeight: 23,
+    supportedLanguages: null,
+    source: 'server' as const,
+  }
+  const FALLBACK_LIMITS = {...SERVER_LIMITS, source: 'fallback' as const}
+
+  beforeEach(() => {
+    pickMediaMock.mockReset()
+    pickMediaMock.mockImplementation(async () => ({kind: 'cancelled'}))
+  })
+
+  it('posts over the fallback cap when limits are unverified, with a notice', async () => {
+    ;(fetchComposeLimits as unknown as jest.Mock).mockResolvedValueOnce(FALLBACK_LIMITS)
+    const {backend, onClose} = setup('sharkey')
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'a'.repeat(25))
+    await waitFor(() => expect(screen.getByTestId('composer-limit-unverified')).toBeTruthy())
+    // Not hard-blocked: the button stays enabled past the guessed cap.
+    expect(screen.getByTestId('composer-submit')).not.toBeDisabled()
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(backend.createPost).toHaveBeenCalledTimes(1))
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('rejects a sub-5-minute Mastodon schedule with a translated error and never posts', async () => {
+    const sid = 'https://s.example me'
+    const store = createMemoryStore()
+    const soon = new Date(Date.now() + 60_000).toISOString()
+    store.setItem(
+      draftsKeyFor(sid),
+      JSON.stringify({version: 1, drafts: [{id: 'ds', updatedAt: Date.now(), text: 'soon', scheduledAt: soon}]}),
+    )
+    setOpenDraftId(store, sid, 'ds')
+    const scheduled = {
+      list: jest.fn(async () => []),
+      create: jest.fn(),
+      delete: jest.fn(),
+    }
+    const backend = backendFor('mastodon', {scheduled})
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <QueryClientProvider client={qc}>
+        <I18nProvider i18n={i18n}>
+          <ThemeProvider>
+            <Composer
+              session={session('mastodon', 'mastodon')}
+              backend={backend}
+              store={store}
+              onClose={() => {}}
+            />
+          </ThemeProvider>
+        </I18nProvider>
+      </QueryClientProvider>,
+    )
+    expect(screen.getByTestId('composer-text').props.value).toBe('soon')
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    expect(await screen.findByTestId('composer-error')).toHaveTextContent(/5 minutes/)
+    expect(backend.createPost).not.toHaveBeenCalled()
+    expect(scheduled.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('sensitive and language (repair X6.2 step 5)', () => {
+  beforeEach(() => {
+    pickMediaMock.mockReset()
+    pickMediaMock.mockImplementation(async () => ({kind: 'cancelled'}))
+  })
+
+  it('marks media sensitive on Mastodon and sends it with the post', async () => {
+    const {backend} = setup('mastodon')
+    expect(screen.getByTestId('composer-sensitive-language')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('composer-sensitive-toggle'))
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(backend.createPost).toHaveBeenCalledTimes(1))
+    expect(backend.createPost).toHaveBeenCalledWith(expect.objectContaining({sensitive: true}))
+  })
+
+  it('sends nothing sensitive by default', async () => {
+    const {backend} = setup('mastodon')
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(backend.createPost).toHaveBeenCalledTimes(1))
+    expect((backend.createPost as jest.Mock).mock.calls[0][0]).not.toHaveProperty('sensitive')
+  })
+
+  it('hides sensitivity and language on the Misskey family', () => {
+    setup('sharkey')
+    expect(screen.queryByTestId('composer-sensitive-language')).toBeNull()
+    expect(screen.queryByTestId('composer-sensitive-toggle')).toBeNull()
+  })
+
+  it('picks a server-reported language on Mastodon and sends it', async () => {
+    ;(fetchComposeLimits as unknown as jest.Mock).mockResolvedValueOnce({
+      maxChars: 500,
+      maxCwChars: null,
+      maxMedia: 4,
+      maxImageBytes: null,
+      maxVideoBytes: null,
+      maxPollOptions: 4,
+      maxPollOptionChars: null,
+      minPollSeconds: null,
+      maxPollSeconds: null,
+      urlWeight: 23,
+      supportedLanguages: ['en', 'ja'],
+      source: 'server' as const,
+    })
+    const {backend} = setup('mastodon')
+    fireEvent.press(await screen.findByTestId('composer-language-ja'))
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'hello')
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(backend.createPost).toHaveBeenCalledTimes(1))
+    expect(backend.createPost).toHaveBeenCalledWith(expect.objectContaining({language: 'ja'}))
+  })
+
+  it('hides the language picker when the server reports none', () => {
+    setup('mastodon')
+    // The section renders (sensitivity is a fixed Mastodon capability) but
+    // no language chips: the list is never faked.
+    expect(screen.getByTestId('composer-sensitive-language')).toBeTruthy()
+    expect(screen.queryByTestId('composer-language-en')).toBeNull()
+  })
+})
+
+describe('server default visibility (repair X6.2 step 4)', () => {
+  const sid = 'https://s.example me'
+
+  function accountWithSource(source: Record<string, unknown>): Account {
+    return {ext: {mastodon: {source}}} as unknown as Account
+  }
+
+  function renderFresh(store: ReturnType<typeof createMemoryStore>, backend: Backend) {
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    const tree = render(
+      <QueryClientProvider client={qc}>
+        <I18nProvider i18n={i18n}>
+          <ThemeProvider>
+            <Composer
+              session={session('mastodon', 'mastodon')}
+              backend={backend}
+              store={store}
+              onClose={() => {}}
+            />
+          </ThemeProvider>
+        </I18nProvider>
+      </QueryClientProvider>,
+    )
+    return {qc, unmount: tree.unmount}
+  }
+
+  beforeEach(() => {
+    pickMediaMock.mockReset()
+    pickMediaMock.mockImplementation(async () => ({kind: 'cancelled'}))
+  })
+
+  it('seeds create visibility from a cached server default', () => {
+    const store = createMemoryStore()
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    qc.setQueryData(meQueryKey(sid), accountWithSource({privacy: 'private'}))
+    render(
+      <QueryClientProvider client={qc}>
+        <ThemeProvider>
+          <Composer
+            session={session('mastodon', 'mastodon')}
+            backend={backendFor('mastodon')}
+            store={store}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </QueryClientProvider>,
+    )
+    expect(screen.getByTestId('composer-vis-private').props.accessibilityState).toMatchObject({
+      selected: true,
+    })
+    expect(screen.getByTestId('composer-vis-public').props.accessibilityState).toMatchObject({
+      selected: false,
+    })
+  })
+
+  it('an unknown server raw narrows to followers-only, never public', () => {
+    const store = createMemoryStore()
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    qc.setQueryData(meQueryKey(sid), accountWithSource({privacy: 'list:weird'}))
+    render(
+      <QueryClientProvider client={qc}>
+        <ThemeProvider>
+          <Composer
+            session={session('mastodon', 'mastodon')}
+            backend={backendFor('mastodon')}
+            store={store}
+            onClose={() => {}}
+          />
+        </ThemeProvider>
+      </QueryClientProvider>,
+    )
+    expect(screen.getByTestId('composer-vis-private').props.accessibilityState).toMatchObject({
+      selected: true,
+    })
+  })
+
+  it('applies async-arriving prefs to a pristine composer, never over user input', async () => {
+    const store = createMemoryStore()
+    const backend = backendFor('mastodon')
+    const first = renderFresh(store, backend)
+    // No server prefs yet: today's family default.
+    expect(screen.getByTestId('composer-vis-public').props.accessibilityState).toMatchObject({
+      selected: true,
+    })
+    // Let the mount fetch settle first: otherwise its empty `{ext: {}}`
+    // resolution can land after the injected prefs below and clobber them
+    // in the cache (a test-harness race — the mock resolves empty while a
+    // real server resolves its prefs).
+    await waitFor(() => expect(backend.me).toHaveBeenCalled())
+    await waitFor(() =>
+      expect(first.qc.getQueryState(meQueryKey(sid))?.dataUpdatedAt ?? 0).toBeGreaterThan(0),
+    )
+    act(() => {
+      first.qc.setQueryData(meQueryKey(sid), accountWithSource({privacy: 'private'}))
+    })
+    await waitFor(() =>
+      expect(screen.getByTestId('composer-vis-private').props.accessibilityState).toMatchObject({
+        selected: true,
+      }),
+    )
+    first.unmount()
+
+    // Second composer: the user typed first — late prefs do not overwrite.
+    const store2 = createMemoryStore()
+    const second = renderFresh(store2, backendFor('mastodon'))
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'my words')
+    act(() => {
+      second.qc.setQueryData(meQueryKey(sid), accountWithSource({privacy: 'private'}))
+    })
+    expect(screen.getByTestId('composer-vis-public').props.accessibilityState).toMatchObject({
+      selected: true,
+    })
+    second.unmount()
+  })
+})
+
+describe('direct draft gating, eviction, flush (repair X6.2 step 7)', () => {
+  beforeEach(() => {
+    pickMediaMock.mockReset()
+    pickMediaMock.mockImplementation(async () => ({kind: 'cancelled'}))
+  })
+
+  it('never autosaves direct drafts to disk, but an explicit Save keeps them', () => {
+    jest.useFakeTimers()
+    try {
+      const {store, s, onClose} = setup('sharkey')
+      fireEvent.press(screen.getByTestId('composer-vis-specified'))
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'secret plans')
+      act(() => {
+        jest.advanceTimersByTime(500)
+      })
+      expect(listDrafts(store, s.id)).toEqual([])
+      expect(screen.getByTestId('composer-notice')).toHaveTextContent(/aren't autosaved/)
+      // Explicit Save writes the direct draft (the user asked for it).
+      fireEvent.press(screen.getByTestId('composer-cancel'))
+      fireEvent.press(screen.getByTestId('composer-close-save'))
+      expect(onClose).toHaveBeenCalledTimes(1)
+      expect(listDrafts(store, s.id).map(d => d.text)).toEqual(['secret plans'])
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('shows a notice when the 26th draft evicts the oldest', () => {
+    jest.useFakeTimers()
+    try {
+      const {store, s} = setup('sharkey')
+      const now = Date.now()
+      store.setItem(
+        draftsKeyFor(s.id),
+        JSON.stringify({
+          version: 1,
+          drafts: Array.from({length: 25}, (_, i) => ({id: `d${i}`, updatedAt: now + i, text: `old ${i}`})),
+        }),
+      )
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'one more')
+      act(() => {
+        jest.advanceTimersByTime(500)
+      })
+      const ids = listDrafts(store, s.id).map(d => d.id)
+      expect(ids).toHaveLength(25)
+      expect(ids).not.toContain('d0')
+      expect(screen.getByTestId('composer-notice')).toHaveTextContent(/oldest draft/)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('flushes a pending autosave on unmount (rn-ui L2)', () => {
+    jest.useFakeTimers()
+    try {
+      const store = createMemoryStore()
+      const s = session('misskey', 'sharkey')
+      const backend = backendFor('sharkey')
+      const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+      const first = render(
+        <QueryClientProvider client={qc}>
+          <ThemeProvider>
+            <Composer session={s} backend={backend} store={store} onClose={() => {}} />
+          </ThemeProvider>
+        </QueryClientProvider>,
+      )
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'last words')
+      // No timer advance: the debounced save has not run yet.
+      expect(listDrafts(store, s.id)).toEqual([])
+      first.unmount()
+      expect(listDrafts(store, s.id).map(d => d.text)).toEqual(['last words'])
+      expect(getOpenDraftId(store, s.id)).not.toBeNull()
+    } finally {
+      jest.useRealTimers()
+    }
   })
 })

@@ -33,24 +33,58 @@ const post = (id: string, over: Partial<Post> = {}): Post =>
     ...over,
   }) as unknown as Post
 
+const visPost = (id: string, kind: 'public' | 'quiet' | 'followers' | 'direct'): Post =>
+  post(id, {visibility: {kind, localOnly: false, raw: kind}} as unknown as Partial<Post>)
+
 const feed = (items: Post[]) => ({pages: [{items, cursor: null, end: true}], pageParams: [null]})
 
 describe('insertCreatedPost', () => {
-  it('prepends to this session only and bumps parent reply count', () => {
+  it('prepends public posts to this session only and bumps parent reply count', () => {
     const qc = new QueryClient()
     const A = 'https://a.example me'
     const B = 'https://b.example me'
-    qc.setQueryData(feedQueryKey(A, 'timeline|home'), feed([post('p1')]))
-    qc.setQueryData(feedQueryKey(B, 'timeline|home'), feed([post('p1')]))
-    const written = insertCreatedPost(qc, A, post('new'), 'p1')
-    expect(written).toEqual(['timeline|home'])
+    for (const d of ['timeline|home', 'timeline|social', 'user|me|posts']) {
+      qc.setQueryData(feedQueryKey(A, d), feed([post('p1')]))
+      qc.setQueryData(feedQueryKey(B, d), feed([post('p1')]))
+    }
+    const written = insertCreatedPost(qc, A, visPost('new', 'public'), null)
+    expect(written).toEqual(['timeline|home', 'timeline|social', 'user|me|posts'])
     const a = qc.getQueryData<ReturnType<typeof feed>>(feedQueryKey(A, 'timeline|home'))!
     const b = qc.getQueryData<ReturnType<typeof feed>>(feedQueryKey(B, 'timeline|home'))!
     expect(a.pages[0].items.map(p => p.id)).toEqual(['new', 'p1'])
-    expect(a.pages[0].items[1].counts.replies).toBe(1)
     expect(b.pages[0].items.map(p => p.id)).toEqual(['p1'])
-    expect(b.pages[0].items[0].counts.replies).toBe(0)
   })
+
+  it.each([
+    // [kind, replyToId, expected descriptors written]
+    ['public', null, ['timeline|home', 'timeline|social', 'user|me|posts']],
+    ['quiet', null, ['timeline|home', 'user|me|posts']],
+    ['followers', null, ['user|me|posts']],
+    ['direct', null, ['user|me|posts']],
+    ['public', 'p1', ['user|me|replies']],
+    ['direct', 'p1', ['user|me|replies']],
+  ] as Array<['public' | 'quiet' | 'followers' | 'direct', string | null, string[]]>)(
+    'routes %s posts (reply=%p) without leaking timelines',
+    (kind, replyToId, expected) => {
+      const qc = new QueryClient()
+      for (const d of ['timeline|home', 'timeline|social', 'user|me|posts', 'user|me|replies']) {
+        qc.setQueryData(feedQueryKey('s', d), feed([post('p1')]))
+      }
+      const written = insertCreatedPost(qc, 's', visPost('new', kind), replyToId)
+      expect(written).toEqual(expected)
+      const home = qc.getQueryData<ReturnType<typeof feed>>(feedQueryKey('s', 'timeline|home'))!
+      const ids = home.pages[0].items.map(p => p.id)
+      if (expected.includes('timeline|home')) expect(ids[0]).toBe('new')
+      else expect(ids).not.toContain('new')
+      if (replyToId) {
+        const profile = qc.getQueryData<ReturnType<typeof feed>>(
+          feedQueryKey('s', 'user|me|replies'),
+        )!
+        expect(profile.pages[0].items.map(p => p.id)).toContain('new')
+        expect(home.pages[0].items[0].counts.replies).toBe(1)
+      }
+    },
+  )
 
   it('does not duplicate an already-present post', () => {
     const qc = new QueryClient()
@@ -185,6 +219,45 @@ describe('uploadAll', () => {
     expect(patches.a.error).toMatch(/too large/)
   })
 
+  it('enforces per-kind server caps with the real number in the message', async () => {
+    const uploadMedia = jest.fn().mockResolvedValue({id: 'm-new'})
+    const image = {size: 20 * 1024 * 1024, name: 'photo.png', type: 'image/png'} as unknown as File
+    const video = {size: 20 * 1024 * 1024, name: 'clip.mp4', type: 'video/mp4'} as unknown as File
+    const caps = {imageBytes: 16 * 1024 * 1024, videoBytes: 99 * 1024 * 1024}
+    const patches: Record<string, Partial<UploadItem>> = {}
+    // Same 20 MB: over the 16 MB image cap, under the 99 MB video cap.
+    const ids = await uploadAll(
+      {uploadMedia} as unknown as Backend,
+      [item('a'), item('b')],
+      new Map([
+        ['a', image],
+        ['b', video],
+      ]),
+      (k, p) => (patches[k] = {...patches[k], ...p}),
+      {},
+      caps,
+    )
+    expect(ids).toBeNull()
+    expect(patches.a).toMatchObject({status: 'error'})
+    expect(patches.a.error).toMatch(/16/)
+    expect(uploadMedia).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to the heap bound when the server reported nothing', async () => {
+    const uploadMedia = jest.fn().mockResolvedValue({id: 'm-new'})
+    const big = {size: MAX_MEDIA_BYTES + 1, name: 'big.bin', type: ''} as unknown as File
+    const ids = await uploadAll(
+      {uploadMedia} as unknown as Backend,
+      [item('a')],
+      new Map([['a', big]]),
+      () => {},
+      {},
+      {imageBytes: null, videoBytes: null},
+    )
+    expect(ids).toBeNull()
+    expect(uploadMedia).not.toHaveBeenCalled()
+  })
+
   it('uploadOne passes small files straight through', async () => {
     const uploadMedia = jest.fn().mockResolvedValue({id: 'm-1'})
     await uploadOne({uploadMedia} as unknown as Backend, new File(['x'], 'ok.png'))
@@ -228,19 +301,32 @@ describe('attachmentSizeError', () => {
 })
 
 describe('useUploads size guard', () => {
-  it('refuses over-cap Files before staging and reports their names', () => {
+  it('refuses over-cap Files before staging and reports name + limit', () => {
     const {result} = renderHook(() => useUploads(null))
     const ok = new File(['x'], 'ok.png')
     const big = {size: MAX_MEDIA_BYTES + 1, name: 'big.png'} as unknown as File
-    let refused: string[] = []
+    let refused: Array<{name: string; limit: number}> = []
     act(() => {
       refused = result.current.add([
         {file: ok, name: 'ok.png', previewUri: null},
         {file: big, name: 'big.png', previewUri: null},
       ])
     })
-    expect(refused).toEqual(['big.png'])
+    expect(refused).toEqual([{name: 'big.png', limit: MAX_MEDIA_BYTES}])
     expect(result.current.items.map(i => i.name)).toEqual(['ok.png'])
+  })
+
+  it('uses the per-kind server cap from the limits', () => {
+    const video = {size: 20 * 1024 * 1024, name: 'clip.mp4', type: 'video/mp4'} as unknown as File
+    const caps = {imageBytes: 16 * 1024 * 1024, videoBytes: 99 * 1024 * 1024}
+    const {result} = renderHook(() => useUploads(null, {}, caps))
+    let refused: Array<{name: string; limit: number}> = []
+    act(() => {
+      refused = result.current.add([{file: video, name: 'clip.mp4', previewUri: null}])
+    })
+    // 20 MB video fits the 99 MB server cap: staged, nothing refused.
+    expect(refused).toEqual([])
+    expect(result.current.items.map(i => i.name)).toEqual(['clip.mp4'])
   })
 })
 

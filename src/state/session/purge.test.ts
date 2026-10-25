@@ -86,7 +86,7 @@ const sessionC = (over: Partial<NewSessionInput> = {}): NewSessionInput => ({
 
 const draft = (over: Partial<LocalDraft> = {}): LocalDraft => ({
   id: 'd1',
-  updatedAt: 1,
+  updatedAt: Date.now(),
   text: 'hello',
   cw: '',
   cwEnabled: false,
@@ -102,6 +102,8 @@ const draft = (over: Partial<LocalDraft> = {}): LocalDraft => ({
   reactionAcceptance: null,
   noQuote: false,
   scheduledAt: null,
+  sensitive: false,
+  language: null,
   hadMedia: false,
   ...over,
 })

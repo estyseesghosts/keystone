@@ -29,6 +29,7 @@ import {
   defaultVisibilityFor,
   displayNameOf,
   emptyComposeState,
+  formatByteLimit,
   handleOf,
   isUnsupportedError,
   ApiError,
@@ -57,7 +58,7 @@ import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
 import {i18n} from '#/locale/i18n'
-import {msg} from '@lingui/macro'
+import {msg, plural} from '@lingui/macro'
 import {useQueryClient} from '@tanstack/react-query'
 import {useAutogrowInput, autogrowStyle} from '#/components/Composer/useAutogrowInput'
 import {NO_OUTLINE} from '#/components/Composer/noOutline'
@@ -379,9 +380,16 @@ function InlineReply({
       const refused = uploads.add(result.files)
       const tooLarge = [...result.rejected, ...refused]
       if (tooLarge.length === 1) {
-        setError(i18n._(msg`"${tooLarge[0]}" is too large to attach (over 10 MB).`))
+        setError(i18n._(msg`"${tooLarge[0].name}" is too large to attach (limit ${formatByteLimit(tooLarge[0].limit)}).`))
       } else if (tooLarge.length > 1) {
-        setError(i18n._(msg`${tooLarge.length} files were too large to attach (over 10 MB).`))
+        setError(
+          i18n._(
+            plural(tooLarge.length, {
+              one: `# file was too large to attach.`,
+              other: `# files were too large to attach.`,
+            }),
+          ),
+        )
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : i18n._(msg`Could not open the media picker.`))

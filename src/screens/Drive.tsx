@@ -21,6 +21,7 @@ import {useCallback, useEffect, useRef, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
 
 import {
+  formatByteLimit,
   isPermissionError,
   isUnsupportedError,
   type Cursor,
@@ -161,7 +162,12 @@ export function DriveScreen() {
       }
       if (result.kind === 'cancelled') return
       if (result.rejected.length > 0) {
-        setUploadError(`"${result.rejected[0]}" is too large to upload (over 10 MB).`)
+        // Per-kind server cap, else the client heap bound (repair X6.2 step
+        // 2) — never a literal. Plain literal like the neighbors; Wave 9
+        // converts this file to `msg`.
+        setUploadError(
+          `"${result.rejected[0].name}" is too large to upload (limit ${formatByteLimit(result.rejected[0].limit)}).`,
+        )
         return
       }
       if (result.files.length > 0) setStaged(result.files[0])

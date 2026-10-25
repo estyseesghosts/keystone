@@ -359,8 +359,11 @@ export function CompactComposer(props: CompactComposerProps) {
           <Button
             label={c.busy ? i18n._(msg`Posting…`) : submitLabel}
             onPress={() => void c.submit()}
-            disabled={c.busy || c.over}
-            disabledReason={c.over ? i18n._(msg`Over the character limit.`) : c.busy ? i18n._(msg`Posting...`) : undefined}
+            // Repair X6.2 step 1 (deviation: CompactComposer shares the
+            // controller): fallback limits warn, never hard-block — the
+            // submit path yields the char check to the server.
+            disabled={c.busy || (c.over && !c.limitsUnverified)}
+            disabledReason={c.over && !c.limitsUnverified ? i18n._(msg`Over the character limit.`) : c.busy ? i18n._(msg`Posting...`) : undefined}
             testID="composer-submit"
             compact
           />

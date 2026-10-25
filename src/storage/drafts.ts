@@ -12,6 +12,10 @@ import {ensureRawBackup, parseOrFallback} from './schema'
 
 export const DRAFTS_VERSION = 1 as const
 export const MAX_LOCAL_DRAFTS = 25
+/** Local drafts older than this are dropped (30-day TTL, repair X6.2 step
+ * 7): `listDrafts` always hides them, and `sweepExpiredDrafts` deletes them
+ * at boot. */
+export const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 export const localDraftSchema = z.object({
   id: z.string().min(1),
@@ -41,6 +45,13 @@ export const localDraftSchema = z.object({
    * of silently dropping them (composer slice 1). Additive: old rows
    * without the flag still validate and read as false. */
   hadMedia: z.boolean().default(false),
+  /** Mastodon-family status-level sensitivity (repair X6.2 step 5). Never
+   * autosaved for direct/specified drafts (privacy 7) — like every other
+   * field it only reaches disk through the gated save paths. */
+  sensitive: z.boolean().default(false),
+  /** Mastodon-family post language (repair X6.2 step 5). Null = the
+   * server default; additive like `hadMedia`. */
+  language: z.string().nullable().default(null),
 })
 
 export type LocalDraft = z.infer<typeof localDraftSchema>
@@ -136,8 +147,10 @@ export function clearOpenDraftId(store: KeyValueStore, sessionId: string): boole
   }
 }
 
-/** Newest first. Rows failing validation are dropped, never thrown on. */
-export function listDrafts(store: KeyValueStore, sessionId: string): LocalDraft[] {
+/** Newest first. Rows failing validation are dropped, never thrown on.
+ * Rows older than the 30-day TTL are hidden (and deleted by the next
+ * `sweepExpiredDrafts` or write) — expired drafts never resurface. */
+export function listDrafts(store: KeyValueStore, sessionId: string, now: number = Date.now()): LocalDraft[] {
   const parsed = parseOrFallback(
     listSchema,
     store.getItem(draftsKeyFor(sessionId)),
@@ -146,9 +159,41 @@ export function listDrafts(store: KeyValueStore, sessionId: string): LocalDraft[
   const out: LocalDraft[] = []
   for (const row of parsed.drafts) {
     const r = localDraftSchema.safeParse(row)
-    if (r.success) out.push(r.data)
+    if (r.success && r.data.updatedAt >= now - DRAFT_TTL_MS) out.push(r.data)
   }
   return out.sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
+/** Delete every draft older than the 30-day TTL for a session (repair X6.2
+ * step 7). Wired at boot (session store `hydrate`); the composer also
+ * relies on the `listDrafts` filter so expiry holds even if the sweep did
+ * not run. Returns the number of rows removed. Never throws. */
+export function sweepExpiredDrafts(
+  store: KeyValueStore,
+  sessionId: string,
+  now: number = Date.now(),
+): number {
+  try {
+    const parsed = parseOrFallback(
+      listSchema,
+      store.getItem(draftsKeyFor(sessionId)),
+      {version: DRAFTS_VERSION, drafts: []},
+    )
+    const fresh: unknown[] = []
+    let removed = 0
+    for (const row of parsed.drafts) {
+      const r = localDraftSchema.safeParse(row)
+      if (r.success && r.data.updatedAt < now - DRAFT_TTL_MS) {
+        removed++
+        continue
+      }
+      fresh.push(row)
+    }
+    if (removed > 0) write(store, sessionId, fresh as LocalDraft[])
+    return removed
+  } catch {
+    return 0
+  }
 }
 
 /** True when `raw` parses as a draft list. Anything else non-empty
@@ -204,24 +249,47 @@ export function purgeDrafts(store: KeyValueStore, sessionId: string): void {
   }
 }
 
-/** True when there is nothing worth saving. */
+/** True when there is nothing worth saving. A sensitive mark or a picked
+ * language alone counts as content (repair X6.2 step 5) — like text, it
+ * makes the draft non-empty. */
 export function isDraftEmpty(
-  d: Pick<LocalDraft, 'text' | 'cw' | 'pollChoices' | 'visibleUserIds'>,
+  d: Pick<LocalDraft, 'text' | 'cw' | 'pollChoices' | 'visibleUserIds'> &
+    Partial<Pick<LocalDraft, 'sensitive' | 'language'>>,
 ): boolean {
   return (
     d.text.trim() === '' &&
     d.cw.trim() === '' &&
     !(d.pollChoices ?? []).some(c => c.trim() !== '') &&
-    (d.visibleUserIds ?? []).length === 0
+    (d.visibleUserIds ?? []).length === 0 &&
+    !d.sensitive &&
+    (d.language ?? '') === ''
   )
+}
+
+/** Insert or replace by id. Empty drafts delete the row instead.
+ * `evictedOldest` is true when the list was already full and this save
+ * pushed the oldest row out (repair X6.2 step 7: the composer shows a
+ * notice instead of evicting silently). Returns false (never throws) when
+ * the write failed — the autosave effect surfaces that as a non-blocking
+ * notice. */
+export function saveDraftDetailed(
+  store: KeyValueStore,
+  sessionId: string,
+  draft: LocalDraft,
+): {saved: boolean; evictedOldest: boolean} {
+  const rest = listDrafts(store, sessionId).filter(d => d.id !== draft.id)
+  if (isDraftEmpty(draft)) {
+    return {saved: write(store, sessionId, rest), evictedOldest: false}
+  }
+  const evictedOldest = rest.length >= MAX_LOCAL_DRAFTS
+  return {saved: write(store, sessionId, [draft, ...rest]), evictedOldest}
 }
 
 /** Insert or replace by id. Empty drafts delete the row instead.
  * Returns false (never throws) when the write failed — the autosave
  * effect surfaces that as a non-blocking notice. */
 export function saveDraft(store: KeyValueStore, sessionId: string, draft: LocalDraft): boolean {
-  const rest = listDrafts(store, sessionId).filter(d => d.id !== draft.id)
-  return write(store, sessionId, isDraftEmpty(draft) ? rest : [draft, ...rest])
+  return saveDraftDetailed(store, sessionId, draft).saved
 }
 
 export function loadDraft(

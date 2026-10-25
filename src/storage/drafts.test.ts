@@ -5,22 +5,28 @@ import {
   deleteDraft,
   draftsBakKeyFor,
   draftsKeyFor,
+  DRAFT_TTL_MS,
   getOpenDraftId,
   listDrafts,
   loadDraft,
+  MAX_LOCAL_DRAFTS,
   openDraftKeyFor,
   purgeDrafts,
   saveDraft,
+  saveDraftDetailed,
   setOpenDraftId,
+  sweepExpiredDrafts,
   type LocalDraft,
 } from './drafts'
 
 const A = 'https://a.example acc1'
 const B = 'https://b.example acc1'
 
+// Fresh by default: the 30-day TTL (repair X6.2) hides rows with stale
+// timestamps, so fixtures must carry recent ones.
 const draft = (over: Partial<LocalDraft> = {}): LocalDraft => ({
   id: 'd1',
-  updatedAt: 1,
+  updatedAt: Date.now(),
   text: 'hello',
   cw: '',
   cwEnabled: false,
@@ -36,6 +42,8 @@ const draft = (over: Partial<LocalDraft> = {}): LocalDraft => ({
   reactionAcceptance: null,
   noQuote: false,
   scheduledAt: null,
+  sensitive: false,
+  language: null,
   hadMedia: false,
   ...over,
 })
@@ -43,8 +51,10 @@ const draft = (over: Partial<LocalDraft> = {}): LocalDraft => ({
 describe('local drafts', () => {
   it('round-trips a draft with raw visibility', () => {
     const store = createMemoryStore()
-    saveDraft(store, A, draft({replyToId: 'p9', visibilityRaw: 'list:x'}))
-    expect(loadDraft(store, A, 'd1')).toEqual(draft({replyToId: 'p9', visibilityRaw: 'list:x'}))
+    // Single value: the helper stamps Date.now(), so two calls never agree.
+    const d = draft({replyToId: 'p9', visibilityRaw: 'list:x'})
+    saveDraft(store, A, d)
+    expect(loadDraft(store, A, 'd1')).toEqual(d)
   })
 
   it('keeps sessions separate', () => {
@@ -56,9 +66,10 @@ describe('local drafts', () => {
 
   it('replaces by id, orders newest first, deletes empties and by id', () => {
     const store = createMemoryStore()
-    saveDraft(store, A, draft({id: 'a', updatedAt: 1}))
-    saveDraft(store, A, draft({id: 'b', updatedAt: 5}))
-    saveDraft(store, A, draft({id: 'a', updatedAt: 9, text: 'edited'}))
+    const t = Date.now()
+    saveDraft(store, A, draft({id: 'a', updatedAt: t}))
+    saveDraft(store, A, draft({id: 'b', updatedAt: t + 1}))
+    saveDraft(store, A, draft({id: 'a', updatedAt: t + 2, text: 'edited'}))
     expect(listDrafts(store, A).map(d => d.id)).toEqual(['a', 'b'])
     saveDraft(store, A, draft({id: 'a', text: '  '}))
     expect(listDrafts(store, A).map(d => d.id)).toEqual(['b'])
@@ -193,5 +204,72 @@ describe('write failures and backups (repair X1.3 S9/S12)', () => {
     expect(store.getItem(openDraftKeyFor(A))).toBeNull()
     expect(store.getItem(`keystone.drafts.${A}.open`)).toBeNull()
     expect(store.getItem(draftsBakKeyFor(A))).toBeNull()
+  })
+})
+
+describe('30-day TTL and eviction notice (repair X6.2 step 7)', () => {
+  // Anchored to real time: `listDrafts` filters against `Date.now()` by
+  // default, so fixtures use real timestamps minus the TTL.
+  const NOW = Date.now()
+
+  it('listDrafts hides expired rows; sweepExpiredDrafts deletes them', () => {
+    const store = createMemoryStore()
+    saveDraft(store, A, draft({id: 'fresh', updatedAt: NOW, text: 'fresh'}))
+    // Bypass the writer to plant an expired row (the writer would not
+    // matter — only the timestamps decide).
+    store.setItem(
+      draftsKeyFor(A),
+      JSON.stringify({
+        version: 1,
+        drafts: [
+          {id: 'fresh', updatedAt: NOW, text: 'fresh', visibilityRaw: 'public'},
+          {id: 'old', updatedAt: NOW - DRAFT_TTL_MS - 1, text: 'old', visibilityRaw: 'public'},
+          {id: 'edge', updatedAt: NOW - DRAFT_TTL_MS, text: 'edge', visibilityRaw: 'public'},
+        ],
+      }),
+    )
+    expect(listDrafts(store, A, NOW).map(d => d.id)).toEqual(['fresh', 'edge'])
+    expect(sweepExpiredDrafts(store, A, NOW)).toBe(1)
+    expect(listDrafts(store, A, NOW).map(d => d.id)).toEqual(['fresh', 'edge'])
+    // The sweep rewrote the list without the expired row.
+    expect(store.getItem(draftsKeyFor(A))).not.toContain('old')
+  })
+
+  it('sweep with nothing expired rewrites nothing and returns 0', () => {
+    const store = createMemoryStore()
+    saveDraft(store, A, draft({id: 'fresh', updatedAt: NOW}))
+    const before = store.getItem(draftsKeyFor(A))
+    expect(sweepExpiredDrafts(store, A, NOW)).toBe(0)
+    expect(store.getItem(draftsKeyFor(A))).toBe(before)
+  })
+
+  it('saveDraftDetailed reports the 26th-write eviction; saveDraft still caps at 25', () => {
+    const store = createMemoryStore()
+    for (let i = 0; i < MAX_LOCAL_DRAFTS; i++) {
+      expect(saveDraftDetailed(store, A, draft({id: `d${i}`, updatedAt: NOW + i}))).toEqual({
+        saved: true,
+        evictedOldest: false,
+      })
+    }
+    const r = saveDraftDetailed(store, A, draft({id: 'new', updatedAt: NOW + 100}))
+    expect(r).toEqual({saved: true, evictedOldest: true})
+    const ids = listDrafts(store, A, NOW + 100).map(d => d.id)
+    expect(ids).toHaveLength(MAX_LOCAL_DRAFTS)
+    expect(ids).toContain('new')
+    expect(ids).not.toContain('d0')
+    // Updating an existing row never evicts.
+    expect(
+      saveDraftDetailed(store, A, draft({id: 'new', updatedAt: NOW + 101, text: 'edited'})).evictedOldest,
+    ).toBe(false)
+  })
+
+  it('sensitive/language round-trip and default for legacy rows', () => {
+    const store = createMemoryStore()
+    saveDraft(store, A, draft({sensitive: true, language: 'ja'}))
+    expect(loadDraft(store, A, 'd1')).toMatchObject({sensitive: true, language: 'ja'})
+    const {sensitive, language, ...legacy} = draft()
+    expect(sensitive).toBe(false)
+    store.setItem(draftsKeyFor(A), JSON.stringify({version: 1, drafts: [legacy]}))
+    expect(loadDraft(store, A, 'd1')).toMatchObject({sensitive: false, language: null})
   })
 })

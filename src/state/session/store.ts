@@ -32,6 +32,9 @@ import {
   type TokenVault,
 } from '#/storage'
 import {sweepStaleMisskeyPending} from '#/screens/LoginFlows'
+// Repair X6.2 step 7 (deviation: one boot hookup outside the listed files):
+// expired local drafts are swept at boot, next to the MiAuth sweep.
+import {sweepExpiredDrafts} from '#/storage/drafts'
 
 import {
   clearAllQueries,
@@ -954,6 +957,13 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         // tokens (host/scheme/session only) but accumulate forever — drop
         // rows older than 15 minutes before hydrating.
         sweepStaleMisskeyPending(storage)
+        // Repair X6.2 step 7: local drafts older than 30 days are dropped
+        // at boot (best-effort; expiry is also enforced on every read).
+        try {
+          for (const s of readSessions()) sweepExpiredDrafts(storage, s.id)
+        } catch {
+          // A failed sweep never blocks sign-in or hydration.
+        }
         if (isSecureVault(vault)) {
           await hydrateSecure(vault)
           await migrateAppSecrets(vault)
