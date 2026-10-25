@@ -9,11 +9,11 @@ Gate baseline (last green on main): **292 suites / 4123 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Wave 11 done (X11.1–X11.3 committed; 292 suites / 4123 tests stands;
-   docs synced incl. orphaned X3.4 line — see coord log).
-2. Wave 12 close-out next: X12.1 (owner checklists — collect every `not
-   verified` line), then X12.2 (final verification + Status-after-repair).
-3. Signing/App Links skipped (owner); no non-English translations.
+1. X12.1 done (25 device items + 12 live checks + owner appendix; docs-only,
+   no gates needed).
+2. X12.2 final verification next (solo): full gates + scripted greps +
+   Status-after-repair table + STATE to "repair25 complete".
+3. Then program definition-of-done review (all slices done/wontdo/blocked).
 
 Blockers / owner-open:
 - Rig `:3101`/`:3102` refused; device not run by agents — all live

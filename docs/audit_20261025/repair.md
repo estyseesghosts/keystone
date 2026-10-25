@@ -1886,7 +1886,7 @@ Audit: misskey M1 (doc), build 1; DECISIONS hygiene
 
 ## X12.1 - Owner checklists
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x12.1.md` (slice) + `state/logs/2026-10-25-repair25-x12.1-coordinator.md` (batch-green); 25 device items + 12 live checks + owner appendix; docs-only)
 Branch: `repair25-x12.1-owner-checklists`
 
 **Goal.** Everything an agent could not verify, in one place the owner can
