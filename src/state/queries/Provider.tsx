@@ -24,6 +24,7 @@ import {
 } from './persistPolicy'
 import {GC_TIME, QUERY_BUSTER, QUERY_PERSIST_MAX_AGE, STALE} from './stale'
 import {retryPolicy} from './retry'
+import {setupQueryLifecycle} from './lifecycle'
 
 export {QUERY_PERSIST_KEY}
 
@@ -207,5 +208,12 @@ export function QueryProvider({children, client, persister}: QueryProviderProps)
   // cannot see this client, so it purges query state through this registry.
   // Nothing else in this file is the purge slice's to touch.
   useEffect(() => registerSessionPurger(createQueryPurger(queryClient)), [queryClient])
+  // Online + foreground awareness (repair X3.2, networking M3): NetInfo /
+  // AppState on native, navigator.onLine + visibilitychange on web. The
+  // 60 s foreground-refetch budget for feed / notifications / me lives in
+  // `lifecycle.ts`; every query keeps `refetchOnWindowFocus: false` (no
+  // global flip — X1.4/X1.5 own the defaults above). Degrades to a no-op
+  // where the native module is missing (never a boot crash).
+  useEffect(() => setupQueryLifecycle(queryClient), [queryClient])
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 }

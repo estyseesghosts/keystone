@@ -6,6 +6,19 @@ import {configure} from '@testing-library/react-native'
 
 configure({asyncUtilTimeout: 20000})
 
+// The NetInfo native module does not exist under jest: the real
+// library's internals crash on subscribe (`isInternetReachable` of
+// undefined). Mock it globally as always-connected; suites that need
+// offline behavior inject fakes through the lifecycle seams instead
+// (repair X3.2), and no suite may rely on the real native module here.
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: {
+    addEventListener: () => () => {},
+    fetch: () => Promise.resolve({isConnected: true, isInternetReachable: true}),
+  },
+}))
+
 // Real WebCrypto (Node's) so `getRandomValues`/`randomUUID` exist in tests.
 // Never mock this away: security paths must run the real CSPRNG under test
 // (a prior `jest.mock('crypto', () => ({}))` hid it and forced the

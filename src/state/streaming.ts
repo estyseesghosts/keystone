@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
+import {AppState, Platform} from 'react-native'
 import {useQueryClient, type InfiniteData, type QueryClient} from '@tanstack/react-query'
 
 import {
@@ -472,6 +473,18 @@ export function useFeedLive({
         : null
     deletedRef.current.clear()
     const seenSeed = watchIdsRef.current.slice(0, LIVE_CAPTURE_LIMIT)
+    // Repair X3.2 (M7): `onUpdate` refetches coalesce per post — a burst of
+    // reaction events costs one request, never one per event. A failed
+    // refetch keeps the current row; the next load corrects it.
+    const updateCoalescer = createPostUpdateCoalescer({
+      fetchPost: (id: string) => {
+        if (typeof backend.post !== 'function') return Promise.reject(new Error('post unsupported'))
+        return backend.post(id)
+      },
+      onPost: fresh => {
+        patchPostInCaches(client, sessionId, fresh.id, () => fresh)
+      },
+    })
     let created!: FeedLive
     created = createFeedLive({
       handle,
@@ -488,15 +501,10 @@ export function useFeedLive({
       onUpdate: event => {
         if (typeof backend.post !== 'function') return
         // Reconcile from the server (v1 `refreshNote` parity): counts,
-        // reactions and poll state re-read, never locally guessed. A
-        // failed refetch keeps the current row — the next load corrects
-        // it.
-        void backend.post(event.id).then(
-          fresh => {
-            patchPostInCaches(client, sessionId, event.id, () => fresh)
-          },
-          () => {},
-        )
+        // reactions and poll state re-read, never locally guessed. The
+        // coalescer (X3.2) turns a burst into one request; a failed refetch
+        // keeps the current row.
+        updateCoalescer.notify(event)
       },
       onPending: () => {
         setPendingCount(created.pendingCount())
@@ -506,6 +514,7 @@ export function useFeedLive({
     // is paging-only: stand down instead of mounting a stuck badge.
     if (created.channelStatus() === 'disabled' || created.channelStatus() === 'unavailable') {
       created.dispose()
+      updateCoalescer.dispose()
       offFilters?.()
       return
     }
@@ -513,10 +522,37 @@ export function useFeedLive({
     setPendingCount(created.pendingCount())
     setStatus(created.status())
     const off = created.onStatusChange(setStatus)
+    // Repair X3.2 (M3): background suspend + foreground resume. After 30 s
+    // backgrounded the live subscription is released so pooled sockets can
+    // close (the Misskey pool closes its idle socket when the last
+    // subscriber drops); the pending pill buffer is dropped and the
+    // gap-fill in `useLiveNotifications` covers the missed posts.
+    // Foreground with the subscription intact only nudges dead handles —
+    // never a remount, which would redial into the fast-close breaker.
+    let suspended = false
+    const offAppState = monitorStreamAppState({
+      onSuspend: () => {
+        if (suspended) return
+        suspended = true
+        created.dispose()
+        setLive(null)
+        setPendingCount(0)
+      },
+      onResume: () => {
+        if (suspended) {
+          suspended = false
+          setNonce(n => n + 1)
+          return
+        }
+        resumeStreamHandle(handle)
+      },
+    })
     return () => {
       off()
       offFilters?.()
+      offAppState()
       created.dispose()
+      updateCoalescer.dispose()
       setLive(null)
       setPendingCount(0)
       setStatus('unavailable')
@@ -568,6 +604,7 @@ export function useFeedLive({
 export function useLiveNotifications(sessionId: string | null, backend: Backend | null): void {
   const client = useQueryClient()
   const capable = backend?.capabilities?.streaming === 'supported'
+  const [nonce, setNonce] = useState(0)
   useEffect(() => {
     if (sessionId == null || !capable || backend == null || typeof backend.stream !== 'function') {
       return
@@ -579,8 +616,379 @@ export function useLiveNotifications(sessionId: string | null, backend: Backend 
       return
     }
     if (handle == null) return
-    return handle.onNotification(notification => {
+    const offNotify = handle.onNotification(notification => {
       ingestLiveNotification(client, sessionId, notification)
     })
-  }, [sessionId, backend, capable, client])
+    // Repair X3.2 (M7): reconnect gap-fill — on `reconnecting ->
+    // connected`, this session's feed + notification queries invalidate
+    // (first pages only: trimmed before invalidate so the refetch costs one
+    // request, not N).
+    const offGapFill = watchStreamGapFill({client, sessionId, handle})
+    // Repair X3.2 (M3): same background/foreground discipline as feeds —
+    // suspend releases the notification subscription after 30 s so pooled
+    // sockets can close; foreground remounts and the gap-fill covers the
+    // miss. Unsubscribes are idempotent on both families (guarded dispose /
+    // Set delete), so suspend-then-unmount never double-releases.
+    let suspended = false
+    const offAppState = monitorStreamAppState({
+      onSuspend: () => {
+        if (suspended) return
+        suspended = true
+        offNotify()
+        offGapFill()
+      },
+      onResume: () => {
+        if (suspended) {
+          suspended = false
+          setNonce(n => n + 1)
+          return
+        }
+        resumeStreamHandle(handle)
+      },
+    })
+    return () => {
+      offNotify()
+      offGapFill()
+      offAppState()
+    }
+  }, [sessionId, backend, capable, client, nonce])
+}
+
+// --- App lifecycle: background suspend, foreground resume, gap fill (X3.2) --
+//
+// Networking M3/M7. X3.4 owns sockets, breakers, pooling, and dispatch —
+// nothing below touches them. Suspending releases the app-layer
+// subscriptions this file owns; pooled handles close their idle sockets
+// when the last subscriber drops (Misskey `release()` parity). Foreground
+// resume only nudges dead handles through the existing `retry()` seam.
+
+/** Backgrounded this long → release live subscriptions so sockets can close. */
+export const STREAM_BACKGROUND_SUSPEND_MS = 30_000
+
+/** Per-post trailing debounce for `onUpdate` refetches (M7 coalesce). */
+export const POST_UPDATE_DEBOUNCE_MS = 250
+
+/** Minimal AppState shape (RN AppState satisfies it; web adapts below). */
+export interface StreamAppStateSource {
+  readonly currentState: string
+  addEventListener(type: 'change', handler: (state: string) => void): {remove(): void}
+}
+
+function defaultStreamAppStateSource(): StreamAppStateSource {
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    return {
+      get currentState(): string {
+        return document.hidden ? 'background' : 'active'
+      },
+      addEventListener(_type: 'change', handler: (state: string) => void): {remove(): void} {
+        const onVisibility = (): void => {
+          handler(document.hidden ? 'background' : 'active')
+        }
+        document.addEventListener('visibilitychange', onVisibility)
+        return {remove: () => document.removeEventListener('visibilitychange', onVisibility)}
+      },
+    }
+  }
+  return AppState
+}
+
+function isBackgroundState(state: string): boolean {
+  return state === 'background' || state === 'inactive'
+}
+
+export interface StreamAppStateMonitor {
+  /** Called once the app has been backgrounded for `suspendDelayMs`. */
+  onSuspend: () => void
+  /** Called on every return to foreground. */
+  onResume: () => void
+  /** Injectable (tests drive a fake). Defaults to AppState / visibility. */
+  source?: StreamAppStateSource
+  suspendDelayMs?: number
+}
+
+/**
+ * Background/foreground handling for stream mounts. On background (or
+ * `inactive`) a timer arms; still backgrounded after `suspendDelayMs`, it
+ * fires `onSuspend` once per backgrounding. Any foreground clears the timer
+ * and fires `onResume`. Disposing clears the timer and the subscription. Callbacks
+ * never throw out (a throwing suspend/resume must not break AppState
+ * dispatch). Returns the teardown.
+ */
+export function monitorStreamAppState(opts: StreamAppStateMonitor): () => void {
+  const source = opts.source ?? defaultStreamAppStateSource()
+  const delay = opts.suspendDelayMs ?? STREAM_BACKGROUND_SUSPEND_MS
+  const onSuspend = opts.onSuspend
+  const onResume = opts.onResume
+  let timer: ReturnType<typeof setTimeout> | null = null
+  let disposed = false
+  const clearTimer = (): void => {
+    if (timer !== null) {
+      clearTimeout(timer)
+      timer = null
+    }
+  }
+  const fireSuspend = (): void => {
+    timer = null
+    if (disposed) return
+    try {
+      onSuspend()
+    } catch {
+      // A failing suspend never breaks the app.
+    }
+  }
+  let sub: {remove(): void} | null = null
+  try {
+    if (isBackgroundState(source.currentState)) {
+      timer = setTimeout(fireSuspend, delay)
+    }
+    sub = source.addEventListener('change', state => {
+      if (disposed) return
+      if (isBackgroundState(state)) {
+        if (timer === null) timer = setTimeout(fireSuspend, delay)
+      } else {
+        clearTimer()
+        try {
+          onResume()
+        } catch {
+          // A failing resume never breaks foregrounding.
+        }
+      }
+    })
+  } catch {
+    // No AppState source (or a host without one): stay mounted; sockets keep
+    // their own reconnect behavior.
+  }
+  return () => {
+    disposed = true
+    clearTimer()
+    try {
+      sub?.remove()
+    } catch {
+      // Teardown is best-effort.
+    }
+  }
+}
+
+/**
+ * Foreground resume for one stream handle: re-dial only when the handle is
+ * not usefully connected. Connected/connecting sockets, `unavailable`
+ * handles, and self-healing pools (no `retry`) are left alone — a needless
+ * remount would redial into the fast-close breaker. Never throws. Purely the
+ * existing `retry()` seam (Mastodon skips live entries internally and
+ * reports false when there was nothing to re-dial).
+ */
+export function resumeStreamHandle(handle: StreamHandle | null): boolean {
+  if (!handle) return false
+  let state: StreamState
+  try {
+    state = handle.status()
+  } catch {
+    return false
+  }
+  if (state === 'connected' || state === 'connecting' || state === 'unavailable') return false
+  try {
+    if (typeof handle.retry === 'function') {
+      handle.retry()
+      return true
+    }
+  } catch {
+    // A failing retry never breaks foregrounding.
+  }
+  return false
+}
+
+const GAP_FILL_KINDS: ReadonlySet<string> = new Set(['post-feed', 'notifications'])
+
+function isGapFillKey(key: unknown): boolean {
+  return (
+    Array.isArray(key) &&
+    key.length >= 2 &&
+    typeof key[1] === 'string' &&
+    GAP_FILL_KINDS.has(key[1])
+  )
+}
+
+/**
+ * Gap fill after a stream outage (M7): trim this session's feed and
+ * notification queries to their first page, then invalidate them. Trimming
+ * first is what makes the refetch cost one request, not N — an infinite
+ * query refetch re-reads every cached page (the same trim-then-refetch
+ * shape as pull-to-refresh). Inactive queries refetch on their next mount.
+ * Never throws; one bad query never blocks the rest.
+ */
+export function gapFillSessionFirstPages(client: QueryClient, sessionId: string): void {
+  let entries: Array<readonly [unknown, unknown]>
+  try {
+    entries = client.getQueriesData({queryKey: [sessionId]})
+  } catch {
+    return
+  }
+  for (const [key, data] of entries) {
+    if (!isGapFillKey(key)) continue
+    if (data !== null && typeof data === 'object' && Array.isArray((data as {pages?: unknown}).pages)) {
+      const record = data as {pages: Array<unknown>; pageParams?: Array<unknown>}
+      if (record.pages.length > 1) {
+        try {
+          client.setQueryData(key as Array<unknown>, {
+            ...(data as Record<string, unknown>),
+            pages: record.pages.slice(0, 1),
+            pageParams: Array.isArray(record.pageParams) ? record.pageParams.slice(0, 1) : [],
+          })
+        } catch {
+          // One query never blocks the rest.
+        }
+      }
+    }
+  }
+  try {
+    void client.invalidateQueries({queryKey: [sessionId, 'post-feed']})
+  } catch {
+    // Best-effort.
+  }
+  try {
+    void client.invalidateQueries({queryKey: [sessionId, 'notifications']})
+  } catch {
+    // Best-effort.
+  }
+}
+
+/**
+ * Reconnect gap-fill wiring: on the `reconnecting -> connected` transition
+ * of one session's handle, invalidate that session's feed + notification
+ * queries (first pages only — see `gapFillSessionFirstPages`). Other
+ * transitions need nothing (`connected` at mount already paged; error paths
+ * surface through status badges). Returns an unsubscribe function.
+ */
+export function watchStreamGapFill(opts: {
+  client: QueryClient
+  sessionId: string
+  handle: StreamHandle | null
+}): () => void {
+  const {client, sessionId, handle} = opts
+  if (!handle) return () => undefined
+  let previous: StreamState
+  try {
+    previous = handle.status()
+  } catch {
+    return () => undefined
+  }
+  let off: (() => void) | null = null
+  try {
+    off = handle.onStatusChange(next => {
+      const was = previous
+      previous = next
+      if (was === 'reconnecting' && next === 'connected') {
+        gapFillSessionFirstPages(client, sessionId)
+      }
+    })
+  } catch {
+    return () => undefined
+  }
+  return () => {
+    try {
+      off?.()
+    } catch {
+      // Teardown is best-effort.
+    }
+  }
+}
+
+export interface PostUpdateCoalescer {
+  /** Record an update event (trailing-debounced per post id). */
+  notify(event: PostUpdateEvent): void
+  /** Drop pending timers (unmount). In-flight fetches resolve into the void. */
+  dispose(): void
+}
+
+/**
+ * Coalesced `onUpdate` fetches (M7): per-post-id trailing debounce
+ * (`POST_UPDATE_DEBOUNCE_MS`), at most one in-flight fetch per post, and a
+ * response that a newer event superseded is never applied. A burst of N
+ * events for one post costs one request when the burst fits in the window
+ * (two at most when a second wave lands mid-flight); the final cache state
+ * always matches the last response.
+ */
+export function createPostUpdateCoalescer(opts: {
+  fetchPost: (id: string) => Promise<Post>
+  onPost: (post: Post) => void
+  debounceMs?: number
+}): PostUpdateCoalescer {
+  const debounceMs = opts.debounceMs ?? POST_UPDATE_DEBOUNCE_MS
+  interface Entry {
+    timer: ReturnType<typeof setTimeout> | null
+    inflight: boolean
+    queued: boolean
+  }
+  const entries = new Map<string, Entry>()
+  let disposed = false
+
+  function fire(id: string): void {
+    const entry = entries.get(id)
+    if (!entry || disposed) return
+    entry.timer = null
+    if (entry.inflight) {
+      // A fetch is already running: re-arm and let its completion schedule
+      // the follow-up, so there is never more than one in flight per post.
+      entry.queued = true
+      entry.timer = setTimeout(() => fire(id), debounceMs)
+      return
+    }
+    entry.inflight = true
+    entry.queued = false
+    void opts.fetchPost(id).then(
+      fresh => {
+        const current = entries.get(id)
+        if (!current || disposed) return
+        current.inflight = false
+        if (current.queued) {
+          // Events arrived mid-flight: this response is older than the
+          // newest event — skip it and refetch once for the latest state.
+          // Clear first: a re-armed timer may still be pending from the
+          // mid-flight window, and two timers would fire two follow-ups.
+          current.queued = false
+          if (current.timer !== null) clearTimeout(current.timer)
+          current.timer = setTimeout(() => fire(id), debounceMs)
+          return
+        }
+        try {
+          opts.onPost(fresh)
+        } catch {
+          // A failing cache write never breaks the stream.
+        }
+      },
+      () => {
+        // A failed refetch keeps the current row; the next load corrects it.
+        const current = entries.get(id)
+        if (!current || disposed) return
+        current.inflight = false
+        if (current.queued) {
+          current.queued = false
+          if (current.timer !== null) clearTimeout(current.timer)
+          current.timer = setTimeout(() => fire(id), debounceMs)
+        }
+      },
+    )
+  }
+
+  return {
+    notify(event: PostUpdateEvent): void {
+      if (disposed || !event || typeof event.id !== 'string' || event.id.length === 0) return
+      const id = event.id
+      let entry = entries.get(id)
+      if (!entry) {
+        entry = {timer: null, inflight: false, queued: false}
+        entries.set(id, entry)
+      }
+      if (entry.inflight) entry.queued = true
+      if (entry.timer !== null) clearTimeout(entry.timer)
+      entry.timer = setTimeout(() => fire(id), debounceMs)
+    },
+    dispose(): void {
+      disposed = true
+      for (const entry of entries.values()) {
+        if (entry.timer !== null) clearTimeout(entry.timer)
+      }
+      entries.clear()
+    },
+  }
 }
