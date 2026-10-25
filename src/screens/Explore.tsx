@@ -92,7 +92,7 @@ function TagsTab({
         if (!cancelled) setTags(t)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(errorText(i18n, err, 'Could not load trending tags.'))
+        if (!cancelled) setError(errorText(i18n, err, i18n._(msg`Could not load trending tags.`)))
       })
     return () => {
       cancelled = true

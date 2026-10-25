@@ -761,7 +761,7 @@ export async function uploadAll(
       } else {
         onUpdate(item.key, {
           status: 'error',
-          error: errorText(i18n, err, 'Upload failed.'),
+          error: errorText(i18n, err, i18n._(msg`Upload failed.`)),
           progress: null,
         })
       }

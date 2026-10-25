@@ -146,7 +146,7 @@ export function LoginScreen() {
   const [miauthStatus, setMiauthStatus] = useState<string | null>(null)
 
   const fail = (err: unknown) => {
-    setError(errorText(i18n, err, 'Sign-in failed.'))
+    setError(errorText(i18n, err, i18n._(msg`Sign-in failed.`)))
   }
 
   const finish = async (result: {
@@ -285,7 +285,7 @@ export function LoginScreen() {
   const detect = async () => {
     const origin = normalizeServerInput(server)
     if (!origin) {
-      setError('Enter a server, e.g. example.social.')
+      setError(i18n._(msg`Enter a server, e.g. example.social.`))
       return
     }
     setDetecting(true)
@@ -293,7 +293,7 @@ export function LoginScreen() {
     try {
       const found = await detectServer(origin)
       if (!found.family) {
-        setError('Could not detect this server type. Check the address and try again.')
+        setError(i18n._(msg`Could not detect this server type. Check the address and try again.`))
         return
       }
       setDetection({origin, family: found.family, flavor: found.flavor, features: found.features, evidence: found.evidence})
@@ -416,7 +416,7 @@ export function LoginScreen() {
       // Same-tab web navigation unloads this page (the callback completes
       // it); otherwise poll here for the approval.
       if (Platform.OS === 'web') {
-        setMiauthStatus('Approve on your server, then continue there.')
+        setMiauthStatus(i18n._(msg`Approve on your server, then continue there.`))
         return
       }
       // iOS inline completion (H3): `openAuthSessionAsync` consumed the
@@ -428,7 +428,7 @@ export function LoginScreen() {
       if (Platform.OS === 'ios' && callbackUrl) {
         if (await finishMiAuthCallbackUrl(callbackUrl)) return
       }
-      setMiauthStatus('Waiting for approval on your server…')
+      setMiauthStatus(i18n._(msg`Waiting for approval on your server…`))
       const done = await pollMisskeyApproval({
         scheme: active.scheme,
         host: active.host,
@@ -469,7 +469,7 @@ export function LoginScreen() {
   const finishMiAuthCallbackUrl = async (href: string): Promise<boolean> => {
     const params = parseCallbackParams(href)
     if (params.error) {
-      setError('The sign-in was cancelled or denied.')
+      setError(i18n._(msg`The sign-in was cancelled or denied.`))
       return true
     }
     if (!params.session) return false
@@ -534,7 +534,7 @@ export function LoginScreen() {
   ): Promise<boolean> => {
     const params = parseCallbackParams(href)
     if (params.error) {
-      setError('The sign-in was cancelled or denied.')
+      setError(i18n._(msg`The sign-in was cancelled or denied.`))
       return true
     }
     if (!params.code || !params.state) return false

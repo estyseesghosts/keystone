@@ -1,10 +1,11 @@
 /**
- * i18n ratchet rule: no NEW user-visible string literals in `src/`.
+ * i18n rule: no user-visible string literals in `src/`.
  *
  * From X0.2 on, every UI string goes through Lingui (`msg` / `t` / `Trans`
- * / `plural`). This rule pins that so the Wave 9 sweep (which removes the
- * existing literals) cannot regress: it reports, in `src/**.{ts,tsx}`
- * (excluding tests, `src/locale/locales/**`, and `src/__tests__/**`):
+ * / `plural`). This rule pins that (Wave 9 burned the grandfathered
+ * baseline down to zero and X9.8 deleted the baseline mechanism, so this
+ * is now a plain error): it reports, in `src/**.{ts,tsx}` (excluding
+ * tests, `src/locale/locales/**`, and `src/__tests__/**`):
  *
  * - JSX text nodes containing a letter (`\p{L}`), unless inside `<Trans>`.
  *   Whitespace, digits, and pure punctuation/glyph-only text (`·`, `/`,
@@ -22,21 +23,14 @@
  * icon names; string enum values compared against identifiers (those are
  * `BinaryExpression`s, never JSX props or flagged call args).
  *
- * Ratchet: `lint-rules/baselines/no-literal-ui-string.json` maps each file
- * (repo-relative, posix) to its grandfathered violation count, produced by
- * running this rule on the tree before Wave 9. A file at or below its
- * baseline passes silently; a file above its baseline (or a new file with
- * any violation) reports every violation. `pnpm lint:i18n-baseline`
- * rewrites the baseline downward only and refuses to raise it.
- *
- * Tests MUST pass `options: [{baseline: {}}]` so fixtures exercise the raw
- * detector instead of the checked-in baseline.
+ * Error text that only surfaces through `setError` / `errorText` fallbacks
+ * (validation reasons, query-throw messages) is out of this rule's reach
+ * by design — those paths are covered by the pseudo-locale smoke test
+ * (`src/locale/pseudo-locale-smoke.test.tsx`), which renders screens under
+ * the `pseudo` locale and fails on any plain-English text node.
  */
 
-const fs = require('node:fs')
 const path = require('node:path')
-
-const BASELINE_PATH = path.join(__dirname, 'baselines', 'no-literal-ui-string.json')
 
 const LETTER = /\p{L}/u
 const ENTITY = /&(?:[a-zA-Z]+|#[0-9]+|#x[0-9a-fA-F]+);/g
@@ -106,25 +100,6 @@ function isExcludedFile(rel) {
     rel.includes('src/locale/locales/') ||
     rel.startsWith('<')
   )
-}
-
-let cachedBaseline = null
-
-function loadBaseline(override) {
-  if (override !== undefined) return override && typeof override === 'object' ? override : {}
-  if (cachedBaseline) return cachedBaseline
-  try {
-    cachedBaseline = JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf8'))
-  } catch {
-    cachedBaseline = {}
-  }
-  return cachedBaseline
-}
-
-function allowedFor(baseline, rel) {
-  if (!Object.prototype.hasOwnProperty.call(baseline, rel)) return 0
-  const n = Math.floor(Number(baseline[rel]))
-  return Number.isFinite(n) && n > 0 ? n : 0
 }
 
 function isTransElement(node) {
@@ -221,23 +196,14 @@ const rule = {
       noLiteralCallArg:
         'User-visible toast/alert text must go through Lingui (t / msg), not a literal.',
     },
-    schema: [
-      {
-        type: 'object',
-        properties: {baseline: {type: 'object'}},
-        additionalProperties: false,
-      },
-    ],
+    schema: [],
   },
   create(context) {
     const rel = repoRel(lintedFilename(context))
     if (isExcludedFile(rel)) return {}
-    const baseline = loadBaseline(context.options && context.options[0] && context.options[0].baseline)
-    const allowed = allowedFor(baseline, rel)
-    const pending = []
     let suppressed = 0
     const push = (node, messageId, data) => {
-      if (suppressed === 0) pending.push({node, messageId, data})
+      if (suppressed === 0) context.report({node, messageId, data})
     }
     return {
       JSXElement(node) {
@@ -284,123 +250,8 @@ const rule = {
           (parent.type === 'JSXElement' || parent.type === 'JSXFragment')
         if (inJsx) checkExpressionChild(node.expression, push)
       },
-      'Program:exit'() {
-        if (pending.length > allowed) {
-          for (const v of pending) {
-            context.report({node: v.node, messageId: v.messageId, data: v.data})
-          }
-        }
-      },
     }
   },
 }
 
-// --- Baseline maintenance (`pnpm lint:i18n-baseline`) -----------------------
-
-const SRC_ROOT = path.join(__dirname, '..', 'src')
-
-function walkSourceFiles(dir, out) {
-  for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
-    const abs = path.join(dir, entry.name)
-    if (entry.isDirectory()) {
-      walkSourceFiles(abs, out)
-    } else if (entry.isFile() && /\.[cm]?[jt]sx?$/.test(entry.name)) {
-      const rel = path
-        .relative(process.cwd().replace(/\\/g, '/'), abs.replace(/\\/g, '/'))
-        .replace(/\\/g, '/')
-      if (!isExcludedFile(rel)) out.push({abs, rel})
-    }
-  }
-  return out
-}
-
-function rawCountForFile(code, rel) {
-  const {Linter} = require('eslint')
-  const tsParser = require('@typescript-eslint/parser')
-  const linter = new Linter()
-  const messages = linter.verify(
-    code,
-    {
-      files: ['**/*.ts', '**/*.tsx'],
-      languageOptions: {
-        parser: tsParser,
-        parserOptions: {ecmaFeatures: {jsx: true}},
-      },
-      plugins: {keystone: {rules: {'no-literal-ui-string': rule}}},
-      rules: {'keystone/no-literal-ui-string': ['error', {baseline: {}}]},
-    },
-    rel,
-  )
-  return messages.filter((m) => m.ruleId === 'keystone/no-literal-ui-string').length
-}
-
-function readBaselineFile() {
-  try {
-    return JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf8'))
-  } catch {
-    return null
-  }
-}
-
-function writeBaselineFile(entries) {
-  const sorted = Object.fromEntries(
-    Object.entries(entries).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
-  )
-  fs.mkdirSync(path.dirname(BASELINE_PATH), {recursive: true})
-  fs.writeFileSync(BASELINE_PATH, `${JSON.stringify(sorted, null, 2)}\n`)
-}
-
-/**
- * Rewrite the baseline downward only (never raises it). New files are never
- * added (any violation there must fail lint); files at zero or gone from
- * the tree are dropped. Exits non-zero when a file rose above its baseline
- * (the baseline keeps the old, lower count) so the rise stays visible.
- */
-function rebuildBaseline() {
-  const files = walkSourceFiles(SRC_ROOT, [])
-  const current = {}
-  for (const {abs, rel} of files) {
-    const count = rawCountForFile(fs.readFileSync(abs, 'utf8'), rel)
-    if (count > 0) current[rel] = count
-  }
-  const old = readBaselineFile()
-  if (old === null) {
-    writeBaselineFile(current)
-    const total = Object.values(current).length
-      ? Object.values(current).reduce((a, b) => a + b, 0)
-      : 0
-    console.log(
-      `baseline created: ${Object.keys(current).length} files, ${total} violations`,
-    )
-    return {raised: [], total}
-  }
-  const next = {}
-  const raised = []
-  for (const [file, oldCount] of Object.entries(old)) {
-    const now = current[file] ?? 0
-    if (now === 0) continue // fixed or deleted: drop the entry
-    if (now > oldCount) {
-      next[file] = oldCount // refuse to raise
-      raised.push({file, old: oldCount, now})
-    } else {
-      next[file] = now
-    }
-  }
-  writeBaselineFile(next)
-  const total = Object.values(next).length
-    ? Object.values(next).reduce((a, b) => a + b, 0)
-    : 0
-  console.log(`baseline: ${Object.keys(next).length} files, ${total} violations`)
-  for (const r of raised) {
-    console.error(`refused to raise ${r.file}: baseline ${r.old}, current ${r.now}`)
-  }
-  if (raised.length > 0) {
-    console.error('baseline kept the lower counts; fix the new literals first')
-    process.exitCode = 1
-  }
-  return {raised, total}
-}
-
 module.exports = rule
-module.exports.rebuildBaseline = rebuildBaseline
-module.exports.rawCountForFile = rawCountForFile

@@ -593,7 +593,7 @@ export function useComposerController({
       if (replyTo || quote) {
         setState(s => ({...s, ...(replyTo ? {replyTo} : {}), ...(quote ? {quote} : {})}))
       } else {
-        setError('The original reply or quote target could not be loaded; the text was kept.')
+        setError(i18n._(msg`The original reply or quote target could not be loaded; the text was kept.`))
       }
     },
     [backend],
@@ -735,7 +735,7 @@ export function useComposerController({
         if (uploads.items.length > 0) {
           const ids = await uploads.ensureUploaded()
           if (!ids) {
-            setError('Some attachments failed to upload. Retry or remove them.')
+            setError(i18n._(msg`Some attachments failed to upload. Retry or remove them.`))
             return
           }
           uploadedIds = ids
@@ -763,7 +763,7 @@ export function useComposerController({
         onPosted?.('posted')
         onClose?.()
       } catch (err) {
-        setError(errorText(i18n, err, 'Could not save the edit.'))
+        setError(errorText(i18n, err, i18n._(msg`Could not save the edit.`)))
       } finally {
         submitRef.current = false
         setBusy(false)
@@ -796,7 +796,7 @@ export function useComposerController({
       if (uploads.items.length > 0) {
         const ids = await uploads.ensureUploaded()
         if (!ids) {
-          setError('Some attachments failed to upload. Retry or remove them.')
+          setError(i18n._(msg`Some attachments failed to upload. Retry or remove them.`))
           return
         }
         mediaIds = ids
@@ -849,14 +849,14 @@ export function useComposerController({
             draft: unquoted.draft,
             scheduledAt: unquoted.scheduledAt,
           })
-          setNotice(errorText(i18n, err, 'The quoted account does not allow quotes; posted without it.'))
+          setNotice(errorText(i18n, err, i18n._(msg`The quoted account does not allow quotes; posted without it.`)))
           finish(result)
         } catch (retryErr) {
-          setError(errorText(i18n, retryErr, 'Could not post.'))
+          setError(errorText(i18n, retryErr, i18n._(msg`Could not post.`)))
         }
       }
     } catch (err) {
-      setError(errorText(i18n, err, 'Could not post.'))
+      setError(errorText(i18n, err, i18n._(msg`Could not post.`)))
     } finally {
       submitRef.current = false
       setBusy(false)
@@ -923,7 +923,7 @@ export function useComposerController({
         setError(i18n._(msg`Some attachments could not be added.`))
       }
     } catch (err) {
-      setError(errorText(i18n, err, 'Could not open the media picker.'))
+      setError(errorText(i18n, err, i18n._(msg`Could not open the media picker.`)))
     }
   }
 

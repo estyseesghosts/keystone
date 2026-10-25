@@ -127,7 +127,7 @@ export function AuthCallbackScreen() {
       // Web reads the same-tab URL; native waits for the deep link.
       const params = parseCallbackParams(Platform.OS === 'web' ? webHref() : nativeUrl)
       if (params.error) {
-        setError('The sign-in was cancelled or denied.')
+        setError(i18n._(msg`The sign-in was cancelled or denied.`))
         setStatus('error')
         return
       }
@@ -135,7 +135,7 @@ export function AuthCallbackScreen() {
         // Misskey-family MiAuth: the pending row names the origin.
         const pending = takeMisskeyPending(appStorage(), params.session)
         if (!pending) {
-          setError('This sign-in link already ran or expired. Please sign in again.')
+          setError(i18n._(msg`This sign-in link already ran or expired. Please sign in again.`))
           setStatus('error')
           return
         }
@@ -179,13 +179,13 @@ export function AuthCallbackScreen() {
           // Land on the tab shell (see Login `finish`).
           nav.dispatch(CommonActions.reset({index: 0, routes: [{name: 'Main'}]}))
         } catch (err) {
-          setError(errorText(i18n, err, 'Sign-in failed.'))
+          setError(errorText(i18n, err, i18n._(msg`Sign-in failed.`)))
           setStatus('error')
         }
         return
       }
       if (!params.code || !params.state) {
-        setError('This link has no sign-in response. Start again from Sign in.')
+        setError(i18n._(msg`This link has no sign-in response. Start again from Sign in.`))
         setStatus('error')
         return
       }
@@ -196,7 +196,7 @@ export function AuthCallbackScreen() {
           state: params.state,
         })
         if (!done) {
-          setError('This sign-in link already ran or expired. Please sign in again.')
+          setError(i18n._(msg`This sign-in link already ran or expired. Please sign in again.`))
           setStatus('error')
           return
         }
@@ -215,7 +215,7 @@ export function AuthCallbackScreen() {
         // Land on the tab shell (see Login `finish`).
         nav.dispatch(CommonActions.reset({index: 0, routes: [{name: 'Main'}]}))
       } catch (err) {
-        setError(errorText(i18n, err, 'Sign-in failed.'))
+        setError(errorText(i18n, err, i18n._(msg`Sign-in failed.`)))
         setStatus('error')
       }
     }

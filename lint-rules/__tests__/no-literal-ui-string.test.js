@@ -4,25 +4,18 @@ const rule = require('../no-literal-ui-string')
 
 const tester = new RuleTester()
 
-// Fixtures always pass an explicit empty baseline so they exercise the raw
-// detector, never the checked-in grandfather counts.
+// Plain error since X9.8 (the Wave 9 baseline burned to zero and the
+// baseline mechanism was deleted): every violation reports, no options.
 const fresh = (code, filename) => ({
   code,
   filename,
-  options: [{baseline: {}}],
-  languageOptions: {parserOptions: {ecmaFeatures: {jsx: true}}},
-})
-
-const withBaseline = (code, filename, baseline) => ({
-  code,
-  filename,
-  options: [{baseline}],
   languageOptions: {parserOptions: {ecmaFeatures: {jsx: true}}},
 })
 
 // New UI strings go through Lingui (`msg` / `t` / `Trans` / `plural`); raw
-// literals are the Wave 9 burn-down, grandfathered per file in
-// `lint-rules/baselines/no-literal-ui-string.json`.
+// literals fail. The pseudo-locale smoke test
+// (`src/locale/pseudo-locale-smoke.test.tsx`) covers the paths this rule
+// cannot see (`setError` / `errorText` fallbacks).
 tester.run('no-literal-ui-string', rule, {
   valid: [
     fresh(`const s = theme.palette.bg`, 'src/components/Clean.ts'),
@@ -64,12 +57,6 @@ tester.run('no-literal-ui-string', rule, {
     fresh(
       `export const m = {hello: 'Hello'}`,
       'src/locale/locales/en/custom.ts',
-    ),
-    // At or below the grandfathered count, the file passes silently.
-    withBaseline(
-      `<Text>Hello</Text>`,
-      'src/components/Old.tsx',
-      {'src/components/Old.tsx': 1},
     ),
   ],
   invalid: [
@@ -121,17 +108,16 @@ tester.run('no-literal-ui-string', rule, {
       errors: [{messageId: 'noLiteralCallArg'}],
     },
     {
-      // Above the grandfathered count, every violation reports.
-      ...withBaseline(
+      // No grandfathering: a second violation in the same file reports too.
+      ...fresh(
         `<Text>One</Text>; showToast('Two')`,
         'src/components/Old.tsx',
-        {'src/components/Old.tsx': 1},
       ),
       errors: [{messageId: 'noLiteralJsxText'}, {messageId: 'noLiteralCallArg'}],
     },
     {
-      // A file with no baseline entry fails on any violation.
-      ...withBaseline(`<Text>Hello</Text>`, 'src/components/New.tsx', {}),
+      // A formerly grandfathered file fails on any violation now.
+      ...fresh(`<Text>Hello</Text>`, 'src/components/Old.tsx'),
       errors: [{messageId: 'noLiteralJsxText'}],
     },
   ],

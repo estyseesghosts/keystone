@@ -107,11 +107,11 @@ export function UsersTab({backend, submitted}: {backend: Backend; submitted: str
       .catch((err: unknown) => {
         if (cancelled) return
         if (isUnsupportedError(err)) {
-          setError('Trending users are not available on this server.')
+          setError(i18n._(msg`Trending users are not available on this server.`))
         } else if (err instanceof Error && /401|403/.test(err.message)) {
           setAuth(true)
         } else {
-          setError(errorText(i18n, err, 'Could not load trending users.'))
+          setError(errorText(i18n, err, i18n._(msg`Could not load trending users.`)))
         }
       })
     return () => {

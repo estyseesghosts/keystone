@@ -85,7 +85,7 @@ function AccountMenu({
     void store
       .signOut(id)
       .catch((err: unknown) => {
-        setError(errorText(i18n, err, 'Sign-out failed.'))
+        setError(errorText(i18n, err, i18n._(msg`Sign-out failed.`)))
       })
       .finally(() => setBusyId(null))
   }
