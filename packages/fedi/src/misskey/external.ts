@@ -241,17 +241,25 @@ export function checkExternalSession(
 }
 
 /** Verify an issued external token and pack the account user (core
- * Account — the wire shape never leaves this module). */
+ * Account — the wire shape never leaves this module). An empty (204) or
+ * non-object `/api/i` body is a shape failure, never an account: it throws
+ * a typed `FediError` before `adaptMe` (which would otherwise reject with
+ * an untyped `TypeError` off `undefined`). */
 export async function fetchExternalMe(
   scheme: ExternalScheme,
   host: string,
   token: string,
 ): Promise<Account> {
-  return adaptMe(
-    await postDirect<MeDetailed>(`${externalOrigin(scheme, host)}/api/i`, {
-      i: token,
-    }),
-  );
+  const payload = await postDirect<MeDetailed>(`${externalOrigin(scheme, host)}/api/i`, {
+    i: token,
+  });
+  if (!payload || typeof payload !== "object") {
+    throw new FediError(
+      "Server returned an empty account response.",
+      "errors.shape.account",
+    );
+  }
+  return adaptMe(payload);
 }
 
 /** Authenticated API call against an external instance (direct fetch). */

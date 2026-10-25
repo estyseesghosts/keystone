@@ -167,6 +167,104 @@ describe("R1.2 translator instances share nothing", () => {
       jest.useRealTimers();
     }
   });
+
+  it("one instance keys entries by (noteId, targetLang): lang B refetches after lang A cached", async () => {
+    const { translator, calls } = misskeyTranslator((endpoint, params) => {
+      if (endpoint === "meta") return { translatorAvailable: true };
+      if (endpoint !== "notes/translate") throw new Error(`unexpected ${endpoint}`);
+      return params.targetLang === "fr"
+        ? { sourceLang: "Chinois", text: "texte français" }
+        : { sourceLang: "Chinese", text: "English text" };
+    });
+    await translator.translatorAvailable();
+
+    // Lang A caches under its own entry.
+    await expect(translator.requestTranslation("n1", "en")).resolves.toEqual({
+      sourceLang: "Chinese",
+      text: "English text",
+    });
+    expect(translateCalls(calls)).toHaveLength(1);
+
+    // Same note, second viewer language: must NOT serve lang A's entry.
+    await expect(translator.requestTranslation("n1", "fr")).resolves.toEqual({
+      sourceLang: "Chinois",
+      text: "texte français",
+    });
+    expect(translateCalls(calls)).toHaveLength(2);
+    expect(translateCalls(calls).map((c) => c.params.targetLang)).toEqual(["en", "fr"]);
+
+    // Both entries settle: repeats are served from the cache, no refetch.
+    await expect(translator.requestTranslation("n1", "en")).resolves.toEqual({
+      sourceLang: "Chinese",
+      text: "English text",
+    });
+    await expect(translator.requestTranslation("n1", "fr")).resolves.toEqual({
+      sourceLang: "Chinois",
+      text: "texte français",
+    });
+    expect(translateCalls(calls)).toHaveLength(2);
+  });
+
+  it("failure suppression is per (noteId, targetLang): lang A failing leaves lang B live", async () => {
+    const { translator, calls } = misskeyTranslator((endpoint, params) => {
+      if (endpoint === "meta") return { translatorAvailable: true };
+      if (endpoint !== "notes/translate") throw new Error(`unexpected ${endpoint}`);
+      if (params.targetLang === "en") throw new ApiError("boom", 500, "INTERNAL_ERROR");
+      return { sourceLang: "Chinois", text: "texte français" };
+    });
+    await translator.translatorAvailable();
+
+    await expect(translator.requestTranslation("n1", "en")).resolves.toBeNull();
+    expect(translateCalls(calls)).toHaveLength(1);
+    // Suppressed for "en"...
+    await expect(translator.requestTranslation("n1", "en")).resolves.toBeNull();
+    expect(translateCalls(calls)).toHaveLength(1);
+    // ...but "fr" fetches and succeeds on the same instance.
+    await expect(translator.requestTranslation("n1", "fr")).resolves.toEqual({
+      sourceLang: "Chinois",
+      text: "texte français",
+    });
+    expect(translateCalls(calls)).toHaveLength(2);
+
+    // A no-language retry addresses the default ("en") entry only: "en"
+    // refetches while the settled "fr" entry is undisturbed.
+    translator.retryTranslation("n1");
+    await expect(translator.requestTranslation("n1", "en")).resolves.toBeNull();
+    expect(translateCalls(calls)).toHaveLength(3);
+    await expect(translator.requestTranslation("n1", "fr")).resolves.toEqual({
+      sourceLang: "Chinois",
+      text: "texte français",
+    });
+    expect(translateCalls(calls)).toHaveLength(3);
+  });
+
+  it("outcome/retry bus is per (noteId, targetLang) with a backward-compatible default", () => {
+    const { translator } = misskeyTranslator(() => ({ translatorAvailable: true }));
+    const seen: Array<[string, string | undefined]> = [];
+    const unsub = translator.onTranslationMetaChange((id, lang) => seen.push([id, lang]));
+    try {
+      // No-language writes land on the "en" entry, as before.
+      translator.reportTranslationOutcome("n1", "loaded");
+      expect(translator.translationOutcome("n1")).toBe("loaded");
+      expect(translator.translationOutcome("n1", "en")).toBe("loaded");
+      // Another viewer language starts undefined.
+      expect(translator.translationOutcome("n1", "fr")).toBeUndefined();
+      translator.reportTranslationOutcome("n1", "unchanged", "fr");
+      expect(translator.translationOutcome("n1", "fr")).toBe("unchanged");
+      expect(translator.translationOutcome("n1")).toBe("loaded");
+      expect(seen).toEqual([
+        ["n1", "en"],
+        ["n1", "fr"],
+      ]);
+
+      expect(translator.translationRetryCount("n1")).toBe(0);
+      translator.retryTranslation("n1", "fr");
+      expect(translator.translationRetryCount("n1", "fr")).toBe(1);
+      expect(translator.translationRetryCount("n1")).toBe(0);
+    } finally {
+      unsub();
+    }
+  });
 });
 
 // --- quote resolver isolation -------------------------------------------------

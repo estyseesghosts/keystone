@@ -17,7 +17,7 @@
 //   suppression is the CLIENT's job (see `translationDiffers`).
 //
 // House patterns: per-instance completed + in-flight caches keyed by
-// note id (cf. per-backend quote caches in `./quote`), and
+// (note id, targetLang) (cf. per-backend quote caches in `./quote`), and
 // 404-remembered-per-instance (cf. `isUnsupportedError` probing in
 // `./client`).
 //
@@ -62,26 +62,57 @@ export interface Translator {
   translatorAvailable(): Promise<boolean>;
   /** Last probed value (false until `translatorAvailable` resolves). */
   isTranslationAvailable(): boolean;
-  /** Fetch (or reuse the cached) translation of one note. Resolves null
-   * when translation is unavailable, unsupported, recently failed, or not
-   * worth showing — callers always fall back to the original text.
+  /** Fetch (or reuse the cached) translation of one note for one viewer
+   * language. Resolves null when translation is unavailable, unsupported,
+   * recently failed, or not worth showing — callers always fall back to
+   * the original text.
    * Successes settle permanently; failures suppress retries for
    * TRANSLATION_FAILURE_TTL_MS so transient errors recover without
    * hammering a persistently failing endpoint. The toggle only switches
    * between the cached translation and the original, it never refetches.
-   * The cache is owned by this instance: no other session observes it. */
+   * Entries are keyed by (noteId, targetLang): translating the same note
+   * for a second viewer language fetches again. The cache is owned by
+   * this instance: no other session observes it. */
   requestTranslation(noteId: string, targetLang: string): Promise<TranslateResult | null>;
   /** "loaded": a translation is shown. "unchanged": the server answered but
    * the result is not worth showing (same language). Undefined otherwise.
-   * Per-instance: reporting on one translator never surfaces on another. */
-  translationOutcome(noteId: string): TranslationOutcome | undefined;
-  reportTranslationOutcome(noteId: string, outcome: TranslationOutcome): void;
-  /** Read by the display's request memo so a retry refetches. */
-  translationRetryCount(noteId: string): number;
-  /** Clear a remembered failure and make the display refetch. */
-  retryTranslation(noteId: string): void;
-  /** Subscribe to outcome/retry changes. Returns an unsubscribe function. */
-  onTranslationMetaChange(handler: (noteId: string) => void): () => void;
+   * Per-instance AND per targetLang (like the fetch cache): reporting the
+   * outcome for one viewer language never surfaces under another.
+   * Omitting `targetLang` addresses the `"en"` entry (the viewer default
+   * used across this module), so existing single-argument callers keep
+   * working. */
+  translationOutcome(noteId: string, targetLang?: string): TranslationOutcome | undefined;
+  reportTranslationOutcome(
+    noteId: string,
+    outcome: TranslationOutcome,
+    targetLang?: string,
+  ): void;
+  /** Read by the display's request memo so a retry refetches. Per
+   * (noteId, targetLang) like the outcome; omitting `targetLang` reads the
+   * `"en"` entry. */
+  translationRetryCount(noteId: string, targetLang?: string): number;
+  /** Clear a remembered failure and make the display refetch. With a
+   * `targetLang` only that language's suppression is cleared and only
+   * that language's retry count is bumped; omitted, the `"en"` entry's
+   * (same default as the readers). */
+  retryTranslation(noteId: string, targetLang?: string): void;
+  /** Subscribe to outcome/retry changes. The handler receives the note id
+   * and the effective targetLang. Returns an unsubscribe function. */
+  onTranslationMetaChange(handler: (noteId: string, targetLang?: string) => void): () => void;
+}
+
+/** Fallback `targetLang` for outcome/retry bus callers that omit it: the
+ * viewer default used everywhere else in this module (`viewerPrimary`,
+ * `translationDiffers`, `decideTranslation`). Fetch callers
+ * (`requestTranslation`) always pass the viewer's language explicitly. */
+const DEFAULT_TARGET_LANG = "en";
+
+/** Composite key for one translator instance's maps: (noteId, targetLang).
+ * NUL (`\u0000`) occurs in neither note ids nor language subtags, so the
+ * join is unambiguous. One viewer language never serves — or suppresses —
+ * another's, on any map. */
+function keyOf(noteId: string, targetLang?: string): string {
+  return noteId + "\u0000" + (targetLang ?? DEFAULT_TARGET_LANG);
 }
 
 interface MetaProbe {
@@ -94,15 +125,17 @@ export function createTranslator(deps: TranslatorDeps): Translator {
     family === "mastodon" ? (deps.translationSupported ?? false) : false;
   let capabilityPromise: Promise<boolean> | null = null;
 
-  // Per-instance caches (R1.2): keyed by bare note id, but the maps live
-  // on this translator — two sessions hold two translators and share
-  // nothing. No `${origin}${accountId}` key string is needed because the
-  // instance itself is the session scope.
+  // Per-instance caches (R1.2): the maps live on this translator — two
+  // sessions hold two translators and share nothing. No
+  // `${origin}${accountId}` key string is needed because the instance
+  // itself is the session scope. Within the instance, every map is keyed
+  // by (noteId, targetLang) via `keyOf`: one viewer language never serves
+  // — or suppresses — another's entry.
   const completed = new Map<string, TranslateResult | null>();
   const inflight = new Map<string, Promise<TranslateResult | null>>();
   // Failures are NOT permanent: a transient error (rate limit, translator
   // hiccup) must not hide a translation for the rest of the session. A
-  // failed noteId simply stops retrying for TRANSLATION_FAILURE_TTL_MS;
+  // failed (noteId, targetLang) entry simply stops retrying for TRANSLATION_FAILURE_TTL_MS;
   // remounts after that try again. Only successes, invalid shapes, and
   // session-wide 404s settle permanently.
   const failedAt = new Map<string, number>();
@@ -139,13 +172,14 @@ export function createTranslator(deps: TranslatorDeps): Translator {
     targetLang: string,
   ): Promise<TranslateResult | null> {
     if (!capabilityValue) return null;
-    const done = completed.get(noteId);
+    const key = keyOf(noteId, targetLang);
+    const done = completed.get(key);
     if (done !== undefined) return done;
-    const failed = failedAt.get(noteId);
+    const failed = failedAt.get(key);
     if (failed !== undefined && Date.now() - failed < TRANSLATION_FAILURE_TTL_MS) {
       return null;
     }
-    const pending = inflight.get(noteId);
+    const pending = inflight.get(key);
     if (pending) return pending;
 
     // Misskey family here: `notes/translate` by note id. (The Mastodon
@@ -161,24 +195,24 @@ export function createTranslator(deps: TranslatorDeps): Translator {
           t && typeof t.text === "string" && t.text.length > 0
             ? { sourceLang: typeof t.sourceLang === "string" ? t.sourceLang : "", text: t.text }
             : null;
-        completed.set(noteId, result);
+        completed.set(key, result);
         evict(completed);
-        failedAt.delete(noteId);
-        inflight.delete(noteId);
+        failedAt.delete(key);
+        inflight.delete(key);
         return result;
       },
       (err) => {
         // A server without the endpoint 404s: never try again this session.
         if (isUnsupportedError(err)) markUnsupported();
         else {
-          failedAt.set(noteId, Date.now());
+          failedAt.set(key, Date.now());
           evict(failedAt);
         }
-        inflight.delete(noteId);
+        inflight.delete(key);
         return null;
       },
     );
-    inflight.set(noteId, task);
+    inflight.set(key, task);
     return task;
   }
 
@@ -186,20 +220,30 @@ export function createTranslator(deps: TranslatorDeps): Translator {
     translatorAvailable,
     isTranslationAvailable: () => capabilityValue,
     requestTranslation,
-    translationOutcome: (noteId: string) => outcomes.get(noteId),
-    reportTranslationOutcome: (noteId: string, outcome: TranslationOutcome) => {
-      if (outcomes.get(noteId) !== outcome) {
-        outcomes.set(noteId, outcome);
-        metaEvents.emit("meta", noteId);
+    translationOutcome: (noteId: string, targetLang?: string) =>
+      outcomes.get(keyOf(noteId, targetLang)),
+    reportTranslationOutcome: (
+      noteId: string,
+      outcome: TranslationOutcome,
+      targetLang?: string,
+    ) => {
+      const key = keyOf(noteId, targetLang);
+      if (outcomes.get(key) !== outcome) {
+        outcomes.set(key, outcome);
+        metaEvents.emit("meta", noteId, targetLang ?? DEFAULT_TARGET_LANG);
       }
     },
-    translationRetryCount: (noteId: string) => retries.get(noteId) ?? 0,
-    retryTranslation: (noteId: string) => {
-      failedAt.delete(noteId);
-      retries.set(noteId, (retries.get(noteId) ?? 0) + 1);
-      metaEvents.emit("meta", noteId);
+    translationRetryCount: (noteId: string, targetLang?: string) =>
+      retries.get(keyOf(noteId, targetLang)) ?? 0,
+    retryTranslation: (noteId: string, targetLang?: string) => {
+      const key = keyOf(noteId, targetLang);
+      failedAt.delete(key);
+      retries.set(key, (retries.get(key) ?? 0) + 1);
+      metaEvents.emit("meta", noteId, targetLang ?? DEFAULT_TARGET_LANG);
     },
-    onTranslationMetaChange: (handler: (noteId: string) => void) => {
+    onTranslationMetaChange: (
+      handler: (noteId: string, targetLang?: string) => void,
+    ) => {
       metaEvents.on("meta", handler);
       return () => {
         metaEvents.off("meta", handler);
@@ -252,7 +296,8 @@ export function translationDiffers(sourceLang: string, viewerLang = "en"): boole
 // --- Translation cache tuning ------------------------------------------------
 //
 // The maps themselves live on each translator instance (see
-// `createTranslator`); only the tuning constants are module-level.
+// `createTranslator`); only the tuning constants, the default language,
+// and the composite-key join are module-level.
 
 // Transient failures suppress retries for this long, then the next
 // request tries the wire again.

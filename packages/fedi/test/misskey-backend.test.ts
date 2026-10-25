@@ -655,6 +655,39 @@ describe("MisskeyBackend explore", () => {
     expect(res.suggested.map((u) => u.id)).toEqual([user.id]);
   });
 
+  it("users() still populates suggested when pinned-users fails", async () => {
+    const other = { ...user, id: "user-other" };
+    const { transport } = stubTransport((endpoint) => {
+      if (endpoint === "pinned-users") return Promise.reject(new Error("pinned down"));
+      if (endpoint === "users") return [other];
+      throw new Error(`unexpected ${endpoint}`);
+    });
+    const res = await createMisskeyBackend(transport).explore!.users();
+    expect(res.pinned).toEqual([]);
+    expect(res.suggested.map((u) => u.id)).toEqual([other.id]);
+  });
+
+  it("users() still populates suggested when the popular-users call fails", async () => {
+    const { transport } = stubTransport((endpoint) => {
+      if (endpoint === "pinned-users") return [user];
+      if (endpoint === "users") return Promise.reject(new Error("popular down"));
+      throw new Error(`unexpected ${endpoint}`);
+    });
+    const res = await createMisskeyBackend(transport).explore!.users();
+    expect(res.pinned.map((u) => u.id)).toEqual([user.id]);
+    expect(res.suggested.map((u) => u.id)).toEqual([user.id]);
+  });
+
+  it("users() rejects with the first error when both sources fail", async () => {
+    const first = new Error("pinned down");
+    const { transport } = stubTransport((endpoint) => {
+      if (endpoint === "pinned-users") return Promise.reject(first);
+      if (endpoint === "users") return Promise.reject(new Error("popular down"));
+      throw new Error(`unexpected ${endpoint}`);
+    });
+    await expect(createMisskeyBackend(transport).explore!.users()).rejects.toBe(first);
+  });
+
   it("tags() reads hashtags/trend user counts", async () => {
     const { transport, calls } = stubTransport(() => [
       { tag: "cats", chart: [3, 5], usersCount: 8 },

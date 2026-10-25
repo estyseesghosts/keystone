@@ -4,11 +4,17 @@ Repair program 2026-10-24 (audit `docs/audit_20261024/`): ALL WAVES
 MERGED on `main` — Wave 0 (`c817c30`), Wave 1 (`4625769`), Wave 2
 (`9e67b4d`), Wave 3 (`f982592`), Wave 4 (`9b4e9ce`). Green at each
 commit: final **217 suites / 2887 tests**, typecheck + lint clean.
+Follow-up Batch 1 landed on `main` (2026-10-25): externalMe-204 shape
+`FediError`, translator `(noteId,targetLang)` keys, explore.users
+partial-failure tolerance, ADR 0009 (B11 nulls) — **217 suites / 2894
+tests** green. Log: `state/logs/2026-10-25-followup-batch1.md`.
 Tracker: `docs/audit_20261024/repair.md` (all slices `done`).
 Logs: `state/logs/2026-10-24-repair-*`. ADRs 0007 (nullable
-Notification.createdAt), 0008 (SDK 57 pin). Follow-ups ticketed in
-logs: fetchExternalMe-204-TypeError, D3.8 scanner-share post-merge,
-device/live runs `not verified (owner live-tests externally)`.
+Notification.createdAt), 0008 (SDK 57 pin), 0009 (B11 server-info nulls).
+Remaining follow-ups: Batch 2 (quote re-seed, Mastodon voteInPoll ADR+fix,
+`as any` narrowing, transport re-plumb), Batch 3 (screens/minors), Batch 4
+(locale extract/compile). Device/live runs `not verified (owner
+live-tests externally)`.
 
 Phase/slice: **P6 Wave 3.2 + mobile bring-up MERGED on `main`
 (2026-10-22)** — one repo (`~/keystone2`); reports queue + device

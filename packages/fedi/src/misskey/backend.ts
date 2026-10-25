@@ -758,10 +758,12 @@ export function createMisskeyBackend(
     explore: {
       /** Pinned instance users + popular local users (reference-client
        * Explore: `pinned-users` + `users{state:alive,origin:local,
-       * sort:+follower}`). Both public. */
+       * sort:+follower}`). Both public. Either side may fail alone: the
+       * page still resolves from whichever side succeeded (never a fake
+       * empty page when both fail — the first error propagates). */
       async users(opts: PageOpts = {}) {
         const limit = opts.limit ?? 10;
-        const [pinnedRows, popularRows] = await Promise.all([
+        const [pinnedSettled, popularSettled] = await Promise.allSettled([
           call<UserDetailed[]>("pinned-users", {}),
           call<UserDetailed[]>("users", {
             state: "alive",
@@ -770,6 +772,11 @@ export function createMisskeyBackend(
             limit,
           }),
         ]);
+        if (pinnedSettled.status === "rejected" && popularSettled.status === "rejected") {
+          throw pinnedSettled.reason;
+        }
+        const pinnedRows = pinnedSettled.status === "fulfilled" ? pinnedSettled.value : null;
+        const popularRows = popularSettled.status === "fulfilled" ? popularSettled.value : null;
         const seen = new Set<string>();
         const suggested: Account[] = [];
         for (const row of [...(pinnedRows ?? []), ...(popularRows ?? [])]) {

@@ -1125,17 +1125,31 @@ describe("misskey/external MiAuth check + empty-body (P4.2)", () => {
     expect((err as ApiError).code).toBe("errors.network.badJson");
   });
 
-  it("fetchExternalMe on an empty 204 body rejects (never an account from undefined)", async () => {
+  it("fetchExternalMe on an empty 204 body rejects with a shape FediError, never TypeError", async () => {
     const seen: Array<{ url: string; body: string }> = [];
     (globalThis as { fetch: unknown }).fetch = async (url: string, init?: RequestInit) => {
       seen.push({ url: String(url), body: String(init?.body ?? "") });
       return new Response(null, { status: 204 });
     };
-    // Characterization only: today this rejects with the TypeError from
-    // adaptAccount(undefined) — no account value is ever produced. A
-    // follow-up should make it a typed shape FediError (R1.3 class);
-    // P4.2 makes no production change.
-    await expect(fetchExternalMe("https", "example.com", "tok")).rejects.toThrow();
+    // Typed shape failure (R1.3 class): rejects, never an account from
+    // undefined — and never the untyped TypeError adaptMe(undefined) threw.
+    const err = await fetchExternalMe("https", "example.com", "tok").catch((e) => e);
+    expect(err).toBeInstanceOf(FediError);
+    expect(err).not.toBeInstanceOf(TypeError);
+    expect((err as FediError).code).toBe("errors.shape.account");
+    expect(seen.map((s) => s.url)).toEqual(["https://example.com/api/i"]);
+  });
+
+  it("fetchExternalMe on a non-object 200 body rejects with the same shape FediError", async () => {
+    const seen: Array<{ url: string; body: string }> = [];
+    (globalThis as { fetch: unknown }).fetch = async (url: string, init?: RequestInit) => {
+      seen.push({ url: String(url), body: String(init?.body ?? "") });
+      return new Response(JSON.stringify("just-a-string"), { status: 200 });
+    };
+    const err = await fetchExternalMe("https", "example.com", "tok").catch((e) => e);
+    expect(err).toBeInstanceOf(FediError);
+    expect(err).not.toBeInstanceOf(TypeError);
+    expect((err as FediError).code).toBe("errors.shape.account");
     expect(seen.map((s) => s.url)).toEqual(["https://example.com/api/i"]);
   });
 });
