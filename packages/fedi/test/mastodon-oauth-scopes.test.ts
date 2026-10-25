@@ -12,20 +12,24 @@
 // slice 3.2 — the mutations' `before_action` requires it, source-verified).
 // No network: the transport is stubbed.
 
-import { createMemoryStore } from "../src/core/sessions";
+import { createMemoryStore, OAUTH_APPS_KEY } from "../src/core/sessions";
 import {
+  appSecretKeyFor,
+  APP_SECRET_KEY_PREFIX,
   buildAuthorizeUrl,
   cacheApp,
   FALLBACK_SCOPES,
   getCachedApp,
   passwordGrant,
   randomToken,
+  readStoredAppSecrets,
   registerApp,
   s256Challenge,
   SCOPES_LATER,
   SCOPES_MASTODON,
   SCOPES_NOW,
   scopesForFlavor,
+  scrubStoredAppSecrets,
 } from "../src/mastodon/oauth";
 
 const ORIGIN = "https://server.example";
@@ -503,5 +507,67 @@ describe("registerApp scope fallback is scope-shaped only", () => {
     const app = await registerApp({ store, origin: ORIGIN, redirectUri: REDIRECT });
     expect(appCalls).toHaveLength(2);
     expect(app.scopes).toBe(FALLBACK_SCOPES);
+  });
+});
+
+describe("app-secret vault keys + scrub (ADR 0011)", () => {
+  it("appSecretKeyFor emits only SecureStore-valid characters", () => {
+    for (const origin of [ORIGIN, "https://a.example:3000/x y", "keystone://app"]) {
+      const key = appSecretKeyFor(origin);
+      expect(key.startsWith(APP_SECRET_KEY_PREFIX)).toBe(true);
+      expect(key).toMatch(/^[\w.-]+$/);
+    }
+    expect(appSecretKeyFor("https://a.example")).not.toBe(appSecretKeyFor("https://b.example"));
+    expect(appSecretKeyFor(ORIGIN)).toBe(appSecretKeyFor(ORIGIN));
+  });
+
+  it("readStoredAppSecrets finds only rows that still carry a secret", () => {
+    const store = createMemoryStore();
+    expect(readStoredAppSecrets(store)).toEqual({});
+    store.setItem(
+      OAUTH_APPS_KEY,
+      JSON.stringify({
+        "https://a.example": { client_id: "cid-a", client_secret: "sec-a" },
+        "https://b.example": { client_id: "cid-b" },
+        "https://c.example": { client_id: "cid-c", client_secret: "" },
+      }),
+    );
+    expect(readStoredAppSecrets(store)).toEqual({ "https://a.example": "sec-a" });
+  });
+
+  it("scrubStoredAppSecrets removes secrets but keeps ids and metadata", () => {
+    const store = createMemoryStore();
+    store.setItem(
+      OAUTH_APPS_KEY,
+      JSON.stringify({
+        "https://a.example": {
+          client_id: "cid-a",
+          client_secret: "sec-a",
+          scopes: "read",
+          redirect_uri: "https://a.example/cb",
+          createdAt: 1,
+        },
+      }),
+    );
+    expect(scrubStoredAppSecrets(store)).toEqual(["https://a.example"]);
+    const row = JSON.parse(store.getItem(OAUTH_APPS_KEY) as string)[
+      "https://a.example"
+    ] as Record<string, unknown>;
+    expect(row.client_id).toBe("cid-a");
+    expect(row.client_secret).toBeUndefined();
+    // Idempotent: a second scrub finds nothing.
+    expect(scrubStoredAppSecrets(store)).toEqual([]);
+    // The row still fails the strict app lookup (no silent half-credential).
+    expect(
+      getCachedApp(store, "https://a.example", "https://a.example/cb", "read"),
+    ).toBeNull();
+  });
+
+  it("scrub tolerates corrupt or missing payloads", () => {
+    const store = createMemoryStore();
+    expect(scrubStoredAppSecrets(store)).toEqual([]);
+    store.setItem(OAUTH_APPS_KEY, "{corrupt");
+    expect(scrubStoredAppSecrets(store)).toEqual([]);
+    expect(readStoredAppSecrets(store)).toEqual({});
   });
 });

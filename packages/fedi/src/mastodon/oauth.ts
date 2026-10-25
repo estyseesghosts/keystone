@@ -25,7 +25,7 @@ import {
   request,
 } from "./client";
 import { FediError } from "../core/errors";
-import { OAUTH_APPS_KEY, type KeyValueStore } from "../core/sessions";
+import { OAUTH_APPS_KEY, utf8Hex, type KeyValueStore } from "../core/sessions";
 import type { ServerFlavor } from "../core/detect";
 import type {
   CredentialAccount,
@@ -313,6 +313,96 @@ export function clearCachedApp(store: KeyValueStore, origin: string): void {
   const apps = readApps(store);
   delete apps[origin];
   writeApps(store, apps);
+}
+
+// --- App-secret vault keys + scrub (ADR 0011) -------------------------------
+//
+// The `keystone_apps` MMKV rows keep `client_id` and metadata (revocation
+// needs the id even after the secret has moved). The `client_secret`
+// itself lives in the OS vault under `appSecretKeyFor(origin)` once the
+// app-layer boot migration moves it there; these helpers are the fedi-local
+// half (pure, sync). Reads stay back-compatible: rows written before the
+// migration still carry `client_secret` and keep working until scrubbed.
+
+/** Vault-key namespace for one origin's OAuth `client_secret`. */
+export const APP_SECRET_KEY_PREFIX = "keystone.appsecret.";
+
+/**
+ * Vault key for one origin's OAuth `client_secret` (ADR 0011). Valid
+ * `expo-secure-store` charset by construction (`[A-Za-z0-9._-]`).
+ */
+export function appSecretKeyFor(origin: string): string {
+  return `${APP_SECRET_KEY_PREFIX}${utf8Hex(origin)}`;
+}
+
+/**
+ * Secrets still sitting in MMKV rows (`origin -> client_secret`,
+ * non-empty only). The app layer writes these to the vault at boot, then
+ * scrubs the rows below. Already-migrated rows contribute nothing.
+ */
+export function readStoredAppSecrets(store: KeyValueStore): Record<string, string> {
+  const found: Record<string, string> = {};
+  let raw: string | null = null;
+  try {
+    raw = store.getItem(APPS_KEY);
+  } catch {
+    return found;
+  }
+  if (!raw) return found;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return found;
+    for (const [origin, entry] of Object.entries(parsed as Record<string, unknown>)) {
+      if (entry !== null && typeof entry === "object" && !Array.isArray(entry)) {
+        const secret = (entry as Record<string, unknown>).client_secret;
+        if (typeof secret === "string" && secret) found[origin] = secret;
+      }
+    }
+  } catch {
+    // Corrupt rows are X1.3's; here they contribute nothing.
+  }
+  return found;
+}
+
+/**
+ * Delete `client_secret` from `keystone_apps` rows (default: every row
+ * that has one), keeping `client_id` and metadata. Returns the scrubbed
+ * origins. Idempotent; corrupt or missing payloads are left untouched.
+ */
+export function scrubStoredAppSecrets(store: KeyValueStore, origins?: readonly string[]): string[] {
+  let raw: string | null = null;
+  try {
+    raw = store.getItem(APPS_KEY);
+  } catch {
+    return [];
+  }
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+    const rows = parsed as Record<string, unknown>;
+    const targets = origins ?? Object.keys(rows);
+    const scrubbed: string[] = [];
+    for (const origin of targets) {
+      const entry = rows[origin];
+      if (entry !== null && typeof entry === "object" && !Array.isArray(entry)) {
+        const row = entry as Record<string, unknown>;
+        if (typeof row.client_secret === "string" && row.client_secret) {
+          delete row.client_secret;
+          scrubbed.push(origin);
+        }
+      }
+    }
+    if (scrubbed.length === 0) return [];
+    try {
+      store.setItem(APPS_KEY, JSON.stringify(rows));
+    } catch {
+      return [];
+    }
+    return scrubbed;
+  } catch {
+    return [];
+  }
 }
 
 /** `/.well-known/oauth-authorization-server` exists on Mastodon 4.3+ and

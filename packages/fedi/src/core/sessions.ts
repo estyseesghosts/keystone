@@ -15,6 +15,11 @@
 //   old call sites) instead of touching `localStorage`. The app wires
 //   MMKV/SecureStore behind this interface (slice 2.5); tests use
 //   `createMemoryStore()`.
+// - Secrets (ADR 0011): the persisted envelope may carry tokenless rows
+//   (`token: ''` = "not hydrated"). The live token lives in the OS vault
+//   plus an app-layer in-memory map; the app overlays the map on every
+//   session it hands to request builders. `normalizeSession` accepts the
+//   tokenless form so scrubbing never drops a session.
 // - Origin seam: the legacy internal-token migration binds migrated tokens
 //   to an explicitly passed `origin` instead of `location.origin`.
 //
@@ -57,6 +62,12 @@ export interface Session {
   family: ServerFamily;
   flavor: ServerFlavor;
   accountId: string;
+  /**
+   * Bearer/app token. `''` means "not hydrated": the persisted envelope on
+   * native is secret-free (ADR 0011) and the live token arrives via the
+   * app-layer in-memory map. Request builders treat `''` as absent
+   * (Misskey omits `i`, Mastodon sends no `Authorization`).
+   */
   token: string;
   grant: SessionGrant;
   hosting: SessionHosting;
@@ -83,6 +94,59 @@ export const UNKNOWN_ACCOUNT_ID = "unknown";
 
 export function sessionId(origin: string, accountId: string): string {
   return `${origin} ${accountId}`;
+}
+
+/**
+ * Lowercase hex of the UTF-8 bytes of `input` (`[0-9a-f]` only).
+ * The shared primitive behind every OS-vault key (ADR 0011):
+ * `expo-secure-store` rejects anything outside `[A-Za-z0-9._-]`, so vault
+ * keys compose as `prefix + utf8Hex(material)`. Surrogate pairs encode as
+ * single code points; lone surrogates encode as U+FFFD. Pure and
+ * deterministic — same input, same output, no randomness, no platform
+ * APIs.
+ */
+export function utf8Hex(input: string): string {
+  const bytes: number[] = [];
+  for (let i = 0; i < input.length; i += 1) {
+    let cp = input.charCodeAt(i);
+    if (cp >= 0xd800 && cp <= 0xdbff) {
+      const next = i + 1 < input.length ? input.charCodeAt(i + 1) : -1;
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        cp = 0x10000 + ((cp - 0xd800) << 10) + (next - 0xdc00);
+        i += 1;
+      } else {
+        cp = 0xfffd;
+      }
+    } else if (cp >= 0xdc00 && cp <= 0xdfff) {
+      cp = 0xfffd;
+    }
+    if (cp < 0x80) {
+      bytes.push(cp);
+    } else if (cp < 0x800) {
+      bytes.push(0xc0 | (cp >> 6), 0x80 | (cp & 0x3f));
+    } else if (cp < 0x10000) {
+      bytes.push(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+    } else {
+      bytes.push(
+        0xf0 | (cp >> 18),
+        0x80 | ((cp >> 12) & 0x3f),
+        0x80 | ((cp >> 6) & 0x3f),
+        0x80 | (cp & 0x3f),
+      );
+    }
+  }
+  return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Copy of `session` with the bearer token redacted (`token: ''`).
+ * The secret-free envelope form (ADR 0011): native code persists this and
+ * keeps the secret in the OS vault + the in-memory map. `''` round-trips
+ * through `normalizeSession` (it means "not hydrated"), so scrubbing a row
+ * never drops the session.
+ */
+export function sessionWithoutToken(session: Session): Session {
+  return { ...session, token: "" };
 }
 
 // --- Storage seam ------------------------------------------------------------
@@ -132,8 +196,10 @@ function normalizeSession(value: unknown): Session | null {
     !s.id ||
     typeof s.origin !== "string" ||
     !s.origin ||
-    typeof s.token !== "string" ||
-    !s.token ||
+    // The token may be absent or empty: native persists secret-free rows
+    // (ADR 0011) and overlays the live token from the in-memory map.
+    // `''` means "not hydrated" — never a half session.
+    (typeof s.token !== "string" && typeof s.token !== "undefined") ||
     typeof s.accountId !== "string" ||
     (s.family !== "misskey" && s.family !== "mastodon")
   ) {
@@ -159,7 +225,9 @@ function normalizeSession(value: unknown): Session | null {
     family,
     flavor,
     accountId: s.accountId,
-    token: s.token,
+    // Absent/non-string can never reach here (guarded above); empty means
+    // "not hydrated" and round-trips (ADR 0011).
+    token: typeof s.token === "string" ? s.token : "",
     grant,
     hosting,
     ...(s.user && typeof (s.user as { id?: unknown }).id === "string"
@@ -551,6 +619,10 @@ export interface RevokeOptions {
   /** App-credential cache (`keystone_apps`); without it Mastodon revocation
    * is skipped (no request is ever sent without the cached app). */
   store?: KeyValueStore;
+  /** OAuth `client_secret` from the OS vault (ADR 0011). Wins over the
+   * MMKV row when present; the row stays the fallback for pre-migration
+   * installs. Null/undefined means "no vault secret". */
+  appSecret?: string | null;
 }
 
 function cachedAppFor(
@@ -597,7 +669,11 @@ export async function revokeSessionToken(
       const app = cachedAppFor(opts.store, session.origin);
       if (!app?.client_id) return false;
       const form = new URLSearchParams({ token: session.token, client_id: app.client_id });
-      if (app.client_secret) form.set("client_secret", app.client_secret);
+      // The vault secret wins (post-migration rows carry no secret); the
+      // MMKV row is the pre-migration fallback. No secret at all still
+      // revokes with the client_id alone — best-effort, never throws.
+      const secret = opts.appSecret ?? app.client_secret;
+      if (secret) form.set("client_secret", secret);
       await fetchImpl(`${session.origin}/oauth/revoke`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },

@@ -26,7 +26,9 @@ import {
   revokeSessionToken,
   saveSession,
   sessionId,
+  sessionWithoutToken,
   setActiveSessionId,
+  utf8Hex,
   type KeyValueStore,
   type Session,
 } from "../src/core/sessions";
@@ -407,5 +409,108 @@ describe("revoke on logout (best-effort)", () => {
     await expect(
       revokeSessionToken(internal(), { fetchImpl: fetchImpl as unknown as typeof fetch }),
     ).resolves.toBe(true); // attempted (and failed) — best-effort, never throws
+  });
+});
+
+describe("ADR 0011: secret-free envelope rows", () => {
+  it("tokenless envelope rows load as not-hydrated sessions (never dropped)", () => {
+    const s = internal();
+    saveSession(store, sessionWithoutToken(s));
+    const loaded = loadSessions(store);
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].id).toBe(s.id);
+    expect(loaded[0].token).toBe("");
+    // And an explicitly empty token round-trips the same way.
+    setJson(SESSIONS_KEY, { version: 1, active: null, sessions: [{ ...s, token: "" }] });
+    expect(loadSessions(store)).toHaveLength(1);
+  });
+
+  it("non-string tokens still drop the row", () => {
+    const s = internal();
+    setJson(SESSIONS_KEY, { version: 1, active: null, sessions: [{ ...s, token: 42 }] });
+    expect(loadSessions(store)).toHaveLength(0);
+  });
+
+  it("sessionWithoutToken redacts without mutating the input", () => {
+    const s = internal();
+    const redacted = sessionWithoutToken(s);
+    expect(redacted.token).toBe("");
+    expect(redacted.id).toBe(s.id);
+    expect(s.token).toBe("tok-internal");
+  });
+
+  it("revokeSessionToken prefers the vault appSecret over the MMKV row", async () => {
+    setJson(OAUTH_APPS_KEY, {
+      "https://mastodon.example": { client_id: "cid", client_secret: "row-secret" },
+    });
+    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    const session = {
+      id: "https://mastodon.example 7",
+      origin: "https://mastodon.example",
+      family: "mastodon" as const,
+      flavor: "unknown" as const,
+      accountId: "7",
+      token: "masto-token",
+      grant: "oauth-pkce" as const,
+      hosting: "third-party" as const,
+    };
+    await revokeSessionToken(session, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      store,
+      appSecret: "vault-secret",
+    });
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(new URLSearchParams(String(init.body)).get("client_secret")).toBe("vault-secret");
+  });
+
+  it("revokeSessionToken uses the vault secret after the MMKV row is scrubbed", async () => {
+    setJson(OAUTH_APPS_KEY, { "https://mastodon.example": { client_id: "cid" } });
+    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    const session = {
+      id: "https://mastodon.example 7",
+      origin: "https://mastodon.example",
+      family: "mastodon" as const,
+      flavor: "unknown" as const,
+      accountId: "7",
+      token: "masto-token",
+      grant: "oauth-pkce" as const,
+      hosting: "third-party" as const,
+    };
+    await expect(
+      revokeSessionToken(session, {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        store,
+        appSecret: "vault-secret",
+      }),
+    ).resolves.toBe(true);
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const form = new URLSearchParams(String(init.body));
+    expect(form.get("client_id")).toBe("cid");
+    expect(form.get("client_secret")).toBe("vault-secret");
+  });
+});
+
+describe("utf8Hex (ADR 0011 vault-key primitive)", () => {
+  it("encodes ASCII to lowercase hex deterministically", () => {
+    expect(utf8Hex("abc")).toBe("616263");
+    expect(utf8Hex("https://a.example u1")).toBe(utf8Hex("https://a.example u1"));
+    expect(utf8Hex("")).toBe("");
+  });
+
+  it("encodes multi-byte code points as UTF-8", () => {
+    expect(utf8Hex("é")).toBe("c3a9"); // U+00E9
+    expect(utf8Hex("😀")).toBe("f09f9880"); // U+1F600
+    expect(utf8Hex("例")).toBe("e4be8b"); // U+4F8B
+  });
+
+  it("lone surrogates encode as U+FFFD, never crash", () => {
+    expect(utf8Hex("\ud800")).toBe("efbfbd");
+    expect(utf8Hex("a\ud800b")).toBe("61efbfbd62");
+  });
+
+  it("output is always SecureStore-safe", () => {
+    for (const input of ["https://a.example u1", "https://例え.jp:3000/x y", "😀 ok"]) {
+      expect(utf8Hex(input)).toMatch(/^[0-9a-f]*$/);
+    }
   });
 });

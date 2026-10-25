@@ -1,32 +1,42 @@
 import * as SecureStore from 'expo-secure-store'
 
-// Native token vault (slice 2.5): OS-secured storage (Keychain /
+import {appSecretKeyFor, utf8Hex} from '@keystone/fedi'
+
+import type {SecureTokenVault} from './vault'
+
+// Native token vault (slice 2.5 + ADR 0011): OS-secured storage (Keychain /
 // EncryptedSharedPreferences) for session tokens, ABOVE the sync
 // `KeyValueStore` seam — the seam stays sync (MMKV + core logic), this
-// async layer holds the secrets. Tokens are keyed per session id AND per
-// origin, so a token can never be read back for the wrong account —
-// including same-user/different-origin pairs (the session id already
-// embeds the origin; the explicit origin segment keeps the key
-// self-describing and greppable). Failures resolve to null / no-op:
-// local sign-out is never blocked by a vault error.
+// async layer holds the secrets.
+//
+// ADR 0011 contract:
+// - Vault keys carry only `[A-Za-z0-9._-]` (what `expo-secure-store`
+//   accepts): `keystone.vault.` + hex of `"${origin} ${sessionId}"`.
+//   The session id already embeds the origin, so per-(origin, account)
+//   isolation holds — including same-user/different-origin pairs.
+// - Writes report success (`true`) or failure (`false`) and never throw.
+//   A failed `setToken`/`setAppSecret` deletes the vault entry first, so
+//   a stale entry can never win over a newer envelope token later.
+// - Reads resolve `null` on absent OR unreadable (boot must never crash
+//   on a locked keystore); the caller distinguishes via its own state.
+// - The session envelope on native is secret-free (`token: ''`);
+//   `TokenVault` itself is unchanged so every existing caller keeps
+//   compiling — OS vaults expose the additive `SecureTokenVault`.
 //
 // Web goes through `tokens.web.ts` (MMKV, dev-grade) via the repo's
-// platform-file pattern; this file never ships to web.
+// platform-file pattern; this file never ships to web. Vault contracts
+// (`TokenVault`, `SecureTokenVault`) live in `./vault` so every platform
+// names the same types.
 
-export interface TokenVault {
-  getToken(sessionId: string, origin: string): Promise<string | null>
-  setToken(sessionId: string, origin: string, token: string): Promise<void>
-  removeToken(sessionId: string, origin: string): Promise<void>
-}
-
-/** Vault key: namespace + origin + session id. Both ids travel in the
- * key so a vault dump is auditable without decoding anything. */
+/** Vault key: namespace + hex of `"${origin} ${sessionId}"`. */
 export function tokenKeyFor(sessionId: string, origin: string): string {
-  return `keystone.vault.${origin} ${sessionId}`
+  return `keystone.vault.${utf8Hex(`${origin} ${sessionId}`)}`
 }
 
-export function createTokenVault(): TokenVault {
+export function createTokenVault(): SecureTokenVault {
   return {
+    secure: true,
+
     async getToken(sessionId, origin) {
       try {
         return await SecureStore.getItemAsync(tokenKeyFor(sessionId, origin))
@@ -35,17 +45,57 @@ export function createTokenVault(): TokenVault {
       }
     },
     async setToken(sessionId, origin, token) {
+      const key = tokenKeyFor(sessionId, origin)
       try {
-        await SecureStore.setItemAsync(tokenKeyFor(sessionId, origin), token)
+        await SecureStore.setItemAsync(key, token)
+        return true
       } catch {
-        // Vault unavailable: the envelope copy remains (MMKV).
+        // The entry may be stale (or half-written): delete it so it can
+        // never win over a newer token later (ADR 0011).
+        try {
+          await SecureStore.deleteItemAsync(key)
+        } catch {
+          // Ignore — the entry is already unusable.
+        }
+        return false
       }
     },
     async removeToken(sessionId, origin) {
       try {
         await SecureStore.deleteItemAsync(tokenKeyFor(sessionId, origin))
+        return true
       } catch {
-        // Ignore — envelope removal already dropped the session.
+        return false
+      }
+    },
+
+    async getAppSecret(origin) {
+      try {
+        return await SecureStore.getItemAsync(appSecretKeyFor(origin))
+      } catch {
+        return null
+      }
+    },
+    async setAppSecret(origin, secret) {
+      const key = appSecretKeyFor(origin)
+      try {
+        await SecureStore.setItemAsync(key, secret)
+        return true
+      } catch {
+        try {
+          await SecureStore.deleteItemAsync(key)
+        } catch {
+          // Ignore — the entry is already unusable.
+        }
+        return false
+      }
+    },
+    async removeAppSecret(origin) {
+      try {
+        await SecureStore.deleteItemAsync(appSecretKeyFor(origin))
+        return true
+      } catch {
+        return false
       }
     },
   }

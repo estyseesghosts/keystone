@@ -5,12 +5,15 @@ import {
   FediError,
   getActiveSessionId,
   loadSessions,
-  scopesForFlavor,
   OAUTH_APPS_KEY,
+  readStoredAppSecrets,
   removeSession,
   revokeSessionToken,
   saveSession,
+  scopesForFlavor,
+  scrubStoredAppSecrets,
   sessionId,
+  sessionWithoutToken,
   setActiveSessionId,
   type ServerFamily,
   type ServerFlavor,
@@ -20,19 +23,34 @@ import {
   type KeyValueStore,
 } from '@keystone/fedi'
 
-import {readDeviceState, writeDeviceState, type TokenVault} from '#/storage'
+import {
+  readDeviceState,
+  writeDeviceState,
+  type SecureTokenVault,
+  type TokenVault,
+} from '#/storage'
 
-// App session store (slice 2.5): active-session id + session records,
-// persisted through the 2.1 `KeyValueStore` seam so the SAME core session
-// logic runs here and in `packages/fedi`.
+// App session store (slice 2.5 + ADR 0011): active-session id + session
+// records, persisted through the 2.1 `KeyValueStore` seam so the SAME core
+// session logic runs here and in `packages/fedi`.
 //
 // Layering (async-vs-sync, per the `core/sessions` header):
-// - sync seam (MMKV): the session envelope (`keystone_sessions`) —
-//   sessions WITH their token copy, so sync core logic (request building,
-//   revoke flows) works unchanged on both platforms.
-// - async vault above it (SecureStore native / MMKV web-dev-grade):
-//   the OS-secured per-(session id, origin) token copy. Writes go through
-//   to both; reads prefer the vault when it holds a value (`hydrate()`).
+// - sync seam (MMKV): the session envelope (`keystone_sessions`). On
+//   native it is SECRET-FREE — rows persist via `sessionWithoutToken`
+//   (`token: ''` means "not hydrated", and fedi accepts that form so a
+//   scrub never drops a session). On web the envelope keeps the token copy
+//   (dev-grade, owner decision D2).
+// - in-memory token map: populated by `add()` and by `hydrate()` (awaited
+//   in `Root` before the first request, as today). Every session this
+//   store hands out carries its map token; the envelope value is only the
+//   web / pre-migration fallback.
+// - async vault above the seam (SecureStore native / MMKV web-dev-grade):
+//   the OS-secured per-(session id, origin) token copy. Native writes are
+//   awaited and report success; a failure emits `onSessionVaultFailed`
+//   (codes only — this layer is Lingui-free, the UI localizes the prompt),
+//   keeps the session usable in memory for this run, and keeps any
+//   pre-migration envelope copy until a read-back verifies. No silent
+//   plaintext fallback: next launch asks the user to sign in again.
 // - device scope mirror: `activeSessionId` is written through on every
 //   switch/sign-out; the envelope stays the source of truth, the mirror
 //   is only a boot fallback (`resolveActiveId`).
@@ -55,7 +73,10 @@ export interface NewSessionInput {
 
 export interface SessionStoreDeps {
   storage: KeyValueStore
-  vault: TokenVault
+  /** Plain vaults (web/tests) and OS vaults (native SecureStore): the
+   * union, because `SecureTokenVault` is deliberately not a subtype of
+   * `TokenVault` — narrowed with `isSecureVault` before secure-only use. */
+  vault: TokenVault | SecureTokenVault
   /** Binds migrated internal tokens (the app's own origin). */
   homeOrigin: string
   /** Revoke transport (tests stub this; defaults to global fetch). */
@@ -89,6 +110,20 @@ export interface SessionVerifyResult {
 export interface SessionRefreshResult {
   refreshed: boolean
   reason: 'refreshed' | 'signed-out' | 'unknown-session' | 'unsupported' | 'network' | 'error'
+}
+
+/**
+ * An OS-vault failure the caller must surface (ADR 0011). Codes only —
+ * this layer is Lingui-free, the UI localizes the prompt. `sessionId` is
+ * null for app secrets (per-origin shared credentials, no session).
+ * `token` on native means the session runs memory-only until relaunch,
+ * then asks the user to sign in again; `appSecret` means the MMKV row
+ * copy was kept and revocation falls back to it.
+ */
+export interface VaultFailure {
+  sessionId: string | null
+  origin: string
+  kind: 'token' | 'appSecret'
 }
 
 /** Which scope/permission generation a session belongs to: `pre-scopes`
@@ -208,9 +243,16 @@ export interface SessionStore {
   signOut(id?: string): Promise<void>
   /** Revoke + drop every session. The store is empty after this. */
   signOutEverywhere(): Promise<void>
-  /** Vault-wins token hydration (async SecureStore layer above the sync
-   * seam). No vault value → envelope copy stands. */
+  /** Token hydration (async vault layer above the sync seam). Secure vaults
+   * (ADR 0011): vault wins, envelope-only tokens migrate in (verified),
+   * failures emit. Plain vaults (web, D2): vault-wins overlay, the envelope
+   * copy stands. */
   hydrate(): Promise<void>
+  /**
+   * Subscribe to OS-vault failures (ADR 0011: `sessionVaultFailed`).
+   * The UI toasts the localized prompt; the store itself only emits codes.
+   */
+  onSessionVaultFailed(listener: (failure: VaultFailure) => void): () => void
   /** Adopt the device mirror into the envelope when the envelope pointer
    * is missing (boot recovery). No-op otherwise. */
   initialize(): void
@@ -265,6 +307,165 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
   // Referentially stable `scopeHealth` snapshots for `useSyncExternalStore`
   // subscribers (the shell banner); cleared on every `emit()`.
   const healthSnapshots = new Map<string, SessionScopeHealth>()
+  // In-memory token map (ADR 0011): the live secrets. Populated by
+  // `add()` (the input token) and by `hydrate()` (the vault copy); every
+  // session this store hands out carries its map entry, with the envelope
+  // value as the web / pre-migration fallback. Cleared per id on remove.
+  const tokens = new Map<string, string>()
+  const vaultListeners = new Set<(failure: VaultFailure) => void>()
+
+  /** True for OS-backed vaults (native SecureStore). Plain `TokenVault`
+   * stubs (web, tests) run the legacy envelope-keeps-token path.
+   * The parameter is the union (not `TokenVault` alone): `SecureTokenVault`
+   * is deliberately not a subtype of `TokenVault` (`Promise<boolean>` is
+   * not assignable to `Promise<void>`), so the predicate must accept the
+   * union for the narrowing to be legal. */
+  function isSecureVault(vault: TokenVault | SecureTokenVault): vault is SecureTokenVault {
+    return (vault as {secure?: unknown}).secure === true
+  }
+
+  function emitVaultFailure(failure: VaultFailure): void {
+    for (const listener of [...vaultListeners]) {
+      try {
+        listener(failure)
+      } catch {
+        // A failing listener must never break sign-in or boot.
+      }
+    }
+  }
+
+  /** Overlay the in-memory token on one envelope session. */
+  function attach(session: Session): Session {
+    const memorized = tokens.get(session.id)
+    if (memorized) return {...session, token: memorized}
+    return session
+  }
+
+  /** One stored session with its live token, or null when unknown. */
+  function resolveSession(id: string): Session | null {
+    const found = readSessions().find(s => s.id === id) ?? null
+    return found ? attach(found) : null
+  }
+
+  /**
+   * Rewrite one envelope row tokenless. Re-reads by id first so a
+   * concurrently removed session is never resurrected (S5; full
+   * serialization is X1.2's). Returns true when a write happened.
+   */
+  function scrubEnvelopeToken(id: string): boolean {
+    const current = readSessions().find(s => s.id === id) ?? null
+    if (!current || !current.token) return false
+    saveSession(storage, sessionWithoutToken(current), homeOrigin)
+    return true
+  }
+
+  /**
+   * Boot migration + hydration for OS vaults (ADR 0011). For every stored
+   * session: a vault token wins and any envelope duplicate is scrubbed; an
+   * envelope-only token is moved into the vault (verified with a read-back,
+   * then the row is rewritten tokenless); a failed write keeps the session
+   * usable in memory for this run, keeps the envelope copy until verified,
+   * and emits. A session with neither fails visibly (re-auth next launch).
+   */
+  async function hydrateSecure(secure: SecureTokenVault): Promise<void> {
+    let changed = false
+    for (const seen of readSessions()) {
+      // Re-read by id immediately before each write: a concurrently
+      // removed session is never resurrected (S5; X1.2 serializes fully).
+      const current = readSessions().find(s => s.id === seen.id) ?? null
+      if (!current) {
+        tokens.delete(seen.id)
+        continue
+      }
+      const envelopeToken = current.token
+      let vaultToken: string | null = null
+      try {
+        vaultToken = await secure.getToken(current.id, current.origin)
+      } catch {
+        vaultToken = null
+      }
+      if (vaultToken) {
+        tokens.set(current.id, vaultToken)
+        // The vault wins (existing semantics) — drop any envelope duplicate.
+        if (envelopeToken && envelopeToken !== vaultToken) changed = scrubEnvelopeToken(current.id) || changed
+        else if (envelopeToken) changed = scrubEnvelopeToken(current.id) || changed
+      } else if (envelopeToken) {
+        // Pre-migration (or legacy-writer) row: move it into the vault.
+        let stored = false
+        try {
+          stored = await secure.setToken(current.id, current.origin, envelopeToken)
+        } catch {
+          stored = false
+        }
+        if (!stored) {
+          try {
+            await secure.removeToken(current.id, current.origin)
+          } catch {
+            // Ignore — the entry is already unusable.
+          }
+          tokens.set(current.id, envelopeToken)
+          emitVaultFailure({sessionId: current.id, origin: current.origin, kind: 'token'})
+          continue
+        }
+        let verified: string | null = null
+        try {
+          verified = await secure.getToken(current.id, current.origin)
+        } catch {
+          verified = null
+        }
+        tokens.set(current.id, envelopeToken)
+        if (verified === envelopeToken) {
+          changed = scrubEnvelopeToken(current.id) || changed
+        } else {
+          emitVaultFailure({sessionId: current.id, origin: current.origin, kind: 'token'})
+        }
+      } else {
+        // Vault entry lost while the envelope is clean: the session cannot
+        // authenticate until the user signs in again.
+        tokens.delete(current.id)
+        emitVaultFailure({sessionId: current.id, origin: current.origin, kind: 'token'})
+      }
+    }
+    if (changed) emit()
+  }
+
+  /**
+   * Move pre-migration `client_secret`s from `keystone_apps` rows into
+   * the vault, then scrub the rows (ADR 0011 step 6). Verified with a
+   * read-back; a failed write keeps the MMKV copy and emits. Idempotent.
+   */
+  async function migrateAppSecrets(secure: SecureTokenVault): Promise<void> {
+    const pending = readStoredAppSecrets(storage)
+    for (const [origin, secret] of Object.entries(pending)) {
+      if (!secret) continue
+      let stored = false
+      try {
+        stored = await secure.setAppSecret(origin, secret)
+      } catch {
+        stored = false
+      }
+      if (!stored) {
+        try {
+          await secure.removeAppSecret(origin)
+        } catch {
+          // Ignore — the entry is already unusable.
+        }
+        emitVaultFailure({sessionId: null, origin, kind: 'appSecret'})
+        continue
+      }
+      let verified: string | null = null
+      try {
+        verified = await secure.getAppSecret(origin)
+      } catch {
+        verified = null
+      }
+      if (verified === secret) {
+        scrubStoredAppSecrets(storage, [origin])
+      } else {
+        emitVaultFailure({sessionId: null, origin, kind: 'appSecret'})
+      }
+    }
+  }
 
   function readSessions(): Session[] {
     return loadSessions(storage, homeOrigin)
@@ -280,7 +481,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
 
   function snapshot(): SessionSnapshot {
     if (!cached) {
-      const sessions = readSessions()
+      const sessions = readSessions().map(attach)
       cached = {
         sessions,
         activeId: resolveActiveId(getActiveSessionId(storage, homeOrigin), readMirror(), sessions),
@@ -297,10 +498,22 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     for (const listener of [...listeners]) listener()
   }
 
-  function revoke(session: Session): Promise<boolean> {
+  async function revoke(session: Session): Promise<boolean> {
+    // Mastodon revocation needs the app secret: prefer the vault copy
+    // (post-migration rows carry no secret), fall back to the MMKV row.
+    // A throwing vault must never break local sign-out.
+    let vaultSecret: string | null = null
+    if (isSecureVault(vault)) {
+      try {
+        vaultSecret = await vault.getAppSecret(session.origin)
+      } catch {
+        vaultSecret = null
+      }
+    }
     return revokeSessionToken(session, {
       fetchImpl: deps.revokeFetch ?? fetch,
       store: storage,
+      ...(vaultSecret ? {appSecret: vaultSecret} : {}),
     })
   }
 
@@ -311,6 +524,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     if (!existing) return
     removeSession(storage, id, homeOrigin)
     permissionDenied.delete(id)
+    tokens.delete(id)
     void vault.removeToken(id, existing.origin)
     if (readMirror() === id) writeMirror(null)
     emit()
@@ -431,11 +645,39 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
         ...(input.user ? {user: input.user} : {}),
         ...(input.evidence ? {evidence: input.evidence} : {}),
       }
-      saveSession(storage, session, homeOrigin)
       // A fresh sign-in replaces the credential: any earlier refusal no
       // longer describes this token (same id — id is origin + account).
       permissionDenied.delete(session.id)
-      await vault.setToken(session.id, session.origin, session.token)
+      if (isSecureVault(vault)) {
+        // Secret-free envelope (ADR 0011): the token lives in the OS vault
+        // (+ this run's memory map), never in MMKV.
+        saveSession(storage, sessionWithoutToken(session), homeOrigin)
+        let stored = false
+        try {
+          stored = await vault.setToken(session.id, session.origin, session.token)
+        } catch {
+          stored = false
+        }
+        if (!stored) {
+          // Clear a possibly stale entry so it can never win later; the
+          // session stays usable in memory for this run (the failure is
+          // surfaced, and next launch asks to sign in again).
+          try {
+            await vault.removeToken(session.id, session.origin)
+          } catch {
+            // Ignore — the entry is already unusable.
+          }
+          tokens.set(session.id, session.token)
+          emitVaultFailure({sessionId: session.id, origin: session.origin, kind: 'token'})
+        } else {
+          tokens.set(session.id, session.token)
+        }
+      } else {
+        // Web / dev vault (D2): the envelope keeps the token copy, as today.
+        saveSession(storage, session, homeOrigin)
+        await vault.setToken(session.id, session.origin, session.token)
+        tokens.set(session.id, session.token)
+      }
       setActiveSessionId(storage, session.id, homeOrigin)
       writeMirror(session.id)
       emit()
@@ -451,11 +693,12 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     },
 
     async remove(id: string): Promise<void> {
-      const existing = readSessions().find(s => s.id === id)
+      const existing = resolveSession(id)
       if (!existing) return
       await revoke(existing)
       removeSession(storage, id, homeOrigin)
       permissionDenied.delete(id)
+      tokens.delete(id)
       await vault.removeToken(id, existing.origin)
       if (readMirror() === id) writeMirror(null)
       emit()
@@ -468,13 +711,14 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     },
 
     async signOutEverywhere(): Promise<void> {
-      const sessions = readSessions()
+      const sessions = readSessions().map(attach)
       for (const session of sessions) {
         await revoke(session)
       }
       for (const session of sessions) {
         removeSession(storage, session.id, homeOrigin)
         permissionDenied.delete(session.id)
+        tokens.delete(session.id)
         await vault.removeToken(session.id, session.origin)
       }
       setActiveSessionId(storage, null, homeOrigin)
@@ -483,6 +727,12 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     },
 
     async hydrate(): Promise<void> {
+      if (isSecureVault(vault)) {
+        await hydrateSecure(vault)
+        await migrateAppSecrets(vault)
+        return
+      }
+      // Web / dev vault (D2): vault-wins overlay, envelope copy stands.
       let changed = false
       for (const session of readSessions()) {
         const vaultToken = await vault.getToken(session.id, session.origin)
@@ -490,8 +740,18 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
           saveSession(storage, {...session, token: vaultToken}, homeOrigin)
           changed = true
         }
+        const live = vaultToken || session.token
+        if (live) tokens.set(session.id, live)
+        else tokens.delete(session.id)
       }
       if (changed) emit()
+    },
+
+    onSessionVaultFailed(listener: (failure: VaultFailure) => void): () => void {
+      vaultListeners.add(listener)
+      return () => {
+        vaultListeners.delete(listener)
+      }
     },
 
     initialize(): void {
@@ -510,7 +770,7 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
     },
 
     async verifySession(id: string): Promise<SessionVerifyResult> {
-      const session = readSessions().find(s => s.id === id) ?? null
+      const session = resolveSession(id)
       if (!session) return {ok: false, reason: 'unknown-session', cleared: false}
       let backend: ReturnType<typeof backendForSession>
       try {

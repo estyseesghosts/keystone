@@ -1,7 +1,8 @@
 import type {KeyValueStore} from '@keystone/fedi'
 
 import {appKeyValueStore} from './mmkv'
-import {createTokenVault, type TokenVault} from './tokens'
+import {createTokenVault} from './tokens'
+import type {SecureTokenVault, TokenVault} from './vault'
 import {
   DEVICE_KEY,
   accountKeyFor,
@@ -15,7 +16,7 @@ import {
   type DeviceState,
 } from './schema'
 
-export type {TokenVault}
+export type {SecureTokenVault, TokenVault} from './vault'
 export {tokenKeyFor} from './tokens'
 export {createMmkvStore, sharedMmkv, appKeyValueStore, type MmkvLike} from './mmkv'
 export {
@@ -38,20 +39,23 @@ export {
 
 /** Lazily-built singletons (lazy so tests can substitute freely). */
 let storage: KeyValueStore | null = null
-let vault: TokenVault | null = null
+let vault: TokenVault | SecureTokenVault | null = null
 
 export function appStorage(): KeyValueStore {
   if (!storage) storage = appKeyValueStore()
   return storage
 }
 
-export function appTokenVault(): TokenVault {
+export function appTokenVault(): TokenVault | SecureTokenVault {
   if (!vault) vault = createTokenVault()
   return vault
 }
 
 /** Test seam: replace the singletons (restored per test by the caller). */
-export function __setStorageForTests(next: {storage?: KeyValueStore; vault?: TokenVault}): void {
+export function __setStorageForTests(next: {
+  storage?: KeyValueStore
+  vault?: TokenVault | SecureTokenVault
+}): void {
   if (next.storage !== undefined) storage = next.storage
   if (next.vault !== undefined) vault = next.vault
 }

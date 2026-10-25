@@ -3,16 +3,19 @@ import {
   createMemoryStore,
   createMisskeyClient,
   getActiveSessionId,
+  saveSession,
   SCOPES_LATER,
   SCOPES_NOW,
   OAUTH_APPS_KEY,
   setActiveSessionId,
+  SESSIONS_KEY,
   type KeyValueStore,
+  type Session,
 } from '@keystone/fedi'
 
-import {readDeviceState, type TokenVault} from '#/storage'
+import {readDeviceState, type SecureTokenVault, type TokenVault} from '#/storage'
 
-import {createSessionStore, resolveActiveId, type NewSessionInput} from './store'
+import {createSessionStore, resolveActiveId, type NewSessionInput, type VaultFailure} from './store'
 
 const HOME_ORIGIN = 'https://app.example'
 const ORIGIN_A = 'https://a.example'
@@ -767,5 +770,265 @@ describe('MK7 legacy migration at boot (W8)', () => {
     expect(sessions).toHaveLength(1)
     expect(sessions[0].token).toBe('legacy-token')
     expect(sessions[0].family).toBe('misskey')
+  })
+})
+
+function secureStubVault(
+  initialTokens: Record<string, string> = {},
+  initialSecrets: Record<string, string> = {},
+  opts: {failWrites?: boolean} = {},
+): {vault: SecureTokenVault; tokens: Map<string, string>; secrets: Map<string, string>} {
+  const tokens = new Map<string, string>(Object.entries(initialTokens))
+  const secrets = new Map<string, string>(Object.entries(initialSecrets))
+  const key = (id: string, origin: string) => `${origin} ${id}`
+  const failWrites = opts.failWrites ?? false
+  return {
+    tokens,
+    secrets,
+    vault: {
+      secure: true,
+      getToken: (id, origin) => Promise.resolve(tokens.get(key(id, origin)) ?? null),
+      setToken: (id, origin, token) => {
+        if (failWrites) return Promise.resolve(false)
+        tokens.set(key(id, origin), token)
+        return Promise.resolve(true)
+      },
+      removeToken: (id, origin) => {
+        if (failWrites) return Promise.resolve(false)
+        tokens.delete(key(id, origin))
+        return Promise.resolve(true)
+      },
+      getAppSecret: origin => Promise.resolve(secrets.get(origin) ?? null),
+      setAppSecret: (origin, secret) => {
+        if (failWrites) return Promise.resolve(false)
+        secrets.set(origin, secret)
+        return Promise.resolve(true)
+      },
+      removeAppSecret: origin => {
+        if (failWrites) return Promise.resolve(false)
+        secrets.delete(origin)
+        return Promise.resolve(true)
+      },
+    },
+  }
+}
+
+/** Memory store that records every key ever written (the raw-MMKV stand-in). */
+function trackingMemoryStore(): {store: KeyValueStore; writtenKeys: () => string[]} {
+  const seen = new Set<string>()
+  const mem = createMemoryStore()
+  return {
+    store: {
+      getItem: key => mem.getItem(key),
+      setItem: (key, value) => {
+        seen.add(key)
+        mem.setItem(key, value)
+      },
+      removeItem: key => mem.removeItem(key),
+    },
+    writtenKeys: () => [...seen],
+  }
+}
+
+function setupSecure(opts: {failWrites?: boolean} = {}) {
+  const {store: storage, writtenKeys} = trackingMemoryStore()
+  const {vault, tokens, secrets} = secureStubVault({}, {}, opts)
+  const {calls, fetchImpl} = stubRevoke()
+  const store = createSessionStore({storage, vault, homeOrigin: HOME_ORIGIN, revokeFetch: fetchImpl})
+  return {storage, writtenKeys, vault, tokens, secrets, calls, store}
+}
+
+/** Every persisted value that ever touched storage must not contain `secret`. */
+function expectNoSecretInStorage(storage: KeyValueStore, writtenKeys: string[], secret: string): void {
+  expect(writtenKeys.length).toBeGreaterThan(0)
+  for (const k of writtenKeys) {
+    const value = storage.getItem(k)
+    if (value != null) expect(value).not.toContain(secret)
+  }
+}
+
+const legacySession = (token: string): Session => ({
+  id: `${ORIGIN_A} alice`,
+  ...sessionA({token}),
+})
+
+describe('secure vault (native, ADR 0011)', () => {
+  it('add() leaves no token bytes in MMKV; the vault + map hold the secret', async () => {
+    const {storage, writtenKeys, vault, store} = setupSecure()
+    const session = await store.add(sessionA())
+    expectNoSecretInStorage(storage, writtenKeys(), 'token-a')
+    expect(storage.getItem(SESSIONS_KEY)).not.toContain('token-a')
+    expect(await vault.getToken(session.id, session.origin)).toBe('token-a')
+    expect(store.active()).toMatchObject({id: session.id, token: 'token-a'})
+  })
+
+  it('add() with a failing vault stays memory-only and emits, with a clean envelope', async () => {
+    const {storage, writtenKeys, vault, store} = setupSecure({failWrites: true})
+    const failures: VaultFailure[] = []
+    store.onSessionVaultFailed(f => failures.push(f))
+    const session = await store.add(sessionA())
+    expect(session.token).toBe('token-a')
+    expect(store.active()?.token).toBe('token-a')
+    expectNoSecretInStorage(storage, writtenKeys(), 'token-a')
+    expect(await vault.getToken(session.id, session.origin)).toBeNull()
+    expect(failures).toEqual([{sessionId: session.id, origin: ORIGIN_A, kind: 'token'}])
+  })
+
+  it('hydrate() migrates a legacy envelope token into the vault, then scrubs it', async () => {
+    const {storage, writtenKeys, vault, store} = setupSecure()
+    saveSession(storage, legacySession('token-a'), HOME_ORIGIN)
+    expect(storage.getItem(SESSIONS_KEY)).toContain('token-a')
+    const failures: VaultFailure[] = []
+    store.onSessionVaultFailed(f => failures.push(f))
+    await store.hydrate()
+    expect(await vault.getToken(`${ORIGIN_A} alice`, ORIGIN_A)).toBe('token-a')
+    expect(store.list()[0].token).toBe('token-a')
+    expectNoSecretInStorage(storage, writtenKeys(), 'token-a')
+    expect(failures).toEqual([])
+    // Idempotent: a second hydrate changes nothing and emits nothing.
+    await store.hydrate()
+    expect(store.list()[0].token).toBe('token-a')
+    expect(failures).toEqual([])
+  })
+
+  it('hydrate() with a failing vault keeps the envelope copy and emits', async () => {
+    const {storage, vault, store} = setupSecure({failWrites: true})
+    saveSession(storage, legacySession('token-a'), HOME_ORIGIN)
+    const failures: VaultFailure[] = []
+    const unsubscribe = store.onSessionVaultFailed(f => failures.push(f))
+    await store.hydrate()
+    // Memory token keeps the session working for this run...
+    expect(store.list()[0].token).toBe('token-a')
+    // ...the envelope copy is kept until a read-back verifies...
+    expect(storage.getItem(SESSIONS_KEY)).toContain('token-a')
+    expect(await vault.getToken(`${ORIGIN_A} alice`, ORIGIN_A)).toBeNull()
+    // ...and the failure is surfaced, not swallowed.
+    expect(failures).toEqual([{sessionId: `${ORIGIN_A} alice`, origin: ORIGIN_A, kind: 'token'}])
+    unsubscribe()
+    await store.hydrate()
+    expect(failures).toHaveLength(1)
+  })
+
+  it('hydrate() surfaces a session whose vault entry vanished after scrubbing', async () => {
+    const {vault, store} = setupSecure()
+    const session = await store.add(sessionA())
+    await store.hydrate()
+    // External loss (e.g. a keystore reset) after a clean scrub.
+    await vault.removeToken(session.id, session.origin)
+    const failures: VaultFailure[] = []
+    store.onSessionVaultFailed(f => failures.push(f))
+    await store.hydrate()
+    // The session is never silently dropped; the UI asks to sign in again.
+    expect(store.list().map(s => s.id)).toEqual([session.id])
+    expect(failures).toEqual([{sessionId: session.id, origin: ORIGIN_A, kind: 'token'}])
+  })
+
+  it('no request is built with an empty token after hydrate', async () => {
+    const {store} = setupSecure()
+    await store.add(sessionA())
+    await store.hydrate()
+    const active = store.active()
+    expect(active?.token).toBe('token-a')
+    const calls: Array<{url: string; init: RequestInit}> = []
+    globalThis.fetch = jest.fn((url: string, init?: RequestInit) => {
+      calls.push({url, init: init ?? {}})
+      return Promise.resolve(new Response('{}', {status: 200}))
+    }) as unknown as typeof fetch
+    await createMisskeyClient(active!).call('i', {})
+    expect(calls).toHaveLength(1)
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({i: 'token-a'})
+  })
+
+  it('a Mastodon session keeps its Bearer after hydrate', async () => {
+    const {store} = setupSecure()
+    await store.add({
+      origin: ORIGIN_B,
+      family: 'mastodon',
+      flavor: 'mastodon',
+      accountId: 'bob',
+      token: 'masto-b',
+      grant: 'oauth-pkce',
+      hosting: 'third-party',
+    })
+    await store.hydrate()
+    const active = store.active()
+    expect(active?.token).toBe('masto-b')
+    const calls: Array<{url: string; init: RequestInit}> = []
+    globalThis.fetch = jest.fn((url: string, init?: RequestInit) => {
+      calls.push({url, init: init ?? {}})
+      return Promise.resolve(new Response('{}', {status: 200}))
+    }) as unknown as typeof fetch
+    await createMastodonClient(active!.origin, active!.token).post('/api/v1/accounts', {})
+    expect(calls).toHaveLength(1)
+    expect((calls[0].init.headers as Record<string, string>).Authorization).toBe('Bearer masto-b')
+  })
+
+  it('remove() revokes with the vault app secret after the row is scrubbed', async () => {
+    const {storage, vault, calls, store} = setupSecure()
+    const session = await store.add({
+      origin: ORIGIN_B,
+      family: 'mastodon',
+      flavor: 'mastodon',
+      accountId: 'bob',
+      token: 'masto-b',
+      grant: 'oauth-pkce',
+      hosting: 'third-party',
+    })
+    // Post-migration shape: row without secret, secret in the vault.
+    storage.setItem(OAUTH_APPS_KEY, JSON.stringify({[ORIGIN_B]: {client_id: 'cid'}}))
+    expect(await vault.setAppSecret(ORIGIN_B, 'vault-secret')).toBe(true)
+    await store.remove(session.id)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].url).toBe(`${ORIGIN_B}/oauth/revoke`)
+    const form = new URLSearchParams(String(calls[0].init.body))
+    expect(form.get('token')).toBe('masto-b')
+    expect(form.get('client_id')).toBe('cid')
+    expect(form.get('client_secret')).toBe('vault-secret')
+  })
+})
+
+describe('app-secret migration (ADR 0011 step 6)', () => {
+  function seedAppRow(storage: KeyValueStore): void {
+    storage.setItem(
+      OAUTH_APPS_KEY,
+      JSON.stringify({
+        [ORIGIN_B]: {
+          client_id: 'cid',
+          client_secret: 'csec',
+          scopes: 'read',
+          redirect_uri: `${ORIGIN_B}/cb`,
+          createdAt: 1,
+        },
+      }),
+    )
+  }
+
+  it('hydrate() moves client_secrets to the vault and scrubs the rows', async () => {
+    const {storage, writtenKeys, vault, store} = setupSecure()
+    seedAppRow(storage)
+    const failures: VaultFailure[] = []
+    store.onSessionVaultFailed(f => failures.push(f))
+    await store.hydrate()
+    expect(await vault.getAppSecret(ORIGIN_B)).toBe('csec')
+    const row = JSON.parse(storage.getItem(OAUTH_APPS_KEY) as string)[ORIGIN_B] as Record<string, unknown>
+    expect(row.client_id).toBe('cid')
+    expect(row.client_secret).toBeUndefined()
+    expectNoSecretInStorage(storage, writtenKeys(), 'csec')
+    expect(failures).toEqual([])
+    // Idempotent: nothing left to move, nothing emitted.
+    await store.hydrate()
+    expect(failures).toEqual([])
+  })
+
+  it('a failing app-secret write keeps the MMKV row and emits', async () => {
+    const {storage, vault, store} = setupSecure({failWrites: true})
+    seedAppRow(storage)
+    const failures: VaultFailure[] = []
+    store.onSessionVaultFailed(f => failures.push(f))
+    await store.hydrate()
+    expect(await vault.getAppSecret(ORIGIN_B)).toBeNull()
+    const row = JSON.parse(storage.getItem(OAUTH_APPS_KEY) as string)[ORIGIN_B] as Record<string, unknown>
+    expect(row.client_secret).toBe('csec')
+    expect(failures).toEqual([{sessionId: null, origin: ORIGIN_B, kind: 'appSecret'}])
   })
 })
