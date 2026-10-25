@@ -278,7 +278,7 @@ describe("X2.2 step 4 — toApiError keeps kind/code/params, detail holds the te
 });
 
 describe("X2.2 step 5 — no DOMException global needed (mastodon L3)", () => {
-  it("a caller abort propagates when DOMException is deleted", async () => {
+  it("a caller abort surfaces as kind aborted when DOMException is deleted", async () => {
     const g = globalThis as { DOMException?: unknown };
     const saved = g.DOMException;
     try {
@@ -290,7 +290,11 @@ describe("X2.2 step 5 — no DOMException global needed (mastodon L3)", () => {
         signal: AbortSignal.abort(),
         fetchImpl: failing,
       }).catch((e) => e);
-      expect(err).toBe(abortErr);
+      // Repair X3.1: the abort is the typed `aborted` kind, not the raw
+      // rejection — and never a TypeError from `instanceof undefined`.
+      expect(err).toBeInstanceOf(MastoHttpError);
+      expect((err as MastoHttpError).kind).toBe("aborted");
+      expect((err as MastoHttpError).code).toBe("errors.network.aborted");
       expect(err).not.toBeInstanceOf(TypeError);
     } finally {
       g.DOMException = saved;

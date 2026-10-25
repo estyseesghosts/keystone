@@ -51,6 +51,7 @@ import {useSessionStore} from '#/state/session/SessionProvider'
 import {useMe} from './me'
 import {createQueryKey, type AppQueryKey} from './keys'
 import {STALE} from './stale'
+import {throwIfAborted} from './retry'
 
 /** Key for the server-insight screen state. Session first, like every
  * other key, so two accounts never share an insight cache entry. */
@@ -127,7 +128,10 @@ function useAdminSection<T>(
     staleTime: STALE.ACCOUNT,
     retry: false,
     refetchOnWindowFocus: false,
-    queryFn: async (): Promise<SectionPayload<T>> => {
+    queryFn: async ({signal}): Promise<SectionPayload<T>> => {
+      // No signal bag on the section reads (repair X3.1): honour a
+      // pre-abort; unmount reverts the query itself.
+      throwIfAborted(signal)
       try {
         return {data: await run(), absent: false, denied: false}
       } catch (e) {

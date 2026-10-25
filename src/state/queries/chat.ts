@@ -50,7 +50,7 @@ import {
   type AppQueryKey,
 } from './keys'
 import {GC_TIME, STALE} from './stale'
-import {retryPolicy} from './retry'
+import {retryPolicy, throwIfAborted} from './retry'
 import {SIGNED_OUT_SCOPE} from './usePostFeedQuery'
 
 export const CHAT_PAGE_LIMIT = 20
@@ -122,8 +122,8 @@ export function useChatRoomsQuery(sessionId: string | null, options: ChatQueryOp
   const queryKey = chatRoomsQueryKey(sessionId ?? SIGNED_OUT_SCOPE)
   const query = useInfiniteQuery<Page<ChatRoomMembership>, Error, InfiniteData<Page<ChatRoomMembership>>, AppQueryKey, Cursor | null>({
     queryKey,
-    queryFn: ({pageParam}) => {
-      return requireChat(backend).rooms({cursor: pageParam, limit})
+    queryFn: ({pageParam, signal}) => {
+      return requireChat(backend).rooms({cursor: pageParam, limit, ...(signal ? {signal} : {})})
     },
     initialPageParam: null,
     getNextPageParam: last => (last.end ? undefined : (last.cursor ?? undefined)),
@@ -145,7 +145,10 @@ export function useChatRoomQuery(
   const queryKey = chatRoomQueryKey(sessionId ?? SIGNED_OUT_SCOPE, roomId ?? '')
   const query = useQuery<ChatRoom, Error, ChatRoom, AppQueryKey>({
     queryKey,
-    queryFn: () => {
+    queryFn: ({signal}) => {
+      // No signal bag on the single-room read (repair X3.1): honour a
+      // pre-abort, then read (unmount reverts the query itself).
+      throwIfAborted(signal)
       if (!roomId) throw new Error('No room selected.')
       return requireChat(backend).showRoom(roomId)
     },
@@ -161,7 +164,7 @@ export function useChatRoomQuery(
 function useChatMessages(
   sessionId: string | null,
   key: AppQueryKey,
-  fetchPage: (chat: NonNullable<Backend['chat']>, cursor: Cursor | null, limit: number) => Promise<Page<ChatMessage>>,
+  fetchPage: (chat: NonNullable<Backend['chat']>, cursor: Cursor | null, limit: number, signal?: AbortSignal) => Promise<Page<ChatMessage>>,
   enabled: boolean,
   options: ChatQueryOptions,
 ) {
@@ -169,8 +172,8 @@ function useChatMessages(
   const backend = chatBackend(options, sessionId)
   const query = useInfiniteQuery<Page<ChatMessage>, Error, InfiniteData<Page<ChatMessage>>, AppQueryKey, Cursor | null>({
     queryKey: key,
-    queryFn: ({pageParam}) => {
-      return fetchPage(requireChat(backend), pageParam, limit)
+    queryFn: ({pageParam, signal}) => {
+      return fetchPage(requireChat(backend), pageParam, limit, signal)
     },
     initialPageParam: null,
     getNextPageParam: last => (last.end ? undefined : (last.cursor ?? undefined)),
@@ -191,7 +194,7 @@ export function useChatRoomMessagesQuery(
   return useChatMessages(
     sessionId,
     chatRoomMessagesQueryKey(sessionId ?? SIGNED_OUT_SCOPE, roomId ?? ''),
-    (chat, cursor, limit) => chat.roomMessages(roomId!, {cursor, limit}),
+    (chat, cursor, limit, signal) => chat.roomMessages(roomId!, {cursor, limit, ...(signal ? {signal} : {})}),
     roomId != null,
     options,
   )
@@ -205,7 +208,7 @@ export function useChatUserMessagesQuery(
   return useChatMessages(
     sessionId,
     chatUserMessagesQueryKey(sessionId ?? SIGNED_OUT_SCOPE, userId ?? ''),
-    (chat, cursor, limit) => chat.userMessages(userId!, {cursor, limit}),
+    (chat, cursor, limit, signal) => chat.userMessages(userId!, {cursor, limit, ...(signal ? {signal} : {})}),
     userId != null,
     options,
   )

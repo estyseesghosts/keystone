@@ -47,6 +47,7 @@ import {useSessionStore} from '#/state/session/SessionProvider'
 import {useMe} from './me'
 import {createQueryKey, type AppQueryKey} from './keys'
 import {STALE} from './stale'
+import {throwIfAborted} from './retry'
 import {
   type AdminRole,
   type AdminSection,
@@ -166,7 +167,8 @@ export function useAdminReportsQueue(
     staleTime: STALE.ACCOUNT,
     retry: false,
     refetchOnWindowFocus: false,
-    queryFn: async (): Promise<SectionPayload<QueuedReport[]>> => {
+    queryFn: async ({signal}): Promise<SectionPayload<QueuedReport[]>> => {
+      throwIfAborted(signal)
       try {
         const page = await queueApi!.list({...listOpts, limit: 20})
         return {data: page.items, absent: false, denied: false}
@@ -221,7 +223,8 @@ export function useAdminReport(
     staleTime: STALE.ACCOUNT,
     retry: false,
     refetchOnWindowFocus: false,
-    queryFn: async (): Promise<SectionPayload<QueuedReport>> => {
+    queryFn: async ({signal}): Promise<SectionPayload<QueuedReport>> => {
+      throwIfAborted(signal)
       try {
         return {data: await queueApi!.get!(id!), absent: false, denied: false}
       } catch (e) {
@@ -237,7 +240,8 @@ export function useAdminReport(
     staleTime: STALE.ACCOUNT,
     retry: false,
     refetchOnWindowFocus: false,
-    queryFn: async (): Promise<SectionPayload<QueuedReport[]>> => {
+    queryFn: async ({signal}): Promise<SectionPayload<QueuedReport[]>> => {
+      throwIfAborted(signal)
       try {
         const page = await queueApi!.list({limit: 20})
         return {data: page.items, absent: false, denied: false}

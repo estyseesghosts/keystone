@@ -20,6 +20,7 @@ import {useSessionStore} from '#/state/session/SessionProvider'
 import {serverBlocksQueryKey, serverFiltersQueryKey, serverMutesQueryKey, serverRenoteMutesQueryKey} from './keys'
 import {useMe, wordMuteListsOf} from './me'
 import {STALE} from './stale'
+import {isAbortedError, throwIfAborted} from './retry'
 
 // Server-side feed moderation (F22/MK1 — v1 `TimelineFeed.isExcluded`
 // parity): blocked/muted account sets, renote-muted reposts, hard word
@@ -54,12 +55,14 @@ export const EMPTY_RULES: ModerationRules = {
 const MAX_MODERATION_IDS = 500
 
 async function fetchIdSet(
-  fetch: (cursor: Cursor | null) => Promise<Page<Account>>,
+  fetch: (cursor: Cursor | null, signal?: AbortSignal) => Promise<Page<Account>>,
+  signal?: AbortSignal,
 ): Promise<string[]> {
   const ids: string[] = []
   let cursor: Cursor | null = null
   for (;;) {
-    const page = await fetch(cursor)
+    throwIfAborted(signal)
+    const page = await fetch(cursor, signal)
     for (const item of page.items) {
       if (ids.length >= MAX_MODERATION_IDS) return ids
       ids.push(item.id)
@@ -108,7 +111,7 @@ function useIdSet(
   sessionId: string | null,
   backend: Backend | null,
   key: (sessionId: string) => readonly unknown[],
-  fetch: (backend: Backend, cursor: Cursor | null) => Promise<Page<Account>>,
+  fetch: (backend: Backend, cursor: Cursor | null, signal?: AbortSignal) => Promise<Page<Account>>,
 ): ReadonlySet<string> {
   const query = useQuery({
     queryKey: sessionId ? key(sessionId) : ['moderation', 'signed-out'],
@@ -116,10 +119,13 @@ function useIdSet(
     staleTime: STALE.ACCOUNT,
     // Best-effort per session (v1 parity): 404/a missing member means an
     // empty set and feeds simply show everything — never an error state.
-    queryFn: async (): Promise<string[]> => {
+    // A caller abort is NOT swallowed (repair X3.1): it propagates as
+    // `kind: 'aborted'` so it is never retried and never cached as data.
+    queryFn: async ({signal}): Promise<string[]> => {
       try {
-        return await fetchIdSet(cursor => fetch(backend!, cursor))
-      } catch {
+        return await fetchIdSet((cursor, sig) => fetch(backend!, cursor, sig), signal)
+      } catch (e) {
+        if (isAbortedError(e)) throw e
         return []
       }
     },
@@ -146,10 +152,14 @@ function useServerFilterPhrases(
     queryKey: sessionId ? serverFiltersQueryKey(sessionId) : ['moderation', 'signed-out'],
     enabled: !!sessionId && !!backend?.filters,
     staleTime: STALE.ACCOUNT,
-    queryFn: async (): Promise<Array<[string]>> => {
+    queryFn: async ({signal}): Promise<Array<[string]>> => {
+      // No signal bag on the filter read (repair X3.1): honour a
+      // pre-abort; a mid-flight abort propagates (never swallowed to []).
+      throwIfAborted(signal)
       try {
         return serverFilterWordsOf(await backend!.filters!.list()) ?? []
-      } catch {
+      } catch (e) {
+        if (isAbortedError(e)) throw e
         return []
       }
     },
@@ -164,16 +174,16 @@ export function useModerationRules(sessionId: string | null): ModerationRules {
   const {me} = useMe(sessionId)
   const lists = useMemo(() => wordMuteListsOf(me), [me])
   const serverPhrases = useServerFilterPhrases(sessionId, backend)
-  const mutedIds = useIdSet(sessionId, backend, serverMutesQueryKey, (b, cursor) =>
-    b.mutes({cursor, limit: 100}),
+  const mutedIds = useIdSet(sessionId, backend, serverMutesQueryKey, (b, cursor, signal) =>
+    b.mutes({cursor, limit: 100, ...(signal ? {signal} : {})}),
   )
-  const blockedIds = useIdSet(sessionId, backend, serverBlocksQueryKey, (b, cursor) =>
-    b.blocks({cursor, limit: 100}),
+  const blockedIds = useIdSet(sessionId, backend, serverBlocksQueryKey, (b, cursor, signal) =>
+    b.blocks({cursor, limit: 100, ...(signal ? {signal} : {})}),
   )
-  const renoteMutedIds = useIdSet(sessionId, backend, serverRenoteMutesQueryKey, (b, cursor) =>
+  const renoteMutedIds = useIdSet(sessionId, backend, serverRenoteMutesQueryKey, (b, cursor, signal) =>
     // `renoteMutes` is optional (no Mastodon-family endpoint): absent
     // means an empty set, and the Mutes section keeps its placeholder.
-    b.renoteMutes ? b.renoteMutes({cursor, limit: 100}) : Promise.resolve({items: [], cursor: null, end: true}),
+    b.renoteMutes ? b.renoteMutes({cursor, limit: 100, ...(signal ? {signal} : {})}) : Promise.resolve({items: [], cursor: null, end: true}),
   )
   return useMemo(
     () => ({

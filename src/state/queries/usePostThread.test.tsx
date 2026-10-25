@@ -60,8 +60,8 @@ describe('fetchPostThread', () => {
   it('loads the post then its ancestors through the same backend', async () => {
     const b = fakeBackend()
     const thread = await fetchPostThread(b as unknown as Backend, 'p1')
-    expect(b.post).toHaveBeenCalledWith('p1')
-    expect(b.thread).toHaveBeenCalledWith(expect.objectContaining({id: 'p1'}))
+    expect(b.post).toHaveBeenCalledWith('p1', expect.anything())
+    expect(b.thread).toHaveBeenCalledWith(expect.objectContaining({id: 'p1'}), expect.anything())
     expect(thread.focused.id).toBe('p1')
     expect(thread.ancestors.map(a => a.id)).toEqual(['a0'])
     expect(thread.incomplete).toBe(false)
@@ -79,7 +79,7 @@ describe('fetchPostThread', () => {
     const thread = await fetchPostThread(b as unknown as Backend, 'wrap')
     expect(thread.post.id).toBe('wrap')
     expect(thread.focused.id).toBe('orig')
-    expect(b.thread).toHaveBeenCalledWith(expect.objectContaining({id: 'orig'}))
+    expect(b.thread).toHaveBeenCalledWith(expect.objectContaining({id: 'orig'}), expect.anything())
   })
 })
 

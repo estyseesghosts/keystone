@@ -65,6 +65,7 @@ import type {
   ReportsQueueListOpts,
   ScheduledNote,
   SearchPostsOpts,
+  SignalOpts,
   StreamHandle,
   TimelineKind,
   Translation,
@@ -340,9 +341,12 @@ export function createMastodonBackend(
 
   function pageOpts(opts: PageOpts): TimelinePageOptions {
     const cont = continuationOf(opts.cursor);
-    return cont
+    const base = cont
       ? { continuation: cont }
       : { limit: opts.limit ?? DEFAULT_LIMIT };
+    // Repair X3.1: the caller's `signal` rides every paged read so
+    // unmount/account-switch aborts the fetch. Mutations never pass one.
+    return opts.signal ? { ...base, signal: opts.signal } : base;
   }
 
   async function listAccounts(
@@ -381,8 +385,8 @@ export function createMastodonBackend(
     return toPage(page);
   }
 
-  async function me(): Promise<Account> {
-    return adaptCredentialAccount(await verifySelf(client));
+  async function me(opts: SignalOpts = {}): Promise<Account> {
+    return adaptCredentialAccount(await verifySelf(client, opts.signal));
   }
 
   // The followee on incoming-request rows is the viewer: fetched once per
@@ -391,8 +395,8 @@ export function createMastodonBackend(
   // bound to one (origin, token) pair, so the cache cannot serve another
   // session's account.
   let selfCache: Account | null = null;
-  async function cachedSelf(): Promise<Account> {
-    if (!selfCache) selfCache = await me();
+  async function cachedSelf(signal?: AbortSignal): Promise<Account> {
+    if (!selfCache) selfCache = await me({ signal });
     return selfCache;
   }
 
@@ -411,16 +415,16 @@ export function createMastodonBackend(
       return toPage(await fetchTimelinePage(client, kind, pageOpts(opts)));
     },
 
-    post(id) {
-      return getStatus(client, id);
+    post(id, opts: SignalOpts = {}) {
+      return getStatus(client, id, { signal: opts.signal });
     },
 
-    async thread(post) {
+    async thread(post, opts: SignalOpts = {}) {
       // The flat context rebuilds into the ancestor chain (contract §4:
       // `/context` returns flat lists; the tree is client-side). The chain
       // is incomplete when the root names a parent the server did not
       // deliver (the Misskey adapter's "conversation 404" analogue).
-      const context = await getStatusContext(client, post.id);
+      const context = await getStatusContext(client, post.id, { signal: opts.signal });
       const structure = rebuildThread(post, context.ancestors, context.descendants);
       const chain = structure.chain;
       const incomplete =
@@ -435,7 +439,7 @@ export function createMastodonBackend(
       // works — continuation pages are empty here.
       const cont = continuationOf(opts.cursor);
       if (cont) return { items: [], cursor: null, end: true };
-      const context = await getStatusContext(client, id);
+      const context = await getStatusContext(client, id, { signal: opts.signal });
       const children = context.descendants.filter((p) => p.replyToId === id);
       return { items: children, cursor: null, end: true };
     },
@@ -537,15 +541,15 @@ export function createMastodonBackend(
 
     me,
 
-    async account(ref) {
-      if (ref.id) return getAccount(client, ref.id);
+    async account(ref, opts: SignalOpts = {}) {
+      if (ref.id) return getAccount(client, ref.id, { signal: opts.signal });
       const acct = ref.host ? `${ref.username}@${ref.host}` : ref.username;
       if (!acct)
         throw new ApiError("No account reference given.", 400, "errors.unsupported.noAccountRef");
       // Handle lookup with older-server fallbacks (MD8 — `lookup` 404s
       // on servers without it; search paths need `read:search`, already
       // in the OAuth scope set; a strict-server 403 stays a 403).
-      return resolveAccountByHandle(client, acct);
+      return resolveAccountByHandle(client, acct, { signal: opts.signal });
     },
 
     async accountPosts(id, opts: AccountPostsOpts = {}) {
@@ -575,9 +579,9 @@ export function createMastodonBackend(
       return listAccounts("following", id, opts ?? {});
     },
 
-    async relationships(ids) {
+    async relationships(ids, opts: SignalOpts = {}) {
       if (ids.length === 0) return [];
-      return getRelationships(client, ids);
+      return getRelationships(client, ids, { signal: opts.signal });
     },
 
     async follow(id) {
@@ -611,7 +615,7 @@ export function createMastodonBackend(
       // the caller passes its own limit/cursor — the array return stays
       // BACKWARD-COMPAT (no cursor is threaded back; full paging rides
       // the exported endpoint + continuation directly).
-      const self = await cachedSelf();
+      const self = await cachedSelf(opts.signal);
       const paging = pageOpts(opts);
       if (paging.continuation == null && opts.limit === undefined) paging.limit = 40;
       const page = await fetchFollowRequestsPage(client, paging);
@@ -824,6 +828,7 @@ export function createMastodonBackend(
         const result = await searchV2(client, query, {
           type: "hashtags",
           limit: opts.limit ?? 8,
+          signal: opts.signal,
         });
         return result.hashtags.map((t) => t.name);
       },
@@ -832,6 +837,7 @@ export function createMastodonBackend(
         const result = await searchV2(client, query, {
           type: "accounts",
           limit: opts.limit ?? 8,
+          signal: opts.signal,
         });
         return { items: result.accounts, cursor: null, end: true };
       },
@@ -844,12 +850,12 @@ export function createMastodonBackend(
       async users(opts: PageOpts = {}): Promise<ExploreUsers> {
         return {
           pinned: [],
-          suggested: await fetchSuggestions(client, opts.limit ?? 10),
+          suggested: await fetchSuggestions(client, opts.limit ?? 10, { signal: opts.signal }),
         };
       },
       /** Trending tags (public — the session client when signed in). */
       async tags(opts: PageOpts = {}): Promise<TrendingTag[]> {
-        const rows = await fetchTrendingTags(client, opts.limit ?? 10);
+        const rows = await fetchTrendingTags(client, opts.limit ?? 10, { signal: opts.signal });
         return rows.map((r) => ({
           name: r.name,
           users: r.accounts > 0 ? r.accounts : null,
@@ -863,7 +869,7 @@ export function createMastodonBackend(
           offset = Number(opts.cursor);
         }
         const limit = opts.limit ?? DEFAULT_LIMIT;
-        const page = await fetchTrendingStatuses(client, limit, offset);
+        const page = await fetchTrendingStatuses(client, limit, offset, { signal: opts.signal });
         const next = offset + page.items.length;
         return {
           items: page.items,
@@ -882,7 +888,7 @@ export function createMastodonBackend(
                 offset = Number(opts.cursor);
               }
               const limit = opts.limit ?? 10;
-              const page = await fetchTrendingLinks(client, limit, offset);
+              const page = await fetchTrendingLinks(client, limit, offset, { signal: opts.signal });
               const next = offset + page.items.length;
               return {
                 items: page.items.map((l) => ({
@@ -952,8 +958,8 @@ export function createMastodonBackend(
     // capability gate is the only switch. A fork without the routes 404s —
     // the typed unsupported `ApiError` the UI renders as a reason.
     announcements: {
-      async list() {
-        return (await fetchAnnouncements(client)).map(adaptAnnouncement);
+      async list(opts: PageOpts = {}) {
+        return (await fetchAnnouncements(client, { signal: opts.signal })).map(adaptAnnouncement);
       },
       async dismiss(id: string) {
         await dismissAnnouncement(client, id);
@@ -1078,6 +1084,7 @@ export function createMastodonBackend(
             ...(cont ? { continuation: cont } : { limit: opts.limit ?? DEFAULT_LIMIT }),
             types,
             excludeTypes,
+            signal: opts.signal,
           });
           if (v2 !== null) {
             // The v2 Link header drives REAL paging (contract §5): the
@@ -1098,6 +1105,7 @@ export function createMastodonBackend(
         ...(cont ? { continuation: cont } : { limit: opts.limit ?? DEFAULT_LIMIT }),
         types,
         excludeTypes,
+        signal: opts.signal,
       });
       return {
         items: page.items.map(adaptNotification),
@@ -1134,15 +1142,19 @@ export function createMastodonBackend(
       }));
     },
 
-    async uploadMedia(file: File, opts: { isSensitive?: boolean; comment?: string } = {}) {
+    async uploadMedia(file: File, opts: { isSensitive?: boolean; comment?: string; signal?: AbortSignal } = {}) {
       // Contract §4: multipart to v2/media; Mastodon answers 202 while
       // processing and the URL is null until done — poll the media read
       // and return whatever the server has (the media row renders the
-      // honest "still processing" state on a null URL).
+      // honest "still processing" state on a null URL). The initial POST
+      // carries the caller's `signal` (explicit Cancel only — repair
+      // X3.1/X7.4: unmount never cancels a write).
       const form = new FormData();
       form.append("file", file);
       if (opts.comment) form.append("description", opts.comment);
-      const res = await client.postFormData<MediaAttachment>("/api/v2/media", form);
+      const res = await client.postFormData<MediaAttachment>("/api/v2/media", form, {
+        signal: opts.signal,
+      });
       let media = res.data;
       if (media && media.url == null && media.id) {
         for (let attempt = 0; attempt < 20 && media.url == null; attempt += 1) {
@@ -1318,7 +1330,7 @@ export function createMastodonBackend(
         const cont = continuationOf(opts.cursor);
         const path = cont?.kind === "url" ? cont.url : `/api/v1/timelines/list/${encodeURIComponent(listId)}`;
         const query: Record<string, number> = cont ? {} : { limit: opts.limit ?? DEFAULT_LIMIT };
-        const res = await client.get<Array<unknown>>(path, query);
+        const res = await client.get<Array<unknown>>(path, query, { signal: opts.signal });
         const items = Array.isArray(res.data) ? res.data : [];
         const posts = items.filter(isStatusRow).map((raw) => adaptStatus(raw));
         const continuation = nextContinuation(res.headers, client.origin);
@@ -1371,7 +1383,7 @@ export function createMastodonBackend(
             : cont?.kind === "cursors"
               ? withCursors({}, cont.cursors)
               : { limit: opts.limit ?? DEFAULT_LIMIT };
-        const res = await client.get<Array<unknown>>(path, query);
+        const res = await client.get<Array<unknown>>(path, query, { signal: opts.signal });
         const items = Array.isArray(res.data) ? res.data : [];
         const posts = items.filter(isStatusRow).map((raw) => adaptStatus(raw));
         const continuation = nextContinuation(res.headers, client.origin);
@@ -1473,9 +1485,11 @@ function adaptScheduledRow(row: WireScheduledStatus): ScheduledNote {
   };
 }
 
-async function verifySelf(client: MastoClient): Promise<CredentialAccount> {
+async function verifySelf(client: MastoClient, signal?: AbortSignal): Promise<CredentialAccount> {
   const res = await client.get<CredentialAccount>(
     "/api/v1/accounts/verify_credentials",
+    undefined,
+    { signal },
   );
   const account = res.data;
   if (!account || typeof account !== "object" || typeof account.id !== "string") {

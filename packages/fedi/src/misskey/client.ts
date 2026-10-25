@@ -81,16 +81,25 @@ export interface UploadOptions {
   /** Force the upload past duplicate detection (`force`). Only sent when
    * the caller sets it; the server default is false. */
   force?: boolean;
+  /** Caller cancellation (repair X3.1): explicit Cancel only — unmount
+   * never cancels a write. */
+  signal?: AbortSignal;
 }
 
 export interface MisskeyClient {
   readonly session: Session;
   /** Authenticated call (session credential injected per auth style). */
-  call<T>(endpoint: string, params?: Record<string, unknown>): Promise<T>;
+  call<T>(endpoint: string, params?: Record<string, unknown>, opts?: CallOptions): Promise<T>;
   /** Unauthenticated call (login, token checks): no credential at all. */
   callPublic<T>(endpoint: string, params?: Record<string, unknown>): Promise<T>;
   /** Multipart Drive upload (`drive/files/create` is FormData, never JSON). */
   upload<T>(file: File, opts?: UploadOptions): Promise<T>;
+}
+
+/** Per-call options for `MisskeyClient.call` (repair X3.1): cancellation
+ * only. Mutations never take a signal (unmount must not cancel a write). */
+export interface CallOptions {
+  signal?: AbortSignal;
 }
 
 /** A wire-call function (the routing facade's `apiCall`, or the Backend's
@@ -138,6 +147,14 @@ function translateError(
         "errors.network.redirect",
         { status: err.status },
       );
+    }
+    if (err.kind === "aborted") {
+      // Caller cancellation (repair X3.1): never retried, never an error.
+      // `ApiError` (not `FediError`) so the shared `kind` check works for
+      // both families (`toApiError` maps the Mastodon kind through).
+      throw new ApiError("Request was cancelled.", 0, "errors.network.aborted", "aborted", {
+        status: 0,
+      });
     }
     if (err.kind === "timeout") {
       const seconds = Math.round(ctx.timeoutMs / 1000);
@@ -219,11 +236,16 @@ export function createMisskeyClient(
   opts: MisskeyClientOptions = {},
 ): MisskeyClient {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // Client-level injectable fetch (repair X2.4 seam): per-call options
+  // carry only `signal` (repair X3.1), so the JSON path reads the client
+  // default here instead of a non-existent per-call field.
+  const clientFetchImpl = opts.fetchImpl ?? defaultFetchImpl;
 
   async function call<T>(
     endpoint: string,
     params: Record<string, unknown> = {},
     authenticated: boolean,
+    opts: CallOptions = {},
   ): Promise<T> {
     const path = endpointPath(session.origin, endpoint);
     const body = authenticated ? authedParams(session, params) : params;
@@ -234,7 +256,8 @@ export function createMisskeyClient(
         json: body,
         headers: authenticated ? authHeaders(session) : {},
         timeoutMs,
-        fetchImpl: opts.fetchImpl,
+        signal: opts.signal,
+        fetchImpl: clientFetchImpl,
       });
       return res.data as T; // T = undefined for successful 204 endpoints
     } catch (err) {
@@ -249,7 +272,7 @@ export function createMisskeyClient(
 
   return {
     session,
-    call: (endpoint, params) => call(endpoint, params ?? {}, true),
+    call: (endpoint, params, opts) => call(endpoint, params ?? {}, true, opts ?? {}),
     callPublic: (endpoint, params) => call(endpoint, params ?? {}, false),
     async upload<T>(file: File, uploadOpts: UploadOptions = {}): Promise<T> {
       // `drive/files/create` is multipart FormData (file + credential as
@@ -285,6 +308,13 @@ export function createMisskeyClient(
         uploadTimedOut = true;
         uploadCtrl.abort();
       }, timeoutMs);
+      // Caller cancellation (repair X3.1): explicit Cancel only — the
+      // upload keeps running across unmount.
+      const onCallerAbort = () => uploadCtrl.abort();
+      if (uploadOpts.signal) {
+        if (uploadOpts.signal.aborted) uploadCtrl.abort();
+        else uploadOpts.signal.addEventListener("abort", onCallerAbort, { once: true });
+      }
       try {
         response = await (opts.fetchImpl ?? defaultFetchImpl)(`${session.origin}${path}`, {
           method: "POST",
@@ -307,6 +337,11 @@ export function createMisskeyClient(
         raw = response.status === 204 ? "" : await response.text();
       } catch (err) {
         if (err instanceof FediError && err.code === "errors.network.redirect") throw err;
+        if (!uploadTimedOut && uploadOpts.signal?.aborted) {
+          throw new ApiError("Request was cancelled.", 0, "errors.network.aborted", "aborted", {
+            status: 0,
+          });
+        }
         if (uploadTimedOut) {
           const seconds = Math.round(timeoutMs / 1000);
           if (session.hosting === "third-party") {
@@ -337,6 +372,7 @@ export function createMisskeyClient(
         );
       } finally {
         clearTimeout(uploadTimer);
+        uploadOpts.signal?.removeEventListener("abort", onCallerAbort);
       }
       let payload: unknown;
       if (raw) {

@@ -237,7 +237,7 @@ describe('RichText structural markers (MD4 remainder)', () => {
     )
     expect(await screen.findByTestId('richtext-mention-avatar')).toBeTruthy()
     expect(screen.getByText('Rob Isaac')).toBeTruthy()
-    expect(account).toHaveBeenCalledWith({username: 'rob', host: null})
+    expect(account).toHaveBeenCalledWith(expect.objectContaining({username: 'rob', host: null}), expect.anything())
   })
 
   it('resolves bridged dotted-handle mentions through either family backend', async () => {
@@ -265,7 +265,7 @@ describe('RichText structural markers (MD4 remainder)', () => {
     )
     expect(await screen.findByTestId('richtext-mention-avatar')).toBeTruthy()
     expect(screen.getByText('Alice')).toBeTruthy()
-    expect(account).toHaveBeenCalledWith({username: 'alice.bsky.social', host: 'bsky.brid.gy'})
+    expect(account).toHaveBeenCalledWith(expect.objectContaining({username: 'alice.bsky.social', host: 'bsky.brid.gy'}), expect.anything())
   })
 
   it('prefers page titles on link chips when known', () => {

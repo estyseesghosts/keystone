@@ -29,6 +29,7 @@ export type HttpErrorKind =
   | "network" // could not reach the origin at all
   | "invalid-json" // 2xx with a body that is not JSON
   | "redirect" // refused to follow a 3xx with a credential (manual only)
+  | "aborted" // caller cancelled via `signal` — never retried, never an error
   | "cross-origin"; // refused to send the request to another origin
 
 export const DEFAULT_HTTP_TIMEOUT_MS = 30_000;
@@ -395,6 +396,21 @@ export async function requestJson<T = unknown>(
     // block. A name check covers DOMException and cross-realm aborts alike.
     const isAbort =
       typeof err === "object" && err !== null && (err as { name?: unknown }).name === "AbortError";
+    if (isAbort && !timedOut) {
+      // Caller cancellation (repair X3.1): the timer did not fire, so
+      // this abort came from `opts.signal`, not our deadline. It surfaces
+      // as the typed `aborted` kind — never retried, never an error.
+      const target = `${method} ${url.pathname}`;
+      throw new HttpError({
+        kind: "aborted",
+        code: "errors.network.aborted",
+        params: { target },
+        origin,
+        method,
+        path: url.pathname + url.search,
+        message: `Request was cancelled (${target}).`,
+      });
+    }
     if (isAbort) throw err; // caller cancelled
     throw new HttpError({
       kind: "network",

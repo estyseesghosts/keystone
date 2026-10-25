@@ -45,6 +45,17 @@ import type { Capabilities, ServerFamily } from "./detect";
 export interface PageOpts {
   cursor?: Cursor | null;
   limit?: number;
+  /** Caller cancellation (repair X3.1): react-query's `signal` threads
+   * down to the transport, which aborts the fetch. Reads abort; mutations
+   * never take a signal (unmount must not cancel a write). */
+  signal?: AbortSignal;
+}
+
+/** Cancellation-only opts for single-shot reads (`post`, `account`,
+ * `thread`, `relationships`, `me` — repair X3.1). Paged reads carry the
+ * same field on `PageOpts`; mutations never take it. */
+export interface SignalOpts {
+  signal?: AbortSignal;
 }
 
 // --- Feeds -----------------------------------------------------------------
@@ -119,12 +130,14 @@ export interface PollDraft {
 /** Multipart upload options (addition). `folderId`/`force` are Misskey-
  * family Drive fields; the Mastodon family ignores them because Drive does
  * not exist there. Root is the default: omit `folderId` rather than
- * sending a null/empty value. */
+ * sending a null/empty value. `signal` aborts the upload (repair X3.1:
+ * explicit Cancel only — unmount never cancels a write). */
 export interface UploadMediaOpts {
   isSensitive?: boolean;
   comment?: string;
   folderId?: string | null;
   force?: boolean;
+  signal?: AbortSignal;
 }
 
 /** Post-upload media edit (clickstone §1.7). `description` is alt text;
@@ -1130,12 +1143,12 @@ export interface Backend {
 
   // --- Feeds and posts (plan §2.2) ---
   timeline(kind: TimelineKind, opts?: PageOpts): Promise<Page<Post>>;
-  post(id: string): Promise<Post>;
+  post(id: string, opts?: SignalOpts): Promise<Post>;
   /** Ancestors of a reply, oldest-first + the incomplete flag. Plan §2.2
    * writes `thread(id)`; this takes the already-loaded post so the chain
    * walk and the packed-parent fallback (servers without
    * `notes/conversation`) need no refetch — exactly today's behaviour. */
-  thread(post: Post): Promise<{ ancestors: Post[]; incomplete: boolean }>;
+  thread(post: Post, opts?: SignalOpts): Promise<{ ancestors: Post[]; incomplete: boolean }>;
   /** Direct replies page (addition — today's app pages `notes/replies`). */
   threadReplies(id: string, opts?: PageOpts): Promise<Page<Post>>;
   /** Accounts that reposted/boosted a note (addition — the detail
@@ -1215,13 +1228,13 @@ export interface Backend {
   accountFeaturedPosts(id: string, opts?: PageOpts): Promise<Page<Post>>;
 
   // --- Accounts (plan §2.2 `account(id|acct)`, `accountPosts`) ---
-  me(): Promise<Account>;
-  account(ref: { id?: string; username?: string; host?: string | null }): Promise<Account>;
+  me(opts?: SignalOpts): Promise<Account>;
+  account(ref: { id?: string; username?: string; host?: string | null }, opts?: SignalOpts): Promise<Account>;
   accountPosts(id: string, opts?: AccountPostsOpts): Promise<Page<Post>>;
   /** `users/followers` / `users/following` (addition — the follow lists). */
   followers(id: string, opts?: PageOpts): Promise<Page<Account>>;
   following(id: string, opts?: PageOpts): Promise<Page<Account>>;
-  relationships(ids: string[]): Promise<Relationship[]>;
+  relationships(ids: string[], opts?: SignalOpts): Promise<Relationship[]>;
   /** `following/create|delete` return a UserLite, not a relationship —
    * callers re-read `relationships`/`account` for the new state (today's
    * behaviour), so these return nothing. */

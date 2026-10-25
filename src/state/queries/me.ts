@@ -23,7 +23,7 @@ export function useMe(sessionId: string | null): {me: Account | null; isPending:
     queryKey: sessionId ? meQueryKey(sessionId) : ['me', 'signed-out'],
     enabled: !!sessionId && !!backend,
     staleTime: STALE.ACCOUNT,
-    queryFn: async (): Promise<Account> => backend!.me(),
+    queryFn: async ({signal}): Promise<Account> => backend!.me({signal}),
   })
   return {me: query.data ?? null, isPending: query.isPending && !!sessionId && !!backend}
 }

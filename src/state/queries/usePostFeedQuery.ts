@@ -64,8 +64,9 @@ export async function fetchFeedPage(
   cursor: Cursor | null,
   limit: number = FEED_PAGE_LIMIT,
   rec?: {lang?: string; withSensitive?: boolean; withRenotes?: boolean; refresh?: boolean},
+  signal?: AbortSignal,
 ): Promise<Page<Post>> {
-  const opts = {cursor, limit}
+  const opts = {cursor, limit, ...(signal ? {signal} : {})}
   switch (parsed.kind) {
     case 'timeline':
       return backend.timeline(parsed.timeline, opts)
@@ -84,6 +85,7 @@ export async function fetchFeedPage(
         ...(rec?.withSensitive !== undefined ? {withSensitive: rec.withSensitive} : {}),
         ...(rec?.withRenotes !== undefined ? {withRenotes: rec.withRenotes} : {}),
         ...(rec?.refresh !== undefined ? {refresh: rec.refresh} : {}),
+        ...(signal ? {signal} : {}),
       })
     }
     case 'list': {
@@ -148,7 +150,7 @@ export async function fetchFeedPage(
     case 'mentions': {
       // Mentions ride the notifications listing (flat rows carrying the
       // target post); rows without a visible post are dropped, never faked.
-      const page = await backend.notifications({cursor, limit, includeTypes: ['mention', 'reply']})
+      const page = await backend.notifications({cursor, limit, includeTypes: ['mention', 'reply'], ...(signal ? {signal} : {})})
       return {
         items: page.items.map(n => n.post).filter((p): p is Post => p != null),
         cursor: page.cursor,
@@ -218,9 +220,9 @@ export function usePostFeedQuery(
       : feedQueryKey(sessionId ?? SIGNED_OUT_SCOPE, descriptor)
   const query = useInfiniteQuery<Page<Post>, Error, InfiniteData<Page<Post>>, AppQueryKey, Cursor | null>({
     queryKey,
-    queryFn: ({pageParam}) => {
+    queryFn: ({pageParam, signal}) => {
       if (!backend) throw new Error('usePostFeedQuery: no backend for session')
-      return fetchFeedPage(backend, parsed, pageParam, limit, options.rec)
+      return fetchFeedPage(backend, parsed, pageParam, limit, options.rec, signal)
     },
     initialPageParam: null,
     getNextPageParam: last => (last.end ? undefined : (last.cursor ?? undefined)),

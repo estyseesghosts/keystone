@@ -199,7 +199,7 @@ describe('ProfileHeader (v1 banner + avatar row + bio + stats)', () => {
       </I18nProvider>,
     )
     expect(await screen.findByText('Ana Liddell')).toBeTruthy()
-    expect(backend.account).toHaveBeenCalledWith({username: 'ana', host: null})
+    expect(backend.account).toHaveBeenCalledWith(expect.objectContaining({username: 'ana', host: null}), expect.anything())
   })
 
   it('bio mentions stay tappable text without a backend', () => {

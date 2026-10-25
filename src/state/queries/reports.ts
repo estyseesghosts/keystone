@@ -12,6 +12,7 @@ import {useSessionStore} from '#/state/session/SessionProvider'
 
 import {reportRulesQueryKey} from './keys'
 import {STALE} from './stale'
+import {throwIfAborted} from './retry'
 
 // Server rules for the report chooser (clickstone §1.5). Mastodon serves
 // `GET /api/v1/instance/rules`; Akkoma/Pleroma answer 404 and Misskey has no
@@ -50,7 +51,9 @@ export function useReportRules(sessionId: string | null): ReportRulesState {
     enabled: !!sessionId && hasEndpoint,
     staleTime: STALE.ACCOUNT,
     retry: false,
-    queryFn: async (): Promise<RulesPayload> => {
+    queryFn: async ({signal}): Promise<RulesPayload> => {
+      // No signal bag on the rules read (repair X3.1): honour a pre-abort.
+      throwIfAborted(signal)
       try {
         return {rules: await backend!.instanceRules!(), absent: false}
       } catch (e) {

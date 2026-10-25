@@ -53,6 +53,7 @@ import type {
   ScheduledApi,
   SearchPostsOpts,
   ServerDraftsApi,
+  SignalOpts,
   StreamHandle,
   TimelineKind,
   TransferApi,
@@ -89,7 +90,7 @@ import type {
   UserRelation,
 } from "./wire";
 import { isUnsupportedError } from "./client";
-import type { UploadOptions } from "./client";
+import type { CallOptions, UploadOptions } from "./client";
 import {
   CONVERSATION_PAGE_SIZE,
   MAX_ANCESTOR_WALK,
@@ -139,7 +140,7 @@ import { createTransferApi } from "./importExport";
 // There is no global routing facade in this package.
 
 export interface MisskeyTransport {
-  call<T>(endpoint: string, params?: Record<string, unknown>): Promise<T>;
+  call<T>(endpoint: string, params?: Record<string, unknown>, opts?: CallOptions): Promise<T>;
   upload<T>(file: File, opts?: UploadOptions): Promise<T>;
 }
 
@@ -195,9 +196,10 @@ export function createMisskeyBackend(
   async function callNotes(
     endpoint: string,
     params: Record<string, unknown>,
+    signal?: AbortSignal,
   ): Promise<Page<Post>> {
     const limit = typeof params.limit === "number" ? params.limit : DEFAULT_LIMIT;
-    const items = await call<Note[]>(endpoint, params);
+    const items = await call<Note[]>(endpoint, params, { signal });
     return pageOf(items ?? [], limit, adaptNote);
   }
 
@@ -228,11 +230,15 @@ export function createMisskeyBackend(
       await deleteClip(call, clipId);
     },
     async notes(clipId, opts = {}) {
-      return callNotes("clips/notes", {
-        clipId,
-        limit: opts.limit ?? DEFAULT_LIMIT,
-        ...decodeCursor(opts.cursor ?? null),
-      });
+      return callNotes(
+        "clips/notes",
+        {
+          clipId,
+          limit: opts.limit ?? DEFAULT_LIMIT,
+          ...decodeCursor(opts.cursor ?? null),
+        },
+        opts.signal,
+      );
     },
     async containing(noteId) {
       return (await listClipsContaining(call, noteId)).map(adaptClipSummary);
@@ -268,17 +274,21 @@ export function createMisskeyBackend(
     capabilities,
 
     timeline(kind, opts = {}) {
-      return callNotes(TIMELINE_ENDPOINTS[kind], {
-        limit: opts.limit ?? DEFAULT_LIMIT,
-        ...decodeCursor(opts.cursor ?? null),
-      });
+      return callNotes(
+        TIMELINE_ENDPOINTS[kind],
+        {
+          limit: opts.limit ?? DEFAULT_LIMIT,
+          ...decodeCursor(opts.cursor ?? null),
+        },
+        opts.signal,
+      );
     },
 
-    async post(id) {
-      return adaptNote(await call<Note>("notes/show", { noteId: id }));
+    async post(id, opts: SignalOpts = {}) {
+      return adaptNote(await call<Note>("notes/show", { noteId: id }, { signal: opts.signal }));
     },
 
-    async thread(post) {
+    async thread(post, opts: SignalOpts = {}) {
       // Port of routes/Note's ancestor walk (docs/replies.md): offset
       // paging with dedupe, a short-page stop, a repeat-page guard and the
       // MAX_ANCESTOR_WALK bound, then the replyId-chain ordering. On a
@@ -289,11 +299,15 @@ export function createMisskeyBackend(
         const collected: Note[] = [];
         let offset = 0;
         for (;;) {
-          const page = await call<Note[]>("notes/conversation", {
-            noteId: post.id,
-            limit: CONVERSATION_PAGE_SIZE,
-            offset,
-          });
+          const page = await call<Note[]>(
+            "notes/conversation",
+            {
+              noteId: post.id,
+              limit: CONVERSATION_PAGE_SIZE,
+              offset,
+            },
+            { signal: opts.signal },
+          );
           let grew = false;
           for (const n of page ?? []) {
             if (!seen.has(n.id)) {
@@ -329,11 +343,15 @@ export function createMisskeyBackend(
     },
 
     threadReplies(id, opts = {}) {
-      return callNotes("notes/replies", {
-        noteId: id,
-        limit: opts.limit ?? REPLIES_PAGE_SIZE,
-        ...decodeCursor(opts.cursor ?? null),
-      });
+      return callNotes(
+        "notes/replies",
+        {
+          noteId: id,
+          limit: opts.limit ?? REPLIES_PAGE_SIZE,
+          ...decodeCursor(opts.cursor ?? null),
+        },
+        opts.signal,
+      );
     },
 
     // The detail "Reposts" tab: `notes/renotes` answers the renote
@@ -342,11 +360,15 @@ export function createMisskeyBackend(
     // the opaque note cursor; callers dedupe by account id exactly
     // like feeds merge by note id.
     async reposts(id, opts = {}) {
-      const page = await callNotes("notes/renotes", {
-        noteId: id,
-        limit: opts.limit ?? DEFAULT_LIMIT,
-        ...decodeCursor(opts.cursor ?? null),
-      });
+      const page = await callNotes(
+        "notes/renotes",
+        {
+          noteId: id,
+          limit: opts.limit ?? DEFAULT_LIMIT,
+          ...decodeCursor(opts.cursor ?? null),
+        },
+        opts.signal,
+      );
       const seen = new Set<string>();
       const accounts: Account[] = [];
       for (const n of page.items) {
@@ -373,7 +395,7 @@ export function createMisskeyBackend(
       if (opts.reaction !== undefined) params.type = opts.reaction;
       const rows = await call<
         Array<{ id?: unknown; createdAt?: unknown; user?: unknown; type?: unknown }>
-      >("notes/reactions", params);
+      >("notes/reactions", params, { signal: opts.signal });
       // Deleted/gone reactors arrive without a packed user — skip the row
       // rather than crashing in `adaptAccount` (same `typeof id` guard as
       // `chat.ts`; the row carries no usable account).
@@ -518,11 +540,11 @@ export function createMisskeyBackend(
       return pageOf<Note, Post>(await listUserFeaturedNotes(call, id, limit, cursor.untilId), limit, adaptNote);
     },
 
-    async me() {
-      return adaptMe(await call<MeDetailed>("i", {}));
+    async me(opts: SignalOpts = {}) {
+      return adaptMe(await call<MeDetailed>("i", {}, { signal: opts.signal }));
     },
 
-    async account(ref) {
+    async account(ref, opts: SignalOpts = {}) {
       const params: Record<string, unknown> = {};
       if (ref.id) params.userId = ref.id;
       if (ref.username) {
@@ -536,7 +558,7 @@ export function createMisskeyBackend(
           "errors.account.refRequired",
         );
       }
-      return adaptAccount(await call<UserDetailed>("users/show", params));
+      return adaptAccount(await call<UserDetailed>("users/show", params, { signal: opts.signal }));
     },
 
     accountPosts(id, opts: AccountPostsOpts = {}) {
@@ -550,7 +572,7 @@ export function createMisskeyBackend(
       if (opts.withRenotes !== undefined) params.withRenotes = opts.withRenotes;
       if (opts.withFiles !== undefined) params.withFiles = opts.withFiles;
       Object.assign(params, decodeCursor(opts.cursor ?? null));
-      return callNotes("users/notes", params);
+      return callNotes("users/notes", params, opts.signal);
     },
 
     followers(id, opts = {}) {
@@ -565,11 +587,15 @@ export function createMisskeyBackend(
       const limit = opts.limit ?? DEFAULT_LIMIT;
       const rows = await call<
         Array<{ id: string; createdAt: string; reaction: string; note?: Note | null }>
-      >("users/reactions", {
-        userId: id,
-        limit,
-        ...decodeCursor(opts.cursor ?? null),
-      });
+      >(
+        "users/reactions",
+        {
+          userId: id,
+          limit,
+          ...decodeCursor(opts.cursor ?? null),
+        },
+        { signal: opts.signal },
+      );
       return pageOf(rows ?? [], limit, (row): UserReaction => ({
         id: row.id,
         createdAt: row.createdAt,
@@ -579,8 +605,12 @@ export function createMisskeyBackend(
       }));
     },
 
-    async relationships(ids) {
-      const rels = await call<UserRelation[]>("users/relation", { userId: ids });
+    async relationships(ids, opts: SignalOpts = {}) {
+      const rels = await call<UserRelation[]>(
+        "users/relation",
+        { userId: ids },
+        { signal: opts.signal },
+      );
       return (rels ?? []).map(adaptUserRelation);
     },
 
@@ -739,36 +769,56 @@ export function createMisskeyBackend(
 
     search: {
       posts(query: string, opts: SearchPostsOpts = {}) {
-        return callNotes(opts.tag ? "notes/search-by-tag" : "notes/search", {
-          ...(opts.tag ? { tag: query } : { query }),
-          limit: opts.limit ?? DEFAULT_LIMIT,
-          ...decodeCursor(opts.cursor ?? null),
-        });
+        return callNotes(
+          opts.tag ? "notes/search-by-tag" : "notes/search",
+          {
+            ...(opts.tag ? { tag: query } : { query }),
+            limit: opts.limit ?? DEFAULT_LIMIT,
+            ...decodeCursor(opts.cursor ?? null),
+          },
+          opts.signal,
+        );
       },
       tags(tag: string, opts: PageOpts = {}) {
-        return callNotes("notes/search-by-tag", {
-          tag,
-          limit: opts.limit ?? DEFAULT_LIMIT,
-          ...decodeCursor(opts.cursor ?? null),
-        });
+        return callNotes(
+          "notes/search-by-tag",
+          {
+            tag,
+            limit: opts.limit ?? DEFAULT_LIMIT,
+            ...decodeCursor(opts.cursor ?? null),
+          },
+          opts.signal,
+        );
       },
       async accounts(query: string, opts: PageOpts = {}) {
         const limit = opts.limit ?? DEFAULT_LIMIT;
-        const rows = await call<UserLite[]>("users/search", { query, limit });
+        const rows = await call<UserLite[]>(
+          "users/search",
+          { query, limit },
+          { signal: opts.signal },
+        );
         return pageOf(rows ?? [], limit, adaptAccount);
       },
       /** `hashtags/search` (public, prefix match): the `#` autocomplete. */
       async suggestTags(query: string, opts: PageOpts = {}) {
-        const rows = await call<string[]>("hashtags/search", {
-          query,
-          limit: opts.limit ?? 8,
-        });
+        const rows = await call<string[]>(
+          "hashtags/search",
+          {
+            query,
+            limit: opts.limit ?? 8,
+          },
+          { signal: opts.signal },
+        );
         return (rows ?? []).filter((t) => typeof t === "string" && t.length > 0);
       },
       /** `@` autocomplete is `users/search` (auth-required, like search). */
       async suggestAccounts(query: string, opts: PageOpts = {}) {
         const limit = opts.limit ?? 8;
-        const rows = await call<UserLite[]>("users/search", { query, limit });
+        const rows = await call<UserLite[]>(
+          "users/search",
+          { query, limit },
+          { signal: opts.signal },
+        );
         return pageOf(rows ?? [], limit, adaptAccount);
       },
     },
@@ -782,13 +832,17 @@ export function createMisskeyBackend(
       async users(opts: PageOpts = {}) {
         const limit = opts.limit ?? 10;
         const [pinnedSettled, popularSettled] = await Promise.allSettled([
-          call<UserDetailed[]>("pinned-users", {}),
-          call<UserDetailed[]>("users", {
-            state: "alive",
-            origin: "local",
-            sort: "+follower",
-            limit,
-          }),
+          call<UserDetailed[]>("pinned-users", {}, { signal: opts.signal }),
+          call<UserDetailed[]>(
+            "users",
+            {
+              state: "alive",
+              origin: "local",
+              sort: "+follower",
+              limit,
+            },
+            { signal: opts.signal },
+          ),
         ]);
         if (pinnedSettled.status === "rejected" && popularSettled.status === "rejected") {
           throw pinnedSettled.reason;
@@ -810,10 +864,11 @@ export function createMisskeyBackend(
         };
       },
       /** `hashtags/trend` (public): top tags with user counts. */
-      async tags() {
+      async tags(opts: PageOpts = {}) {
         const rows = await call<Array<{ tag?: unknown; usersCount?: unknown }>>(
           "hashtags/trend",
           {},
+          { signal: opts.signal },
         );
         return (rows ?? [])
           .filter((r) => typeof r?.tag === "string" && (r.tag as string).length > 0)
@@ -826,10 +881,14 @@ export function createMisskeyBackend(
       /** `notes/featured` (public): the global notes ranking, untilId-paged. */
       async posts(opts: PageOpts = {}) {
         const limit = opts.limit ?? DEFAULT_LIMIT;
-        return callNotes("notes/featured", {
-          limit,
-          ...decodeCursor(opts.cursor ?? null),
-        });
+        return callNotes(
+          "notes/featured",
+          {
+            limit,
+            ...decodeCursor(opts.cursor ?? null),
+          },
+          opts.signal,
+        );
       },
     },
 
@@ -848,10 +907,16 @@ export function createMisskeyBackend(
       if (includeTypes.length > 0) params.includeTypes = includeTypes;
       if (excludeTypes.length > 0) params.excludeTypes = excludeTypes;
       if (opts.grouped) {
-        const rows = await call<GroupedNotificationItem[]>("i/notifications-grouped", params);
+        const rows = await call<GroupedNotificationItem[]>(
+          "i/notifications-grouped",
+          params,
+          { signal: opts.signal },
+        );
         return pageOf(rows ?? [], limit, adaptGroupedNotification);
       }
-      const rows = await call<NotificationItem[]>("i/notifications", params);
+      const rows = await call<NotificationItem[]>("i/notifications", params, {
+        signal: opts.signal,
+      });
       return pageOf(rows ?? [], limit, adaptNotification);
     },
 
@@ -882,11 +947,13 @@ export function createMisskeyBackend(
       // Build the multipart options explicitly: `folderId`/`force` are
       // opt-in Drive fields. A null folderId means the Drive root and is
       // omitted (never sent as an empty field — Sharkey rejects those).
+      // `signal` aborts on explicit Cancel only (repair X3.1/X7.4).
       const uploadOpts: UploadOptions = {
         ...(opts.isSensitive !== undefined ? { isSensitive: opts.isSensitive } : {}),
         ...(opts.comment !== undefined ? { comment: opts.comment } : {}),
         ...(opts.folderId != null ? { folderId: opts.folderId } : {}),
         ...(opts.force !== undefined ? { force: opts.force } : {}),
+        ...(opts.signal ? { signal: opts.signal } : {}),
       };
       return adaptDriveFile(await transport.upload<DriveFile>(file, uploadOpts));
     },
@@ -962,11 +1029,15 @@ export function createMisskeyBackend(
     extra: Record<string, unknown> = {},
   ): Promise<Page<Account>> {
     const limit = opts.limit ?? DEFAULT_LIMIT;
-    const rows = await call<UserLite[]>(endpoint, {
-      ...extra,
-      limit,
-      ...decodeCursor(opts.cursor ?? null),
-    });
+    const rows = await call<UserLite[]>(
+      endpoint,
+      {
+        ...extra,
+        limit,
+        ...decodeCursor(opts.cursor ?? null),
+      },
+      { signal: opts.signal },
+    );
     return pageOf(rows ?? [], limit, adaptAccount);
   }
 }

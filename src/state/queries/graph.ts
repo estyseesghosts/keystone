@@ -24,6 +24,7 @@ import {appStorage} from '#/storage'
 import {useSessionStore} from '#/state/session/SessionProvider'
 
 import {createQueryKey, type AppQueryKey} from './keys'
+import {throwIfAborted} from './retry'
 
 // Social graph (slice 4.4): relationship query, optimistic follow / mute /
 // block through the desired-value toggle queue (one queue per
@@ -276,8 +277,8 @@ export function useRelationship(sessionId: string, accountId: string) {
   return useQuery({
     queryKey: relationshipQueryKey(sessionId, accountId),
     enabled: !!backend && !!selfId && selfId !== accountId,
-    queryFn: async () => {
-      const [rel] = await backend!.relationships([accountId])
+    queryFn: async ({signal}) => {
+      const [rel] = await backend!.relationships([accountId], {signal})
       return rel ?? emptyRel(accountId)
     },
   })
@@ -288,7 +289,12 @@ export function useListMembership(sessionId: string, accountId: string, enabled 
   return useQuery({
     queryKey: listMembershipQueryKey(sessionId, accountId),
     enabled: enabled && !!backend?.lists?.membership,
-    queryFn: () => backend!.lists!.membership!.containing(accountId),
+    queryFn: ({signal}) => {
+      // No signal bag on the membership API (repair X3.1): honour a
+      // pre-abort, then read (unmount reverts the query itself).
+      throwIfAborted(signal)
+      return backend!.lists!.membership!.containing(accountId)
+    },
   })
 }
 

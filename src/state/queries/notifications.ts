@@ -99,7 +99,7 @@ export function useNotificationsQuery(
   const queryKey = notificationsQueryKey(sessionId ?? SIGNED_OUT_SCOPE, notificationsFilterKey(filterId, grouped))
   const query = useInfiniteQuery<Page<Notification>, Error, InfiniteData<Page<Notification>>, AppQueryKey, Cursor | null>({
     queryKey,
-    queryFn: ({pageParam}) => {
+    queryFn: ({pageParam, signal}) => {
       if (!backend) throw new Error('useNotificationsQuery: no backend for session')
       return backend.notifications({
         cursor: pageParam,
@@ -107,6 +107,7 @@ export function useNotificationsQuery(
         includeTypes: filter.includeTypes,
         excludeTypes: filter.excludeTypes,
         grouped,
+        ...(signal ? {signal} : {}),
       })
     },
     initialPageParam: null,

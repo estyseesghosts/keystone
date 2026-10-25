@@ -34,7 +34,7 @@ import {appStorage} from '#/storage'
 
 import {conversationQueryKey, conversationsQueryKey, type AppQueryKey} from './keys'
 import {GC_TIME, STALE} from './stale'
-import {retryPolicy} from './retry'
+import {retryPolicy, throwIfAborted} from './retry'
 import {SIGNED_OUT_SCOPE} from './usePostFeedQuery'
 
 export const CONVERSATIONS_PAGE_LIMIT = 20
@@ -97,8 +97,8 @@ export function useConversationsQuery(
   const queryKey = conversationsQueryKey(sessionId ?? SIGNED_OUT_SCOPE)
   const query = useInfiniteQuery<Page<Conversation>, Error, InfiniteData<Page<Conversation>>, AppQueryKey, Cursor | null>({
     queryKey,
-    queryFn: ({pageParam}) => {
-      return requireConversations(backend).list({cursor: pageParam, limit})
+    queryFn: ({pageParam, signal}) => {
+      return requireConversations(backend).list({cursor: pageParam, limit, ...(signal ? {signal} : {})})
     },
     initialPageParam: null,
     getNextPageParam: last => (last.end ? undefined : (last.cursor ?? undefined)),
@@ -120,7 +120,10 @@ export function useConversationQuery(
   const queryKey = conversationQueryKey(sessionId ?? SIGNED_OUT_SCOPE, conversationId ?? '')
   const query = useQuery<Conversation, Error, Conversation, AppQueryKey>({
     queryKey,
-    queryFn: () => {
+    queryFn: ({signal}) => {
+      // No signal bag on the single-row get (repair X3.1): honour a
+      // pre-abort, then read (unmount reverts the query itself).
+      throwIfAborted(signal)
       if (!conversationId) throw new Error('No conversation selected.')
       return requireConversations(backend).get(conversationId)
     },

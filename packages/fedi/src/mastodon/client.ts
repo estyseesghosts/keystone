@@ -397,6 +397,22 @@ export async function request<T = unknown>(
     // check covers DOMException and cross-realm aborts alike.
     const isAbort =
       typeof err === "object" && err !== null && (err as { name?: unknown }).name === "AbortError";
+    if (isAbort && !timedOut) {
+      // Caller cancellation (repair X3.1): the timer did not fire, so
+      // this abort came from `opts.signal`, not our deadline. It surfaces
+      // as the typed `aborted` kind — never retried, never an error.
+      // `toApiError` maps the kind/code through, so the UI sees one shape.
+      const target = `${method} ${url.pathname}`;
+      throw new MastoHttpError({
+        kind: "aborted",
+        code: "errors.network.aborted",
+        params: { target },
+        origin,
+        method,
+        path: url.pathname + url.search,
+        message: `Request was cancelled (${target}).`,
+      });
+    }
     if (isAbort) throw err; // caller cancelled
     {
       const reason = err instanceof Error ? err.message : "network error";

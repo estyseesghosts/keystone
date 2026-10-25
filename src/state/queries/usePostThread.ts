@@ -23,7 +23,7 @@ import {
 
 import {createQueryKey, type AppQueryKey} from './keys'
 import {GC_TIME, STALE} from './stale'
-import {retryPolicy} from './retry'
+import {retryPolicy, throwIfAborted} from './retry'
 
 /** Key for one session's loaded thread (post + ancestors). */
 export function threadQueryKey(sessionId: string, postId: string): AppQueryKey {
@@ -56,12 +56,13 @@ export interface PostThread {
 export async function fetchPostThread(
   backend: Backend,
   postId: string,
+  signal?: AbortSignal,
 ): Promise<PostThread> {
-  const post = await backend.post(postId)
+  const post = await backend.post(postId, {signal})
   // A pure-renote wrapper is not the thread subject: ancestors target the
   // original (appearNoteOf semantics, same as the v1 detail route).
   const focused = appearNoteOf(post)
-  const thread = await backend.thread(focused)
+  const thread = await backend.thread(focused, {signal})
   return {post, focused, ancestors: thread.ancestors, incomplete: thread.incomplete}
 }
 
@@ -83,9 +84,9 @@ export function usePostThreadQuery(
   const queryKey = threadQueryKey(sessionId ?? 'signed-out', postId)
   const query = useQuery<PostThread, Error, PostThread, AppQueryKey>({
     queryKey,
-    queryFn: () => {
+    queryFn: ({signal}) => {
       if (!backend) throw new Error('usePostThreadQuery: no backend for session')
-      return fetchPostThread(backend, postId)
+      return fetchPostThread(backend, postId, signal)
     },
     enabled: sessionId != null && postId.length > 0 && backend != null,
     staleTime: STALE.POST,
@@ -118,9 +119,9 @@ export function useThreadRepliesQuery(
     Cursor | null
   >({
     queryKey,
-    queryFn: ({pageParam}) => {
+    queryFn: ({pageParam, signal}) => {
       if (!backend) throw new Error('useThreadRepliesQuery: no backend for session')
-      return backend.threadReplies(parentId, {cursor: pageParam})
+      return backend.threadReplies(parentId, {cursor: pageParam, ...(signal ? {signal} : {})})
     },
     initialPageParam: null,
     getNextPageParam: last => (last.end ? undefined : (last.cursor ?? undefined)),
@@ -148,7 +149,7 @@ function useInfinitePages<PageT>(opts: {
   id: string
   backend: Backend | null
   queryKey: AppQueryKey
-  fetch: (backend: Backend, cursor: Cursor | null) => Promise<{end: boolean; cursor: Cursor | null} & PageT>
+  fetch: (backend: Backend, cursor: Cursor | null, signal?: AbortSignal) => Promise<{end: boolean; cursor: Cursor | null} & PageT>
   stale: number
   gc: number
   retry?: number | false
@@ -156,9 +157,9 @@ function useInfinitePages<PageT>(opts: {
   const {sessionId, id, backend, queryKey, fetch, stale, gc, retry} = opts
   const query = useInfiniteQuery({
     queryKey,
-    queryFn: ({pageParam}: {pageParam: Cursor | null}) => {
+    queryFn: ({pageParam, signal}: {pageParam: Cursor | null; signal: AbortSignal}) => {
       if (!backend) throw new Error('usePostThreadListQuery: no backend for session')
-      return fetch(backend, pageParam)
+      return fetch(backend, pageParam, signal)
     },
     initialPageParam: null as Cursor | null,
     getNextPageParam: last => (last.end ? undefined : (last.cursor ?? undefined)),
@@ -187,7 +188,7 @@ export function useRepostsQuery(
     id: postId,
     backend,
     queryKey,
-    fetch: (b, cursor) => b.reposts(postId, {cursor}),
+    fetch: (b, cursor, signal) => b.reposts(postId, {cursor, ...(signal ? {signal} : {})}),
     stale: STALE.FEED,
     gc: GC_TIME.FEED,
     retry: options.retry,
@@ -211,7 +212,7 @@ export function useNoteReactionsQuery(
     id: postId,
     backend,
     queryKey,
-    fetch: (b, cursor) => b.noteReactions(postId, {cursor}),
+    fetch: (b, cursor, signal) => b.noteReactions(postId, {cursor, ...(signal ? {signal} : {})}),
     stale: STALE.FEED,
     gc: GC_TIME.FEED,
     retry: options.retry,
@@ -240,7 +241,8 @@ export function useEditHistoryQuery(
   const queryKey = editHistoryQueryKey(sessionId ?? 'signed-out', postId)
   const query = useQuery<PostRevision[], Error, PostRevision[], AppQueryKey>({
     queryKey,
-    queryFn: () => {
+    queryFn: ({signal}) => {
+      throwIfAborted(signal)
       if (!backend?.editHistory) throw new Error('useEditHistoryQuery: no history endpoint')
       return backend.editHistory(postId)
     },

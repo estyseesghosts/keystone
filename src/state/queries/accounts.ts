@@ -32,9 +32,9 @@ export function useMentionedAccount(
       ref?.username ?? '',
       ref?.host ?? '',
     ),
-    queryFn: async () => {
+    queryFn: async ({signal}) => {
       if (!backend || !ref) throw new Error('unresolved mention')
-      return backend.account({username: ref.username, host: ref.host})
+      return backend.account({username: ref.username, host: ref.host}, {signal})
     },
     enabled: backend != null && ref != null && sessionId != null,
     staleTime: STALE.ACCOUNT,
@@ -61,9 +61,9 @@ export function useFullAccount(
   const needsFetch = account !== null && (account.headerUrl == null || account.headerUrl === '')
   const query = useQuery<Account, Error, Account, AppQueryKey>({
     queryKey: createQueryKey(sessionId ?? 'signed-out', 'full-account', account?.id ?? ''),
-    queryFn: async () => {
+    queryFn: async ({signal}) => {
       if (!backend || !account) throw new Error('unresolvable account')
-      return backend.account({id: account.id})
+      return backend.account({id: account.id}, {signal})
     },
     enabled: backend != null && sessionId != null && account !== null && needsFetch,
     staleTime: STALE.ACCOUNT,

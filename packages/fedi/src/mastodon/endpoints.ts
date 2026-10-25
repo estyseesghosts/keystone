@@ -112,6 +112,9 @@ export interface TimelinePageOptions {
   /** Continue from a previous page's `TimelinePage.continuation`. Null/
    * undefined = fresh first page. */
   continuation?: Continuation | null;
+  /** Caller cancellation (repair X3.1): react-query's `signal`, aborted
+   * on unmount/account-switch. Mutations never carry one. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -146,7 +149,7 @@ export async function fetchTimelinePage(
     Object.assign(query, withCursors({}, { limit: opts.limit ?? PAGE_LIMIT }));
   }
 
-  const res = await client.get<Status[]>(path, query);
+  const res = await client.get<Status[]>(path, query, { signal: opts.signal });
   if (!Array.isArray(res.data)) {
     // 2xx with a non-array body: a malformed answer, NOT an empty feed.
     throw new FediError(`Timeline ${kind} returned an unexpected response shape (HTTP ${res.status}).`, "errors.shape.timeline", { kind, status: res.status });
@@ -168,8 +171,13 @@ export async function fetchTimelinePage(
 export async function getAccount(
   client: MastoClient,
   id: string,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<Account> {
-  const res = await client.get<WireAccount>(`/api/v1/accounts/${encodeURIComponent(id)}`);
+  const res = await client.get<WireAccount>(
+    `/api/v1/accounts/${encodeURIComponent(id)}`,
+    undefined,
+    { signal: opts.signal },
+  );
   if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
     throw new FediError(`Account ${id} returned an unexpected response shape.`, "errors.shape.account", { id });
   }
@@ -207,9 +215,10 @@ export function isAbsent(err: unknown): boolean {
 export async function resolveAccountByHandle(
   client: MastoClient,
   acct: string,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<Account> {
   try {
-    const res = await client.get<WireAccount>("/api/v1/accounts/lookup", { acct });
+    const res = await client.get<WireAccount>("/api/v1/accounts/lookup", { acct }, { signal: opts.signal });
     if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
       throw new FediError(
         `No account found for ${acct}.`,
@@ -224,22 +233,30 @@ export async function resolveAccountByHandle(
   const exact = (a: WireAccount): boolean =>
     typeof a.acct === "string" && a.acct.toLowerCase() === acct.toLowerCase();
   try {
-    const res = await client.get<WireAccount[]>("/api/v1/accounts/search", {
-      q: acct,
-      limit: 5,
-    });
+    const res = await client.get<WireAccount[]>(
+      "/api/v1/accounts/search",
+      {
+        q: acct,
+        limit: 5,
+      },
+      { signal: opts.signal },
+    );
     const hit = Array.isArray(res.data) ? res.data.find(exact) : undefined;
     if (hit) return adaptAccount(hit);
   } catch (err) {
     if (!isAbsent(err)) throw err;
   }
   try {
-    const res = await client.get<{ accounts?: WireAccount[] }>("/api/v2/search", {
-      q: acct,
-      resolve: true,
-      type: "accounts",
-      limit: 5,
-    });
+    const res = await client.get<{ accounts?: WireAccount[] }>(
+      "/api/v2/search",
+      {
+        q: acct,
+        resolve: true,
+        type: "accounts",
+        limit: 5,
+      },
+      { signal: opts.signal },
+    );
     const hit = Array.isArray(res.data?.accounts) ? res.data.accounts.find(exact) : undefined;
     if (hit) return adaptAccount(hit);
   } catch (err) {
@@ -264,11 +281,16 @@ export async function resolveAccountByHandle(
 export async function getRelationships(
   client: MastoClient,
   ids: string[],
+  opts: { signal?: AbortSignal } = {},
 ): Promise<Relationship[]> {
   if (ids.length === 0) return [];
-  const res = await client.get<WireRelationship[]>("/api/v1/accounts/relationships", {
-    id: ids,
-  });
+  const res = await client.get<WireRelationship[]>(
+    "/api/v1/accounts/relationships",
+    {
+      id: ids,
+    },
+    { signal: opts.signal },
+  );
   if (!Array.isArray(res.data)) {
     throw new FediError("Relationships returned an unexpected response shape.", "errors.shape.relationships");
   }
@@ -317,7 +339,7 @@ export async function fetchTagTimelinePage(
 ): Promise<TimelinePage> {
   const base = `/api/v1/timelines/tag/${encodeURIComponent(tag)}`;
   const path = opts.continuation?.kind === "url" ? opts.continuation.url : base;
-  const res = await client.get<Status[]>(path, pageQuery(opts));
+  const res = await client.get<Status[]>(path, pageQuery(opts), { signal: opts.signal });
   return statusPage(client, res);
 }
 
@@ -329,8 +351,13 @@ export async function fetchTagTimelinePage(
 export async function getStatus(
   client: MastoClient,
   id: string,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<Post> {
-  const res = await client.get<Status>(`/api/v1/statuses/${encodeURIComponent(id)}`);
+  const res = await client.get<Status>(
+    `/api/v1/statuses/${encodeURIComponent(id)}`,
+    undefined,
+    { signal: opts.signal },
+  );
   if (!res.data || typeof res.data !== "object" || !("id" in res.data)) {
     throw new FediError(`Status ${id} returned an unexpected response shape.`, "errors.shape.status", { id });
   }
@@ -352,9 +379,12 @@ export interface StatusContext {
 export async function getStatusContext(
   client: MastoClient,
   id: string,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<StatusContext> {
   const res = await client.get<{ ancestors?: Status[]; descendants?: Status[] }>(
     `/api/v1/statuses/${encodeURIComponent(id)}/context`,
+    undefined,
+    { signal: opts.signal },
   );
   const data = res.data;
   if (data === undefined || data === null || typeof data !== "object") {
@@ -405,6 +435,8 @@ export interface SearchV2Options {
   /** Statuses-only id cursors (older / newer) for a fresh request. */
   maxId?: string;
   minId?: string;
+  /** Caller cancellation (repair X3.1). */
+  signal?: AbortSignal;
 }
 
 export async function searchV2(
@@ -439,7 +471,7 @@ export async function searchV2(
     accounts?: WireAccount[];
     statuses?: Status[];
     hashtags?: Array<{ name?: string; url?: string }>;
-  }>(path, params);
+  }>(path, params, { signal: opts.signal });
   const data = res.data ?? {};
   return {
     accounts: (data.accounts ?? []).map(adaptAccount),
@@ -485,10 +517,11 @@ export interface TrendingTagResult {
 export async function fetchTrendingTags(
   client: MastoClient,
   limit = 10,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<TrendingTagResult[]> {
   const res = await client.get<
     Array<{ name?: string; history?: Array<{ uses?: unknown; accounts?: unknown }> }>
-  >("/api/v1/trends/tags", { limit });
+  >("/api/v1/trends/tags", { limit }, { signal: opts.signal });
   if (!Array.isArray(res.data)) {
     throw new FediError("Trending tags returned an unexpected response shape.", "errors.shape.trendingTags", { status: res.status });
   }
@@ -508,8 +541,13 @@ export async function fetchTrendingStatuses(
   client: MastoClient,
   limit = 20,
   offset = 0,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<{ items: Post[]; end: boolean }> {
-  const res = await client.get<Status[]>("/api/v1/trends/statuses", { limit, offset });
+  const res = await client.get<Status[]>(
+    "/api/v1/trends/statuses",
+    { limit, offset },
+    { signal: opts.signal },
+  );
   if (!Array.isArray(res.data)) {
     throw new FediError("Trending posts returned an unexpected response shape.", "errors.shape.trendingStatuses", { status: res.status });
   }
@@ -534,6 +572,7 @@ export async function fetchTrendingLinks(
   client: MastoClient,
   limit = 10,
   offset = 0,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<{ items: TrendingLinkResult[]; end: boolean }> {
   const res = await client.get<
     Array<{
@@ -544,7 +583,7 @@ export async function fetchTrendingLinks(
       image?: string | null;
       history?: Array<{ uses?: unknown; accounts?: unknown }>;
     }>
-  >("/api/v1/trends/links", { limit, offset });
+  >("/api/v1/trends/links", { limit, offset }, { signal: opts.signal });
   if (!Array.isArray(res.data)) {
     throw new FediError("Trending links returned an unexpected response shape.", "errors.shape.trendingLinks", { status: res.status });
   }
@@ -568,10 +607,15 @@ export async function fetchTrendingLinks(
 export async function fetchSuggestions(
   client: MastoClient,
   limit = 10,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<Account[]> {
-  const res = await client.get<Array<{ account?: WireAccount }>>("/api/v2/suggestions", {
-    limit,
-  });
+  const res = await client.get<Array<{ account?: WireAccount }>>(
+    "/api/v2/suggestions",
+    {
+      limit,
+    },
+    { signal: opts.signal },
+  );
   if (!Array.isArray(res.data)) {
     throw new FediError("Suggestions returned an unexpected response shape.", "errors.shape.suggestions", { status: res.status });
   }
@@ -639,7 +683,7 @@ export async function fetchAccountStatusesPage(
   const query: Record<string, QueryValue> =
     opts.continuation?.kind === "url" ? {} : { ...resolveStatusFilters(tab) };
   Object.assign(query, pageQuery(opts));
-  const res = await client.get<Status[]>(path, query);
+  const res = await client.get<Status[]>(path, query, { signal: opts.signal });
   return statusPage(client, res);
 }
 
@@ -709,7 +753,7 @@ async function accountListPage(
   opts: TimelinePageOptions,
 ): Promise<AccountPage> {
   const path = opts.continuation?.kind === "url" ? opts.continuation.url : base;
-  const res = await client.get<WireAccount[]>(path, pageQuery(opts));
+  const res = await client.get<WireAccount[]>(path, pageQuery(opts), { signal: opts.signal });
   if (!Array.isArray(res.data)) {
     throw new FediError(`Expected a account list (HTTP ${res.status}).`, "errors.shape.expectedList", { kind: "account", status: res.status });
   }
@@ -747,9 +791,12 @@ export async function deleteStatus(
 export async function fetchStatusHistory(
   client: MastoClient,
   id: string,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<StatusEdit[]> {
   const res = await client.get<StatusEdit[]>(
     `/api/v1/statuses/${encodeURIComponent(id)}/history`,
+    undefined,
+    { signal: opts.signal },
   );
   if (!Array.isArray(res.data)) {
     throw new FediError(
@@ -1007,7 +1054,7 @@ export async function fetchScheduledStatusesPage(
 ): Promise<ContinuationPage<WireScheduledStatus>> {
   const path =
     opts.continuation?.kind === "url" ? opts.continuation.url : "/api/v1/scheduled_statuses";
-  const res = await client.get<WireScheduledStatus[]>(path, pageQuery(opts));
+  const res = await client.get<WireScheduledStatus[]>(path, pageQuery(opts), { signal: opts.signal });
   if (!Array.isArray(res.data)) {
     throw new FediError(
       `Expected a scheduled-status list (HTTP ${res.status}).`,
@@ -1054,7 +1101,7 @@ export async function fetchNotificationsPage(
   if (opts.excludeTypes && opts.excludeTypes.length > 0 && opts.continuation?.kind !== "url") {
     query.exclude_types = opts.excludeTypes;
   }
-  const res = await client.get<WireNotification[]>(path, query);
+  const res = await client.get<WireNotification[]>(path, query, { signal: opts.signal });
   if (!Array.isArray(res.data)) {
     throw new FediError(
       `Expected a notification list (HTTP ${res.status}).`,
@@ -1116,7 +1163,7 @@ export async function fetchV2NotificationRows(
     notifications?: Array<Record<string, unknown>>;
     notification_groups?: Array<Record<string, unknown>>;
     statuses?: Array<Record<string, unknown>>;
-  }>(path, query);
+  }>(path, query, { signal: opts.signal });
   const data = (res.data ?? {}) as {
     accounts?: unknown;
     notifications?: unknown;
@@ -1194,8 +1241,13 @@ export async function clearNotifications(client: MastoClient): Promise<void> {
  * signed-out read). There is no pagination: the server answers the whole
  * published list.
  */
-export async function fetchAnnouncements(client: MastoClient): Promise<WireAnnouncement[]> {
-  const res = await client.get<WireAnnouncement[]>("/api/v1/announcements");
+export async function fetchAnnouncements(
+  client: MastoClient,
+  opts: { signal?: AbortSignal } = {},
+): Promise<WireAnnouncement[]> {
+  const res = await client.get<WireAnnouncement[]>("/api/v1/announcements", undefined, {
+    signal: opts.signal,
+  });
   if (!Array.isArray(res.data)) {
     throw new FediError(
       `Expected an announcement list (HTTP ${res.status}).`,

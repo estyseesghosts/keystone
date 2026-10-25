@@ -40,7 +40,7 @@ describe('useMentionedAccount', () => {
     })
     await waitFor(() => expect(result.current).not.toBeNull())
     expect(result.current?.displayName).toBe('Alice Liddell')
-    expect(account).toHaveBeenCalledWith({username: 'alice', host: 'example.social'})
+    expect(account).toHaveBeenCalledWith({username: 'alice', host: 'example.social'}, expect.anything())
   })
 
   it('keys by session, username and host', async () => {
@@ -90,7 +90,7 @@ describe('useFullAccount', () => {
     // Embedded data renders at once (no blank card while fetching).
     expect(result.current?.username).toBe('alice')
     await waitFor(() => expect(result.current?.headerUrl).toBe('https://example.social/banner.png'))
-    expect(account).toHaveBeenCalledWith({id: 'u1'})
+    expect(account).toHaveBeenCalledWith({id: 'u1'}, expect.anything())
     expect(fullAccountQueryKey('sess-a', 'u1')[0]).toBe('sess-a')
   })
 

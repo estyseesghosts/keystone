@@ -19,7 +19,7 @@ import {useSessionStore} from '#/state/session/SessionProvider'
 
 import {meQueryKey, recommendationInterestsQueryKey, recommendationsProbeQueryKey} from './keys'
 import {STALE} from './stale'
-import {retryPolicy} from './retry'
+import {isAbortedError, retryPolicy, throwIfAborted} from './retry'
 import {useMe} from './me'
 
 /** Backend for an arbitrary session id (mirrors HomeFeed's helper without
@@ -90,12 +90,13 @@ export function useRecommendationsAvailable(
     staleTime: STALE.FEED,
     retry: retryPolicy(1),
     refetchOnWindowFocus: false,
-    queryFn: async (): Promise<boolean> => {
+    queryFn: async ({signal}): Promise<boolean> => {
       if (!backend?.recommendations) return false
       try {
-        await backend.recommendations.feed({limit: 1, offset: 0})
+        await backend.recommendations.feed({limit: 1, offset: 0, ...(signal ? {signal} : {})})
         return true
       } catch (e) {
+        if (isAbortedError(e)) throw e
         if (isUnsupportedError(e)) return false
         const code = (e as {code?: unknown}).code
         if (code === 'UNKNOWN_API_ENDPOINT') return false
@@ -123,11 +124,15 @@ export function useRecommendationInterests(
     staleTime: STALE.FEED,
     retry: retryPolicy(1),
     refetchOnWindowFocus: false,
-    queryFn: async () => {
+    queryFn: async ({signal}) => {
+      // No signal bag on the interests read (repair X3.1): honour a
+      // pre-abort; a mid-flight abort propagates (never cached as data).
+      throwIfAborted(signal)
       if (!backend?.recommendations) return {interested: [], disinterested: []}
       try {
         return await backend.recommendations.interests()
-      } catch {
+      } catch (e) {
+        if (isAbortedError(e)) throw e
         return {interested: [], disinterested: []}
       }
     },

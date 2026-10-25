@@ -23,6 +23,7 @@ import {
 import {patchPostInCaches} from '#/state/cache'
 
 import {createQueryKey, feedQueryKey} from './keys'
+import {throwIfAborted} from './retry'
 
 // Composer queries and the create-post mutation (slice 4.3). Every key
 // carries the sessionId first, and every request goes through the backend
@@ -44,7 +45,12 @@ export function useComposeLimits(session: Session | null) {
     queryKey: composeLimitsKey(session?.id ?? 'signed-out'),
     enabled: !!session,
     staleTime: LIMITS_STALE,
-    queryFn: () => fetchComposeLimits({origin: session!.origin, family: session!.family}),
+    queryFn: ({signal}) => {
+      // No signal bag on the limits fetch (repair X3.1): honour a
+      // pre-abort, then read (it never throws — defaults on failure).
+      throwIfAborted(signal)
+      return fetchComposeLimits({origin: session!.origin, family: session!.family})
+    },
   })
 }
 
@@ -55,7 +61,11 @@ export function useSessionCustomEmojis(session: Session | null, backend: Backend
     queryKey: customEmojisKey(session?.id ?? 'signed-out'),
     enabled: !!session && !!backend,
     staleTime: LIMITS_STALE,
-    queryFn: () => backend!.customEmojis(),
+    queryFn: ({signal}) => {
+      // No signal bag on the emoji read (repair X3.1): honour a pre-abort.
+      throwIfAborted(signal)
+      return backend!.customEmojis()
+    },
   })
 }
 
@@ -409,7 +419,7 @@ export function useScheduledPosts(session: Session | null, backend: Backend | nu
   return useQuery<ScheduledNote[]>({
     queryKey: scheduledPostsKey(session?.id ?? 'signed-out'),
     enabled: !!session && !!backend?.scheduled,
-    queryFn: () => backend!.scheduled!.list(),
+    queryFn: ({signal}) => backend!.scheduled!.list({...(signal ? {signal} : {})}),
   })
 }
 
@@ -443,7 +453,7 @@ export function useServerDrafts(session: Session | null, backend: Backend | null
   return useQuery<ServerDraft[]>({
     queryKey: serverDraftsKey(session?.id ?? 'signed-out'),
     enabled: !!session && !!backend?.serverDrafts,
-    queryFn: () => backend!.serverDrafts!.list(),
+    queryFn: ({signal}) => backend!.serverDrafts!.list({...(signal ? {signal} : {})}),
   })
 }
 
