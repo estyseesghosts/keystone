@@ -202,6 +202,21 @@ describe('live merge helpers (pure)', () => {
     expect(mergeChatMessage(merged, message('a'))).toBe(merged)
   })
 
+  it('keeps older pages (and pageParams) when a live message arrives', () => {
+    const data = {
+      pages: [page([message('a')]), page([message('b')]), page([message('c')])],
+      pageParams: [null, 'cur-b', 'cur-c'],
+    }
+    const merged = mergeChatMessage(data, message('live'))
+    expect(merged!.pages.map(p => p.items.map(m => m.id))).toEqual([
+      ['live', 'a'],
+      ['b'],
+      ['c'],
+    ])
+    expect(merged!.pageParams).toEqual([null, 'cur-b', 'cur-c'])
+    expect(merged!.pages.length).toBe(merged!.pageParams.length)
+  })
+
   it('drops a live-deleted message', () => {
     const data = {
       pages: [page([message('a'), message('b')])],

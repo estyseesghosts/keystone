@@ -290,7 +290,10 @@ export function mergeChatMessage(
   }
   const [first, ...rest] = data.pages
   if (!first) return data
-  return {pages: [{...first, items: [message, ...first.items]}], pageParams: data.pageParams}
+  return {
+    pages: [{...first, items: [message, ...first.items]}, ...rest],
+    pageParams: data.pageParams,
+  }
 }
 
 /** Drop one live-deleted message from a thread's cached pages. Pure. */
@@ -324,11 +327,16 @@ export function useChatRoomLive(
     const key = chatRoomMessagesQueryKey(sessionId, roomId)
     const dispose = subscribe.call(stream, roomId, {
       onMessage: message => {
+        // A page fetch racing this event must not clobber it: cancel
+        // first, then write (the write below is sync, so no fetch can
+        // interleave between the two).
+        void queryClient.cancelQueries({queryKey: key})
         queryClient.setQueryData<InfiniteData<Page<ChatMessage>>>(key, data =>
           mergeChatMessage(data, message),
         )
       },
       onDeleted: id => {
+        void queryClient.cancelQueries({queryKey: key})
         queryClient.setQueryData<InfiniteData<Page<ChatMessage>>>(key, data =>
           dropChatMessage(data, id),
         )
@@ -357,11 +365,14 @@ export function useChatUserLive(
     const key = chatUserMessagesQueryKey(sessionId, userId)
     const dispose = subscribe.call(stream, userId, {
       onMessage: message => {
+        // Same racing-fetch cancel as the room thread above.
+        void queryClient.cancelQueries({queryKey: key})
         queryClient.setQueryData<InfiniteData<Page<ChatMessage>>>(key, data =>
           mergeChatMessage(data, message),
         )
       },
       onDeleted: id => {
+        void queryClient.cancelQueries({queryKey: key})
         queryClient.setQueryData<InfiniteData<Page<ChatMessage>>>(key, data =>
           dropChatMessage(data, id),
         )

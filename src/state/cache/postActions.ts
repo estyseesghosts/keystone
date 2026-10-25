@@ -15,6 +15,7 @@ import {patchPostInCaches} from './patch'
 import {
   applyPostShadow,
   postShadowStore,
+  projectShadowField,
   usePostShadow,
   type PostShadowStore,
   type ShadowField,
@@ -112,14 +113,18 @@ export function createPostActionController(deps: {
   }
 
   /** On idle: write the confirmed value into every cached copy, then drop
-   * the shadow field (the cache now carries it). */
+   * the shadow field (the cache now carries it). The shadow is projected
+   * through `FIELD[kind]` first: only the settling toggle's field reaches
+   * the cache, so a sibling toggle still in flight is neither confirmed
+   * early nor stuck when it later rolls back (X8.3). */
   function settleInto(sessionId: string, post: Post, kind: PostActionKind) {
     const shadow = store.get(sessionId, post.id)
     if (!shadow) return
+    const only = projectShadowField(shadow, FIELD[kind]) ?? {}
     // Equal to the server value it was layered on: nothing left to say.
-    const unchanged = applyPostShadow(post, shadow) === post
+    const unchanged = applyPostShadow(post, only) === post
     const patched = queryClient
-      ? patchPostInCaches(queryClient, sessionId, post.id, p => applyPostShadow(p, shadow))
+      ? patchPostInCaches(queryClient, sessionId, post.id, p => applyPostShadow(p, only))
       : 0
     // Keep the override when no cache carries it (a held reference would
     // snap back to stale data); the base guard drops it once fresh server

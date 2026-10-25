@@ -4,7 +4,7 @@ import {createMemoryStore, type Backend, type Relationship} from '@keystone/fedi
 
 import {makePost} from '#/components/__tests__/fixtures'
 
-import {createGraphController, createSoftMuteStore, isSoftMutedPost, relationshipQueryKey, GraphUnavailableError} from './graph'
+import {createGraphController, createSoftMuteStore, isSoftMutedPost, listMembershipQueryKey, relationshipQueryKey, GraphUnavailableError} from './graph'
 
 const S1 = 'https://a.example acct1'
 const S2 = 'https://b.example acct1'
@@ -124,6 +124,30 @@ describe('graph controller (slice 4.4)', () => {
     expect(rel(S1, qc)?.hasPendingFollowRequestToYou).toBe(true)
   })
 
+  it('an optimistic mute wins over a racing relationship fetch (X8.3)', async () => {
+    const qc = new QueryClient({defaultOptions: {queries: {gcTime: Infinity}}})
+    const c = createGraphController({queryClient: qc})
+    const d = deferred()
+    const racing = qc
+      .fetchQuery({
+        queryKey: relationshipQueryKey(S1, 'u1'),
+        queryFn: () => d.promise.then((): Relationship => ({id: 'u1', isMuted: false})),
+        retry: false,
+      })
+      .then(
+        () => 'resolved',
+        () => 'rejected',
+      )
+    const b = fakeBackend()
+    const p = c.setMuted(S1, b, 'u1', true)
+    await p
+    // The fetch lands after the tap with its pre-mutation answer; the
+    // cancel before the optimistic write keeps it from clobbering it.
+    d.resolve()
+    await racing
+    expect(rel(S1, qc)?.isMuted).toBe(true)
+  })
+
   it('list membership optimistic with rollback', async () => {
     const qc = new QueryClient({defaultOptions: {queries: {gcTime: Infinity}}})
     const c = createGraphController({queryClient: qc})
@@ -132,6 +156,23 @@ describe('graph controller (slice 4.4)', () => {
     qc.setQueryData([S1, 'list-membership', 'u1'], ['l0'])
     await expect(c.setListMember(S1, b, 'l1', 'u1', true)).rejects.toThrow()
     expect(qc.getQueryData([S1, 'list-membership', 'u1'])).toEqual(['l0'])
+  })
+
+  it('serializes quick list toggles: a first failure rejects both, the second never hits the server (X8.3)', async () => {
+    const qc = new QueryClient({defaultOptions: {queries: {gcTime: Infinity}}})
+    const c = createGraphController({queryClient: qc})
+    const b = fakeBackend()
+    const add = jest.fn(async () => { throw new Error('add failed') })
+    const remove = jest.fn(async () => undefined)
+    b.lists!.membership!.add = add
+    b.lists!.membership!.remove = remove
+    qc.setQueryData(listMembershipQueryKey(S1, 'u1'), [])
+    const p1 = c.setListMember(S1, b, 'l1', 'u1', true)
+    const p2 = c.setListMember(S1, b, 'l1', 'u1', false)
+    await expect(p1).rejects.toThrow('add failed')
+    await expect(p2).rejects.toThrow('add failed')
+    expect(remove).not.toHaveBeenCalled()
+    expect(qc.getQueryData(listMembershipQueryKey(S1, 'u1'))).toEqual([])
   })
 
   it('isolates sessions: state and backends never cross', async () => {

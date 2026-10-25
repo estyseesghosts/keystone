@@ -76,6 +76,33 @@ const BASE_KEYS: Record<ShadowField, keyof ShadowBase | null> = {
   delete: null,
 }
 
+/**
+ * Keep only one field's overrides (plus its base entry). Settling a toggle
+ * must write just its own field into the cache: a sibling toggle still in
+ * flight keeps its shadow untouched, so its later rollback still guards on
+ * its own base instead of tripping over a value an earlier settle planted
+ * (X8.3). Returns undefined when the shadow carries nothing for the field.
+ */
+export function projectShadowField(
+  shadow: PostShadow | undefined,
+  field: ShadowField,
+): PostShadow | undefined {
+  if (!shadow) return undefined
+  let found = false
+  const out: PostShadow = {}
+  for (const k of FIELD_KEYS[field]) {
+    if (shadow[k] !== undefined) {
+      ;(out as Record<string, unknown>)[k] = shadow[k]
+      found = true
+    }
+  }
+  const bk = BASE_KEYS[field]
+  if (bk && shadow.base?.[bk] !== undefined) {
+    out.base = {[bk]: shadow.base[bk]} as ShadowBase
+  }
+  return found ? out : undefined
+}
+
 export function createPostShadowStore(): PostShadowStore {
   const entries = new Map<string, PostShadow>()
   const listeners = new Map<string, Set<() => void>>()

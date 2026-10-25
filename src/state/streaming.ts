@@ -361,9 +361,13 @@ export function prependLivePosts(
     fresh.push(post)
   }
   if (fresh.length === 0) return 0
+  // A page fetch racing this event must not clobber it: cancel first, then
+  // write (the write below is sync, so no fetch can interleave between the
+  // two — X8.3 step 3, same rule as the chat live handlers).
   // The live buffer is oldest-first; the cache is newest-first.
   const ordered = [...fresh].reverse()
   const [first, ...rest] = data.pages
+  void client.cancelQueries({queryKey: key})
   client.setQueryData<FeedData>(key, {
     ...data,
     pages: [{...first, items: [...ordered, ...first.items]}, ...rest],
@@ -415,7 +419,9 @@ export function ingestLiveNotification(
       continue
     }
     if (data.pages.some(page => page.items.some(item => item.id === notification.id))) continue
+    // Same racing-fetch cancel as the feed prepend above (X8.3 step 3).
     const [first, ...rest] = data.pages
+    void client.cancelQueries({queryKey: key})
     client.setQueryData<NotificationsData>(key, {
       ...data,
       pages: [{...first, items: [notification, ...first.items]}, ...rest],

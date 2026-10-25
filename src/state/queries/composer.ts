@@ -141,6 +141,9 @@ export function insertCreatedPost(
   descriptors.push(`user|${post.author.id}|${replyToId ? 'replies' : 'posts'}`)
   const written: string[] = []
   for (const d of descriptors) {
+    // A page fetch racing this insert must not clobber it: cancel first,
+    // then write (both run sync here, so no fetch can interleave).
+    void client.cancelQueries({queryKey: feedQueryKey(sessionId, d)})
     if (prependToQuery(client, feedQueryKey(sessionId, d), post)) written.push(d)
   }
   if (replyToId) {

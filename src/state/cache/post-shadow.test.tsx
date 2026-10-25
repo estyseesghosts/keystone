@@ -393,6 +393,100 @@ describe('post shadow + toggle queue', () => {
     })
   })
 
+  describe('nested delete (X8.3)', () => {
+    const readFeed = (qc: QueryClient) =>
+      (qc.getQueryData([S1, 'post-feed', 'home']) as {pages: {items: Post[]}[]}).pages[0].items
+    const seedFeed = (qc: QueryClient, items: Post[]) =>
+      qc.setQueryData([S1, 'post-feed', 'home'], {
+        pages: [{items, cursor: null, end: true}],
+        pageParams: [null],
+      })
+
+    it('drops pure-boost rows whose original was removed', () => {
+      const qc = new QueryClient()
+      const orig = makePost({id: 'orig'})
+      const boost = makePost({id: 'w1', renoteId: 'orig', renote: orig, content: {plain: ''}})
+      seedFeed(qc, [boost])
+      const n = patchPostInCaches(qc, S1, 'orig', () => null)
+      expect(n).toBe(1)
+      expect(readFeed(qc)).toEqual([])
+    })
+
+    it('keeps quoting rows with the target nulled and marked unavailable', () => {
+      const qc = new QueryClient()
+      const orig = makePost({id: 'orig'})
+      seedFeed(qc, [makePost({id: 'w2', quote: orig})])
+      patchPostInCaches(qc, S1, 'orig', () => null)
+      const kept = readFeed(qc)[0]!
+      expect(kept.id).toBe('w2')
+      expect(kept.quote).toBeNull()
+      // The card renders its translated unavailable placeholder off this.
+      expect(kept.quoteUnavailable).toBe(true)
+    })
+
+    it('nulls a removed packed reply parent and keeps the row', () => {
+      const qc = new QueryClient()
+      const orig = makePost({id: 'orig'})
+      seedFeed(qc, [makePost({id: 'w3', replyToId: 'orig', reply: orig})])
+      patchPostInCaches(qc, S1, 'orig', () => null)
+      const kept = readFeed(qc)[0]!
+      expect(kept.id).toBe('w3')
+      expect(kept.reply).toBeNull()
+      expect(kept.replyToId).toBe('orig')
+    })
+
+    it('keeps the notification shell when its post was a dropped boost', () => {
+      const qc = new QueryClient()
+      const orig = makePost({id: 'orig'})
+      const boost = makePost({id: 'w1', renoteId: 'orig', renote: orig, content: {plain: ''}})
+      qc.setQueryData([S1, 'notifications', 'all'], {
+        pages: [{items: [{id: 'n1', post: boost}], cursor: null, end: true}],
+        pageParams: [null],
+      })
+      patchPostInCaches(qc, S1, 'orig', () => null)
+      const rows = (
+        qc.getQueryData([S1, 'notifications', 'all']) as {
+          pages: {items: {id: string; post: Post | null}[]}[]
+        }
+      ).pages[0].items
+      expect(rows).toHaveLength(1)
+      expect(rows[0]!.post).toBeNull()
+    })
+  })
+
+  describe('settleInto field projection (X8.3)', () => {
+    it('boost then bookmark with the bookmark failing: boost stays, bookmark reads off', async () => {
+      const qc = new QueryClient()
+      const c = createPostActionController({store, queryClient: qc})
+      const post = makePost()
+      qc.setQueryData([S1, 'post-feed', 'home'], {
+        pages: [{items: [post], cursor: null, end: true}],
+        pageParams: [null],
+      })
+      const dBoost = deferred()
+      const dMark = deferred()
+      const b = fakeBackend({boost: jest.fn(() => dBoost.promise as never)})
+      b.bookmarks!.add = jest.fn(async (_noteId: string): Promise<void> => {
+        await dMark.promise
+      }) as never
+      const pBoost = c.setRenoted(S1, b, post, true)
+      const pMark = c.setBookmarked(S1, b, post, true)
+      // The boost lands while the bookmark is still unconfirmed: its
+      // settle must not plant the pending bookmark into the cache.
+      dBoost.resolve()
+      await pBoost
+      dMark.reject(new Error('bookmark failed'))
+      await expect(pMark).rejects.toThrow('bookmark failed')
+      const cached = (
+        qc.getQueryData([S1, 'post-feed', 'home']) as {pages: {items: Post[]}[]}
+      ).pages[0].items[0]!
+      const ui = applyPostShadow(cached, store.get(S1, post.id))
+      expect(ui.ext.reblogged).toBe(true)
+      expect(ui.ext.bookmarked).toBeFalsy()
+      expect(store.get(S1, post.id)).toBeUndefined()
+    })
+  })
+
   describe('multi-session isolation', () => {
     it('shadow, queues and backends are per session', async () => {
       const d = deferred()

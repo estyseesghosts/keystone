@@ -115,6 +115,18 @@ describe('insertCreatedPost', () => {
     qc.setQueryData(feedQueryKey('s', 'timeline|home'), feed([post('new')]))
     expect(insertCreatedPost(qc, 's', post('new'))).toEqual([])
   })
+
+  it('cancels in-flight feed reads for every written timeline before inserting', () => {
+    const qc = new QueryClient()
+    for (const d of ['timeline|home', 'timeline|social', 'user|me|posts']) {
+      qc.setQueryData(feedQueryKey('s', d), feed([post('p1')]))
+    }
+    const cancel = jest.spyOn(qc, 'cancelQueries')
+    insertCreatedPost(qc, 's', visPost('new', 'public'), null)
+    for (const d of ['timeline|home', 'timeline|social', 'user|me|posts']) {
+      expect(cancel).toHaveBeenCalledWith({queryKey: feedQueryKey('s', d)})
+    }
+  })
 })
 
 describe('submitPost', () => {

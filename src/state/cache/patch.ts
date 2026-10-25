@@ -1,6 +1,6 @@
 import type {InfiniteData, QueryClient} from '@tanstack/react-query'
 
-import type {Post} from '@keystone/fedi'
+import {isPureRenote, type Post} from '@keystone/fedi'
 
 // Cache-wide post patching (slice 4.1). Writes a confirmed change into every
 // cached copy of a post for ONE session: feed pages, single-post queries,
@@ -25,13 +25,30 @@ function patchPost(post: Post, id: string, fn: PostUpdater): Post | null {
   }
   for (const k of ['renote', 'quote', 'reply'] as const) {
     const child = next[k]
-    if (child) {
-      const res = patchPost(child, id, fn)
-      if (res !== child && res !== null) {
-        next = {...next, [k]: res}
-        changed = true
-      }
+    if (!child) continue
+    const res = patchPost(child, id, fn)
+    if (res === child) continue
+    if (res !== null) {
+      next = {...next, [k]: res}
+      changed = true
+      continue
     }
+    // The nested original was removed (X8.3). A pure boost wrapper has no
+    // own content to show: drop the row so a deleted original stops
+    // rendering in feeds. A quote keeps its row with the packed target
+    // nulled and `quoteUnavailable` set, so the card renders its honest
+    // translated unavailable placeholder instead of stale content. A
+    // packed reply parent is nulled the same way (the model already reads
+    // a null reply as deleted, private, or unpacked).
+    if (k === 'renote' && isPureRenote(next)) return null
+    if (k === 'quote') {
+      next = {...next, quote: null, quoteUnavailable: true}
+    } else if (k === 'renote') {
+      next = {...next, renote: null}
+    } else {
+      next = {...next, reply: null}
+    }
+    changed = true
   }
   return changed ? next : post
 }

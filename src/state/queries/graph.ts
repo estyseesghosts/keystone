@@ -136,18 +136,80 @@ export function createGraphController(deps: {queryClient: QueryClient; softMutes
       q = createToggleQueue<T>({
         initial,
         run: (from, to) => run(backend, from, to),
-        onOptimistic: v => setRel(sessionId, accountId, view(v)),
+        // A relationship fetch racing the tap must not clobber the
+        // optimistic value with its pre-mutation answer: cancel first,
+        // then write (the write below is sync, so no fetch interleaves).
+        onOptimistic: v => {
+          void qc.cancelQueries({queryKey: relationshipQueryKey(sessionId, accountId)})
+          setRel(sessionId, accountId, view(v))
+        },
         onConfirmed: v => {
           confirmedRel = apply(confirmedRel, v)
           confirmedValue = v
         },
-        onRollback: v => setRel(sessionId, accountId, view(v)),
+        onRollback: v => {
+          void qc.cancelQueries({queryKey: relationshipQueryKey(sessionId, accountId)})
+          setRel(sessionId, accountId, view(v))
+        },
         onSettled: () => {
           queues.delete(key)
           void qc.invalidateQueries({queryKey: relationshipQueryKey(sessionId, accountId)})
         },
       })
       queues.set(key, q)
+    }
+    return q.queueToggle(next)
+  }
+
+  // List membership rides the same desired-value queue discipline as
+  // follow/mute/block above: at most one request in flight per
+  // session+account+list, quick toggles coalesce, a failure rolls back to
+  // the last confirmed set and rejects every pending toggle. The state is
+  // the session's list-id array (not a Relationship), so this mirrors
+  // `toggle()`'s shape instead of reusing it.
+  function toggleListMember(opts: {
+    sessionId: string
+    accountId: string
+    listId: string
+    backend: Backend
+    next: boolean
+  }): Promise<void> {
+    const {sessionId, accountId, listId, backend, next} = opts
+    const api = backend.lists!.membership!
+    const key = listMembershipQueryKey(sessionId, accountId)
+    const qkey = `${sessionId}\u0000${accountId}\u0000list\u0000${listId}`
+    let q = queues.get(qkey) as ToggleQueue<boolean> | undefined
+    if (!q) {
+      // `confirmedLists` is the server-confirmed membership; optimistic and
+      // rollback views are always derived from it, so a rollback restores
+      // exactly the confirmed set (never a stale `before` snapshot).
+      let confirmedLists = qc.getQueryData<string[]>(key) ?? []
+      let confirmedValue = confirmedLists.includes(listId)
+      const view = (v: boolean) =>
+        v
+          ? [...confirmedLists.filter(i => i !== listId), listId]
+          : confirmedLists.filter(i => i !== listId)
+      q = createToggleQueue<boolean>({
+        initial: confirmedValue,
+        run: (_from, to) => (to ? api.add(listId, accountId) : api.remove(listId, accountId)),
+        onOptimistic: v => {
+          void qc.cancelQueries({queryKey: key})
+          qc.setQueryData(key, view(v))
+        },
+        onConfirmed: v => {
+          confirmedLists = view(v)
+          confirmedValue = v
+        },
+        onRollback: v => {
+          void qc.cancelQueries({queryKey: key})
+          qc.setQueryData(key, view(v))
+        },
+        onSettled: () => {
+          queues.delete(qkey)
+          void qc.invalidateQueries({queryKey: key})
+        },
+      })
+      queues.set(qkey, q)
     }
     return q.queueToggle(next)
   }
@@ -218,7 +280,9 @@ export function createGraphController(deps: {queryClient: QueryClient; softMutes
     async resolveFollowRequest(sessionId, backend, accountId, accept) {
       const refused = refuse(gateOf('follow_request', backend, accountId))
       if (refused || !backend) return refused ?? undefined
+      const key = relationshipQueryKey(sessionId, accountId)
       const before = getRel(sessionId, accountId)
+      await qc.cancelQueries({queryKey: key})
       setRel(sessionId, accountId, {
         ...(before ?? emptyRel(accountId)),
         hasPendingFollowRequestToYou: false,
@@ -227,6 +291,7 @@ export function createGraphController(deps: {queryClient: QueryClient; softMutes
       try {
         await (accept ? backend.acceptFollowRequest(accountId) : backend.rejectFollowRequest(accountId))
       } catch (e) {
+        await qc.cancelQueries({queryKey: key})
         setRel(sessionId, accountId, before ?? emptyRel(accountId))
         throw e
       } finally {
@@ -237,17 +302,8 @@ export function createGraphController(deps: {queryClient: QueryClient; softMutes
     async setListMember(sessionId, backend, listId, accountId, next) {
       const refused = refuse(gateOf('list', backend, accountId))
       if (refused) return refused
-      const api = backend?.lists?.membership
-      if (!api) throw new GraphUnavailableError({enabled: false, reasonCode: 'gate.noListMembership', reason: 'This server cannot edit list members.'})
-      const key = listMembershipQueryKey(sessionId, accountId)
-      const before = qc.getQueryData<string[]>(key) ?? []
-      qc.setQueryData(key, next ? [...before.filter(i => i !== listId), listId] : before.filter(i => i !== listId))
-      try {
-        await (next ? api.add(listId, accountId) : api.remove(listId, accountId))
-      } catch (e) {
-        qc.setQueryData(key, before)
-        throw e
-      }
+      if (!backend?.lists?.membership) throw new GraphUnavailableError({enabled: false, reasonCode: 'gate.noListMembership', reason: 'This server cannot edit list members.'})
+      return toggleListMember({sessionId, accountId, listId, backend, next})
     },
   }
 }
