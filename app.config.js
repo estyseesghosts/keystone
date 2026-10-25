@@ -48,6 +48,11 @@ module.exports = function (_config) {
       },
       android: {
         package: 'app.keystone.dev',
+        // X1.6 (security M2 / privacy 3): backups off — the MMKV store
+        // holds session envelopes and the query cache. `backup_rules.xml`
+        // / `data_extraction_rules.xml` (written by withAndroidHardening)
+        // exclude `files/mmkv/` if backups are ever re-enabled.
+        allowBackup: false,
         adaptiveIcon: {
           foregroundImage: './assets/adaptive-icon.png',
           backgroundColor: '#1f3a5f',
@@ -63,7 +68,19 @@ module.exports = function (_config) {
           backgroundColor: '#1f3a5f',
         },
       },
-      plugins: ['./plugins/withAppleTeamId.js', './plugins/withSceneLifecycle.js'],
+      // - `expo-image-picker`: only `launchImageLibraryAsync` is used
+      //   (Composer, profile image) — no camera, no recording (privacy 11).
+      //   `false` drops the iOS usage descriptions and blocks the Android
+      //   permissions at merge time. Photo-library access stays enabled.
+      // - `withAndroidHardening`: cleartext/backup/permission policy (X1.6).
+      //   Listed after `expo-image-picker` so its `tools:node="remove"`
+      //   markers have the final say.
+      plugins: [
+        './plugins/withAppleTeamId.js',
+        './plugins/withSceneLifecycle.js',
+        ['expo-image-picker', {cameraPermission: false, microphonePermission: false}],
+        './plugins/withAndroidHardening.js',
+      ],
     },
   }
 }

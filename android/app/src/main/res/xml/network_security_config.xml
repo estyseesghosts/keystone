@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  X1.6 (security L3): deny cleartext by default. Only loopback, the
+  Android-emulator loopback alias, and link-local `.local` names stay
+  reachable over http (dev rigs, `10.0.2.2`, LAN servers). Everything
+  else must use https. The fetch layer enforces the same allowlist
+  (X2.2); this file is the native backstop. Debug source-sets override
+  this file with a permissive config so Metro (LAN http) keeps working.
+-->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="true">localhost</domain>
+    <domain includeSubdomains="true">127.0.0.1</domain>
+    <domain includeSubdomains="true">10.0.2.2</domain>
+    <domain includeSubdomains="true">local</domain>
+  </domain-config>
+</network-security-config>

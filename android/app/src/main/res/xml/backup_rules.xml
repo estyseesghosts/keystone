@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  X1.6 (security M2 / privacy 3): dormant unless `android.allowBackup`
+  is ever re-enabled. The MMKV store (`files/mmkv/`, id `keystone`)
+  holds session envelopes and the persisted query cache — none of it may
+  enter a backup set.
+-->
+<full-backup-content>
+  <exclude domain="file" path="mmkv/" />
+</full-backup-content>

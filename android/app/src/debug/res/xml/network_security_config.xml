@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  X1.6: debug-only override of the main network security config. The dev
+  bundle loads over LAN http and the rig runs on localhost ports, so debug
+  stays permissive (same as the pre-X1.6 behaviour where no config file
+  existed and the debug manifest set `usesCleartextTraffic="true"`).
+  Release builds never see this file.
+-->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
