@@ -5,13 +5,14 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **290 suites / 4107 tests**,
+Gate baseline (last green on main): **292 suites / 4123 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. X11.1 done (committed green; 290 suites / 4107 tests; removal applied,
-   tsconfig root-export fix + emit cleanup — see coord log).
-2. X11.2 test quality next (solo), then X11.3 docs sync.
+1. X11.2 done (committed green; 292 suites / 4123 tests; factories +
+   no-any rule live (v8 AST shape fixed); --forceExit kept with
+   handles evidence — see coord log).
+2. X11.3 docs sync next (solo), then Wave 12 close-out.
 3. Signing/App Links skipped (owner); no non-English translations.
 
 Blockers / owner-open:

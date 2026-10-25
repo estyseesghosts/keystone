@@ -1844,7 +1844,7 @@ Audit: build 6, 7, 10, 11, 12; security (pnpm audit gap)
 
 ## X11.2 - Test quality
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x11.2.md` (slice) + `state/logs/2026-10-25-repair25-x11.2-coordinator.md` (batch-green); factories + no-any-in-tests rule live, --forceExit kept; 292 suites / 4123 tests green at X11.2 commit)
 Branch: `repair25-x11.2-test-quality`
 Audit: build 4 (remaining), 8; misskey/mastodon test gaps (remaining)
 
