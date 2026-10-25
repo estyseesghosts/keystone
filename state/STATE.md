@@ -10,7 +10,9 @@ Log: `state/logs/2026-10-26-composer-slice1.md`. Slice 2 landed
 Discard / Keep writing sheet (`CloseConfirmDialog` on shared `Dialog`);
 clean closes silently; attachments-staged counts as dirty — **217 suites /
 2938 tests** green. Log: `state/logs/2026-10-26-composer-slice2.md`.
-Next: slice 3 smart-default server/local save.
+Next: program complete — owner live-tests externally (refresh-restore,
+close-sheet choices, server-draft round-trip on a `notes/drafts` server,
+Mastodon local-only).
 
 Repair program 2026-10-24 (audit `docs/audit_20261024/`): ALL WAVES
 MERGED on `main` — Wave 0 (`c817c30`), Wave 1 (`4625769`), Wave 2

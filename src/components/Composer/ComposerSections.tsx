@@ -4,7 +4,6 @@ import {Image, Keyboard, StyleSheet, View} from 'react-native'
 import {msg} from '@lingui/macro'
 
 import {
-  buildPostDraft,
   structuredUrisOf,
   type Post,
   type ScheduledNote,
@@ -27,7 +26,6 @@ import {Loader} from '#/components/Loader'
 import {
   useCancelScheduled,
   useDeleteServerDraft,
-  useSaveServerDraft,
   useScheduledPosts,
   useServerDrafts,
 } from '#/state/queries/composer'
@@ -495,11 +493,24 @@ export function RecipientSection({c}: {c: ComposerController}) {
 }
 
 export function DraftsSection({c}: {c: ComposerController}) {
+  // Location label (slice 3): where the backend also offers server drafts
+  // the local rows are headed "On this device" so the two sources are never
+  // confused. Backends without server drafts (Mastodon) render exactly the
+  // pre-slice list — no label, no fake server section.
+  const hasServer = !!c.backend.serverDrafts
   if (c.drafts.length === 0) {
-    return c.showDrafts ? <Caption color="muted">{i18n._(msg`No saved drafts.`)}</Caption> : null
+    if (!c.showDrafts) return null
+    if (!hasServer) return <Caption color="muted">{i18n._(msg`No saved drafts.`)}</Caption>
+    return (
+      <View style={{gap: space.sm}} testID="composer-drafts">
+        <Caption color="muted">{i18n._(msg`On this device`)}</Caption>
+        <Caption color="muted">{i18n._(msg`No drafts on this device.`)}</Caption>
+      </View>
+    )
   }
   return (
     <View style={{gap: space.sm}} testID="composer-drafts">
+      {hasServer ? <Caption color="muted">{i18n._(msg`On this device`)}</Caption> : null}
       {c.drafts.map(d => (
         <Chip key={d.id} label={d.text.slice(0, 40) || i18n._(msg`(poll / CW only)`)} onPress={() => c.restore(d)} />
       ))}
@@ -560,54 +571,26 @@ function serverDraftSnippet(d: ServerDraft): string {
 // Server-side drafts (C9/MK5): list, restore into the composer, delete,
 // and save the current composer state. Rendered only where the backend
 // offers `serverDrafts` (Misskey family) — Mastodon never sees this block.
-// Restoring brings text/CW/visibility/recipients/schedule/poll and
-// reply/quote targets; attachments stay on the server draft and must be
-// re-attached (local files cannot round-trip through a listing).
+// Restoring opens the draft IN PLACE: the controller remembers the server
+// id, so the next save (the explicit button below or the close-guard Save)
+// UPDATES it instead of creating a duplicate. Restoring brings text/CW/
+// visibility/recipients/schedule/poll and reply/quote targets; attachments
+// stay on the server draft and must be re-attached (local files cannot
+// round-trip through a listing).
 export function ServerDraftsSection({c}: {c: ComposerController}) {
   const list = useServerDrafts(c.session, c.backend)
-  const save = useSaveServerDraft(c.session, c.backend)
   const del = useDeleteServerDraft(c.session, c.backend)
   const [busy, setBusy] = useState(false)
   if (!c.backend.serverDrafts) return null
 
-  const restore = (d: ServerDraft) => {
-    c.patch({
-      text: d.text ?? '',
-      cw: d.cw ?? '',
-      cwEnabled: (d.cw ?? '') !== '',
-      visibilityRaw: d.visibilityRaw ?? c.state.visibilityRaw,
-      visibleUserIds: d.visibleUserIds ?? [],
-      localOnly: d.localOnly ?? false,
-      scheduledAt: d.scheduledAt ?? null,
-      poll:
-        d.poll && Array.isArray(d.poll.choices) && typeof d.poll.expiredAfter === 'number'
-          ? {
-              choices: d.poll.choices,
-              multiple: d.poll.multiple ?? false,
-              durationSeconds: Math.max(
-                1,
-                Math.round(
-                  c.family === 'mastodon' ? d.poll.expiredAfter : d.poll.expiredAfter / 1000,
-                ),
-              ),
-            }
-          : null,
-    })
-    if (d.replyId || d.renoteId) void c.attachTargets(d.replyId ?? null, d.renoteId ?? null)
-  }
-
   const saveCurrent = async () => {
     setBusy(true)
     try {
-      const built = buildPostDraft(
-        {...c.state, media: []},
-        {family: c.family, gates: c.gates, limits: c.limits},
-      )
-      if (!built.ok) {
-        c.setError(built.reason)
-        return
-      }
-      await save.mutateAsync({draft: {...built.draft, scheduledAt: built.scheduledAt}})
+      // Update-in-place when this composer opened a server draft, create
+      // otherwise; the controller remembers a fresh id too, so a second
+      // save keeps updating the same row. Validation and wire failures
+      // surface through the composer's error line, like every submit.
+      await c.saveServerDraftNow()
     } catch (err) {
       c.setError(err instanceof Error ? err.message : i18n._(msg`Could not save the draft.`))
     } finally {
@@ -632,7 +615,7 @@ export function ServerDraftsSection({c}: {c: ComposerController}) {
             </Caption>
             <Chip
               label={i18n._(msg`Restore`)}
-              onPress={() => restore(d)}
+              onPress={() => c.restoreServerDraft(d)}
               testID={`composer-serverdraft-restore-${d.id}`}
             />
             <Chip
@@ -650,13 +633,12 @@ export function ServerDraftsSection({c}: {c: ComposerController}) {
       )}
       <View style={c.styles.row}>
         <Chip
-          label={busy || save.isPending ? i18n._(msg`Saving…`) : i18n._(msg`Save current as server draft`)}
-          disabled={busy || save.isPending}
+          label={busy ? i18n._(msg`Saving…`) : i18n._(msg`Save current as server draft`)}
+          disabled={busy}
           onPress={() => void saveCurrent()}
           testID="composer-serverdraft-save"
         />
       </View>
-      {save.isError ? <Body testID="composer-serverdraft-error">{i18n._(msg`Could not save the draft.`)}</Body> : null}
     </View>
   )
 }

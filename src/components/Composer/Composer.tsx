@@ -12,6 +12,7 @@ import {
   countComposeChars,
   defaultVisibilityFor,
   emptyComposeState,
+  isUnsupportedError,
   pendingMediaUpdates,
   visibilityOptionsFor,
   REACTION_ACCEPTANCE_LABELS,
@@ -20,6 +21,7 @@ import {
   type KeyValueStore,
   type Post,
   type ReactionAcceptance,
+  type ServerDraft,
   type Session,
 } from '@keystone/fedi'
 
@@ -32,6 +34,7 @@ import {
   useComposeLimits,
   useCreatePost,
   useEditPost,
+  useSaveServerDraft,
   useSessionCustomEmojis,
   useUploads,
 } from '#/state/queries/composer'
@@ -231,6 +234,10 @@ export function useComposerController({
   const uploads = useUploads(backend, {folderId: uploadFolderId})
   const create = useCreatePost(session, backend)
   const edit = useEditPost(session, backend)
+  // Slice 3: the shared server-draft mutation (create-or-update by id +
+  // list invalidation). saveAndClose and the server-drafts section both go
+  // through it — one call shape, no fork.
+  const saveServer = useSaveServerDraft(session, backend)
 
   const [open] = useState(() => {
     // Slice 1 — durable in-progress draft. An explicit `draftId` wins;
@@ -316,6 +323,11 @@ export function useComposerController({
   // The ref flips synchronously, before any await, and clears in `finally`.
   const submitRef = useRef(false)
   const [showDrafts, setShowDrafts] = useState(false)
+  // Slice 3 — the open server draft this composer edits in place. Set when
+  // a server draft is restored; cleared when a local draft is restored or
+  // the post goes through. The next server save UPDATES this id instead of
+  // creating a duplicate. Null (fresh compose, local restore) creates.
+  const [serverDraftId, setServerDraftId] = useState<string | null>(null)
   const [pickingEmoji, setPickingEmoji] = useState(false)
   const patch = useCallback((p: Partial<ComposeState>) => setState(s => ({...s, ...p})), [])
 
@@ -421,6 +433,9 @@ export function useComposerController({
   // Reply/quote context is the caller's (props) and stays.
   const resetAfterPost = useCallback(() => {
     uploads.clear()
+    // Fresh draft after a post: a later save starts a NEW server draft,
+    // never overwrites the one just posted.
+    setServerDraftId(null)
     setState(s =>
       emptyComposeState({
         visibilityRaw: defaultVisibilityFor(family, s.replyTo).raw,
@@ -478,8 +493,10 @@ export function useComposerController({
         postedRef.current = true
         deleteDraft(store, session.id, id)
         // Slice 1: the edit posted — no longer the in-progress draft, so
-        // a post-submit refresh opens fresh.
+        // a post-submit refresh opens fresh. Slice 3: stop tracking any
+        // open server draft for the same reason.
         clearOpenDraftId(store, session.id)
+        setServerDraftId(null)
         onPosted?.('posted')
         onClose?.()
       } catch (err) {
@@ -608,6 +625,30 @@ export function useComposerController({
     }
   }
 
+  // Single-flight for the async save-and-close below: the dialog stays
+  // mounted across the await, so a second Save press while the first is in
+  // flight is dropped, not double-created. Resets in `finally` so a failed
+  // save stays retryable.
+  const saveCloseRef = useRef(false)
+
+  /** Save the current composer state as a server draft (slice 3): create,
+   * or UPDATE the draft this composer opened, and remember the id so the
+   * next save keeps updating the same row. Attachments never round-trip
+   * (local files cannot survive a listing) — text/CW/visibility/
+   * recipients/schedule/poll only, through the shared mutation. Throws the
+   * validation reason when the state has nothing the server can take, and
+   * any wire failure to the caller. */
+  const saveServerDraftNow = useCallback(async (): Promise<ServerDraft> => {
+    const built = buildPostDraft({...state, media: []}, {family, gates, limits})
+    if (!built.ok) throw new Error(built.reason)
+    const saved = await saveServer.mutateAsync({
+      id: serverDraftId ?? undefined,
+      draft: {...built.draft, scheduledAt: built.scheduledAt},
+    })
+    setServerDraftId(saved.id)
+    return saved
+  }, [state, family, gates, limits, saveServer, serverDraftId])
+
   // Close guard (slice 2): every exit — Cancel button, sheet backdrop,
   // back navigation — routes through `requestClose`. Clean closes silently;
   // a dirty draft shows the Save / Discard / Keep-writing sheet instead.
@@ -636,24 +677,70 @@ export function useComposerController({
     else onClose()
   }, [isCloseDirty, onClose])
 
-  const saveAndClose = useCallback(() => {
-    // Local-only through the existing `saveDraft` path — slice 3 upgrades
-    // the destination to the smart default; server drafts are untouched.
-    // `saveDraft` drops text-empty rows per `isDraftEmpty`, so a
-    // media-only Save keeps the pointer cleared but persists nothing:
-    // pre-existing store semantics, out of scope here.
-    saveDraft(
-      store,
-      session.id,
-      snapshotDraft(id, state, state.media.length > 0 || uploads.items.length > 0),
-    )
-    clearOpenDraftId(store, session.id)
-    // Suppress a pending autosave tick: it would re-save this state and
-    // re-set the pointer just cleared above.
-    postedRef.current = true
-    setConfirmingClose(false)
-    onClose?.()
-  }, [store, session.id, id, state, uploads.items])
+  const saveAndClose = useCallback(async () => {
+    // Slice 3 — the SMART DEFAULT: a backend offering `serverDrafts` saves
+    // there (create, or update the open server draft), then drops the local
+    // row AND the pointer so no duplicate copy is left behind. No
+    // sub-module (Mastodon) keeps the slice-2 local save below. A 404/405
+    // from the wire (a server without the endpoint) probes as absent and
+    // falls back to the local save silently; any other failure preserves
+    // the content locally, surfaces honestly, and stays open — never closed
+    // over an invisible error, never silently dropped.
+    if (saveCloseRef.current) return
+    saveCloseRef.current = true
+    try {
+      if (backend.serverDrafts) {
+        let serverSaved = false
+        try {
+          await saveServerDraftNow()
+          serverSaved = true
+        } catch (err) {
+          if (!isUnsupportedError(err)) {
+            // Real failure (network, 500, validation): keep the content in
+            // the local row and stay open with the error visible — closing
+            // would lose both the message and the draft.
+            saveDraft(
+              store,
+              session.id,
+              snapshotDraft(id, state, state.media.length > 0 || uploads.items.length > 0),
+            )
+            setError(err instanceof Error ? err.message : i18n._(msg`Could not save the draft.`))
+            setConfirmingClose(false)
+            return
+          }
+          // 404/405: no drafts endpoint on this server — local fallback.
+        }
+        if (serverSaved) {
+          // The server holds the draft now: drop the local row (no double
+          // copy) and the in-progress pointer, then close.
+          deleteDraft(store, session.id, id)
+          clearOpenDraftId(store, session.id)
+          postedRef.current = true
+          setConfirmingClose(false)
+          onClose?.()
+          return
+        }
+      }
+      // Local path (slice 2, unchanged): no server drafts on this backend,
+      // or the server probed without the endpoint.
+      saveDraft(
+        store,
+        session.id,
+        snapshotDraft(id, state, state.media.length > 0 || uploads.items.length > 0),
+      )
+      clearOpenDraftId(store, session.id)
+      // Suppress a pending autosave tick: it would re-save this state and
+      // re-set the pointer just cleared above.
+      postedRef.current = true
+      setConfirmingClose(false)
+      onClose?.()
+    } finally {
+      // A failed save stays retryable; a second press while the first is in
+      // flight is dropped, not double-created (the sheet stays mounted
+      // across the await, so double-tap can reach here twice).
+      saveCloseRef.current = false
+    }
+  }, [backend, saveServerDraftNow, store, session.id, id, state, uploads.items, onClose])
 
   const discardAndClose = useCallback(() => {
     // The sheet itself is the discard confirm — no second confirm.
@@ -695,12 +782,48 @@ export function useComposerController({
   )
 
   const restore = (d: LocalDraft) => {
+    // A local restore retargets the composer at the local row: any tracked
+    // server draft is no longer the edit target.
+    setServerDraftId(null)
     setState(s => ({...s, ...stateFromDraft(d)}))
     setShowDrafts(false)
     // Restored reply/quote drafts keep their targets (C6): the ids resolve
     // through the owning session's backend; failures keep the text.
     void attachTargets(d.replyToId, d.quoteId)
   }
+
+  /** Open a server draft in place (slice 3): the same patch + target
+   * re-attach as the local restore above, and remember the server id so
+   * the next server save UPDATES it instead of creating a duplicate. */
+  const restoreServerDraft = useCallback(
+    (d: ServerDraft) => {
+      patch({
+        text: d.text ?? '',
+        cw: d.cw ?? '',
+        cwEnabled: (d.cw ?? '') !== '',
+        visibilityRaw: d.visibilityRaw ?? state.visibilityRaw,
+        visibleUserIds: d.visibleUserIds ?? [],
+        localOnly: d.localOnly ?? false,
+        scheduledAt: d.scheduledAt ?? null,
+        poll:
+          d.poll && Array.isArray(d.poll.choices) && typeof d.poll.expiredAfter === 'number'
+            ? {
+                choices: d.poll.choices,
+                multiple: d.poll.multiple ?? false,
+                durationSeconds: Math.max(
+                  1,
+                  Math.round(
+                    family === 'mastodon' ? d.poll.expiredAfter : d.poll.expiredAfter / 1000,
+                  ),
+                ),
+              }
+            : null,
+      })
+      setServerDraftId(d.id)
+      if (d.replyId || d.renoteId) void attachTargets(d.replyId ?? null, d.renoteId ?? null)
+    },
+    [attachTargets, family, patch, state.visibilityRaw],
+  )
   const drafts = showDrafts ? listDrafts(store, session.id).filter(d => d.id !== id) : []
 
   return {
@@ -710,6 +833,7 @@ export function useComposerController({
     pickingEmoji, setPickingEmoji, patch, trigger, suggestions, onPickSuggestion,
     count, over, options, mediaFull, pollBlockedByMedia, mediaBlockedByPoll,
     submit, addMedia, styles, restore, drafts, setSeededAlt, removeSeeded,
+    serverDraftId, restoreServerDraft, saveServerDraftNow,
     confirmingClose, isCloseDirty, requestClose, saveAndClose, discardAndClose, keepWriting,
     session, backend, store, replyTo, quote, draftId, editing, redraftSeed, onClose, onPosted,
   }

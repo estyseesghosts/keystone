@@ -6,6 +6,7 @@ import {ThemeProvider} from '#/alf/index'
 
 import type {ComposerController} from './Composer'
 import {
+  DraftsSection,
   PollSection,
   RecipientSection,
   ScheduledListSection,
@@ -343,6 +344,8 @@ describe('ServerDraftsSection', () => {
     const patch = jest.fn()
     const setError = jest.fn()
     const attachTargets = jest.fn()
+    const restoreServerDraft = jest.fn()
+    const saveServerDraftNow = jest.fn(async () => ({id: 'new-d'}))
     const c = {
       session,
       backend,
@@ -351,6 +354,8 @@ describe('ServerDraftsSection', () => {
       patch,
       setError,
       attachTargets,
+      restoreServerDraft,
+      saveServerDraftNow,
       gates: {
         poll: {enabled: false, reason: 'no'},
         pollMultiple: {enabled: false, reason: 'no'},
@@ -371,35 +376,119 @@ describe('ServerDraftsSection', () => {
         </ThemeProvider>
       </QueryClientProvider>,
     )
-    return {patch, backend: backend as ReturnType<typeof draftsBackend>}
+    return {patch, setError, restoreServerDraft, saveServerDraftNow, backend: backend as ReturnType<typeof draftsBackend>}
   }
 
-  it('restores a server draft into the composer and deletes one', async () => {
-    const {patch, backend} = draftsSetup(
+  it('restores a server draft in place and deletes one', async () => {
+    const {restoreServerDraft, backend} = draftsSetup(
       draftsBackend([
         {id: 'd1', text: 'hello draft', cw: 'warn', visibilityRaw: 'home', replyId: 'p1', renoteId: null},
       ]),
     )
     expect(await screen.findByTestId('composer-serverdraft-d1')).toBeTruthy()
     fireEvent.press(screen.getByTestId('composer-serverdraft-restore-d1'))
-    expect(patch).toHaveBeenCalledWith(
-      expect.objectContaining({text: 'hello draft', cw: 'warn', cwEnabled: true, visibilityRaw: 'home'}),
+    // Edit-in-place threading lives in the controller: the section hands
+    // over the whole row so the next save UPDATES it instead of duplicating.
+    expect(restoreServerDraft).toHaveBeenCalledWith(
+      expect.objectContaining({id: 'd1', text: 'hello draft'}),
     )
     fireEvent.press(screen.getByTestId('composer-serverdraft-del-d1'))
     await waitFor(() => expect(backend.serverDrafts.delete).toHaveBeenCalledWith('d1'))
   })
 
-  it('saves the current composer state as a server draft', async () => {
-    const {backend} = draftsSetup(draftsBackend([]))
+  it('saves the current composer state through the controller', async () => {
+    const {saveServerDraftNow} = draftsSetup(draftsBackend([]))
     expect(await screen.findByText('No server drafts.')).toBeTruthy()
     fireEvent.press(screen.getByTestId('composer-serverdraft-save'))
-    await waitFor(() => expect(backend.serverDrafts.create).toHaveBeenCalled())
-    expect(backend.serverDrafts.create.mock.calls[0][0]).toMatchObject({text: 'hi'})
+    await waitFor(() => expect(saveServerDraftNow).toHaveBeenCalledTimes(1))
+  })
+
+  it('surfaces a failed save on the composer error line', async () => {
+    const {saveServerDraftNow, setError} = draftsSetup(draftsBackend([]))
+    saveServerDraftNow.mockRejectedValueOnce(new Error('nope'))
+    expect(await screen.findByText('No server drafts.')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('composer-serverdraft-save'))
+    await waitFor(() => expect(setError).toHaveBeenCalledWith('nope'))
   })
 
   it('renders nothing without the serverDrafts sub-module', () => {
     draftsSetup({})
     expect(screen.queryByTestId('composer-server-drafts')).toBeNull()
+  })
+})
+
+describe('DraftsSection locations (slice 3)', () => {
+  function localSetup({
+    drafts,
+    showDrafts = true,
+    serverDrafts = false,
+  }: {
+    drafts: Array<{id: string; text: string}>
+    showDrafts?: boolean
+    serverDrafts?: boolean
+  }) {
+    const restore = jest.fn()
+    const c = {
+      drafts,
+      showDrafts,
+      restore,
+      backend: serverDrafts ? {serverDrafts: {}} : {},
+    } as unknown as ComposerController
+    render(
+      <ThemeProvider>
+        <DraftsSection c={c} />
+      </ThemeProvider>,
+    )
+    return {restore}
+  }
+
+  it('heads local rows "On this device" where server drafts are offered', () => {
+    localSetup({drafts: [{id: 'd1', text: 'local words'}], serverDrafts: true})
+    expect(screen.getByTestId('composer-drafts')).toBeTruthy()
+    expect(screen.getByText('On this device')).toBeTruthy()
+  })
+
+  it('renders exactly the pre-slice list without server drafts (Mastodon)', () => {
+    localSetup({drafts: [{id: 'd1', text: 'local words'}]})
+    expect(screen.getByTestId('composer-drafts')).toBeTruthy()
+    expect(screen.queryByText('On this device')).toBeNull()
+  })
+
+  it('restores a local row on press', () => {
+    const {restore} = localSetup({drafts: [{id: 'd1', text: 'local words'}]})
+    fireEvent.press(screen.getByText('local words'))
+    expect(restore).toHaveBeenCalledWith(expect.objectContaining({id: 'd1'}))
+  })
+
+  it('names the empty state per location', () => {
+    const {unmount} = render(
+      <ThemeProvider>
+        <DraftsSection
+          c={{drafts: [], showDrafts: true, backend: {serverDrafts: {}}} as unknown as ComposerController}
+        />
+      </ThemeProvider>,
+    )
+    expect(screen.getByText('No drafts on this device.')).toBeTruthy()
+    unmount()
+    render(
+      <ThemeProvider>
+        <DraftsSection
+          c={{drafts: [], showDrafts: true, backend: {}} as unknown as ComposerController}
+        />
+      </ThemeProvider>,
+    )
+    expect(screen.getByText('No saved drafts.')).toBeTruthy()
+  })
+
+  it('renders nothing when closed with no drafts', () => {
+    render(
+      <ThemeProvider>
+        <DraftsSection
+          c={{drafts: [], showDrafts: false, backend: {serverDrafts: {}}} as unknown as ComposerController}
+        />
+      </ThemeProvider>,
+    )
+    expect(screen.queryByTestId('composer-drafts')).toBeNull()
   })
 })
 

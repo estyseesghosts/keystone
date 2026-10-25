@@ -4,7 +4,7 @@ import {StyleSheet} from 'react-native'
 import {I18nProvider} from '@lingui/react'
 import {i18n} from '@lingui/core'
 
-import {ApiError, buildCapabilities, createMemoryStore, type Backend, type Session} from '@keystone/fedi'
+import {ApiError, buildCapabilities, createMemoryStore, type Backend, type ServerDraftsApi, type Session} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {themes, type ThemeName} from '#/alf/themes'
@@ -775,5 +775,132 @@ describe('close guard (slice 2)', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(listDrafts(store, s.id)).toEqual([])
     expect(getOpenDraftId(store, s.id)).toBeNull()
+  })
+})
+
+describe('server drafts smart default (slice 3)', () => {
+  function serverDraftsMock(list: unknown[] = []) {
+    // Intersection keeps the jest.Mock methods visible at use sites while
+    // satisfying the `ServerDraftsApi` field the backend takes.
+    const mock = {
+      list: jest.fn(async () => list),
+      create: jest.fn(async (d: unknown) => ({id: 'srv-new', ...(d as object)})),
+      update: jest.fn(async (id: string, d: unknown) => ({id, ...(d as object)})),
+      delete: jest.fn(async () => undefined),
+      count: jest.fn(async () => list.length),
+    }
+    return mock as unknown as ServerDraftsApi & typeof mock
+  }
+
+  beforeEach(() => {
+    pickMediaMock.mockReset()
+    pickMediaMock.mockImplementation(async () => ({kind: 'cancelled'}))
+  })
+
+  it('saves to the server when offered and leaves no local row behind', async () => {
+    const serverDrafts = serverDraftsMock()
+    const {store, s, onClose} = setup('sharkey', {serverDrafts})
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'keep me')
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    fireEvent.press(screen.getByTestId('composer-close-save'))
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    // Server create (not update — no open server draft), one call.
+    expect(serverDrafts.create).toHaveBeenCalledTimes(1)
+    expect(serverDrafts.create).toHaveBeenCalledWith(expect.objectContaining({text: 'keep me'}))
+    expect(serverDrafts.update).not.toHaveBeenCalled()
+    // No double copy: the autosaved local row is gone with the pointer.
+    expect(listDrafts(store, s.id)).toEqual([])
+    expect(getOpenDraftId(store, s.id)).toBeNull()
+  })
+
+  it('falls back to the local save when the server has no drafts endpoint (404)', async () => {
+    const serverDrafts = serverDraftsMock()
+    serverDrafts.create.mockRejectedValueOnce(new ApiError('unknown endpoint', 404))
+    const {store, s, onClose} = setup('sharkey', {serverDrafts})
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'keep me')
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    fireEvent.press(screen.getByTestId('composer-close-save'))
+    // Same outcome as slice 2: local row, pointer cleared, closed, silent.
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(listDrafts(store, s.id).map(d => d.text)).toEqual(['keep me'])
+    expect(getOpenDraftId(store, s.id)).toBeNull()
+    expect(screen.queryByTestId('composer-error')).toBeNull()
+  })
+
+  it('surfaces a real server failure and keeps the local copy', async () => {
+    const serverDrafts = serverDraftsMock()
+    serverDrafts.create.mockRejectedValueOnce(new ApiError('boom', 500))
+    const {store, s, onClose} = setup('sharkey', {serverDrafts})
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'keep me')
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    fireEvent.press(screen.getByTestId('composer-close-save'))
+    // Honest error, stays open, nothing dropped: the content is local.
+    await waitFor(() => expect(screen.getByTestId('composer-error')).toBeTruthy())
+    expect(screen.getByTestId('composer-error')).toHaveTextContent('boom')
+    expect(onClose).not.toHaveBeenCalled()
+    expect(listDrafts(store, s.id).map(d => d.text)).toEqual(['keep me'])
+    expect(screen.queryByTestId('composer-close-confirm')).toBeNull()
+  })
+
+  it('opening a server draft saves back as an update, not a duplicate', async () => {
+    const serverDrafts = serverDraftsMock([{id: 'srv1', text: 'server words'}])
+    const {store, s, onClose} = setup('sharkey', {serverDrafts})
+    fireEvent.press(await screen.findByTestId('composer-serverdraft-restore-srv1'))
+    expect(screen.getByTestId('composer-text').props.value).toBe('server words')
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    fireEvent.press(screen.getByTestId('composer-close-save'))
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(serverDrafts.update).toHaveBeenCalledTimes(1)
+    expect(serverDrafts.update).toHaveBeenCalledWith(
+      'srv1',
+      expect.objectContaining({text: 'server words'}),
+    )
+    expect(serverDrafts.create).not.toHaveBeenCalled()
+    expect(listDrafts(store, s.id)).toEqual([])
+    expect(getOpenDraftId(store, s.id)).toBeNull()
+  })
+
+  it('stays local-only on Mastodon: no server section, no server call', async () => {
+    const {store, s, onClose} = setup('mastodon')
+    expect(screen.queryByTestId('composer-server-drafts')).toBeNull()
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'keep me')
+    fireEvent.press(screen.getByTestId('composer-cancel'))
+    fireEvent.press(screen.getByTestId('composer-close-save'))
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(listDrafts(store, s.id).map(d => d.text)).toEqual(['keep me'])
+    expect(getOpenDraftId(store, s.id)).toBeNull()
+  })
+
+  it('merges both draft sources with location labels', async () => {
+    const {store, s} = setup('sharkey', {
+      serverDrafts: serverDraftsMock([{id: 'srv1', text: 'server words'}]),
+    })
+    fireEvent.press(screen.getByTestId('composer-drafts-toggle'))
+    expect(await screen.findByTestId('composer-serverdraft-srv1')).toBeTruthy()
+    expect(screen.getByText('Server drafts')).toBeTruthy()
+    // A local row from another open (the drafts list excludes only the
+    // current composer's own row).
+    store.setItem(
+      draftsKeyFor(s.id),
+      JSON.stringify({version: 1, drafts: [{id: 'local1', updatedAt: 1, text: 'local words'}]}),
+    )
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'typing')
+    expect(screen.getByTestId('composer-drafts')).toBeTruthy()
+    expect(screen.getByText('On this device')).toBeTruthy()
+    expect(screen.getByText('local words')).toBeTruthy()
+  })
+
+  it('shows no location labels and no server section on Mastodon', () => {
+    const {store, s} = setup('mastodon')
+    fireEvent.press(screen.getByTestId('composer-drafts-toggle'))
+    store.setItem(
+      draftsKeyFor(s.id),
+      JSON.stringify({version: 1, drafts: [{id: 'local1', updatedAt: 1, text: 'local words'}]}),
+    )
+    fireEvent.changeText(screen.getByTestId('composer-text'), 'typing')
+    expect(screen.getByTestId('composer-drafts')).toBeTruthy()
+    expect(screen.getByText('local words')).toBeTruthy()
+    expect(screen.queryByText('On this device')).toBeNull()
+    expect(screen.queryByTestId('composer-server-drafts')).toBeNull()
   })
 })
