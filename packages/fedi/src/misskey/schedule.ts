@@ -3,8 +3,11 @@
 // page by id cursors. 404-gated: unsupported backends keep the composer
 // scheduling control disabled with reason.
 
+import type { ScheduledApi, ScheduledNote } from "../core/backend";
 import type { WireCall } from "./client";
 import type { ScheduledNote as WireScheduledNote } from "./wire";
+import { adaptNote, decodeCursor } from "./adapt";
+import { createNoteBody } from "./noteBody";
 
 /** Wire body + `scheduledAt` — the backend builds the body; this module
  * only forwards it. */
@@ -51,4 +54,47 @@ export function parseScheduledAt(value: string): string | null {
 export function isFutureInstant(iso: string, now = Date.now()): boolean {
   const t = new Date(iso).getTime();
   return !Number.isNaN(t) && t > now;
+}
+
+export function createScheduledApi(call: WireCall): ScheduledApi {
+  const DEFAULT_LIMIT = 20;
+  return {
+    async list(opts = {}) {
+      const cursor = decodeCursor(opts.cursor ?? null);
+      // Both directions: `untilId` pages down, `sinceId` lets pull-to-
+      // refresh see rows created after the newest one it already holds.
+      const items = await listScheduledNotes(
+        call,
+        opts.limit ?? DEFAULT_LIMIT,
+        cursor.untilId,
+        cursor.sinceId,
+      );
+      return items.map(
+        (s): ScheduledNote => ({
+          id: s.id,
+          scheduledAt: s.scheduledAt,
+          post: s.note ? adaptNote(s.note) : null,
+          draft: s.draft ?? null,
+        }),
+      );
+    },
+    async create(draft) {
+      const created = await createScheduledNote(
+        call,
+        {
+          ...createNoteBody(draft),
+          scheduledAt: draft.scheduledAt,
+        },
+      );
+      return {
+        id: created.id,
+        scheduledAt: created.scheduledAt,
+        post: created.note ? adaptNote(created.note) : null,
+        draft: created.draft ?? null,
+      };
+    },
+    async delete(id) {
+      await deleteScheduledNote(call, id);
+    },
+  };
 }

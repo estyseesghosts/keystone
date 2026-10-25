@@ -20,7 +20,8 @@ import {callbackCleanHref} from '#/routes'
 import {useSessionStore} from '#/state/session/SessionProvider'
 import {appStorage} from '#/storage'
 
-import {completeMastodonOAuth, pollMisskeyApproval, takeMisskeyPending} from './LoginFlows'
+import {completeMastodonCallback} from './MastodonCallback'
+import {pollMisskeyApproval, takeMisskeyPending} from './LoginFlows'
 
 // OAuth + MiAuth callback: the browser returns here —
 // - Mastodon-family OAuth: `?code&state` (web: same-tab `/auth/callback`, or
@@ -155,7 +156,7 @@ export function AuthCallbackScreen() {
         return
       }
       try {
-        const done = await completeMastodonOAuth({
+        const done = await completeMastodonCallback({
           appStore: appStorage(),
           code: params.code,
           state: params.state,
@@ -165,25 +166,16 @@ export function AuthCallbackScreen() {
           setStatus('error')
           return
         }
-        let flavor: ServerFlavor = 'unknown'
-        let evidence: DetectionEvidence | null = null
-        try {
-          const found = await detectServer(done.origin)
-          if (found.family === 'mastodon') flavor = found.flavor
-          evidence = found.evidence
-        } catch {
-          // Flavor refines later; the verified session stores regardless.
-        }
         await store.add({
           origin: done.origin,
           family: 'mastodon',
-          flavor,
+          flavor: done.flavor,
           accountId: done.account.id,
           token: done.token,
           grant: 'oauth-pkce',
           hosting: 'third-party',
           user: done.account,
-          ...(evidence ? {evidence} : {}),
+          ...(done.evidence ? {evidence: done.evidence} : {}),
         })
         stripWebCallback()
         // Land on the tab shell (see Login `finish`).

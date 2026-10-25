@@ -24,6 +24,7 @@
 // credential problem, and nothing here clears anything.
 
 import type {
+  AdminInsightApi,
   MisskeyInstanceMeta,
   MisskeyQueueCounts,
   MisskeyQueueStats,
@@ -31,11 +32,13 @@ import type {
   QueuedReport,
   ReportResolution,
   ReportResolveOpts,
+  ReportsQueueApi,
   ReportsQueueListOpts,
 } from "../core/backend";
+import { ApiError } from "../core/errors";
 import type { Account } from "../core/models";
 import type { WireCall } from "./client";
-import { adaptAccount } from "./adapt";
+import { adaptAccount, decodeCursor, pageOf } from "./adapt";
 import type {
   AbuseUserReport,
   AdminMeta,
@@ -267,4 +270,87 @@ export async function updateAbuseUserReportNote(
  * server (remote targets only; the server refuses the rest). */
 export async function forwardAbuseUserReport(call: WireCall, reportId: string): Promise<void> {
   await call<undefined>("admin/forward-abuse-user-report", { reportId });
+}
+
+/** The honest answer for an insight section this family cannot serve
+ * (the Mastodon-family methods on the Misskey backend — no such
+ * endpoints here). Status 404 so the UI's "not on this server" states
+ * trigger exactly as they do for a missing Misskey endpoint. */
+function unsupportedAdminInsight(scope: string): never {
+  throw new ApiError(
+    `Server insight ${scope} is not available on this server.`,
+    404,
+    "errors.unsupported.adminInsight",
+  );
+}
+
+// Read-only server insight (Wave 3 slice 3.1 — NO mutations here).
+// Misskey/sharkey/catodon serve all four endpoints (verified in their
+// checkouts); pinetree serves none, so it leaves the member off and the
+// query gate renders the honest unavailable state. The five
+// Mastodon-family methods throw the typed unsupported error — this
+// family has no such endpoints, and the query layer never calls them on
+// this family (family branch); a 404 maps to `absent` if one ever is.
+export function createAdminInsightApi(call: WireCall): AdminInsightApi {
+  return {
+    measures() {
+      return unsupportedAdminInsight("measures");
+    },
+    dimensions() {
+      return unsupportedAdminInsight("dimensions");
+    },
+    peers() {
+      return unsupportedAdminInsight("peers");
+    },
+    extendedDescription() {
+      return unsupportedAdminInsight("extended description");
+    },
+    activity() {
+      return unsupportedAdminInsight("activity");
+    },
+    serverInfo() {
+      return fetchServerInfo(call);
+    },
+    instanceMeta() {
+      return fetchInstanceMeta(call);
+    },
+    queueStats() {
+      return fetchQueueStats(call);
+    },
+    onlineUsersCount() {
+      return fetchOnlineUsersCount(call);
+    },
+  };
+}
+
+// Reports queue (Wave 3 slice 3.2). Misskey/sharkey/catodon serve all
+// four endpoints with identical kinds (verified in their checkouts);
+// pinetree serves none, so it leaves the member off and the queue gate
+// renders the honest unavailable state. The Mastodon-family members
+// (get/assign/unassign/reopen/recategorize) have no Misskey equivalent
+// and stay undefined — the UI hides those actions, never fakes them.
+// Mutations return void: the UI confirms first, then refetches.
+export function createReportsQueueApi(call: WireCall): ReportsQueueApi {
+  const DEFAULT_LIMIT = 20;
+  return {
+    async list(opts: ReportsQueueListOpts = {}) {
+      const cursor = decodeCursor(opts.cursor ?? null);
+      const items = await fetchAbuseUserReports(call, {
+        state: opts.state,
+        limit: opts.limit ?? DEFAULT_LIMIT,
+        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
+        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
+      });
+      return pageOf(items, opts.limit ?? DEFAULT_LIMIT, (item) => item);
+    },
+    async resolve(id: string, opts?: ReportResolveOpts) {
+      await resolveAbuseUserReport(call, id, opts);
+    },
+    async updateNote(id: string, note: string) {
+      await updateAbuseUserReportNote(call, id, note);
+    },
+    async forward(id: string) {
+      await forwardAbuseUserReport(call, id);
+    },
+  };
 }

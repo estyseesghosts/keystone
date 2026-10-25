@@ -71,3 +71,17 @@ export function customEmojiNameFromReaction(reaction: string): string | null {
   const bare = bareEmojiName(inner);
   return /^([A-Za-z0-9_+-]+)$/.exec(bare)?.[1] ?? null;
 }
+
+/** True when a packed listing entry carries a usable name + URL (both
+ * non-empty strings). Junk entries never reach the picker. Pure. */
+export function isValidEmojiEntry<T extends { name?: unknown; url?: unknown }>(
+  entry: T | null | undefined,
+): entry is T & { name: string; url: string } {
+  return (
+    !!entry &&
+    typeof entry.name === "string" &&
+    typeof entry.url === "string" &&
+    entry.name.length > 0 &&
+    entry.url.length > 0
+  );
+}

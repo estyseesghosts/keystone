@@ -29,6 +29,7 @@
 // localizes (`message` is the fixed English fallback).
 
 import { FediError } from "../core/errors";
+import type { TransferApi } from "../core/backend";
 import type { WireCall } from "./client";
 
 export const IMPORT_MAX_BYTES = 10 * 1024 * 1024;
@@ -249,5 +250,24 @@ export function serializeExport(
     filename,
     mimeType: "application/json",
     text: JSON.stringify(payload, null, 2),
+  };
+}
+
+// Account data portability (clickstone §2.3): imports upload the picked
+// file to Drive and then call `i/import-*` with the returned `{fileId}`
+// (never `{file}`); exports only ENQUEUE and report the rate window +
+// the `exportCompleted` notification to watch. The 0.6 shapes stand.
+export function createTransferApi(transport: ImportTransport, call: WireCall): TransferApi {
+  return {
+    importFile: (kind, file, opts) => {
+      const onPhase = opts?.onPhase;
+      return importData(
+        transport,
+        kind,
+        file,
+        onPhase ? { onProgress: (progress) => onPhase(progress.phase) } : {},
+      );
+    },
+    exportList: (kind) => exportData(call, kind),
   };
 }

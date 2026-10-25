@@ -19,7 +19,7 @@ interface PackedClip {
   notesCount?: unknown;
 }
 
-function adaptClipSummary(raw: PackedClip): ClipSummary {
+export function adaptClipSummary(raw: PackedClip): ClipSummary {
   const out: ClipSummary = {
     id: typeof raw.id === "string" ? raw.id : "",
     name: typeof raw.name === "string" ? raw.name : "",

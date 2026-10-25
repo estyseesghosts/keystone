@@ -33,9 +33,9 @@
 // which the backend surfaces as the typed unsupported `ApiError` — the UI
 // renders "not on this server", never an error wall.
 
-import type { ChatMessage, ChatRoom, ChatRoomMembership } from "../core/backend";
+import type { ChatApi, ChatMessage, ChatRoom, ChatRoomMembership } from "../core/backend";
 import { FediError } from "../core/errors";
-import { adaptAccount, adaptDriveFile } from "./adapt";
+import { adaptAccount, adaptDriveFile, decodeCursor, pageOf } from "./adapt";
 import type { WireCall } from "./client";
 import type { DriveFile, UserLite } from "./wire";
 
@@ -330,4 +330,83 @@ export async function deleteChatMessage(call: WireCall, messageId: string): Prom
  * is the timeline fetch itself; this is the inbox-level sweep. */
 export async function readAllChat(call: WireCall): Promise<void> {
   await call<undefined>("chat/read-all", {});
+}
+
+// Misskey chat (P6.2, clickstone §2.2): rooms + 1-on-1 threads. The
+// paged surfaces (`joining`, both timelines) ride the shared
+// `{limit, sinceId, untilId}` cursor convention (decodeCursor); the
+// overview (`chat/history`) is limit-only server-side, so `history`
+// refetches rather than pages. Timeline fetches mark read server-side
+// — there is deliberately no per-thread mark call here.
+export function createChatApi(call: WireCall): ChatApi {
+  const DEFAULT_LIMIT = 20;
+  return {
+    async rooms(opts = {}) {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const cursor = decodeCursor(opts.cursor ?? null);
+      const rows = await listChatRooms(call, {
+        limit,
+        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
+        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
+      });
+      return pageOf(rows ?? [], limit, (row) => row);
+    },
+    async history(opts = {}) {
+      const rows = await chatHistory(call, {
+        ...(opts.limit !== undefined ? { limit: opts.limit } : {}),
+        ...(opts.rooms !== undefined ? { rooms: opts.rooms } : {}),
+      });
+      return rows ?? [];
+    },
+    showRoom(roomId) {
+      return showChatRoom(call, roomId);
+    },
+    createRoom(name, opts = {}) {
+      return createChatRoom(call, {
+        name,
+        ...(opts.description !== undefined ? { description: opts.description } : {}),
+      });
+    },
+    async roomMessages(roomId, opts = {}) {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const cursor = decodeCursor(opts.cursor ?? null);
+      const { items } = await roomTimeline(call, roomId, {
+        limit,
+        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
+        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
+      });
+      return pageOf(items ?? [], limit, (item) => item);
+    },
+    async userMessages(userId, opts = {}) {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const cursor = decodeCursor(opts.cursor ?? null);
+      const { items } = await userTimeline(call, userId, {
+        limit,
+        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
+        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
+      });
+      return pageOf(items ?? [], limit, (item) => item);
+    },
+    showMessage(messageId) {
+      return showChatMessage(call, messageId);
+    },
+    sendToRoom(roomId, text, opts = {}) {
+      return createRoomMessage(call, roomId, {
+        ...(text !== undefined ? { text } : {}),
+        ...(opts.fileId !== undefined ? { fileId: opts.fileId } : {}),
+      });
+    },
+    sendToUser(userId, text, opts = {}) {
+      return createUserMessage(call, userId, {
+        ...(text !== undefined ? { text } : {}),
+        ...(opts.fileId !== undefined ? { fileId: opts.fileId } : {}),
+      });
+    },
+    deleteMessage(messageId) {
+      return deleteChatMessage(call, messageId);
+    },
+    readAll() {
+      return readAllChat(call);
+    },
+  };
 }

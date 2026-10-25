@@ -210,23 +210,22 @@ export function createTranslator(deps: TranslatorDeps): Translator {
 
 // --- Viewer language ---------------------------------------------------------
 
-function viewerPrimary(): string {
-  try {
-    const lang =
-      typeof navigator !== "undefined" && navigator.language
-        ? navigator.language
-        : "en";
-    return lang.split(/[-_]/)[0].toLowerCase() || "en";
-  } catch {
-    return "en";
-  }
+// The viewer's locale lives in the app (`viewerPrimaryOf(i18n.locale)` in
+// `src/components/Post/translationPolicy.ts`, which adapts this family with
+// an explicit viewer). Fedi stays pure-TS and never reads `navigator`
+// (lint `no-ui-in-fedi` bans it here): the viewer arrives as a parameter,
+// defaulting to `en` when the caller has no locale to pass.
+
+function viewerPrimary(lang?: string): string {
+  const raw = (lang ?? "en").split(/[-_]/)[0]?.toLowerCase() ?? "";
+  return raw || "en";
 }
 
 /** The targetLang code sent to the server: the viewer's primary subtag
  * (`en-US` -> `en`). The server is lenient (verified live), so no mapping
- * table is maintained. */
-export function viewerTargetLang(): string {
-  return viewerPrimary();
+ * table is maintained. Pass the app's viewer locale when known. */
+export function viewerTargetLang(lang?: string): string {
+  return viewerPrimary(lang);
 }
 
 /** True when a translation is worth showing: the server's `sourceLang` is
@@ -234,11 +233,12 @@ export function viewerTargetLang(): string {
  * English name of the viewer's language (`Intl.DisplayNames`) as well as
  * the raw primary subtag. Same-language results (which the server still
  * returns) are suppressed; anything unrecognized is shown — an extra
- * toggle line is harmless, a hidden translation is not. */
-export function translationDiffers(sourceLang: string): boolean {
+ * toggle line is harmless, a hidden translation is not. The viewer
+ * arrives explicitly (default `en`); fedi never reads `navigator`. */
+export function translationDiffers(sourceLang: string, viewerLang = "en"): boolean {
   const src = sourceLang.trim().toLowerCase();
   if (!src) return false;
-  const primary = viewerPrimary();
+  const primary = viewerPrimary(viewerLang);
   if (src === primary) return false;
   try {
     const name = new Intl.DisplayNames(["en"], { type: "language" }).of(primary);
@@ -265,17 +265,6 @@ function evict(map: Map<string, unknown>): void {
     if (oldest.done) break;
     map.delete(oldest.value);
   }
-}
-
-function isTranslateResult(value: unknown): value is TranslateResult {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return (
-    typeof v.sourceLang === "string" &&
-    v.sourceLang.length > 0 &&
-    typeof v.text === "string" &&
-    v.text.length > 0
-  );
 }
 
 // --- Translatable text, display policy ---------------------------------------
@@ -424,15 +413,18 @@ export type TranslationDecision =
  *   detection demonstrably misfired (e.g. a Ukrainian post labeled
  *   English). Same-script rewrites stay hidden: they are normalization
  *   noise, or an LLM-backend hallucination on a short same-language post
- *   (observed live), neither of which helps the viewer. */
+ *   (observed live), neither of which helps the viewer.
+ * The viewer language arrives explicitly (default `en`) so fedi never
+ * reads `navigator`; the app adapter passes its real viewer primary. */
 export function decideTranslation(
   original: string,
   result: TranslateResult,
+  viewerLang = "en",
 ): TranslationDecision {
   const a = normalizeForCompare(original);
   const b = normalizeForCompare(result.text);
   if (!a || !b || a === b) return { show: false };
-  if (translationDiffers(result.sourceLang)) {
+  if (translationDiffers(result.sourceLang, viewerLang)) {
     return { show: true, label: result.sourceLang };
   }
   if (

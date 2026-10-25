@@ -17,8 +17,10 @@
 // is a fixed top-10 with no cursor. Using search keeps both directions of
 // paging exact.
 
-import type { Channel } from "../core/backend";
+import type { Channel, ChannelsApi } from "../core/backend";
+import type { Page, Post } from "../core/models";
 import type { WireCall } from "./client";
+import { decodeCursor, pageOf } from "./adapt";
 
 /** Packed `Channel` as the API answers it. Fields we do not surface stay
  * off the domain model. */
@@ -88,4 +90,51 @@ export async function unfollowChannel(
   channelId: string,
 ): Promise<void> {
   await call<undefined>("channels/unfollow", { channelId });
+}
+
+// Channels (clickstone §1.9): the Misskey-family group timelines. The
+// directory is `channels/search` with an empty query (the official client
+// renders the same paged search); `channels/featured` is a fixed top-10
+// with no cursor, so it cannot page. No `allowPartial` is sent — the
+// reference client's paginator sends only `channelId` + cursor params.
+export function createChannelsApi(
+  call: WireCall,
+  callNotes: (endpoint: string, params: Record<string, unknown>) => Promise<Page<Post>>,
+): ChannelsApi {
+  const DEFAULT_LIMIT = 20;
+  return {
+    async list(opts = {}) {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const params: Record<string, unknown> = {
+        query: opts.query ?? "",
+        limit,
+        ...decodeCursor(opts.cursor ?? null),
+      };
+      return pageOf(await searchChannels(call, params), limit, adaptChannel);
+    },
+    async show(channelId) {
+      return showChannel(call, channelId);
+    },
+    async notes(channelId, opts = {}) {
+      return callNotes("channels/timeline", {
+        channelId,
+        limit: opts.limit ?? DEFAULT_LIMIT,
+        ...decodeCursor(opts.cursor ?? null),
+      });
+    },
+    async followed(opts = {}) {
+      const limit = opts.limit ?? DEFAULT_LIMIT;
+      const rows = await listFollowedChannels(call, {
+        limit,
+        ...decodeCursor(opts.cursor ?? null),
+      });
+      return pageOf(rows, limit, adaptChannel);
+    },
+    follow(channelId) {
+      return followChannel(call, channelId);
+    },
+    unfollow(channelId) {
+      return unfollowChannel(call, channelId);
+    },
+  };
 }

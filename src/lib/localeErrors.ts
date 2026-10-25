@@ -37,7 +37,6 @@ export const FEDI_ERROR_MESSAGES: Record<string, MessageDescriptor> = {
   'errors.unsupported.social': msg({id: 'errors.unsupported.social', message: 'The social timeline is not available on this server.'}),
   'errors.unsupported.reactions': msg({id: 'errors.unsupported.reactions', message: 'Reaction listings are not available on this server.'}),
   'errors.unsupported.featured': msg({id: 'errors.unsupported.featured', message: 'The featured-notes listing is not available on this server.'}),
-  'errors.unsupported.avatar': msg({id: 'errors.unsupported.avatar', message: 'Avatar and banner changes are not supported on the Mastodon family yet.'}),
   'errors.unsupported.noAccountRef': msg({id: 'errors.unsupported.noAccountRef', message: 'No account reference given.'}),
   'errors.unsupported.noAccountFound': msg({id: 'errors.unsupported.noAccountFound', message: 'No account found for {acct}.'}),
   'errors.unsupported.boostVisibility': msg({id: 'errors.unsupported.boostVisibility', message: 'You can only change boost visibility for accounts you follow.'}),

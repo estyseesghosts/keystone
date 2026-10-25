@@ -17,7 +17,12 @@ import { ApiError } from "../core/errors";
 import type { ServerFamily } from "../core/detect";
 import type { WireCall } from "./client";
 import type { CustomEmoji } from "./emoji";
-import { customEmojiNameFromReaction, isLocalEmojiHost, parseEmojiCode } from "./emoji";
+import {
+  customEmojiNameFromReaction,
+  isLocalEmojiHost,
+  isValidEmojiEntry,
+  parseEmojiCode,
+} from "./emoji";
 
 interface EmojisResponse {
   emojis?: Array<{
@@ -140,15 +145,8 @@ export function createCustomEmojiStore(
         const list: unknown = (body as EmojisResponse).emojis;
         if (Array.isArray(list)) {
           for (const entry of list) {
-            if (
-              typeof entry?.name === "string" &&
-              typeof entry?.url === "string" &&
-              entry.name.length > 0 &&
-              entry.url.length > 0 &&
-              !(entry.name in table)
-            ) {
-              table[entry.name] = entry.url;
-            }
+            if (!isValidEmojiEntry(entry) || entry.name in table) continue;
+            table[entry.name] = entry.url;
           }
         }
         hostMaps[key] = table;
@@ -182,14 +180,7 @@ export function createCustomEmojiStore(
         const urls = new Map<string, string>();
         if (Array.isArray(res.emojis)) {
           for (const entry of res.emojis) {
-            if (
-              typeof entry?.name !== "string" ||
-              typeof entry?.url !== "string" ||
-              entry.name.length === 0 ||
-              entry.url.length === 0
-            ) {
-              continue;
-            }
+            if (!isValidEmojiEntry(entry)) continue;
             const aliases = Array.isArray(entry.aliases)
               ? entry.aliases.filter(
                   (alias): alias is string => typeof alias === "string",

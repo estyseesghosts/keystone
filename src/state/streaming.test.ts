@@ -5,7 +5,6 @@ import type {Post} from '@keystone/fedi'
 
 import {
   createFeedLive,
-  createLiveRegistry,
   createPostLive,
   feedSourceForDescriptor,
   feedSourceKey,
@@ -289,35 +288,6 @@ describe('createFeedLive delete/update capture (MD10 app half)', () => {
     })
     live.dispose()
     expect(released.sort()).toEqual(['k1', 'k2'])
-  })
-})
-
-describe('createLiveRegistry', () => {
-  it('isolates live entries per account (no cross-account leaks)', () => {
-    const registry = createLiveRegistry()
-    const insertedA: Post[] = []
-    const insertedB: Post[] = []
-    const keyA = liveKey('sA', {kind: 'home'})
-    const keyB = liveKey('sB', {kind: 'home'})
-    const liveA = registry.acquire(
-      keyA,
-      () =>
-        createFeedLive({handle: fakeHandle(), source: {kind: 'home'}, onInsert: p => insertedA.push(...p)}),
-    )
-    const sameA = registry.acquire(keyA, () =>
-      createFeedLive({handle: fakeHandle(), source: {kind: 'home'}, onInsert: () => {}}),
-    )
-    expect(sameA).toBe(liveA)
-    registry.acquire(keyB, () =>
-      createFeedLive({handle: fakeHandle(), source: {kind: 'home'}, onInsert: p => insertedB.push(...p)}),
-    )
-    expect(registry.size()).toBe(2)
-    expect(registry.get(keyA)).toBe(liveA)
-    registry.release(keyA)
-    expect(registry.get(keyA)).toBeUndefined()
-    expect(registry.size()).toBe(1)
-    registry.clear()
-    expect(registry.size()).toBe(0)
   })
 })
 

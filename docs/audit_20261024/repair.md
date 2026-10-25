@@ -510,8 +510,7 @@ Each D slice’s acceptance is: public behavior unchanged, tests green, LOC of t
 
 ### D3.1 — Split Misskey `backend.ts`
 
-Status: not started
-Branch: `repair-d3.1-misskey-backend-split`
+Status: done (2026-10-24, Wave 3 commit; `backend.ts` 1615→969 factory pattern extended to remaining domain blocks; 5 noteBody omit-null tests; log `state/logs/2026-10-24-repair-d3.1.md`)
 Audit: `results/01` condensed responsibility; report god-file #3
 Depends: R1.1, R1.2 merged
 
@@ -546,8 +545,7 @@ Depends: R1.1, R1.2 merged
 
 ### D3.2 — Split `core/backend.ts` types
 
-Status: not started
-Branch: `repair-d3.2-core-backend-types`
+Status: done (2026-10-24, Wave 3 commit; reportsQueue/adminInsight/transfer types + re-export shim, `backend.ts` 1863→1362; log `state/logs/2026-10-24-repair-d3.2.md`)
 Audit: `results/04` top 5 #5; `results/08` god-file #1
 Depends: R1.3 merged (models/notification types stable)
 
@@ -578,8 +576,7 @@ Depends: R1.3 merged (models/notification types stable)
 
 ### D3.3 — Mastodon backend helper extract (not an endpoint split)
 
-Status: not started
-Branch: `repair-d3.3-mastodon-helpers`
+Status: done (2026-10-24, Wave 3 commit; `filters.ts` + `lists.ts` out of `backend.ts` 1672→1541, `endpoints.ts` untouched; log `state/logs/2026-10-24-repair-d3.3.md`)
 Audit: `results/02` condensed responsibility; `results/08` god-file #2
 Depends: R1.3 merged
 
@@ -610,8 +607,7 @@ Depends: R1.3 merged
 
 ### D3.4 — Split `Navigation.tsx` shell chrome
 
-Status: not started
-Branch: `repair-d3.4-nav-shell`
+Status: done (2026-10-24, Wave 3 commit; `Navigation.tsx` 1413→366 + 6 shell modules, prefix fix + helper tests; log `state/logs/2026-10-24-repair-d3.4.md`)
 Audit: `results/07` condensed responsibility; `results/08` god-file #4
 
 **Goal.** `Navigation.tsx` assembles the navigator. Linking helpers, sidebar, tab bar, and account menu live in `src/shell/` (or `src/components/shell/` — match the nearer existing folder; do not invent both).
@@ -643,8 +639,7 @@ Audit: `results/07` condensed responsibility; `results/08` god-file #4
 
 ### D3.5 — Split RichText and the translated-text scanner
 
-Status: not started
-Branch: `repair-d3.5-richtext-ast`
+Status: done (2026-10-24, Wave 3 commit; `RichText.tsx` 1060→641 + richtext/ modules, `fromTranslated.ts` out of `ast.ts`, 4 renderer tests; log `state/logs/2026-10-24-repair-d3.5.md` — reconstructed by coordinator from worker report)
 Audit: `results/03` responsibility 1–2; `results/08` god-file #5; `results/09` memo is P4.1
 Depends: R0.2 merged; R2.1 merged (scanner fixes must move, not be reimplemented)
 
@@ -676,8 +671,7 @@ Depends: R0.2 merged; R2.1 merged (scanner fixes must move, not be reimplemented
 
 ### D3.6 — Split PostCard view hooks
 
-Status: not started
-Branch: `repair-d3.6-postcard-hooks`
+Status: done (2026-10-24, Wave 3 commit; `PostCard.tsx` 1217→970 via `useQuoteTarget` + `useAutoTranslation`; log `state/logs/2026-10-24-repair-d3.6.md`)
 Audit: `results/05` condensed responsibility
 Depends: R2.4 merged
 
@@ -708,8 +702,7 @@ Depends: R2.4 merged
 
 ### D3.7 — Screen splits: Explore, Mutes, AdminReports, Drive, Login completion dedupe
 
-Status: not started
-Branch: `repair-d3.7-screen-splits`
+Status: done (2026-10-24, Wave 3 commit; full slice — Explore/Mutes/AdminReports/Drive/Login splits, one shared Mastodon callback; log `state/logs/2026-10-24-repair-d3.7.md`)
 Audit: `results/05` Explore; `results/06` Drive; `results/07` Login, Mutes, AdminReports
 Depends: R0.1 merged (Mutes). Login dedupe does not depend on a prior R slice.
 
@@ -745,8 +738,7 @@ This slice is large. If context runs out, stop after Explore + Mutes and write `
 
 ### D3.8 — Shared helpers, lint, dead code, i18n ticket
 
-Status: not started
-Branch: `repair-d3.8-shared-helpers`
+Status: done (2026-10-24, Wave 3 commit; decideTranslation unified in fedi, both lint rules hardened with proof, SysDebug __DEV__-gated, dead code + false avatar key deleted, 8-key i18n ticket in log; scanner-share skipped for post-merge; log `state/logs/2026-10-24-repair-d3.8.md`)
 Audit: `results/03` quality 1–2; `results/07` lint gaps + i18n + SysDebug; `results/08` 8-param helpers; `results/01` dead code
 
 **Goal.** The next two-place scanner bug is structurally harder. Lint catches the seams the audit named. Dead code the audits proved unused is gone. English-only error keys are ticketed, not machine-translated.
@@ -880,14 +872,14 @@ Update the status line on the slice **and** this table when a session ends.
 | R2.2 Exclusive honesty | done | `repair-r2.2-exclusive-honesty` | R1.1 merged Wave 1 |
 | R2.3 Media / native | done | `repair-r2.3-media-native` | RichText free (R0.2 merged) |
 | R2.4 Surface honesty | done | `repair-r2.4-surface-honesty` | — |
-| D3.1 Misskey backend split | not started | `repair-d3.1-misskey-backend-split` | R1.1, R1.2 |
-| D3.2 Core type split | not started | `repair-d3.2-core-backend-types` | R1.3 |
-| D3.3 Mastodon helper split | not started | `repair-d3.3-mastodon-helpers` | R1.3 |
-| D3.4 Nav shell split | not started | `repair-d3.4-nav-shell` | — |
-| D3.5 RichText / ast split | not started | `repair-d3.5-richtext-ast` | R0.2, R2.1 |
-| D3.6 PostCard hooks | not started | `repair-d3.6-postcard-hooks` | R2.4 |
-| D3.7 Screen splits | not started | `repair-d3.7-screen-splits` | R0.1 |
-| D3.8 Shared helpers / lint | not started | `repair-d3.8-shared-helpers` | D3.5 for the scanner only |
+| D3.1 Misskey backend split | done | `repair-d3.1-misskey-backend-split` | R1.1, R1.2 merged Wave 1 |
+| D3.2 Core type split | done | `repair-d3.2-core-backend-types` | R1.3 merged Wave 1 |
+| D3.3 Mastodon helper split | done | `repair-d3.3-mastodon-helpers` | R1.3 merged Wave 1 |
+| D3.4 Nav shell split | done | `repair-d3.4-nav-shell` | — |
+| D3.5 RichText / ast split | done | `repair-d3.5-richtext-ast` | R0.2, R2.1 merged Waves 0+2 |
+| D3.6 PostCard hooks | done | `repair-d3.6-postcard-hooks` | R2.4 merged Wave 2 |
+| D3.7 Screen splits | done | `repair-d3.7-screen-splits` | R0.1 merged Wave 0 |
+| D3.8 Shared helpers / lint | done | `repair-d3.8-shared-helpers` | scanner skipped (D3.5 parallel) |
 | P4.1 Feed memo | not started | `repair-p4.1-feed-memo` | D3.5, D3.6 |
 | P4.2 Coverage | not started | `repair-p4.2-coverage` | D3.4 for nav helper tests |
 

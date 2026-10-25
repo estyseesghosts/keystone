@@ -32,7 +32,7 @@ import {feedQueryKey, serverFiltersQueryKey} from '#/state/queries/keys'
 //   surfaces `status()` + `onStatusChange()` for badges/pills and offers
 //   `resubscribe()` as the manual retry. No extra timers here.
 // - Multi-account isolation: every live entry is keyed by sessionId (see
-//   `feedSourceKey` + `createLiveRegistry`). Switching accounts never
+//   `feedSourceKey` + the per-mount `FeedLive`). Switching accounts never
 //   shows the previous account's live posts.
 
 /** Stable string for a feed source, for query-key scoping + registries. */
@@ -235,44 +235,6 @@ export function createPostLive(
   if (!handle) return () => undefined
   return handle.subscribePost(id, handlers)
 }
-
-/**
- * Per-account live registry. One `FeedLive` per `(sessionId, source)`;
- * entries dispose on `release()`. Guards the multi-account rule: live
- * posts for session A are unreachable from session B's key.
- */
-export function createLiveRegistry() {
-  const entries = new Map<string, FeedLive>()
-
-  return {
-    acquire(key: string, create: () => FeedLive): FeedLive {
-      const existing = entries.get(key)
-      if (existing) return existing
-      const live = create()
-      entries.set(key, live)
-      return live
-    },
-    get(key: string): FeedLive | undefined {
-      return entries.get(key)
-    },
-    release(key: string): void {
-      const live = entries.get(key)
-      if (live) {
-        live.dispose()
-        entries.delete(key)
-      }
-    },
-    clear(): void {
-      for (const live of entries.values()) live.dispose()
-      entries.clear()
-    },
-    size(): number {
-      return entries.size
-    },
-  }
-}
-
-export type LiveRegistry = ReturnType<typeof createLiveRegistry>
 
 // --- Descriptor → live channel (WS-G mount) ---------------------------------
 

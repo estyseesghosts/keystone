@@ -289,11 +289,6 @@ msgstr ""
 msgid "Automatic"
 msgstr ""
 
-#. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:40
-msgid "errors.unsupported.avatar"
-msgstr "Mastodon परिवार में अवतार और बैनर बदलना अभी समर्थित नहीं है।"
-
 #: src/Navigation.tsx:386
 msgid "Back"
 msgstr ""

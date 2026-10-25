@@ -263,6 +263,17 @@ export function callbackCleanHref(raw: string | null | undefined): string {
   return path || AUTH_CALLBACK_PATH
 }
 
+/** True in dev/test, false in production bundles. Read off the bare
+ * `__DEV__` global through `globalThis` (safe when no host defines it —
+ * `typeof`-free property access, never a bare reference): production RN /
+ * Expo-web set it `false`; dev/test set it `true`. When the host never
+ * defined it (plain node import, tooling), treat as dev so tests and
+ * scripts keep the full table. */
+export function isDevBuild(): boolean {
+  const flag = (globalThis as {__DEV__?: unknown}).__DEV__
+  return flag !== false
+}
+
 // --- Single-source linking table -------------------------------------------
 //
 // `Navigation.tsx` builds its `linking.config` from this (see
@@ -277,9 +288,16 @@ const leaf = (name: keyof RootParamList): string => {
 
 /** The `linking.config.screens` object, derived from `paths`. Nesting
  * mirrors the navigator tree: tab screens under `Main`, stack screens
- * at the top level. */
+ * at the top level.
+ *
+ * `SysDebug` (`/sys/debug`) is a dev-only route: production linking
+ * never exposes it (D3.8 gate). The `paths` table still documents the
+ * URL so dev builds resolve it; prod builds drop the leaf. The screen
+ * component itself also renders null outside dev builds (defense in
+ * depth — the `Stack.Screen` registration lives in `Navigation.tsx`,
+ * owned by D3.4, which should remove it when it splits that file). */
 export function linkingScreens(): LinkingScreens {
-  return {
+  const screens: LinkingScreens = {
     Main: {
       screens: {
         Home: leaf('Home'),
@@ -325,6 +343,10 @@ export function linkingScreens(): LinkingScreens {
     SysDebug: leaf('SysDebug'),
     Compose: leaf('Compose'),
   }
+  if (!isDevBuild()) {
+    delete screens.SysDebug
+  }
+  return screens
 }
 
 // Butterfly chrome titles per leaf route (Keystone v1 `stripTitle`

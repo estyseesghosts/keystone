@@ -289,11 +289,6 @@ msgstr ""
 msgid "Automatic"
 msgstr ""
 
-#. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:40
-msgid "errors.unsupported.avatar"
-msgstr "Mastodon 系暂不支持更换头像和横幅。"
-
 #: src/Navigation.tsx:386
 msgid "Back"
 msgstr ""

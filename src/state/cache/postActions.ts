@@ -74,16 +74,17 @@ export function createPostActionController(deps: {
     return key.startsWith(':') && key.endsWith(':') && key.length > 2
   }
 
-  function queueFor<T>(
-    kind: PostActionKind,
-    sessionId: string,
-    post: Post,
-    confirmedNow: T,
-    ctx: QueueCtx,
-    run: (backend: Backend, from: T, to: T) => Promise<void>,
-    optimistic: (v: T) => void,
-    settle: (v: T) => void,
-  ): ToggleQueue<T> {
+  function queueFor<T>(opts: {
+    kind: PostActionKind
+    sessionId: string
+    post: Post
+    confirmedNow: T
+    ctx: QueueCtx
+    run: (backend: Backend, from: T, to: T) => Promise<void>
+    optimistic: (v: T) => void
+    settle: (v: T) => void
+  }): ToggleQueue<T> {
+    const {kind, sessionId, post, confirmedNow, ctx, run, optimistic, settle} = opts
     const key = `${sessionId}\u0000${post.id}\u0000${kind}`
     const existing = queues.get(key)
     if (existing) {
@@ -161,13 +162,13 @@ export function createPostActionController(deps: {
           pendingEmoji: v != null && !isKnown(v, emojiUrl) ? v : null,
           base: {myReaction: baseMine},
         })
-      const queue = queueFor<string | null>(
-        'reaction',
+      const queue = queueFor<string | null>({
+        kind: 'reaction',
         sessionId,
         post,
-        seenMine,
-        {backend},
-        async (b, from, to) => {
+        confirmedNow: seenMine,
+        ctx: {backend},
+        run: async (b, from, to) => {
           // Sharkey-family like shortcut: a pure heart toggle (one side a
           // heart, the other null-or-heart) goes through `POST notes/like`,
           // which toggles server-side — no separate delete. Custom emoji on
@@ -230,46 +231,71 @@ export function createPostActionController(deps: {
             }
           }
         },
-        v => write(v),
-        () => settleInto(sessionId, post, 'reaction'),
-      )
+        optimistic: v => write(v),
+        settle: () => settleInto(sessionId, post, 'reaction'),
+      })
       write(next, opts?.emojiUrl)
       return queue.queueToggle(next)
     },
 
     setFavourite(sessionId, backend, post, next) {
-      return boolToggle('favourite', sessionId, backend, post, next, post.favourite?.mine ?? false, 'favourited', (b, to) =>
-        to ? b.favourite(post.id) : b.unfavourite(post.id),
-      )
+      return boolToggle({
+        kind: 'favourite',
+        sessionId,
+        backend,
+        post,
+        next,
+        baseValue: post.favourite?.mine ?? false,
+        field: 'favourited',
+        call: (b, to) => (to ? b.favourite(post.id) : b.unfavourite(post.id)),
+      })
     },
     setRenoted(sessionId, backend, post, next) {
-      return boolToggle('renote', sessionId, backend, post, next, post.ext.reblogged ?? false, 'renoted', async (b, to) => {
-        if (to) await b.boost(post.id)
-        else await b.unboost(post.id)
+      return boolToggle({
+        kind: 'renote',
+        sessionId,
+        backend,
+        post,
+        next,
+        baseValue: post.ext.reblogged ?? false,
+        field: 'renoted',
+        call: async (b, to) => {
+          if (to) await b.boost(post.id)
+          else await b.unboost(post.id)
+        },
       })
     },
     setBookmarked(sessionId, backend, post, next) {
-      return boolToggle('bookmark', sessionId, backend, post, next, post.ext.bookmarked ?? false, 'bookmarked', async (b, to) => {
-        const api = b.bookmarks
-        if (!api) throw new Error('Bookmarks are not available on this server.')
-        if (to) await api.add(post.id)
-        else await api.remove(post.id)
+      return boolToggle({
+        kind: 'bookmark',
+        sessionId,
+        backend,
+        post,
+        next,
+        baseValue: post.ext.bookmarked ?? false,
+        field: 'bookmarked',
+        call: async (b, to) => {
+          const api = b.bookmarks
+          if (!api) throw new Error('Bookmarks are not available on this server.')
+          if (to) await api.add(post.id)
+          else await api.remove(post.id)
+        },
       })
     },
     deletePost(sessionId, backend, post, isOwn) {
       const refused = refuse('delete', backend, post, isOwn)
       if (refused) return refused
-      const queue = queueFor<boolean>(
-        'delete',
+      const queue = queueFor<boolean>({
+        kind: 'delete',
         sessionId,
         post,
-        false,
-        {backend},
-        async (b, _from, to) => {
+        confirmedNow: false,
+        ctx: {backend},
+        run: async (b, _from, to) => {
           if (to) await b.deletePost(post.id)
         },
-        v => store.patch(sessionId, post.id, {isDeleted: v}),
-        v => {
+        optimistic: v => store.patch(sessionId, post.id, {isDeleted: v}),
+        settle: v => {
           if (v) {
             // Gone for good: remove every cached copy, keep the shadow so
             // a held reference still hides.
@@ -278,39 +304,40 @@ export function createPostActionController(deps: {
             store.clear(sessionId, post.id, ['delete'])
           }
         },
-      )
+      })
       store.patch(sessionId, post.id, {isDeleted: true})
       return queue.queueToggle(true)
     },
   }
 
-  function boolToggle(
-    kind: Exclude<PostActionKind, 'reaction' | 'delete'>,
-    sessionId: string,
-    backend: Backend | null,
-    post: Post,
-    next: boolean,
-    baseValue: boolean,
-    field: 'favourited' | 'renoted' | 'bookmarked',
-    call: (b: Backend, to: boolean) => Promise<unknown>,
-  ): Promise<void> {
+  function boolToggle(opts: {
+    kind: Exclude<PostActionKind, 'reaction' | 'delete'>
+    sessionId: string
+    backend: Backend | null
+    post: Post
+    next: boolean
+    baseValue: boolean
+    field: 'favourited' | 'renoted' | 'bookmarked'
+    call: (b: Backend, to: boolean) => Promise<unknown>
+  }): Promise<void> {
+    const {kind, sessionId, backend, post, next, baseValue, field, call} = opts
     const refused = refuse(kind, backend, post)
     if (refused) return refused
     // Same staleness rule as reactions: seed from the seen value so an
     // undo after a kept shadow still reaches the server.
     const seen = store.get(sessionId, post.id)?.[field] ?? baseValue
-    const queue = queueFor<boolean>(
+    const queue = queueFor<boolean>({
       kind,
       sessionId,
       post,
-      seen,
-      {backend},
-      async (b, _from, to) => {
+      confirmedNow: seen,
+      ctx: {backend},
+      run: async (b, _from, to) => {
         await call(b, to)
       },
-      v => store.patch(sessionId, post.id, {[field]: v, base: {[field]: baseValue}}),
-      () => settleInto(sessionId, post, kind),
-    )
+      optimistic: v => store.patch(sessionId, post.id, {[field]: v, base: {[field]: baseValue}}),
+      settle: () => settleInto(sessionId, post, kind),
+    })
     store.patch(sessionId, post.id, {[field]: next, base: {[field]: baseValue}})
     return queue.queueToggle(next)
   }

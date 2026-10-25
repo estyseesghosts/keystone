@@ -37,7 +37,10 @@ import {useSessionStore} from '#/state/session/SessionProvider'
 import {appStorage} from '#/storage'
 
 import {
-  completeMastodonOAuth,
+  completeMastodonCallback,
+  type MastodonCallbackDone,
+} from './MastodonCallback'
+import {
   getWebOrigin,
   mastodonMfaSignin,
   mastodonPasswordSignin,
@@ -527,10 +530,11 @@ export function LoginScreen() {
   /** iOS inline OAuth completion (parity with AuthCallback's mastodon
    * branch): `openAuthSessionAsync` consumes the redirect in-session and
    * never re-opens the app, so the AuthCallback deep link never fires —
-   * exchange + verify + store here from the session's result URL. Returns
-   * true when the flow is complete or definitively failed; false when the
-   * URL carries no response and the caller should keep waiting on the
-   * link path (Android) instead. */
+   * complete here from the session's result URL. Returns true when the
+   * flow is complete or definitively failed; false when the URL carries
+   * no response and the caller should keep waiting on the link path
+   * (Android) instead. Exchange + detect run in the shared
+   * `completeMastodonCallback` helper (same as AuthCallback). */
   const finishOAuthCallbackUrl = async (
     href: string,
     hosting: 'first-party' | 'third-party',
@@ -541,30 +545,21 @@ export function LoginScreen() {
       return true
     }
     if (!params.code || !params.state) return false
-    const done = await completeMastodonOAuth({
+    const done: MastodonCallbackDone | null = await completeMastodonCallback({
       appStore: appStorage(),
       code: params.code,
       state: params.state,
     })
     if (!done) return false // replay: the link path owns it
-    let flavor: ServerFlavor = 'unknown'
-    let evidence: DetectionEvidence | null = null
-    try {
-      const found = await detectServer(done.origin)
-      if (found.family === 'mastodon') flavor = found.flavor
-      evidence = found.evidence
-    } catch {
-      // Flavor refines later; the verified session stores regardless.
-    }
     await finish({
       origin: done.origin,
       family: 'mastodon',
-      flavor,
+      flavor: done.flavor,
       token: done.token,
       account: done.account,
       grant: 'oauth-pkce',
       hosting,
-      evidence,
+      evidence: done.evidence,
     })
     return true
   }

@@ -143,16 +143,17 @@ export function noteReactionsQueryKey(sessionId: string, postId: string): AppQue
   return createQueryKey(sessionId, 'post-reactions', postId)
 }
 
-function infinitePages<PageT>(
-  sessionId: string | null,
-  id: string,
-  backend: Backend | null,
-  queryKey: AppQueryKey,
-  fetch: (backend: Backend, cursor: Cursor | null) => Promise<{end: boolean; cursor: Cursor | null} & PageT>,
-  stale: number,
-  gc: number,
-  retry?: number | false,
-) {
+function infinitePages<PageT>(opts: {
+  sessionId: string | null
+  id: string
+  backend: Backend | null
+  queryKey: AppQueryKey
+  fetch: (backend: Backend, cursor: Cursor | null) => Promise<{end: boolean; cursor: Cursor | null} & PageT>
+  stale: number
+  gc: number
+  retry?: number | false
+}) {
+  const {sessionId, id, backend, queryKey, fetch, stale, gc, retry} = opts
   const query = useInfiniteQuery({
     queryKey,
     queryFn: ({pageParam}: {pageParam: Cursor | null}) => {
@@ -181,16 +182,16 @@ export function useRepostsQuery(
 ) {
   const backend = options.backend ?? null
   const queryKey = repostsQueryKey(sessionId ?? 'signed-out', postId)
-  return infinitePages(
+  return infinitePages({
     sessionId,
-    postId,
+    id: postId,
     backend,
     queryKey,
-    (b, cursor) => b.reposts(postId, {cursor}),
-    STALE.FEED,
-    GC_TIME.FEED,
-    options.retry,
-  )
+    fetch: (b, cursor) => b.reposts(postId, {cursor}),
+    stale: STALE.FEED,
+    gc: GC_TIME.FEED,
+    retry: options.retry,
+  })
 }
 
 /**
@@ -205,16 +206,16 @@ export function useNoteReactionsQuery(
 ) {
   const backend = options.backend ?? null
   const queryKey = noteReactionsQueryKey(sessionId ?? 'signed-out', postId)
-  return infinitePages(
+  return infinitePages({
     sessionId,
-    postId,
+    id: postId,
     backend,
     queryKey,
-    (b, cursor) => b.noteReactions(postId, {cursor}),
-    STALE.FEED,
-    GC_TIME.FEED,
-    options.retry,
-  )
+    fetch: (b, cursor) => b.noteReactions(postId, {cursor}),
+    stale: STALE.FEED,
+    gc: GC_TIME.FEED,
+    retry: options.retry,
+  })
 }
 
 // --- Edit history (clickstone §1.7) ------------------------------------------

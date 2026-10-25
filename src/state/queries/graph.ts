@@ -112,16 +112,17 @@ export function createGraphController(deps: {queryClient: QueryClient; softMutes
   const gateOf = (kind: Parameters<typeof gateGraph>[0], backend: Backend | null, accountId: string, selfId?: string) =>
     gateGraph(kind, {capabilities: backend?.capabilities ?? null, targetId: accountId, selfId})
 
-  function toggle<T>(
-    kind: string,
-    sessionId: string,
-    accountId: string,
-    initial: T,
-    backend: Backend,
-    apply: (rel: Relationship, v: T) => Relationship,
-    run: (b: Backend, from: T, to: T) => Promise<void>,
-    next: T,
-  ): Promise<void> {
+  function toggle<T>(opts: {
+    kind: string
+    sessionId: string
+    accountId: string
+    initial: T
+    backend: Backend
+    apply: (rel: Relationship, v: T) => Relationship
+    run: (b: Backend, from: T, to: T) => Promise<void>
+    next: T
+  }): Promise<void> {
+    const {kind, sessionId, accountId, initial, backend, apply, run, next} = opts
     const key = `${sessionId}\u0000${accountId}\u0000${kind}`
     let q = queues.get(key) as ToggleQueue<T> | undefined
     if (!q) {
@@ -161,14 +162,14 @@ export function createGraphController(deps: {queryClient: QueryClient; softMutes
       const wasPending = !!rel?.hasPendingFollowRequestFromYou
       const initial: FollowDesired = rel ? followDesiredOf(rel) : 'none'
       let pending = wasPending
-      return toggle<FollowDesired>(
-        'follow',
+      return toggle<FollowDesired>({
+        kind: 'follow',
         sessionId,
-        account.id,
+        accountId: account.id,
         initial,
         backend,
-        (r, v) => applyFollowDesired(r, v, !!account.locked),
-        async (b, _from, to) => {
+        apply: (r, v) => applyFollowDesired(r, v, !!account.locked),
+        run: async (b, _from, to) => {
           if (to === 'following') {
             await b.follow(account.id)
             pending = !!account.locked
@@ -180,27 +181,37 @@ export function createGraphController(deps: {queryClient: QueryClient; softMutes
           }
         },
         next,
-      )
+      })
     },
 
     setMuted(sessionId, backend, accountId, next) {
       const refused = refuse(gateOf('mute', backend, accountId))
       if (refused || !backend) return refused ?? Promise.resolve()
-      return toggle<boolean>(
-        'mute', sessionId, accountId, !!getRel(sessionId, accountId)?.isMuted, backend, applyMuted,
-        async (b, _f, to) => (to ? b.mute(accountId) : b.unmute(accountId)),
+      return toggle<boolean>({
+        kind: 'mute',
+        sessionId,
+        accountId,
+        initial: !!getRel(sessionId, accountId)?.isMuted,
+        backend,
+        apply: applyMuted,
+        run: async (b, _f, to) => (to ? b.mute(accountId) : b.unmute(accountId)),
         next,
-      )
+      })
     },
 
     setBlocked(sessionId, backend, accountId, next) {
       const refused = refuse(gateOf('block', backend, accountId))
       if (refused || !backend) return refused ?? Promise.resolve()
-      return toggle<boolean>(
-        'block', sessionId, accountId, !!getRel(sessionId, accountId)?.isBlocking, backend, applyBlocked,
-        async (b, _f, to) => (to ? b.block(accountId) : b.unblock(accountId)),
+      return toggle<boolean>({
+        kind: 'block',
+        sessionId,
+        accountId,
+        initial: !!getRel(sessionId, accountId)?.isBlocking,
+        backend,
+        apply: applyBlocked,
+        run: async (b, _f, to) => (to ? b.block(accountId) : b.unblock(accountId)),
         next,
-      )
+      })
     },
 
     async resolveFollowRequest(sessionId, backend, accountId, accept) {

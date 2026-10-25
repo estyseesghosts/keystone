@@ -62,7 +62,6 @@ export interface ExternalSession {
 }
 
 const SESSIONS_KEY = "keystone_external_sessions";
-const ACTIVE_KEY = "keystone_active_external";
 
 /** Normalize user-entered host text to a bare host + scheme.
  * Accepts `example.com`, `https://example.com`, `example.com:3000`,

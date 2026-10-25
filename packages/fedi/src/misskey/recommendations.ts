@@ -16,6 +16,7 @@ import type {
   RecommendationDwellItem,
   RecommendationFeedOpts,
   RecommendationInterests,
+  RecommendationsApi,
   RecommendationSettingsPatch,
 } from "../core/backend";
 import type { Account, Cursor, Page, Post } from "../core/models";
@@ -226,4 +227,22 @@ export function adaptRecommendationNotes(wires: WireNoteWithFactors[]): Post[] {
     }
     return post;
   });
+}
+
+// Fork recommendation feed (dvd-sharkey): present on every Misskey-family
+// flavor (the member exists so the UI can probe); a server without the
+// fork endpoints 404s and the UI hides the tab. Support is probed lazily
+// by the first feed/probe call and cached — never a static flavor seed,
+// and never a fire-and-forget request at construction (callers assert
+// exact endpoint sequences).
+export function createRecommendationsApi(call: WireCall, origin?: string | null): RecommendationsApi {
+  return {
+    feed: (o = {}) =>
+      fetchRecommendationPage(call, origin ?? null, o.cursor ?? null, o),
+    dwell: (items) => reportRecommendationDwell(call, origin ?? null, items),
+    notInterested: (noteId: string) => markRecommendationNotInterested(call, origin ?? null, noteId),
+    interests: () => fetchRecommendationInterests(call, origin ?? null),
+    updateSettings: (patch) => updateRecommendationSettings(call, origin ?? null, patch),
+    isSupported: () => (origin ? recommendationsSupportFor(origin) : null),
+  };
 }

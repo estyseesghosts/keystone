@@ -314,11 +314,6 @@ msgstr "Audio unavailable"
 msgid "Automatic"
 msgstr "Automatic"
 
-#. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:40
-msgid "errors.unsupported.avatar"
-msgstr "Avatar and banner changes are not supported on the Mastodon family yet."
-
 #: src/Navigation.tsx:574
 msgid "Back"
 msgstr "Back"

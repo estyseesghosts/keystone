@@ -17,39 +17,34 @@
 // motion (`spin`, `tada`, …), `blur` and unknown functions degrade to
 // their children — content is never dropped, effects never faked.
 
-import {Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react'
-import {
-  Image,
-  Linking,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type TextStyle,
-  type View as ViewType,
-  type ViewStyle,
-} from 'react-native'
-
-import {msg} from '@lingui/macro'
-import {useLingui} from '@lingui/react'
+import {Fragment, useContext, useMemo} from 'react'
+import {Image, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle} from 'react-native'
 
 import {DEFAULT_EMOJI_STYLE, acctFromBridgeUrl, bareLinkLabel, displayNameOf, isBridgeUrl, parseAcct, plainTextOf, type Backend, type ContentNode, type EmojiStyle} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
-import {Body} from '#/alf/typography'
-import {Button} from '#/components/Button'
 import {CustomEmojiGlyph, UnicodeEmoji} from '#/components/EmojiImage'
 import {ProfileIcon} from '#/components/icons'
-import {HoverLayer, HOVER_CLOSE_DELAY_MS, HOVER_FADE_LEAD_MS, cardPosition, ensurePointerTracking, leaveTargetStaysInside, pointerRecentlyMoved, shouldReviveOnCardEnter} from '#/components/Profile/HoverPreview'
-import {canCopy, copyText} from '#/lib/clipboard'
-import {showToast} from '#/lib/toast'
 import {Pressable} from '#/components/Pressable'
 import {QueryClientContext} from '@tanstack/react-query'
 import {useMentionedAccount} from '#/state/queries'
 import {HoverPreview} from '#/components/Profile/HoverPreview'
 import {useContentMode} from '#/state/appearance'
-import {navigationRef} from '#/navigationRef'
+
+import {clampNum, fnArg, headingDelta, safeFontFamily, safeHexColor} from './richtext/fnStyle'
+import {MatrixChip} from './richtext/MatrixHover'
+import {acctFromProfileUrl, defaultHashtagPress, defaultMentionPress, openExternal} from './richtext/mentionRouting'
+
+// D3.5 split: routing + Matrix hovercard live in `./richtext/`; these
+// re-exports keep existing importers (`PostCard`, `NotificationRow`,
+// tests) compiling without churn.
+export {
+  acctFromBskyAppUrl,
+  acctFromProfileUrl,
+  defaultHashtagPress,
+  defaultMentionPress,
+} from './richtext/mentionRouting'
+export {MatrixHovercard} from './richtext/MatrixHover'
 
 export type RichTextProps = {
   nodes: readonly ContentNode[]
@@ -134,120 +129,6 @@ const styles = StyleSheet.create({
   },
 })
 
-function openExternal(href: string) {
-  void Linking.openURL(href).catch(() => {})
-}
-
-/** Profile navigation for a mention tap (E2): the `User` screen resolves
- * an `acct` (`user` or `user@host`) through the session backend. Silent
- * no-op in provider-less trees. */
-function openMentionProfile(acct: string) {
-  if (!navigationRef.isReady()) return
-  navigationRef.navigate('Main', {screen: 'User', params: {acct}} as never)
-}
-
-/** Tag navigation for a hashtag tap (E3): the tag route, never the
- * browser. Silent no-op in provider-less trees. */
-function openTagPosts(tag: string) {
-  if (!navigationRef.isReady()) return
-  navigationRef.navigate('Tag', {tag})
-}
-
-/** Best-effort account handle from a profile URL (`/@user`,
- * `/users/user` shapes — Mastodon/Misskey/Akkoma profile links).
- * Returns `user@host` (bare hostname, no port) or null. Used when the
- * mention label is not a full `user@host` handle — a bare `@user` label
- * on a remote href, or a display-name label — where the server-provided
- * URL is authoritative and the label is display text. Pure. */
-export function acctFromProfileUrl(href: string | null | undefined): string | null {
-  if (!href) return null
-  let url: URL
-  try {
-    url = new URL(href)
-  } catch {
-    return null
-  }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-  const segments = url.pathname.split('/').filter(s => s.length > 0)
-  let username: string | null = null
-  if (segments.length >= 2 && segments[0] === 'users') username = segments[1] ?? null
-  else if (segments.length >= 1 && segments[0]?.startsWith('@')) username = segments[0].slice(1)
-  if (!username || !/^[\w-]+$/.test(username)) return null
-  if (!url.hostname) return null
-  return `${username}@${url.hostname}`
-}
-
-/** Bluesky profile URL → bridged fediverse handle (`bsky.app` only).
- * `https://bsky.app/profile/<handle>` names `<handle>@bsky.brid.gy`,
- * the AP actor Bridgy Fed serves for that Bluesky user — resolvable
- * through either family's `backend.account`, so the mention stays
- * in-app. Bare `bsky.app` links (not mentions) still open externally.
- * Pure. */
-export function acctFromBskyAppUrl(href: string | null | undefined): string | null {
-  if (!href) return null
-  let url: URL
-  try {
-    url = new URL(href)
-  } catch {
-    return null
-  }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-  if (url.hostname !== 'bsky.app') return null
-  const segments = url.pathname.split('/').filter(s => s.length > 0)
-  if (segments.length !== 2 || segments[0] !== 'profile') return null
-  const handle = segments[1] ?? ''
-  if (!/^[\w-]+(?:\.[\w-]+)*$/.test(handle)) return null
-  return `${handle}@bsky.brid.gy`
-}
-
-/** Default mention tap (E2): a full `user@host` label wins outright;
- * otherwise the server-provided profile URL names the account (a bare
- * `@user` label on a remote href, or a display-name label anywhere) —
- * the URL is authoritative, the label is display text. Bluesky profile
- * URLs map to their bridged fediverse actor (`/profile/<handle>` on
- * `bsky.app` → `<handle>@bsky.brid.gy`), and bridge redirect pages
- * (`bsky.brid.gy/r/…`, whose labels Mastodon truncates to `@<handle>`)
- * unwrap to the same actor — bridged mentions stay in-app instead of
- * flattening to a local lookup or opening the browser. A bare label with
- * no URL resolves locally (a bare label on a bridge URL stays put — the
- * href names a remote actor, never a local user); an unresolvable mention
- * with a non-bridge URL
- * leaves the app (plain links still can); an unresolvable mention on a
- * bridge URL stays put — a bridge URL is always an actor identity, never
- * a page to browse. */
-export function defaultMentionPress(href: string | null, label: string): void {
-  const ref = parseAcct(label)
-  if (ref?.host) {
-    openMentionProfile(`${ref.username}@${ref.host}`)
-    return
-  }
-  const bridge = acctFromBridgeUrl(href)
-  if (bridge) {
-    openMentionProfile(bridge)
-    return
-  }
-  const acct = acctFromProfileUrl(href) ?? acctFromBskyAppUrl(href)
-  if (acct) {
-    openMentionProfile(acct)
-    return
-  }
-  // A bridge href is always a remote actor identity: a bare label must
-  // never flatten to a local lookup, and the URL must never open the
-  // browser. Unresolvable bridge mentions stay put.
-  if (isBridgeUrl(href)) return
-  if (ref) {
-    openMentionProfile(ref.username)
-    return
-  }
-  if (href) openExternal(href)
-}
-
-/** Default hashtag tap (E3): the Tag screen, everywhere. Hashtags never
- * open the browser — a tag is always a known in-app route. */
-export function defaultHashtagPress(tag: string): void {
-  openTagPosts(tag)
-}
-
 /** Visible label of a mention (`@user`, `@user@host`) for profile
  * resolution — text children concatenated, formatting transparent.
  * Structural markers contribute nothing. */
@@ -259,66 +140,6 @@ function labelOf(nodes: readonly ContentNode[]): string {
     else if ('children' in node) out += labelOf(node.children)
   }
   return out
-}
-
-// MFM decoration args (v1 `MfmRenderer` parity, real mfm-js 0.27 shapes):
-// `$[name.key=value …]` string values, `$[name.value …]` flag keys
-// (`{value: true}`), then any first string value. Unknown shapes degrade
-// to the children — content is never dropped, never faked.
-function fnArg(args: Record<string, string | true>, ...keys: string[]): string | null {
-  for (const key of keys) {
-    const value = args[key]
-    if (typeof value === 'string') return value
-  }
-  for (const key of Object.keys(args)) {
-    if (args[key] === true && key.length > 0) return key
-  }
-  for (const value of Object.values(args)) {
-    if (typeof value === 'string') return value
-  }
-  return null
-}
-
-function clampNum(raw: string | null, min: number, max: number, fallback: number): number {
-  if (raw === null) return fallback
-  const n = Number(raw)
-  if (!Number.isFinite(n)) return fallback
-  return Math.min(max, Math.max(min, n))
-}
-
-/** Allow-listed MFM color: `#rgb`/`#rrggbb` only. Anything else (names,
- * functions, URLs) is rejected — never a raw server string in a style. */
-function safeHexColor(raw: string | null): string | null {
-  if (!raw) return null
-  const trimmed = raw.trim()
-  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed) ? trimmed : null
-}
-
-/** Allow-listed MFM font: only families with a safe cross-platform
- * mapping render; the rest degrade to the default. */
-function safeFontFamily(raw: string | null): 'monospace' | 'serif' | null {
-  const name = (raw ?? '').trim().toLowerCase()
-  if (name === 'monospace') return 'monospace'
-  if (name === 'serif') return 'serif'
-  return null
-}
-
-/** Heading size step over the body size, by level. */
-function headingDelta(level: number): number {
-  switch (level) {
-    case 1:
-      return 6
-    case 2:
-      return 4
-    case 3:
-      return 2
-    case 4:
-      return 1
-    case 5:
-      return 0
-    default:
-      return -1
-  }
 }
 
 // One MFM `fn` decoration. Static styles render; motion (`spin`, `tada`,
@@ -479,246 +300,6 @@ function MentionChip({
     return <StaticMentionChip name={label} avatar={null} label={label} ctx={ctx} onPress={onPress} />
   }
   return <ResolvingMentionChip label={label} ctx={ctx} onPress={onPress} />
-}
-
-// Copy action shared by the native chip tap and the hovercard button.
-function useCopyMatrixId(userId: string) {
-  const {i18n} = useLingui()
-  return useCallback(async () => {
-    try {
-      await copyText(userId)
-      showToast(i18n._(msg`Copied`))
-    } catch {
-      showToast(i18n._(msg`Clipboard is not available on this platform.`))
-    }
-  }, [i18n, userId])
-}
-
-// Small profile-style hovercard for a Matrix user ID: the exact
-// written text (never re-derived), what Matrix is, and a copy action.
-// Navigation never happens for Matrix IDs. Exported for tests.
-export function MatrixHovercard({userId}: {userId: string}) {
-  const theme = useTheme()
-  const {i18n} = useLingui()
-  const copy = useCopyMatrixId(userId)
-  const copyable = canCopy()
-  return (
-    <View
-      testID="matrix-popup"
-      style={[
-        matrixCardStyles.card,
-        {backgroundColor: theme.palette.bg, borderColor: theme.palette.edge},
-      ]}>
-      <Body testID="matrix-popup-handle">{userId}</Body>
-      <Body color="muted">
-        {i18n._(
-          msg`Matrix is a secure and decentralized messaging protocol. You can message this user from Element, or any other Matrix chat client.`,
-        )}
-      </Body>
-      <Button
-        label={i18n._(msg`Copy handle`)}
-        onPress={() => void copy()}
-        disabled={!copyable}
-        disabledReason={
-          copyable ? undefined : i18n._(msg`Clipboard is not available on this platform.`)
-        }
-        testID="matrix-copy"
-      />
-    </View>
-  )
-}
-
-const matrixCardStyles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
-    width: 320,
-  },
-})
-
-const MATRIX_OPEN_DELAY_MS = 400
-
-type MatrixCardPos = {top?: number; bottom?: number; left?: number; right?: number}
-
-// Viewport metrics on web; null anywhere they do not exist (native,
-// tests without a DOM) — the card falls back to below/left.
-function matrixViewportSize(): {width: number; height: number} | null {
-  if (typeof window === 'undefined') return null
-  const {innerWidth, innerHeight} = window as unknown as {
-    innerWidth?: unknown
-    innerHeight?: unknown
-  }
-  if (typeof innerWidth !== 'number' || typeof innerHeight !== 'number') return null
-  return {width: innerWidth, height: innerHeight}
-}
-
-// Web-only hover wrapper around the chip (P7 pattern, mirroring
-// HoverPreview): ~400ms of hover floats the card above or below the
-// anchor in the click-through HoverLayer — never a Modal, never a
-// fullscreen capture. Native never reaches here (no hover there).
-function MatrixHover({
-  userId,
-  ctx,
-  children,
-}: {
-  userId: string
-  ctx: Ctx
-  children: React.ReactNode
-}) {
-  const [show, setShow] = useState(false)
-  const [faded, setFaded] = useState(false)
-  const [pos, setPos] = useState<MatrixCardPos | null>(null)
-  const anchor = useRef<ViewType | null>(null)
-  const cardEl = useRef<HTMLElement | null>(null)
-  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Last genuine anchor-or-card leave (same revive gate as
-  // HoverPreview): stays-inside ghosts never stamp it.
-  const leaveAt = useRef<number | null>(null)
-  useEffect(
-    () => () => {
-      if (openTimer.current !== null) clearTimeout(openTimer.current)
-      if (fadeTimer.current !== null) clearTimeout(fadeTimer.current)
-      if (closeTimer.current !== null) clearTimeout(closeTimer.current)
-    },
-    [],
-  )
-  useEffect(() => {
-    ensurePointerTracking()
-  }, [])
-  // All timers scheduled from pointer events, never chained (same rule
-  // as HoverPreview).
-  const clearOpenPair = () => {
-    if (openTimer.current !== null) {
-      clearTimeout(openTimer.current)
-      openTimer.current = null
-    }
-    if (fadeTimer.current !== null) {
-      clearTimeout(fadeTimer.current)
-      fadeTimer.current = null
-    }
-  }
-  const cancelClose = () => {
-    if (closeTimer.current !== null) {
-      clearTimeout(closeTimer.current)
-      closeTimer.current = null
-    }
-  }
-  const scheduleClose = () => {
-    cancelClose()
-    closeTimer.current = setTimeout(() => setShow(false), HOVER_CLOSE_DELAY_MS)
-  }
-  const handleEnter = () => {
-    // Layout-shift ghost: without recent pointer movement this arrival
-    // isn't the user — ignore it, or closed cards reopen by themselves.
-    if (!pointerRecentlyMoved()) return
-    cancelClose()
-    if (show) {
-      setFaded(true)
-      return
-    }
-    clearOpenPair()
-    const el = anchor.current as unknown as {getBoundingClientRect?: () => DOMRect} | null
-    const rect = el?.getBoundingClientRect?.()
-    const viewport = matrixViewportSize()
-    if (rect && viewport) {
-      setPos(
-        cardPosition(
-          {top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right},
-          viewport,
-        ).pos,
-      )
-    }
-    openTimer.current = setTimeout(() => setShow(true), MATRIX_OPEN_DELAY_MS)
-    fadeTimer.current = setTimeout(() => setFaded(true), MATRIX_OPEN_DELAY_MS + HOVER_FADE_LEAD_MS)
-  }
-  const handleLeave = () => {
-    leaveAt.current = Date.now()
-    setFaded(false)
-    clearOpenPair()
-    if (show) scheduleClose()
-  }
-  // This RN Web version drops `onHoverIn`/`onHoverOut` on plain Views
-  // (only Pressable wires them) — but it DOES forward `onMouseEnter`/
-  // `onMouseLeave`, so the anchor uses those (same as HoverPreview).
-  const hoverHandlers = {
-    onMouseEnter: handleEnter,
-    onMouseLeave: (e?: {relatedTarget?: unknown}) => {
-      if (leaveTargetStaysInside([anchor.current, cardEl.current], e?.relatedTarget)) return
-      handleLeave()
-    },
-  }
-  return (
-    <>
-      <View ref={anchor} {...hoverHandlers}>
-        {children}
-      </View>
-      {show ? (
-        <HoverLayer
-          pos={pos}
-          cardRef={cardEl}
-          anchorRef={anchor}
-          fade={faded}
-          onEnterCard={(e?: {relatedTarget?: unknown}) => {
-            // Same crossing-only revive as HoverPreview: certain
-            // anchor→card crossings and fast gap crossings while the
-            // card still fades resurrect it; a later revisit of the
-            // corpse is ignored and the scheduled unmount proceeds.
-            if (!shouldReviveOnCardEnter(anchor.current, e?.relatedTarget, leaveAt.current)) return
-            cancelClose()
-            setFaded(true)
-          }}
-          onLeaveCard={e => {
-            if (leaveTargetStaysInside([anchor.current, cardEl.current], e?.relatedTarget)) return
-            handleLeave()
-          }}
-          onDismiss={() => setShow(false)}>
-          <MatrixHovercard userId={userId} />
-        </HoverLayer>
-      ) : null}
-    </>
-  )
-}
-
-// Matrix user-ID chip (`@local:server`, colon — never a webfinger
-// handle). Web hovers the small hovercard above; native has no hover,
-// so a tap copies the handle directly. Matrix IDs never navigate, on
-// any target.
-function MatrixChip({
-  userId,
-  ctx,
-}: {
-  userId: string
-  ctx: Ctx
-}) {
-  const copy = useCopyMatrixId(userId)
-  const {i18n} = useLingui()
-  const short = userId.startsWith('@') ? userId.slice(1) : userId
-  const chip = (
-    <Pressable
-      style={[styles.chip, {borderColor: ctx.edge}]}
-      accessibilityRole="button"
-      accessibilityLabel={
-        Platform.OS === 'web'
-          ? i18n._(msg`Matrix handle: ${userId}`)
-          : i18n._(msg`Matrix handle: ${userId}. Tap to copy.`)
-      }
-      testID="richtext-matrix-chip"
-      onPress={() => void copy()}>
-      <Text style={{fontSize: ctx.size, color: ctx.textColor}} numberOfLines={1}>
-        {`[m] ${short}`}
-      </Text>
-    </Pressable>
-  )
-  if (Platform.OS !== 'web') return chip
-  return (
-    <MatrixHover userId={userId} ctx={ctx}>
-      {chip}
-    </MatrixHover>
-  )
 }
 
 // Inline nodes inside a parent <Text>. Block nodes (codeBlock, quote)

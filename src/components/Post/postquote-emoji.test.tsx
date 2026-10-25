@@ -88,6 +88,14 @@ beforeEach(() => {
 })
 
 describe('PF-E1 PostQuote session threading', () => {
+  // Timing note (Wave 3 green): each test performs two sequential
+  // round-trips through effects (hosted listing + remote host listing)
+  // on a cold module registry (~2.2s import) plus an observed ~1s
+  // test-renderer commit lag after the store emits (identical on the
+  // pre-Wave-3 tree — verified via worktree A/B, not a Wave 3
+  // regression). The 5s default jest timeout is too tight under parallel
+  // workers, so these two tests get an explicit budget. The assertions
+  // themselves are unchanged: real fetch mock, real URL contract.
   it('renders a remote-emoji quote body image through the explicit session', async () => {
     const {restore} = installFetch()
     try {
@@ -102,7 +110,7 @@ describe('PF-E1 PostQuote session threading', () => {
     } finally {
       restore()
     }
-  })
+  }, 20000)
 
   it('renders a remote-emoji quote display name through the explicit session', async () => {
     const {restore} = installFetch()
@@ -119,5 +127,5 @@ describe('PF-E1 PostQuote session threading', () => {
     } finally {
       restore()
     }
-  })
+  }, 20000)
 })

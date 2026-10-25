@@ -1,8 +1,16 @@
 import {getStateFromPath} from '@react-navigation/native'
 import {I18nProvider} from '@lingui/react'
 import {fireEvent, render, screen} from '@testing-library/react-native'
+import * as Linking from 'expo-linking'
 
-import {getStateFromPathWithBase, linking, Navigation, stripShellBase} from '#/Navigation'
+import {Navigation} from '#/Navigation'
+import {
+  getStateFromPathWithBase,
+  linking,
+  linkingPrefixesForBase,
+  normalizeShellBase,
+  stripShellBase,
+} from '#/components/shell/linking'
 import {
   AUTH_CALLBACK_PATH,
   AUTH_CALLBACK_PATHS,
@@ -243,5 +251,33 @@ describe('Navigation', () => {
       </I18nProvider>,
     )
     expect(screen.getByTestId('sys-debug-light')).toBeTruthy()
+  })
+})
+
+describe('shell linking prefixes (results/07 bug 4)', () => {
+  it('returns only the root prefix for a root base', () => {
+    expect(linkingPrefixesForBase('/')).toEqual([Linking.createURL('/')])
+    expect(linkingPrefixesForBase(null)).toEqual([Linking.createURL('/')])
+  })
+
+  it('returns full scheme URLs, never a bare path, for a sub-path base', () => {
+    const prefixes = linkingPrefixesForBase('/keystone/')
+    expect(prefixes).toEqual([Linking.createURL('/'), Linking.createURL('/keystone')])
+    // The old shape returned the bare path '/keystone' here, which no full
+    // incoming URL ever starts with (inert second entry).
+    expect(prefixes[1]).not.toBe('/keystone')
+    expect(prefixes[1]).not.toMatch(/^\//)
+  })
+
+  it('resolves a deep link under a sub-path base', () => {
+    const state = getStateFromPathWithBase('/keystone/notes/abc', '/keystone/', linking.config)
+    expect(JSON.stringify(state)).toMatch(/Note/)
+    expect(JSON.stringify(state)).toMatch(/"id":"abc"/)
+  })
+
+  it('strips a non-root base before parsing, root passes through', () => {
+    expect(normalizeShellBase('/keystone/')).toBe('/keystone')
+    expect(stripShellBase('/keystone/notes/abc', '/keystone/')).toBe('/notes/abc')
+    expect(stripShellBase('/notes/abc', '/')).toBe('/notes/abc')
   })
 })

@@ -289,11 +289,6 @@ msgstr ""
 msgid "Automatic"
 msgstr ""
 
-#. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:40
-msgid "errors.unsupported.avatar"
-msgstr "Avatar- und Banneränderungen werden in der Mastodon-Familie noch nicht unterstützt."
-
 #: src/Navigation.tsx:386
 msgid "Back"
 msgstr ""

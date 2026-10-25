@@ -64,11 +64,10 @@ function invalid(descriptor: unknown): never {
  * The exact string is otherwise preserved verbatim so `format(parse(x))`
  * is the identity on every valid descriptor.
  */
-function arg(kind: string, value: string, descriptor: unknown): string {
+function arg(value: string, descriptor: unknown): string {
   if (value.length === 0 || value.trim().length === 0 || value.includes("|")) {
     invalid(descriptor);
   }
-  void kind;
   return value;
 }
 
@@ -94,19 +93,19 @@ export function parseFeedDescriptor(descriptor: string): ParsedFeedDescriptor {
       if (TIMELINES.has(rest)) return { kind: "timeline", timeline: rest as TimelineKind };
       invalid(descriptor);
     }
-    if (ns === "list") return { kind: "list", id: arg(ns, rest, descriptor) };
-    if (ns === "antenna") return { kind: "antenna", id: arg(ns, rest, descriptor) };
-    if (ns === "channel") return { kind: "channel", id: arg(ns, rest, descriptor) };
-    if (ns === "clip") return { kind: "clip", id: arg(ns, rest, descriptor) };
-    if (ns === "tag") return { kind: "tag", tag: arg(ns, rest, descriptor) };
-    if (ns === "search") return { kind: "search", query: arg(ns, rest, descriptor) };
+    if (ns === "list") return { kind: "list", id: arg(rest, descriptor) };
+    if (ns === "antenna") return { kind: "antenna", id: arg(rest, descriptor) };
+    if (ns === "channel") return { kind: "channel", id: arg(rest, descriptor) };
+    if (ns === "clip") return { kind: "clip", id: arg(rest, descriptor) };
+    if (ns === "tag") return { kind: "tag", tag: arg(rest, descriptor) };
+    if (ns === "search") return { kind: "search", query: arg(rest, descriptor) };
     if (ns === "explore" && rest === "posts") return { kind: "explore" };
     invalid(descriptor);
   }
   if (parts.length === 3) {
     const [ns, id, tab] = parts as [string, string, string];
     if (ns === "user" && USER_TABS.has(tab)) {
-      return { kind: "user", id: arg(ns, id, descriptor), tab: tab as UserFeedTab };
+      return { kind: "user", id: arg(id, descriptor), tab: tab as UserFeedTab };
     }
     invalid(descriptor);
   }
@@ -139,11 +138,11 @@ export function formatFeedDescriptor(parsed: ParsedFeedDescriptor): FeedDescript
     case "antenna":
     case "channel":
     case "clip":
-      return `${parsed.kind}|${arg(parsed.kind, parsed.id, parsed)}` as FeedDescriptor;
+      return `${parsed.kind}|${arg(parsed.id, parsed)}` as FeedDescriptor;
     case "tag":
-      return `tag|${arg("tag", parsed.tag, parsed)}` as FeedDescriptor;
+      return `tag|${arg(parsed.tag, parsed)}` as FeedDescriptor;
     case "search":
-      return `search|${arg("search", parsed.query, parsed)}` as FeedDescriptor;
+      return `search|${arg(parsed.query, parsed)}` as FeedDescriptor;
     case "explore":
       return "explore|posts";
     case "bookmarks":
@@ -154,6 +153,6 @@ export function formatFeedDescriptor(parsed: ParsedFeedDescriptor): FeedDescript
       return "recommendations";
     case "user":
       if (!USER_TABS.has(parsed.tab)) invalid(parsed);
-      return `user|${arg("user", parsed.id, parsed)}|${parsed.tab}` as FeedDescriptor;
+      return `user|${arg(parsed.id, parsed)}|${parsed.tab}` as FeedDescriptor;
   }
 }

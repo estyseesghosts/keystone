@@ -31,13 +31,11 @@ import type {
   AccountPostsOpts,
   AdminInsightApi,
   AnnouncementsApi,
-  Antenna,
   AntennasApi,
   Backend,
   BookmarksApi,
   ChannelsApi,
   ChatApi,
-  ClipSummary,
   ClipsApi,
   CustomEmoji,
   DriveApi,
@@ -46,18 +44,13 @@ import type {
   NoteReactionRow,
   NotificationsOpts,
   PageOpts,
-  PostDraft,
   ProfileImageKind,
   ProfileUpdate,
   RecommendationsApi,
-  ReportResolveOpts,
   ReportUnsupportedField,
   ReportsQueueApi,
-  ReportsQueueListOpts,
   ScheduledApi,
-  ScheduledNote,
   SearchPostsOpts,
-  ServerDraft,
   ServerDraftsApi,
   StreamHandle,
   TimelineKind,
@@ -72,7 +65,6 @@ import { ApiError, FediError } from "../core/errors";
 import {
   adaptAccount,
   adaptDriveFile,
-  adaptDriveFolder,
   adaptFollowRequest,
   adaptGroupedNotification,
   adaptMe,
@@ -84,18 +76,9 @@ import {
   pageOf,
 } from "./adapt";
 import { likeSupportFor, likeViaNotesLike } from "./like";
-import {
-  fetchRecommendationInterests,
-  fetchRecommendationPage,
-  markRecommendationNotInterested,
-  recommendationsSupportFor,
-  reportRecommendationDwell,
-  updateRecommendationSettings,
-} from "./recommendations";
+import { createRecommendationsApi } from "./recommendations";
 import type {
   DriveFile,
-  DriveFolder as WireDriveFolder,
-  ServerDraft as WireServerDraft,
   GroupedNotificationItem,
   MeDetailed,
   Note,
@@ -116,6 +99,7 @@ import { createStreamHandle } from "./stream";
 import { createQuoteResolver } from "./quote";
 import {
   addNoteToClip,
+  adaptClipSummary,
   createClip,
   deleteClip,
   listClips,
@@ -123,39 +107,11 @@ import {
   removeNoteFromClip,
   updateClip,
 } from "./clips";
-import {
-  adaptChannel,
-  followChannel,
-  listFollowedChannels,
-  searchChannels,
-  showChannel,
-  unfollowChannel,
-} from "./channels";
-import {
-  chatHistory,
-  createChatRoom,
-  createRoomMessage,
-  createUserMessage,
-  deleteChatMessage,
-  listChatRooms,
-  readAllChat,
-  roomTimeline,
-  showChatMessage,
-  showChatRoom,
-  userTimeline,
-} from "./chat";
-import { listAnnouncements, readAnnouncement } from "./announcements";
-import {
-  fetchInstanceMeta,
-  fetchAbuseUserReports,
-  fetchOnlineUsersCount,
-  fetchQueueStats,
-  fetchServerInfo,
-  forwardAbuseUserReport,
-  resolveAbuseUserReport,
-  updateAbuseUserReportNote,
-} from "./admin";
-import { listFavorites, removeFavorite } from "./favorites";
+import { createChannelsApi } from "./channels";
+import { createChatApi } from "./chat";
+import { createAnnouncementsApi } from "./announcements";
+import { createAdminInsightApi, createReportsQueueApi } from "./admin";
+import { createBookmarksApi } from "./favorites";
 import { listFeaturedNotes, listUserFeaturedNotes, pinNote, unpinNote } from "./featured";
 import {
   acceptFollowRequest,
@@ -163,18 +119,16 @@ import {
   listFollowRequests,
   rejectFollowRequest,
 } from "./followRequests";
-import { createScheduledNote, deleteScheduledNote, listScheduledNotes } from "./schedule";
+import { createDriveApi } from "./drive";
+import { createAntennasApi } from "./antennas";
+import { createEditNoteBody, createNoteBody } from "./noteBody";
+import { isValidEmojiEntry } from "./emoji";
+import { createScheduledApi } from "./schedule";
 import { editNote } from "./noteEdit";
-import { listsContaining as listsContainingM, addToList as addToListM, removeFromList as removeFromListM } from "./listMembership";
+import { createListsApi } from "./listMembership";
 import { listRenoteMutes } from "./renoteMutes";
-import {
-  countServerDrafts,
-  createServerDraft,
-  deleteServerDraft,
-  listServerDrafts,
-  updateServerDraft,
-} from "./serverDrafts";
-import { exportData, importData } from "./importExport";
+import { createServerDraftsApi } from "./serverDrafts";
+import { createTransferApi } from "./importExport";
 
 // --- Transport -------------------------------------------------------------
 //
@@ -199,53 +153,11 @@ export interface MisskeyBackendOptions {
   evidence?: DetectionEvidence;
 }
 
-// --- Compose body (verbatim mirror of the Composer's construction) ---------
-
-function wireVisibility(draft: PostDraft): string {
-  if (draft.visibility?.raw) return draft.visibility.raw;
-  switch (draft.visibility?.kind) {
-    case "quiet":
-      return "home";
-    case "followers":
-      return "followers";
-    case "direct":
-      return "specified";
-    default:
-      return "public";
-  }
-}
-
-function createNoteBody(draft: PostDraft): Record<string, unknown> {
-  const visibility = wireVisibility(draft);
-  return {
-    visibility,
-    ...(draft.text && draft.text.trim() ? { text: draft.text.trim() } : {}),
-    ...(draft.cw && draft.cw.trim() ? { cw: draft.cw.trim() } : {}),
-    ...(visibility === "specified" && draft.visibleUserIds
-      ? { visibleUserIds: draft.visibleUserIds }
-      : {}),
-    ...(draft.visibility?.localOnly ? { localOnly: true } : {}),
-    ...(draft.replyId ? { replyId: draft.replyId } : {}),
-    ...(draft.renoteId ? { renoteId: draft.renoteId } : {}),
-    ...(draft.mediaIds && draft.mediaIds.length > 0 ? { fileIds: draft.mediaIds } : {}),
-    // The Composer maps its empty selection to null (never ""); a value is
-    // sent verbatim, unknown values included.
-    ...(draft.reactionAcceptance != null ? { reactionAcceptance: draft.reactionAcceptance } : {}),
-    ...(draft.noQuote ? { noQuote: true } : {}),
-    ...(draft.poll
-      ? {
-          poll: {
-            choices: draft.poll.choices,
-            multiple: draft.poll.multiple,
-            ...(draft.poll.expiredAfter != null
-              ? { expiredAfter: draft.poll.expiredAfter }
-              : {}),
-            ...(draft.poll.expiresAt != null ? { expiresAt: draft.poll.expiresAt } : {}),
-          },
-        }
-      : {}),
-  };
-}
+// --- Compose body -----------------------------------------------------------
+// Note bodies live in `./noteBody` (D3.1): one builder for create,
+// scheduled, drafts (`createNoteBody`) and one for edit
+// (`createEditNoteBody`), both omit-null. Scheduled/drafts add
+// `scheduledAt` at their call sites below.
 
 const TIMELINE_ENDPOINTS: Record<TimelineKind, string> = {
   home: "notes/timeline",
@@ -288,111 +200,16 @@ export function createMisskeyBackend(
     return pageOf(items ?? [], limit, adaptNote);
   }
 
-  const drive: DriveApi = {
-    async files(opts = {}) {
-      const params: Record<string, unknown> = {
-        limit: opts.limit ?? DEFAULT_LIMIT,
-      };
-      if (opts.type) params.type = opts.type;
-      // Omitted means the Drive root upstream; an explicit null is the same
-      // root and is never sent (Sharkey rejects empty/default fields).
-      if (opts.folderId != null) params.folderId = opts.folderId;
-      Object.assign(params, decodeCursor(opts.cursor ?? null));
-      const items = await call<DriveFile[]>("drive/files", params);
-      return pageOf(items ?? [], params.limit as number, adaptDriveFile);
-    },
-    async showFile(id) {
-      return adaptDriveFile(await call<DriveFile>("drive/files/show", { fileId: id }));
-    },
-    async attachedNotes(id, opts = {}) {
-      // Same note paging shape as every other Misskey note listing
-      // (`drive/files/attached-notes` takes fileId + limit/untilId).
-      return callNotes("drive/files/attached-notes", {
-        fileId: id,
-        limit: opts.limit ?? DEFAULT_LIMIT,
-        ...decodeCursor(opts.cursor ?? null),
-      });
-    },
-    async updateFile(id, patch) {
-      const params: Record<string, unknown> = { fileId: id };
-      if (patch.name !== undefined) params.name = patch.name;
-      if (patch.isSensitive !== undefined) params.isSensitive = patch.isSensitive;
-      if (patch.comment !== undefined) params.comment = patch.comment;
-      if (patch.folderId !== undefined) params.folderId = patch.folderId;
-      return adaptDriveFile(await call<DriveFile>("drive/files/update", params));
-    },
-    async deleteFile(id) {
-      await call<undefined>("drive/files/delete", { fileId: id });
-    },
-    // Drive folders (`drive/folders/*`, Misskey/Sharkey-family only —
-    // verified absent on Pinetree, which keeps `drive: unsupported`). The
-    // list call sends no `folderId`: upstream defaults to null, which is
-    // the drive root, and omitted params can never trip Sharkey's
-    // unknown-field 400s.
-    folders: {
-      async list() {
-        const items = await call<WireDriveFolder[]>("drive/folders", {});
-        return (items ?? []).map(adaptDriveFolder);
-      },
-      async create(name, opts = {}) {
-        return adaptDriveFolder(
-          await call<WireDriveFolder>("drive/folders/create", {
-            name,
-            ...(opts.parentId != null ? { parentId: opts.parentId } : {}),
-          }),
-        );
-      },
-      async update(id, patch) {
-        const params: Record<string, unknown> = { folderId: id };
-        if (patch.name !== undefined) params.name = patch.name;
-        if (patch.parentId !== undefined) params.parentId = patch.parentId;
-        return adaptDriveFolder(await call<WireDriveFolder>("drive/folders/update", params));
-      },
-      async delete(id) {
-        await call<undefined>("drive/folders/delete", { folderId: id });
-      },
-    },
-  };
+  // Drive (`drive/files/*`, `drive/folders/*`) and antennas
+  // (`antennas/*`) live in `./drive` / `./antennas` (D3.1) — same calls,
+  // same omit-null params, shared paging via `callNotes` above.
+  const drive: DriveApi = createDriveApi(call, callNotes);
 
-  const antennas: AntennasApi = {
-    async list() {
-      const items = await call<Array<Record<string, unknown>>>("antennas/list", {});
-      return (items ?? []).map(adaptAntenna);
-    },
-    async create(params) {
-      return adaptAntenna(
-        await call<Record<string, unknown>>("antennas/create", antennaBody(params)),
-      );
-    },
-    async update(id, params) {
-      return adaptAntenna(
-        await call<Record<string, unknown>>("antennas/update", {
-          antennaId: id,
-          ...antennaBody(params),
-        }),
-      );
-    },
-    async delete(id) {
-      await call<undefined>("antennas/delete", { antennaId: id });
-    },
-    async notes(id, opts = {}) {
-      return callNotes("antennas/notes", {
-        antennaId: id,
-        limit: opts.limit ?? DEFAULT_LIMIT,
-        ...decodeCursor(opts.cursor ?? null),
-      });
-    },
-  };
+  const antennas: AntennasApi = createAntennasApi(call, callNotes);
 
   const clips: ClipsApi = {
     async list() {
-      return (await listClips(call)).map((c) => ({
-        id: c.id,
-        name: c.name,
-        ...(c.isPublic !== undefined ? { isPublic: c.isPublic } : {}),
-        ...(c.description !== undefined ? { description: c.description } : {}),
-        ...(c.notesCount !== undefined ? { notesCount: c.notesCount } : {}),
-      }));
+      return (await listClips(call)).map(adaptClipSummary);
     },
     async addNote(clipId, noteId) {
       await addNoteToClip(call, clipId, noteId);
@@ -401,24 +218,10 @@ export function createMisskeyBackend(
       await removeNoteFromClip(call, clipId, noteId);
     },
     async create(name, opts = {}) {
-      const c = await createClip(call, name, opts);
-      return {
-        id: c.id,
-        name: c.name,
-        ...(c.isPublic !== undefined ? { isPublic: c.isPublic } : {}),
-        ...(c.description !== undefined ? { description: c.description } : {}),
-        ...(c.notesCount !== undefined ? { notesCount: c.notesCount } : {}),
-      };
+      return adaptClipSummary(await createClip(call, name, opts));
     },
     async update(clipId, patch) {
-      const c = await updateClip(call, clipId, patch);
-      return {
-        id: c.id,
-        name: c.name,
-        ...(c.isPublic !== undefined ? { isPublic: c.isPublic } : {}),
-        ...(c.description !== undefined ? { description: c.description } : {}),
-        ...(c.notesCount !== undefined ? { notesCount: c.notesCount } : {}),
-      };
+      return adaptClipSummary(await updateClip(call, clipId, patch));
     },
     async delete(clipId) {
       await deleteClip(call, clipId);
@@ -431,386 +234,33 @@ export function createMisskeyBackend(
       });
     },
     async containing(noteId) {
-      return (await listClipsContaining(call, noteId)).map((c) => ({
-        id: c.id,
-        name: c.name,
-        ...(c.isPublic !== undefined ? { isPublic: c.isPublic } : {}),
-        ...(c.description !== undefined ? { description: c.description } : {}),
-        ...(c.notesCount !== undefined ? { notesCount: c.notesCount } : {}),
-      }));
+      return (await listClipsContaining(call, noteId)).map(adaptClipSummary);
     },
   };
 
-  // Channels (clickstone §1.9): the Misskey-family group timelines. The
-  // directory is `channels/search` with an empty query (the official client
-  // renders the same paged search); `channels/featured` is a fixed top-10
-  // with no cursor, so it cannot page. No `allowPartial` is sent — the
-  // reference client's paginator sends only `channelId` + cursor params.
-  const channels: ChannelsApi = {
-    async list(opts = {}) {
-      const limit = opts.limit ?? DEFAULT_LIMIT;
-      const params: Record<string, unknown> = {
-        query: opts.query ?? "",
-        limit,
-        ...decodeCursor(opts.cursor ?? null),
-      };
-      return pageOf(await searchChannels(call, params), limit, adaptChannel);
-    },
-    async show(channelId) {
-      return showChannel(call, channelId);
-    },
-    async notes(channelId, opts = {}) {
-      return callNotes("channels/timeline", {
-        channelId,
-        limit: opts.limit ?? DEFAULT_LIMIT,
-        ...decodeCursor(opts.cursor ?? null),
-      });
-    },
-    async followed(opts = {}) {
-      const limit = opts.limit ?? DEFAULT_LIMIT;
-      const rows = await listFollowedChannels(call, {
-        limit,
-        ...decodeCursor(opts.cursor ?? null),
-      });
-      return pageOf(rows, limit, adaptChannel);
-    },
-    follow(channelId) {
-      return followChannel(call, channelId);
-    },
-    unfollow(channelId) {
-      return unfollowChannel(call, channelId);
-    },
-  };
+  // Domain sub-APIs live in their modules (D3.1) — same calls, same
+  // omit-null params. `callNotes` is shared paging for the note listings.
+  const channels: ChannelsApi = createChannelsApi(call, callNotes);
 
-  // Misskey chat (P6.2, clickstone §2.2): rooms + 1-on-1 threads. The
-  // paged surfaces (`joining`, both timelines) ride the shared
-  // `{limit, sinceId, untilId}` cursor convention (decodeCursor); the
-  // overview (`chat/history`) is limit-only server-side, so `history`
-  // refetches rather than pages. Timeline fetches mark read server-side
-  // — there is deliberately no per-thread mark call here.
-  const chat: ChatApi = {
-    async rooms(opts = {}) {
-      const limit = opts.limit ?? DEFAULT_LIMIT;
-      const cursor = decodeCursor(opts.cursor ?? null);
-      const rows = await listChatRooms(call, {
-        limit,
-        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
-        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
-      });
-      return pageOf(rows ?? [], limit, (row) => row);
-    },
-    async history(opts = {}) {
-      const rows = await chatHistory(call, {
-        ...(opts.limit !== undefined ? { limit: opts.limit } : {}),
-        ...(opts.rooms !== undefined ? { rooms: opts.rooms } : {}),
-      });
-      return rows ?? [];
-    },
-    showRoom(roomId) {
-      return showChatRoom(call, roomId);
-    },
-    createRoom(name, opts = {}) {
-      return createChatRoom(call, {
-        name,
-        ...(opts.description !== undefined ? { description: opts.description } : {}),
-      });
-    },
-    async roomMessages(roomId, opts = {}) {
-      const limit = opts.limit ?? DEFAULT_LIMIT;
-      const cursor = decodeCursor(opts.cursor ?? null);
-      const { items } = await roomTimeline(call, roomId, {
-        limit,
-        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
-        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
-      });
-      return pageOf(items ?? [], limit, (item) => item);
-    },
-    async userMessages(userId, opts = {}) {
-      const limit = opts.limit ?? DEFAULT_LIMIT;
-      const cursor = decodeCursor(opts.cursor ?? null);
-      const { items } = await userTimeline(call, userId, {
-        limit,
-        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
-        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
-      });
-      return pageOf(items ?? [], limit, (item) => item);
-    },
-    showMessage(messageId) {
-      return showChatMessage(call, messageId);
-    },
-    sendToRoom(roomId, text, opts = {}) {
-      return createRoomMessage(call, roomId, {
-        ...(text !== undefined ? { text } : {}),
-        ...(opts.fileId !== undefined ? { fileId: opts.fileId } : {}),
-      });
-    },
-    sendToUser(userId, text, opts = {}) {
-      return createUserMessage(call, userId, {
-        ...(text !== undefined ? { text } : {}),
-        ...(opts.fileId !== undefined ? { fileId: opts.fileId } : {}),
-      });
-    },
-    deleteMessage(messageId) {
-      return deleteChatMessage(call, messageId);
-    },
-    readAll() {
-      return readAllChat(call);
-    },
-  };
+  const chat: ChatApi = createChatApi(call);
 
-  // Server announcements (clickstone §1.12): `announcements` is public and
-  // paged (`limit`/`sinceId`/`untilId`, active only); the read flag rides
-  // the pack for a signed-in caller. `i/read-announcement` marks one read.
-  const announcements: AnnouncementsApi = {
-    async list(opts = {}) {
-      return listAnnouncements(call, {
-        limit: opts.limit ?? DEFAULT_LIMIT,
-        ...decodeCursor(opts.cursor ?? null),
-      });
-    },
-    async dismiss(id) {
-      await readAnnouncement(call, id);
-    },
-  };
+  const announcements: AnnouncementsApi = createAnnouncementsApi(call);
 
-  // Read-only server insight (Wave 3 slice 3.1 — NO mutations here).
-  // Misskey/sharkey/catodon serve all four endpoints (verified in their
-  // checkouts); pinetree serves none, so it leaves the member off and the
-  // query gate renders the honest unavailable state. The five
-  // Mastodon-family methods throw the typed unsupported error — this
-  // family has no such endpoints, and the query layer never calls them on
-  // this family (family branch); a 404 maps to `absent` if one ever is.
-  const adminInsight: AdminInsightApi = {
-    measures() {
-      return unsupportedAdminInsight("measures");
-    },
-    dimensions() {
-      return unsupportedAdminInsight("dimensions");
-    },
-    peers() {
-      return unsupportedAdminInsight("peers");
-    },
-    extendedDescription() {
-      return unsupportedAdminInsight("extended description");
-    },
-    activity() {
-      return unsupportedAdminInsight("activity");
-    },
-    serverInfo() {
-      return fetchServerInfo(call);
-    },
-    instanceMeta() {
-      return fetchInstanceMeta(call);
-    },
-    queueStats() {
-      return fetchQueueStats(call);
-    },
-    onlineUsersCount() {
-      return fetchOnlineUsersCount(call);
-    },
-  };
+  const adminInsight: AdminInsightApi = createAdminInsightApi(call);
 
-  // Reports queue (Wave 3 slice 3.2). Misskey/sharkey/catodon serve all
-  // four endpoints with identical kinds (verified in their checkouts);
-  // pinetree serves none, so it leaves the member off and the queue gate
-  // renders the honest unavailable state. The Mastodon-family members
-  // (get/assign/unassign/reopen/recategorize) have no Misskey equivalent
-  // and stay undefined — the UI hides those actions, never fakes them.
-  // Mutations return void: the UI confirms first, then refetches.
-  const reportsQueue: ReportsQueueApi = {
-    async list(opts: ReportsQueueListOpts = {}) {
-      const cursor = decodeCursor(opts.cursor ?? null);
-      const items = await fetchAbuseUserReports(call, {
-        state: opts.state,
-        limit: opts.limit ?? DEFAULT_LIMIT,
-        ...(cursor.sinceId ? { sinceId: cursor.sinceId } : {}),
-        ...(cursor.untilId ? { untilId: cursor.untilId } : {}),
-      });
-      return pageOf(items, opts.limit ?? DEFAULT_LIMIT, (item) => item);
-    },
-    async resolve(id: string, opts?: ReportResolveOpts) {
-      await resolveAbuseUserReport(call, id, opts);
-    },
-    async updateNote(id: string, note: string) {
-      await updateAbuseUserReportNote(call, id, note);
-    },
-    async forward(id: string) {
-      await forwardAbuseUserReport(call, id);
-    },
-  };
+  const reportsQueue: ReportsQueueApi = createReportsQueueApi(call);
 
-  const lists: ListsApi = {
-    membership: {
-      containing: (accountId) => listsContainingM(call, accountId),
-      add: (listId, accountId) => addToListM(call, listId, accountId),
-      remove: (listId, accountId) => removeFromListM(call, listId, accountId),
-    },
-    async list() {
-      const items = await call<Array<{ id: string; name: string }>>("lists/list", {});
-      return items ?? [];
-    },
-    async timeline(listId, opts = {}) {
-      return callNotes("notes/user-list-timeline", {
-        listId,
-        limit: opts.limit ?? DEFAULT_LIMIT,
-        ...decodeCursor(opts.cursor ?? null),
-      });
-    },
-    // List CRUD (C15-data): `users/lists/create|update|delete` — the
-    // packed UserList answers `{id, name, ...}`; only id+name surface.
-    // `fields` (Mastodon replies_policy/exclusive) is intentionally
-    // ignored: Misskey user lists have neither, and the capabilities table
-    // reports both unsupported so the UI never offers them. Sending an
-    // unknown param to Misskey is a 400 — never send it.
-    async create(name, _fields = {}) {
-      const row = await call<{ id: string; name: string }>("users/lists/create", { name });
-      return { id: row.id, name: row.name ?? name };
-    },
-    async update(id, patch) {
-      const row = await call<{ id: string; name: string }>("users/lists/update", {
-        listId: id,
-        name: patch.name,
-      });
-      return { id: row.id ?? id, name: row.name ?? patch.name };
-    },
-    async delete(id) {
-      await call<undefined>("users/lists/delete", { listId: id });
-    },
-  };
+  const lists: ListsApi = createListsApi(call, callNotes);
 
-  const scheduled: ScheduledApi = {
-    async list(opts = {}) {
-      const cursor = decodeCursor(opts.cursor ?? null);
-      // Both directions: `untilId` pages down, `sinceId` lets pull-to-
-      // refresh see rows created after the newest one it already holds.
-      const items = await listScheduledNotes(
-        call,
-        opts.limit ?? DEFAULT_LIMIT,
-        cursor.untilId,
-        cursor.sinceId,
-      );
-      return items.map(
-        (s): ScheduledNote => ({
-          id: s.id,
-          scheduledAt: s.scheduledAt,
-          post: s.note ? adaptNote(s.note) : null,
-          draft: s.draft ?? null,
-        }),
-      );
-    },
-    async create(draft) {
-      const created = await createScheduledNote(
-        call,
-        {
-          ...createNoteBody(draft),
-          scheduledAt: draft.scheduledAt,
-        },
-      );
-      return {
-        id: created.id,
-        scheduledAt: created.scheduledAt,
-        post: created.note ? adaptNote(created.note) : null,
-        draft: created.draft ?? null,
-      };
-    },
-    async delete(id) {
-      await deleteScheduledNote(call, id);
-    },
-  };
+  const scheduled: ScheduledApi = createScheduledApi(call);
 
-  const serverDrafts: ServerDraftsApi = {
-    async list(opts = {}) {
-      const cursor = decodeCursor(opts.cursor ?? null);
-      return (
-        await listServerDrafts(
-          call,
-          opts.limit ?? DEFAULT_LIMIT,
-          cursor.untilId,
-          cursor.sinceId,
-        )
-      ).map(adaptServerDraft);
-    },
-    async create(draft) {
-      return adaptServerDraft(
-        await createServerDraft(
-          call,
-          {
-            ...createNoteBody(draft),
-            ...(draft.scheduledAt ? { scheduledAt: draft.scheduledAt } : {}),
-          },
-        ),
-      );
-    },
-    async update(id, draft) {
-      return adaptServerDraft(
-        await updateServerDraft(
-          call,
-          id,
-          {
-            ...createNoteBody(draft),
-            ...(draft.scheduledAt ? { scheduledAt: draft.scheduledAt } : {}),
-          },
-        ),
-      );
-    },
-    async delete(id) {
-      await deleteServerDraft(call, id);
-    },
-    async count() {
-      return countServerDrafts(call);
-    },
-  };
+  const serverDrafts: ServerDraftsApi = createServerDraftsApi(call);
 
-  const bookmarks: BookmarksApi = {
-    async list(opts = {}) {
-      const limit = opts.limit ?? DEFAULT_LIMIT;
-      const cursor = decodeCursor(opts.cursor ?? null);
-      const rows = await listFavorites(call, limit, cursor.untilId);
-      return pageOf(rows ?? [], limit, (row) => ({
-        id: row.id,
-        post: adaptNote(row.note),
-      }));
-    },
-    async add(noteId) {
-      await call<undefined>("notes/favorites/create", { noteId });
-    },
-    async remove(noteId) {
-      await removeFavorite(call, noteId);
-    },
-  };
+  const bookmarks: BookmarksApi = createBookmarksApi(call);
 
-  // Account data portability (clickstone §2.3): imports upload the picked
-  // file to Drive and then call `i/import-*` with the returned `{fileId}`
-  // (never `{file}`); exports only ENQUEUE and report the rate window +
-  // the `exportCompleted` notification to watch. The 0.6 shapes stand.
-  const transfer: TransferApi = {
-    importFile: (kind, file, opts) => {
-      const onPhase = opts?.onPhase;
-      return importData(
-        transport,
-        kind,
-        file,
-        onPhase ? { onProgress: (progress) => onPhase(progress.phase) } : {},
-      );
-    },
-    exportList: (kind) => exportData(call, kind),
-  };
+  const transfer: TransferApi = createTransferApi(transport, call);
 
-  // Fork recommendation feed (dvd-sharkey): present on every Misskey-family
-  // flavor (the member exists so the UI can probe); a server without the
-  // fork endpoints 404s and the UI hides the tab. Support is probed lazily
-  // by the first feed/probe call and cached — never a static flavor seed,
-  // and never a fire-and-forget request at construction (callers assert
-  // exact endpoint sequences).
-  const recommendations: RecommendationsApi = {
-    feed: (o = {}) =>
-      fetchRecommendationPage(call, opts.origin ?? null, o.cursor ?? null, o),
-    dwell: (items) => reportRecommendationDwell(call, opts.origin ?? null, items),
-    notInterested: (noteId: string) => markRecommendationNotInterested(call, opts.origin ?? null, noteId),
-    interests: () => fetchRecommendationInterests(call, opts.origin ?? null),
-    updateSettings: (patch) => updateRecommendationSettings(call, opts.origin ?? null, patch),
-    isSupported: () => (opts.origin ? recommendationsSupportFor(opts.origin) : null),
-  };
+  const recommendations: RecommendationsApi = createRecommendationsApi(call, opts.origin);
 
   return {
     family: "misskey",
@@ -951,42 +401,11 @@ export function createMisskeyBackend(
     },
 
     async editPost(id, draft) {
-      // Edit semantics differ from create: empty text/cw are sent as
-      // EXPLICIT nulls so the server clears them (today's editNote body).
-      const visibility = wireVisibility(draft);
-      return editNote(
-        call,
-        id,
-        {
-          text: draft.text && draft.text.trim() ? draft.text.trim() : null,
-          cw: draft.cw && draft.cw.trim() ? draft.cw.trim() : null,
-          visibility,
-          ...(visibility === "specified" && draft.visibleUserIds
-            ? { visibleUserIds: draft.visibleUserIds }
-            : {}),
-          ...(draft.visibility?.localOnly ? { localOnly: true } : {}),
-          ...(draft.mediaIds && draft.mediaIds.length > 0
-            ? { fileIds: draft.mediaIds }
-            : {}),
-          // Per-note quote refusal (create parity). Edit forwards the value
-          // the caller carries, so `false` can lift an earlier refusal.
-          ...(draft.noQuote !== undefined ? { noQuote: draft.noQuote } : {}),
-          // Poll edits use the exact create shape. A server-side rejection
-          // (4xx) propagates from `editNote` — never silently dropped.
-          ...(draft.poll
-            ? {
-                poll: {
-                  choices: draft.poll.choices,
-                  multiple: draft.poll.multiple,
-                  ...(draft.poll.expiredAfter != null
-                    ? { expiredAfter: draft.poll.expiredAfter }
-                    : {}),
-                  ...(draft.poll.expiresAt != null ? { expiresAt: draft.poll.expiresAt } : {}),
-                },
-              }
-            : {}),
-        },
-      );
+      // Edit semantics live in `./noteBody` (`createEditNoteBody`): empty
+      // text/cw clear as explicit nulls, quote refusal forwards, poll edits
+      // use the create shape. A server-side rejection (notably a 4xx on a
+      // poll edit) propagates from `editNote` — never silently dropped.
+      return editNote(call, id, createEditNoteBody(draft));
     },
 
     async react(id, reaction) {
@@ -1423,15 +842,8 @@ export function createMisskeyBackend(
       const list: CustomEmoji[] = [];
       for (const entry of res?.emojis ?? []) {
         // Same validation as the listing loader: junk entries never reach
-        // the picker.
-        if (
-          typeof entry?.name !== "string" ||
-          typeof entry?.url !== "string" ||
-          entry.name.length === 0 ||
-          entry.url.length === 0
-        ) {
-          continue;
-        }
+        // the picker (`isValidEmojiEntry` in `./emoji`).
+        if (!isValidEmojiEntry(entry)) continue;
         list.push({
           name: entry.name,
           url: entry.url,
@@ -1535,6 +947,8 @@ export function createMisskeyBackend(
 }
 
 // --- Wire-shaped helpers that are not worth a module ----------------------
+// (Antenna/draft/note-body mapping lives in `./antennas`,
+// `./serverDrafts` and `./noteBody`; only the truly local helpers stay.)
 
 /** The honest answer for an insight section this family cannot serve
  * (the Mastodon-family methods on the Misskey backend — no such
@@ -1546,66 +960,6 @@ function unsupportedAdminInsight(scope: string): never {
     404,
     "errors.unsupported.adminInsight",
   );
-}
-
-function adaptServerDraft(raw: WireServerDraft): ServerDraft {
-  return {
-    id: raw.id,
-    text: raw.text ?? null,
-    cw: raw.cw ?? null,
-    visibilityRaw: raw.visibility,
-    visibleUserIds: raw.visibleUserIds,
-    localOnly: raw.localOnly,
-    mediaIds: raw.fileIds,
-    replyId: raw.replyId ?? null,
-    renoteId: raw.renoteId ?? null,
-    scheduledAt: raw.scheduledAt ?? null,
-    poll: raw.poll ?? undefined,
-  };
-}
-
-function antennaBody(params: Omit<Antenna, "id">): Record<string, unknown> {
-  // Omit-but-never-null: Sharkey 400s on null/empty fields, and the
-  // server defaults absent booleans to false. Arrays send only when
-  // non-empty; booleans always send so an update can flip true → false.
-  return {
-    name: params.name,
-    src: params.src,
-    ...(params.userListId != null ? { userListId: params.userListId } : {}),
-    ...(params.keywords.length > 0 ? { keywords: params.keywords } : {}),
-    ...(params.excludeKeywords.length > 0 ? { excludeKeywords: params.excludeKeywords } : {}),
-    ...(params.users.length > 0 ? { users: params.users } : {}),
-    caseSensitive: params.caseSensitive,
-    localOnly: params.localOnly,
-    excludeBots: params.excludeBots,
-    withReplies: params.withReplies,
-    withFile: params.withFile,
-  };
-}
-
-function adaptAntenna(raw: Record<string, unknown>): Antenna {
-  const strArray = (v: unknown): string[] =>
-    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-  const strGroups = (v: unknown): string[][] =>
-    Array.isArray(v)
-      ? v
-          .filter((g): g is unknown[] => Array.isArray(g))
-          .map((g) => g.filter((x): x is string => typeof x === "string"))
-      : [];
-  return {
-    id: typeof raw.id === "string" ? raw.id : "",
-    name: typeof raw.name === "string" ? raw.name : "",
-    src: (typeof raw.src === "string" ? raw.src : "all") as Antenna["src"],
-    userListId: typeof raw.userListId === "string" ? raw.userListId : null,
-    keywords: strGroups(raw.keywords),
-    excludeKeywords: strGroups(raw.excludeKeywords),
-    users: strArray(raw.users),
-    caseSensitive: raw.caseSensitive === true,
-    localOnly: raw.localOnly === true,
-    excludeBots: raw.excludeBots === true,
-    withReplies: raw.withReplies === true,
-    withFile: raw.withFile === true,
-  };
 }
 
 /**

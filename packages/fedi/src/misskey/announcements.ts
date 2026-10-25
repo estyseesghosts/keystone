@@ -18,9 +18,10 @@
 // Fields the screen cannot honestly render are dropped; `isRead` stays
 // `null` when absent (never fabricated as `false`).
 
-import type { Announcement, AnnouncementIcon } from "../core/backend";
+import type { Announcement, AnnouncementIcon, AnnouncementsApi } from "../core/backend";
 import type { Content } from "../core/models";
 import type { WireCall } from "./client";
+import { decodeCursor } from "./adapt";
 
 /** Packed `Announcement` as the API answers it. */
 export interface PackedAnnouncement {
@@ -85,4 +86,22 @@ export async function readAnnouncement(
   announcementId: string,
 ): Promise<void> {
   await call<undefined>("i/read-announcement", { announcementId });
+}
+
+// Server announcements (clickstone §1.12): `announcements` is public and
+// paged (`limit`/`sinceId`/`untilId`, active only); the read flag rides
+// the pack for a signed-in caller. `i/read-announcement` marks one read.
+export function createAnnouncementsApi(call: WireCall): AnnouncementsApi {
+  const DEFAULT_LIMIT = 20;
+  return {
+    async list(opts = {}) {
+      return listAnnouncements(call, {
+        limit: opts.limit ?? DEFAULT_LIMIT,
+        ...decodeCursor(opts.cursor ?? null),
+      });
+    },
+    async dismiss(id) {
+      await readAnnouncement(call, id);
+    },
+  };
 }

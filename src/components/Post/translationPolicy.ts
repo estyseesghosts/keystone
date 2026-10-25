@@ -1,50 +1,43 @@
-// Translation display policy (v1 `decideTranslation` behavior, own code).
-// Decides whether a fetched translation is worth showing instead of the
-// original body. Pure: the viewer's language arrives as a BCP47 primary
-// subtag (`viewerPrimary`), never read from the locale here.
+// Translation display policy: app-side adapter over the fedi-owned
+// `decideTranslation` family (`packages/fedi/src/misskey/translate.ts`).
+//
+// Ownership (D3.8): the comparison primitives — `normalizeForCompare`,
+// `hasForeignScript`, `distanceRatio` (with its length-gap short-circuit),
+// `SUBSTANTIAL_RATIO` — are imported from `@keystone/fedi`, so the
+// substantial-difference rule cannot drift between the auto-translate gate
+// and the display gate. What stays here is only the viewer-param adapter:
+// the viewer locale is app state (`i18n.locale`), which fedi never reads
+// (pure-TS rule, no `navigator`). No wire type is imported — only the pure
+// comparison helpers.
+
+import {
+  distanceRatio as fediDistanceRatio,
+  hasForeignScript as fediHasForeignScript,
+  normalizeForCompare as fediNormalizeForCompare,
+  SUBSTANTIAL_RATIO as FEDI_SUBSTANTIAL_RATIO,
+} from '@keystone/fedi'
 
 export type TranslationDecision = {show: false} | {show: true; label: string | null}
 
 /** Comparison form: case-insensitive, all whitespace runs collapsed. */
 export function normalizeForCompare(text: string): string {
-  return text.toLowerCase().replace(/\s+/g, ' ').trim()
+  return fediNormalizeForCompare(text)
 }
 
 /** True when any letter is non-Latin. Used only to distrust a
  * same-language detection, never to assert which language text is in. */
 export function hasForeignScript(prose: string): boolean {
-  const letters = prose.match(/\p{L}/gu)
-  return !!letters && letters.some(ch => !/\p{Script=Latin}/u.test(ch))
-}
-
-/** Edit distance capped at `cap + 1`: full precision is pointless past the
- * substantial-difference threshold, and notes can be 3,000 chars. */
-function editDistanceCapped(a: string, b: string, cap: number): number {
-  if (a.length > b.length) [a, b] = [b, a]
-  let prev: number[] = Array.from({length: a.length + 1}, (_, i) => i)
-  for (let j = 1; j <= b.length; j++) {
-    const curr: number[] = [j]
-    let rowMin = j
-    for (let i = 1; i <= a.length; i++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1
-      const v = Math.min(prev[i] + 1, curr[i - 1] + 1, prev[i - 1] + cost)
-      curr.push(v)
-      if (v < rowMin) rowMin = v
-    }
-    if (rowMin > cap) return cap + 1
-    prev = curr
-  }
-  return prev[a.length]
+  return fediHasForeignScript(prose)
 }
 
 /** Server normalization noise ("webdev" → "web dev") scores ~0.02 and
- * stays hidden; real rewrites score far above. */
-export const SUBSTANTIAL_RATIO = 0.25
+ * stays hidden; real rewrites score far above. The length-gap
+ * short-circuit lives in the fedi implementation: a translation much
+ * longer/shorter than the original is substantial by construction. */
+export const SUBSTANTIAL_RATIO = FEDI_SUBSTANTIAL_RATIO
 
 function distanceRatio(a: string, b: string): number {
-  const longest = Math.max(a.length, b.length)
-  if (longest === 0) return 0
-  return editDistanceCapped(a, b, Math.ceil(longest * SUBSTANTIAL_RATIO)) / longest
+  return fediDistanceRatio(a, b)
 }
 
 /** True when the server's source language is NOT the viewer's language.

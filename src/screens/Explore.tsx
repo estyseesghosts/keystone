@@ -14,45 +14,42 @@
 // module degrades to search-only with honest unavailable states, and
 // each `#`/`@` autocomplete popup renders only when its `suggest*`
 // member exists. No fake data, ever.
+//
+// Split (D3.7): tab bodies live in `./explore/` — `NewsTab` (own file,
+// own pagination), `UsersTab` + `AccountsSearch` (own file), shared
+// rows in `./explore/rows`. This file keeps the tab shell, the tags/posts
+// tabs, and the search/suggest state.
 
 import {useEffect, useRef, useState} from 'react'
-import {FlatList, Image, Linking, StyleSheet, View} from 'react-native'
+import {FlatList, View} from 'react-native'
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
 
 import {msg} from '@lingui/macro'
 
 import {
-  displayNameOf,
-  handleOf,
-  isUnsupportedError,
-  safeHttpUrl,
   type Account,
   type Backend,
-  type ExploreUsers,
   type FeedDescriptor,
-  type NewsLink,
-  type Post,
   type TrendingTag,
 } from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
-import {useTheme} from '#/alf'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
-import {Pressable} from '#/components/Pressable'
 import {SignInButton} from '#/components/SignInButton'
 import {ExploreSearchBar} from '#/components/Explore/ExploreSearchBar'
 import {ExploreSuggestPopup} from '#/components/Explore/ExploreSuggestPopup'
 import {ExploreTabBar} from '#/components/Explore/ExploreTabBar'
-import {showToast} from '#/lib/toast'
 import {i18n} from '#/locale/i18n'
 import {applySuggestion, suggestTrigger} from '#/components/Explore/suggest'
 import {exploreTabFromParam, type ExploreTab, type RootParamList} from '#/routes'
 import {FeedView, useActiveBackend} from '#/screens/HomeFeed'
 import {safeDescriptorArg} from './explore/safeDescriptor'
-import {mergeNewsLinks} from './explore/news'
+import {NewsTab} from './explore/NewsTab'
+import {UsersTab} from './explore/UsersTab'
+import {RowSeparator, SectionTitle, TagChip} from './explore/rows'
 
 const SUGGEST_LIMIT = 8
 const SUGGEST_DEBOUNCE_MS = 250
@@ -61,322 +58,11 @@ function stripTagPrefix(query: string): string {
   return query.replace(/^#+/, '').trim()
 }
 
-// --- Rows -------------------------------------------------------------------
-
-/** 1px theme-border rule between explore entries (v1 feed rule, same as
- * the post separators). */
-function RowSeparator({testID}: {testID: string}) {
-  const theme = useTheme()
-  return <View testID={testID} style={{height: 1, backgroundColor: theme.palette.border}} />
-}
-
-function ExploreAvatar({account}: {account: Account}) {
-  const theme = useTheme()
-  const label = displayNameOf(account).slice(0, 1).toUpperCase()
-  if (account.avatarUrl) {
-    return (
-      <Image
-        source={{uri: account.avatarUrl}}
-        style={styles.avatar}
-        accessibilityIgnoresInvertColors
-        accessibilityLabel={`${displayNameOf(account)} profile picture`}
-        testID={`explore-avatar-${account.id}`}
-      />
-    )
-  }
-  return (
-    <View
-      style={[styles.avatar, styles.avatarFallback, {backgroundColor: theme.palette.raise}]}
-      testID={`explore-avatar-${account.id}`}>
-      <Body>{label}</Body>
-    </View>
-  )
-}
-
-function AccountRow({account, onOpen}: {account: Account; onOpen: () => void}) {
-  return (
-    <Pressable
-      onPress={onOpen}
-      accessibilityRole="button"
-      accessibilityLabel={displayNameOf(account)}
-      testID={`explore-account-${account.id}`}>
-      <View style={[atoms.py_sm, atoms.px_md, styles.accountRow]}>
-        <ExploreAvatar account={account} />
-        <View style={styles.accountText}>
-          <Body>{displayNameOf(account)}</Body>
-          <Caption color="faint">{handleOf(account)}</Caption>
-        </View>
-      </View>
-    </Pressable>
-  )
-}
-
-function TagChip({tag, onOpen}: {tag: TrendingTag; onOpen: () => void}) {
-  const counts =
-    tag.users != null || tag.uses != null
-      ? [tag.users != null ? `${tag.users} people` : null, tag.uses != null ? `${tag.uses} posts` : null]
-          .filter(Boolean)
-          .join(' · ')
-      : null
-  return (
-    <Pressable
-      onPress={onOpen}
-      accessibilityRole="button"
-      accessibilityLabel={`#${tag.name}`}
-      testID={`explore-tag-${tag.name}`}>
-      <View style={[atoms.py_sm, atoms.px_md]}>
-        <Body>{`#${tag.name}`}</Body>
-        {counts ? <Caption color="faint">{counts}</Caption> : null}
-      </View>
-    </Pressable>
-  )
-}
-
-function NewsCard({link}: {link: NewsLink}) {
-  const theme = useTheme()
-  const navigation = useNavigation<NavigationProp<RootParamList>>()
-  const openLink = () => {
-    const safe = safeHttpUrl(link.url)
-    if (!safe) {
-      showToast('Could not open this link.')
-      return
-    }
-    void Linking.openURL(safe).catch(() => showToast('Could not open this link.'))
-  }
-  return (
-    <View style={[atoms.py_sm, atoms.px_md]} testID="explore-news-item">
-      {/* The Discussions pill nests inside the article link target: the RN
-          responder hands the tap to the innermost pressable, so the pill
-          navigates while the article around it still opens the link. */}
-      <Pressable
-        onPress={openLink}
-        accessibilityRole="link"
-        accessibilityLabel={`Open link: ${link.title}`}
-        testID="explore-news-open"
-        style={styles.newsRow}>
-        {link.image ? (
-          <Image
-            source={{uri: link.image}}
-            style={[styles.newsPhoto, {backgroundColor: theme.palette.raise}]}
-            resizeMode="cover"
-            accessibilityIgnoresInvertColors
-            testID="explore-news-photo"
-          />
-        ) : null}
-        <View style={styles.newsText}>
-          <Body>{link.title}</Body>
-          {link.providerName ? <Caption color="faint">{link.providerName}</Caption> : null}
-          <View style={styles.descRow}>
-            {link.description ? (
-              <Caption color="faint" style={styles.descText}>
-                {link.description}
-              </Caption>
-            ) : (
-              <View style={styles.descText} />
-            )}
-            <Pressable
-              onPress={() => navigation.navigate('NewsDiscussions', {url: link.url, title: link.title})}
-              accessibilityRole="button"
-              accessibilityLabel={`Discussions about ${link.title}`}
-              testID="explore-news-discussions"
-              style={styles.discussPillWrap}>
-              <View style={[styles.discussPill, {borderColor: theme.palette.edge}]}>
-                <Caption>{i18n._(msg`Discussions`)}</Caption>
-              </View>
-            </Pressable>
-          </View>
-        </View>
-      </Pressable>
-    </View>
-  )
-}
-
-function SectionTitle({label}: {label: string}) {
-  return (
-    <View style={[atoms.px_md, atoms.py_sm]}>
-      <Caption color="faint">{label}</Caption>
-    </View>
-  )
-}
-
-const styles = StyleSheet.create({
-  avatar: {width: 44, height: 44, borderRadius: 22},
-  avatarFallback: {alignItems: 'center', justifyContent: 'center'},
-  accountRow: {flexDirection: 'row', alignItems: 'center', gap: 12},
-  accountText: {flex: 1, minWidth: 0},
-  // News photo: one fixed width everywhere, height follows each image's
-  // own aspect (RN measures the intrinsic size once loaded). minHeight +
-  // raise background holds a calm placeholder until the bytes arrive.
-  newsRow: {flexDirection: 'row', gap: 12},
-  newsPhoto: {width: 112, minHeight: 64, borderRadius: 8},
-  newsText: {flex: 1, minWidth: 0, justifyContent: 'center'},
-  // Blurb + pill share one row: the description wraps down the pill's
-  // left while the pill pins to its bottom-right — no full-width row.
-  descRow: {flexDirection: 'row', gap: 8, marginTop: 4, alignItems: 'flex-end'},
-  descText: {flex: 1, minWidth: 0},
-  discussPillWrap: {flexShrink: 0},
-  discussPill: {borderWidth: 1, borderRadius: 9999, paddingHorizontal: 12, paddingVertical: 6},
-})
-
-// --- Tab bodies --------------------------------------------------------------
-
-function useOpenAccount() {
-  const navigation = useNavigation<NavigationProp<RootParamList>>()
-  return (id: string) => navigation.navigate('User', {id})
-}
+// --- Tab bodies (tags + posts stay here; news/users live in ./explore/) ---
 
 function useOpenTag() {
   const navigation = useNavigation<NavigationProp<RootParamList>>()
   return (tag: string) => navigation.navigate('Tag', {tag})
-}
-
-function AccountsSearch({backend, query}: {backend: Backend; query: string}) {
-  const openAccount = useOpenAccount()
-  const [accounts, setAccounts] = useState<Account[] | null>(null)
-  const [error, setError] = useState(false)
-  const [attempt, setAttempt] = useState(0)
-  useEffect(() => {
-    let cancelled = false
-    setAccounts(null)
-    setError(false)
-    void backend.search
-      .accounts(query, {limit: 20})
-      .then(page => {
-        if (!cancelled) setAccounts(page.items)
-      })
-      .catch(() => {
-        if (!cancelled) setError(true)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [backend, query, attempt])
-  if (error) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-        <Body>{i18n._(msg`Could not search profiles.`)}</Body>
-        <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={() => setAttempt(a => a + 1)} testID="explore-accounts-retry" />
-      </View>
-    )
-  }
-  if (!accounts) {
-    return <SkeletonList variant="account" testID="explore-accounts-loading" />
-  }
-  if (accounts.length === 0) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="explore-accounts-empty">
-        <Body>{i18n._(msg`No profiles found.`)}</Body>
-      </View>
-    )
-  }
-  return (
-    <FlatList
-      data={accounts}
-      keyExtractor={a => a.id}
-      testID="explore-accounts"
-      ItemSeparatorComponent={() => <RowSeparator testID="explore-accounts-sep" />}
-      renderItem={({item}) => <AccountRow account={item} onOpen={() => openAccount(item.id)} />}
-    />
-  )
-}
-
-function UsersTab({backend, submitted}: {backend: Backend; submitted: string | null}) {
-  const openAccount = useOpenAccount()
-  const [users, setUsers] = useState<ExploreUsers | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [auth, setAuth] = useState(false)
-  const [attempt, setAttempt] = useState(0)
-  useEffect(() => {
-    if (submitted != null) return
-    if (!backend.explore) return
-    let cancelled = false
-    setUsers(null)
-    setError(null)
-    setAuth(false)
-    void backend.explore
-      .users({limit: 10})
-      .then(u => {
-        if (!cancelled) setUsers(u)
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return
-        if (isUnsupportedError(err)) {
-          setError('Trending users are not available on this server.')
-        } else if (err instanceof Error && /401|403/.test(err.message)) {
-          setAuth(true)
-        } else {
-          setError(err instanceof Error ? err.message : 'Could not load trending users.')
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [backend, submitted, attempt])
-  if (submitted != null) {
-    const name = submitted.replace(/^@+/, '').trim()
-    if (!name) {
-      return (
-        <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-          <Body>{i18n._(msg`Type a profile name to search.`)}</Body>
-        </View>
-      )
-    }
-    return <AccountsSearch backend={backend} query={name} />
-  }
-  if (!backend.explore) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="explore-users-unavailable">
-        <Body>{i18n._(msg`Trending users are not available on this server.`)}</Body>
-        <Caption color="faint">{i18n._(msg`Type a query above to search profiles.`)}</Caption>
-      </View>
-    )
-  }
-  if (auth) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>{i18n._(msg`Sign in to see suggested users.`)}</Body>
-        <SignInButton />
-      </View>
-    )
-  }
-  if (error) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-        <Body>{error}</Body>
-        <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={() => setAttempt(a => a + 1)} testID="explore-users-retry" />
-      </View>
-    )
-  }
-  if (!users) {
-    return <SkeletonList variant="account" testID="explore-users-loading" />
-  }
-  if (users.pinned.length === 0 && users.suggested.length === 0) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>{i18n._(msg`No trending users right now.`)}</Body>
-      </View>
-    )
-  }
-  return (
-    <FlatList
-      testID="explore-users"
-      ItemSeparatorComponent={() => <RowSeparator testID="explore-users-sep" />}
-      data={[
-        ...(users.pinned.length > 0 ? [{key: 'pinned-label', label: 'Pinned'}] : []),
-        ...users.pinned.map(a => ({key: `pinned-${a.id}`, account: a})),
-        ...(users.suggested.length > 0 ? [{key: 'suggested-label', label: 'Suggested'}] : []),
-        ...users.suggested.map(a => ({key: `suggested-${a.id}`, account: a})),
-      ]}
-      keyExtractor={row => row.key}
-      renderItem={({item}) =>
-        'label' in item ? (
-          <SectionTitle label={item.label} />
-        ) : (
-          <AccountRow account={item.account} onOpen={() => openAccount(item.account.id)} />
-        )
-      }
-    />
-  )
 }
 
 function TagsTab({
@@ -535,124 +221,6 @@ function PostsTab({
       backend={backend}
       descriptor={`search|${q}` as FeedDescriptor}
       testID="explore-search-feed"
-    />
-  )
-}
-
-function NewsTab({backend}: {backend: Backend}) {
-  const [links, setLinks] = useState<NewsLink[]>([])
-  const [cursor, setCursor] = useState<unknown>(null)
-  const [end, setEnd] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [attempt, setAttempt] = useState(0)
-  // `loading` state commits a render late, so two rapid `onEndReached`
-  // fires could share one stale `links` snapshot — the ref closes that
-  // gap, and the functional updater below dedupes against the freshest
-  // list either way.
-  const loadingRef = useRef(false)
-  useEffect(() => {
-    if (!backend.explore?.news) return
-    const news = backend.explore.news
-    let cancelled = false
-    loadingRef.current = true
-    setLoading(true)
-    setError(null)
-    void news({limit: 10})
-      .then(page => {
-        if (cancelled) return
-        setLinks(page.items)
-        setCursor(page.cursor)
-        setEnd(page.end)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load news.')
-      })
-      .finally(() => {
-        if (!cancelled) {
-          loadingRef.current = false
-          setLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [backend, attempt])
-  if (!backend.explore?.news) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>{i18n._(msg`News is not available on this server.`)}</Body>
-      </View>
-    )
-  }
-  if (loading && links.length === 0) {
-    return <SkeletonList variant="card" testID="explore-news-loading" />
-  }
-  if (error && links.length === 0) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-        <Body>{error}</Body>
-        <Button label={i18n._(msg`Retry`)} variant="secondary" onPress={() => setAttempt(a => a + 1)} testID="explore-news-retry" />
-      </View>
-    )
-  }
-  if (links.length === 0) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]}>
-        <Body>{i18n._(msg`No news right now.`)}</Body>
-      </View>
-    )
-  }
-  const loadMore = () => {
-    const news = backend.explore?.news
-    if (!news || loadingRef.current || end || cursor == null) return
-    loadingRef.current = true
-    setLoading(true)
-    setError(null)
-    void news({limit: 10, cursor: cursor as never})
-      .then(page => {
-        setLinks(prev => mergeNewsLinks(prev, page.items))
-        setCursor(page.cursor)
-        setEnd(page.end)
-      })
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Could not load more news.')
-      })
-      .finally(() => {
-        loadingRef.current = false
-        setLoading(false)
-      })
-  }
-  return (
-    <FlatList
-      testID="explore-news"
-      data={links}
-      keyExtractor={l => l.url}
-      ItemSeparatorComponent={() => <RowSeparator testID="explore-news-sep" />}
-      renderItem={({item}) => <NewsCard link={item} />}
-      // Infinite scroll with early prefetch: the next page starts loading
-      // well before the bottom edge, so the button-less list never stalls.
-      // `loadMore` is already guarded (in-flight/end/cursor), never a dupe.
-      onEndReached={() => void loadMore()}
-      onEndReachedThreshold={2}
-      ListFooterComponent={
-        // A load-more failure with items on screen keeps the list and
-        // offers a retry — never a silent swallow, never a cleared list.
-        error ? (
-          <View style={[atoms.centered, atoms.gap_sm, atoms.py_sm]}>
-            <Caption color="faint">{error}</Caption>
-            <Button
-              label={i18n._(msg`Retry`)}
-              variant="secondary"
-              onPress={() => {
-                setError(null)
-                loadMore()
-              }}
-              testID="explore-news-more-retry"
-            />
-          </View>
-        ) : null
-      }
     />
   )
 }

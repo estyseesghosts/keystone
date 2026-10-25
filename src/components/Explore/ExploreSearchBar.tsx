@@ -10,20 +10,20 @@ import {i18n} from '#/locale/i18n'
 
 // The Explore search field: text input plus submit, with a clear button
 // while a query is active. Submitting is the caller's job (`onSubmit`);
-// this component never fetches.
+// this component never fetches and never gates on a busy flag (D3.8: the
+// `busy` prop was never wired — no caller passed it — so it is gone
+// rather than inert).
 export function ExploreSearchBar({
   value,
   onChangeText,
   onSubmit,
   onClear,
-  busy,
   testID = 'explore-search',
 }: {
   value: string
   onChangeText: (text: string) => void
   onSubmit: () => void
   onClear: () => void
-  busy?: boolean
   testID?: string
 }) {
   const theme = useTheme()
@@ -60,9 +60,9 @@ export function ExploreSearchBar({
         <Button label={i18n._(msg`Clear`)} variant="secondary" onPress={onClear} testID="explore-search-clear" />
       ) : null}
       <Button
-        label={busy ? i18n._(msg`Searching…`) : i18n._(msg`Search`)}
+        label={i18n._(msg`Search`)}
         variant="primary"
-        disabled={busy || !active}
+        disabled={!active}
         onPress={onSubmit}
         testID="explore-search-submit"
       />

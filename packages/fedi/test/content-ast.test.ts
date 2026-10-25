@@ -20,7 +20,6 @@ import {
   mention,
   bareLinkLabel,
   collectBareLinkHrefs,
-  contentFromTranslatedText,
   mentionAccountIdOf,
   mentionLabelOf,
   matrixLabelOf,
@@ -34,10 +33,13 @@ import {
   strike,
   t,
   textOf,
-  translatedHashtagOf,
   unicodeEmoji,
   type ContentNode,
 } from "../src/core/content/ast";
+import {
+  contentFromTranslatedText,
+  translatedHashtagOf,
+} from "../src/core/content/fromTranslated";
 import { contentFromFieldValue } from "../src/core/content/fields";
 
 describe("constructors", () => {
