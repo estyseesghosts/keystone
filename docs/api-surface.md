@@ -74,7 +74,7 @@ hint, never a bare error.
 | Undo repost | `notes/unrenote` | Auth, `kind write:notes`; takes the **original** note's `noteId`, deletes my renotes of it |
 | Vote in poll | `notes/polls/vote` | Auth, `kind write:votes`; `{noteId, choice}` |
 | View user / resolve mention | `users/show` | `{userId}` or `{username, host?}`; authed reads add `isFollowing`, `hasPendingFollowRequestFromYou/ToYou` |
-| Search users | `users/search` | `{query, limit}` — always authenticated (Misskey 500s anonymous searches) |
+| Search users | `users/search` | `{query, limit, offset?}` — offset-paged (the client sends the decoded offset, never `untilId`); always authenticated (Misskey 500s anonymous searches) |
 | Search notes | `notes/search` | **Implemented but policy-dependent:** these servers answer 400 `UNAVAILABLE` ("Search of notes unavailable"). Never present a policy denial as a missing endpoint |
 | Search by tag | `notes/search-by-tag` | `{tag, limit}` works with the scoped token |
 | Explore: pinned users | `pinned-users` | **Upstream-verified shape, live 200 pending backend-machine check:** public, no params → `UserDetailed[]` (instance-pinned users, reference Explore page) |

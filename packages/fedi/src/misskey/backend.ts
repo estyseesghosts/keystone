@@ -76,6 +76,7 @@ import {
   decodeCursor,
   misskeyNotificationTypes,
   pageOf,
+  pageOfOffset,
 } from "./adapt";
 import { likeSupportFor, likeViaNotesLike } from "./like";
 import { createRecommendationsApi } from "./recommendations";
@@ -826,13 +827,18 @@ export function createMisskeyBackend(
         );
       },
       async accounts(query: string, opts: PageOpts = {}) {
+        // `users/search` pages by `offset`, not `untilId` (M2): the request
+        // consumes the decoded offset and the page encodes the next one.
+        // Sending an `untilId` here repeated page 1 forever, so the cursor
+        // never carries one.
         const limit = opts.limit ?? DEFAULT_LIMIT;
+        const offset = decodeCursor(opts.cursor ?? null).offset ?? 0;
         const rows = await call<UserLite[]>(
           "users/search",
-          { query, limit },
+          { query, limit, offset },
           { signal: opts.signal },
         );
-        return pageOf(rows ?? [], limit, adaptAccount);
+        return pageOfOffset(rows ?? [], offset, adaptAccount);
       },
       /** `hashtags/search` (public, prefix match): the `#` autocomplete. */
       async suggestTags(query: string, opts: PageOpts = {}) {
@@ -846,15 +852,17 @@ export function createMisskeyBackend(
         );
         return (rows ?? []).filter((t) => typeof t === "string" && t.length > 0);
       },
-      /** `@` autocomplete is `users/search` (auth-required, like search). */
+      /** `@` autocomplete is `users/search` (auth-required, like search):
+       * same offset paging as `accounts` above. */
       async suggestAccounts(query: string, opts: PageOpts = {}) {
         const limit = opts.limit ?? 8;
+        const offset = decodeCursor(opts.cursor ?? null).offset ?? 0;
         const rows = await call<UserLite[]>(
           "users/search",
-          { query, limit },
+          { query, limit, offset },
           { signal: opts.signal },
         );
-        return pageOf(rows ?? [], limit, adaptAccount);
+        return pageOfOffset(rows ?? [], offset, adaptAccount);
       },
     },
 

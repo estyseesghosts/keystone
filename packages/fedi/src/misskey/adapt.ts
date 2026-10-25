@@ -53,6 +53,7 @@ import {
   visibilityOf,
 } from "../core/models";
 import { safeHttpUrl } from "../core/content/ast";
+import { lookupPackedEmojis } from "../core/emoji";
 import type {
   FollowRequest as CoreFollowRequest,
   DriveFolder as CoreDriveFolder,
@@ -268,7 +269,7 @@ function adaptReactions(note: Note): ReactionSummary | null {
       key,
       count,
       mine: key === myReaction,
-      url: urls[key] ?? null,
+      url: lookupPackedEmojis(urls, key),
     });
   }
   return {
@@ -541,10 +542,14 @@ export function adaptFollowRequest(req: WireFollowRequest): CoreFollowRequest {
 interface MisskeyCursor {
   untilId?: string;
   sinceId?: string;
+  /** `users/search` pages by `offset`, not `untilId` (M2): the opaque core
+   * cursor encodes the NEXT offset. Reads tolerate foreign cursors (an old
+   * `{untilId}` cursor decodes with no offset, so search restarts at 0). */
+  offset?: number;
 }
 
 export function encodeCursor(cursor: MisskeyCursor | null | undefined): Cursor | null {
-  if (!cursor || (!cursor.untilId && !cursor.sinceId)) return null;
+  if (!cursor || (!cursor.untilId && !cursor.sinceId && cursor.offset == null)) return null;
   return JSON.stringify(cursor) as Cursor;
 }
 
@@ -557,16 +562,26 @@ export function decodeCursor(cursor: Cursor | null | undefined): MisskeyCursor {
     return {
       ...(typeof rec.untilId === "string" ? { untilId: rec.untilId } : {}),
       ...(typeof rec.sinceId === "string" ? { sinceId: rec.sinceId } : {}),
+      ...(typeof rec.offset === "number" &&
+      Number.isInteger(rec.offset) &&
+      rec.offset >= 0
+        ? { offset: rec.offset }
+        : {}),
     };
   } catch {
     return {};
   }
 }
 
-/** Build a core Page from a wire listing. The next cursor is the LAST
- * item's id (Misskey `untilId` paging); `end` is a short/empty page — the
- * same exhaustion rule the app already paged with (`page.length <
- * LIMIT`). */
+/** Build a core Page from an `untilId`-paged wire listing. The next cursor
+ * is the LAST item's id; `end` is an EMPTY page only (M15 / networking
+ * L6). A short non-empty page still carries a cursor: endpoints that
+ * post-filter (Sharkey mutes/hidden, `notes/search` via Meilisearch,
+ * `users/notes` with filters) can legitimately return short pages while
+ * more exist, so ending on `items.length < limit` truncated infinite
+ * scroll early. The UI stops on `cursor: null` / `end` (scroll-gated,
+ * deduped by id), so the worst case is one extra empty-page fetch per
+ * tail — never a loop (no caller advances without a cursor). */
 export function pageOf<T, R>(
   items: T[],
   limit: number,
@@ -581,6 +596,27 @@ export function pageOf<T, R>(
   return {
     items: adapted,
     cursor: encodeCursor({ untilId: lastId }),
-    end: items.length < limit,
+    end: false,
+  };
+}
+
+/** Build a core Page from an `offset`-paged wire listing (`users/search`,
+ * M2). The cursor encodes the NEXT offset (`offset + items.length`); `end`
+ * is an empty page only, same rule as `pageOf`. Callers send the decoded
+ * `offset` verbatim — never an `untilId` the endpoint ignores (that
+ * repeated page 1 forever under infinite scroll). */
+export function pageOfOffset<T, R>(
+  items: T[],
+  offset: number,
+  adaptItem: (item: T) => R,
+): Page<R> {
+  const adapted = items.map(adaptItem);
+  if (items.length === 0) {
+    return { items: adapted, cursor: null, end: true };
+  }
+  return {
+    items: adapted,
+    cursor: encodeCursor({ offset: offset + items.length }),
+    end: false,
   };
 }

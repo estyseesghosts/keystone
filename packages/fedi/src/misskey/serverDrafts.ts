@@ -48,8 +48,10 @@ export async function deleteServerDraft(
 }
 
 export async function countServerDrafts(call: WireCall): Promise<number> {
+  // An empty/204 body has no `count`: read tolerantly (M10) and report 0
+  // rather than crashing on `res.count`.
   const res = await call<{ count: number }>("notes/drafts/count", {});
-  return typeof res.count === "number" ? res.count : 0;
+  return typeof res?.count === "number" ? res.count : 0;
 }
 
 function adaptServerDraft(raw: WireServerDraft): ServerDraft {

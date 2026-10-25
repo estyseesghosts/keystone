@@ -60,13 +60,15 @@ describe("MisskeyBackend feeds", () => {
     expect(calls[calls.length - 1].params).toEqual({ limit: 20, untilId: "abc" });
   });
 
-  it("adapts the page: end on a short page, cursor from the last id", async () => {
+  it("adapts the page: cursor from the last id, end only on an empty page", async () => {
     const { transport } = stubTransport(() => [note]);
     const backend = createMisskeyBackend(transport);
     const page = await backend.timeline("home", { limit: 5 });
     expect(page.items[0].id).toBe(note.id);
     expect(page.items[0].content.mfm).toBe(note.text);
-    expect(page.end).toBe(true); // 1 < 5
+    // 1 < 5 is NOT the end (M15): post-filtering servers return short
+    // pages while more exist. Only an empty page ends the feed.
+    expect(page.end).toBe(false);
     expect(page.cursor).not.toBeNull();
     const full = await createMisskeyBackend(
       stubTransport(() => [note, note]).transport,
@@ -406,7 +408,7 @@ describe("MisskeyBackend accounts and social", () => {
     ]);
     expect(calls[0].params).toEqual({ query: "hello", limit: 20 });
     expect(calls[1].params).toEqual({ tag: "hello", limit: 20 });
-    expect(calls[2].params).toEqual({ query: "ann", limit: 20 });
+    expect(calls[2].params).toEqual({ query: "ann", limit: 20, offset: 0 });
   });
 
   // Regression only (Wave 0 slice 0.2): Misskey search already pages,
@@ -555,8 +557,9 @@ describe("MisskeyBackend notifications, drive, emojis, translate", () => {
     });
     expect(page.items).toHaveLength(1);
     expect(page.items[0].id).toBe(note.id);
-    // One item on a five-item page is the end; the cursor still names it.
-    expect(page.end).toBe(true);
+    // One item on a five-item page still carries a cursor (M15: only an
+    // empty page ends the feed); the cursor still names the last id.
+    expect(page.end).toBe(false);
     expect(JSON.parse(page.cursor as string)).toEqual({ untilId: note.id });
 
     // An empty page is honest: no invented cursor, end true.
@@ -725,7 +728,7 @@ describe("MisskeyBackend explore", () => {
   it("suggestAccounts() reads users/search like accounts", async () => {
     const { transport, calls } = stubTransport(() => [user]);
     const res = await createMisskeyBackend(transport).search.suggestAccounts!("ann");
-    expect(calls[0]).toEqual({ endpoint: "users/search", params: { query: "ann", limit: 8 } });
+    expect(calls[0]).toEqual({ endpoint: "users/search", params: { query: "ann", limit: 8, offset: 0 } });
     expect(res.items[0].id).toBe(user.id);
   });
 });

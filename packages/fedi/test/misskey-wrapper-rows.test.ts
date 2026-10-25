@@ -68,7 +68,8 @@ describe("misskey wrapper rows: followers", () => {
     expect(page.items.map((a) => a.id)).toEqual(["9exampleuser00002", "9exampleuser00003"]);
     expect(page.items[0].username).toBe("bob");
     expect(page.items[1].acct).toBe("cara@remote.example");
-    expect(page.end).toBe(true);
+    // 2 < 20 still pages (M15 end rule): only an empty page ends the feed.
+    expect(page.end).toBe(false);
     // The cursor is the LAST ROW id (untilId pages on the row).
     expect(decodeCursor(page.cursor)).toEqual({ untilId: "9followrow000002" });
     // ... and it round-trips as untilId on the next page.

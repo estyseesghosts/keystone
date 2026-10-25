@@ -415,7 +415,10 @@ export function handleOf(user: Pick<UserLite, "username" | "host">): string {
 /** Mirror of Misskey `is-renote.ts` (packed-note variants): a pure renote
  * (repost) carries `renoteId` with no own content — no text, CW, reply,
  * poll, or files. Anything else with `renoteId` is a quote: its own note
- * with an embedded original. */
+ * with an embedded original. `fileIds` reads tolerantly: fork/partial
+ * packs (and streamed events) may omit it, and an absent list means "no
+ * files" — never a crash (M10; `adaptNote` defaults `mediaIds` the same
+ * way). */
 export function isPureRenote(note: Note): boolean {
   return (
     note.renoteId != null &&
@@ -423,7 +426,7 @@ export function isPureRenote(note: Note): boolean {
     note.cw == null &&
     note.replyId == null &&
     note.poll == null &&
-    note.fileIds.length === 0
+    (note.fileIds ?? []).length === 0
   );
 }
 

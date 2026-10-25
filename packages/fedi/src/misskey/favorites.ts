@@ -41,7 +41,13 @@ export function createBookmarksApi(call: WireCall): BookmarksApi {
       const limit = opts.limit ?? DEFAULT_LIMIT;
       const cursor = decodeCursor(opts.cursor ?? null);
       const rows = await listFavorites(call, limit, cursor.untilId);
-      return pageOf(rows ?? [], limit, (row) => ({
+      // Deleted/gone favorites pack no usable note: skip the row rather
+      // than crashing in `adaptNote` (same `typeof id` guard as
+      // `noteReactions`; the row itself carries no account). The cursor
+      // stays the ROW id (`untilId` pages on the row, so `pageOf` runs on
+      // the rows and the map happens after).
+      const valid = (rows ?? []).filter((row) => typeof row?.note?.id === "string");
+      return pageOf(valid, limit, (row) => ({
         id: row.id,
         post: adaptNote(row.note),
       }));

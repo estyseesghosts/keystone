@@ -19,6 +19,20 @@
       "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Note)", "docs/api-surface.md"],
       "recordedAt": null
     },
+    "misskey/note-bare.json": {
+      "endpoint": "POST /api/notes/show (packed Note shape, bare-key reactionEmojis)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Note)", "docs/api-surface.md"],
+      "recordedAt": null,
+      "unverified": "Bare-key packed map (reactionEmojis keyed `blobcat`, no colons) per the live-verified comment in api/emoji.ts; tolerant lookup must resolve both this and the colon-wrapped note.json. Real capture: X5.6."
+    },
+    "misskey/note-no-fileids.json": {
+      "endpoint": "POST /api/notes/show (pure renote WITHOUT fileIds — fork/partial pack)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Note)", "docs/audit_20261025/results/misskey.md (M10)"],
+      "recordedAt": null,
+      "unverified": "Absent `fileIds` (and `files`) per the audit finding M10; `isPureRenote`/`adaptNote` must tolerate it. Not recorded against a live server (rig refused to agents). Real capture: X5.6."
+    },
     "misskey/user.json": {
       "endpoint": "POST /api/users/show (UserDetailed shape)",
       "source": "synthesised",
@@ -52,6 +66,27 @@
       "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserDetailed)", "docs/api-surface.md"],
       "recordedAt": null,
       "unverified": "Wrapper-row shape (id + blockee) per the audit finding M1; not recorded against a live server (rig refused to agents)."
+    },
+    "misskey/users-search-p1.json": {
+      "endpoint": "POST /api/users/search (UserLite[] page 1, offset paging)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserLite)", "docs/audit_20261025/results/misskey.md (M2)"],
+      "recordedAt": null,
+      "unverified": "Offset-paged shape (full page of 2 for limit 2) per the audit finding M2; not recorded against a live server (rig refused to agents). Real capture: X5.6."
+    },
+    "misskey/users-search-p2.json": {
+      "endpoint": "POST /api/users/search (UserLite[] page 2, offset paging)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserLite)", "docs/audit_20261025/results/misskey.md (M2)"],
+      "recordedAt": null,
+      "unverified": "Short non-empty tail page (1 row for limit 2): must NOT end the feed per the M15 end rule. Not recorded against a live server (rig refused to agents). Real capture: X5.6."
+    },
+    "misskey/favorites.json": {
+      "endpoint": "POST /api/i/favorites (FavoriteRows: valid + null-note + missing-note)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/favorites.ts (FavoriteRow)", "docs/audit_20261025/results/misskey.md (M10)"],
+      "recordedAt": null,
+      "unverified": "Noteless rows (deleted/gone favorites) per the audit finding M10; the list must skip them, never crash in adaptNote. Not recorded against a live server (rig refused to agents). Real capture: X5.6."
     },
     "misskey/drive-file.json": {
       "endpoint": "POST /api/drive/files (DriveFile shape)",
@@ -90,6 +125,13 @@
       "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Note)", "docs/api-surface.md"],
       "recordedAt": null,
       "unverified": "Carries Sharkey extras (isAdmin/isModerator on user, a remote reaction key) that adapt must ignore/keep; shaped from docs, not recorded."
+    },
+    "sharkey/note-bare.json": {
+      "endpoint": "POST /api/notes/show (packed Note shape, bare-key reactionEmojis)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Note)", "docs/api-surface.md"],
+      "recordedAt": null,
+      "unverified": "Bare-key packed map (reactionEmojis keyed `wave@remote.example`, no colons) per the live-verified comment in api/emoji.ts; tolerant lookup must resolve both this and the colon-wrapped note.json. Real capture: X5.6."
     },
     "sharkey/user.json": {
       "endpoint": "POST /api/users/show (UserDetailed shape)",

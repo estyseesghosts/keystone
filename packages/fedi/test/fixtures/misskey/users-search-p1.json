@@ -1,0 +1,26 @@
+[
+  {
+    "id": "9exampleuser00021",
+    "name": "Ann Search",
+    "username": "ann",
+    "host": null,
+    "avatarUrl": "https://misskey.example.com/avatars/ann.png",
+    "avatarBlurhash": null,
+    "isBot": false,
+    "isCat": false,
+    "emojis": {},
+    "onlineStatus": "online"
+  },
+  {
+    "id": "9exampleuser00022",
+    "name": "Annie Search",
+    "username": "annie",
+    "host": "remote.example",
+    "avatarUrl": null,
+    "avatarBlurhash": null,
+    "isBot": false,
+    "isCat": false,
+    "emojis": {},
+    "onlineStatus": "unknown"
+  }
+]

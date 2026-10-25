@@ -75,7 +75,7 @@ describe("MisskeyBackend channels", () => {
       usersCount: 12,
       notesCount: 34,
     });
-    expect(page.end).toBe(true); // 1 < 5
+    expect(page.end).toBe(false); // short page still pages (M15)
 
     await backend.channels!.list({
       cursor: JSON.stringify({ untilId: "u1" }) as never,
