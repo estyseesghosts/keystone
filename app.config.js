@@ -53,6 +53,7 @@ module.exports = function (_config) {
         // / `data_extraction_rules.xml` (written by withAndroidHardening)
         // exclude `files/mmkv/` if backups are ever re-enabled.
         allowBackup: false,
+        softwareKeyboardLayoutMode: 'pan', // X6.5 (rn-ui L5): Android uses the manual maxHeight cap; 'pan' stops the window resizing underneath it.
         // X2.3 (security M3, ADR 0012): the narrowest callback claim Expo
         // expresses — exactly the `keystone` scheme + `auth` host +
         // `/callback` path, `autoVerify` off (no App Links: no signing

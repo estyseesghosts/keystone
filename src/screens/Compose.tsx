@@ -26,7 +26,7 @@ import {Body} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {useOptionalSafeAreaInsets} from '#/components/insets'
 import {CompactComposer} from '#/components/Composer/CompactComposer'
-import {sheetKeyboardInset, sheetVisibleMaxHeight} from '#/components/Composer/Composer'
+import {sheetVisibleMaxHeight} from '#/components/Composer/Composer'
 import {Loader} from '#/components/Loader'
 import {Pressable} from '#/components/Pressable'
 import {takeRedraftSeed, type RedraftSeed} from '#/lib/redraft'
@@ -59,14 +59,19 @@ export function ComposeScreen() {
     seedRef.current = redraftId ? takeRedraftSeed(redraftId) : null
   }
   const redraftSeed = seedRef.current
-  // Native keyboard tracking (C3): the KeyboardAvoidingView already offsets
-  // on iOS, but the sheet card itself also caps to the visible area and (on
-  // Android, where the KAV uses `height`) pads below the content so the
-  // toolbar/input stay above the keyboard. Web needs neither (CSS).
+  // Keyboard compensation (X6.5, rn-ui L5): exactly ONE mechanism per
+  // platform. iOS uses the sheet's KeyboardAvoidingView (`padding`) below
+  // and no manual geometry here; Android uses the manual maxHeight cap
+  // (the helper is Android-only), paired with
+  // `android.softwareKeyboardLayoutMode: 'pan'` so the window does not
+  // resize underneath it; web uses neither (CSS). Device behavior is
+  // `not verified (device)` — see X12.1.
   const {height: windowHeight} = useWindowDimensions()
   const [kbHeight, setKbHeight] = useState(0)
   useEffect(() => {
-    if (Platform.OS === 'web') return
+    // Android-only: feeds the maxHeight cap. iOS is KAV-owned (a manual
+    // `keyboardDidShow` update fires post-animation and would jump the card).
+    if (Platform.OS !== 'android') return
     const show = Keyboard.addListener('keyboardDidShow', e => {
       setKbHeight(e.endCoordinates?.height ?? 0)
     })
@@ -78,9 +83,10 @@ export function ComposeScreen() {
   }, [])
   const mobile = layout === 'mobile'
   const cappedMaxHeight = sheetVisibleMaxHeight(Platform.OS, layout, windowHeight, kbHeight)
-  // iOS KAV `padding` already offsets; the manual pad is Android-only so the
-  // toolbar does not sit exactly on the keyboard edge there either.
-  const bottomPad = Platform.OS === 'android' ? sheetKeyboardInset(Platform.OS, kbHeight) : 0
+  // Explicit bottom padding is retired (X6.5): it stacked with the cap (and
+  // the KAV before it) and parked the input too high. The safe-area inset
+  // for the home indicator still applies below.
+  const bottomPad = 0
   // Home-indicator clearance on the full-bleed mobile sheet (N21); the
   // desktop card is untouched (insets read 0 on web anyway).
   const insets = useOptionalSafeAreaInsets()
@@ -119,48 +125,63 @@ export function ComposeScreen() {
     return sub
   }, [nav])
 
-  const shell = (content: React.ReactNode) => (
-    <View style={styles.overlay} testID="compose-overlay">
-      <Pressable
-        style={styles.backdrop}
-        onPress={requestGuardedClose}
-        accessibilityRole="button"
-        accessibilityLabel="Close composer"
-        testID="compose-backdrop"
-      />
-      <View pointerEvents="box-none" style={styles.cardWrap}>
-        <View
-          testID="compose-card"
-          style={[
-            styles.card,
-            mobile ? styles.cardMobile : styles.cardFloat,
-            {backgroundColor: alf.palette.bg, borderColor: alf.palette.edge},
-            cappedMaxHeight !== undefined ? {maxHeight: cappedMaxHeight} : null,
-            {paddingBottom: bottomPad + (mobile ? insets.bottom : 0)},
-          ]}>
-          {mobile ? (
-            <View testID="compose-grabber" style={styles.grabberWrap} pointerEvents="none">
-              <View style={[styles.grabber, {backgroundColor: alf.palette.faint}]} />
-            </View>
-          ) : null}
-          <KeyboardAvoidingView
-            style={styles.kav}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={0}>
-            {/* Sheet content scrolls inside the card (never traps the page
-                behind it): popups render in a Modal, so this ScrollView never
-                nests a VirtualizedList. */}
-            <ScrollView
-              testID="compose-sheet-scroll"
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.sheetScrollContent}>
-              {content}
-            </ScrollView>
-          </KeyboardAvoidingView>
+  const shell = (content: React.ReactNode) => {
+    // Sheet scroll body (shared): the iOS branch below wraps it in the
+    // sheet's KeyboardAvoidingView; Android/web render it directly (X6.5).
+    // Sheet content scrolls inside the card (never traps the page behind
+    // it): popups render in a Modal, so this ScrollView never nests a
+    // VirtualizedList.
+    const sheetScroll = (
+      <ScrollView
+        testID="compose-sheet-scroll"
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.sheetScrollContent}>
+        {content}
+      </ScrollView>
+    )
+    return (
+      <View style={styles.overlay} testID="compose-overlay">
+        <Pressable
+          style={styles.backdrop}
+          onPress={requestGuardedClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close composer"
+          testID="compose-backdrop"
+        />
+        <View pointerEvents="box-none" style={styles.cardWrap}>
+          <View
+            testID="compose-card"
+            style={[
+              styles.card,
+              mobile ? styles.cardMobile : styles.cardFloat,
+              {backgroundColor: alf.palette.bg, borderColor: alf.palette.edge},
+              cappedMaxHeight !== undefined ? {maxHeight: cappedMaxHeight} : null,
+              {paddingBottom: bottomPad + (mobile ? insets.bottom : 0)},
+            ]}>
+            {mobile ? (
+              <View testID="compose-grabber" style={styles.grabberWrap} pointerEvents="none">
+                <View style={[styles.grabber, {backgroundColor: alf.palette.faint}]} />
+              </View>
+            ) : null}
+            {/* X6.5 (rn-ui L5): exactly one keyboard mechanism per platform.
+                iOS mounts the KAV (`padding`); Android uses the maxHeight cap
+                above (KAV `height` + cap double-offset the input); web uses
+                CSS. Device behavior `not verified (device)` (X12.1). */}
+            {Platform.OS === 'ios' ? (
+              <KeyboardAvoidingView
+                style={styles.kav}
+                behavior="padding"
+                keyboardVerticalOffset={0}>
+                {sheetScroll}
+              </KeyboardAvoidingView>
+            ) : (
+              <View style={styles.kav}>{sheetScroll}</View>
+            )}
+          </View>
         </View>
       </View>
-    </View>
-  )
+    )
+  }
 
   useEffect(() => {
     if (!backend) return

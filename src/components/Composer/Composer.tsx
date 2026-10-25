@@ -84,15 +84,20 @@ import {pickMedia} from './pickMedia'
 // Every optional control is gated by `composeGates` (capabilities + backend
 // sub-modules): unsupported controls are hidden or disabled WITH a reason.
 
-// Sheet keyboard helpers (C2/C3): pure, jest-covered. The sheet's
-// KeyboardAvoidingView already offsets on iOS; these drive the native-only
-// maxHeight/padding adjustments from keyboard show/hide listeners so the
-// toolbar/input stay above the keyboard. Web returns 0/undefined (CSS
-// handles it there) and non-mobile shells keep their centered card.
+// Sheet keyboard geometry (X6.5, rn-ui L5): exactly ONE mechanism per
+// platform, pure and jest-covered. iOS is owned by the sheet's
+// KeyboardAvoidingView (`padding`) in Compose.tsx; Android uses the manual
+// maxHeight cap below (`window - keyboard`), paired with
+// `android.softwareKeyboardLayoutMode: 'pan'` in app.config.js so the
+// window does not ALSO resize underneath it. The explicit bottom-padding
+// path is retired (always 0): padding + cap + KAV triple-applied on
+// Android and parked the input too high. Web returns 0/undefined (CSS owns
+// it) and non-mobile shells keep their centered card. Device behavior is
+// `not verified (device)` — see X12.1.
 export function sheetKeyboardInset(platformOS: string, keyboardHeight: number): number {
-  if (platformOS === 'web') return 0
-  if (!Number.isFinite(keyboardHeight) || keyboardHeight <= 0) return 0
-  return keyboardHeight
+  void platformOS
+  void keyboardHeight
+  return 0
 }
 
 export function sheetVisibleMaxHeight(
@@ -101,9 +106,10 @@ export function sheetVisibleMaxHeight(
   windowHeight: number,
   keyboardHeight: number,
 ): number | undefined {
-  if (platformOS === 'web' || layout !== 'mobile') return undefined
+  if (platformOS !== 'android' || layout !== 'mobile') return undefined
   if (!Number.isFinite(windowHeight) || windowHeight <= 0) return undefined
-  return Math.max(0, windowHeight - sheetKeyboardInset(platformOS, keyboardHeight))
+  const kb = Number.isFinite(keyboardHeight) && keyboardHeight > 0 ? keyboardHeight : 0
+  return Math.max(0, windowHeight - kb)
 }
 
 /** True when the selected visibility is a direct audience (Misskey

@@ -1,10 +1,12 @@
-// Compose overlay sheet (W6 C2/C3): full-bleed mobile sheet with grabber,
-// backdrop + Cancel dismissal, and keyboard listeners that keep the card
-// above the native keyboard. Desktop centered-card behavior is unchanged.
+// Compose overlay sheet (W6 C2/C3, X6.5): full-bleed mobile sheet with
+// grabber, backdrop + Cancel dismissal. Keyboard compensation is exactly
+// one mechanism per platform (X6.5): iOS mounts the sheet KAV, Android caps
+// the card via keyboard show/hide listeners, web uses CSS.
+// Desktop centered-card behavior is unchanged.
 
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-native'
-import {Keyboard, KeyboardAvoidingView, StyleSheet} from 'react-native'
+import {Keyboard, KeyboardAvoidingView, Platform, StyleSheet} from 'react-native'
 import {I18nProvider} from '@lingui/react'
 import {i18n} from '@lingui/core'
 
@@ -168,7 +170,10 @@ describe('ComposeScreen sheet', () => {
     }
   })
 
-  it('subscribes to keyboard show/hide and caps the card above the keyboard', async () => {
+  it('android: subscribes to keyboard show/hide and caps the card above the keyboard', async () => {
+    // X6.5: the manual maxHeight cap is the Android mechanism (iOS is
+    // KAV-owned, web is CSS-owned — neither subscribes here).
+    const restoreOs = jest.replaceProperty(Platform, 'OS', 'android')
     const {done, listeners, addSpy} = await setup()
     try {
       expect(addSpy).toHaveBeenCalledWith('keyboardDidShow', expect.any(Function))
@@ -193,13 +198,15 @@ describe('ComposeScreen sheet', () => {
       expect(hidden.maxHeight).toBe(before.maxHeight)
     } finally {
       done()
+      restoreOs.restore()
     }
   })
 
-  it('offsets for the keyboard exactly once (single KeyboardAvoidingView)', async () => {
-    // R0.3: the sheet owns the KAV; the composer's inner KAV is skipped on
-    // this path so iOS/Android do not double-offset. Home's standalone
-    // composer keeps its own KAV (covered by CompactComposer.test.tsx).
+  it('iOS: offsets for the keyboard exactly once (single KeyboardAvoidingView)', async () => {
+    // R0.3 + X6.5: the sheet owns the KAV on iOS; the composer's inner KAV
+    // is skipped on this path so iOS does not double-offset. Home's
+    // standalone composer keeps its own KAV (covered by
+    // CompactComposer.test.tsx).
     const {done} = await setup()
     try {
       expect(screen.UNSAFE_queryAllByType(KeyboardAvoidingView)).toHaveLength(1)
@@ -208,17 +215,79 @@ describe('ComposeScreen sheet', () => {
     }
   })
 
-  it('unsubscribes the keyboard listeners on unmount', async () => {
+  it.each([
+    {os: 'ios', kavCount: 1, capped: false},
+    {os: 'android', kavCount: 0, capped: true},
+    {os: 'web', kavCount: 0, capped: false},
+  ] as const)(
+    'exactly one keyboard mechanism is active on $os (KAV xor maxHeight xor none)',
+    async ({os, kavCount, capped}) => {
+      // X6.5 acceptance (rn-ui L5): render-prop inspection per Platform.OS.
+      // iOS = KAV only, Android = maxHeight cap only, web = neither (CSS).
+      const restoreOs = jest.replaceProperty(Platform, 'OS', os)
+      const {done, listeners} = await setup()
+      try {
+        expect(screen.UNSAFE_queryAllByType(KeyboardAvoidingView)).toHaveLength(kavCount)
+        const card = StyleSheet.flatten(screen.getByTestId('compose-card').props.style) as {
+          maxHeight?: number
+          paddingBottom?: number
+        }
+        expect(card.maxHeight !== undefined).toBe(capped)
+        const padBefore = card.paddingBottom
+        if (os === 'android') {
+          // The cap moves with the keyboard; no keyboard pad stacks with it.
+          const before = card.maxHeight as number
+          act(() => {
+            listeners['keyboardDidShow']({endCoordinates: {height: 300}})
+          })
+          const shown = StyleSheet.flatten(screen.getByTestId('compose-card').props.style) as {
+            maxHeight?: number
+            paddingBottom?: number
+          }
+          expect(shown.maxHeight).toBe(before - 300)
+          expect(shown.paddingBottom).toBe(padBefore)
+          act(() => {
+            listeners['keyboardDidHide']({})
+          })
+          const hidden = StyleSheet.flatten(screen.getByTestId('compose-card').props.style) as {
+            maxHeight?: number
+            paddingBottom?: number
+          }
+          expect(hidden.maxHeight).toBe(before)
+          expect(hidden.paddingBottom).toBe(padBefore)
+        } else {
+          // iOS (KAV-owned) and web (CSS-owned) never subscribe our manual
+          // keyboard listeners.
+          expect(listeners['keyboardDidShow']).toBeUndefined()
+          expect(listeners['keyboardDidHide']).toBeUndefined()
+        }
+        // Exactly one native mechanism active (web: none — CSS owns it).
+        const activeCount = (kavCount === 1 ? 1 : 0) + (capped ? 1 : 0)
+        if (os === 'web') expect(activeCount).toBe(0)
+        else expect(activeCount).toBe(1)
+      } finally {
+        done()
+        restoreOs.restore()
+      }
+    },
+  )
+
+  it('android: unsubscribes the keyboard listeners on unmount', async () => {
+    const restoreOs = jest.replaceProperty(Platform, 'OS', 'android')
     const {done, unmount} = await setup()
-    // KeyboardAvoidingView subscribes too — only our Did show/hide matter.
-    const mock = Keyboard.addListener as jest.Mock
-    const ours = mock.mock.calls
-      .map((c, i) => i)
-      .filter(i => mock.mock.calls[i][0] === 'keyboardDidShow' || mock.mock.calls[i][0] === 'keyboardDidHide')
-    expect(ours).toHaveLength(2)
-    unmount()
-    for (const i of ours) expect(mock.mock.results[i].value.remove).toHaveBeenCalledTimes(1)
-    done()
+    try {
+      // KeyboardAvoidingView subscribes too — only our Did show/hide matter.
+      const mock = Keyboard.addListener as jest.Mock
+      const ours = mock.mock.calls
+        .map((c, i) => i)
+        .filter(i => mock.mock.calls[i][0] === 'keyboardDidShow' || mock.mock.calls[i][0] === 'keyboardDidHide')
+      expect(ours).toHaveLength(2)
+      unmount()
+      for (const i of ours) expect(mock.mock.results[i].value.remove).toHaveBeenCalledTimes(1)
+    } finally {
+      done()
+      restoreOs.restore()
+    }
   })
 })
 
