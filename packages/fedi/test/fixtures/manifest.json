@@ -25,6 +25,34 @@
       "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserDetailed)", "docs/api-surface.md"],
       "recordedAt": null
     },
+    "misskey/followers.json": {
+      "endpoint": "POST /api/users/followers (Following rows with follower)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserDetailed)", "docs/api-surface.md"],
+      "recordedAt": null,
+      "unverified": "Wrapper-row shape (id + follower) per the audit finding M1; not recorded against a live server (rig refused to agents)."
+    },
+    "misskey/following.json": {
+      "endpoint": "POST /api/users/following (Following rows with followee)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserDetailed)", "docs/api-surface.md"],
+      "recordedAt": null,
+      "unverified": "Wrapper-row shape (id + followee) per the audit finding M1; not recorded against a live server (rig refused to agents)."
+    },
+    "misskey/mutes.json": {
+      "endpoint": "POST /api/mute/list (Muting rows with mutee)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserDetailed)", "docs/api-surface.md"],
+      "recordedAt": null,
+      "unverified": "Wrapper-row shape (id + mutee) per the audit finding M1; not recorded against a live server (rig refused to agents)."
+    },
+    "misskey/blocks.json": {
+      "endpoint": "POST /api/blocking/list (Blocking rows with blockee)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserDetailed)", "docs/api-surface.md"],
+      "recordedAt": null,
+      "unverified": "Wrapper-row shape (id + blockee) per the audit finding M1; not recorded against a live server (rig refused to agents)."
+    },
     "misskey/drive-file.json": {
       "endpoint": "POST /api/drive/files (DriveFile shape)",
       "source": "synthesised",

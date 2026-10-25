@@ -129,6 +129,7 @@ import { createScheduledApi } from "./schedule";
 import { editNote } from "./noteEdit";
 import { createListsApi } from "./listMembership";
 import { listRenoteMutes } from "./renoteMutes";
+import { pageOfAccountRows, type AccountListWrapperKey } from "./mutes";
 import { createServerDraftsApi } from "./serverDrafts";
 import { createTransferApi } from "./importExport";
 
@@ -268,6 +269,40 @@ export function createMisskeyBackend(
   const transfer: TransferApi = createTransferApi(transport, call);
 
   const recommendations: RecommendationsApi = createRecommendationsApi(call, opts.origin);
+
+  // Account-list endpoints answer WRAPPER rows, not bare users (M1):
+  // `users/followers` -> `follower`, `users/following` -> `followee`,
+  // `mute/list` -> `mutee`, `blocking/list` -> `blockee`. Unwrap per
+  // endpoint (tolerant bare-user rows pass through for fork-compat), skip
+  // rows without a string-id user, and keep the cursor on the ROW id
+  // (`untilId` pages on the row, so `pageOf` runs on rows and the map
+  // happens after — see `pageOfAccountRows`).
+  const ACCOUNT_LIST_WRAPPER_KEY: Record<string, AccountListWrapperKey> = {
+    "users/followers": "follower",
+    "users/following": "followee",
+    "mute/list": "mutee",
+    "blocking/list": "blockee",
+  };
+
+  async function listAccounts(
+    endpoint: string,
+    opts: PageOpts,
+    extra: Record<string, unknown> = {},
+  ): Promise<Page<Account>> {
+    const limit = opts.limit ?? DEFAULT_LIMIT;
+    const rows = await call<unknown[]>(
+      endpoint,
+      {
+        ...extra,
+        limit,
+        ...decodeCursor(opts.cursor ?? null),
+      },
+      { signal: opts.signal },
+    );
+    const key = ACCOUNT_LIST_WRAPPER_KEY[endpoint];
+    if (!key) return pageOf((rows ?? []) as UserLite[], limit, adaptAccount);
+    return pageOfAccountRows(rows, limit, key);
+  }
 
   return {
     family: "misskey",
@@ -1031,25 +1066,8 @@ export function createMisskeyBackend(
     transfer,
     recommendations,
   };
-
-  async function listAccounts(
-    endpoint: string,
-    opts: PageOpts,
-    extra: Record<string, unknown> = {},
-  ): Promise<Page<Account>> {
-    const limit = opts.limit ?? DEFAULT_LIMIT;
-    const rows = await call<UserLite[]>(
-      endpoint,
-      {
-        ...extra,
-        limit,
-        ...decodeCursor(opts.cursor ?? null),
-      },
-      { signal: opts.signal },
-    );
-    return pageOf(rows ?? [], limit, adaptAccount);
-  }
 }
+
 
 // --- Wire-shaped helpers that are not worth a module ----------------------
 // (Antenna/draft/note-body mapping lives in `./antennas`,
