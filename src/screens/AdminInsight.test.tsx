@@ -274,9 +274,9 @@ describe('AdminInsightScreen', () => {
 
 describe('AdminInsight pure helpers (Misskey)', () => {
   it('formats byte counts 1024-based, never a fabricated zero', () => {
-    expect(formatBytes(0)).toBe('0.0 B')
+    expect(formatBytes(0)).toBe('0 B')
     expect(formatBytes(1536)).toBe('1.5 KiB')
-    expect(formatBytes(17179869184)).toBe('16.0 GiB')
+    expect(formatBytes(17179869184)).toBe('16 GiB')
     expect(formatBytes(Number.NaN)).toBe('—')
     expect(formatBytes(-1)).toBe('—')
   })

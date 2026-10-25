@@ -29,6 +29,7 @@ import {Pagehead} from '#/components/Pagehead'
 import {RichText} from '#/components/RichText'
 import {revisionNodes} from '#/components/Post/body'
 import {formatRelativeTime} from '#/components/Post/time'
+import {useNow} from '#/locale/ticker'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
@@ -48,6 +49,7 @@ export function RevisionRow({
 }) {
   const theme = useTheme()
   const i18n = useI18n()
+  const nowMs = useNow()
   const nodes = revisionNodes(revision)
   return (
     <View
@@ -55,8 +57,8 @@ export function RevisionRow({
       style={[styles.card, {borderBottomWidth: 1, borderBottomColor: theme.palette.border}]}>
       <Caption color="muted" testID={`${testID ?? 'revision'}-label`}>
         {revision.original
-          ? i18n._(msg`Original · ${formatRelativeTime(revision.createdAt)}`)
-          : i18n._(msg`Edited · ${formatRelativeTime(revision.createdAt)}`)}
+          ? i18n._(msg`Original · ${formatRelativeTime(revision.createdAt, nowMs)}`)
+          : i18n._(msg`Edited · ${formatRelativeTime(revision.createdAt, nowMs)}`)}
       </Caption>
       {revision.cw ? (
         <Caption color="muted" testID={`${testID ?? 'revision'}-cw`}>
@@ -134,7 +136,7 @@ export function NoteHistoryScreen() {
         <View testID="note-history-list">
           <View style={[atoms.px_md, atoms.py_sm]}>
             <Caption color="faint" testID="note-history-count">
-              {i18n._(plural(editCount, {one: `${editCount} edit`, other: `${editCount} edits`}))}
+              {i18n._(plural(editCount, {one: '# edit', other: '# edits'}))}
             </Caption>
           </View>
           {(history.data ?? []).map((revision, i) => (

@@ -19,6 +19,8 @@ import {PostQuote} from '#/components/Post/PostQuote'
 import {postBodyNodes, postEmojis} from '#/components/Post/body'
 import {formatRelativeTime} from '#/components/Post/time'
 import {useLocale} from '#/locale/i18n'
+import {formatDateTime, formatDuration} from '#/locale/format'
+import {useNow} from '#/locale/ticker'
 import {TextField} from '#/components/forms/TextField'
 import {Dialog} from '#/components/Dialog'
 import {EmojiPicker} from '#/components/EmojiPicker'
@@ -39,12 +41,7 @@ import {i18n} from '#/locale/i18n'
 // (`CompactComposer`) chromes render the same blocks, so testIDs and
 // behavior stay identical in both.
 
-const POLL_DURATIONS: Array<{label: string; seconds: number}> = [
-  {label: '5 min', seconds: 300},
-  {label: '1 hour', seconds: 3600},
-  {label: '1 day', seconds: 86400},
-  {label: '7 days', seconds: 604800},
-]
+const POLL_DURATIONS = [300, 3600, 86400, 604800]
 
 export function CwSection({c}: {c: ComposerController}) {
   if (!c.state.cwEnabled) return null
@@ -116,6 +113,7 @@ const previewStyles = StyleSheet.create({
 export function ReplyPreviewSection({c}: {c: ComposerController}) {
   const theme = useTheme()
   const locale = useLocale()
+  const nowMs = useNow()
   const replyTo = c.state.replyTo
   if (!replyTo) return null
   return (
@@ -129,7 +127,7 @@ export function ReplyPreviewSection({c}: {c: ComposerController}) {
           <View style={previewStyles.opHead}>
             <DisplayName account={replyTo.author} sessionId={c.session.id} />
             <Caption color="muted" numberOfLines={1}>
-              @{replyTo.author.acct} · {formatRelativeTime(replyTo.createdAt, Date.now(), locale)}
+              @{replyTo.author.acct} · {formatRelativeTime(replyTo.createdAt, nowMs, locale)}
             </Caption>
           </View>
           <RichText
@@ -169,6 +167,7 @@ export function QuotePreviewSection({c}: {c: ComposerController}) {
 }
 
 export function PollSection({c}: {c: ComposerController}) {
+  const locale = useLocale()
   if (!c.state.poll) return null
   // Repair X6.1 F3: poll controls are frozen while an edit save is in
   // flight. Edit-only gate so create-mode behaviour (X6.2) is untouched.
@@ -229,14 +228,14 @@ export function PollSection({c}: {c: ComposerController}) {
         />
       </View>
       <View style={c.styles.row}>
-        {POLL_DURATIONS.map(d => (
+        {POLL_DURATIONS.map(seconds => (
           <Chip
-            key={d.seconds}
-            label={d.label}
-            selected={c.state.poll!.durationSeconds === d.seconds}
+            key={seconds}
+            label={formatDuration(seconds, locale)}
+            selected={c.state.poll!.durationSeconds === seconds}
             disabled={locked}
             disabledReason={locked ? lockedReason : undefined}
-            onPress={() => c.patch({poll: {...c.state.poll!, durationSeconds: d.seconds}})}
+            onPress={() => c.patch({poll: {...c.state.poll!, durationSeconds: seconds}})}
           />
         ))}
       </View>
@@ -659,7 +658,7 @@ export function ScheduledListSection({c}: {c: ComposerController}) {
         list.data.map(s => (
           <View key={s.id} style={c.styles.row}>
             <Caption color="muted" testID={`composer-scheduled-${s.id}`}>
-              {new Date(s.scheduledAt).toLocaleString()} — {scheduledSnippet(s)}
+              {formatDateTime(s.scheduledAt, i18n.locale)} — {scheduledSnippet(s)}
             </Caption>
             <Chip
               label={i18n._(msg`Cancel`)}

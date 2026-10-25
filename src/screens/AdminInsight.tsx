@@ -44,6 +44,7 @@ import {Pagehead} from '#/components/Pagehead'
 import {RichText} from '#/components/RichText'
 import {SignInButton} from '#/components/SignInButton'
 import {i18n} from '#/locale/i18n'
+import {formatBytes as formatAppBytes, formatNumber} from '#/locale/format'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {useReportRules} from '#/state/queries/reports'
 import {
@@ -77,27 +78,21 @@ export function insightKeyLabel(kind: 'measure' | 'dimension', key: string): str
   return found ? i18n._(found) : key
 }
 
-/** Byte counts the Misskey hardware snapshot reports, rendered as
- * GiB/MiB/KiB with one decimal (1024-based, matching the OS tools the
- * numbers come from). Null (the server did not report it), non-finite or
- * negative input reads '—', never a fabricated zero. Pure. */
-export function formatBytes(bytes: number | null): string {
-  if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return '—'
-  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
-  let value = bytes
-  let unit = 0
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024
-    unit += 1
-  }
-  return `${value.toFixed(1)} ${units[unit]}`
+/** Byte counts the Misskey hardware snapshot reports, rendered through
+ * the shared app-locale formatter with the IEC units the OS tools report
+ * (`KiB`/`MiB`/`GiB`, 1024-based). Null (the server did not report it),
+ * non-finite or negative input reads '—', never a fabricated zero. Pure;
+ * the optional locale defaults to the activated app locale. */
+export function formatBytes(bytes: number | null, locale?: string | null): string {
+  return formatAppBytes(bytes, locale ?? i18n.locale, {binary: true}) ?? '—'
 }
 
-/** One queue counter for the queue-stats rows: the server's number, or
- * '—' when the server did not report it (null is "not reported", never
- * zero — zero is a real measurement). Pure. */
-export function queueCountDisplay(value: number | null): string {
-  return value == null ? '—' : String(value)
+/** One queue counter for the queue-stats rows: the server's number in
+ * app-locale numerals, or '—' when the server did not report it (null is
+ * "not reported", never zero — zero is a real measurement). Pure; the
+ * optional locale defaults to the activated app locale. */
+export function queueCountDisplay(value: number | null, locale?: string | null): string {
+  return value == null ? '—' : formatNumber(locale, value)
 }
 
 /** The number the screen shows for a measure: the server's human value

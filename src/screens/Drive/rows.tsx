@@ -24,19 +24,18 @@ import {TextField} from '#/components/forms/TextField'
 import {postBodyNodes} from '#/components/Post/body'
 import {RichText} from '#/components/RichText'
 import {i18n} from '#/locale/i18n'
+import {formatBytes as formatAppBytes} from '#/locale/format'
 
-/** Human byte size for the detail panel (`null` stays honestly unknown). */
-export function formatBytes(size: number | null): string {
-  if (size == null || !Number.isFinite(size) || size < 0) return 'Unknown'
-  if (size < 1024) return `${size} B`
-  const units = ['KB', 'MB', 'GB', 'TB']
-  let value = size / 1024
-  let unit = 0
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024
-    unit++
-  }
-  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`
+/** Human byte size for the detail panel, through the shared app-locale
+ * formatter. Unknown sizes read the existing translated `Unknown` value
+ * (the same message the detail panel uses for its other unknown fields —
+ * no new catalog entry). Pure; the optional locale defaults to the
+ * activated app locale. */
+export function formatBytes(size: number | null, locale?: string | null): string {
+  return (
+    formatAppBytes(size, locale ?? i18n.locale) ??
+    i18n._(msg({message: 'Unknown', context: 'drive file detail value'}))
+  )
 }
 
 export function FolderRow({

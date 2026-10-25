@@ -11,7 +11,7 @@ import {Linking, Platform, Share, StyleSheet, View, type StyleProp, type ViewSty
 
 import {QueryClientContext} from '@tanstack/react-query'
 
-import {msg, t} from '@lingui/macro'
+import {msg, plural, t} from '@lingui/macro'
 
 import {
   appearNoteOf,
@@ -72,7 +72,8 @@ import {quoteCardProps, useQuoteTarget} from './useQuoteTarget'
 import {useAutoTranslation} from './useAutoTranslation'
 import {TagBubble} from './TagBubble'
 import {HoverPreview} from '#/components/Profile/HoverPreview'
-import {formatCount, useLocale, useI18n} from '#/locale/i18n'
+import {formatCount, i18n, useLocale, useI18n} from '#/locale/i18n'
+import {useNow} from '#/locale/ticker'
 import {ReactionChips} from './ReactionChips'
 import {formatRelativeTime} from './time'
 
@@ -149,12 +150,16 @@ function openRedraftComposer(postId: string) {
 }
 
 /** Collapsed-boost banner (v1 `TimelineFeed` parity, F17): one reposter
- * reads "X boosted", several read "X and N others boosted". Pure. */
+ * reads "X boosted", several read "X and N others boosted". The count
+ * rides `plural` (translators own the word order), resolved against the
+ * activated app locale at call time. Pure. */
 export function boostLabel(post: Post, renoters?: Account[]): string {
   const names = (renoters ?? []).map(displayNameOf)
-  if (names.length <= 1) return t`${displayNameOf(post.author)} boosted`
+  if (names.length <= 1) return i18n._(msg`${displayNameOf(post.author)} boosted`)
   const rest = names.length - 1
-  return t`${names[0]} and ${rest} other${rest === 1 ? '' : 's'} boosted`
+  return i18n._(
+    msg`${names[0]} and ${plural(rest, {one: '# other', other: '# others'})} boosted`,
+  )
 }
 
 // Desktop hover preview (P7): web-only wrapper around an author press.
@@ -703,6 +708,7 @@ const PostCardView = memo(function PostCardView({
   const theme = useTheme()
   const i18n = useI18n()
   const locale = useLocale()
+  const nowMs = useNow()
   const [cwOpen, setCwOpen] = useState(false)
   // Per-session configured like key (F18): chips hide it, the like
   // button sets it. Device-local store, server default underneath.
@@ -978,7 +984,7 @@ const PostCardView = memo(function PostCardView({
                   accessibilityLabel={i18n._(msg`Open post by ${displayNameOf(effective.author)}`)}
                   style={styles.headerTime}>
                   <Caption color="muted" numberOfLines={1}>
-                    {`· ${formatRelativeTime(effective.createdAt, undefined, locale)}`}
+                    {`· ${formatRelativeTime(effective.createdAt, nowMs, locale)}`}
                   </Caption>
                 </Pressable>
                 {/* WS-B (F10): tag-block bubble at the header end (v1 parity). */}

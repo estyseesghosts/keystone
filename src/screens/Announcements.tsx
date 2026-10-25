@@ -40,6 +40,8 @@ import {RichText} from '#/components/RichText'
 import {SignInButton} from '#/components/SignInButton'
 import {formatRelativeTime} from '#/components/Post/time'
 import {i18n} from '#/locale/i18n'
+import {formatDate} from '#/locale/format'
+import {useNow} from '#/locale/ticker'
 import {useActiveBackend} from '#/screens/HomeFeed'
 
 const PAGE_SIZE = 50
@@ -94,6 +96,7 @@ function AnnouncementRow({
 }) {
   const nodes = useMemo(() => announcementNodes(announcement), [announcement])
   const unread = announcement.isRead === false
+  const nowMs = useNow()
   const disabledReason = !dismissable
     ? i18n._(msg`This server does not support marking announcements as read.`)
     : dismissUnsupported
@@ -117,7 +120,7 @@ function AnnouncementRow({
         />
       ) : null}
       <View style={[atoms.row, atoms.gap_sm]}>
-        <Caption color="faint">{formatRelativeTime(announcement.createdAt)}</Caption>
+        <Caption color="faint">{formatRelativeTime(announcement.createdAt, nowMs)}</Caption>
         <Caption
           color="faint"
           testID={`announcements-state-${announcement.id}`}>
@@ -126,10 +129,8 @@ function AnnouncementRow({
         {announcement.endsAt ? (
           <Caption color="faint">
             {announcement.allDay
-              ? i18n._(
-                  msg`Until ${new Date(announcement.endsAt).toLocaleDateString()} (all day)`,
-                )
-              : i18n._(msg`Until ${new Date(announcement.endsAt).toLocaleDateString()}`)}
+              ? i18n._(msg`Until ${formatDate(announcement.endsAt, i18n.locale)} (all day)`)
+              : i18n._(msg`Until ${formatDate(announcement.endsAt, i18n.locale)}`)}
           </Caption>
         ) : null}
       </View>

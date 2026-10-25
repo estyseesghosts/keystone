@@ -16,7 +16,7 @@
 import {useMemo, useRef} from 'react'
 import {Image, Linking, StyleSheet, View} from 'react-native'
 
-import {msg, t} from '@lingui/macro'
+import {msg, plural, t} from '@lingui/macro'
 
 import {
   displayNameOf,
@@ -35,6 +35,7 @@ import {RichText, defaultHashtagPress, defaultMentionPress} from '#/components/R
 import {postBodyNodes, postEmojis} from '#/components/Post/body'
 import {formatRelativeTime} from '#/components/Post/time'
 import {i18n, useLocale} from '#/locale/i18n'
+import {useNow} from '#/locale/ticker'
 import {navigationRef} from '#/navigationRef'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 
@@ -219,6 +220,7 @@ export function NotificationRow({
   // Singleton `i18n` (not the hook) keeps provider-less trees — jest,
   // previews — rendering; `useLocale` below still re-renders on switch.
   const locale = useLocale()
+  const nowMs = useNow()
   const activeId = useOptionalActiveSession()?.id ?? null
   const sid = sessionId ?? activeId
   const actors = notification.actors
@@ -324,7 +326,7 @@ export function NotificationRow({
         </View>
         {extraCount > 0 ? (
           <Caption color="faint" testID={`notification-others-${notification.id}`}>
-            {i18n._(msg`and ${extraCount} other${extraCount === 1 ? '' : 's'}`)}
+            {i18n._(plural(extraCount, {one: 'and # other', other: 'and # others'}))}
           </Caption>
         ) : null}
         {excerptNodes !== null && excerptNodes.length > 0 ? (
@@ -370,7 +372,7 @@ export function NotificationRow({
           </Pressable>
         ) : null}
         <Caption color="faint" testID={`notification-time-${notification.id}`}>
-          {formatRelativeTime(notification.createdAt, undefined, locale)}
+          {formatRelativeTime(notification.createdAt, nowMs, locale)}
         </Caption>
         {notification.read === true ? <Caption color="faint">{i18n._(msg`Read`)}</Caption> : null}
         {notification.read === false ? <Caption color="faint">{i18n._(msg`New`)}</Caption> : null}

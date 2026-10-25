@@ -20,6 +20,7 @@ import {Pressable} from '#/components/Pressable'
 import {RichText} from '#/components/RichText'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 import {useLocale, useI18n} from '#/locale/i18n'
+import {useNow} from '#/locale/ticker'
 
 import {postBodyNodes, postEmojis, postTagBubble} from './body'
 import {PostMediaGrid} from './PostMediaGrid'
@@ -104,6 +105,7 @@ function NestedQuote({
 }) {
   const theme = useTheme()
   const locale = useLocale()
+  const nowMs = useNow()
   const nodes: ContentNode[] = postBodyNodes(quote, {coveredQuoteUris: []})
   const thumbSource = quote.media[0] ? thumbUrl(quote.media[0]) : null
   const collapsed = shouldCollapseName(quote.author)
@@ -119,7 +121,7 @@ function NestedQuote({
         />
         <Caption color="muted" numberOfLines={1}>
           {collapsed ? quote.author.displayName : `${quote.author.displayName} @${quote.author.acct}`} ·{' '}
-          {formatRelativeTime(quote.createdAt, Date.now(), locale)}
+          {formatRelativeTime(quote.createdAt, nowMs, locale)}
         </Caption>
       </View>
       <View style={styles.nestedRow}>
@@ -192,6 +194,7 @@ export function PostQuote({
   const theme = useTheme()
   const i18n = useI18n()
   const locale = useLocale()
+  const nowMs = useNow()
   const activeId = useOptionalActiveSession()?.id ?? null
   const sid = sessionId ?? activeId
   if (concealed === true) {
@@ -269,7 +272,7 @@ export function PostQuote({
               size={14}
             />
             {collapsed ? null : ` @${quote.author.acct}`} ·{' '}
-            {formatRelativeTime(quote.createdAt, Date.now(), locale)}
+            {formatRelativeTime(quote.createdAt, nowMs, locale)}
           </Caption>
           {/* WS-B (F10): tag-block bubble at the head end (v1 parity). */}
           {quoteTags.hasBlocks ? (

@@ -45,6 +45,7 @@ import {useMentionedAccount} from '#/state/queries'
 import {HoverPreview} from '#/components/Profile/HoverPreview'
 import {useContentMode} from '#/state/appearance'
 import {i18n} from '#/locale/i18n'
+import {formatDateTime} from '#/locale/format'
 
 import {clampNum, fnArg, headingDelta, safeFontFamily, safeHexColor} from './richtext/fnStyle'
 import {MatrixChip} from './richtext/MatrixHover'
@@ -251,16 +252,16 @@ function Fn({node, ctx, depth}: {node: Extract<ContentNode, {kind: 'fn'}>; ctx: 
       )
     }
     case 'unixtime': {
-      // A Unix timestamp as a date, not raw digits. Device locale until
-      // the X9.5 app-locale formatter lands (it owns this call site);
-      // unparseable content degrades to the children.
+      // A Unix timestamp as a date, not raw digits: the shared
+      // app-locale formatter (repair X9.5), never the device locale.
+      // Unparseable content degrades to the children.
       const raw = labelOf(node.children).trim().split(/\s+/)[0] ?? ''
       const sec = Number(raw)
       if (!Number.isFinite(sec) || sec <= 0) return inner
       const ms = sec < 1e12 ? sec * 1000 : sec
       const date = new Date(ms)
       if (Number.isNaN(date.getTime())) return inner
-      return <Text>{date.toLocaleString()}</Text>
+      return <Text>{formatDateTime(date, i18n.locale)}</Text>
     }
     case 'sparkle':
     case 'jump':

@@ -28,6 +28,7 @@ import {useTheme} from '#/alf/index'
 import {overlayChrome} from '#/alf/themes'
 import {Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {formatBytes} from '#/locale/format'
 import {AppImage} from '#/components/Image'
 import {mediaAlt} from '#/lib/mediaAlt'
 import {Pressable} from '#/components/Pressable'
@@ -142,13 +143,6 @@ const styles = StyleSheet.create({
     padding: 8,
   },
 })
-
-export function formatBytes(size: number | null): string | null {
-  if (size === null || !Number.isFinite(size) || size < 0) return null
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  return `${(size / 1024 / 1024).toFixed(1)} MB`
-}
 
 function metaAspect(item: Media): number | null {
   const meta = item.meta
@@ -605,7 +599,7 @@ function FileTile({item}: {item: Media}) {
   const theme = useTheme()
   const i18n = useI18n()
   const url = safeHttpUrl(item.url)
-  const size = formatBytes(item.size)
+  const size = formatBytes(item.size, i18n.locale)
   return (
     <View
       style={[styles.audioBox, {borderColor: theme.palette.border}]}

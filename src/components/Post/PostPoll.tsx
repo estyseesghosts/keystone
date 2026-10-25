@@ -8,8 +8,7 @@
 import {Fragment, useEffect, useMemo, useRef, useState} from 'react'
 import {StyleSheet, View} from 'react-native'
 
-import {msg} from '@lingui/macro'
-import {useLingui} from '@lingui/react'
+import {msg, plural} from '@lingui/macro'
 
 import {splitNameEmojis, type Poll} from '@keystone/fedi'
 
@@ -18,6 +17,9 @@ import {Body, Caption} from '#/alf/typography'
 import {CustomEmojiGlyph} from '#/components/EmojiImage'
 import {Pressable} from '#/components/Pressable'
 import {logger} from '#/lib/logger'
+import {formatDate, formatNumber, resolveAppLocale} from '#/locale/format'
+import {useI18n} from '#/locale/i18n'
+import {useNow} from '#/locale/ticker'
 
 const styles = StyleSheet.create({
   box: {borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 8, gap: 8},
@@ -40,19 +42,38 @@ export function isPollClosed(poll: Pick<Poll, 'expired' | 'expiresAt'>, now = Da
 
 /** Future-facing expiry label. `formatRelativeTime` is past-only
  * (post ages clamp futures to "now") — a poll closing tomorrow must
- * never read "closes now". Pure. */
-export function formatPollExpiry(expiresAt: string | null): string | null {
+ * never read "closes now". The relative parts use
+ * `Intl.RelativeTimeFormat` (no literals); distant deadlines use the
+ * app-locale date. `locale`/`nowMs` are injectable for tests. Pure. */
+export function formatPollExpiry(
+  expiresAt: string | null,
+  opts?: {locale?: string | null; nowMs?: number},
+): string | null {
   if (!expiresAt) return null
   const then = Date.parse(expiresAt)
   if (Number.isNaN(then)) return null
-  const diffSec = (then - Date.now()) / 1000
+  const nowMs = opts?.nowMs ?? Date.now()
+  const tag = resolveAppLocale(opts?.locale)
+  const diffSec = (then - nowMs) / 1000
   if (diffSec <= 0) return 'closing soon'
   const min = Math.floor(diffSec / 60)
   if (min < 1) return 'in under a minute'
-  if (min < 60) return `in ${min}m`
+  if (min < 60) {
+    try {
+      return new Intl.RelativeTimeFormat(tag, {style: 'narrow'}).format(min, 'minute')
+    } catch {
+      return `in ${min}m`
+    }
+  }
   const hours = Math.floor(min / 60)
-  if (hours < 48) return `in ${hours}h`
-  return `on ${new Date(then).toLocaleDateString()}`
+  if (hours < 48) {
+    try {
+      return new Intl.RelativeTimeFormat(tag, {style: 'narrow'}).format(hours, 'hour')
+    } catch {
+      return `in ${hours}h`
+    }
+  }
+  return `on ${formatDate(then, tag)}`
 }
 
 function PollBar({ratio}: {ratio: number}) {
@@ -143,7 +164,8 @@ export function PostPoll({
   testID?: string
 }) {
   const theme = useTheme()
-  const {i18n} = useLingui()
+  const i18n = useI18n()
+  const nowMs = useNow()
   const alreadyVoted = poll.options.some(o => o.voted)
   const [selected, setSelected] = useState<number[]>(() =>
     poll.options.flatMap((o, i) => (o.voted ? [i] : [])),
@@ -208,14 +230,14 @@ export function PostPoll({
 
   const foot: string[] = []
   const hiddenLabel = i18n._(msg`Hidden until closed`)
-  if (total !== null) foot.push(`${total} vote${total === 1 ? '' : 's'}`)
+  if (total !== null) foot.push(i18n._(plural(total, {one: '# vote', other: '# votes'})))
   else foot.push(hiddenLabel)
   if (poll.votersCount !== null && poll.votersCount !== total)
-    foot.push(`${poll.votersCount} voter${poll.votersCount === 1 ? '' : 's'}`)
+    foot.push(i18n._(plural(poll.votersCount, {one: '# voter', other: '# voters'})))
   if (poll.multiple) foot.push('multiple choice')
   if (closed) foot.push('closed')
   else if (poll.expiresAt) {
-    const label = formatPollExpiry(poll.expiresAt)
+    const label = formatPollExpiry(poll.expiresAt, {locale: i18n.locale, nowMs})
     if (label) foot.push(`closes ${label}`)
   }
 
@@ -231,7 +253,10 @@ export function PostPoll({
         const showBar = opt.votesCount !== null && total !== null && total > 0
         const ratio =
           opt.votesCount !== null && total !== null && total > 0 ? opt.votesCount / total : 0
-        const countLabel = opt.votesCount !== null ? `${opt.votesCount} votes` : hiddenLabel
+        const countLabel =
+          opt.votesCount !== null
+            ? i18n._(plural(opt.votesCount, {one: '# vote', other: '# votes'}))
+            : hiddenLabel
         return (
           <Pressable
             key={i}
@@ -252,7 +277,9 @@ export function PostPoll({
                   size={emojiSize}
                 />
               </Body>
-              <Caption color="muted">{opt.votesCount ?? hiddenLabel}</Caption>
+              <Caption color="muted">
+                {opt.votesCount !== null ? formatNumber(i18n.locale, opt.votesCount) : hiddenLabel}
+              </Caption>
               {showBar ? <PollBar ratio={ratio} /> : null}
             </View>
           </Pressable>

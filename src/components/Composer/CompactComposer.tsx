@@ -60,6 +60,7 @@ import {EmojiPicker} from '#/components/EmojiPicker'
 import {CloseConfirmDialog} from './CloseConfirmDialog'
 import {deleteDraft} from '#/storage/drafts'
 import {i18n} from '#/locale/i18n'
+import {formatDateTime} from '#/locale/format'
 
 // Compact composer (Keystone v1 inline/postbox chrome): avatar + borderless
 // input, audience pill (anchored visibility popup), icon toolbar (media,
@@ -458,7 +459,7 @@ export function CompactComposer(props: CompactComposerProps) {
               right={<ScheduleIcon size={18} color={muted} />}>
               <PopupDesc>
                 {c.state.scheduledAt
-                  ? i18n._(msg`Posts ${new Date(c.state.scheduledAt).toLocaleString()}`)
+                  ? i18n._(msg`Posts ${formatDateTime(c.state.scheduledAt, i18n.locale)}`)
                   : i18n._(msg`Post at a later time`)}
               </PopupDesc>
             </PopupRow>
