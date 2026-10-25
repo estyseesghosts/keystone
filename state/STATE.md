@@ -10,9 +10,12 @@ Log: `state/logs/2026-10-26-composer-slice1.md`. Slice 2 landed
 Discard / Keep writing sheet (`CloseConfirmDialog` on shared `Dialog`);
 clean closes silently; attachments-staged counts as dirty — **217 suites /
 2938 tests** green. Log: `state/logs/2026-10-26-composer-slice2.md`.
-Next: program complete — owner live-tests externally (refresh-restore,
-close-sheet choices, server-draft round-trip on a `notes/drafts` server,
-Mastodon local-only).
+Composer drafts program complete (logs `state/logs/2026-10-26-composer-*`).
+Replies redesign (2026-10-26, owner screenshots): slice A landed —
+inline reply composer (collapsed one-row → expanding toolbar with
+media+emoji, same mutation, E10 closed) — **217 suites / 2955 tests**
+green. Log: `state/logs/2026-10-26-replies-sliceA.md`. Next: slice B
+(chronological chains + subtle show-more).
 
 Repair program 2026-10-24 (audit `docs/audit_20261024/`): ALL WAVES
 MERGED on `main` — Wave 0 (`c817c30`), Wave 1 (`4625769`), Wave 2

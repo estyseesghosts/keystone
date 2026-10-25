@@ -1,5 +1,5 @@
-// Thread (`/notes/:id`): ancestors above, the focused post, the reply
-// composer entry, then branched replies below — Keystone v1 `Note` parity.
+// Thread (`/notes/:id`): ancestors above, the focused post, the inline
+// reply composer, then branched replies below — Keystone v1 `Note` parity.
 //
 // Thread behaviour lives in `packages/fedi` and is CALLED here, never
 // reimplemented: Misskey `notes/conversation` (+ the packed-parent fallback
@@ -10,8 +10,8 @@
 // token. Card taps navigating TO this route are owned elsewhere — this
 // screen only reads the `Note: {id: string}` route param.
 
-import {useCallback, useEffect, useRef, useState} from 'react'
-import {FlatList, RefreshControl, StyleSheet, View} from 'react-native'
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
+import {FlatList, Image, Keyboard, Pressable as RNPressable, RefreshControl, StyleSheet, TextInput, View, type View as ViewType} from 'react-native'
 import {
   useFocusEffect,
   useNavigation,
@@ -22,7 +22,13 @@ import {
 
 import {
   appearNoteOf,
+  buildPostDraft,
+  composeDefaultsFor,
+  composeGates,
+  countComposeChars,
+  defaultVisibilityFor,
   displayNameOf,
+  emptyComposeState,
   handleOf,
   isUnsupportedError,
   ApiError,
@@ -31,6 +37,7 @@ import {
   type ClipSummary,
   type Page,
   type Post,
+  type Session,
 } from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
@@ -43,16 +50,31 @@ import {PostCard} from '#/components/Post/index'
 import {Pressable} from '#/components/Pressable'
 import {Tabs} from '#/components/Tabs'
 import {SignInButton} from '#/components/SignInButton'
+import {MediaIcon, SmileIcon} from '#/components/icons'
 import {usePostShadowState} from '#/state/cache'
 import {navigationRef} from '#/navigationRef'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
+import {i18n} from '#/locale/i18n'
+import {msg} from '@lingui/macro'
+import {useQueryClient} from '@tanstack/react-query'
+import {useAutogrowInput, autogrowStyle} from '#/components/Composer/useAutogrowInput'
+import {NO_OUTLINE} from '#/components/Composer/noOutline'
+import {pickMedia} from '#/components/Composer/pickMedia'
+import {AnchoredPopup} from '#/components/Popup'
+import {EmojiPicker} from '#/components/EmojiPicker'
+import {
+  useCreatePost,
+  useUploads,
+} from '#/state/queries/composer'
 import {
   useNoteReactionsQuery,
   usePostThreadQuery,
   useRepostsQuery,
   useThreadRepliesQuery,
+  threadQueryKey,
+  threadRepliesQueryKey,
 } from '#/state/queries'
 
 // Defensive render-depth cap for nested reply branches. Real threads rarely
@@ -62,13 +84,69 @@ import {
 const MAX_DEPTH = 64
 
 const styles = StyleSheet.create({
-  replyEntry: {
+  inlineReply: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+  },
+  inlineAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  inlineAvatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineInputCol: {
+    flex: 1,
+    gap: 8,
+    minWidth: 0,
+  },
+  inlineInput: {
+    minHeight: 40,
+    textAlignVertical: 'top',
+  },
+  inlineReplyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
+    paddingVertical: 8,
+  },
+  inlineInputColCollapsed: {
+    flex: 1,
+    justifyContent: 'center',
+    minWidth: 0,
+  },
+  inlineInputCollapsed: {
+    minHeight: 36,
+    textAlignVertical: 'center',
+  },
+  inlineToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  inlineTool: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+  },
+  inlineUploadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 })
 
@@ -195,26 +273,367 @@ function ReactionsList({sessionId, backend, postId}: {sessionId: string; backend
   )
 }
 
-function ReplyEntry({focused}: {focused: Post}) {
-  const nav = useNavigation<NavigationProp<RootParamList>>()
+// Inline reply composer (replies Slice A): the viewer's avatar + an
+// expanding input + a Reply button, posting through the same
+// `useCreatePost` mutation as every other composer, with `replyTo` preset
+// to the focused post. Collapsed it is avatar + placeholder + Reply only;
+// first focus/typing expands the toolbar (media + emoji, sticky once
+// open). Text + media + emoji only — polls, CW, visibility, and
+// scheduling stay in the overlay composer. On success the input clears and
+// the exact thread-replies keys this screen reads are invalidated, so the
+// new reply appears without leaving (E10). Signed-out never reaches here:
+// the screen renders the sign-in prompt instead.
+function InlineReply({
+  session,
+  backend,
+  focused,
+  threadId,
+}: {
+  session: Session
+  backend: Backend
+  focused: Post
+  /** Route post id: the `usePostThreadQuery` key this screen reads. */
+  threadId: string
+}) {
   const theme = useTheme()
-  return (
-    <Pressable
-      testID="reply-entry"
-      onPress={() => nav.navigate('Compose', {replyToId: focused.id})}
-      accessibilityRole="button"
-      accessibilityLabel={`Post your reply to ${focused.author.username}`}>
+  const client = useQueryClient()
+  const sessionId = session.id
+  const family = session.family
+  const gates = useMemo(
+    () => composeGates(family, backend.capabilities, backend),
+    [family, backend],
+  )
+  // Static family defaults, not the server-limits query: the overlay
+  // composer already fetches per-instance limits, and the server stays
+  // authoritative here — a refusal surfaces honestly below.
+  const limits = useMemo(() => composeDefaultsFor(family), [family])
+  const uploads = useUploads(backend)
+  const create = useCreatePost(session, backend)
+  const [text, setText] = useState('')
+  const [caret, setCaret] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  // Collapsed until first interaction (X-style: avatar + placeholder +
+  // Reply only): focusing or typing expands the toolbar, which then stays
+  // expanded — no collapse, no toggle.
+  const [expanded, setExpanded] = useState(false)
+  const [emojiOpen, setEmojiOpen] = useState(false)
+  const emojiAnchor = useRef<ViewType | null>(null)
+  // Inline box rests at one row and grows with the prose to 240px, then
+  // scrolls internally. Same hook as both composer chromes.
+  const autogrow = useAutogrowInput(40, 240, text)
+  // A reply never widens its parent's audience (same default as the
+  // overlay composer).
+  const visibilityRaw = useMemo(
+    () => defaultVisibilityFor(family, focused).raw,
+    [family, focused],
+  )
+  const avatarUri = session.user?.avatarUrl ?? null
+  const avatarName = session.user?.displayName ?? session.accountId
+  const count = countComposeChars(family, text)
+  const over = count > limits.maxChars
+  const mediaFull = uploads.items.length >= limits.maxMedia
+  const canSubmit = text.trim().length > 0 || uploads.items.length > 0
+
+  const addMedia = async () => {
+    try {
+      const result = await pickMedia({limit: limits.maxMedia - uploads.items.length})
+      // Denied is shown, never a silent cancel (same idiom as the overlay
+      // composer).
+      if (result.kind === 'denied') {
+        setError(
+          result.canAskAgain
+            ? i18n._(msg`Media library access was denied. Allow access to attach photos or videos.`)
+            : i18n._(
+                msg`Media library access was denied. Enable it in the system settings to attach photos or videos.`,
+              ),
+        )
+        return
+      }
+      if (result.kind === 'cancelled') return
+      const refused = uploads.add(result.files)
+      const tooLarge = [...result.rejected, ...refused]
+      if (tooLarge.length === 1) {
+        setError(i18n._(msg`"${tooLarge[0]}" is too large to attach (over 10 MB).`))
+      } else if (tooLarge.length > 1) {
+        setError(i18n._(msg`${tooLarge.length} files were too large to attach (over 10 MB).`))
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not open the media picker.`))
+    }
+  }
+
+  const submit = async () => {
+    if (busy || !canSubmit) return
+    setError(null)
+    // Validate text rules first (staged media ids fill after upload).
+    const pre = buildPostDraft(
+      {
+        ...emptyComposeState({replyTo: focused, visibilityRaw}),
+        text,
+        media: uploads.items.map(u => ({
+          id: u.mediaId ?? u.key,
+          alt: u.alt,
+          sensitive: u.sensitive,
+        })),
+      },
+      {family, gates, limits},
+    )
+    if (!pre.ok) {
+      setError(pre.reason)
+      return
+    }
+    setBusy(true)
+    try {
+      let mediaIds: string[] = []
+      if (uploads.items.length > 0) {
+        const ids = await uploads.ensureUploaded()
+        if (!ids) {
+          setError(i18n._(msg`Some attachments failed to upload. Retry or remove them.`))
+          return
+        }
+        mediaIds = ids
+      }
+      const built = buildPostDraft(
+        {
+          ...emptyComposeState({replyTo: focused, visibilityRaw}),
+          text,
+          media: mediaIds.map(m => ({id: m, alt: ''})),
+        },
+        {family, gates, limits},
+      )
+      if (!built.ok) {
+        setError(built.reason)
+        return
+      }
+      await create.mutateAsync({draft: built.draft})
+      setText('')
+      uploads.clear()
+      setError(null)
+      // E10, closed for this path: the mutation only writes feed keys, so
+      // the thread-replies list this screen reads is invalidated here —
+      // the posted reply appears without leaving. The focused post's own
+      // (reply-count) query goes with it; the header reads whichever lands
+      // first.
+      await client.invalidateQueries({queryKey: threadRepliesQueryKey(sessionId, focused.id)})
+      await client.invalidateQueries({queryKey: threadQueryKey(sessionId, threadId)})
+    } catch (err) {
+      setError(err instanceof Error ? err.message : i18n._(msg`Could not post.`))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const avatar = avatarUri ? (
+    <Image
+      source={{uri: avatarUri}}
+      style={styles.inlineAvatar}
+      accessibilityRole="image"
+      accessibilityLabel={avatarName}
+    />
+  ) : (
+    <View
+      style={[
+        styles.inlineAvatar,
+        styles.inlineAvatarFallback,
+        {backgroundColor: theme.palette.raise},
+      ]}>
+      <Body>{avatarName.slice(0, 1).toUpperCase()}</Body>
+    </View>
+  )
+  const replyButton = (
+    <Button
+      label={busy ? i18n._(msg`Posting…`) : i18n._(msg`Reply`)}
+      onPress={() => void submit()}
+      disabled={busy || over || !canSubmit}
+      disabledReason={
+        over
+          ? i18n._(msg`Over the character limit.`)
+          : busy
+            ? i18n._(msg`Posting...`)
+            : !canSubmit
+              ? i18n._(msg`Write something first.`)
+              : undefined
+      }
+      testID="inline-reply-submit"
+      compact
+    />
+  )
+
+  // Collapsed (X-style): ONE compact row — avatar, single-line input, and
+  // Reply pill, vertically centered. No toolbar, no dead space. First
+  // focus/typing swaps to the expanded column below.
+  if (!expanded) {
+    return (
       <View
         style={[
-          styles.replyEntry,
-          {
-            borderColor: theme.palette.border,
-            backgroundColor: theme.palette.bg,
-          },
-        ]}>
-        <Body color="faint">Post your reply</Body>
+          styles.inlineReplyRow,
+          {borderColor: theme.palette.border, backgroundColor: theme.palette.bg},
+        ]}
+        testID="inline-reply">
+        {avatar}
+        <View style={styles.inlineInputColCollapsed}>
+          <TextInput
+            testID="inline-reply-input"
+            multiline
+            value={text}
+            onChangeText={t => {
+              setText(t)
+              setExpanded(true)
+              autogrow.remeasure()
+            }}
+            onSelectionChange={e => setCaret(e.nativeEvent.selection.end)}
+            onFocus={() => setExpanded(true)}
+            placeholder={i18n._(msg`Post your reply`)}
+            placeholderTextColor={theme.palette.faint}
+            accessibilityLabel={i18n._(msg`Post your reply`)}
+            ref={autogrow.inputRef}
+            style={[
+              styles.inlineInputCollapsed,
+              {
+                color: theme.palette.text,
+                fontSize: 15 * theme.fontScaleMultiplier,
+                lineHeight: 21 * theme.fontScaleMultiplier,
+              },
+              autogrowStyle(autogrow.height),
+              NO_OUTLINE,
+            ]}
+            onContentSizeChange={autogrow.onContentSizeChange}
+          />
+        </View>
+        {replyButton}
       </View>
-    </Pressable>
+    )
+  }
+
+  return (
+    <View
+      style={[
+        styles.inlineReply,
+        {borderColor: theme.palette.border, backgroundColor: theme.palette.bg},
+      ]}
+      testID="inline-reply">
+      {avatar}
+      <View style={styles.inlineInputCol}>
+        <TextInput
+          testID="inline-reply-input"
+          multiline
+          value={text}
+          onChangeText={t => {
+            setText(t)
+            setExpanded(true)
+            autogrow.remeasure()
+          }}
+          onSelectionChange={e => setCaret(e.nativeEvent.selection.end)}
+          onFocus={() => setExpanded(true)}
+          // Focus carries across the collapsed→expanded branch switch
+          // below (the collapsed input unmounts): the expanded box mounts
+          // exactly at expansion, so autoFocus only ever fires there.
+          autoFocus
+          placeholder={i18n._(msg`Post your reply`)}
+          placeholderTextColor={theme.palette.faint}
+          accessibilityLabel={i18n._(msg`Post your reply`)}
+          ref={autogrow.inputRef}
+          style={[
+            styles.inlineInput,
+            {
+              color: theme.palette.text,
+              fontSize: 15 * theme.fontScaleMultiplier,
+              lineHeight: 21 * theme.fontScaleMultiplier,
+            },
+            autogrowStyle(autogrow.height),
+            NO_OUTLINE,
+          ]}
+          onContentSizeChange={autogrow.onContentSizeChange}
+        />
+        {uploads.items.map(u => (
+          <View key={u.key} style={styles.inlineUploadRow} testID={`inline-reply-upload-${u.key}`}>
+            {u.previewUri ? (
+              <Image source={{uri: u.previewUri}} style={styles.inlineThumb} accessibilityLabel={u.alt || u.name} />
+            ) : null}
+            <View style={{flex: 1}}>
+              <Caption color="muted" numberOfLines={1}>
+                {u.name} -{' '}
+                {u.status === 'staged'
+                  ? i18n._(msg`ready to upload`)
+                  : u.status === 'uploading'
+                    ? i18n._(msg`uploading...`)
+                    : u.status === 'done'
+                      ? i18n._(msg`uploaded`)
+                      : (u.error ?? i18n._(msg`failed`))}
+              </Caption>
+            </View>
+            <Pressable
+              testID={`inline-reply-upload-remove-${u.key}`}
+              onPress={() => uploads.remove(u.key)}
+              accessibilityRole="button"
+              accessibilityLabel={i18n._(msg`Remove ${u.name}`)}
+              hitSlop={8}>
+              <Caption color="muted">{i18n._(msg`Remove`)}</Caption>
+            </Pressable>
+          </View>
+        ))}
+        {error ? (
+          <Body testID="inline-reply-error" accessibilityRole="alert">
+            {error}
+          </Body>
+        ) : null}
+        <View style={styles.inlineToolbar}>
+          <Pressable
+            testID="inline-reply-media"
+            onPress={() => void addMedia()}
+            disabled={!gates.media.enabled || mediaFull}
+            accessibilityRole="button"
+            accessibilityLabel={
+              !gates.media.enabled
+                ? `${i18n._(msg`Attach media`)}. ${gates.media.reason}`
+                : mediaFull
+                  ? `${i18n._(msg`Attach media`)}. ${i18n._(msg`Attachment limit reached.`)}`
+                  : uploads.items.length > 0
+                    ? i18n._(msg`Attach media (${uploads.items.length} attached)`)
+                    : i18n._(msg`Attach media`)
+            }
+            hitSlop={8}>
+            <MediaIcon size={20} color={theme.palette.muted} />
+          </Pressable>
+          <RNPressable
+            ref={emojiAnchor}
+            testID="inline-reply-emoji"
+            onPress={() => {
+              // Same E5 reasoning as the compact composer: the popup is
+              // a separate Modal window, so dismiss first to anchor it
+              // against the full window.
+              Keyboard.dismiss()
+              setEmojiOpen(v => !v)
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={i18n._(msg`Insert emoji`)}
+            hitSlop={8}
+            style={styles.inlineTool}>
+            <SmileIcon size={20} color={theme.palette.muted} />
+          </RNPressable>
+          <View style={atoms.flex1} />
+          {replyButton}
+        </View>
+        {emojiOpen ? (
+          <AnchoredPopup
+            anchor={emojiAnchor}
+            onClose={() => setEmojiOpen(false)}
+            testID="inline-reply-emoji-popup"
+            minWidth={320}>
+            <EmojiPicker
+              sessionId={sessionId}
+              onPick={e => {
+                const at = Math.min(caret, text.length)
+                setText(text.slice(0, at) + e.key + text.slice(at))
+                setCaret(at + e.key.length)
+                setEmojiOpen(false)
+              }}
+            />
+          </AnchoredPopup>
+        ) : null}
+      </View>
+    </View>
   )
 }
 
@@ -447,9 +866,12 @@ export function NoteScreen() {
   // create-post mutation only writes feed keys), and the old
   // pull-to-refresh refetched the focused post but NOT its replies — so
   // a reply posted from detail never appeared without exiting +
-  // reopening. Both paths refetch here, event-driven, never polling:
-  // manual refresh reloads post + replies, and returning from the
-  // Compose overlay (which blurs this screen) refetches on focus.
+  // reopening. Both paths below refetch here, event-driven, never
+  // polling: manual refresh reloads post + replies, and returning from
+  // the Compose overlay (which blurs this screen) refetches on focus.
+  // The inline composer above closes the gap for its own path directly:
+  // its success handler invalidates the exact thread-replies + thread
+  // keys this screen reads.
   const refreshThread = useCallback(() => {
     void thread.refetch()
     if (rootParentId.length > 0) void rootReplies.refetch()
@@ -537,7 +959,7 @@ export function NoteScreen() {
                 <PostCard post={focused} sessionId={sessionId} foldBody={false} />
               </View>
               <InClipsRow backend={backend} postId={focused.id} />
-              <ReplyEntry focused={focused} />
+              <InlineReply session={session} backend={backend} focused={focused} threadId={id} />
               <Tabs
                 tabs={
                   [

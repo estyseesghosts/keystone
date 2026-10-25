@@ -14,8 +14,8 @@ import {makeAccount, makePost} from '#/components/__tests__/fixtures'
 import {NoteScreen} from './Note'
 
 // Post-detail screen tests (v1 `Note` parity): the focused post renders with
-// its ancestors above and its replies below, the reply entry opens the
-// composer for the focused post, and a failed load is an honest error state
+// its ancestors above and its replies below, the inline composer posts a
+// reply to the focused post, and a failed load is an honest error state
 // — never faked thread data.
 
 const mockNavigate = jest.fn()
@@ -100,6 +100,13 @@ function fakeBackend(over: Record<string, unknown> = {}) {
     post: jest.fn(async () => focused),
     thread: jest.fn(async () => ({ancestors: [ancestor], incomplete: false})),
     threadReplies: jest.fn(async () => ({items: [reply], cursor: null, end: true})),
+    createPost: jest.fn(async (draft: {replyId?: string; text?: string}) =>
+      makePost({
+        id: 'r-new',
+        replyToId: draft.replyId ?? 'p1',
+        content: {mfm: draft.text ?? '', plain: draft.text ?? ''},
+      }),
+    ),
     ...over,
   }
 }
@@ -143,15 +150,90 @@ describe('NoteScreen', () => {
     await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
     expect(screen.getByTestId('ancestor-a0')).toBeTruthy()
     expect(screen.getByTestId('focused-p1')).toBeTruthy()
-    expect(screen.getByTestId('reply-entry')).toBeTruthy()
+    expect(screen.getByTestId('inline-reply')).toBeTruthy()
+    expect(screen.getByTestId('inline-reply-input')).toBeTruthy()
     await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
   })
 
-  it('the reply entry opens the composer for the focused post', async () => {
+  it('the inline composer starts collapsed: one compact row, no toolbar', async () => {
     setup(fakeBackend())
-    await waitFor(() => expect(screen.getByTestId('reply-entry')).toBeTruthy())
-    fireEvent.press(screen.getByTestId('reply-entry'))
-    expect(mockNavigate).toHaveBeenCalledWith('Compose', {replyToId: 'p1'})
+    await waitFor(() => expect(screen.getByTestId('inline-reply-input')).toBeTruthy())
+    expect(screen.getByTestId('inline-reply-submit')).toBeTruthy()
+    expect(screen.queryByTestId('inline-reply-media')).toBeNull()
+    expect(screen.queryByTestId('inline-reply-emoji')).toBeNull()
+    // Collapsed is one compact row — avatar, input, and Reply pill share
+    // a vertically centered row, and the input rests at single-line height.
+    const row = StyleSheet.flatten(screen.getByTestId('inline-reply').props.style)
+    expect(row.flexDirection).toBe('row')
+    expect(row.alignItems).toBe('center')
+    const input = StyleSheet.flatten(screen.getByTestId('inline-reply-input').props.style)
+    expect(input.minHeight).toBe(36)
+  })
+
+  it('first focus expands the toolbar and it stays expanded after blur', async () => {
+    setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('inline-reply-input')).toBeTruthy())
+    fireEvent(screen.getByTestId('inline-reply-input'), 'focus')
+    expect(screen.getByTestId('inline-reply-media')).toBeTruthy()
+    expect(screen.getByTestId('inline-reply-emoji')).toBeTruthy()
+    // Expanded: the taller growing input replaces the single-line row.
+    const input = StyleSheet.flatten(screen.getByTestId('inline-reply-input').props.style)
+    expect(input.minHeight).toBe(40)
+    // No collapse behavior: blur keeps the toolbar.
+    fireEvent(screen.getByTestId('inline-reply-input'), 'blur')
+    expect(screen.getByTestId('inline-reply-media')).toBeTruthy()
+    expect(screen.getByTestId('inline-reply-emoji')).toBeTruthy()
+  })
+
+  it('the emoji button inserts at the caret', async () => {
+    setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('inline-reply-input')).toBeTruthy())
+    fireEvent(screen.getByTestId('inline-reply-input'), 'focus')
+    fireEvent.changeText(screen.getByTestId('inline-reply-input'), 'hello')
+    fireEvent.press(screen.getByTestId('inline-reply-emoji'))
+    await waitFor(() => expect(screen.getByTestId('inline-reply-emoji-popup')).toBeTruthy())
+    // The 😀 glyph is proven in the picker model test to match its own
+    // unicode section, so the search narrows to one cell.
+    fireEvent.changeText(screen.getByTestId('emoji-search'), '😀')
+    await waitFor(() => expect(screen.getByTestId('emoji-cell-😀')).toBeTruthy())
+    fireEvent.press(screen.getByTestId('emoji-cell-😀'))
+    await waitFor(() =>
+      expect(screen.getByTestId('inline-reply-input').props.value).toContain('😀'),
+    )
+    expect(screen.queryByTestId('inline-reply-emoji-popup')).toBeNull()
+  })
+
+  it('the inline composer posts a reply to the focused post and shows it without leaving (E10)', async () => {
+    const backend = setup(fakeBackend())
+    await waitFor(() => expect(screen.getByTestId('inline-reply-input')).toBeTruthy())
+    // Gated while empty: pressing Reply with no text or media posts nothing.
+    fireEvent.press(screen.getByTestId('inline-reply-submit'))
+    expect(backend.createPost).not.toHaveBeenCalled()
+    const before = backend.threadReplies.mock.calls.filter((c: unknown[]) => c[0] === 'p1').length
+    fireEvent.changeText(screen.getByTestId('inline-reply-input'), 'hello')
+    fireEvent.press(screen.getByTestId('inline-reply-submit'))
+    await waitFor(() => expect(backend.createPost).toHaveBeenCalled())
+    const draft = backend.createPost.mock.calls[0][0] as {replyId?: string}
+    expect(draft.replyId).toBe('p1')
+    // The posted reply appears without leaving: the thread-replies key
+    // this screen reads is invalidated on success.
+    await waitFor(() =>
+      expect(
+        backend.threadReplies.mock.calls.filter((c: unknown[]) => c[0] === 'p1').length,
+      ).toBeGreaterThan(before),
+    )
+    // The input clears on success.
+    await waitFor(() => expect(screen.getByTestId('inline-reply-input').props.value).toBe(''))
+  })
+
+  it('a failed reply posts an honest inline error and keeps the text', async () => {
+    const backend = setup(fakeBackend({createPost: jest.fn(async () => { throw new Error('nope') })}))
+    await waitFor(() => expect(screen.getByTestId('inline-reply-input')).toBeTruthy())
+    fireEvent.changeText(screen.getByTestId('inline-reply-input'), 'hello')
+    fireEvent.press(screen.getByTestId('inline-reply-submit'))
+    await waitFor(() => expect(screen.getByTestId('inline-reply-error')).toBeTruthy())
+    expect(screen.getByTestId('inline-reply-input').props.value).toBe('hello')
+    expect(backend.createPost).toHaveBeenCalled()
   })
 
   it('a failed thread load is an error state, never faked data', async () => {
@@ -214,8 +296,9 @@ describe('NoteScreen', () => {
   it('renders the thread as a single FlatList, never PostCards in a ScrollView (F24)', async () => {
     setup(fakeBackend())
     await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
-    // The thread body IS the FlatList (header = ancestors + focused + entry
-    // + tabs, rows = root replies); nested branches stay collapsed Views.
+    // The thread body IS the FlatList (header = ancestors + focused +
+    // inline composer + tabs, rows = root replies); nested branches stay
+    // collapsed Views.
     expect(screen.UNSAFE_getByType(FlatList)).toBeTruthy()
     await waitFor(() => expect(screen.getByTestId('reply-r1')).toBeTruthy())
     expect(screen.getByTestId('show-replies-r1')).toBeTruthy()
