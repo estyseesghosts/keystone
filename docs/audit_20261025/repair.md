@@ -1820,7 +1820,7 @@ without an ADR), `src/alf/themes.ts`.
 
 ## X11.1 - Dependency and config hygiene
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x11.1.md` (slice) + `state/logs/2026-10-25-repair25-x11.1-coordinator.md` (batch-green); audit recorded, removal applied, tsconfig@extends root export; 290 suites / 4107 tests green at X11.1 commit)
 Branch: `repair25-x11.1-deps`
 Audit: build 6, 7, 10, 11, 12; security (pnpm audit gap)
 
