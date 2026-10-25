@@ -1,7 +1,8 @@
 // Mastodon dismiss/clear UI (clickstone §1.11). Per-row dismiss and the
-// clear-all confirm exist ONLY where the server has the routes; a 404/405
-// hides them with an honest reason instead of showing an error wall (and
-// Misskey — no dismiss endpoint — never renders them at all).
+// clear-all confirm exist ONLY where the server has the routes. A 404 on
+// one id is "already gone" (X4.1: the row is removed, never hidden —
+// support is never decided from errors), anything else surfaces a message;
+// Misskey — no dismiss endpoint — never renders the actions at all.
 
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
@@ -43,9 +44,24 @@ function notification(id = 'n1'): Notification {
   }
 }
 
+function groupedNotification(id = 'favourite-100'): Notification {
+  return {
+    id,
+    kind: 'favourite',
+    rawType: 'favourite',
+    createdAt: '2026-10-20T00:00:00.000Z',
+    read: null,
+    actors: [],
+    post: null,
+    reaction: null,
+    ext: {groupedCount: 12},
+  }
+}
+
 async function renderScreen(
   family: 'mastodon' | 'misskey',
   backend: Record<string, unknown>,
+  items: Array<Notification> = [notification()],
 ) {
   const store = createSessionStore({storage: createMemoryStore(), vault, homeOrigin: 'https://a.example'})
   const added = await store.add({
@@ -60,7 +76,7 @@ async function renderScreen(
   mockBackends.set(added.id, {
     family,
     capabilities: {},
-    notifications: jest.fn(async () => ({items: [notification()], cursor: null, end: true})),
+    notifications: jest.fn(async () => ({items, cursor: null, end: true})),
     ...backend,
   } as unknown as Backend)
   i18n.load('en', {})
@@ -114,7 +130,7 @@ describe('NotificationsScreen dismiss/clear (Mastodon)', () => {
     await waitFor(() => expect(clearNotifications).toHaveBeenCalledTimes(1))
   })
 
-  it('hides dismiss with a reason when the server answers 404', async () => {
+  it('removes the row when the server answers 404 (already gone — never hides the action)', async () => {
     const dismissNotification = jest.fn(async () => {
       throw new ApiError('Not Found', 404)
     })
@@ -124,10 +140,42 @@ describe('NotificationsScreen dismiss/clear (Mastodon)', () => {
       clearNotifications: jest.fn(async () => {}),
     })
     fireEvent.press(await screen.findByTestId('notification-dismiss-n1'))
-    await waitFor(() => expect(screen.getByTestId('notifications-dismiss-unsupported')).toBeTruthy())
-    // The actions are HIDDEN once the server proved it lacks the route —
-    // never left inert, never an error wall.
+    // The row is gone from the list: the server confirmed the absence.
+    await waitFor(() => expect(screen.queryByTestId('notification-n1')).toBeNull())
     expect(screen.queryByTestId('notification-dismiss-n1')).toBeNull()
+    // Support is never decided from errors: no hiding, no caption, no error wall.
+    expect(screen.queryByTestId('notifications-dismiss-unsupported')).toBeNull()
+    expect(dismissNotification).toHaveBeenCalledWith('n1')
+  })
+
+  it('keeps the dismiss action on a 405 (support is never decided from errors)', async () => {
+    const dismissNotification = jest.fn(async () => {
+      throw new ApiError('Method Not Allowed', 405)
+    })
+    await renderScreen('mastodon', {
+      markNotificationsRead: jest.fn(async () => {}),
+      dismissNotification,
+      clearNotifications: jest.fn(async () => {}),
+    })
+    fireEvent.press(await screen.findByTestId('notification-dismiss-n1'))
+    await waitFor(() => expect(screen.getByText('Could not dismiss that notification.')).toBeTruthy())
+    expect(screen.queryByTestId('notifications-dismiss-unsupported')).toBeNull()
+    expect(screen.queryByTestId('notification-dismiss-n1')).toBeTruthy()
+  })
+
+  it('dismisses a grouped row by its group key', async () => {
+    const dismissNotification = jest.fn(async () => {})
+    await renderScreen(
+      'mastodon',
+      {
+        markNotificationsRead: jest.fn(async () => {}),
+        dismissNotification,
+        clearNotifications: jest.fn(async () => {}),
+      },
+      [groupedNotification()],
+    )
+    fireEvent.press(await screen.findByTestId('notification-dismiss-favourite-100'))
+    await waitFor(() => expect(dismissNotification).toHaveBeenCalledWith('favourite-100'))
   })
 
   it('hides clear with a reason when the server answers 405', async () => {

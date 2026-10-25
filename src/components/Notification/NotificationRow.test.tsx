@@ -207,11 +207,12 @@ describe('NotificationRow content (F11-half, relative time)', () => {
     expect(screen.queryByText('New')).toBeNull()
   })
 
-  it('falls back to the raw type for unknown kinds', () => {
+  it('renders a translated generic label for unknown kinds, never the raw type', () => {
     renderWithTheme(
       <NotificationRow notification={notification({kind: 'unknown', rawType: 'customType'})} />,
     )
-    expect(screen.getByText('customType')).toBeTruthy()
+    expect(screen.getByText('sent a notification')).toBeTruthy()
+    expect(screen.queryByText('customType')).toBeNull()
   })
 
   it('collapses name==handle to a single handle line (v1)', () => {
@@ -342,11 +343,12 @@ describe('NotificationRow kind labels (clickstone §1.11)', () => {
     expect(screen.queryByTestId('notification-room-n1')).toBeNull()
   })
 
-  it('still falls back to the raw type for a genuinely new type', () => {
+  it('renders the generic label for a genuinely new type, never the raw token', () => {
     renderWithTheme(
       <NotificationRow notification={labelless({kind: 'unknown', rawType: 'someFutureThing'})} />,
     )
-    expect(screen.getByText('someFutureThing')).toBeTruthy()
+    expect(screen.getByText('sent a notification')).toBeTruthy()
+    expect(screen.queryByText('someFutureThing')).toBeNull()
   })
 
   it('renders a viewer-event row without an invented actor', () => {

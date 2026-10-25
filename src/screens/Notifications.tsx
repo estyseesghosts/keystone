@@ -9,14 +9,17 @@
 
 import {useEffect, useMemo, useState} from 'react'
 import {FlatList, RefreshControl, View} from 'react-native'
+import {useQueryClient, type InfiniteData} from '@tanstack/react-query'
 
 import {msg} from '@lingui/macro'
 
 import {
+  httpStatusOf,
   isUnsupportedError,
   notificationFilterPresets,
   type Backend,
   type Notification,
+  type Page,
 } from '@keystone/fedi'
 
 import {useTheme} from '#/alf'
@@ -213,9 +216,10 @@ export function NotificationsScreen() {
   const [filterId, setFilterId] = useState('all')
   const [groupedPref, setGroupedPref] = useState(true)
   const [groupedUnsupported, setGroupedUnsupported] = useState(false)
-  // Dismiss/clear are Mastodon-family actions (clickstone §1.11). When the
-  // server answers 404/405 the actions are HIDDEN with a reason — a fork
-  // without the routes never gets an error wall or an inert button.
+  // Dismiss/clear are Mastodon-family actions (clickstone §1.11). Clear
+  // still hides with a reason when the server answers 404/405 (a fork
+  // without the route never gets an error wall or an inert button);
+  // dismiss never hides from errors — a 404 on one id is "already gone".
   const [dismissUnsupported, setDismissUnsupported] = useState(false)
   const [clearUnsupported, setClearUnsupported] = useState(false)
   const [clearOpen, setClearOpen] = useState(false)
@@ -243,6 +247,7 @@ export function NotificationsScreen() {
   const markRead = useMarkNotificationsRead(session?.id ?? null, {backend: backend ?? null})
   const dismiss = useDismissNotification(session?.id ?? null, {backend: backend ?? null})
   const clear = useClearNotifications(session?.id ?? null, {backend: backend ?? null})
+  const queryClient = useQueryClient()
 
   // Paging (X3.3): both auto-load sites go through the shared gate, so
   // a failed page or a 429 cooldown never loops — only the footer Retry
@@ -256,15 +261,30 @@ export function NotificationsScreen() {
   const canClear =
     family === 'mastodon' && !clearUnsupported && typeof backend?.clearNotifications === 'function'
 
-  /** One dismiss: a 404/405 means the route does not exist on this server,
-   * so the action disappears with an honest caption; anything else is
-   * surfaced as a message beside the list (never a faked success). */
+  /** One dismiss: a 404 on the id means the row is already gone
+   * server-side, so it is dropped from this session's cached pages (never
+   * an "unsupported" hiding — support is never decided from errors);
+   * anything else is surfaced as a message beside the list (never a faked
+   * success). */
   const runDismiss = (id: string) => {
     setActionError(null)
     dismiss.mutate(id, {
       onError: err => {
-        if (isUnsupportedError(err)) {
-          setDismissUnsupported(true)
+        if (httpStatusOf(err) === 404) {
+          // Already gone: the server confirmed the absence, so pruning
+          // the row is convergence, not a lie. No refetch is forced —
+          // the next focus/pull converges the rest of the list.
+          const cached =
+            queryClient.getQueryData<InfiniteData<Page<Notification>>>(query.queryKey)
+          if (cached) {
+            queryClient.setQueryData<InfiniteData<Page<Notification>>>(query.queryKey, {
+              ...cached,
+              pages: cached.pages.map(page => ({
+                ...page,
+                items: page.items.filter(item => item.id !== id),
+              })),
+            })
+          }
           return
         }
         setActionError(i18n._(msg`Could not dismiss that notification.`))

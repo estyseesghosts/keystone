@@ -108,6 +108,7 @@ import {
   deleteStatus,
   dismissAnnouncement,
   dismissNotification,
+  dismissNotificationGroup,
   editStatus,
   fetchAccountListPage,
   fetchAccountStatusesPage,
@@ -1124,7 +1125,20 @@ export function createMastodonBackend(
     },
 
     async dismissNotification(id: string) {
-      await dismissNotification(client, id);
+      // Flat rows carry numeric v1 ids and dismiss through the v1 route
+      // only; grouped rows (Mastodon 4.3+ v2, group key as row id) 404
+      // there and fall through to the v2 group DELETE. Only absence
+      // (404/405) falls through — auth, timeout and 5xx rethrow, never
+      // masked as "already gone". A 404 from BOTH routes is the row
+      // already gone (surfaced, never "unsupported"): support is never
+      // decided from errors, and the id stays opaque throughout (encoded,
+      // never parsed — no group-key sniffing).
+      try {
+        await dismissNotification(client, id);
+      } catch (err) {
+        if (!isAbsentError(err)) throw err;
+        await dismissNotificationGroup(client, id);
+      }
     },
 
     async clearNotifications() {

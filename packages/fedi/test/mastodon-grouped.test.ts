@@ -9,6 +9,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 // Jest port: `describe/it/expect` are globals (no vitest import).
 import { adaptV2Notification } from "../src/mastodon/adapt";
+import { createMastodonBackend } from "../src/mastodon/backend";
+import type { MastoClient, RequestResult } from "../src/mastodon/client";
+import { MastoHttpError } from "../src/mastodon/client";
 
 function groupedEnvelope(): {
   accounts: Array<Record<string, unknown>>;
@@ -193,5 +196,163 @@ describe("adaptV2Notification (grouped envelopes)", () => {
     );
     expect(flat.actors.map((a) => a.id)).toEqual(["2"]);
     expect(flat.post).toBeNull();
+  });
+});
+
+function httpError(status: number): MastoHttpError {
+  return new MastoHttpError({
+    message: `HTTP ${status}`,
+    status,
+    kind: "http",
+    origin: "https://mastodon.example",
+  });
+}
+
+interface DismissCall {
+  method: string;
+  path: string;
+  body?: unknown;
+}
+
+// X4.1: grouped dismiss routing. The backend tries the v1 dismiss first
+// (flat rows succeed there and never touch v2) and falls through to the
+// v2 group DELETE only on absence (404/405) — the grouped rows the v1
+// route cannot dismiss. Auth, timeout and 5xx errors never fall through.
+function dismissStub(respond: (method: string, path: string) => { data?: unknown } | void): {
+  client: MastoClient;
+  calls: DismissCall[];
+} {
+  const calls: DismissCall[] = [];
+  const run = async <T>(method: string, path: string, body?: unknown): Promise<RequestResult<T>> => {
+    calls.push({ method, path, body });
+    const out = respond(method, path);
+    return { status: 200, data: out?.data as T | undefined, headers: new Headers() };
+  };
+  const client: MastoClient = {
+    origin: "https://mastodon.example",
+    token: "t",
+    get: (path, query, _o) => run("GET", path, query),
+    post: (path, body, _o) => run("POST", path, body),
+    put: (path, body, _o) => run("PUT", path, body),
+    patch: (path, body, _o) => run("PATCH", path, body),
+    delete: (path, body, _o) => run("DELETE", path, body),
+    postForm: (path, body, _o) => run("POST", path, body),
+    postFormData: (path, body, _o) => run("POST", path, body),
+    patchFormData: (path, body, _o) => run("PATCH", path, body),
+  };
+  return { client, calls };
+}
+
+describe("dismissNotification (v1 for flat rows, v2 fallback for groups)", () => {
+  it("dismisses a flat row with the v1 route only (no v2 call)", async () => {
+    const { client, calls } = dismissStub(() => ({ data: {} }));
+    const backend = createMastodonBackend(client);
+    await backend.dismissNotification!("301");
+    expect(calls).toEqual([
+      { method: "POST", path: "/api/v1/notifications/301/dismiss", body: undefined },
+    ]);
+  });
+
+  it("dismisses a grouped row through the v2 group route after the v1 404", async () => {
+    const { client, calls } = dismissStub((method) => {
+      if (method === "POST") throw httpError(404);
+      return { data: {} };
+    });
+    const backend = createMastodonBackend(client);
+    await backend.dismissNotification!("favourite-100");
+    expect(calls).toEqual([
+      { method: "POST", path: "/api/v1/notifications/favourite-100/dismiss", body: undefined },
+      { method: "DELETE", path: "/api/v2/notifications/favourite-100", body: undefined },
+    ]);
+  });
+
+  it("encodes the group key on both routes instead of parsing it", async () => {
+    const { client, calls } = dismissStub((method) => {
+      if (method === "POST") throw httpError(404);
+      return { data: {} };
+    });
+    const backend = createMastodonBackend(client);
+    await backend.dismissNotification!("favourite-100/200 c");
+    expect(calls[0].path).toBe("/api/v1/notifications/favourite-100%2F200%20c/dismiss");
+    expect(calls[1]).toEqual({
+      method: "DELETE",
+      path: "/api/v2/notifications/favourite-100%2F200%20c",
+      body: undefined,
+    });
+  });
+
+  it("a 404 from both routes surfaces already-gone (never silent success)", async () => {
+    const { client, calls } = dismissStub(() => {
+      throw httpError(404);
+    });
+    const backend = createMastodonBackend(client);
+    await expect(backend.dismissNotification!("favourite-100")).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(calls).toHaveLength(2);
+  });
+
+  it("never falls back on auth failures (401 rethrows, no v2 call)", async () => {
+    const { client, calls } = dismissStub(() => {
+      throw httpError(401);
+    });
+    const backend = createMastodonBackend(client);
+    await expect(backend.dismissNotification!("301")).rejects.toMatchObject({ status: 401 });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("never falls back on server errors (500 rethrows, no v2 call)", async () => {
+    const { client, calls } = dismissStub(() => {
+      throw httpError(500);
+    });
+    const backend = createMastodonBackend(client);
+    await expect(backend.dismissNotification!("301")).rejects.toMatchObject({ status: 500 });
+    expect(calls).toHaveLength(1);
+  });
+});
+
+describe("adaptV2Notification (X4.1 wire types)", () => {
+  it("maps `status` to the existing `note` kind (actor + new post kept)", () => {
+    const env = groupedEnvelope();
+    const { accounts } = maps(env);
+    const n = adaptV2Notification(
+      {
+        id: "401",
+        type: "status",
+        created_at: "2026-10-12T12:40:00.000Z",
+        account_id: "2",
+        status: env.statuses[0],
+      },
+      accounts,
+    );
+    expect(n.kind).toBe("note");
+    expect(n.rawType).toBe("status");
+    expect(n.actors.map((a) => a.id)).toEqual(["2"]);
+    expect(n.post?.id).toBe("100");
+  });
+
+  it("leaves newer/account-less wire types as unknown with rawType kept (no invented kind)", () => {
+    for (const type of [
+      "update",
+      "quoted_update",
+      "admin.sign_up",
+      "admin.report",
+      "severed_relationships",
+      "moderation_warning",
+      "move",
+    ]) {
+      const n = adaptV2Notification(
+        {
+          group_key: "g-1",
+          type,
+          latest_page_notification_at: "2026-10-12T12:00:00.000Z",
+        },
+        new Map(),
+        new Map(),
+      );
+      expect(n.kind).toBe("unknown");
+      expect(n.rawType).toBe(type);
+      expect(n.actors).toEqual([]);
+    }
   });
 });

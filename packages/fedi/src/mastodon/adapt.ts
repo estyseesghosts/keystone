@@ -631,6 +631,13 @@ const NOTIFICATION_KINDS: Record<string, NotificationKind> = {
   favourite: "favourite",
   poll: "pollEnded",
   "pleroma:emoji_reaction": "reaction",
+  // Mastodon "someone you asked to notify posted" rows are the existing
+  // core `note` kind (actor + their new post, same shape). Newer and
+  // account-less wire types (`update`, `quoted_update`, `admin.sign_up`,
+  // `admin.report`, `severed_relationships`, `moderation_warning`, Akkoma
+  // `move`) stay `unknown` with a translated generic row — no invented
+  // kind without a model widening (X4.2 owns `core/models.ts`).
+  status: "note",
 };
 
 /**

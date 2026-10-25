@@ -100,8 +100,10 @@ export function notificationKindLabel(notification: Notification): string {
       return t`invited you to a chat room`
     case 'unknown':
     default:
-      // Unknown wires still get the raw type, never a guessed action.
-      return notification.rawType || t`sent a notification`
+      // Unknown wire types render a translated generic label — the
+      // server's `rawType` stays on the model for debugging and is never
+      // user-visible (X4.1; Wave 9 owns the final wording).
+      return t`sent a notification`
   }
 }
 

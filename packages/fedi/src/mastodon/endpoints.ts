@@ -1222,6 +1222,14 @@ export async function dismissNotification(client: MastoClient, id: string): Prom
   await client.post(`/api/v1/notifications/${encodeURIComponent(id)}/dismiss`);
 }
 
+/** `DELETE /api/v2/notifications/:group_key` (Mastodon 4.3+ grouped
+ * dismiss: grouped rows carry the group key as their row id, so the v1
+ * dismiss (numeric ids only) 404s on them — contract §4). The key is
+ * opaque: encoded, never parsed. Server answers an empty body. */
+export async function dismissNotificationGroup(client: MastoClient, groupKey: string): Promise<void> {
+  await client.delete(`/api/v2/notifications/${encodeURIComponent(groupKey)}`);
+}
+
 /** `POST /api/v1/notifications/clear` (Mastodon `#clear`, route
  * `collection do post :clear end`; Akkoma/Pleroma too — contract §4).
  * Destroys every notification for the account server-side. */
