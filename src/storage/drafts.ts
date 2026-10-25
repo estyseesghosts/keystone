@@ -35,6 +35,12 @@ export const localDraftSchema = z.object({
   /** Per-note quote refusal (clickstone §1.2); account-wide is separate. */
   noQuote: z.boolean().default(false),
   scheduledAt: z.string().nullable().default(null),
+  /** True when attachments were staged at autosave time. The files/ids
+   * themselves are never stored (server media ids may expire), so a
+   * pointer-restored draft with `hadMedia` shows an honest notice instead
+   * of silently dropping them (composer slice 1). Additive: old rows
+   * without the flag still validate and read as false. */
+  hadMedia: z.boolean().default(false),
 })
 
 export type LocalDraft = z.infer<typeof localDraftSchema>
@@ -47,6 +53,33 @@ const listSchema = z.object({
 export function draftsKeyFor(sessionId: string): string {
   if (!sessionId) throw new Error('draftsKeyFor requires a sessionId')
   return `keystone.drafts.${sessionId}`
+}
+
+/** Per-session open-draft pointer (composer slice 1): the id of the
+ * session's in-progress draft. Autosave sets it whenever it saves a
+ * non-empty draft and clears it when the save is empty (row deleted) or
+ * the draft posts — so reopening the composer after a refresh/crash lands
+ * straight back in the in-progress draft, while a deliberate
+ * save-and-close (slices 2+3) starts fresh. The key embeds the session
+ * id, so one account's pointer never surfaces for another. */
+export function openDraftKeyFor(sessionId: string): string {
+  if (!sessionId) throw new Error('openDraftKeyFor requires a sessionId')
+  return `keystone.drafts.${sessionId}.open`
+}
+
+/** The pointer value, or null when no in-progress draft is recorded.
+ * Missing/empty rows read as null, never throw. */
+export function getOpenDraftId(store: KeyValueStore, sessionId: string): string | null {
+  const raw = store.getItem(openDraftKeyFor(sessionId))
+  return typeof raw === 'string' && raw.length > 0 ? raw : null
+}
+
+export function setOpenDraftId(store: KeyValueStore, sessionId: string, id: string): void {
+  store.setItem(openDraftKeyFor(sessionId), id)
+}
+
+export function clearOpenDraftId(store: KeyValueStore, sessionId: string): void {
+  store.removeItem(openDraftKeyFor(sessionId))
 }
 
 /** Newest first. Rows failing validation are dropped, never thrown on. */

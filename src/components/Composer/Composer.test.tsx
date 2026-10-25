@@ -8,10 +8,10 @@ import {ApiError, buildCapabilities, createMemoryStore, type Backend, type Sessi
 
 import {ThemeProvider} from '#/alf/index'
 import {themes, type ThemeName} from '#/alf/themes'
-import {draftsKeyFor, listDrafts} from '#/storage/drafts'
+import {draftsKeyFor, getOpenDraftId, listDrafts, setOpenDraftId} from '#/storage/drafts'
 import {makePost} from '#/components/__tests__/fixtures'
 
-import {Composer, sheetKeyboardInset, sheetVisibleMaxHeight} from './Composer'
+import {Composer, sheetKeyboardInset, sheetVisibleMaxHeight, type ComposerProps} from './Composer'
 import {pickMedia} from './pickMedia'
 
 i18n.load('en', {})
@@ -470,5 +470,223 @@ describe('sheet keyboard helpers (C3)', () => {
     expect(sheetVisibleMaxHeight('ios', 'full', 800, 300)).toBeUndefined()
     expect(sheetVisibleMaxHeight('web', 'mobile', 800, 300)).toBeUndefined()
     expect(sheetVisibleMaxHeight('ios', 'mobile', 0, 300)).toBeUndefined()
+  })
+})
+
+describe('open-draft pointer (slice 1)', () => {
+  const sid = 'https://s.example me'
+
+  function renderFresh(
+    store: ReturnType<typeof createMemoryStore>,
+    backend: Backend,
+    props: Partial<ComposerProps> = {},
+  ) {
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    return render(
+      <QueryClientProvider client={qc}>
+        <I18nProvider i18n={i18n}>
+          <ThemeProvider>
+            <Composer
+              session={session('misskey', 'sharkey')}
+              backend={backend}
+              store={store}
+              onClose={() => {}}
+              {...props}
+            />
+          </ThemeProvider>
+        </I18nProvider>
+      </QueryClientProvider>,
+    )
+  }
+
+  function seedRow(store: ReturnType<typeof createMemoryStore>, row: Record<string, unknown>) {
+    store.setItem(draftsKeyFor(sid), JSON.stringify({version: 1, drafts: [row]}))
+  }
+
+  beforeEach(() => {
+    pickMediaMock.mockReset()
+    pickMediaMock.mockImplementation(async () => ({kind: 'cancelled'}))
+  })
+
+  it('autosave sets the pointer, and emptying the draft clears it', () => {
+    jest.useFakeTimers()
+    try {
+      const {store, s} = setup('sharkey')
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'keep me')
+      jest.advanceTimersByTime(500)
+      const saved = listDrafts(store, s.id)
+      expect(saved).toHaveLength(1)
+      expect(getOpenDraftId(store, s.id)).toBe(saved[0].id)
+      // Emptying deletes the row and drops the pointer: next open is fresh.
+      fireEvent.changeText(screen.getByTestId('composer-text'), '   ')
+      jest.advanceTimersByTime(500)
+      expect(listDrafts(store, s.id)).toEqual([])
+      expect(getOpenDraftId(store, s.id)).toBeNull()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('submit deletes the draft and clears the pointer', async () => {
+    const store = createMemoryStore()
+    seedRow(store, {id: 'd9', updatedAt: 1, text: 'bye'})
+    setOpenDraftId(store, sid, 'd9')
+    const backend = backendFor('sharkey')
+    const onClose = jest.fn()
+    const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
+    render(
+      <QueryClientProvider client={qc}>
+        <ThemeProvider>
+          <Composer
+            session={session('misskey', 'sharkey')}
+            backend={backend}
+            store={store}
+            draftId="d9"
+            onClose={onClose}
+          />
+        </ThemeProvider>
+      </QueryClientProvider>,
+    )
+    expect(screen.getByTestId('composer-text').props.value).toBe('bye')
+    fireEvent.press(screen.getByTestId('composer-submit'))
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(listDrafts(store, sid)).toEqual([])
+    expect(getOpenDraftId(store, sid)).toBeNull()
+  })
+
+  it('a targetless open restores the autosaved draft (refresh simulation)', () => {
+    jest.useFakeTimers()
+    try {
+      const store = createMemoryStore()
+      const backend = backendFor('sharkey')
+      const first = renderFresh(store, backend)
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'keep me')
+      jest.advanceTimersByTime(500)
+      expect(getOpenDraftId(store, sid)).not.toBeNull()
+      first.unmount()
+      renderFresh(store, backendFor('sharkey'))
+      expect(screen.getByTestId('composer-text').props.value).toBe('keep me')
+      // No media were staged, so the restore stays silent.
+      expect(screen.queryByTestId('composer-notice')).toBeNull()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('pointer restore carries text/CW/visibility/poll/recipients and re-attaches targets', async () => {
+    const store = createMemoryStore()
+    seedRow(store, {
+      id: 'dd',
+      updatedAt: 1,
+      text: 'full draft',
+      cw: 'spoiler',
+      cwEnabled: true,
+      visibilityRaw: 'specified',
+      visibleUserIds: ['u1'],
+      pollChoices: ['yes', 'no'],
+      pollMultiple: false,
+      pollHideTotals: true,
+      pollDurationSeconds: 3600,
+      replyToId: 'p1',
+      quoteId: null,
+      hadMedia: false,
+    })
+    setOpenDraftId(store, sid, 'dd')
+    const replyTo = makePost({id: 'p1', content: {mfm: 'hello there', plain: 'hello there'}})
+    renderFresh(store, backendFor('sharkey', {post: jest.fn(async () => replyTo)}))
+    expect(screen.getByTestId('composer-text').props.value).toBe('full draft')
+    expect(screen.getByTestId('composer-cw').props.value).toBe('spoiler')
+    expect(screen.getByTestId('composer-vis-specified').props.accessibilityState).toMatchObject({
+      selected: true,
+    })
+    expect(screen.getByTestId('composer-poll')).toBeTruthy()
+    expect(screen.getByDisplayValue('yes')).toBeTruthy()
+    expect(screen.getByDisplayValue('no')).toBeTruthy()
+    expect(screen.getByTestId('composer-poll-hide-totals').props.accessibilityState).toMatchObject({
+      selected: true,
+    })
+    expect(screen.getByTestId('composer-recipient-del-u1')).toBeTruthy()
+    // hadMedia is false: the restore stays silent.
+    expect(screen.queryByTestId('composer-notice')).toBeNull()
+    // Targets re-attach through the same path as `draftId` restores.
+    expect(await screen.findByTestId('composer-reply-preview')).toBeTruthy()
+    expect(await screen.findByText('hello there')).toBeTruthy()
+  })
+
+  it('pointer restore warns about dropped attachments only when media were staged', async () => {
+    const store = createMemoryStore()
+    seedRow(store, {id: 'dd', updatedAt: 1, text: 'with media', hadMedia: true})
+    setOpenDraftId(store, sid, 'dd')
+    const first = renderFresh(store, backendFor('sharkey'))
+    expect(screen.getByTestId('composer-notice')).toHaveTextContent(/Attachments aren't kept/)
+    first.unmount()
+    seedRow(store, {id: 'dd', updatedAt: 2, text: 'without media', hadMedia: false})
+    renderFresh(store, backendFor('sharkey'))
+    expect(screen.getByTestId('composer-text').props.value).toBe('without media')
+    expect(screen.queryByTestId('composer-notice')).toBeNull()
+  })
+
+  it('autosave records staged attachments, so the refresh restore warns', async () => {
+    pickMediaMock.mockResolvedValueOnce({kind: 'picked', files: [attachment()], rejected: []})
+    const store = createMemoryStore()
+    const first = renderFresh(store, backendFor('sharkey'))
+    fireEvent.press(screen.getByTestId('composer-media-add'))
+    // The staged row renders several `composer-upload-*` nodes (container,
+    // alt, sensitivity), so a bare `composer-upload-` prefix matches many —
+    // wait on the unique per-upload sensitivity toggle like the other
+    // media tests do.
+    await screen.findByTestId(/^composer-upload-sensitive-/)
+    jest.useFakeTimers()
+    try {
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'with a photo')
+      jest.advanceTimersByTime(500)
+      const saved = listDrafts(store, sid)
+      expect(saved).toHaveLength(1)
+      expect(saved[0].hadMedia).toBe(true)
+      expect(getOpenDraftId(store, sid)).toBe(saved[0].id)
+    } finally {
+      jest.useRealTimers()
+    }
+    first.unmount()
+    renderFresh(store, backendFor('sharkey'))
+    expect(screen.getByTestId('composer-text').props.value).toBe('with a photo')
+    expect(screen.getByTestId('composer-notice')).toHaveTextContent(/Attachments aren't kept/)
+  })
+
+  it('a stale pointer clears and the composer opens fresh', () => {
+    const store = createMemoryStore()
+    setOpenDraftId(store, sid, 'ghost')
+    renderFresh(store, backendFor('sharkey'))
+    expect(screen.getByTestId('composer-text').props.value).toBe('')
+    expect(getOpenDraftId(store, sid)).toBeNull()
+  })
+
+  it('targeted opens ignore the pointer', () => {
+    const store = createMemoryStore()
+    seedRow(store, {id: 'dd', updatedAt: 1, text: 'unrelated'})
+    setOpenDraftId(store, sid, 'dd')
+    const replyTo = makePost({id: 'p1', content: {mfm: 'original words', plain: 'original words'}})
+    renderFresh(store, backendFor('sharkey'), {replyTo})
+    expect(screen.getByTestId('composer-text').props.value).toBe('')
+    expect(screen.getByTestId('composer-reply-preview')).toBeTruthy()
+    // The in-progress draft is untouched for a later targetless open.
+    expect(getOpenDraftId(store, sid)).toBe('dd')
+  })
+
+  it('an explicit draftId wins over the pointer', () => {
+    const store = createMemoryStore()
+    store.setItem(
+      draftsKeyFor(sid),
+      JSON.stringify({
+        version: 1,
+        drafts: [
+          {id: 'pa', updatedAt: 1, text: 'from pointer'},
+          {id: 'pb', updatedAt: 2, text: 'from explicit'},
+        ],
+      }),
+    )
+    setOpenDraftId(store, sid, 'pa')
+    renderFresh(store, backendFor('sharkey'), {draftId: 'pb'})
+    expect(screen.getByTestId('composer-text').props.value).toBe('from explicit')
   })
 })

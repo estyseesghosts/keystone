@@ -1,5 +1,13 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
+Composer drafts program (2026-10-26, owner request: refresh must persist,
+click-out must ask save/discard, server drafts where offered): slice 1
+landed — per-session open-draft pointer (refresh reopens the in-progress
+draft, deliberate save clears it), `hadMedia` honest notice, web MMKV
+verified localStorage-backed already — **217 suites / 2927 tests** green.
+Log: `state/logs/2026-10-26-composer-slice1.md`. Next: slice 2 close-guard
+sheet, slice 3 smart-default server/local save.
+
 Repair program 2026-10-24 (audit `docs/audit_20261024/`): ALL WAVES
 MERGED on `main` — Wave 0 (`c817c30`), Wave 1 (`4625769`), Wave 2
 (`9e67b4d`), Wave 3 (`f982592`), Wave 4 (`9b4e9ce`). Green at each

@@ -36,10 +36,15 @@ import {
   useUploads,
 } from '#/state/queries/composer'
 import {
+  clearOpenDraftId,
   deleteDraft,
+  getOpenDraftId,
+  isDraftEmpty,
   listDrafts,
+  loadDraft,
   newDraftId,
   saveDraft,
+  setOpenDraftId,
   type LocalDraft,
 } from '#/storage/drafts'
 
@@ -193,7 +198,32 @@ export function useComposerController({
   const create = useCreatePost(session, backend)
   const edit = useEditPost(session, backend)
 
-  const [id] = useState(() => draftId ?? newDraftId())
+  const [open] = useState(() => {
+    // Slice 1 — durable in-progress draft. An explicit `draftId` wins;
+    // targeted opens (reply/quote/edit/redraft) never follow the pointer;
+    // otherwise the per-session open-draft pointer re-opens the in-progress
+    // draft after a refresh/crash, adopting its row id so autosave keeps
+    // updating the same row instead of forking a duplicate. A stale pointer
+    // (row gone) is cleared and the composer opens fresh — the clear is
+    // idempotent, so a double-invoked initializer converges on the same
+    // state. Runs once per mount (the sheet keys on session + targets, so
+    // this never goes stale under a live composer).
+    if (draftId) return {id: draftId, viaPointer: false, hadMedia: false}
+    if (replyTo != null || quote != null || editing != null || redraftSeed != null) {
+      return {id: newDraftId(), viaPointer: false, hadMedia: false}
+    }
+    const openId = getOpenDraftId(store, session.id)
+    if (openId) {
+      const saved = loadDraft(store, session.id, openId)
+      if (saved) return {id: openId, viaPointer: true, hadMedia: saved.hadMedia}
+      clearOpenDraftId(store, session.id)
+    }
+    return {id: newDraftId(), viaPointer: false, hadMedia: false}
+  })
+  const id = open.id
+  // The draft this open restores from: explicit id, else the validated
+  // pointer row. Reuses the `draftId` restore path below — no fork.
+  const restoreId = draftId ?? (open.viaPointer ? open.id : null)
   const [state, setState] = useState<ComposeState>(() => {
     if (redraftSeed) {
       // Redraft (clickstone §1.7): the post is gone; the seed is the
@@ -225,7 +255,7 @@ export function useComposerController({
         })),
       })
     }
-    const restored = draftId ? listDrafts(store, session.id).find(d => d.id === draftId) : null
+    const restored = restoreId ? listDrafts(store, session.id).find(d => d.id === restoreId) : null
     return emptyComposeState({
       visibilityRaw: defaultVisibilityFor(family, replyTo).raw,
       replyTo,
@@ -236,8 +266,15 @@ export function useComposerController({
   const [caret, setCaret] = useState(0)
   const [error, setError] = useState<string | null>(null)
   // Success notice (e.g. quote-refusal recovery posted without the quote):
-  // informational, never an error — the post went through.
-  const [notice, setNotice] = useState<string | null>(null)
+  // informational, never an error — the post went through. A
+  // pointer-restored draft with `hadMedia` also starts with the honest
+  // attachments notice (restored rows never carry media); other restores
+  // start silent.
+  const [notice, setNotice] = useState<string | null>(() =>
+    open.viaPointer && open.hadMedia
+      ? i18n._(msg`Restored your in-progress draft. Attachments aren't kept — re-attach if needed.`)
+      : null,
+  )
   const [busy, setBusy] = useState(false)
   // Single-flight guard (R0.3): `busy` state commits after an async gap, so
   // a second submit dispatched in the same tick (double-tap, keyboard
@@ -248,12 +285,15 @@ export function useComposerController({
   const [pickingEmoji, setPickingEmoji] = useState(false)
   const patch = useCallback((p: Partial<ComposeState>) => setState(s => ({...s, ...p})), [])
 
-  // Autosave (debounced). Keyed by session id; cleared on post.
+  // Autosave (debounced). Keyed by session id; cleared on post. Also
+  // maintains the open-draft pointer (slice 1): a saved non-empty draft
+  // is the session's in-progress draft, while an empty save deletes the
+  // row — so the pointer goes with it and the next open starts fresh.
   const postedRef = useRef(false)
   useEffect(() => {
     if (postedRef.current) return
     const timer = setTimeout(() => {
-      saveDraft(store, session.id, {
+      const draft = {
         id,
         updatedAt: Date.now(),
         text: state.text,
@@ -271,10 +311,15 @@ export function useComposerController({
         reactionAcceptance: state.reactionAcceptance,
         noQuote: state.noQuote,
         scheduledAt: state.scheduledAt,
-      })
+        // Presence only — the files/ids themselves are never stored.
+        hadMedia: state.media.length > 0 || uploads.items.length > 0,
+      }
+      saveDraft(store, session.id, draft)
+      if (isDraftEmpty(draft)) clearOpenDraftId(store, session.id)
+      else setOpenDraftId(store, session.id, id)
     }, 400)
     return () => clearTimeout(timer)
-  }, [state, store, session.id, id])
+  }, [state, store, session.id, id, uploads.items.length])
 
   // Draft target restore (C6): the stored draft keeps reply/quote ids only,
   // so re-attach the posts through the owning session's backend. Runs for
@@ -296,15 +341,16 @@ export function useComposerController({
     [backend],
   )
 
-  // Opening on a `draftId` with targets but no live props (deep link into
-  // a reply/quote draft): attach once on mount.
+  // Opening on a draft with targets but no live props (deep link into a
+  // reply/quote draft, or a pointer restore after refresh): attach once on
+  // mount.
   const attachedRef = useRef(false)
   useEffect(() => {
-    if (attachedRef.current || !draftId || replyTo || quote) return
+    if (attachedRef.current || !restoreId || replyTo || quote) return
     attachedRef.current = true
-    const saved = listDrafts(store, session.id).find(d => d.id === draftId)
+    const saved = listDrafts(store, session.id).find(d => d.id === restoreId)
     if (saved) void attachTargets(saved.replyToId, saved.quoteId)
-  }, [draftId, replyTo, quote, store, session.id, attachTargets])
+  }, [restoreId, replyTo, quote, store, session.id, attachTargets])
 
   const {trigger, suggestions} = useSuggestions(state.text, caret, backend, emojis.data)
   const onPickSuggestion = (s: Suggestion) => {
@@ -417,6 +463,9 @@ export function useComposerController({
         })
         postedRef.current = true
         deleteDraft(store, session.id, id)
+        // Slice 1: the edit posted — no longer the in-progress draft, so
+        // a post-submit refresh opens fresh.
+        clearOpenDraftId(store, session.id)
         onPosted?.('posted')
         onClose?.()
       } catch (err) {
@@ -457,6 +506,9 @@ export function useComposerController({
       const finish = (result: {kind: 'posted' | 'scheduled'}) => {
         postedRef.current = true
         deleteDraft(store, session.id, id)
+        // Slice 1: posted — no longer the in-progress draft, so a
+        // post-submit refresh opens fresh.
+        clearOpenDraftId(store, session.id)
         resetAfterPost()
         onPosted?.(result.kind)
         onClose?.()
