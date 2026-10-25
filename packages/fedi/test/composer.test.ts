@@ -399,7 +399,7 @@ describe("golden wire bodies", () => {
     }
     const on = await editCall({ text: "fixed", noQuote: true });
     expect(on.endpoint).toBe("notes/edit");
-    expect(on.params).toMatchObject({ noteId: "n1", noQuote: true });
+    expect(on.params).toMatchObject({ editId: "n1", noQuote: true });
 
     // Off: the field is omitted, so an edit never lifts an earlier refusal
     // the composer cannot show (the Post model carries no noQuote).

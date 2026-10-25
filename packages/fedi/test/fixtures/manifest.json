@@ -39,6 +39,13 @@
       "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserDetailed)", "docs/api-surface.md"],
       "recordedAt": null
     },
+    "misskey/user-moved.json": {
+      "endpoint": "POST /api/users/show (UserDetailed with movedTo + alsoKnownAs)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (UserDetailed)", "docs/audit_20261025/results/misskey.md (M14)"],
+      "recordedAt": null,
+      "unverified": "Migration shape (movedTo destination URI) per the audit finding M14; not recorded against a live server (rig refused to agents). Real capture: X5.6."
+    },
     "misskey/followers.json": {
       "endpoint": "POST /api/users/followers (Following rows with follower)",
       "source": "synthesised",
@@ -132,6 +139,13 @@
       "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Note)", "docs/api-surface.md"],
       "recordedAt": null,
       "unverified": "Bare-key packed map (reactionEmojis keyed `wave@remote.example`, no colons) per the live-verified comment in api/emoji.ts; tolerant lookup must resolve both this and the colon-wrapped note.json. Real capture: X5.6."
+    },
+    "sharkey/note-edit-created.json": {
+      "endpoint": "POST /api/notes/edit (Sharkey {createdNote} envelope around the packed Note shape)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (Note)", "docs/audit_20261025/results/misskey.md (M5)"],
+      "recordedAt": null,
+      "unverified": "The {createdNote} envelope is verified against the local Sharkey source (notes/edit.ts: param editId, response {createdNote}) but NOT recorded against a live server (rig refused to agents); the tolerant parse must also accept a bare Note. Real capture: X5.6."
     },
     "sharkey/user.json": {
       "endpoint": "POST /api/users/show (UserDetailed shape)",

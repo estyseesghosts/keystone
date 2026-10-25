@@ -36,13 +36,23 @@ export interface EditNoteParams {
 
 /** Server-side edit (`notes/edit`). Throws 404 where the backend has no
  * edit — the UI then offers delete-and-redraft instead. Every other
- * rejection (notably a 4xx on a poll edit) propagates untouched. */
+ * rejection (notably a 4xx on a poll edit) propagates untouched.
+ *
+ * Wire contract (Sharkey source, `notes/edit.ts`): the param is `editId`
+ * (a missing `editId` is rejected — `noteId` is not a param), and the
+ * response is the `{createdNote}` envelope, same as `notes/create`.
+ * The parse stays tolerant: a bare `Note` (forks that pack it directly)
+ * adapts too. */
 export async function editNote(
   call: WireCall,
   noteId: string,
   params: EditNoteParams,
 ): Promise<Post> {
-  return adaptNote(await call<Note>("notes/edit", { noteId, ...params }));
+  const res = await call<Note & { createdNote?: Note }>("notes/edit", {
+    editId: noteId,
+    ...params,
+  });
+  return adaptNote(res.createdNote ?? res);
 }
 
 export interface RedraftSeed {

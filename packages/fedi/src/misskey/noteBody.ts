@@ -3,9 +3,11 @@
 // built (D3.1: the four inline copies in `backend.ts` collapsed here).
 //
 // Omit-but-never-null (Sharkey 400s on null/empty fields): absent optionals
-// stay off the wire. The one exception is edit, where blank text/cw are
-// sent as EXPLICIT nulls so the server clears them, and `noQuote: false`
-// is sent so an earlier per-note quote refusal can be lifted.
+// stay off the wire. The one exception is edit, where cleared text/cw are
+// sent as EXPLICIT nulls so the server clears them, `noQuote: false`
+// is sent so an earlier per-note quote refusal can be lifted, and a
+// KNOWN-empty `fileIds: []` / `poll: null` clears attachments/polls
+// (unknown/unchanged stays omitted — explicit nulls only for known state).
 //
 // `replyId` / `renoteId` / `reactionAcceptance` are create-only: the edit
 // endpoint never received them, so the edit builder leaves them off.
@@ -80,9 +82,14 @@ export function createNoteBody(draft: PostDraft): Record<string, unknown> {
 }
 
 /** `notes/edit` body: blank text/cw clear (explicit nulls); `noQuote`
- * forwards whatever the caller passes so `false` lifts a refusal. A
- * server-side rejection (notably a 4xx on a poll edit) propagates from
- * `editNote` — never silently dropped. */
+ * forwards whatever the caller passes so `false` lifts a refusal.
+ *
+ * Explicit-null rule, consistent with text/cw: a field the caller KNOWS
+ * is empty travels explicitly (`fileIds: []`, `poll: null`) so the server
+ * clears attachments/polls instead of treating omission as "unchanged".
+ * A field the caller does not know (`undefined` — unchanged/unknown) is
+ * omitted, never nulled. A server-side rejection (notably a 4xx on a
+ * poll edit) propagates from `editNote` — never silently dropped. */
 export function createEditNoteBody(draft: PostDraft): EditNoteParams {
   const visibility = wireVisibility(draft);
   return {
@@ -93,13 +100,13 @@ export function createEditNoteBody(draft: PostDraft): EditNoteParams {
       ? { visibleUserIds: draft.visibleUserIds }
       : {}),
     ...(draft.visibility?.localOnly ? { localOnly: true } : {}),
-    ...(draft.mediaIds && draft.mediaIds.length > 0
-      ? { fileIds: draft.mediaIds }
-      : {}),
+    // Known-empty (cleared media) sends `[]`; unknown/unchanged omits.
+    ...(draft.mediaIds !== undefined ? { fileIds: draft.mediaIds } : {}),
     // Per-note quote refusal (create parity). Edit forwards the value the
     // caller carries, so `false` can lift an earlier refusal.
     ...(draft.noQuote !== undefined ? { noQuote: draft.noQuote } : {}),
-    // Poll edits use the exact create shape.
-    ...(draft.poll ? { poll: pollBody(draft.poll) } : {}),
+    // Poll edits use the exact create shape. Explicit null clears the
+    // poll; undefined (unknown/unchanged) omits it.
+    ...(draft.poll !== undefined ? { poll: draft.poll == null ? null : pollBody(draft.poll) } : {}),
   };
 }

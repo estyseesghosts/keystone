@@ -205,6 +205,19 @@ export interface DetectionEvidence {
   misskeyBody?: boolean;
   /** True when a probed body is Mastodon-shaped (v1/v2 instance). */
   mastodonBody?: boolean;
+  /** Misskey-family `notes/edit` presence from an endpoint probe (X5.4):
+   * `true` = a real 4xx param/auth rejection proved the route exists;
+   * `false` = a real 404/`UNKNOWN_API_ENDPOINT` proved it absent;
+   * `null`/absent = unprobed — the capability stays `unknown` and unlocks
+   * nothing. Recorded by `probeMisskeyEndpoint`, never by a failed user
+   * action. Misskey family only; ignored elsewhere. */
+  notesEditAvailable?: boolean | null;
+  /** Same probe verdict for `notes/schedule/*` (capability
+   * `scheduled_posts`). Misskey family only. */
+  scheduledAvailable?: boolean | null;
+  /** Same probe verdict for `notes/drafts/*` (capability `server_drafts`).
+   * Misskey family only. */
+  serverDraftsAvailable?: boolean | null;
   /** Misskey-family `meta.translatorAvailable`, when the probe saw it
    * (lets `buildCapabilities` set `translation` honestly). Ignored on a
    * Mastodon-family flavor — the two families' evidence never crosses. */
@@ -306,10 +319,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     mfm: "supported",
     reactions: "supported",
     reaction_acceptance: "supported",
-    // Stock Misskey has no `POST notes/like` (unknown path 404s): heart
-    // presses fall back to a plain ❤ reaction, never a doomed probe
-    // (see `misskey/like.ts`; DECISIONS 2026-10-20 Sharkey line).
-    like: "unsupported",
+    // No static `like` seed: `misskey/like.ts` probes `notes/like` once per
+    // origin and caches a real 404 absence — a flavor label cannot prove a
+    // backport absent. Unknown unlocks nothing; the first press probes.
     quote_posting: "supported",
     // `notes/create` poll takes `multiple` (v1 `docs/api-surface.md:67`,
     // verified against Misskey/Sharkey/Pinetree backends).
@@ -317,16 +329,14 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     // Misskey polls take `multiple` but have no hide-totals switch, and
     // user lists have neither a reply policy nor an exclusive flag.
     polls_hide_totals: "unsupported",
-    // v1 shipped `notes/edit` (`frontend/src/misskey/noteEdit.ts`); the
-    // menu degrades honestly until the W3 editor connects `onEdit`.
-    status_editing: "supported",
-    // v1 shipped scheduling (`FloatingComposer` + `schedule.ts`) and the
-    // v2 backend implements list/create/delete; the date-picker polish
-    // is W3 (C8).
-    scheduled_posts: "supported",
-    // v1 shipped server drafts (`serverDrafts.ts`); the v2 backend
-    // implements list/create/update/delete/count; the UI is W3 (C9).
-    server_drafts: "supported",
+    // Stock Misskey is honest-unknown for editing, scheduling and server
+    // drafts (upstream has no `notes/edit`; scheduling/drafts are
+    // unverified on stock). Never rely on a failing call for gating: the
+    // Edit/schedule/draft controls stay hidden until an endpoint probe
+    // records `notesEditAvailable`/`scheduledAvailable`/
+    // `serverDraftsAvailable` evidence (see `probeMisskeyEndpoint`), which
+    // `buildCapabilities` raises to `supported`. Sharkey keeps the
+    // supported verdicts below (verified Sharkey-family endpoints).
     local_only: "supported",
     // v1 shipped the per-note control (`Composer.tsx:277,369`) and the wire
     // forwards it on both create (`notes/create`) and edit (`notes/edit`).
@@ -627,6 +637,21 @@ export function buildCapabilities(
   // Meta-level hint (Misskey-family `translatorAvailable`, when present).
   if (family === "misskey" && typeof evidence.translatorAvailable === "boolean") {
     out.translation = evidence.translatorAvailable ? "supported" : "unsupported";
+  }
+
+  // Endpoint-probe verdicts (Misskey family only, X5.4). The table above
+  // leaves editing/scheduling/server-drafts `unknown` on stock `misskey`;
+  // a decisive probe (`probeMisskeyEndpoint`) raises or lowers them here.
+  // A decisive absence is server-authoritative (same as the translation
+  // explicit-false above); anything else never touches a verified table
+  // fact, and other families ignore these flags entirely.
+  if (family === "misskey") {
+    if (evidence.notesEditAvailable === true) out.status_editing = "supported";
+    else if (evidence.notesEditAvailable === false) out.status_editing = "unsupported";
+    if (evidence.scheduledAvailable === true) out.scheduled_posts = "supported";
+    else if (evidence.scheduledAvailable === false) out.scheduled_posts = "unsupported";
+    if (evidence.serverDraftsAvailable === true) out.server_drafts = "supported";
+    else if (evidence.serverDraftsAvailable === false) out.server_drafts = "unsupported";
   }
   return out;
 }
@@ -952,4 +977,54 @@ export async function detectServer(
     decidedBy,
     evidence,
   };
+}
+
+// --- Misskey-family endpoint probes (X5.4) ---------------------------------
+
+/** Misskey error envelope shape (`{error: {code, ...}}`), read tolerantly. */
+function misskeyErrorCode(body: unknown): string | null {
+  if (!isPlainObject(body)) return null;
+  const error = body.error;
+  if (!isPlainObject(error)) return null;
+  return typeof error.code === "string" ? error.code : null;
+}
+
+/**
+ * Interpret one unauthenticated endpoint probe (`POST /api/<path>` with
+ * `{}`). Misskey routes before it authenticates, so the status alone
+ * separates presence from absence:
+ * - 404 or `UNKNOWN_API_ENDPOINT` (any status): the route is absent.
+ * - any other 4xx (400 param errors, 401/403 credential errors): the route
+ *   exists — it rejected the empty/unauthenticated call instead of 404ing.
+ * - anything else (timeout/0, 5xx, unexpected 2xx): no evidence either way.
+ * Pure — the verdict feeds `DetectionEvidence` (`notesEditAvailable` etc.)
+ * and `buildCapabilities` raises the capability from there.
+ */
+export function interpretEndpointProbe(status: number, body: unknown): boolean | null {
+  if (status === 404 || misskeyErrorCode(body) === "UNKNOWN_API_ENDPOINT") return false;
+  if (status === 400 || status === 401 || status === 403 || status === 422) return true;
+  return null;
+}
+
+/**
+ * Probe one Misskey-family endpoint's presence without credentials
+ * (`POST ${origin}/api/${apiPath}` with `{}`), e.g. `notes/edit`,
+ * `notes/schedule/list`, `notes/drafts/count`. Returns the
+ * `interpretEndpointProbe` verdict, or null when the probe itself failed.
+ * Never throws. Call post-login from the session layer and recompute via
+ * `buildCapabilities(flavor, {...evidence, notesEditAvailable: verdict})` —
+ * `detectServer` does not call this itself (its prober is unauthenticated
+ * discovery; capability refresh belongs to the authenticated session).
+ */
+export async function probeMisskeyEndpoint(
+  prober: Prober,
+  origin: string,
+  apiPath: string,
+): Promise<boolean | null> {
+  try {
+    const res = await prober("POST", `${origin}/api/${apiPath}`, {});
+    return interpretEndpointProbe(res.status, res.body);
+  } catch {
+    return null;
+  }
 }

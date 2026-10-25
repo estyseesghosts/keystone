@@ -196,7 +196,7 @@ describe("MisskeyBackend compose", () => {
     expect(calls[0]).toEqual({
       endpoint: "notes/edit",
       params: {
-        noteId: "n1",
+        editId: "n1",
         text: "hi",
         cw: null,
         visibility: "public",
@@ -204,6 +204,18 @@ describe("MisskeyBackend compose", () => {
         poll: { choices: ["a", "b"], multiple: false, expiresAt: 1900000000000 },
       },
     });
+  });
+
+  it("editPost adapts the Sharkey {createdNote} envelope", async () => {
+    const envelope = fixture<{ createdNote: Note }>("../sharkey/note-edit-created.json");
+    const { transport, calls } = stubTransport(() => envelope);
+    const post = await createMisskeyBackend(transport).editPost("n1", {
+      text: "edited",
+      visibility: { kind: "followers", localOnly: true, raw: "followers" },
+    });
+    expect(post.id).toBe(envelope.createdNote.id);
+    expect(calls[0].endpoint).toBe("notes/edit");
+    expect(calls[0].params).toMatchObject({ editId: "n1", text: "edited" });
   });
 
   it("editPost surfaces a poll-edit rejection instead of dropping the field", async () => {

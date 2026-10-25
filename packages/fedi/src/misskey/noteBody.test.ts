@@ -1,6 +1,7 @@
 // Note-body omit-null pins (D3.1): create and edit share one builder.
 // Create omits blank/absent fields; edit sends explicit nulls for cleared
-// text/cw but still omits absent optionals (never null/empty on the wire).
+// text/cw and explicit `fileIds: []` / `poll: null` for known-cleared
+// media/polls, but still omits unknown (`undefined`) fields.
 
 import { createEditNoteBody, createNoteBody, wireVisibility } from "./noteBody";
 
@@ -44,7 +45,6 @@ describe("noteBody omit-null", () => {
         cw: "   ",
         visibility: { kind: "public", localOnly: false },
         noQuote: false,
-        mediaIds: [],
       }),
     ).toEqual({
       text: "hi",
@@ -52,6 +52,38 @@ describe("noteBody omit-null", () => {
       visibility: "public",
       noQuote: false,
     });
+  });
+
+  it("edit sends fileIds: [] when the caller knows media is cleared, omits when unknown", () => {
+    expect(
+      createEditNoteBody({
+        text: "hi",
+        visibility: { kind: "public", localOnly: false },
+        mediaIds: [],
+      }),
+    ).toMatchObject({ fileIds: [] });
+    expect(
+      createEditNoteBody({
+        text: "hi",
+        visibility: { kind: "public", localOnly: false },
+      }),
+    ).not.toHaveProperty("fileIds");
+  });
+
+  it("edit sends poll: null to clear, omits an unknown poll, builds a present one", () => {
+    expect(
+      createEditNoteBody({
+        text: "hi",
+        visibility: { kind: "public", localOnly: false },
+        poll: null,
+      }),
+    ).toMatchObject({ poll: null });
+    expect(
+      createEditNoteBody({
+        text: "hi",
+        visibility: { kind: "public", localOnly: false },
+      }),
+    ).not.toHaveProperty("poll");
   });
 
   it("edit keeps the create-shaped poll with omit-null optionals", () => {

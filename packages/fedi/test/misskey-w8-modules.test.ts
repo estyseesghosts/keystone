@@ -379,7 +379,7 @@ describe("misskey/external revoke + DOMException gap (R1.4)", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it("misskey revoke POSTs i/revoke-token and never throws", async () => {
+  it("misskey revoke POSTs i/revoke-token with {i, token}; failures surface as false", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     (globalThis as { fetch: unknown }).fetch = async (url: string, init?: RequestInit) => {
       calls.push({ url: String(url), init: (init ?? {}) as RequestInit });
@@ -388,11 +388,12 @@ describe("misskey/external revoke + DOMException gap (R1.4)", () => {
     await expect(revokeExternalToken("https", "example.com", "tok")).resolves.toBe(true);
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe("https://example.com/api/i/revoke-token");
-    expect(JSON.parse(String(calls[0].init.body))).toEqual({ i: "tok" });
+    // Bare `i` is a no-op on Sharkey (M7): the token value rides along.
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ i: "tok", token: "tok" });
     (globalThis as { fetch: unknown }).fetch = async () => {
       throw new Error("offline");
     };
-    await expect(revokeExternalToken("https", "example.com", "tok")).resolves.toBe(true);
+    await expect(revokeExternalToken("https", "example.com", "tok")).resolves.toBe(false);
   });
 });
 
@@ -630,8 +631,32 @@ describe("misskey/noteEdit + remotepost", () => {
     expect(post.id).toBe(note().id);
     expect(calls[0]).toEqual({
       endpoint: "notes/edit",
-      params: { noteId: "n1", text: null, cw: null, visibility: "public" },
+      params: { editId: "n1", text: null, cw: null, visibility: "public" },
     });
+  });
+
+  it("editNote sends editId (Sharkey contract), never noteId", async () => {
+    const { call, calls } = stubCall(() => note());
+    await editNote(call, "n1", { text: "hi", visibility: "public" });
+    expect(calls[0].params).toHaveProperty("editId", "n1");
+    expect(calls[0].params).not.toHaveProperty("noteId");
+  });
+
+  it("editNote adapts the Sharkey {createdNote} envelope", async () => {
+    const envelope = fixture<{ createdNote: Note }>("sharkey/note-edit-created.json");
+    const { call, calls } = stubCall(() => envelope);
+    const post = await editNote(call, "n1", { text: "edited", visibility: "followers" });
+    expect(post.id).toBe(envelope.createdNote.id);
+    expect(calls[0]).toEqual({
+      endpoint: "notes/edit",
+      params: { editId: "n1", text: "edited", visibility: "followers" },
+    });
+  });
+
+  it("editNote adapts a bare Note too (tolerant fork shape)", async () => {
+    const { call } = stubCall(() => note());
+    const post = await editNote(call, "n1", { text: "edited", visibility: "public" });
+    expect(post.id).toBe(note().id);
   });
 
   it("editNote carries noQuote and the create-shaped poll", async () => {
@@ -645,7 +670,7 @@ describe("misskey/noteEdit + remotepost", () => {
     expect(calls[0]).toEqual({
       endpoint: "notes/edit",
       params: {
-        noteId: "n1",
+        editId: "n1",
         text: "hi",
         visibility: "public",
         // An explicit false travels (it can lift an earlier refusal).

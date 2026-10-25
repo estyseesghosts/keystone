@@ -13,8 +13,10 @@ import {
   FEATURE_KEYS,
   flavorFromNodeInfoName,
   flavorFromVersion,
+  interpretEndpointProbe,
   looksMastodon,
   looksMisskey,
+  probeMisskeyEndpoint,
   translationEnabledOf,
   type Prober,
   type ProbeResponse,
@@ -452,12 +454,15 @@ describe("three-state capabilities", () => {
     expect(caps.miauth).toBe("unsupported");
   });
 
-  it("MK13 like facts: sharkey supported, stock misskey + mastodon-family unsupported, forks unknown", () => {
+  it("MK13 like facts: sharkey supported, mastodon-family unsupported, stock misskey + forks unknown", () => {
     expect(buildCapabilities("sharkey").like).toBe("supported");
-    expect(buildCapabilities("misskey").like).toBe("unsupported");
     expect(buildCapabilities("mastodon").like).toBe("unsupported");
     expect(buildCapabilities("akkoma").like).toBe("unsupported");
     expect(buildCapabilities("pleroma").like).toBe("unsupported");
+    // Stock misskey is honest-unknown (X5.4): the lazy `backend.like`
+    // probe raises it on a real 404/presence verdict, so a backported
+    // `notes/like` is never gated out by a static label.
+    expect(buildCapabilities("misskey").like).toBe("unknown");
     // Unverified forks stay unknown: catodon is a Sharkey fork and
     // pinetree is Misskey-based, but neither `notes/like` presence claim
     // has a live probe behind it (rig :3101/:3102 down, Pinetree authed
@@ -465,6 +470,91 @@ describe("three-state capabilities", () => {
     expect(buildCapabilities("catodon").like).toBe("unknown");
     expect(buildCapabilities("pinetree").like).toBe("unknown");
     expect(buildCapabilities("unknown").like).toBe("unknown");
+  });
+
+  // X5.4 (misskey M4): stock misskey is honest-unknown for editing,
+  // scheduling and server drafts — never a static `supported` that gates
+  // the UI into a doomed `notes/edit` 404. Sharkey keeps `supported`
+  // (verified Sharkey-family endpoints); endpoint-probe evidence raises
+  // (or decisively lowers) the stock row via `buildCapabilities`.
+  it("X5.4 editing/scheduling/drafts: stock misskey unknown, sharkey supported, evidence decides", () => {
+    const misskey = buildCapabilities("misskey");
+    expect(misskey.status_editing).toBe("unknown");
+    expect(misskey.scheduled_posts).toBe("unknown");
+    expect(misskey.server_drafts).toBe("unknown");
+    const sharkey = buildCapabilities("sharkey");
+    expect(sharkey.status_editing).toBe("supported");
+    expect(sharkey.scheduled_posts).toBe("supported");
+    expect(sharkey.server_drafts).toBe("supported");
+    // Unverified forks stay unknown (never unlocked by a guess).
+    expect(buildCapabilities("catodon").status_editing).toBe("unknown");
+    expect(buildCapabilities("pinetree").status_editing).toBe("unknown");
+    // Positive evidence raises the stock row.
+    expect(
+      buildCapabilities("misskey", { notesEditAvailable: true }).status_editing,
+    ).toBe("supported");
+    expect(
+      buildCapabilities("misskey", { scheduledAvailable: true }).scheduled_posts,
+    ).toBe("supported");
+    expect(
+      buildCapabilities("misskey", { serverDraftsAvailable: true }).server_drafts,
+    ).toBe("supported");
+    // Decisive absence lowers it (server-authoritative, like the
+    // translation explicit-false) — even on sharkey.
+    expect(
+      buildCapabilities("misskey", { notesEditAvailable: false }).status_editing,
+    ).toBe("unsupported");
+    expect(
+      buildCapabilities("sharkey", { notesEditAvailable: false }).status_editing,
+    ).toBe("unsupported");
+    expect(
+      buildCapabilities("misskey", { scheduledAvailable: false }).scheduled_posts,
+    ).toBe("unsupported");
+    expect(
+      buildCapabilities("misskey", { serverDraftsAvailable: false }).server_drafts,
+    ).toBe("unsupported");
+    // Unprobed (null/absent) changes nothing.
+    expect(buildCapabilities("misskey", { notesEditAvailable: null }).status_editing).toBe(
+      "unknown",
+    );
+    // Evidence never crosses families and never decides `unknown`.
+    expect(buildCapabilities("mastodon", { notesEditAvailable: false }).status_editing).toBe(
+      "supported",
+    );
+    expect(buildCapabilities("unknown", { notesEditAvailable: true }).status_editing).toBe(
+      "unknown",
+    );
+    expect(FEATURE_KEYS).toContain("status_editing");
+    expect(FEATURE_KEYS).toContain("scheduled_posts");
+    expect(FEATURE_KEYS).toContain("server_drafts");
+  });
+
+  // X5.4 endpoint-probe interpretation: Misskey routes before it
+  // authenticates, so a non-404 4xx on the empty call proves the route
+  // exists while 404/`UNKNOWN_API_ENDPOINT` proves it absent. Timeouts,
+  // 5xx and unexpected 2xx are no evidence either way (never a verdict
+  // off a failure the probe itself caused).
+  it("X5.4 interpretEndpointProbe reads presence/absence, null otherwise", () => {
+    expect(interpretEndpointProbe(404, null)).toBe(false);
+    expect(interpretEndpointProbe(200, { error: { code: "UNKNOWN_API_ENDPOINT" } })).toBe(false);
+    expect(interpretEndpointProbe(400, { error: { code: "CLIENT_ERROR" } })).toBe(true);
+    expect(interpretEndpointProbe(422, null)).toBe(true);
+    expect(interpretEndpointProbe(401, null)).toBe(true);
+    expect(interpretEndpointProbe(403, null)).toBe(true);
+    expect(interpretEndpointProbe(500, null)).toBeNull();
+    expect(interpretEndpointProbe(0, null)).toBeNull();
+    expect(interpretEndpointProbe(200, {})).toBeNull();
+  });
+
+  it("X5.4 probeMisskeyEndpoint never throws and maps probe outcomes", async () => {
+    const ok = (status: number, body: unknown): Prober => async () => ({ status, body });
+    expect(await probeMisskeyEndpoint(ok(404, null), ORIGIN, "notes/edit")).toBe(false);
+    expect(await probeMisskeyEndpoint(ok(400, null), ORIGIN, "notes/edit")).toBe(true);
+    expect(await probeMisskeyEndpoint(ok(0, null), ORIGIN, "notes/edit")).toBeNull();
+    const throwing: Prober = async () => {
+      throw new Error("down");
+    };
+    expect(await probeMisskeyEndpoint(throwing, ORIGIN, "notes/edit")).toBeNull();
   });
 
   // 2.1 — conversations ship on mastodon + akkoma (source-verified
