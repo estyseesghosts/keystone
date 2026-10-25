@@ -255,6 +255,34 @@ describe("adaptAccount / adaptMe (all three flavors)", () => {
     ).toBe("http://example.test/bg2.png");
   });
 
+  it("rejects non-http(s) avatar and banner urls at the adapter", () => {
+    const user = fixture<UserDetailed>("misskey", "user.json");
+    const bare = {...user, backgroundUrl: undefined, background: undefined};
+    expect(adaptAccount({...bare, avatarUrl: "javascript:alert(1)"}).avatarUrl).toBeNull();
+    expect(adaptAccount({...bare, avatarUrl: "//evil.example/a.png"}).avatarUrl).toBeNull();
+    expect(
+      adaptAccount({...bare, avatarUrl: "data:image/png;base64,xx"}).avatarUrl,
+    ).toBeNull();
+    expect(
+      adaptAccount({...bare, bannerUrl: "javascript:alert(1)"}).headerUrl,
+    ).toBeNull();
+    expect(adaptAccount({...bare, bannerUrl: "//evil.example/b.png"}).headerUrl).toBeNull();
+    expect(
+      adaptAccount({...bare, bannerUrl: "data:image/png;base64,xx"}).headerUrl,
+    ).toBeNull();
+  });
+
+  it("passes https avatar and banner urls through", () => {
+    const user = fixture<UserDetailed>("misskey", "user.json");
+    const bare = {...user, backgroundUrl: undefined, background: undefined};
+    expect(
+      adaptAccount({...bare, avatarUrl: "https://example.test/a.png"}).avatarUrl,
+    ).toBe("https://example.test/a.png");
+    expect(
+      adaptAccount({...bare, bannerUrl: "http://example.test/b.png"}).headerUrl,
+    ).toBe("http://example.test/b.png");
+  });
+
   it("adaptMe carries the raw i bag in ext.me for the profile editor", () => {
     const me = fixture<MeDetailed>("misskey", "user.json");
     const account = adaptMe(me);

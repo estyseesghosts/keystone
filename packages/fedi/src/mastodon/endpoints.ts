@@ -27,6 +27,7 @@ import { createClient, MastoHttpError } from "./client";
 import { ApiError, FediError } from "../core/errors";
 import type { MastoClient, QueryValue } from "./client";
 import { adaptAccount, adaptRelationship, adaptStatus } from "./adapt";
+import { safeHttpUrl } from "../core/content/ast";
 import type { StatusBody } from "./compose";
 import type { Account, Post, Relationship } from "../core/models";
 import type {
@@ -554,7 +555,7 @@ export async function fetchTrendingLinks(
       title: typeof l.title === "string" && l.title.length > 0 ? l.title : (l.url as string),
       description: typeof l.description === "string" ? l.description : "",
       providerName: typeof l.provider_name === "string" ? l.provider_name : null,
-      image: typeof l.image === "string" ? l.image : null,
+      image: typeof l.image === "string" ? safeHttpUrl(l.image) : null,
       uses: historySum(l.history, "uses"),
       accounts: historySum(l.history, "accounts"),
     }));

@@ -315,6 +315,43 @@ describe("adaptAccount / adaptCredentialAccount", () => {
     expect(account.onlineStatus).toBeNull();
   });
 
+  it("rejects non-http(s) avatar and header urls at the adapter", () => {
+    const raw = fixture<WireAccount>("mastodon", "account.json");
+    expect(
+      adaptAccount({...raw, avatar: "javascript:alert(1)", avatar_static: "javascript:alert(1)"})
+        .avatarUrl,
+    ).toBeNull();
+    expect(
+      adaptAccount({...raw, avatar: "//evil.example/a.png", avatar_static: "//evil.example/a.png"})
+        .avatarUrl,
+    ).toBeNull();
+    expect(
+      adaptAccount({
+        ...raw,
+        header: "data:image/png;base64,xx",
+        header_static: "data:image/png;base64,xx",
+      }).headerUrl,
+    ).toBeNull();
+  });
+
+  it("passes https avatar and header urls through", () => {
+    const raw = fixture<WireAccount>("mastodon", "account.json");
+    expect(
+      adaptAccount({
+        ...raw,
+        avatar: "https://example.test/a.png",
+        avatar_static: "https://example.test/a.png",
+      }).avatarUrl,
+    ).toBe("https://example.test/a.png");
+    expect(
+      adaptAccount({
+        ...raw,
+        header: "http://example.test/h.png",
+        header_static: "http://example.test/h.png",
+      }).headerUrl,
+    ).toBe("http://example.test/h.png");
+  });
+
   it("Akkoma account extras stay out of the neutral fields", () => {
     const raw = fixture<Status>("akkoma", "status.json").account as WireAccount;
     const account = adaptAccount(raw);

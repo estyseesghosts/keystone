@@ -39,7 +39,8 @@ import {ChatRoomsScreen} from '#/screens/ChatRooms'
 import {ChatUserScreen} from '#/screens/ChatUser'
 import {AnnouncementsScreen} from '#/screens/Announcements'
 import {AdminInsightScreen} from '#/screens/AdminInsight'
-import {AdminReportScreen, AdminReportsScreen} from '#/screens/AdminReports'
+import {AdminReportScreen} from '#/screens/AdminReportDetail'
+import {AdminReportsScreen} from '#/screens/AdminReportsList'
 import {ClipScreen} from '#/screens/Clip'
 import {ClipsScreen} from '#/screens/Clips'
 import {ComposeScreen} from '#/screens/Compose'
@@ -90,24 +91,6 @@ export {
 } from '#/components/shell/linking'
 export {goBackOrFeed, NotificationsUnreadBadge} from '#/components/shell/shellNav'
 export {handleLine} from '#/components/shell/Sidebar'
-
-// --- Last feed + scroll memory (N14) ------------------------------------------
-// The shell back control's fallback when there is no back history
-// (deep-linked stack screens): the last visited feed tab, else Home.
-// The memory itself lives in `#/state/feedMemory` (pure module state —
-// the chrome lives outside every navigator, and feed views import it
-// without dragging the whole shell in). Re-exported here so existing
-// importers keep working.
-export {
-  clearFeedScrolls,
-  feedScrollKey,
-  lastFeedTabName,
-  readFeedScroll,
-  recordFeedVisit,
-  resetLastFeed,
-  saveFeedScroll,
-  type FeedTabKey,
-} from '#/state/feedMemory'
 
 // Widgets column (Phase 5 stub): 300 content + 16 padding per side.
 const RIGHT_NAV_WIDTH = 300 + 32

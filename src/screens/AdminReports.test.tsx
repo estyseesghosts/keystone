@@ -16,14 +16,15 @@ import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {ThemeProvider} from '#/alf/index'
 
-import {AdminReportScreen, AdminReportsScreen} from './AdminReports'
+import {AdminReportScreen} from './AdminReportDetail'
 import {
+  AdminReportsScreen,
   reportCategoryLabel,
   reportResolutionLabel,
   reportRowTitle,
   reportStateLabel,
   sameIdSet,
-} from './AdminReports'
+} from './AdminReportsList'
 
 const mockNavigate = jest.fn()
 const mockRouteParams: {params: {id?: string}} = {params: {}}

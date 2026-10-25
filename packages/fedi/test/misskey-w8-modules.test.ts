@@ -91,6 +91,8 @@ import {
   muteCheckOf,
   parseMutedInstances,
   parseWordFilters,
+  REGEX_CACHE_MAX,
+  regexCacheSizeForTests,
   WordFilterParseError,
   type MuteCheckNote,
 } from "../src/misskey/softMute";
@@ -794,6 +796,21 @@ describe("misskey/softMute", () => {
     expect(checkWordMute(n(), "u9", ["/([/"])).toBe(false);
     expect(checkWordMute(n({ text: "", cw: "" }), "u9", [["x"]])).toBe(false);
     expect(checkWordMute(n(), "u9", null)).toBe(false);
+  });
+
+  it("regex memo stays bounded; evicted filters recompile identically", () => {
+    const filters = Array.from(
+      { length: REGEX_CACHE_MAX + 50 },
+      (_, i) => `/pattern-${i}-([a-z]+)/`,
+    );
+    for (const filter of filters) checkWordMute(n(), "u9", [filter]);
+    expect(regexCacheSizeForTests()).toBeLessThanOrEqual(REGEX_CACHE_MAX);
+    // An early (long-evicted) filter recompiles and matches identically.
+    const probe = n({ text: "hello pattern-7-abc world" });
+    expect(checkWordMute(probe, "u9", [filters[7]])).toEqual([filters[7]]);
+    // An evicted invalid pattern still never matches.
+    expect(checkWordMute(n(), "u9", ["/([/"])).toBe(false);
+    expect(regexCacheSizeForTests()).toBeLessThanOrEqual(REGEX_CACHE_MAX);
   });
 
   it("checkNoteWordMute walks reply then renote; first match wins", () => {

@@ -53,6 +53,14 @@ export function muteCheckOf(post: import("../core/models").Post): MuteCheckNote 
   };
 }
 
+// Pure memo keyed by filter text: values are compiled regexes (or null for
+// wrong-shaped/invalid patterns), holding no per-account data, so no session
+// keying. Bounded FIFO — a Map iterates in insertion order, so the first key
+// is the oldest; evicting it only drops a memo entry and the next use
+// recompiles an identical regex. Same oldest-evict shape as the
+// `remotepost.ts` cap.
+export const REGEX_CACHE_MAX = 300;
+
 const regexCache = new Map<string, RegExp | null>();
 
 function compiledRegex(filter: string): RegExp | null {
@@ -68,7 +76,17 @@ function compiledRegex(filter: string): RegExp | null {
     }
   }
   regexCache.set(filter, out);
+  while (regexCache.size > REGEX_CACHE_MAX) {
+    const oldest = regexCache.keys().next();
+    if (oldest.done) break;
+    regexCache.delete(oldest.value);
+  }
   return out;
+}
+
+/** Test hook: current memo size (lets the suite pin the cap). Pure. */
+export function regexCacheSizeForTests(): number {
+  return regexCache.size;
 }
 
 /** Check one note against the filter list. Returns the matched filters,

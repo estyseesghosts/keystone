@@ -10,21 +10,23 @@ import {createSessionStore} from '#/state/session/store'
 import {resetSidebarMode} from '#/state/sideNav'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {
-  clearFeedScrolls,
-  feedScrollKey,
   getStateFromPathWithBase,
   goBackOrFeed,
   handleLine,
-  lastFeedTabName,
   linking,
   Navigation,
   normalizeShellBase,
+  stripShellBase,
+} from '#/Navigation'
+import {
+  clearFeedScrolls,
+  feedScrollKey,
+  lastFeedTabName,
   readFeedScroll,
   recordFeedVisit,
   resetLastFeed,
   saveFeedScroll,
-  stripShellBase,
-} from '#/Navigation'
+} from '#/state/feedMemory'
 import {navigationRef} from '#/navigationRef'
 import {Pagehead} from '#/components/Pagehead'
 import {i18n} from '#/locale/i18n'

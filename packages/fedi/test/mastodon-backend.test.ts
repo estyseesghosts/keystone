@@ -739,6 +739,31 @@ describe("MastodonBackend explore", () => {
     }
   });
 
+  it("news gates link images to http(s) at the adapter", async () => {
+    const {client} = stubClient({
+      respond: (_m, path) =>
+        path === "/api/v1/trends/links"
+          ? {
+              data: [
+                {url: "https://x/good", title: "G", image: "https://x/g.png"},
+                {url: "https://x/bad", title: "B", image: "javascript:alert(1)"},
+                {url: "https://x/rel", title: "R", image: "//evil.example/r.png"},
+                {url: "https://x/data", title: "D", image: "data:image/png;base64,xx"},
+              ],
+            }
+          : {},
+    });
+    const page = await createMastodonBackend(client, {flavor: "mastodon"}).explore!.news!({
+      limit: 10,
+    });
+    expect(page.items.map(l => l.image)).toEqual([
+      "https://x/g.png",
+      null,
+      null,
+      null,
+    ]);
+  });
+
   it("suggest passes the v2 type filter", async () => {
     const { client, calls } = stubClient({
       respond: () => ({ data: { accounts: [account], statuses: [], hashtags: [{ name: "cats" }] } }),

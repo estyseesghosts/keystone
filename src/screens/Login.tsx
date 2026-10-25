@@ -41,10 +41,11 @@ import {
   type MastodonCallbackDone,
 } from './MastodonCallback'
 import {
+  completeMfaSignin,
+  completePasswordSignin,
+} from './PasswordSignin'
+import {
   getWebOrigin,
-  mastodonMfaSignin,
-  mastodonPasswordSignin,
-  misskeyPasswordSignin,
   normalizeServerInput,
   pollMisskeyApproval,
   startMastodonOAuth,
@@ -184,22 +185,16 @@ export function LoginScreen() {
     setBusy(true)
     setError(null)
     try {
-      const res = await misskeyPasswordSignin({
+      const done = await completePasswordSignin({
+        family: 'misskey',
         origin: firstParty.homeOrigin ?? '',
         flavor: firstParty.flavor,
+        hosting: 'first-party',
+        evidence: firstParty.detection?.evidence ?? null,
         username,
         password,
       })
-      await finish({
-        origin: firstParty.homeOrigin ?? '',
-        family: 'misskey',
-        flavor: firstParty.flavor,
-        token: res.token,
-        account: res.account,
-        grant: res.grant,
-        hosting: 'first-party',
-        evidence: firstParty.detection?.evidence ?? null,
-      })
+      await finish(done)
     } catch (err) {
       fail(err)
     } finally {
@@ -212,24 +207,18 @@ export function LoginScreen() {
     setBusy(true)
     setError(null)
     try {
-      const res = await mastodonPasswordSignin({
-        appStore: appStorage(),
-        origin: firstParty.homeOrigin,
-        redirectUri: redirectUriFor(),
-        username,
-        password,
-        flavor: firstParty.flavor,
-      })
-      await finish({
-        origin: firstParty.homeOrigin,
+      const done = await completePasswordSignin({
         family: 'mastodon',
+        origin: firstParty.homeOrigin,
         flavor: firstParty.flavor,
-        token: res.token,
-        account: res.account,
-        grant: res.grant,
         hosting: 'first-party',
         evidence: firstParty.detection?.evidence ?? null,
+        username,
+        password,
+        appStore: appStorage(),
+        redirectUri: redirectUriFor(),
       })
+      await finish(done)
     } catch (err) {
       if (err instanceof MfaRequiredError) {
         setMfa({mfaToken: err.mfaToken, challengeTypes: err.challengeTypes})
@@ -247,25 +236,18 @@ export function LoginScreen() {
     setBusy(true)
     setError(null)
     try {
-      const res = await mastodonMfaSignin({
-        appStore: appStorage(),
+      const done = await completeMfaSignin({
         origin: firstParty.homeOrigin,
-        redirectUri: redirectUriFor(),
-        mfaToken: mfa.mfaToken,
-        challengeType: mfa.challengeTypes[0] ?? 'totp',
-        code: mfaCode,
         flavor: firstParty.flavor,
-      })
-      await finish({
-        origin: firstParty.homeOrigin,
-        family: 'mastodon',
-        flavor: firstParty.flavor,
-        token: res.token,
-        account: res.account,
-        grant: res.grant,
         hosting: 'first-party',
         evidence: firstParty.detection?.evidence ?? null,
+        mfaToken: mfa.mfaToken,
+        challengeTypes: mfa.challengeTypes,
+        code: mfaCode,
+        appStore: appStorage(),
+        redirectUri: redirectUriFor(),
       })
+      await finish(done)
     } catch (err) {
       fail(err)
     } finally {
@@ -326,24 +308,18 @@ export function LoginScreen() {
     setBusy(true)
     setError(null)
     try {
-      const res = await mastodonPasswordSignin({
-        appStore: appStorage(),
-        origin: detection.origin,
-        redirectUri: redirectUriFor(),
-        username,
-        password,
-        flavor: detection.flavor,
-      })
-      await finish({
-        origin: detection.origin,
+      const done = await completePasswordSignin({
         family: 'mastodon',
+        origin: detection.origin,
         flavor: detection.flavor,
-        token: res.token,
-        account: res.account,
-        grant: res.grant,
         hosting: 'third-party',
         evidence: detection.evidence,
+        username,
+        password,
+        appStore: appStorage(),
+        redirectUri: redirectUriFor(),
       })
+      await finish(done)
     } catch (err) {
       if (err instanceof MfaRequiredError) {
         setMfa({mfaToken: err.mfaToken, challengeTypes: err.challengeTypes})
@@ -361,25 +337,18 @@ export function LoginScreen() {
     setBusy(true)
     setError(null)
     try {
-      const res = await mastodonMfaSignin({
-        appStore: appStorage(),
+      const done = await completeMfaSignin({
         origin: detection.origin,
-        redirectUri: redirectUriFor(),
-        mfaToken: mfa.mfaToken,
-        challengeType: mfa.challengeTypes[0] ?? 'totp',
-        code: mfaCode,
         flavor: detection.flavor,
-      })
-      await finish({
-        origin: detection.origin,
-        family: 'mastodon',
-        flavor: detection.flavor,
-        token: res.token,
-        account: res.account,
-        grant: res.grant,
         hosting: 'third-party',
         evidence: detection.evidence,
+        mfaToken: mfa.mfaToken,
+        challengeTypes: mfa.challengeTypes,
+        code: mfaCode,
+        appStore: appStorage(),
+        redirectUri: redirectUriFor(),
       })
+      await finish(done)
     } catch (err) {
       fail(err)
     } finally {

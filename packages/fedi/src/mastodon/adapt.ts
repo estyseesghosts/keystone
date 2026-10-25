@@ -82,6 +82,7 @@ import type {
   Visibility,
 } from "../core/models";
 import { plainFromMfm, visibilityKindOf } from "../core/models";
+import { safeHttpUrl } from "../core/content/ast";
 import type { Announcement as CoreAnnouncement } from "../core/backend";
 import type { Continuation } from "./pagination";
 import type {
@@ -238,9 +239,9 @@ export function adaptAccount(account: WireAccount): Account {
     bio: htmlContentOf(account.note ?? ""),
     url: account.url ?? null,
     uri: account.uri ?? null,
-    avatarUrl: account.avatar_static ?? account.avatar ?? null,
+    avatarUrl: safeHttpUrl(account.avatar_static ?? account.avatar),
     avatarBlurhash: null,
-    headerUrl: account.header_static ?? account.header ?? null,
+    headerUrl: safeHttpUrl(account.header_static ?? account.header),
     headerBlurhash: null,
     // Mastodon has no profile-page background image. Always null.
     backgroundUrl: null,

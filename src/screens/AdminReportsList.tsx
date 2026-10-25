@@ -1,7 +1,6 @@
 // Reports queue list (D3.7 split of `src/screens/AdminReports.tsx`):
 // the queue list screen plus the pure display helpers the detail screen
-// and tests share. See `AdminReportDetail.tsx` for the detail half and
-// `AdminReports.tsx` for the re-export shim.
+// and tests share. See `AdminReportDetail.tsx` for the detail half.
 //
 // Two families (clickstone §3.2):
 // - Mastodon: list/get/assign/unassign/reopen/resolve/recategorize. No

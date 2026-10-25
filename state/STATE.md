@@ -9,14 +9,19 @@ Follow-up Batch 1 landed on `main` (2026-10-25): externalMe-204 shape
 partial-failure tolerance, ADR 0009 (B11 nulls) — **217 suites / 2894
 tests** green. Log: `state/logs/2026-10-25-followup-batch1.md`.
 Tracker: `docs/audit_20261024/repair.md` (all slices `done`).
+Follow-up Batches 1+2a+2b landed (logs `state/logs/2026-10-25-followup-*`).
+Batch 3 landed (2026-10-25): PasswordSignin grouped-bag extraction,
+AdminReports shim deleted, feedMemory re-export dropped (SectionShell Back
+closed as won't-do: same-route navigate, pinned test contradicts),
+adapter-level avatar/header/news-image `safeHttpUrl` gates, softMute
+`REGEX_CACHE_MAX = 300` — **217 suites / 2913 tests** green.
 Logs: `state/logs/2026-10-24-repair-*`. ADRs 0007 (nullable
 Notification.createdAt), 0008 (SDK 57 pin), 0009 (B11 server-info nulls).
 Follow-up Batch 2a landed on `main` (2026-10-25): quote seen re-seed
 (`Backend.seedSeenQuote?`), mastodon `as any` 6→0, transport re-plumb
 (allowlist 13→3), ADR 0010 (poll-id-on-model) — **217 suites / 2905
 tests** green. Log: `state/logs/2026-10-25-followup-batch2a.md`.
-Remaining follow-ups: Batch 3 (screens/minors), Batch 4
-(locale extract/compile). Batch 2b (ADR 0010 implementation) landed —
+Remaining follow-ups: Batch 4 (locale extract/compile). Batch 2b (ADR 0010 implementation) landed —
 **217 suites / 2907 tests** green. Log:
 `state/logs/2026-10-25-followup-batch2b.md`. Device/live runs `not verified (owner
 live-tests externally)`.
