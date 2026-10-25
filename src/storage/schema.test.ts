@@ -1,3 +1,5 @@
+import {createMemoryStore} from '@keystone/fedi'
+
 import {
   STORAGE_VERSION,
   accountKeyFor,
@@ -5,6 +7,7 @@ import {
   defaultAccountState,
   defaultDeviceState,
   deviceStateSchema,
+  ensureRawBackup,
   migrateDeviceState,
   parseOrFallback,
 } from './schema'
@@ -171,5 +174,48 @@ describe('defaultAccountState (WS-B: contentMode is device-local)', () => {
     expect(parseOrFallback(accountStateSchema, raw, defaultAccountState)).toEqual(
       defaultAccountState,
     )
+  })
+})
+
+describe('migrateDeviceState (repair X1.3 S9: never null the mirror on prefs failure)', () => {
+  it('keeps a usable activeSessionId on a forward-version payload', () => {
+    expect(
+      migrateDeviceState(
+        JSON.stringify({version: 999, activeSessionId: 'https://a.example u1', prefs: {}}),
+      ),
+    ).toEqual({
+      version: STORAGE_VERSION,
+      activeSessionId: 'https://a.example u1',
+      prefs: {...defaultDeviceState.prefs},
+    })
+  })
+
+  it('still falls back when the pointer itself is unusable', () => {
+    expect(migrateDeviceState(JSON.stringify({version: 999, activeSessionId: 42}))).toEqual(
+      defaultDeviceState,
+    )
+    expect(migrateDeviceState('{corrupt')).toEqual(defaultDeviceState)
+  })
+})
+
+describe('ensureRawBackup (repair X1.3 S9)', () => {
+  it('backs up once and never overwrites a different backup', () => {
+    const store = createMemoryStore({k: 'v1'})
+    ensureRawBackup(store, 'k', 'k.bak')
+    expect(store.getItem('k.bak')).toBe('v1')
+    store.setItem('k', 'v2')
+    ensureRawBackup(store, 'k', 'k.bak')
+    expect(store.getItem('k.bak')).toBe('v1')
+  })
+
+  it('is a no-op for missing sources and never throws', () => {
+    const store = createMemoryStore()
+    expect(() => ensureRawBackup(store, 'missing', 'missing.bak')).not.toThrow()
+    expect(store.getItem('missing.bak')).toBeNull()
+    const broken = createMemoryStore()
+    jest.spyOn(broken, 'getItem').mockImplementation(() => {
+      throw new Error('locked')
+    })
+    expect(() => ensureRawBackup(broken, 'k', 'k.bak')).not.toThrow()
   })
 })

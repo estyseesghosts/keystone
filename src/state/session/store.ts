@@ -31,6 +31,7 @@ import {
   type SecureTokenVault,
   type TokenVault,
 } from '#/storage'
+import {sweepStaleMisskeyPending} from '#/screens/LoginFlows'
 
 import {
   clearAllQueries,
@@ -918,6 +919,10 @@ export function createSessionStore(deps: SessionStoreDeps): SessionStore {
       // mounts once per tree; StrictMode remounts) simply run in order —
       // the second sees the first's work and no-ops.
       return serialize(async () => {
+        // Boot sweep (repair X1.3 S10): abandoned MiAuth rows never hold
+        // tokens (host/scheme/session only) but accumulate forever — drop
+        // rows older than 15 minutes before hydrating.
+        sweepStaleMisskeyPending(storage)
         if (isSecureVault(vault)) {
           await hydrateSecure(vault)
           await migrateAppSecrets(vault)

@@ -2,7 +2,7 @@ import {z} from 'zod'
 
 import type {KeyValueStore} from '@keystone/fedi'
 
-import {parseOrFallback} from './schema'
+import {ensureRawBackup, parseOrFallback} from './schema'
 
 // Local composer drafts (slice 4.3). One list per session id, persisted
 // through the app KeyValueStore (MMKV). Keyed by the session id (which
@@ -55,31 +55,85 @@ export function draftsKeyFor(sessionId: string): string {
   return `keystone.drafts.${sessionId}`
 }
 
-/** Per-session open-draft pointer (composer slice 1): the id of the
- * session's in-progress draft. Autosave sets it whenever it saves a
- * non-empty draft and clears it when the save is empty (row deleted) or
- * the draft posts — so reopening the composer after a refresh/crash lands
- * straight back in the in-progress draft, while a deliberate
- * save-and-close (slices 2+3) starts fresh. The key embeds the session
- * id, so one account's pointer never surfaces for another. */
+/** Per-session open-draft pointer (composer slice 1 + repair X1.3 S11):
+ * the id of the session's in-progress draft. Autosave sets it whenever
+ * it saves a non-empty draft and clears it when the save is empty (row
+ * deleted) or the draft posts — so reopening the composer after a
+ * refresh/crash lands straight back in the in-progress draft, while a
+ * deliberate save-and-close (slices 2+3) starts fresh. A separate
+ * `keystone.draftopen.` prefix (never the old `.open` suffix: a session
+ * id ending in `.open` would collide). The key embeds the session id,
+ * so one account's pointer never surfaces for another. */
 export function openDraftKeyFor(sessionId: string): string {
   if (!sessionId) throw new Error('openDraftKeyFor requires a sessionId')
+  return `keystone.draftopen.${sessionId}`
+}
+
+/** Legacy pointer key (`keystone.drafts.<sid>.open`, pre-S11). Read once
+ * for migration, then deleted; purged, never written. */
+function legacyOpenDraftKeyFor(sessionId: string): string {
   return `keystone.drafts.${sessionId}.open`
 }
 
+/** Backup of the last unreadable-but-non-empty draft list. A separate
+ * prefix (S11: never a suffix). Purged with the session, never read by
+ * the composer. */
+export function draftsBakKeyFor(sessionId: string): string {
+  if (!sessionId) throw new Error('draftsBakKeyFor requires a sessionId')
+  return `keystone.draftbak.${sessionId}`
+}
+
+/** One-time move of the legacy `.open` pointer to the `draftopen.`
+ * prefix. The live pointer wins over the legacy one; an empty legacy
+ * row is dropped. Best-effort and never throws — a failed move keeps
+ * the legacy row for next time. */
+function migrateOpenDraftPointer(store: KeyValueStore, sessionId: string): void {
+  let legacy: string | null = null
+  try {
+    legacy = store.getItem(legacyOpenDraftKeyFor(sessionId))
+  } catch {
+    return
+  }
+  if (legacy == null) return
+  try {
+    const current = store.getItem(openDraftKeyFor(sessionId))
+    if ((current == null || current === '') && legacy !== '') {
+      if (!store.setItem(openDraftKeyFor(sessionId), legacy)) return
+    }
+    store.removeItem(legacyOpenDraftKeyFor(sessionId))
+  } catch {
+    // Best-effort: the legacy row stays for next time.
+  }
+}
+
 /** The pointer value, or null when no in-progress draft is recorded.
- * Missing/empty rows read as null, never throw. */
+ * Missing/empty rows read as null, never throw. Migrates the legacy
+ * `.open` row on first read. */
 export function getOpenDraftId(store: KeyValueStore, sessionId: string): string | null {
+  migrateOpenDraftPointer(store, sessionId)
   const raw = store.getItem(openDraftKeyFor(sessionId))
   return typeof raw === 'string' && raw.length > 0 ? raw : null
 }
 
-export function setOpenDraftId(store: KeyValueStore, sessionId: string, id: string): void {
-  store.setItem(openDraftKeyFor(sessionId), id)
+/** Persist the pointer. Returns false (never throws) when the write failed. */
+export function setOpenDraftId(store: KeyValueStore, sessionId: string, id: string): boolean {
+  migrateOpenDraftPointer(store, sessionId)
+  try {
+    return store.setItem(openDraftKeyFor(sessionId), id)
+  } catch {
+    return false
+  }
 }
 
-export function clearOpenDraftId(store: KeyValueStore, sessionId: string): void {
-  store.removeItem(openDraftKeyFor(sessionId))
+/** Clear the pointer. Returns false (never throws) when the delete failed. */
+export function clearOpenDraftId(store: KeyValueStore, sessionId: string): boolean {
+  migrateOpenDraftPointer(store, sessionId)
+  try {
+    store.removeItem(openDraftKeyFor(sessionId))
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** Newest first. Rows failing validation are dropped, never thrown on. */
@@ -97,18 +151,51 @@ export function listDrafts(store: KeyValueStore, sessionId: string): LocalDraft[
   return out.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
-function write(store: KeyValueStore, sessionId: string, drafts: LocalDraft[]): void {
-  store.setItem(
-    draftsKeyFor(sessionId),
-    JSON.stringify({version: DRAFTS_VERSION, drafts: drafts.slice(0, MAX_LOCAL_DRAFTS)}),
-  )
+/** True when `raw` parses as a draft list. Anything else non-empty
+ * must be backed up before overwriting (same rule as S9). */
+function isDraftListReadable(raw: string | null): boolean {
+  if (!raw) return true
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return false
+  }
+  return listSchema.safeParse(parsed).success
 }
 
-/** Remove every draft and the open-draft pointer for a session (sign-out
- * purge, X1.2). Never throws. */
+function write(store: KeyValueStore, sessionId: string, drafts: LocalDraft[]): boolean {
+  const key = draftsKeyFor(sessionId)
+  try {
+    const raw = store.getItem(key)
+    if (raw && !isDraftListReadable(raw)) {
+      // Unreadable-but-non-empty: back the bytes up once, then proceed —
+      // the backup (not the failed parse) is what a later read recovers.
+      ensureRawBackup(store, key, draftsBakKeyFor(sessionId))
+    }
+  } catch {
+    // A failed read must not block the write.
+  }
+  try {
+    return store.setItem(
+      key,
+      JSON.stringify({version: DRAFTS_VERSION, drafts: drafts.slice(0, MAX_LOCAL_DRAFTS)}),
+    )
+  } catch {
+    return false
+  }
+}
+
+/** Remove every draft, the open-draft pointer (live, legacy, and backup
+ * rows) for a session (sign-out purge, X1.2). Never throws. */
 export function purgeDrafts(store: KeyValueStore, sessionId: string): void {
   if (!sessionId) return
-  for (const key of [draftsKeyFor(sessionId), openDraftKeyFor(sessionId)]) {
+  for (const key of [
+    draftsKeyFor(sessionId),
+    openDraftKeyFor(sessionId),
+    legacyOpenDraftKeyFor(sessionId),
+    draftsBakKeyFor(sessionId),
+  ]) {
     try {
       store.removeItem(key)
     } catch {
@@ -129,10 +216,12 @@ export function isDraftEmpty(
   )
 }
 
-/** Insert or replace by id. Empty drafts delete the row instead. */
-export function saveDraft(store: KeyValueStore, sessionId: string, draft: LocalDraft): void {
+/** Insert or replace by id. Empty drafts delete the row instead.
+ * Returns false (never throws) when the write failed — the autosave
+ * effect surfaces that as a non-blocking notice. */
+export function saveDraft(store: KeyValueStore, sessionId: string, draft: LocalDraft): boolean {
   const rest = listDrafts(store, sessionId).filter(d => d.id !== draft.id)
-  write(store, sessionId, isDraftEmpty(draft) ? rest : [draft, ...rest])
+  return write(store, sessionId, isDraftEmpty(draft) ? rest : [draft, ...rest])
 }
 
 export function loadDraft(
@@ -143,8 +232,8 @@ export function loadDraft(
   return listDrafts(store, sessionId).find(d => d.id === id) ?? null
 }
 
-export function deleteDraft(store: KeyValueStore, sessionId: string, id: string): void {
-  write(
+export function deleteDraft(store: KeyValueStore, sessionId: string, id: string): boolean {
+  return write(
     store,
     sessionId,
     listDrafts(store, sessionId).filter(d => d.id !== id),

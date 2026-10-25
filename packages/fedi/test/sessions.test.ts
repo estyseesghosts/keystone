@@ -12,12 +12,14 @@
 import {
   LEGACY_KEYS,
   OAUTH_APPS_KEY,
+  SESSIONS_BAK_KEY,
   SESSIONS_KEY,
   UNKNOWN_ACCOUNT_ID,
   createMemoryStore,
   findSession,
   getActiveSession,
   getActiveSessionId,
+  isNewerVersionEnvelope,
   loadSessions,
   migrateLegacySessions,
   removeLegacyKeys,
@@ -512,5 +514,108 @@ describe("utf8Hex (ADR 0011 vault-key primitive)", () => {
     for (const input of ["https://a.example u1", "https://例え.jp:3000/x y", "😀 ok"]) {
       expect(utf8Hex(input)).toMatch(/^[0-9a-f]*$/);
     }
+  });
+});
+
+describe("storage resilience (repair X1.3 S4)", () => {
+  it("a corrupt envelope is backed up before it is treated as absent", () => {
+    store.setItem(SESSIONS_KEY, "{corrupt");
+    expect(loadSessions(store)).toEqual([]);
+    expect(store.getItem(SESSIONS_BAK_KEY)).toBe("{corrupt");
+  });
+
+  it("the backup is write-once: a later corruption never overwrites it", () => {
+    store.setItem(SESSIONS_KEY, "{first");
+    expect(loadSessions(store)).toEqual([]);
+    store.setItem(SESSIONS_KEY, "{second");
+    expect(loadSessions(store)).toEqual([]);
+    expect(store.getItem(SESSIONS_BAK_KEY)).toBe("{first");
+  });
+
+  it("a newer-version envelope is used leniently and never written", () => {
+    const s = internal();
+    setJson(SESSIONS_KEY, { version: 99, active: s.id, sessions: [s] });
+    expect(isNewerVersionEnvelope(store)).toBe(true);
+    expect(loadSessions(store).map((x) => x.id)).toEqual([s.id]);
+    // A sign-in proceeds in memory but must not downgrade the stored bytes.
+    saveSession(store, internal({ accountId: "acc2", token: "tok2" }));
+    const raw = JSON.parse(store.getItem(SESSIONS_KEY) as string) as { version: number };
+    expect(raw.version).toBe(99);
+    expect(isNewerVersionEnvelope(store)).toBe(true);
+  });
+
+  it("STORE_VERSION - 1 envelopes migrate forward instead of being dropped", () => {
+    const s = internal();
+    setJson(SESSIONS_KEY, { version: 0, active: s.id, sessions: [s] });
+    expect(loadSessions(store).map((x) => x.id)).toEqual([s.id]);
+    expect(isNewerVersionEnvelope(store)).toBe(false);
+    const added = internal({ id: sessionId(ORIGIN, "acc2"), accountId: "acc2", token: "tok2" });
+    saveSession(store, added);
+    const raw = JSON.parse(store.getItem(SESSIONS_KEY) as string) as {
+      version: number;
+      sessions: Array<{ id: string }>;
+    };
+    expect(raw.version).toBe(1);
+    expect(raw.sessions.map((x) => x.id).sort()).toEqual([s.id, added.id].sort());
+  });
+
+  it("partial envelopes keep the good rows and back up the dropped bytes", () => {
+    const s = internal();
+    const raw = JSON.stringify({
+      version: 1,
+      active: null,
+      sessions: [s, { ...s, token: 42 }],
+    });
+    store.setItem(SESSIONS_KEY, raw);
+    expect(loadSessions(store).map((x) => x.id)).toEqual([s.id]);
+    expect(store.getItem(SESSIONS_BAK_KEY)).toBe(raw);
+  });
+
+  it("an empty write over corruption is refused; a sign-in proceeds on top of the backup", () => {
+    store.setItem(SESSIONS_KEY, "{corrupt");
+    removeSession(store, "nope");
+    expect(store.getItem(SESSIONS_KEY)).toBe("{corrupt");
+    expect(store.getItem(SESSIONS_BAK_KEY)).toBe("{corrupt");
+    const added = saveSession(store, internal());
+    expect(added.map((x) => x.id)).toContain(internal().id);
+    const raw = JSON.parse(store.getItem(SESSIONS_KEY) as string) as {
+      version: number;
+      sessions: unknown[];
+    };
+    expect(raw.version).toBe(1);
+    expect(raw.sessions).toHaveLength(1);
+    expect(store.getItem(SESSIONS_BAK_KEY)).toBe("{corrupt");
+  });
+
+  it("signing out the last session clears a stale backup (no secret bytes left)", () => {
+    const s = internal();
+    saveSession(store, s);
+    store.setItem(SESSIONS_BAK_KEY, "stale-forensics");
+    removeSession(store, s.id);
+    expect(loadSessions(store)).toEqual([]);
+    expect(store.getItem(SESSIONS_BAK_KEY)).toBeNull();
+  });
+
+  it("a healthy non-empty rewrite keeps the first backup", () => {
+    const a = internal();
+    const b = internal({ id: sessionId(ORIGIN, "acc2"), accountId: "acc2", token: "tok2" });
+    saveSession(store, a);
+    saveSession(store, b);
+    store.setItem(SESSIONS_BAK_KEY, "stale-forensics");
+    removeSession(store, a.id);
+    expect(loadSessions(store).map((x) => x.id)).toEqual([b.id]);
+    expect(store.getItem(SESSIONS_BAK_KEY)).toBe("stale-forensics");
+  });
+
+  it("a throwing store never breaks saveSession (the write is process-local)", () => {
+    const throwing: KeyValueStore = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error("locked");
+      },
+      removeItem: () => {},
+    };
+    const s = internal();
+    expect(saveSession(throwing, s).map((x) => x.id)).toEqual([s.id]);
   });
 });

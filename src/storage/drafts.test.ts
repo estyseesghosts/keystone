@@ -1,13 +1,15 @@
-import {createMemoryStore} from '@keystone/fedi'
+import {createMemoryStore, type KeyValueStore} from '@keystone/fedi'
 
 import {
   clearOpenDraftId,
   deleteDraft,
+  draftsBakKeyFor,
   draftsKeyFor,
   getOpenDraftId,
   listDrafts,
   loadDraft,
   openDraftKeyFor,
+  purgeDrafts,
   saveDraft,
   setOpenDraftId,
   type LocalDraft,
@@ -112,5 +114,84 @@ describe('hadMedia flag (slice 1)', () => {
     const store = createMemoryStore()
     saveDraft(store, A, draft({hadMedia: true}))
     expect(loadDraft(store, A, 'd1')?.hadMedia).toBe(true)
+  })
+})
+
+describe('open-draft pointer migration (repair X1.3 S11)', () => {
+  const legacyKey = `keystone.drafts.${A}.open`
+
+  it('moves the legacy `.open` row to the `draftopen.` prefix once', () => {
+    const store = createMemoryStore()
+    store.setItem(legacyKey, 'd1')
+    expect(getOpenDraftId(store, A)).toBe('d1')
+    expect(store.getItem(openDraftKeyFor(A))).toBe('d1')
+    expect(store.getItem(legacyKey)).toBeNull()
+    expect(openDraftKeyFor(A)).toBe(`keystone.draftopen.${A}`)
+  })
+
+  it('a live pointer wins over the legacy row; an empty legacy row is dropped', () => {
+    const store = createMemoryStore()
+    setOpenDraftId(store, A, 'new')
+    store.setItem(legacyKey, 'old')
+    expect(getOpenDraftId(store, A)).toBe('new')
+    expect(store.getItem(legacyKey)).toBeNull()
+    const empty = createMemoryStore()
+    empty.setItem(legacyKey, '')
+    expect(getOpenDraftId(empty, A)).toBeNull()
+    expect(empty.getItem(legacyKey)).toBeNull()
+  })
+
+  it('the new prefix cannot collide with session ids ending in `.open`', () => {
+    const tricky = 'https://a.example acc.open'
+    const store = createMemoryStore()
+    setOpenDraftId(store, tricky, 'd1')
+    saveDraft(store, tricky, draft({id: 'd1'}))
+    expect(getOpenDraftId(store, tricky)).toBe('d1')
+    // The sibling session's list is untouched: different prefix, no suffix.
+    expect(store.getItem(draftsKeyFor('https://a.example acc'))).toBeNull()
+    expect(store.getItem(`keystone.drafts.${tricky}.open`)).toBeNull()
+  })
+})
+
+describe('write failures and backups (repair X1.3 S9/S12)', () => {
+  it('saveDraft backs up a corrupt list before overwriting and reports true', () => {
+    const store = createMemoryStore()
+    store.setItem(draftsKeyFor(A), '{corrupt')
+    expect(saveDraft(store, A, draft())).toBe(true)
+    expect(store.getItem(draftsBakKeyFor(A))).toBe('{corrupt')
+    expect(loadDraft(store, A, 'd1')).toEqual(draft())
+  })
+
+  it('saveDraft on a throwing store returns false instead of throwing', () => {
+    const mem = createMemoryStore()
+    const store: KeyValueStore = {
+      getItem: key => mem.getItem(key),
+      setItem: () => {
+        throw new Error('locked')
+      },
+      removeItem: key => mem.removeItem(key),
+    }
+    expect(saveDraft(store, A, draft())).toBe(false)
+    expect(listDrafts(store, A)).toEqual([])
+  })
+
+  it('deleteDraft reports the write result', () => {
+    const store = createMemoryStore()
+    saveDraft(store, A, draft())
+    expect(deleteDraft(store, A, 'd1')).toBe(true)
+    expect(listDrafts(store, A)).toEqual([])
+  })
+
+  it('purgeDrafts removes the list, both pointer rows, and the backup', () => {
+    const store = createMemoryStore()
+    saveDraft(store, A, draft())
+    setOpenDraftId(store, A, 'd1')
+    store.setItem(`keystone.drafts.${A}.open`, 'legacy')
+    store.setItem(draftsBakKeyFor(A), 'forensics')
+    purgeDrafts(store, A)
+    expect(store.getItem(draftsKeyFor(A))).toBeNull()
+    expect(store.getItem(openDraftKeyFor(A))).toBeNull()
+    expect(store.getItem(`keystone.drafts.${A}.open`)).toBeNull()
+    expect(store.getItem(draftsBakKeyFor(A))).toBeNull()
   })
 })

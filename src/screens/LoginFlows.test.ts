@@ -17,6 +17,7 @@ import {
   pollMisskeyApproval,
   startMastodonOAuth as start,
   startMisskeyMiAuth,
+  sweepStaleMisskeyPending,
   takeMisskeyPending,
   webCallbackUri,
 } from './LoginFlows'
@@ -436,5 +437,39 @@ describe('misskey MiAuth browser sign-in', () => {
       JSON.stringify({scheme: 'https', host: 'a.example', session: 'old', createdAt: 0}),
     )
     expect(takeMisskeyPending(store, 'old')).toBeNull()
+  })
+})
+
+describe('sweepStaleMisskeyPending (repair X1.3 S10)', () => {
+  const NOW = 1_000_000
+  const row = (session: string, createdAt: number): string =>
+    JSON.stringify({scheme: 'https', host: 'a.example', session, createdAt})
+
+  it('removes rows older than 15 minutes and keeps fresh ones', () => {
+    const store: KeyValueStore = createMemoryStore()
+    store.setItem('keystone_pending_miauth_stale', row('stale', NOW - 16 * 60 * 1000))
+    store.setItem('keystone_pending_miauth_fresh', row('fresh', NOW - 14 * 60 * 1000))
+    store.setItem('keystone_pending_miauth_exact', row('exact', NOW - 15 * 60 * 1000))
+    store.setItem('unrelated', 'keep')
+    expect(sweepStaleMisskeyPending(store, NOW)).toBe(1)
+    expect(store.getItem('keystone_pending_miauth_stale')).toBeNull()
+    expect(store.getItem('keystone_pending_miauth_fresh')).not.toBeNull()
+    expect(store.getItem('keystone_pending_miauth_exact')).not.toBeNull()
+    expect(store.getItem('unrelated')).toBe('keep')
+  })
+
+  it('removes corrupt rows and rows naming a different session, and no-ops without keys()', () => {
+    const store: KeyValueStore = createMemoryStore()
+    store.setItem('keystone_pending_miauth_junk', '{corrupt')
+    store.setItem('keystone_pending_miauth_mismatch', row('other', NOW))
+    expect(sweepStaleMisskeyPending(store, NOW)).toBe(2)
+    expect(store.getItem('keystone_pending_miauth_junk')).toBeNull()
+    expect(store.getItem('keystone_pending_miauth_mismatch')).toBeNull()
+    const bare: KeyValueStore = {
+      getItem: () => null,
+      setItem: () => true,
+      removeItem: () => {},
+    }
+    expect(sweepStaleMisskeyPending(bare, NOW)).toBe(0)
   })
 })

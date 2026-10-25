@@ -309,6 +309,60 @@ function miauthPendingKey(session: string): string {
   return `${MIAUTH_PENDING_PREFIX}${session}`
 }
 
+/**
+ * Drop abandoned MiAuth pending rows (repair X1.3 S10). Rows older than
+ * 15 minutes — or structurally invalid, which can never complete — are
+ * deleted; fresh rows and every other key are untouched. Best-effort and
+ * never throws; returns the swept count. Called once at boot (the
+ * session store's hydrate hook). Stores that cannot enumerate keys
+ * (`keys()` absent) are skipped: those rows are still cleaned when
+ * taken, and the rows hold no secrets (host/scheme/session only).
+ */
+export function sweepStaleMisskeyPending(pendingStore: KeyValueStore, now: number = Date.now()): number {
+  let keys: string[] = []
+  try {
+    keys = pendingStore.keys?.() ?? []
+  } catch {
+    return 0
+  }
+  let swept = 0
+  for (const key of keys) {
+    if (!key.startsWith(MIAUTH_PENDING_PREFIX)) continue
+    let raw: string | null = null
+    try {
+      raw = pendingStore.getItem(key)
+    } catch {
+      continue
+    }
+    if (raw == null) continue
+    let stale: boolean
+    try {
+      const parsed = JSON.parse(raw) as Partial<MisskeyMiAuthPending>
+      stale =
+        !(
+          typeof parsed.session === 'string' &&
+          parsed.session.length > 0 &&
+          key === miauthPendingKey(parsed.session) &&
+          (parsed.scheme === 'https' || parsed.scheme === 'http') &&
+          typeof parsed.host === 'string' &&
+          parsed.host.length > 0 &&
+          typeof parsed.createdAt === 'number' &&
+          now - parsed.createdAt <= MIAUTH_PENDING_MAX_AGE_MS
+        )
+    } catch {
+      stale = true
+    }
+    if (!stale) continue
+    try {
+      pendingStore.removeItem(key)
+      swept += 1
+    } catch {
+      // Best-effort.
+    }
+  }
+  return swept
+}
+
 export function saveMisskeyPending(
   pendingStore: KeyValueStore,
   pending: MisskeyMiAuthPending,

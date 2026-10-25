@@ -107,3 +107,34 @@ describe('app singletons', () => {
     expect(appStorage()).toBe(before)
   })
 })
+
+describe('write guards (repair X1.3 S9/S12)', () => {
+  it('writeDeviceState backs up an unreadable blob before overwriting, then writes', () => {
+    const store = createMemoryStore()
+    store.setItem('keystone.device', '{corrupt')
+    expect(
+      writeDeviceState(store, {...defaultDeviceState, activeSessionId: 'https://a.example u1'}),
+    ).toBe(true)
+    expect(store.getItem('keystone.device.bak')).toBe('{corrupt')
+    expect(readDeviceState(store).activeSessionId).toBe('https://a.example u1')
+  })
+
+  it('writeDeviceState reports a throwing store as false instead of throwing', () => {
+    const store: KeyValueStore = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('locked')
+      },
+      removeItem: () => {},
+    }
+    expect(writeDeviceState(store, defaultDeviceState)).toBe(false)
+  })
+
+  it('writeAccountState backs up an unreadable scope before overwriting', () => {
+    const store = createMemoryStore()
+    store.setItem('keystone.account.https://a.example u1', '{corrupt')
+    expect(writeAccountState(store, 'https://a.example u1', {version: 2, prefs: {}})).toBe(true)
+    expect(store.getItem('keystone.accountbak.https://a.example u1')).toBe('{corrupt')
+    expect(readAccountState(store, 'https://a.example u1')).toEqual({version: 2, prefs: {}})
+  })
+})

@@ -4,7 +4,7 @@ import {StyleSheet} from 'react-native'
 import {I18nProvider} from '@lingui/react'
 import {i18n} from '@lingui/core'
 
-import {ApiError, buildCapabilities, createMemoryStore, type Backend, type ServerDraftsApi, type Session} from '@keystone/fedi'
+import {ApiError, buildCapabilities, createMemoryStore, type Backend, type KeyValueStore, type ServerDraftsApi, type Session} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {themes, type ThemeName} from '#/alf/themes'
@@ -477,7 +477,7 @@ describe('open-draft pointer (slice 1)', () => {
   const sid = 'https://s.example me'
 
   function renderFresh(
-    store: ReturnType<typeof createMemoryStore>,
+    store: KeyValueStore,
     backend: Backend,
     props: Partial<ComposerProps> = {},
   ) {
@@ -522,6 +522,70 @@ describe('open-draft pointer (slice 1)', () => {
       jest.advanceTimersByTime(500)
       expect(listDrafts(store, s.id)).toEqual([])
       expect(getOpenDraftId(store, s.id)).toBeNull()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('autosave failure shows a non-blocking notice and recovers on the next save', () => {
+    jest.useFakeTimers()
+    try {
+      const mem = createMemoryStore()
+      let failing = true
+      const store: KeyValueStore = {
+        getItem: key => mem.getItem(key),
+        setItem: (key, value) => {
+          if (failing) throw new Error('locked')
+          mem.setItem(key, value)
+          return true
+        },
+        removeItem: key => mem.removeItem(key),
+      }
+      renderFresh(store, backendFor('sharkey'))
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'keep me')
+      act(() => {
+        jest.advanceTimersByTime(500)
+      })
+      // Non-blocking: the composer stays usable, the notice explains.
+      expect(screen.getByTestId('composer-notice')).toBeTruthy()
+      expect(screen.getByText('Could not save the draft on this device.')).toBeTruthy()
+      expect(listDrafts(mem, sid)).toEqual([])
+      // The next successful save clears the notice and persists.
+      failing = false
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'keep me!')
+      act(() => {
+        jest.advanceTimersByTime(500)
+      })
+      expect(screen.queryByTestId('composer-notice')).toBeNull()
+      expect(listDrafts(mem, sid)).toHaveLength(1)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('autosave treats throwing reads as a failed save (call-site guard)', () => {
+    jest.useFakeTimers()
+    try {
+      const mem = createMemoryStore()
+      const store: KeyValueStore = {
+        getItem: key => {
+          // Reads of the draft list itself fail; everything else works,
+          // so the composer mounts and only the autosave suffers.
+          if (key === draftsKeyFor(sid)) throw new Error('locked')
+          return mem.getItem(key)
+        },
+        setItem: (key, value) => {
+          mem.setItem(key, value)
+          return true
+        },
+        removeItem: key => mem.removeItem(key),
+      }
+      renderFresh(store, backendFor('sharkey'))
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'keep me')
+      act(() => {
+        jest.advanceTimersByTime(500)
+      })
+      expect(screen.getByTestId('composer-notice')).toBeTruthy()
     } finally {
       jest.useRealTimers()
     }

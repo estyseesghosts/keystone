@@ -145,6 +145,7 @@ function trackingStore(): {store: KeyValueStore; keys: () => string[]} {
       getItem: key => live.get(key) ?? null,
       setItem: (key, value) => {
         live.set(key, value)
+        return true
       },
       removeItem: key => {
         live.delete(key)
@@ -183,7 +184,7 @@ describe('sessionScopedKeys (the whole per-session surface in one list)', () => 
   it('covers every builder and pins the mirrored formats', () => {
     expect(sessionScopedKeys(S)).toEqual([
       `keystone.drafts.${S}`,
-      `keystone.drafts.${S}.open`,
+      `keystone.draftopen.${S}`,
       `keystone.account.${S}`,
       `keystone.softmute.${S}`,
       `keystone.emojirecents.${S}`,
@@ -279,6 +280,15 @@ describe('remove() purges everything for the id (privacy 2, storage S3, networki
     // Idempotent and null-safe.
     expect(() => purgeSessionStorage(storage, S)).not.toThrow()
     expect(() => purgeSessionStorage(storage, '')).not.toThrow()
+  })
+
+  it('purgeSessionStorage also removes a legacy `.open` pointer (repair X1.3 S11)', () => {
+    const {store: storage, keys} = trackingStore()
+    const S = `${ORIGIN_A} alice`
+    storage.setItem(`keystone.drafts.${S}.open`, 'legacy')
+    storage.setItem(`keystone.draftbak.${S}`, 'forensics')
+    purgeSessionStorage(storage, S)
+    expect(keys().filter(k => k.includes(S))).toEqual([])
   })
 })
 

@@ -156,8 +156,23 @@ export function sessionWithoutToken(session: Session): Session {
  * synchronous, and the async SecureStore token layer wraps above this. */
 export interface KeyValueStore {
   getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
+  /**
+   * Persist `value` under `key`. Returns true when the value is held,
+   * false when the write failed (quota, locked store, native error) —
+   * the typed result writers use to surface failures (repair X1.3 S12).
+   * Never throws for a storage failure on the shipped backings, but
+   * exotic implementations may still throw, so writers that must not
+   * break treat a throw as failure too. Callers that do not care ignore
+   * the result.
+   */
+  setItem(key: string, value: string): boolean;
   removeItem(key: string): void;
+  /**
+   * All live keys, when the backing can enumerate (MMKV `getAllKeys`,
+   * the memory seam). Absent means "cannot enumerate" — sweeps that need
+   * it (abandoned MiAuth pending rows) no-op instead of guessing.
+   */
+  keys?(): string[];
 }
 
 /** In-memory `KeyValueStore` for tests and non-persisted use. */
@@ -167,10 +182,12 @@ export function createMemoryStore(initial?: Record<string, string>): KeyValueSto
     getItem: (key) => (map.has(key) ? (map.get(key) as string) : null),
     setItem: (key, value) => {
       map.set(key, value);
+      return true;
     },
     removeItem: (key) => {
       map.delete(key);
     },
+    keys: () => [...map.keys()],
   };
 }
 
@@ -241,34 +258,150 @@ function normalizeSession(value: unknown): Session | null {
   };
 }
 
-function readStore(store: KeyValueStore): Store | null {
+/**
+ * Forensic copy of the last unreadable-but-non-empty envelope (repair
+ * X1.3 S4). Write-once: the first backup wins and is never overwritten by
+ * a different value. Individual malformed sessions are preserved the
+ * same way — any read that drops rows backs the raw value up before the
+ * shrunk list can be persisted.
+ */
+export const SESSIONS_BAK_KEY = "keystone_sessions.bak";
+
+/** Numeric `version` of a raw envelope, or null when it is not a JSON object with a numeric version. */
+function envelopeVersion(raw: string): number | null {
   try {
-    const raw = store.getItem(SESSIONS_KEY);
-    if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return null;
-    const rec = parsed as Partial<Store>;
-    if (rec.version !== STORE_VERSION || !Array.isArray(rec.sessions)) return null;
-    const sessions: Session[] = [];
-    for (const item of rec.sessions) {
-      const s = normalizeSession(item);
-      if (s) sessions.push(s);
-    }
-    return {
-      version: STORE_VERSION,
-      active: typeof rec.active === "string" && rec.active ? rec.active : null,
-      sessions,
-    };
+    const version = (parsed as { version?: unknown }).version;
+    return typeof version === "number" ? version : null;
   } catch {
-    return null; // corrupt store: treated as absent, migration rebuilds it
+    return null;
   }
+}
+
+/** True when the raw envelope carries a sessions array (the only shape any version can be read from). */
+function hasSessionArray(raw: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      Array.isArray((parsed as { sessions?: unknown }).sessions)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * True when the stored envelope names a NEWER store version than this
+ * build reads (downgrade or forward payload). Reads stay lenient (use
+ * what parses) but every write is refused — see `writeStore`. The app
+ * surfaces this as a `storageNewerVersion` notice (boot owns the UI).
+ */
+export function isNewerVersionEnvelope(store: KeyValueStore): boolean {
+  const raw = safeGet(store, SESSIONS_KEY);
+  if (!raw) return false;
+  const version = envelopeVersion(raw);
+  return version !== null && version > STORE_VERSION;
+}
+
+/** Copy the live envelope to the `.bak` key once (first backup wins). Never throws. */
+function ensureEnvelopeBackup(store: KeyValueStore, raw: string): void {
+  try {
+    if (store.getItem(SESSIONS_BAK_KEY) !== null) return;
+    store.setItem(SESSIONS_BAK_KEY, raw);
+  } catch {
+    // Forensics must never break boot.
+  }
+}
+
+/** Normalize one parsed envelope; backs the raw value up when rows are dropped. */
+function normalizeEnvelope(rec: Partial<Store>, store: KeyValueStore, raw: string): Store {
+  const sessions: Session[] = [];
+  let dropped = 0;
+  for (const item of rec.sessions ?? []) {
+    const s = normalizeSession(item);
+    if (s) sessions.push(s);
+    else dropped += 1;
+  }
+  // Malformed rows leave the live list but their bytes survive in the
+  // backup before any write can persist the shrunk list.
+  if (dropped > 0) ensureEnvelopeBackup(store, raw);
+  return {
+    version: STORE_VERSION,
+    active: typeof rec.active === "string" && rec.active ? rec.active : null,
+    sessions,
+  };
+}
+
+function readStore(store: KeyValueStore): Store | null {
+  const raw = safeGet(store, SESSIONS_KEY);
+  if (!raw) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // Corrupt JSON: back the bytes up once, then treat as absent. The
+    // write path refuses an EMPTY envelope over this value (S4), so the
+    // evidence survives until a real session replaces it.
+    ensureEnvelopeBackup(store, raw);
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null || !Array.isArray((parsed as Partial<Store>).sessions)) {
+    ensureEnvelopeBackup(store, raw);
+    return null;
+  }
+  const rec = parsed as Partial<Store>;
+  if (rec.version !== STORE_VERSION && rec.version !== STORE_VERSION - 1) {
+    if (typeof rec.version === "number" && rec.version > STORE_VERSION) {
+      // Newer version: read-only mode — use what parses, never write.
+      return normalizeEnvelope(rec, store, raw);
+    }
+    ensureEnvelopeBackup(store, raw);
+    return null;
+  }
+  // Current version, or STORE_VERSION - 1 (migrated leniently: rows
+  // normalize the same way and the next write persists the new version).
+  return normalizeEnvelope(rec, store, raw);
 }
 
 function writeStore(store: KeyValueStore, data: Store): void {
   try {
+    const raw = safeGet(store, SESSIONS_KEY);
+    if (raw) {
+      const version = envelopeVersion(raw);
+      if (version !== null && version > STORE_VERSION) {
+        return; // read-only: a newer build owns this envelope — never downgrade it.
+      }
+      const readable =
+        (version === STORE_VERSION || version === STORE_VERSION - 1) && hasSessionArray(raw);
+      if (!readable) {
+        // Non-empty but unreadable: back the bytes up once, then refuse an
+        // EMPTY write that would destroy the only evidence. A non-empty
+        // write (sign-in over corruption) proceeds on top of the backup.
+        ensureEnvelopeBackup(store, raw);
+        if (data.sessions.length === 0) return;
+      }
+    }
     store.setItem(SESSIONS_KEY, JSON.stringify(data));
+    if (data.sessions.length === 0) {
+      // Explicitly empty over a healthy envelope (last account removed):
+      // the forensic copy no longer describes live state — drop it so
+      // sign-out leaves no secret bytes behind. Best-effort.
+      removeQuietly(store, SESSIONS_BAK_KEY);
+    }
   } catch {
     // Storage unavailable: sessions last for this process only.
+  }
+}
+
+/** `removeItem` that never throws (storage failure must not break sign-out). */
+function removeQuietly(store: KeyValueStore, key: string): void {
+  try {
+    store.removeItem(key);
+  } catch {
+    // Ignore.
   }
 }
 

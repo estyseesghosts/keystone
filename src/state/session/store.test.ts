@@ -211,6 +211,21 @@ describe('hydrate (vault wins)', () => {
     await store.hydrate()
     expect(store.list()[0].token).toBe('token-a')
   })
+
+  it('hydrate() sweeps stale MiAuth pending rows at boot (repair X1.3 S10)', async () => {
+    const {storage, store} = setup()
+    storage.setItem(
+      'keystone_pending_miauth_stale',
+      JSON.stringify({scheme: 'https', host: 'a.example', session: 'stale', createdAt: Date.now() - 16 * 60 * 1000}),
+    )
+    storage.setItem(
+      'keystone_pending_miauth_fresh',
+      JSON.stringify({scheme: 'https', host: 'a.example', session: 'fresh', createdAt: Date.now()}),
+    )
+    await store.hydrate()
+    expect(storage.getItem('keystone_pending_miauth_stale')).toBeNull()
+    expect(storage.getItem('keystone_pending_miauth_fresh')).not.toBeNull()
+  })
 })
 
 describe('resolveActiveId', () => {
@@ -825,7 +840,7 @@ function trackingMemoryStore(): {store: KeyValueStore; writtenKeys: () => string
       getItem: key => mem.getItem(key),
       setItem: (key, value) => {
         seen.add(key)
-        mem.setItem(key, value)
+        return mem.setItem(key, value)
       },
       removeItem: key => mem.removeItem(key),
     },

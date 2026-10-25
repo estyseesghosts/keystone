@@ -346,7 +346,7 @@ describe('per-session split', () => {
       getItem: key => inner.getItem(key),
       setItem: (key, value) => {
         writes.push(key)
-        inner.setItem(key, value)
+        return inner.setItem(key, value)
       },
       removeItem: key => inner.removeItem(key),
     }

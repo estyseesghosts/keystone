@@ -5,26 +5,50 @@ import {createTokenVault} from './tokens'
 import type {SecureTokenVault, TokenVault} from './vault'
 import {
   DEVICE_KEY,
+  DEVICE_BAK_KEY,
+  accountBakKeyFor,
   accountKeyFor,
   accountStateSchema,
   defaultAccountState,
   defaultDeviceState,
   deviceStateSchema,
+  ensureRawBackup,
+  isAccountPayloadReadable,
+  isDevicePayloadReadable,
   migrateDeviceState,
   parseOrFallback,
   type AccountState,
   type DeviceState,
 } from './schema'
+import {
+  emitStorageWriteFailed,
+  onStorageWriteFailed,
+  scopeForStorageKey,
+  type StorageWriteFailure,
+  type StorageWriteScope,
+} from './storageEvents'
 
 export type {SecureTokenVault, TokenVault} from './vault'
 export {tokenKeyFor} from './tokens'
 export {createMmkvStore, sharedMmkv, appKeyValueStore, type MmkvLike} from './mmkv'
 export {
+  emitStorageWriteFailed,
+  onStorageWriteFailed,
+  scopeForStorageKey,
+  type StorageWriteFailure,
+  type StorageWriteScope,
+} from './storageEvents'
+export {
   STORAGE_VERSION,
   DEVICE_KEY,
+  DEVICE_BAK_KEY,
   accountKeyFor,
+  accountBakKeyFor,
   deviceStateSchema,
   accountStateSchema,
+  ensureRawBackup,
+  isAccountPayloadReadable,
+  isDevicePayloadReadable,
   parseOrFallback,
   defaultDeviceState,
   defaultAccountState,
@@ -64,8 +88,23 @@ export function readDeviceState(store: KeyValueStore): DeviceState {
   return migrateDeviceState(store.getItem(DEVICE_KEY))
 }
 
-export function writeDeviceState(store: KeyValueStore, state: DeviceState): void {
-  store.setItem(DEVICE_KEY, JSON.stringify(state))
+/** Persist device state. Backs the stored blob up first when it is
+ * unreadable-but-non-empty (same rule as S9); returns false (never
+ * throws) when the write failed. */
+export function writeDeviceState(store: KeyValueStore, state: DeviceState): boolean {
+  try {
+    const raw = store.getItem(DEVICE_KEY)
+    if (raw && !isDevicePayloadReadable(raw)) {
+      ensureRawBackup(store, DEVICE_KEY, DEVICE_BAK_KEY)
+    }
+  } catch {
+    // A failed read must not block the write.
+  }
+  try {
+    return store.setItem(DEVICE_KEY, JSON.stringify(state))
+  } catch {
+    return false
+  }
 }
 
 export function readAccountState(store: KeyValueStore, sessionId: string): AccountState {
@@ -76,10 +115,25 @@ export function readAccountState(store: KeyValueStore, sessionId: string): Accou
   )
 }
 
+/** Persist per-account state (same backup rule as the device scope).
+ * Returns false (never throws) when the write failed. */
 export function writeAccountState(
   store: KeyValueStore,
   sessionId: string,
   state: AccountState,
-): void {
-  store.setItem(accountKeyFor(sessionId), JSON.stringify(state))
+): boolean {
+  const key = accountKeyFor(sessionId)
+  try {
+    const raw = store.getItem(key)
+    if (raw && !isAccountPayloadReadable(raw)) {
+      ensureRawBackup(store, key, accountBakKeyFor(sessionId))
+    }
+  } catch {
+    // A failed read must not block the write.
+  }
+  try {
+    return store.setItem(key, JSON.stringify(state))
+  } catch {
+    return false
+  }
 }

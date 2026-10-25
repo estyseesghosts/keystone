@@ -335,14 +335,36 @@ export function useComposerController({
   // maintains the open-draft pointer (slice 1): a saved non-empty draft
   // is the session's in-progress draft, while an empty save deletes the
   // row — so the pointer goes with it and the next open starts fresh.
+  // A failed write (repair X1.3 S12: quota, locked store) shows a
+  // non-blocking notice instead of failing silently; the next successful
+  // save clears it.
   const postedRef = useRef(false)
+  const autosaveFailedRef = useRef(false)
   useEffect(() => {
     if (postedRef.current) return
     const timer = setTimeout(() => {
-      const draft = snapshotDraft(id, state, state.media.length > 0 || uploads.items.length > 0)
-      saveDraft(store, session.id, draft)
-      if (isDraftEmpty(draft)) clearOpenDraftId(store, session.id)
-      else setOpenDraftId(store, session.id, id)
+      // A throwing store (failed reads or writes) counts as a failed
+      // save — never let it escape the timer; surface the notice instead.
+      // The helpers report booleans on the write half, but a hostile
+      // backing can still throw on reads (`listDrafts` → `getItem`).
+      let ok = false
+      try {
+        const draft = snapshotDraft(id, state, state.media.length > 0 || uploads.items.length > 0)
+        const saved = saveDraft(store, session.id, draft)
+        const pointerSaved = isDraftEmpty(draft)
+          ? clearOpenDraftId(store, session.id)
+          : setOpenDraftId(store, session.id, id)
+        ok = saved && pointerSaved
+      } catch {
+        ok = false
+      }
+      if (!ok) {
+        autosaveFailedRef.current = true
+        setNotice(i18n._(msg`Could not save the draft on this device.`))
+      } else if (autosaveFailedRef.current) {
+        autosaveFailedRef.current = false
+        setNotice(null)
+      }
     }, 400)
     return () => clearTimeout(timer)
   }, [state, store, session.id, id, uploads.items.length])

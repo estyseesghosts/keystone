@@ -74,7 +74,10 @@ const deviceStateSchemaV1 = z.object({
 
 /** Parse stored device JSON across schema versions: current payloads
  * validate directly; v1 payloads migrate (prefs carried, `contentMode`
- * defaults to `auto`); anything else is the safe default. Never throws. */
+ * defaults to `auto`); forward-version payloads with a usable
+ * active-session pointer keep the pointer (repair X1.3 S9 — never null
+ * the mirror because prefs failed to parse) with default prefs;
+ * anything else is the safe default. Never throws. */
 export function migrateDeviceState(raw: string | null): DeviceState {
   if (!raw) return defaultDeviceState
   let parsed: unknown
@@ -100,6 +103,17 @@ export function migrateDeviceState(raw: string | null): DeviceState {
       },
     }
   }
+  // Forward-version (or otherwise unknown-shape) payload with a usable
+  // pointer: the prefs are unreadable but the mirror is not — keep it.
+  // The pointer is only ever a boot fallback (`resolveActiveId`
+  // validates it against stored sessions), so keeping it cannot conjure
+  // a ghost session.
+  if (typeof parsed === 'object' && parsed !== null) {
+    const id = (parsed as {activeSessionId?: unknown}).activeSessionId
+    if (typeof id === 'string' || id === null) {
+      return {version: STORAGE_VERSION, activeSessionId: id, prefs: {...defaultDeviceState.prefs}}
+    }
+  }
   return defaultDeviceState
 }
 
@@ -123,6 +137,10 @@ export const defaultAccountState: AccountState = {
 
 export const DEVICE_KEY = 'keystone.device'
 
+/** Forensic copy of the last unreadable-but-non-empty device blob (repair
+ * X1.3 S9). Write-once: the first backup wins. Never read by the app. */
+export const DEVICE_BAK_KEY = 'keystone.device.bak'
+
 /** Per-account scope key. The session id already embeds the origin
  * (`"${origin} ${accountId}"`), so one account's prefs can never alias
  * another's — including same-user/different-origin pairs. */
@@ -130,14 +148,71 @@ export function accountKeyFor(sessionId: string): string {
   return `keystone.account.${sessionId}`
 }
 
-/** Remove the per-account scope for a session (sign-out purge, X1.2).
- * The device scope (`DEVICE_KEY`) is untouched. Never throws. */
+/** Backup of the last unreadable-but-non-empty per-account scope. A
+ * separate prefix (never a suffix — repair X1.3 S11). Purged with the
+ * session, never read by the app. */
+export function accountBakKeyFor(sessionId: string): string {
+  return `keystone.accountbak.${sessionId}`
+}
+
+/** Copy the live value of `key` to `bakKey` once (first backup wins; an
+ * existing backup is kept even when the new bytes differ). Never throws —
+ * forensics must never break the write they precede. */
+export function ensureRawBackup(store: KeyValueStore, key: string, bakKey: string): void {
+  let raw: string | null = null
+  try {
+    raw = store.getItem(key)
+    if (!raw || store.getItem(bakKey) !== null) return
+  } catch {
+    return
+  }
+  try {
+    store.setItem(bakKey, raw)
+  } catch {
+    // Forensics must never break the write they precede.
+  }
+}
+
+/** True when `raw` parses as a current or v1 device payload. Anything
+ * else non-empty must be backed up before overwriting (S9). */
+export function isDevicePayloadReadable(raw: string | null): boolean {
+  if (!raw) return true
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return false
+  }
+  return deviceStateSchema.safeParse(parsed).success || deviceStateSchemaV1.safeParse(parsed).success
+}
+
+/** True when `raw` parses as a current account payload. Anything else
+ * non-empty must be backed up before overwriting (same rule as S9). */
+export function isAccountPayloadReadable(raw: string | null): boolean {
+  if (!raw) return true
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return false
+  }
+  return accountStateSchema.safeParse(parsed).success
+}
+
+/** Remove the per-account scope for a session (sign-out purge, X1.2),
+ * including its forensic backup. The device scope (`DEVICE_KEY`) is
+ * untouched. Never throws. */
 export function purgeAccountScope(store: KeyValueStore, sessionId: string): void {
   if (!sessionId) return
   try {
     store.removeItem(accountKeyFor(sessionId))
   } catch {
     // Best-effort: local sign-out completes even on storage failure.
+  }
+  try {
+    store.removeItem(accountBakKeyFor(sessionId))
+  } catch {
+    // Best-effort (see above).
   }
 }
 
