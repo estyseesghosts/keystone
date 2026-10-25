@@ -22,7 +22,7 @@ import {Caption} from '#/components/Typography'
 import {Button} from '#/components/Button'
 import {Pressable} from '#/components/Pressable'
 import {useOptionalSafeAreaInsets} from '#/components/insets'
-import {mediaAlt} from '#/components/MediaGrid'
+import {mediaAlt} from '#/lib/mediaAlt'
 import {useReducedMotionSetting} from '#/lib/motion'
 
 // SDK 57 web types: `VideoView` wants the web player class while

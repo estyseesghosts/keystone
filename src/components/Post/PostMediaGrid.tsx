@@ -14,9 +14,10 @@
 // and never open (F4).
 import {useEffect, useState, useSyncExternalStore} from 'react'
 import type {ComponentProps} from 'react'
-import {Image, Linking, ScrollView, StyleSheet, View} from 'react-native'
+import {Linking, ScrollView, StyleSheet, View} from 'react-native'
 import {Path, Svg} from 'react-native-svg'
 import {useVideoPlayer, VideoView} from 'expo-video'
+import type {ImageLoadEventData} from 'expo-image'
 
 import {msg} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
@@ -26,6 +27,9 @@ import {safeHttpUrl, type Media} from '@keystone/fedi'
 import {useTheme} from '#/alf/index'
 import {overlayChrome} from '#/alf/themes'
 import {Caption} from '#/alf/typography'
+import {Button} from '#/components/Button'
+import {AppImage} from '#/components/Image'
+import {mediaAlt} from '#/lib/mediaAlt'
 import {Pressable} from '#/components/Pressable'
 import {showToast} from '#/lib/toast'
 import {useReducedMotionSetting} from '#/lib/motion'
@@ -112,7 +116,31 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 6,
   },
-  sensitiveBox: {alignItems: 'center', justifyContent: 'center', padding: 8},
+  /** Revealed-sensitive re-hide: an overlay sibling of the tile (never
+   * nested inside its Lightbox pressable, so one tap cannot both hide
+   * and open). The 44pt floor keeps the target reachable in every locale. */
+  revealedWrap: {alignSelf: 'flex-start', position: 'relative'},
+  hideButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: overlayChrome.captionScrim,
+  },
+  /** Sensitive cover chrome over the blurhash: the scrim keeps the label
+   * and the Show control legible on any blur. */
+  sensitiveShade: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 8,
+  },
 })
 
 export function formatBytes(size: number | null): string | null {
@@ -132,7 +160,13 @@ function metaAspect(item: Media): number | null {
 }
 
 export function tileAspect(item: Media, single: boolean): number {
-  if (!single) return metaAspect(item) ?? STRIP_AR
+  if (!single) {
+    // Strip tiles share the display clamp (repair X7.3, media M7): an
+    // unclamped 10:1 panorama becomes a 2200px-wide tile and a 1:10
+    // portrait a 22px sliver at the fixed 220px strip height. Both crop
+    // (`cover`) to the clamped box instead.
+    return displayAspect(metaAspect(item) ?? STRIP_AR)
+  }
   // Singles show the natural ratio clamped to the display range: in-range
   // images render in full, only outside shapes crop to the clamped box.
   return displayAspect(metaAspect(item) ?? SINGLE_AR)
@@ -280,18 +314,29 @@ function Still({item, single, index, onOpen, bleed}: {item: Media; single: boole
   const natural = measured ?? metaAspect(item) ?? SINGLE_AR
   const ar = single ? displayAspect(natural) : tileAspect(item, single)
   const crop = single && isOutOfRange(natural)
+  // Repair X7.3 (media M15): the accessible label falls back to the
+  // generated `mediaAlt` text ("Image 2 of 4"), never the bare kind.
+  const label = mediaAlt(item, index)
   return (
-    <TileFrame item={item} single={single} index={index} aspect={ar} onOpen={onOpen} label={mediaLabel(item)} bleed={bleed}>
-      <Image
-        source={{uri: preview}}
-        style={styles.image}
-        resizeMode={crop || !single ? 'cover' : 'contain'}
+    <TileFrame item={item} single={single} index={index} aspect={ar} onOpen={onOpen} label={label} bleed={bleed}>
+      <AppImage
+        uri={preview}
+        blurhash={item.blurhash}
+        contentFit={crop || !single ? 'cover' : 'contain'}
+        recyclingKey={item.id}
+        alt={label}
+        accessibilityLabel={label}
         accessibilityRole="image"
-        accessibilityLabel={mediaLabel(item)}
+        testID={`media-still-${item.id}`}
+        style={styles.image}
         onError={() => setFailed(true)}
-        onLoad={e => {
-          const src = (e.nativeEvent as unknown as {source?: {width?: number; height?: number}}).source
-          if (src && src.width && src.height) setMeasured(src.width / src.height)
+        onLoad={(e?: ImageLoadEventData) => {
+          // expo-image reports the decoded size on the event (not
+          // `nativeEvent`): a meta-less frame re-fits once known, so the
+          // blurhash placeholder holds layout until then (media M7).
+          const w = e?.source?.width
+          const h = e?.source?.height
+          if (typeof w === 'number' && typeof h === 'number' && w > 0 && h > 0) setMeasured(w / h)
         }}
       />
     </TileFrame>
@@ -565,71 +610,116 @@ function FileTile({item}: {item: Media}) {
   )
 }
 
-/** A hidden sensitive tile in a multi-item strip. v1 `NoteBody` gates each
- * item independently (`MediaItem` keeps its own `revealed` signal), so a
- * tap here reveals THIS tile only — never the whole grid. */
-function SensitiveTile({
+/** A hidden sensitive tile (repair X7.3, media M14): a blurred blurhash
+ * cover — never a blank box, and never a fetch (the wrapper renders the
+ * placeholder only, so nothing sensitive loads before reveal). The frame
+ * reserves the same aspect the revealed tile will use, so revealing never
+ * shifts the post height. An explicit Show control reveals; a Hide
+ * control on the revealed tile re-hides. */
+function SensitiveCover({
   item,
+  single,
   index,
-  onReveal,
+  aspect,
+  bleed,
+  onShow,
 }: {
   item: Media
+  single: boolean
   index: number
-  onReveal: (index: number) => void
+  aspect: number
+  bleed?: boolean
+  onShow: (id: string) => void
 }) {
   const theme = useTheme()
   const {i18n} = useLingui()
+  const hiddenLabel = i18n._(msg`Sensitive media hidden. The author marked this media sensitive.`)
   return (
-    <Pressable
-      testID={`media-sensitive-show-${item.id}`}
-      onPress={() => onReveal(index)}
-      accessibilityRole="button"
-      accessibilityLabel={i18n._(msg`Show sensitive media. The author marked this media sensitive.`)}>
-      <View
-        style={[
-          styles.stripItem,
-          styles.sensitiveBox,
-          {aspectRatio: tileAspect(item, false), borderColor: theme.palette.border},
-        ]}>
-        <Caption color="muted">{i18n._(msg`Sensitive media hidden — tap to show`)}</Caption>
+    <TileFrame
+      item={item}
+      single={single}
+      index={index}
+      aspect={aspect}
+      label={hiddenLabel}
+      bleed={bleed}
+      testID={`media-sensitive-cover-${item.id}`}>
+      {item.blurhash ? (
+        <AppImage
+          uri={null}
+          blurhash={item.blurhash}
+          contentFit="cover"
+          recyclingKey={`sensitive:${item.id}`}
+          accessibilityLabel={hiddenLabel}
+          testID={`media-sensitive-blur-${item.id}`}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, {backgroundColor: theme.palette.bgSoft}]} />
+      )}
+      <View style={[styles.sensitiveShade, {backgroundColor: overlayChrome.captionScrim}]}>
+        <Caption style={{color: overlayChrome.fg}}>{i18n._(msg`Sensitive media hidden — tap to show`)}</Caption>
+        <Button
+          label={i18n._(msg`Show`)}
+          variant="primary"
+          onPress={() => onShow(item.id)}
+          testID={`media-sensitive-show-${item.id}`}
+        />
       </View>
-    </Pressable>
+    </TileFrame>
+  )
+}
+
+/** Re-hide affordance for a revealed sensitive tile: an overlay sibling
+ * of the tile (never nested in its Lightbox pressable, so one tap cannot
+ * both hide and open). */
+function RevealedSensitive({item, onHide, children}: {item: Media; onHide: (id: string) => void; children: React.ReactNode}) {
+  const {i18n} = useLingui()
+  return (
+    <View testID={`media-sensitive-revealed-${item.id}`} style={styles.revealedWrap}>
+      {children}
+      <Pressable
+        testID={`media-sensitive-hide-${item.id}`}
+        onPress={() => onHide(item.id)}
+        accessibilityRole="button"
+        accessibilityLabel={i18n._(msg`Hide sensitive media`)}
+        hitSlop={12}
+        style={styles.hideButton}>
+        <Caption style={{color: overlayChrome.fg}}>{i18n._(msg`Hide`)}</Caption>
+      </Pressable>
+    </View>
   )
 }
 
 export function PostMediaGrid({media, onOpen, testID, bleed, active = true}: {media: Media[]; onOpen?: (index: number) => void; testID?: string; bleed?: boolean; active?: boolean}) {
-  // Per-tile reveal, keyed by index: revealing one sensitive attachment
-  // leaves every other hidden tile behind its own gate (v1 `NoteBody`).
-  const [revealed, setRevealed] = useState<ReadonlySet<number>>(() => new Set())
-  const {i18n} = useLingui()
-  const reveal = (index: number) =>
-    setRevealed(prev => {
-      if (prev.has(index)) return prev
+  // Per-tile reveal, keyed by media id (repair X7.3, media M14): revealing
+  // one sensitive attachment leaves every other hidden tile behind its
+  // own gate (v1 `NoteBody`). Ids — not indices — survive row recycling
+  // (a recycled instance keeps stale ids that simply never match the new
+  // row's items) and array reorder.
+  const [revealedIds, setRevealedIds] = useState<ReadonlySet<string>>(() => new Set())
+  const reveal = (id: string) =>
+    setRevealedIds(prev => {
+      if (prev.has(id)) return prev
       const next = new Set(prev)
-      next.add(index)
+      next.add(id)
+      return next
+    })
+  const conceal = (id: string) =>
+    setRevealedIds(prev => {
+      if (!prev.has(id)) return prev
+      const next = new Set(prev)
+      next.delete(id)
       return next
     })
   if (media.length === 0) return null
-  // A one-attachment post keeps its existing presentation: the lone tile is
-  // the grid. Multi-item posts gate each tile instead of the whole strip.
-  if (media.length === 1 && media[0].isSensitive && !revealed.has(0)) {
-    return (
-      <View style={styles.wrap} testID={testID}>
-        <Pressable
-          testID="media-sensitive-show"
-          onPress={() => reveal(0)}
-          accessibilityRole="button"
-          accessibilityLabel={i18n._(msg`Show sensitive media. The author marked this media sensitive.`)}>
-          <Caption color="muted">{i18n._(msg`Sensitive media hidden — tap to show`)}</Caption>
-        </Pressable>
-      </View>
-    )
-  }
   const renderItem = (item: Media, i: number) => {
-    if (item.isSensitive && !revealed.has(i)) {
-      return <SensitiveTile key={item.id} item={item} index={i} onReveal={reveal} />
-    }
     const single = media.length === 1
+    if (item.isSensitive && !revealedIds.has(item.id)) {
+      // Singles and strip tiles share the cover: the frame reserves the
+      // revealed aspect up front, so showing never shifts the post height.
+      const aspect = single ? displayAspect(metaAspect(item) ?? SINGLE_AR) : tileAspect(item, false)
+      return <SensitiveCover key={item.id} item={item} single={single} index={i} aspect={aspect} bleed={bleed} onShow={reveal} />
+    }
     // Viewability-driven `active` (repair X7.2, media M5): the list marks
     // viewable rows; the grid plays at most its first gifv while active,
     // and video/audio tiles pause on scroll-off through their own `active`.
@@ -637,18 +727,32 @@ export function PostMediaGrid({media, onOpen, testID, bleed, active = true}: {me
     // global slot in `#/state/activePlayer` still bounds N visible posts to
     // the configured maximum (default 1).
     const gifvActive = (index: number) => active && index === 0
+    let tile: React.ReactNode
     switch (item.kind) {
       case 'image':
-        return <Still key={item.id} item={item} single={single} index={i} onOpen={onOpen} bleed={bleed} />
+        tile = <Still key={item.id} item={item} single={single} index={i} onOpen={onOpen} bleed={bleed} />
+        break
       case 'gifv':
-        return <GifvTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} active={gifvActive(i)} bleed={bleed} />
+        tile = <GifvTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} active={gifvActive(i)} bleed={bleed} />
+        break
       case 'video':
-        return <VideoTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} active={active} bleed={bleed} />
+        tile = <VideoTile key={item.id} item={item} single={single} index={i} onOpen={onOpen} active={active} bleed={bleed} />
+        break
       case 'audio':
-        return <AudioTile key={item.id} item={item} index={i} onOpen={onOpen} active={active} />
+        tile = <AudioTile key={item.id} item={item} index={i} onOpen={onOpen} active={active} />
+        break
       default:
-        return <FileTile key={item.id} item={item} />
+        tile = <FileTile key={item.id} item={item} />
+        break
     }
+    if (item.isSensitive) {
+      return (
+        <RevealedSensitive key={item.id} item={item} onHide={conceal}>
+          {tile}
+        </RevealedSensitive>
+      )
+    }
+    return tile
   }
   if (media.length === 1) {
     return (

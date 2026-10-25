@@ -100,6 +100,24 @@ function renderTree(ui: React.ReactElement, store: SessionStore) {
 i18n.load('en', {})
 i18n.activate('en')
 
+/** expo-image element for a glyph by testID: the testID is forwarded to
+ * wrapper views, so the sourced match (original props) names the resolved
+ * URL. Returns undefined while the literal `:code:` renders. */
+function glyphUri(testID: string): string | undefined {
+  const all = screen.UNSAFE_queryAllByProps({testID} as never) as unknown as Array<any>
+  const found = all.find(el => el.props?.source !== undefined)
+  const src = found?.props?.source as {uri?: unknown} | undefined
+  return typeof src?.uri === 'string' ? src.uri : undefined
+}
+
+/** Same lookup for glyphs without a testID (post bodies, names, cards). */
+function glyphUriByLabel(label: string): string | undefined {
+  const all = screen.UNSAFE_queryAllByProps({accessibilityLabel: label} as never) as unknown as Array<any>
+  const found = all.find(el => el.props?.source !== undefined)
+  const src = found?.props?.source as {uri?: unknown} | undefined
+  return typeof src?.uri === 'string' ? src.uri : undefined
+}
+
 beforeEach(() => {
   resetCustomEmojiStoresForTests()
 })
@@ -113,7 +131,7 @@ describe('WS-C remote glyph fallback', () => {
       renderTree(<CustomEmojiGlyph name="wave" host={REMOTE} src={null} packed={{}} sessionId={session.id} testID="g" />, store)
       // Literal first — never blank, never a fabricated URL.
       expect(screen.getByTestId('g').props.children).toBe(`:wave@${REMOTE}:`)
-      await waitFor(() => expect(screen.getByTestId('g').props.source?.uri).toBe(REMOTE_URL))
+      await waitFor(() => expect(glyphUri('g')).toBe(REMOTE_URL))
     } finally {
       restore()
     }
@@ -141,7 +159,7 @@ describe('WS-C remote glyph fallback', () => {
       const store = createSessionStore({storage: createMemoryStore(), vault: memVault(), homeOrigin: 'https://app.example'})
       const session = await makeSession(store)
       renderTree(<CustomEmojiGlyph name="blob" host={null} src={null} packed={{}} sessionId={session.id} testID="g" />, store)
-      await waitFor(() => expect(screen.getByTestId('g').props.source?.uri).toBe(HOME_BLOB))
+      await waitFor(() => expect(glyphUri('g')).toBe(HOME_BLOB))
     } finally {
       restore()
     }
@@ -156,7 +174,7 @@ describe('WS-C remote glyph fallback', () => {
         <CustomEmojiGlyph name="wave" host={null} src={null} packed={{}} sessionId={session.id} authorHost={REMOTE} testID="g" />,
         store,
       )
-      await waitFor(() => expect(screen.getByTestId('g').props.source?.uri).toBe(REMOTE_URL))
+      await waitFor(() => expect(glyphUri('g')).toBe(REMOTE_URL))
     } finally {
       restore()
     }
@@ -178,7 +196,7 @@ describe('WS-C remote glyph fallback', () => {
         />,
         store,
       )
-      await waitFor(() => expect(screen.getByTestId('g').props.source?.uri).toBe('https://packed.example/x.png'))
+      await waitFor(() => expect(glyphUri('g')).toBe('https://packed.example/x.png'))
     } finally {
       restore()
     }
@@ -193,7 +211,7 @@ describe('WS-C post body + display names', () => {
       const session = await makeSession(store)
       const nodes = contentFromMfm(`hello :wave@${REMOTE}: done`)
       renderTree(<RichText nodes={nodes} emojis={{}} sessionId={session.id} testID="body" />, store)
-      await waitFor(() => expect(screen.getByLabelText(`:wave@${REMOTE}:`).props.source?.uri).toBe(REMOTE_URL))
+      await waitFor(() => expect(glyphUriByLabel(`:wave@${REMOTE}:`)).toBe(REMOTE_URL))
       expect(screen.getByTestId('body')).toBeTruthy()
     } finally {
       restore()
@@ -207,7 +225,7 @@ describe('WS-C post body + display names', () => {
       const session = await makeSession(store)
       const account = makeAccount({displayName: `Ann :wave@${REMOTE}: and :nope@${REMOTE}:`, emojis: {}, host: null})
       renderTree(<DisplayName account={account} sessionId={session.id} testID="dn" />, store)
-      await waitFor(() => expect(screen.getByLabelText(`:wave@${REMOTE}:`).props.source?.uri).toBe(REMOTE_URL))
+      await waitFor(() => expect(glyphUriByLabel(`:wave@${REMOTE}:`)).toBe(REMOTE_URL))
       expect(screen.getByText(`:nope@${REMOTE}:`, {exact: false})).toBeTruthy()
     } finally {
       restore()
@@ -221,7 +239,7 @@ describe('WS-C post body + display names', () => {
       const session = await makeSession(store)
       const account = makeAccount({displayName: `Ann :wave@${REMOTE}:`, emojis: {}})
       renderTree(<ProfileHeader account={account} isSelf={false} relationship={null} sessionId={session.id} />, store)
-      await waitFor(() => expect(screen.getByLabelText(`:wave@${REMOTE}:`).props.source?.uri).toBe(REMOTE_URL))
+      await waitFor(() => expect(glyphUriByLabel(`:wave@${REMOTE}:`)).toBe(REMOTE_URL))
     } finally {
       restore()
     }
@@ -250,7 +268,7 @@ describe('WS-C post body + display names', () => {
         />,
         store,
       )
-      await waitFor(() => expect(screen.getByLabelText(`:wave@${REMOTE}:`).props.source?.uri).toBe(REMOTE_URL))
+      await waitFor(() => expect(glyphUriByLabel(`:wave@${REMOTE}:`)).toBe(REMOTE_URL))
     } finally {
       restore()
     }
@@ -263,7 +281,7 @@ describe('WS-C post body + display names', () => {
       const session = await makeSession(store)
       const post = makePost({content: {mfm: `hi :wave@${REMOTE}:`, plain: `hi :wave@${REMOTE}:`}, emojis: {}})
       renderTree(<PostCard post={post} sessionId={session.id} />, store)
-      await waitFor(() => expect(screen.getByLabelText(`:wave@${REMOTE}:`).props.source?.uri).toBe(REMOTE_URL))
+      await waitFor(() => expect(glyphUriByLabel(`:wave@${REMOTE}:`)).toBe(REMOTE_URL))
     } finally {
       restore()
     }

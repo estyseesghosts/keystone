@@ -35,6 +35,15 @@ function renderPoll(ui: React.ReactElement) {
   )
 }
 
+// expo-image forwards accessibility labels to wrapper views (no `source`
+// there): label prop assertions pick the sourced match.
+function sourcedByLabel(label: string): any {
+  const all = screen.UNSAFE_queryAllByProps({accessibilityLabel: label} as never) as unknown as Array<any>
+  const found = all.find(el => el.props?.source !== undefined)
+  if (!found) throw new Error(`no sourced element for label ${label} (${all.length} matches)`)
+  return found
+}
+
 describe('PostPoll (F8)', () => {
   it('renders options, counts, and the vote meta', () => {
     renderPoll(<PostPoll poll={poll()} onVote={jest.fn()} testID="poll" />)
@@ -211,7 +220,7 @@ describe('PostPoll hidden totals (ADR 0013)', () => {
         testID="poll"
       />,
     )
-    expect(screen.getByLabelText(':blobcat:').props.source?.uri).toBe(
+    expect(sourcedByLabel(':blobcat:').props.source?.uri).toBe(
       'https://m.example/emoji/blobcat.png',
     )
     expect(screen.queryByText('Yes :blobcat:')).toBeNull()

@@ -10,7 +10,7 @@
 //   never a fabricated URL, never a local lookalike for a remote code.
 
 import {useEffect, useState} from 'react'
-import {Image, StyleSheet, Text, type StyleProp, type TextStyle} from 'react-native'
+import {StyleSheet, Text, type StyleProp, type TextStyle} from 'react-native'
 
 import {
   DEFAULT_EMOJI_STYLE,
@@ -22,12 +22,12 @@ import {
 } from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
+import {AppImage} from '#/components/Image'
 import {useCustomEmojiSelect, useCustomEmojiStore} from '#/state/customEmojiStores'
 
 const GLYPH = 16
 
 const styles = StyleSheet.create({
-  remote: {resizeMode: 'contain'},
   fallback: {fontSize: GLYPH, lineHeight: GLYPH + 4},
 })
 
@@ -56,9 +56,11 @@ export function UnicodeEmoji({sequence, style = DEFAULT_EMOJI_STYLE, size = GLYP
     )
   }
   return (
-    <Image
-      source={{uri: url}}
-      style={[styles.remote, {width: size, height: size}]}
+    <AppImage
+      uri={url}
+      contentFit="contain"
+      recyclingKey={`unicode-emoji:${style}:${sequence}`}
+      style={{width: size, height: size}}
       onError={() => setFailed(true)}
       accessibilityRole="image"
       accessibilityLabel={sequence}
@@ -153,6 +155,15 @@ export function CustomEmojiGlyph({
     (u): u is string => u !== null,
   )
   const [index, setIndex] = useState(0)
+  // Repair X7.3 (media M16): the candidate list changes after mount (the
+  // session store listing lands later) — a stale index would skip the new
+  // sources and fall back to the literal `:code:`. Reset to the first
+  // candidate whenever the set changes (compared by value: the array
+  // identity is fresh every render).
+  const candidateKey = candidates.join('\n')
+  useEffect(() => {
+    setIndex(0)
+  }, [candidateKey])
   if (index >= candidates.length) {
     return (
       <Text testID={testID} style={[{color: theme.palette.text}, textStyle]}>
@@ -161,9 +172,11 @@ export function CustomEmojiGlyph({
     )
   }
   return (
-    <Image
-      source={{uri: candidates[index]}}
-      style={[styles.remote, {width: size, height: size}]}
+    <AppImage
+      uri={candidates[index]}
+      contentFit="contain"
+      recyclingKey={candidates[index]}
+      style={{width: size, height: size}}
       onError={() => setIndex(i => i + 1)}
       accessibilityRole="image"
       accessibilityLabel={code}

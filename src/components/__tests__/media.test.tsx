@@ -8,7 +8,7 @@ import type {Media} from '@keystone/fedi'
 import {ThemeProvider} from '#/alf/index'
 import {overlayChrome} from '#/alf/themes'
 import {Lightbox} from '#/components/Lightbox'
-import {MediaGrid, mediaAlt} from '#/components/MediaGrid'
+import {mediaAlt} from '#/lib/mediaAlt'
 
 i18n.load('en', {})
 i18n.activate('en')
@@ -47,52 +47,18 @@ describe('mediaAlt', () => {
     expect(mediaAlt(imageMedia({description: 'A cat'}), 0)).toBe('A cat')
     expect(mediaAlt(imageMedia({description: null}), 0)).toContain('Image attachment 1')
   })
-})
 
-describe('MediaGrid', () => {
-  it('renders nothing without media', () => {
-    const {toJSON} = renderWithProviders(<MediaGrid media={[]} testID="grid" />)
-    expect(toJSON()).toBeNull()
+  it('trims the description and falls back on blank', () => {
+    expect(mediaAlt(imageMedia({description: '  A cat  '}), 0)).toBe('A cat')
+    expect(mediaAlt(imageMedia({description: '   '}), 2)).toContain('Image attachment 3')
   })
 
-  it('every tile carries alt text; taps open by index', () => {
-    const onOpen = jest.fn()
-    const media = [
-      imageMedia({id: 'm1', description: 'A cat on a sofa'}),
-      imageMedia({id: 'm2', description: null, name: 'beach.jpg'}),
-    ]
-    renderWithProviders(<MediaGrid media={media} onOpen={onOpen} testID="grid" />)
-    expect(screen.getByLabelText('A cat on a sofa')).toBeTruthy()
-    expect(screen.getByLabelText('Image attachment 2: beach.jpg')).toBeTruthy()
-    fireEvent.press(screen.getByLabelText('Open media: A cat on a sofa'))
-    expect(onOpen).toHaveBeenCalledWith(0)
-  })
-
-  it('sensitive media hides behind a reveal veil', () => {
-    const onOpen = jest.fn()
-    const media = [imageMedia({isSensitive: true, description: 'Sneaky'})]
-    renderWithProviders(<MediaGrid media={media} sensitive onOpen={onOpen} testID="grid" />)
-    expect(screen.getByTestId('media-sensitive-veil')).toBeTruthy()
-    expect(screen.queryByLabelText('Sneaky')).toBeNull()
-    fireEvent.press(screen.getByTestId('media-reveal'))
-    expect(screen.getByLabelText('Sneaky')).toBeTruthy()
-  })
-
-  it('video tiles are labelled and still openable', () => {
-    const onOpen = jest.fn()
-    const media = [
-      imageMedia({
-        id: 'v1',
-        kind: 'video',
-        mimeType: 'video/mp4',
-        url: 'https://cdn.example/v1.mp4',
-        description: 'Launch clip',
-      }),
-    ]
-    renderWithProviders(<MediaGrid media={media} onOpen={onOpen} />)
-    expect(screen.getByLabelText('Launch clip')).toBeTruthy()
-    fireEvent.press(screen.getByLabelText(/Open media: Launch clip/))
-    expect(onOpen).toHaveBeenCalledWith(0)
+  it('names the kind, position, and file for every attachment kind', () => {
+    expect(mediaAlt(imageMedia({kind: 'video', name: 'clip.mp4'}), 1)).toBe('Video attachment 2: clip.mp4')
+    expect(mediaAlt(imageMedia({kind: 'gifv', name: ''}), 0)).toBe('Video attachment 1')
+    expect(mediaAlt(imageMedia({kind: 'audio', name: 'song.mp3'}), 0)).toBe('Audio attachment 1: song.mp3')
+    expect(mediaAlt(imageMedia({kind: 'file', name: 'doc.pdf'}), 3)).toBe('File attachment 4: doc.pdf')
+    expect(mediaAlt(imageMedia({kind: 'image', name: ''}), 0)).toBe('Image attachment 1')
   })
 })
 

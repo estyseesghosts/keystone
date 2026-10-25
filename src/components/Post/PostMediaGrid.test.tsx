@@ -10,6 +10,30 @@ import {PostMediaGrid, displayAspect, isOutOfRange, tileAspect, MAX_DISPLAY_H} f
 i18n.load('en', {})
 i18n.activate('en')
 
+/** expo-image element for a Still tile: the testID is forwarded to
+ * wrapper views (Lightbox precedent), so prop assertions pick the match
+ * that owns the `source` key (including placeholder-only `null`), falling
+ * back to a styled match. */
+function sourcedByTestId(testID: string): any {
+  const all = screen.UNSAFE_queryAllByProps({testID} as never) as unknown as Array<any>
+  const found =
+    all.find(el => el.props != null && 'source' in el.props) ??
+    all.find(el => el.props?.style !== undefined)
+  if (!found) throw new Error(`no sourced element for ${testID} (${all.length} matches)`)
+  return found
+}
+
+/** All host elements carrying an accessibility label (expo-image forwards
+ * labels to wrappers, and label-less TileFrames reuse the tile label, so
+ * `getByLabelText` can match more than one — count instead). */
+function labelled(label: string): Array<any> {
+  return screen.UNSAFE_queryAllByProps({accessibilityLabel: label} as never) as unknown as Array<any>
+}
+
+function stillImg(id: string): any {
+  return sourcedByTestId(`media-still-${id}`)
+}
+
 function renderWithProviders(ui: React.ReactElement) {
   return render(
     <I18nProvider i18n={i18n}>
@@ -93,9 +117,10 @@ describe('tileAspect', () => {
     expect(tileAspect(imageMedia(), true)).toBe(16 / 10)
   })
 
-  it('leaves the multi strip layout alone (no clamp)', () => {
+  it('clamps strip ratios to the display range (no 2200px panoramas)', () => {
     expect(tileAspect(imageMedia(), false)).toBe(4 / 3)
-    expect(tileAspect(metaMedia(3000, 1000), false)).toBe(3)
+    expect(tileAspect(metaMedia(3000, 1000), false)).toBe(2)
+    expect(tileAspect(metaMedia(100, 1000), false)).toBe(0.75)
   })
 })
 
@@ -126,7 +151,7 @@ describe('PostMediaGrid sizing', () => {
         testID="grid"
       />,
     )
-    expect(screen.getByLabelText('Tall').props.resizeMode).toBe('contain')
+    expect(stillImg('m1').props.contentFit).toBe('contain')
   })
 
   it('crops ONLY outside singles (cover to the clamped box)', () => {
@@ -138,7 +163,7 @@ describe('PostMediaGrid sizing', () => {
         testID="grid"
       />,
     )
-    expect(screen.getByLabelText('Pano').props.resizeMode).toBe('cover')
+    expect(stillImg('m1').props.contentFit).toBe('cover')
   })
 
   it('keeps the uniform cover crop on strip tiles', () => {
@@ -150,8 +175,60 @@ describe('PostMediaGrid sizing', () => {
         testID="grid"
       />,
     )
-    expect(screen.getByLabelText('One').props.resizeMode).toBe('cover')
-    expect(screen.getByLabelText('Two').props.resizeMode).toBe('cover')
+    expect(stillImg('m1').props.contentFit).toBe('cover')
+    expect(stillImg('m2').props.contentFit).toBe('cover')
+  })
+
+  it('prefers the preview URL and holds the blurhash placeholder', () => {
+    renderWithProviders(
+      <PostMediaGrid
+        media={[
+          imageMedia({
+            id: 'm1',
+            description: 'Previewed',
+            url: 'https://cdn.example/full.png',
+            previewUrl: 'https://cdn.example/thumb.png',
+            blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj',
+          }),
+        ]}
+        testID="grid"
+      />,
+    )
+    // The 220px tile decodes the thumbnail, never the multi-MB original.
+    expect(stillImg('m1').props.source).toEqual({uri: 'https://cdn.example/thumb.png'})
+    expect(stillImg('m1').props.placeholder).toEqual({blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj'})
+    expect(stillImg('m1').props.recyclingKey).toBe('m1')
+  })
+
+  it('falls back to the generated alt text, never the bare kind', () => {
+    renderWithProviders(
+      <PostMediaGrid
+        media={[imageMedia({id: 'm1', description: null, name: ''})]}
+        onOpen={() => {}}
+        testID="grid"
+      />,
+    )
+    expect(screen.getByLabelText('Image attachment 1')).toBeTruthy()
+  })
+
+  it('re-fits a meta-less frame once expo-image reports the decoded size', () => {
+    renderWithProviders(
+      <PostMediaGrid media={[imageMedia({id: 'm1', description: 'Tall'})]} testID="grid" />,
+    )
+    expect(stillImg('m1').props.contentFit).toBe('contain')
+    fireEvent(stillImg('m1'), 'onLoad', {
+      source: {url: 'https://cdn.example/i1.png', width: 3000, height: 1000, mediaType: 'image/png'},
+    })
+    // A 3:1 panorama is outside the display range: it crops to the box.
+    expect(stillImg('m1').props.contentFit).toBe('cover')
+  })
+
+  it('tolerates a load event with no size (test-renderer bare fire)', () => {
+    renderWithProviders(
+      <PostMediaGrid media={[imageMedia({id: 'm1', description: 'Tall'})]} testID="grid" />,
+    )
+    expect(() => fireEvent(stillImg('m1'), 'onLoad')).not.toThrow()
+    expect(stillImg('m1').props.contentFit).toBe('contain')
   })
 
   it('renders nothing without media', () => {
@@ -159,7 +236,7 @@ describe('PostMediaGrid sizing', () => {
     expect(toJSON()).toBeNull()
   })
 
-  it('keeps per-tile sensitive gates', () => {
+  it('keeps per-tile sensitive gates keyed by media id', () => {
     const onOpen = jest.fn()
     renderWithProviders(
       <PostMediaGrid
@@ -168,9 +245,55 @@ describe('PostMediaGrid sizing', () => {
         testID="grid"
       />,
     )
-    expect(screen.getByTestId('media-sensitive-show')).toBeTruthy()
-    fireEvent.press(screen.getByTestId('media-sensitive-show'))
+    // The hidden tile reserves its frame with a blurhash cover (never a
+    // blank box) and an explicit Show control — never the bare tile.
+    expect(screen.getByTestId('media-sensitive-cover-m1')).toBeTruthy()
+    expect(screen.queryByLabelText('Sneaky')).toBeNull()
+    fireEvent.press(screen.getByTestId('media-sensitive-show-m1'))
     expect(screen.getByLabelText('Sneaky')).toBeTruthy()
+  })
+
+  it('reveals only the tapped tile and re-hides on Hide', () => {
+    renderWithProviders(
+      <PostMediaGrid
+        media={[
+          imageMedia({id: 's1', isSensitive: true, description: 'First'}),
+          imageMedia({id: 's2', isSensitive: true, description: 'Second'}),
+        ]}
+        testID="grid"
+      />,
+    )
+    fireEvent.press(screen.getByTestId('media-sensitive-show-s1'))
+    expect(labelled('First').length).toBeGreaterThan(0)
+    // The second tile stays behind its own gate (id-keyed, not indexed).
+    expect(screen.queryByLabelText('Second')).toBeNull()
+    expect(screen.getByTestId('media-sensitive-show-s2')).toBeTruthy()
+    // Re-hide returns the first tile behind its cover.
+    fireEvent.press(screen.getByTestId('media-sensitive-hide-s1'))
+    expect(screen.queryByLabelText('First')).toBeNull()
+    expect(screen.getByTestId('media-sensitive-show-s1')).toBeTruthy()
+  })
+
+  it('covers sensitive tiles with the blurhash and fetches nothing', () => {
+    renderWithProviders(
+      <PostMediaGrid
+        media={[
+          imageMedia({
+            id: 's1',
+            isSensitive: true,
+            description: 'Hidden',
+            blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj',
+          }),
+        ]}
+        testID="grid"
+      />,
+    )
+    // Placeholder-only: no source URI, so no sensitive bytes load.
+    const blur = sourcedByTestId('media-sensitive-blur-s1')
+    expect(blur.props.source).toBeNull()
+    expect(blur.props.placeholder).toEqual({blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj'})
+    fireEvent.press(screen.getByTestId('media-sensitive-show-s1'))
+    expect(labelled('Hidden').length).toBeGreaterThan(0)
   })
 
   it('missing URLs render the honest placeholder, never a fetch', () => {

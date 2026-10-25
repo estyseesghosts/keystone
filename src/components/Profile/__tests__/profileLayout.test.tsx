@@ -99,7 +99,11 @@ describe('ProfileHeader background', () => {
     expect(screen.getByTestId('profile-background', bgOpts).props.source).toEqual({
       uri: 'https://example.test/bg.png',
     })
-    expect(screen.getByTestId('profile-banner').props.source).toEqual({
+    // expo-image forwards the banner testID to wrapper views: the sourced
+    // match keeps the original props.
+    const bannerAll = screen.UNSAFE_queryAllByProps({testID: 'profile-banner'} as never) as unknown as Array<any>
+    const bannerImg = bannerAll.find(el => el.props?.source !== undefined)
+    expect(bannerImg?.props.source).toEqual({
       uri: 'https://example.test/banner.png',
     })
   })

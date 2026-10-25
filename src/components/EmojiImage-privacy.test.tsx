@@ -10,6 +10,15 @@ function renderGlyph(ui: React.ReactElement) {
   return render(<ThemeProvider theme="light">{ui}</ThemeProvider>)
 }
 
+// expo-image forwards testIDs to wrapper views (no `source` there): prop
+// assertions pick the sourced match, which keeps the original props.
+function sourcedByTestId(testID: string): any {
+  const all = screen.UNSAFE_queryAllByProps({testID} as never) as unknown as Array<any>
+  const found = all.find(el => el.props?.source !== undefined)
+  if (!found) throw new Error(`no sourced element for ${testID} (${all.length} matches)`)
+  return found
+}
+
 describe('CustomEmojiGlyph packed-source guard (repair X2.5)', () => {
   it('loads a node src that matches the packed map', () => {
     renderGlyph(
@@ -21,7 +30,7 @@ describe('CustomEmojiGlyph packed-source guard (repair X2.5)', () => {
         testID="g-ok"
       />,
     )
-    expect(screen.getByTestId('g-ok').props.source?.uri).toBe('https://packed.example/wave.png')
+    expect(sourcedByTestId('g-ok').props.source?.uri).toBe('https://packed.example/wave.png')
   })
 
   it('renders the literal :code: for a node src outside the packed map (tracking pixel)', () => {
@@ -51,6 +60,6 @@ describe('CustomEmojiGlyph packed-source guard (repair X2.5)', () => {
     renderGlyph(
       <CustomEmojiGlyph name="pick" host={null} src="https://picker.example/pick.png" packed={null} testID="g-pick" />,
     )
-    expect(screen.getByTestId('g-pick').props.source?.uri).toBe('https://picker.example/pick.png')
+    expect(sourcedByTestId('g-pick').props.source?.uri).toBe('https://picker.example/pick.png')
   })
 })

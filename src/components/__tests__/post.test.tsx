@@ -151,7 +151,7 @@ describe('PostCard', () => {
       <PostCard post={makePost({id: 'p6', media: [makeMedia({id: 's1', isSensitive: true})]})} sessionId={SESSION} />,
     )
     expect(screen.queryByTestId('media-s1')).toBeNull()
-    fireEvent.press(screen.getByTestId('media-sensitive-show'))
+    fireEvent.press(screen.getByTestId('media-sensitive-show-s1'))
     expect(screen.getByTestId('media-s1')).toBeTruthy()
   })
 

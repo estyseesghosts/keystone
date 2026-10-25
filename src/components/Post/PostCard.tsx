@@ -7,7 +7,7 @@
 // `unsupported`. Never wired, never inert, never faked.
 
 import {memo, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore} from 'react'
-import {Image, Linking, Platform, Share, StyleSheet, View, type StyleProp, type ViewStyle} from 'react-native'
+import {Linking, Platform, Share, StyleSheet, View, type StyleProp, type ViewStyle} from 'react-native'
 
 import {QueryClientContext} from '@tanstack/react-query'
 
@@ -37,6 +37,7 @@ import {
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
+import {AppImage} from '#/components/Image'
 import {DisplayName, shouldCollapseName} from '#/components/DisplayName'
 import {RichText, defaultHashtagPress, defaultMentionPress} from '#/components/RichText'
 import {canCopy, copyText} from '#/lib/clipboard'
@@ -210,8 +211,11 @@ function Avatar({post, sessionId, backend}: {post: Post; sessionId: string; back
         <Body>{displayNameOf(post.author).slice(0, 1).toUpperCase()}</Body>
       </View>
     ) : (
-      <Image
-        source={{uri: avatarUri}}
+      <AppImage
+        uri={avatarUri}
+        blurhash={post.author.avatarBlurhash ?? null}
+        contentFit="cover"
+        recyclingKey={avatarUri}
         style={[styles.avatar, {borderColor: theme.palette.border}]}
         accessibilityRole="image"
         accessibilityLabel={displayNameOf(post.author)}

@@ -35,6 +35,14 @@ beforeEach(() => {
 
 const mockBackendHolder: {current: any} = {current: null}
 
+// Repair X7.3: the editor preview now renders through expo-image (via
+// ProfileAvatar/ProfileBanner), which forwards the testID to wrapper
+// views — prop assertions pick the sourced match (original props).
+function previewSource(testID: string): unknown {
+  const all = screen.UNSAFE_queryAllByProps({testID} as never) as unknown as Array<any>
+  return all.find(el => el.props?.source !== undefined)?.props?.source
+}
+
 jest.mock('@keystone/fedi', () => ({
   ...jest.requireActual('@keystone/fedi'),
   backendForSession: () => mockBackendHolder.current,
@@ -250,7 +258,7 @@ describe('ProfileEditorScreen (misskey family)', () => {
       expect(mockGoBack).not.toHaveBeenCalled()
       // The server's URL is what the row shows afterwards.
       await waitFor(() =>
-        expect(screen.getByTestId('profile-editor-avatar-preview').props.source).toEqual({
+        expect(previewSource('profile-editor-avatar-preview')).toEqual({
           uri: 'https://m.example/new-avatar.png',
         }),
       )
@@ -384,7 +392,7 @@ describe('ProfileEditorScreen (mastodon family)', () => {
       await waitFor(() => expect(backend.uploadProfileImage).toHaveBeenCalled())
       expect(backend.uploadProfileImage.mock.calls[0][0]).toBe('banner')
       await waitFor(() =>
-        expect(screen.getByTestId('profile-editor-banner-preview').props.source).toEqual({
+        expect(previewSource('profile-editor-banner-preview')).toEqual({
           uri: 'https://m.example/new-banner.png',
         }),
       )

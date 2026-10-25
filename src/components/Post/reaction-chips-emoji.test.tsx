@@ -31,6 +31,15 @@ const memVault = (): TokenVault => ({
   removeToken: () => Promise.resolve(),
 })
 
+// expo-image forwards accessibility labels to wrapper views (no `source`
+// there): label prop assertions pick the sourced match.
+function sourcedByLabel(label: string): any {
+  const all = screen.UNSAFE_queryAllByProps({accessibilityLabel: label} as never) as unknown as Array<any>
+  const found = all.find(el => el.props?.source !== undefined)
+  if (!found) throw new Error(`no sourced element for label ${label} (${all.length} matches)`)
+  return found
+}
+
 function jsonRes(body: unknown, status = 200) {
   return {
     ok: status >= 200 && status < 300,
@@ -108,7 +117,7 @@ describe('PF-E1 reaction chip art', () => {
         />,
         store,
       )
-      await waitFor(() => expect(screen.getByLabelText(`:wave@${REMOTE}:`).props.source?.uri).toBe(REMOTE_URL))
+      await waitFor(() => expect(sourcedByLabel(`:wave@${REMOTE}:`).props.source?.uri).toBe(REMOTE_URL))
     } finally {
       restore()
     }
@@ -131,7 +140,7 @@ describe('PF-E1 reaction chip art', () => {
         store,
       )
       await waitFor(() =>
-        expect(screen.getByLabelText(`:wave@${REMOTE}:`).props.source?.uri).toBe('https://packed.example/wave.png'),
+        expect(sourcedByLabel(`:wave@${REMOTE}:`).props.source?.uri).toBe('https://packed.example/wave.png'),
       )
     } finally {
       restore()
@@ -150,7 +159,7 @@ describe('PF-E1 reaction chip art', () => {
       />,
       store,
     )
-    expect(screen.getByLabelText(':hehe:').props.source?.uri).toBe('https://akk.example/hehe.png')
+    expect(sourcedByLabel(':hehe:').props.source?.uri).toBe('https://akk.example/hehe.png')
   })
 
   it('keeps unicode chips rendering (no url, no colons)', () => {

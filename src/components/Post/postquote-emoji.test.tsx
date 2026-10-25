@@ -29,6 +29,15 @@ const memVault = (): TokenVault => ({
   removeToken: () => Promise.resolve(),
 })
 
+// expo-image forwards accessibility labels to wrapper views (no `source`
+// there): label prop assertions pick the sourced match.
+function sourcedByLabel(label: string): any {
+  const all = screen.UNSAFE_queryAllByProps({accessibilityLabel: label} as never) as unknown as Array<any>
+  const found = all.find(el => el.props?.source !== undefined)
+  if (!found) throw new Error(`no sourced element for label ${label} (${all.length} matches)`)
+  return found
+}
+
 function jsonRes(body: unknown, status = 200) {
   return {
     ok: status >= 200 && status < 300,
@@ -106,7 +115,7 @@ describe('PF-E1 PostQuote session threading', () => {
         emojis: {},
       })
       renderTree(<PostQuote quote={quote} unavailable={false} sessionId={session.id} testID="q" />, store)
-      await waitFor(() => expect(screen.getByLabelText(`:wave@${REMOTE}:`).props.source?.uri).toBe(REMOTE_URL))
+      await waitFor(() => expect(sourcedByLabel(`:wave@${REMOTE}:`).props.source?.uri).toBe(REMOTE_URL))
     } finally {
       restore()
     }
@@ -123,7 +132,7 @@ describe('PF-E1 PostQuote session threading', () => {
         emojis: {},
       })
       renderTree(<PostQuote quote={quote} unavailable={false} sessionId={session.id} testID="q" />, store)
-      await waitFor(() => expect(screen.getByLabelText(`:wave@${REMOTE}:`).props.source?.uri).toBe(REMOTE_URL))
+      await waitFor(() => expect(sourcedByLabel(`:wave@${REMOTE}:`).props.source?.uri).toBe(REMOTE_URL))
     } finally {
       restore()
     }
