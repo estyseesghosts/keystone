@@ -36,7 +36,12 @@
     "intl:extract": "lingui extract --clean --locale en",
     "intl:compile": "lingui compile",
     "prettier": "prettier --check .",
-    "smoke": "esbuild scripts/fedi-smoke.ts --bundle --platform=node --format=cjs --outfile=scripts/.fedi-smoke.bundle.cjs --log-level=warning && node scripts/.fedi-smoke.bundle.cjs"
+    "smoke": "esbuild scripts/fedi-smoke.ts --bundle --platform=node --format=cjs --outfile=scripts/.fedi-smoke.bundle.cjs --log-level=warning && node scripts/.fedi-smoke.bundle.cjs",
+    "probe:w4": "esbuild scripts/fedi-w4-probe.ts --bundle --platform=node --format=cjs --outfile=scripts/.fedi-w4-probe.bundle.cjs --log-level=warning && node scripts/.fedi-w4-probe.bundle.cjs",
+    "probe:w5": "esbuild scripts/fedi-w5-probe.ts --bundle --platform=node --format=cjs --outfile=scripts/.fedi-w5-probe.bundle.cjs --log-level=warning && node scripts/.fedi-w5-probe.bundle.cjs",
+    "probe:w8": "esbuild scripts/fedi-w8-probe.ts --bundle --platform=node --format=cjs --outfile=scripts/.fedi-w8-probe.bundle.cjs --log-level=warning && node scripts/.fedi-w8-probe.bundle.cjs",
+    "probe:wsc": "esbuild scripts/fedi-wsc-probe.ts --bundle --platform=node --format=cjs --outfile=scripts/.fedi-wsc-probe.bundle.cjs --log-level=warning && node scripts/.fedi-wsc-probe.bundle.cjs",
+    "helium": "node scripts/helium.mjs"
   },
   "dependencies": {
     "@lingui/core": "^5.9.2",
@@ -67,7 +72,6 @@
     "htmlparser2": "^12.0.0",
     "mfm-js": "^0.27.0",
     "react": "19.2.3",
-    "react-compiler-runtime": "1.0.0",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
@@ -88,7 +92,7 @@
     "@lingui/cli": "^5.9.2",
     "@lingui/macro": "^5.9.2",
     "@react-native/babel-preset": "0.86.3",
-    "@react-native/typescript-config": "^0.81.5",
+    "@react-native/typescript-config": "0.86.3",
     "@testing-library/react-native": "^13.2.0",
     "@types/jest": "29.5.14",
     "@types/node": "^24.12.2",

@@ -201,3 +201,30 @@ reflects the owner's account state (notifications especially: v1/v2 pages go
 to the new `notifications-recorded.json` /
 `notifications-grouped-recorded.json` files so existing test rows are not
 clobbered; promote them deliberately).
+
+## 9. Live backend probes (repair X11.1)
+
+`scripts/fedi-smoke.ts` (`pnpm smoke`) is the read-only baseline: detect /
+meta / timeline / post / account against every rig origin (Misskey `:3101`,
+Sharkey `:3102`, Pinetree `:3000`, Akkoma `:4000`; down servers report, never
+fake). The four `fedi-w*-probe.ts` scripts go further — authed, live,
+per-workstream probes against the Akkoma rig (`:4000`, `akk1` /
+`password123` via password grant). All follow the `pnpm smoke` pattern
+(esbuild-bundle then run; failures print and exit nonzero) and clean up any
+writes after themselves. None is obsolete; all are typechecked
+(`tsconfig.check.json` includes `scripts/`) and runnable via `pnpm`:
+
+| Script (`pnpm …`) | What it probes | Run |
+|---|---|---|
+| `fedi-w4-probe.ts` (`probe:w4`) | W4 Mastodon rows: notifications grouped:true (flat v1 fallback on Akkoma), type-filtered page + cursor second page; bookmarks two pages via Link header; filters list/create/update/delete (v1 fallback; Akkoma has no `/api/v2/filters`) | `pnpm probe:w4` (`FEDI_W4_ORIGIN` / `FEDI_W4_USER` / `FEDI_W4_PASSWORD` override origin/creds) |
+| `fedi-w5-probe.ts` (`probe:w5`) | W5 N4/N5/N10/N12: explore users/tags/posts, unified search + autocomplete, viewer followers/following, bookmarks add/list/remove round-trip; asserts clips/antennas/drive stay undefined on the Mastodon backend | `pnpm probe:w5` (`FEDI_W5_ORIGIN` / `FEDI_W5_USER` / `FEDI_W5_PASSWORD`) |
+| `fedi-w8-probe.ts` (`probe:w8`) | W8 MD6–MD9 + filters/scheduled: profile reads/writes (write reverts), scheduled posts, filter CRUD | `pnpm probe:w8` (`FEDI_W8_ORIGIN` / `FEDI_W8_USER` / `FEDI_W8_PASSWORD`) |
+| `fedi-wsc-probe.ts` (`probe:wsc`) | WS-C remote-emoji fallback: posts a remote (`:name@host:`) + local emoji status, reads it back, verifies the remote host listing serves the emoji image (200), then deletes the post | `pnpm probe:wsc` (same `FEDI_W8_*` env as w8; remote host currently `misskey.io`) |
+
+`scripts/helium.mjs` (`pnpm helium …`) is the Helium CDP driver (no deps —
+global WebSocket + fetch): `new-tab`, `goto`, `shot`, `eval`, `close` plus
+`typeText` / `clickText` / `fillInput` helpers. It drives the owner's Helium
+browser (CDP on `:9222`, `CDP_PORT` overrides) for signed-in web parity
+checks with screenshots; referenced from `docs/DECISIONS.md` and the W3/W4 /
+W5 / W8 task logs. Kept, not a probe — it takes its subcommand as args, e.g.
+`pnpm helium new-tab http://127.0.0.1:8088`.
