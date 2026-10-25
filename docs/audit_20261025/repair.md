@@ -1168,8 +1168,8 @@ Audit: misskey M3
 
 ## X5.4 - Capabilities and edit semantics
 
-Status: not started
-Branch: `repair25-x5.4-misskey-caps-edit`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x5.4.md`; 263 suites / 3684 tests green at Wave-5 commit)
+Branch: `repair25-x5.4-misskey-caps-edit` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: misskey M4, M5, M6, M17 (like)
 
 **Steps.**
@@ -1192,8 +1192,8 @@ Audit: misskey M4, M5, M6, M17 (like)
 
 ## X5.5 - Auth, quote resolver, account fields
 
-Status: not started
-Branch: `repair25-x5.5-misskey-misc`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x5.5.md`; 263 suites / 3684 tests green at Wave-5 commit)
+Branch: `repair25-x5.5-misskey-misc` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: misskey M7, M11, M14
 
 **Steps.**
