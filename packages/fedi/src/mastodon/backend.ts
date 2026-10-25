@@ -1436,12 +1436,20 @@ export function createMastodonBackend(
       // Single pooled handle per backend (MD10): one socket per
       // (stream, params) key, shared across timeline + notification +
       // post subscriptions — subscribing never closes another feed's
-      // socket. The socket dials the ADVERTISED streaming origin, never
-      // an assumed REST-host mapping.
-      return createStreamHandle(client.origin, {
-        token: client.token,
-        streamingOrigin: streamOrigin,
-      });
+      // socket. The first call builds it; later calls share it (the
+      // session-level registry in `api/client.ts` shares the backend
+      // itself, so N feeds + notifications + chat ride one socket per
+      // session per family). The slot lives on the backend instance —
+      // no module state, no cross-session leak. The socket dials the
+      // ADVERTISED streaming origin, never an assumed REST-host mapping.
+      const slot = (this ?? {}) as Partial<{ pooledStream: StreamHandle | null }>;
+      if (slot.pooledStream === undefined) {
+        slot.pooledStream = createStreamHandle(client.origin, {
+          token: client.token,
+          streamingOrigin: streamOrigin,
+        });
+      }
+      return slot.pooledStream;
     },
   };
 }

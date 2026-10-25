@@ -248,7 +248,7 @@ async function smokeOne(rawOrigin: string): Promise<{ origin: string; rows: Row[
   // expected state, and a refused edge must read as blocked, not broken.
   await probeAuthed(origin, detection, rows);
   await probeSubmodules(backend, rows);
-  await probeStream(backend, rows);
+  await probeStream(backend, detection, rows);
 
   return { origin, rows };
 }
@@ -352,9 +352,18 @@ async function probeSubmodules(
 /** Stream handle presence + a bounded authed connect probe. */
 async function probeStream(
   backend: ReturnType<typeof backendForSession>,
+  detection: ServerDetection,
   rows: Row[],
 ): Promise<void> {
   const handle = backend.stream();
+  // Mastodon-family auth rides `Sec-WebSocket-Protocol` (never a
+  // token-in-URL fallback — privacy); Misskey-family rides `?i=` on the
+  // same origin only. The stream-connect row below records whether that
+  // handshake succeeds on the rig.
+  const mechanism =
+    detection.family === "mastodon"
+      ? "subprotocol Sec-WebSocket-Protocol (no token in URL)"
+      : "same-origin ?i= query";
   if (!handle) {
     rows.push({
       check: "stream",
@@ -370,7 +379,12 @@ async function probeStream(
     });
     return;
   }
-  rows.push({ check: "stream", status: "ok", ms: 0, detail: "handle created (no socket opened)" });
+  rows.push({
+    check: "stream",
+    status: "ok",
+    ms: 0,
+    detail: `handle created (no socket opened); auth=${mechanism}`,
+  });
   if (!smokeToken()) {
     rows.push({
       check: "stream-connect",
@@ -391,12 +405,21 @@ async function probeStream(
     sub.unsubscribe();
     rows.push(
       state === "subscribed"
-        ? { check: "stream-connect", status: "ok", ms: Date.now() - start, detail: "live" }
+        ? {
+            check: "stream-connect",
+            status: "ok",
+            ms: Date.now() - start,
+            // Mastodon 4.x takes the whole subprotocol value as the token
+            // (audit mastodon 14): this row going green on the rig is the
+            // evidence the offered pair is accepted — owner live-tests it
+            // externally (`not verified` until then; see X12.1).
+            detail: `live (handshake ok via ${mechanism})`,
+          }
         : {
             check: "stream-connect",
             status: "skip",
             ms: Date.now() - start,
-            detail: `no live edge within 6s (last: ${state})`,
+            detail: `no live edge within 6s (last: ${state}; auth=${mechanism})`,
           },
     );
   } catch (err) {

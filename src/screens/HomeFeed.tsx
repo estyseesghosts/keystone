@@ -60,11 +60,11 @@ export function useActiveBackend(): {session: Session | null; backend: Backend |
 export function useBackendForSessionId(sessionId: string | null): Backend | null {
   const store = useSessionStore()
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot)
-  return useMemo(() => {
-    if (!sessionId) return null
-    const session = snapshot.sessions.find(s => s.id === sessionId) ?? null
-    return session ? backendForSession(session) : null
-  }, [snapshot, sessionId])
+  // Memo on the session object — not the whole snapshot — so a
+  // permission-denied note or health refresh on another account keeps the
+  // pooled backend (and its socket) instead of redialing every live feed.
+  const session = sessionId ? (snapshot.sessions.find(s => s.id === sessionId) ?? null) : null
+  return useMemo(() => (session ? backendForSession(session) : null), [session])
 }
 
 // --- New-posts pill ----------------------------------------------------------

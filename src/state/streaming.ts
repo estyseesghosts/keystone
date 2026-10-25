@@ -61,12 +61,25 @@ export interface FeedLiveOpts {
   onInsert: (posts: Post[]) => void
   /** A watched post was deleted (both families capture watched ids —
    * Misskey broadcast, Mastodon `user` stream filtered by id; see the
-   * `createFeedLive` note on the feed-level seam). */
+   * `createFeedLive` note on the feed-level seam). Feed-level deletes for
+   * unwatched ids arrive through the handle's `onDeletes` fan-out below
+   * and are routed here too, so the cache drops them without a refetch. */
   onDelete?: (id: string) => void
   /** A watched post changed (reaction/reply/renote/poll deltas). */
   onUpdate?: (event: PostUpdateEvent) => void
   /** Called whenever an arrival is buffered (drives the pill; no polling). */
   onPending?: () => void
+}
+
+/**
+ * Mastodon-family feed-level delete fan-out (repair X3.4, mastodon 13):
+ * the handle carries `onDeletes` beyond the `StreamHandle` interface
+ * (read structurally — the core interface stays untouched). The Misskey
+ * handle omits it (its server sends deletes only for captured ids, which
+ * the per-post capture below already covers).
+ */
+interface FeedDeletesFanout {
+  onDeletes?: (handler: (id: string) => void) => () => void
 }
 
 export interface FeedLive {
@@ -104,11 +117,13 @@ export interface FeedLive {
  * broadcast captures, Mastodon `user` stream filtered by id), so
  * watched-id deletes/updates reach the callbacks on either family.
  *
- * Feed-level seam (by design, not a gap): the `StreamHandle` interface
- * carries no feed-level delete channel — `subscribeTimeline` delivers
- * inserts only. A post with no watched id has no cached row to remove
- * (and `onInsert` dedupes against the cache), so the next page fetch
- * drops it. No pill UI here: arrivals still buffer behind
+ * Feed-level deletes (repair X3.4, mastodon 13): the Mastodon handle fans
+ * out every `delete` frame through its `onDeletes` subscription (read
+ * structurally — beyond the `StreamHandle` interface) and they route
+ * through the same `onDelete`, so unwatched ids leave the cache without
+ * a refetch. The Misskey handle has no fan-out (its server only pushes
+ * deletes for captured ids) — `subscribeTimeline` delivers inserts only
+ * there. No pill UI here: arrivals still buffer behind
  * `pending()`/`flush()`.
  */
 export function createFeedLive(opts: FeedLiveOpts): FeedLive {
@@ -150,6 +165,30 @@ export function createFeedLive(opts: FeedLiveOpts): FeedLive {
 
   // Seed the cache baseline so already-loaded posts report deletes/updates.
   for (const id of seen) watchPost(id)
+
+  // Feed-level deletes (mastodon 13): the handle fans out every `delete`
+  // frame — including ids with no watched row, which per-post capture
+  // would never see. They route through the same `onDelete` (the caller
+  // removes the post from its caches), so a deleted post leaves the feed
+  // without waiting for a refresh. Absent on the Misskey handle (its
+  // server only pushes deletes for captured ids).
+  let offFeedDeletes: (() => void) | null = null
+  if (onDelete && handle) {
+    const fanout = handle as StreamHandle & FeedDeletesFanout
+    if (typeof fanout.onDeletes === 'function') {
+      try {
+        offFeedDeletes = fanout.onDeletes(id => {
+          try {
+            onDelete(id)
+          } catch {
+            // A delete listener must never break dispatch.
+          }
+        })
+      } catch {
+        // A capture that throws at subscribe time is dropped, never fatal.
+      }
+    }
+  }
 
   if (handle) {
     subscription = handle.subscribeTimeline(source, post => {
@@ -217,6 +256,12 @@ export function createFeedLive(opts: FeedLiveOpts): FeedLive {
       subscription?.unsubscribe()
       subscription = null
       unwatchAll()
+      try {
+        offFeedDeletes?.()
+      } catch {
+        // Dispose is best-effort.
+      }
+      offFeedDeletes = null
       buffer = []
     },
   }

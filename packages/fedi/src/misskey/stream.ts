@@ -58,7 +58,8 @@ export type StreamStatus =
   | "connecting"
   | "live"
   | "reconnecting"
-  | "error";
+  | "error"
+  | "idle";
 
 export type ChannelStatus =
   | "disabled"
@@ -141,6 +142,28 @@ const BACKOFF_MAX_MS = 30_000;
 // would spin forever).
 const QUICK_CLOSE_MS = 2_000;
 const MAX_QUICK_CLOSES = 5;
+/** A dialed socket that never opens within this long is a failure (the
+ * Mastodon family has the same 10s ack watchdog): close it and back off,
+ * never sit in `connecting` forever (captive portal, blackholed SYN). */
+const CONNECT_TIMEOUT_MS = 10_000;
+/** Heartbeat cadence while live (under the server's 2min idle kill, over
+ * its 60s protocol ping): a quiet socket still proves itself this often. */
+const HEARTBEAT_INTERVAL_MS = 60_000;
+/** Consecutive unanswered heartbeat pings that mean the socket is
+ * half-open: close it and reconnect (the traffic proves liveness in
+ * between, so a chatty socket never pings at all). */
+const MAX_MISSED_PONGS = 2;
+
+/** Dropped inbound stream events this process has counted (dev counter:
+ * malformed frames, unvalidated payloads, throwing handlers — dropped,
+ * never thrown out of the socket listener, never logged). */
+let droppedEvents = 0;
+
+/** How many inbound stream events were dropped as malformed. Exported
+ * for tests; the socket stays up regardless. */
+export function droppedStreamEventCount(): number {
+  return droppedEvents;
+}
 
 const LIVE_OPEN_MESSAGE = "Could not open the live connection.";
 const LIVE_REFUSED_MESSAGE =
@@ -197,9 +220,22 @@ export function createStreamPool(opts: StreamPoolOptions): StreamPool {
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let backoffMs = BACKOFF_BASE_MS;
   let quickCloses = 0;
-  let lastOpenAt = 0;
+  /** When the current socket logically opened (`null` = never). The
+   * breaker decides from `now - openedAt` in the close handler, never
+   * from resets in the open handler (an accept-then-close loop must keep
+   * counting). */
+  let openedAt: number | null = null;
   let wantSocket = false;
   let nextLocalId = 0;
+  /** Dial watchdog: a socket that never opens within CONNECT_TIMEOUT_MS. */
+  let connectTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Heartbeat while live (see `startHeartbeat`): cadence timer, the
+   * in-flight ping id + its ack timer, and consecutive unanswered pings. */
+  let heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
+  let pingId: string | null = null;
+  let pingTimer: ReturnType<typeof setTimeout> | null = null;
+  let missedPongs = 0;
+  let pingSeq = 0;
 
   function emitStatus(): void {
     events.emit("status", poolStatus);
@@ -211,9 +247,17 @@ export function createStreamPool(opts: StreamPoolOptions): StreamPool {
     emitStatus();
   }
 
-  function sendMessage(type: string, body?: Record<string, unknown>): void {
-    if (!socket || socket.readyState !== openValue) return;
-    socket.send(JSON.stringify(body === undefined ? { type } : { type, body }));
+  /** Best-effort send on the current socket. Returns whether the frame
+   * was actually handed to the socket (a frame dropped on a
+   * not-yet-open socket is queued, never armed — see `sendConnect`). */
+  function sendMessage(type: string, body?: Record<string, unknown>): boolean {
+    if (!socket || socket.readyState !== openValue) return false;
+    try {
+      socket.send(JSON.stringify(body === undefined ? { type } : { type, body }));
+    } catch {
+      return false;
+    }
+    return true;
   }
 
   function armAckTimeout(sub: Sub): void {
@@ -230,13 +274,20 @@ export function createStreamPool(opts: StreamPoolOptions): StreamPool {
   function sendConnect(sub: Sub): void {
     sub.acked = false;
     sub.status = "pending";
-    sendMessage("connect", {
-      channel: sub.channel,
-      id: sub.serverId,
-      ...(Object.keys(sub.params).length > 0 ? { params: sub.params } : {}),
-      pong: true,
-    });
-    armAckTimeout(sub);
+    // The ack watchdog starts only after the message is actually sent: on
+    // a slow dial the frame is queued until `open` (the open handler
+    // re-sends every subscribe) instead of marking the sub `unavailable`
+    // for a message the server never saw.
+    if (
+      sendMessage("connect", {
+        channel: sub.channel,
+        id: sub.serverId,
+        ...(Object.keys(sub.params).length > 0 ? { params: sub.params } : {}),
+        pong: true,
+      })
+    ) {
+      armAckTimeout(sub);
+    }
   }
 
   function sendAllSubscribes(): void {
@@ -255,6 +306,132 @@ export function createStreamPool(opts: StreamPoolOptions): StreamPool {
     }, delay);
   }
 
+  function clearConnectTimer(): void {
+    if (connectTimer) {
+      clearTimeout(connectTimer);
+      connectTimer = null;
+    }
+  }
+
+  /** Heartbeat liveness while `live` (two missed pongs -> reconnect).
+   *
+   * The server pings every 60s at the protocol level (auto-answered) and
+   * kills idle connections after 2min, so a half-open socket shows no
+   * `close` and stays `live` forever. The client therefore proves the
+   * round trip itself: every HEARTBEAT_INTERVAL_MS with no inbound traffic
+   * it connects a throwaway `globalTimeline` subscription with `pong: true`
+   * (documented frames only) and waits for the `connected` ack. A chatty
+   * socket never pings — traffic is the proof. Two consecutive unanswered
+   * pings close the socket and reconnect with the normal backoff. */
+  function stopHeartbeat(): void {
+    if (heartbeatTimer) {
+      clearTimeout(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+    if (pingTimer) {
+      clearTimeout(pingTimer);
+      pingTimer = null;
+    }
+    pingId = null;
+  }
+
+  function sendPing(): void {
+    if (socket === null || pingId !== null) return;
+    pingSeq += 1;
+    const id = `hb-${Date.now().toString(36)}-${pingSeq}`;
+    if (
+      !sendMessage("connect", { channel: "globalTimeline", id, pong: true })
+    ) {
+      return;
+    }
+    pingId = id;
+    pingTimer = setTimeout(() => {
+      pingTimer = null;
+      pingId = null;
+      missedPongs += 1;
+      if (missedPongs < MAX_MISSED_PONGS) return;
+      // Half-open: the socket takes frames but answers nothing. Close it
+      // and let the normal path redial (a healthy close resets the
+      // breaker there, so this never trips the fast-fail on its own).
+      const ws = socket;
+      socket = null;
+      if (ws) {
+        try {
+          ws.close();
+        } catch {
+          // Ignore — the state moves on regardless.
+        }
+      }
+      afterGone();
+    }, ACK_TIMEOUT_MS);
+  }
+
+  function scheduleHeartbeat(): void {
+    if (heartbeatTimer) clearTimeout(heartbeatTimer);
+    const timer = setTimeout(() => {
+      heartbeatTimer = null;
+      if (socket === null || poolStatus !== "live") return;
+      if (pingId !== null) return; // a ping is already in flight
+      if (Date.now() - (poolLastEventAt ?? 0) < HEARTBEAT_INTERVAL_MS) {
+        missedPongs = 0;
+        scheduleHeartbeat();
+        return;
+      }
+      sendPing();
+      scheduleHeartbeat();
+    }, HEARTBEAT_INTERVAL_MS);
+    heartbeatTimer = timer;
+    // A quiet socket must not hold the process open on its own (the
+    // one-shot ack/reconnect timers stay ref'd like the existing ones).
+    (heartbeatTimer as unknown as { unref?: () => void }).unref?.();
+  }
+
+  function startHeartbeat(): void {
+    stopHeartbeat();
+    if (socket === null) return;
+    scheduleHeartbeat();
+  }
+
+  /** One socket went away (close, error-close, dial/connect-timeout, or
+   * two missed pongs). Subs drop to pending; the breaker decides between
+   * a bounded redial and the dead state. */
+  function afterGone(): void {
+    stopHeartbeat();
+    clearConnectTimer();
+    const upSince = openedAt;
+    openedAt = null;
+    for (const sub of subs.values()) {
+      sub.acked = false;
+      if (sub.ackTimer) {
+        clearTimeout(sub.ackTimer);
+        sub.ackTimer = null;
+      }
+      sub.status = "pending";
+    }
+    if (!wantSocket) return;
+    // Fast-fail: closes right after open, over and over, mean the server
+    // is refusing the connection (e.g. revoked token surfacing as an
+    // opaque close). A connection that stayed up past QUICK_CLOSE_MS
+    // resets the count HERE instead of in the open handler — an
+    // accept-then-close loop trips the breaker instead of spinning
+    // forever. Stop and say so instead of retrying blindly.
+    if (upSince === null || Date.now() - upSince < QUICK_CLOSE_MS) {
+      quickCloses += 1;
+      if (quickCloses >= MAX_QUICK_CLOSES) {
+        setStatus("error");
+        poolLastError = LIVE_REFUSED_MESSAGE;
+        return;
+      }
+    } else {
+      quickCloses = 0;
+      backoffMs = BACKOFF_BASE_MS;
+      poolAttempt = 0;
+    }
+    setStatus("reconnecting");
+    poolLastError = LIVE_LOST_MESSAGE;
+    scheduleReconnect();
+  }
+
   function openSocket(): void {
     if (!wantSocket || socket) return;
     if (!supported) {
@@ -271,36 +448,78 @@ export function createStreamPool(opts: StreamPoolOptions): StreamPool {
       return;
     }
     socket = ws;
-    lastOpenAt = Date.now();
+    clearConnectTimer();
+    // Dial watchdog: a socket that never opens is a failure, not a
+    // permanent `connecting` (captive portal, blackholed SYN). Closing it
+    // feeds the same path as a real close.
+    connectTimer = setTimeout(() => {
+      connectTimer = null;
+      if (socket !== ws) return;
+      socket = null;
+      try {
+        ws.close();
+      } catch {
+        // Ignore — the state moves on regardless.
+      }
+      afterGone();
+    }, CONNECT_TIMEOUT_MS);
 
     ws.addEventListener("open", () => {
       if (socket !== ws) return;
-      backoffMs = BACKOFF_BASE_MS;
-      quickCloses = 0;
-      poolAttempt = 0;
+      clearConnectTimer();
+      // Mark the open time only — the breaker/backoff reset in the close
+      // handler once the connection proves healthy (see `afterGone`).
+      openedAt = Date.now();
+      poolLastEventAt = Date.now();
+      missedPongs = 0;
       poolLastError = null;
       setStatus("live");
       sendAllSubscribes();
+      startHeartbeat();
     });
 
     ws.addEventListener("message", (ev) => {
       if (socket !== ws) return;
       poolLastEventAt = Date.now();
+      // Inbound traffic proves the socket is alive end to end.
+      missedPongs = 0;
       let msg: unknown;
       try {
         msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
       } catch {
+        droppedEvents += 1;
         return;
       }
-      if (typeof msg !== "object" || msg === null) return;
+      if (typeof msg !== "object" || msg === null) {
+        droppedEvents += 1;
+        return;
+      }
       const { type, body } = msg as { type?: unknown; body?: unknown };
-      if (typeof type !== "string") return;
+      if (typeof type !== "string") {
+        droppedEvents += 1;
+        return;
+      }
       if (type === "connected") {
         const id =
           typeof body === "object" && body !== null
             ? (body as { id?: unknown }).id
             : undefined;
-        if (typeof id !== "string") return;
+        if (typeof id !== "string") {
+          droppedEvents += 1;
+          return;
+        }
+        if (id === pingId) {
+          // Heartbeat pong (see `sendPing`): the round trip works.
+          // Tear the throwaway subscription down server-side.
+          pingId = null;
+          if (pingTimer) {
+            clearTimeout(pingTimer);
+            pingTimer = null;
+          }
+          missedPongs = 0;
+          sendMessage("disconnect", { id });
+          return;
+        }
         for (const sub of subs.values()) {
           if (sub.serverId === id) {
             sub.acked = true;
@@ -314,16 +533,33 @@ export function createStreamPool(opts: StreamPoolOptions): StreamPool {
         return;
       }
       if (type === "channel") {
-        if (typeof body !== "object" || body === null) return;
+        if (typeof body !== "object" || body === null) {
+          droppedEvents += 1;
+          return;
+        }
         const { id, type: eventType, body: payload } = body as {
           id?: unknown;
           type?: unknown;
           body?: unknown;
         };
-        if (typeof id !== "string" || typeof eventType !== "string") return;
+        if (typeof id !== "string" || typeof eventType !== "string") {
+          droppedEvents += 1;
+          return;
+        }
+        // Ignore the heartbeat's own throwaway subscription (its ack is
+        // handled above; stray events addressed to it are never routed).
+        if (pingId !== null && id === pingId) return;
         for (const sub of subs.values()) {
           if (sub.serverId === id) {
-            for (const h of sub.handlers) h.onEvent?.(eventType, payload);
+            for (const h of sub.handlers) {
+              try {
+                h.onEvent?.(eventType, payload);
+              } catch {
+                // One bad handler must not break dispatch to the rest —
+                // and never out of the socket listener.
+                droppedEvents += 1;
+              }
+            }
           }
         }
         return;
@@ -369,29 +605,7 @@ export function createStreamPool(opts: StreamPoolOptions): StreamPool {
     const onGone = () => {
       if (socket !== ws) return;
       socket = null;
-      for (const sub of subs.values()) {
-        sub.acked = false;
-        if (sub.ackTimer) {
-          clearTimeout(sub.ackTimer);
-          sub.ackTimer = null;
-        }
-        sub.status = "pending";
-      }
-      if (!wantSocket) return;
-      // Fast-fail: closes right after open, over and over, mean the server
-      // is refusing the connection (e.g. revoked token surfacing as an
-      // opaque close). Stop and say so instead of spinning forever.
-      if (Date.now() - lastOpenAt < QUICK_CLOSE_MS) {
-        quickCloses += 1;
-        if (quickCloses >= MAX_QUICK_CLOSES) {
-          setStatus("error");
-          poolLastError = LIVE_REFUSED_MESSAGE;
-          return;
-        }
-      }
-      setStatus("reconnecting");
-      poolLastError = LIVE_LOST_MESSAGE;
-      scheduleReconnect();
+      afterGone();
     };
     ws.addEventListener("close", onGone);
     ws.addEventListener("error", () => {
@@ -403,6 +617,8 @@ export function createStreamPool(opts: StreamPoolOptions): StreamPool {
     if (activeToken !== token) {
       // Token changed (sign-in/out): drop the old socket; subscriptions
       // re-send themselves on the new one.
+      stopHeartbeat();
+      clearConnectTimer();
       if (socket) {
         wantSocket = false;
         socket.close();
@@ -435,15 +651,24 @@ export function createStreamPool(opts: StreamPoolOptions): StreamPool {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
+    stopHeartbeat();
+    clearConnectTimer();
     if (socket) {
       const ws = socket;
       socket = null;
-      ws.close();
+      try {
+        ws.close();
+      } catch {
+        // Teardown is best-effort.
+      }
     }
     backoffMs = BACKOFF_BASE_MS;
     quickCloses = 0;
     poolAttempt = 0;
-    if (poolStatus !== "disabled") setStatus("connecting");
+    openedAt = null;
+    // An idle pool with no socket is `idle`, never `connecting` (a UI
+    // keyed on status must not show a dial that will never happen).
+    if (poolStatus !== "disabled") setStatus("idle");
   }
 
   /**
@@ -560,6 +785,8 @@ export function createStreamPool(opts: StreamPoolOptions): StreamPool {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
       }
+      stopHeartbeat();
+      clearConnectTimer();
       if (socket) {
         const ws = socket;
         socket = null;
@@ -592,6 +819,9 @@ const STATE_MAP: Record<StreamStatus, StreamState> = {
   live: "connected",
   reconnecting: "reconnecting",
   error: "error",
+  // An idle pool holds no socket: the handle reads `unavailable` (never a
+  // dial that will never happen), same as an unsupported server.
+  idle: "unavailable",
 };
 
 function isNoteLike(value: unknown): value is Note {
@@ -599,6 +829,17 @@ function isNoteLike(value: unknown): value is Note {
     typeof value === "object" &&
     value !== null &&
     typeof (value as { id?: unknown }).id === "string"
+  );
+}
+
+/** A note event worth adapting: a string id AND a present author object.
+ * `adaptNote` throws on either absence (wire `fileIds` guard, missing
+ * `user`), so the check happens before adaptation, not inside a catch. */
+function isAdaptableNote(value: unknown): value is Note {
+  return (
+    isNoteLike(value) &&
+    typeof (value as { user?: unknown }).user === "object" &&
+    (value as { user?: unknown }).user !== null
   );
 }
 
@@ -690,7 +931,19 @@ export function createStreamHandle(opts: StreamHandleOptions): StreamHandle | nu
       if (spec.needsAuth && !opts.token) return noSubscription;
       const handle = pool.subscribeChannel(spec.channel, spec.params, {
         onEvent: (type, body) => {
-          if (type === "note" && isNoteLike(body)) onPost(adaptNote(body));
+          // Malformed note events are dropped and counted, never thrown
+          // out of the socket listener (the pool isolates sibling
+          // subscribers; this guards the adapter itself).
+          if (type !== "note" || !isNoteLike(body)) return;
+          if (!isAdaptableNote(body)) {
+            droppedEvents += 1;
+            return;
+          }
+          try {
+            onPost(adaptNote(body));
+          } catch {
+            droppedEvents += 1;
+          }
         },
       });
       return {
@@ -721,8 +974,13 @@ export function createStreamHandle(opts: StreamHandleOptions): StreamHandle | nu
       if (!opts.token) return () => undefined;
       const handle = pool.subscribeChannel("main", undefined, {
         onEvent: (type, body) => {
-          if (type === "notification" && isNotificationLike(body)) {
+          if (type !== "notification" || !isNotificationLike(body)) return;
+          try {
             handler(adaptNotification(body));
+          } catch {
+            // A malformed notification is dropped and counted, never
+            // thrown out of the socket listener.
+            droppedEvents += 1;
           }
         },
       });

@@ -981,15 +981,24 @@ export function createMisskeyBackend(
     },
 
     stream(): StreamHandle | null {
-      // No origin (tests, offline builders): no socket target, so no
-      // handle — feeds keep working via paging + refresh. Pinetree has no
-      // `/streaming` route: `supported: false` returns null the same way.
+      // Single pooled handle per backend: the first call builds the pool,
+      // later calls share it (the session-level registry in `api/client.ts`
+      // shares the backend itself, so N feeds + notifications + chat ride
+      // one socket per session). The slot lives on the backend instance —
+      // no module state, no cross-session leak. No origin (tests, offline
+      // builders): no socket target, so no handle — feeds keep working via
+      // paging + refresh. Pinetree has no `/streaming` route: `supported:
+      // false` returns null the same way.
       if (!opts.origin) return null;
-      return createStreamHandle({
-        origin: opts.origin,
-        token: opts.token ?? null,
-        supported: flavor !== "pinetree",
-      });
+      const slot = (this ?? {}) as Partial<{ pooledStream: StreamHandle | null }>;
+      if (slot.pooledStream === undefined) {
+        slot.pooledStream = createStreamHandle({
+          origin: opts.origin,
+          token: opts.token ?? null,
+          supported: flavor !== "pinetree",
+        });
+      }
+      return slot.pooledStream;
     },
 
     drive,

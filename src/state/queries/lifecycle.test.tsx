@@ -133,22 +133,16 @@ describe('foreground refetch (60 s per-query gap)', () => {
       wrapper: wrapper(client),
     })
     await waitFor(() => expect(calls).toEqual({feed: 1, notif: 1, me: 1, other: 1}))
-    // eslint-disable-next-line no-console
-    console.log('LIFECYCLE-MARK initial-fetch-ok')
 
     const fake = fakeFocusSource(true)
     const off = setupFocusManager(client, fake.source, () => now)
     // The source's initial push only starts budgets — mounts fetched already.
     expect(calls).toEqual({feed: 1, notif: 1, me: 1, other: 1})
-    // eslint-disable-next-line no-console
-    console.log('LIFECYCLE-MARK manager-wired')
 
     // First focus gain after the gap: eligible queries refetch, others not.
     now += FOREGROUND_REFETCH_MIN_GAP_MS
     fake.fire(false)
     fake.fire(true)
-    // eslint-disable-next-line no-console
-    console.log('LIFECYCLE-MARK fired-wait-feed')
     await waitFor(() => expect(calls.feed).toBe(2))
     await waitFor(() => expect(calls.notif).toBe(2))
     await waitFor(() => expect(calls.me).toBe(2))

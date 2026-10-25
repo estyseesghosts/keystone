@@ -189,23 +189,104 @@ export function activeFlavor(store: KeyValueStore, home: HomeSpec): ServerFlavor
 }
 
 // --- Family routing ------------------------------------------------------------
+// (M6 pooling: one `Backend` — and therefore one stream handle — per
+// session identity, keyed on `(sessionId, token, family, flavor, evidence
+// hash)`. The registry sits at module scope, next to the token map the
+// session store keeps: every call site (`usePostFeedQuery`, feed +
+// notification + chat mounts, verify) shares the same backend — and the
+// same socket — instead of redialing per mount. A token rotation, flavor
+// change, or new evidence naturally keys a fresh backend; the old entry
+// stays cached (bounded by session count) and its socket closes when its
+// subscriptions drop. `clearBackendRegistry` is the test seam.)
+
+/** Stable stringify for the registry key (key order never matters). */
+function stableEvidenceKey(value: unknown): string {
+  if (value === null || value === undefined) return "null";
+  if (Array.isArray(value)) return `[${value.map(stableEvidenceKey).join(",")}]`;
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableEvidenceKey(record[k])}`)
+      .join(",")}}`;
+  }
+  const json = JSON.stringify(value);
+  return typeof json === "string" ? json : String(value);
+}
+
+/** Registry identity for one session. Exported so query hooks memo on the
+ * same stable string the registry uses (a permission-denied note or health
+ * refresh rebuilds store snapshots but keeps these fields, so the pooled
+ * backend — and its socket — survives). */
+export function sessionBackendKey(session: Session): string {
+  const family = session.family ?? familyOf(session.flavor) ?? "misskey";
+  return [
+    session.id,
+    session.token,
+    family,
+    session.flavor,
+    stableEvidenceKey(session.evidence ?? null),
+  ].join("\n");
+}
+
+/** Test seam (and a future purge path): drop every pooled backend so the
+ * next `backendForSession` rebuilds. Pooled sockets close when their own
+ * subscriptions drop; this only forgets the mapping. */
+export function clearBackendRegistry(): void {
+  backendRegistry.clear();
+}
+
+const backendRegistry = new Map<string, Backend>();
+
+/** Validated streaming origin for one session (X2.3 shape, read
+ * structurally: `DetectionEvidence` widening rides with the login flow
+ * that persists it — here only the wiring through to the backend). */
+function streamingOriginOf(session: Session): string | null {
+  const evidence = session.evidence as
+    | { streamingOrigin?: unknown }
+    | null
+    | undefined;
+  const origin = evidence?.streamingOrigin;
+  return typeof origin === "string" && origin.length > 0 ? origin : null;
+}
 
 /** A `Backend` for exactly one session: the session's family picks the
  * implementation, its flavor tunes capabilities. The transport is built
  * FROM the session, so the token can only ever reach its own origin.
  * The session's stored detection evidence (when present) raises the
- * flavor-table defaults where the server is authoritative. */
+ * flavor-table defaults where the server is authoritative. Pooled per
+ * `sessionBackendKey` (M6) — the same session object identity, or a fresh
+ * resolution of the same session, answers the same backend. */
 export function backendForSession(session: Session): Backend {
+  const key = sessionBackendKey(session);
+  const hit = backendRegistry.get(key);
+  if (hit) return hit;
+  const backend = buildBackend(session);
+  backendRegistry.set(key, backend);
+  return backend;
+}
+
+/** Unpooled constructor behind the registry (one call = one backend). */
+function buildBackend(session: Session): Backend {
   const family = session.family ?? familyOf(session.flavor) ?? "misskey";
   const evidence = session.evidence ?? undefined;
   if (family === "mastodon") {
     return createMastodonBackend(createClient(session.origin, session.token || null), {
       flavor: session.flavor,
       evidence,
+      // Split-host instances stream from the validated advertised origin
+      // (X2.3); absent/refused answers the session origin (never a token
+      // to a foreign host — the scheme pin stays in `stream.ts`).
+      streamingOrigin: streamingOriginOf(session),
     });
   }
   return createMisskeyBackend(createMisskeyClient(session), session.flavor, {
     origin: session.origin,
+    // The pooled stream socket authenticates with `?i=` (repair X3.4):
+    // without the session token here every shared socket dials
+    // unauthenticated. Scoped to this session's origin like all
+    // credentials on this path.
+    token: session.token,
     evidence,
   });
 }
@@ -259,6 +340,7 @@ export function activeBackend(store: KeyValueStore, home: HomeSpec): Backend {
     return createMastodonBackend(activeSessionMastoClient(store, home), {
       flavor: active.flavor,
       evidence: active.evidence ?? undefined,
+      streamingOrigin: streamingOriginOf(active),
     });
   }
   const session = active ?? internalSessionOf(store, home.origin) ?? placeholderSession(home);

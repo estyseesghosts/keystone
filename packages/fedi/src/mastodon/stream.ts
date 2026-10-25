@@ -167,6 +167,16 @@ const FAST_CLOSE_MS = 10_000;
  * re-dialing and surface the honest dead state (manual retry only). */
 const MAX_FAST_CLOSES = 5;
 
+/** Dropped inbound stream events this process has counted (dev counter:
+ * malformed frames, unadaptable payloads, throwing listeners — dropped,
+ * never thrown out of the socket listener, never logged). */
+let droppedEvents = 0;
+
+/** How many inbound stream events were dropped as malformed. Exported
+ * for tests; the socket stays up regardless. */
+export function droppedStreamEventCount(): number {
+  return droppedEvents;
+}
 
 function streamNameFor(source: FeedSource): { stream: string; params: Record<string, string> } | null {
   if ("kind" in source) {
@@ -253,6 +263,10 @@ export function createStreamHandle(
   const entries = new Map<string, Entry>();
   const listeners = new Set<(s: StreamState) => void>();
   const filterListeners = new Set<() => void>();
+  /** Feed-level delete fan-out (mastodon 13): every `delete` frame on any
+   * entry reaches these subscribers, so the app can drop the post from its
+   * feed caches without a watched id. */
+  const deleteListeners = new Set<(id: string) => void>();
 
   const noSubscription: FeedSubscription = {
     unsubscribe: () => undefined,
@@ -392,7 +406,11 @@ export function createStreamHandle(
         return;
       }
     } else {
+      // Healthy: the socket stayed up past the fast-close window, so the
+      // breaker and backoff reset HERE (never in `open` — an
+      // accept-then-close loop must keep counting toward the breaker).
       e.fastCloses = 0;
+      e.attempt = 0;
     }
     e.state = e.attempt === 0 ? "error" : "reconnecting";
     notify();
@@ -405,7 +423,10 @@ export function createStreamHandle(
   }
 
   function routeMessage(raw: unknown, key: string, e: Entry): void {
-    if (typeof raw !== "string") return;
+    if (typeof raw !== "string") {
+      droppedEvents += 1;
+      return;
+    }
     // Akkoma sends a bare text `ping` (not JSON): answer `pong`, never
     // route it as an event and never log it as malformed.
     if (raw.trim() === "ping") {
@@ -416,9 +437,13 @@ export function createStreamHandle(
     try {
       frame = JSON.parse(raw) as { event?: unknown; payload?: unknown };
     } catch {
+      droppedEvents += 1;
       return; // malformed: ignore
     }
-    if (typeof frame.event !== "string") return;
+    if (typeof frame.event !== "string") {
+      droppedEvents += 1;
+      return;
+    }
     // Control frames first — a defensive `{event:"ping"}` shape answers
     // the same way as the bare text frame.
     if (frame.event === "ping") {
@@ -434,7 +459,6 @@ export function createStreamHandle(
       }
       if (e.state !== "connected") {
         e.openedAt = e.openedAt ?? Date.now();
-        e.attempt = 0;
         e.state = "connected";
         notify();
       }
@@ -491,6 +515,18 @@ export function createStreamHandle(
               }
             }
           }
+          // Feed-level deletes (mastodon 13): every delete frame fans out
+          // to the handle-level `onDeletes` subscribers too, so the app
+          // can drop the post from its feed caches without a watched id.
+          for (const fn of deleteListeners) {
+            try {
+              fn(payload);
+            } catch {
+              // Listener failures never break the socket.
+            }
+          }
+        } else {
+          droppedEvents += 1;
         }
       } else if (frame.event === "notification") {
         if (payload === null) return;
@@ -504,7 +540,8 @@ export function createStreamHandle(
         }
       }
     } catch {
-      // Malformed payload: ignore.
+      // Malformed payload: drop it, count it, keep the socket.
+      droppedEvents += 1;
     }
   }
 
@@ -542,9 +579,9 @@ export function createStreamHandle(
         clearTimeout(e.connectTimer);
         e.connectTimer = null;
       }
+      // Mark the open time only — the breaker/backoff reset in the close
+      // handler once the connection proves healthy (see `socketGone`).
       e.openedAt = Date.now();
-      e.fastCloses = 0;
-      e.attempt = 0;
       e.state = "connected";
       notify();
     };
@@ -698,5 +735,18 @@ export function createStreamHandle(
         filterListeners.delete(handler);
       };
     },
-  };
+    /**
+     * Feed-level deletes: every `delete` frame on any entry fans out to
+     * these subscribers (per-post `subscribePost` capture still fires for
+     * watched ids). Structural — beyond the `StreamHandle` interface,
+     * which stays untouched (X4.x territory); the app and tests read it
+     * through this same structural shape.
+     */
+    onDeletes(handler: (id: string) => void) {
+      deleteListeners.add(handler);
+      return () => {
+        deleteListeners.delete(handler);
+      };
+    },
+  } as StreamHandle;
 }

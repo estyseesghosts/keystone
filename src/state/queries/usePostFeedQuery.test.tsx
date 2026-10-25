@@ -4,11 +4,29 @@ import {render, renderHook, screen, waitFor} from '@testing-library/react-native
 
 import {
   createMemoryStore,
+  saveSession,
   type Backend,
   type Notification,
   type Page,
   type Post,
 } from '@keystone/fedi'
+
+// Repair X3.4 (L7): count real `backendForSession` resolutions through a
+// delegating mock — rerenders with an unchanged session identity must not
+// rebuild the backend.
+const mockBackendForSessionCalls: string[] = []
+jest.mock('@keystone/fedi', () => {
+  const actual = jest.requireActual('@keystone/fedi')
+  return {
+    ...actual,
+    backendForSession: (session: {id: string}) => {
+      mockBackendForSessionCalls.push(session.id)
+      // Plain `Function` cast: the hoist plugin forbids custom identifiers
+      // (even annotation names) inside `jest.mock` factories.
+      return (actual.backendForSession as Function)(session)
+    },
+  }
+})
 
 import {
   QUERY_BUSTER,
@@ -235,6 +253,45 @@ describe('usePostFeedQuery account isolation (plan §3 lesson)', () => {
       renderHook(() => usePostFeedQuery('sess-a', 'bogus|descriptor|x', {backend}), {wrapper}),
     ).toThrow()
     spy.mockRestore()
+  })
+
+  it('resolves the backend once per session identity, not per render (X3.4 L7)', () => {
+    mockBackendForSessionCalls.length = 0
+    const store = createMemoryStore()
+    const sessionId = 'https://memo.example alice'
+    saveSession(
+      store,
+      {
+        id: sessionId,
+        origin: 'https://memo.example',
+        family: 'misskey',
+        flavor: 'misskey',
+        accountId: 'alice',
+        token: '',
+        grant: 'password',
+        hosting: 'third-party',
+      },
+      'https://memo.example',
+    )
+    const client = testClient()
+    const wrapper = ({children}: {children: React.ReactNode}) => (
+      <QueryProvider client={client} persister={createQueryPersister(createMemoryStore())}>
+        {children}
+      </QueryProvider>
+    )
+    const {rerender} = renderHook(
+      ({id}: {id: string}) => usePostFeedQuery(id, 'timeline|home', {store, retry: false}),
+      {initialProps: {id: sessionId}, wrapper},
+    )
+    // One resolution on mount (the query itself fails closed on the
+    // unreachable origin — resolution is what this test counts).
+    expect(mockBackendForSessionCalls).toEqual([sessionId])
+    rerender({id: sessionId})
+    rerender({id: sessionId})
+    // No rebuild on rerender with an unchanged identity (the old code
+    // called `backendForSession` — JSON-parsing the envelope plus a fresh
+    // backend — on every render).
+    expect(mockBackendForSessionCalls).toEqual([sessionId])
   })
 })
 

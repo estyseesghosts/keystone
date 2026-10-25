@@ -247,7 +247,10 @@ describe("chat stream channels (chatRoom / chatUser)", () => {
       // machinery — this pins that chat channels ride the same path).
       first.emit("close", {});
       expect(pool.status()).toBe("reconnecting");
-      jest.runAllTimers();
+      // Advance past the backoff only (not `runAllTimers`: the dial
+      // watchdog + heartbeat arm further timers that a full drain would
+      // chase forever — repair X3.4).
+      jest.advanceTimersByTime(2_000);
       expect(MockSocket.instances).toHaveLength(2);
       const second = MockSocket.instances[1];
       second.emit("open", {});

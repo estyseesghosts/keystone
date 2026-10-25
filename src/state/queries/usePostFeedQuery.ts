@@ -1,3 +1,4 @@
+import {useMemo} from 'react'
 import {
   useInfiniteQuery,
   type InfiniteData,
@@ -9,6 +10,7 @@ import {
   backendForSession,
   findSession,
   parseFeedDescriptor,
+  sessionBackendKey,
   type Backend,
   type Cursor,
   type FeedDescriptor,
@@ -205,11 +207,19 @@ export function usePostFeedQuery(
 ): UseInfiniteQueryResult<InfiniteData<Page<Post>>, Error> & {queryKey: AppQueryKey} {
   const parsed = parseFeedDescriptor(descriptor)
   const limit = options.limit ?? FEED_PAGE_LIMIT
-  const backend =
-    options.backend ??
-    (sessionId != null
-      ? resolveSessionBackend(options.store ?? appStorage(), sessionId)
-      : null)
+  const store = options.store ?? appStorage()
+  const session = sessionId != null ? findSession(store, sessionId) : null
+  // Memo on the session's registry identity — not the store snapshot —
+  // so a health refresh or another account's activity keeps the pooled
+  // backend (and its socket) instead of rebuilding it every render. The
+  // key carries the token/flavor/evidence, so a rotation still rebuilds.
+  const sessionKey = session != null ? sessionBackendKey(session) : null
+  const backend = useMemo(
+    () =>
+      options.backend ??
+      (sessionId != null && sessionKey != null ? resolveSessionBackend(store, sessionId) : null),
+    [options.backend, store, sessionId, sessionKey],
+  )
   const recSuffix =
     parsed.kind === 'recommendations' && options.rec
       ? JSON.stringify([options.rec.lang ?? null, options.rec.withSensitive ?? null, options.rec.withRenotes ?? null])

@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   createStreamHandle,
+  droppedStreamEventCount,
   resolveStreamingBase,
   streamingSupported,
   streamUrl,
@@ -343,6 +344,47 @@ describe("reconnect breaker (contract §8: 10s ack, stop after 5)", () => {
     }
   });
 
+  it("trips the breaker on accept-then-close loops (resets only on healthy close)", () => {
+    jest.useFakeTimers();
+    try {
+      const sockets: MockSocket[] = [];
+      const handle = createStreamHandle(ORIGIN, {
+        token: TOKEN,
+        wsFactory: mockFactory(sockets),
+      })!;
+      const sub = handle.subscribeTimeline({ kind: "home" }, () => undefined);
+
+      // The server accepts the handshake then drops it, five times in a
+      // row. The open handler must NOT reset the breaker (the old code did
+      // `fastCloses = 0` there and looped forever) — the close handler
+      // counts each fast close until the breaker trips.
+      const delays = [2_000, 4_000, 8_000, 16_000];
+      for (let i = 0; i < 5; i++) {
+        sockets[sockets.length - 1].fireOpen();
+        sockets[sockets.length - 1].fireClose();
+        if (i < 4) jest.advanceTimersByTime(delays[i]);
+      }
+      expect(handle.status()).toBe("stopped");
+      const dialed = sockets.length;
+      expect(dialed).toBe(5);
+
+      // Dead means dead: advancing time never dials again.
+      jest.advanceTimersByTime(600_000);
+      expect(sockets).toHaveLength(dialed);
+
+      // Manual retry clears the breaker and re-dials; a healthy open
+      // returns to the normal connected state.
+      handle.retry!();
+      expect(sockets).toHaveLength(dialed + 1);
+      expect(handle.status()).toBe("connecting");
+      sockets[dialed].fireOpen();
+      expect(handle.status()).toBe("connected");
+      sub.unsubscribe();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("resets the breaker after a connection that stayed up", () => {
     jest.useFakeTimers();
     try {
@@ -368,5 +410,28 @@ describe("reconnect breaker (contract §8: 10s ack, stop after 5)", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it("counts dropped malformed events and keeps the socket up", () => {
+    const sockets: MockSocket[] = [];
+    const posts: string[] = [];
+    const handle = createStreamHandle(ORIGIN, { token: TOKEN, wsFactory: mockFactory(sockets) })!;
+    const sub = handle.subscribeTimeline({ kind: "home" }, (p) => posts.push(p.id));
+    sockets[0].fireOpen();
+
+    const before = droppedStreamEventCount();
+    // Garbage frame.
+    sockets[0].fireRaw("not-json");
+    // Well-formed frame with an unadaptable payload (no author).
+    sockets[0].fireFrame("update", JSON.stringify({ id: "no-user-here" }));
+    expect(droppedStreamEventCount()).toBe(before + 2);
+    expect(posts).toEqual([]);
+    expect(handle.status()).toBe("connected");
+
+    // The socket still routes good events afterwards.
+    const body = status();
+    sockets[0].fireFrame("update", JSON.stringify(body));
+    expect(posts).toEqual([body.id]);
+    sub.unsubscribe();
   });
 });

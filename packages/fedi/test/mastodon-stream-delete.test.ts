@@ -1,8 +1,9 @@
-// Mastodon-family per-post delete/update capture (WS-G seam proof): the
+// Mastodon-family delete delivery (mastodon 13): per-post capture over the
 // shared `user` stream filters by id, so watched-id deletes reach
-// `onDeleted` — the feed-level seam is intentional (subscribeTimeline has
-// no delete channel on the `StreamHandle` interface; unwatched ids have no
-// cached row to remove) and stays as documented, not rewired.
+// `onDeleted` — and every `delete` frame ALSO fans out to the handle-level
+// `onDeletes` subscription, so the app drops unwatched ids from its feed
+// caches without a refetch. `onPost` still never receives deletes (they
+// are not arrivals).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -57,7 +58,7 @@ function mockFactory(sockets: MockSocket[]) {
 
 const status = () => fixture<WireStatus>("status.json");
 
-describe("mastodon per-post capture over the shared user stream (WS-G)", () => {
+describe("mastodon delete delivery (mastodon 13)", () => {
   it("routes delete frames to the watched id's onDeleted only", () => {
     const sockets: MockSocket[] = [];
     const handle = createStreamHandle(ORIGIN, { token: TOKEN, wsFactory: mockFactory(sockets) });
@@ -92,16 +93,50 @@ describe("mastodon per-post capture over the shared user stream (WS-G)", () => {
     off();
   });
 
-  it("feed-level deletes never reach onPost (seam, by design — per-post capture is the delete path)", () => {
+  it("feed-level deletes fan out to onDeletes but never to onPost (mastodon 13)", () => {
     const sockets: MockSocket[] = [];
     const handle = createStreamHandle(ORIGIN, { token: TOKEN, wsFactory: mockFactory(sockets) });
     expect(handle).not.toBeNull();
     const posts: string[] = [];
+    const deleted: string[] = [];
     const sub = handle!.subscribeTimeline({ kind: "home" }, (p) => posts.push(p.id));
+    const offDeletes = deletesOf(handle!)(id => deleted.push(id));
     sockets[0].fireOpen();
     const body = status();
     sockets[0].fireFrame("delete", body.id);
+    // Feed-level deletes never look like arrivals ...
     expect(posts).toEqual([]);
+    // ... but they DO reach the feed-level deletes subscription now (the
+    // app drops the post from its feed caches): previously they surfaced
+    // nowhere unless the id was watched.
+    expect(deleted).toEqual([body.id]);
     sub.unsubscribe();
+    offDeletes();
+  });
+
+  it("per-post capture and the feed-level fan-out fire together for watched ids", () => {
+    const sockets: MockSocket[] = [];
+    const handle = createStreamHandle(ORIGIN, { token: TOKEN, wsFactory: mockFactory(sockets) });
+    expect(handle).not.toBeNull();
+    const watched: string[] = [];
+    const fanned: string[] = [];
+    const offPost = handle!.subscribePost("post-a", { onDeleted: () => watched.push("post-a") });
+    const offFan = deletesOf(handle!)(id => fanned.push(id));
+    sockets[0].fireOpen();
+    sockets[0].fireFrame("delete", "post-a");
+    // Both paths fire (the app's delete handler is idempotent, so the
+    // double delivery removes the row exactly once).
+    expect(watched).toEqual(["post-a"]);
+    expect(fanned).toEqual(["post-a"]);
+    offPost();
+    offFan();
   });
 });
+
+/** Feed-level deletes subscription (structural: beyond `StreamHandle`). */
+function deletesOf(handle: NonNullable<ReturnType<typeof createStreamHandle>>) {
+  const fanout = handle as unknown as {
+    onDeletes: (handler: (id: string) => void) => () => void;
+  };
+  return fanout.onDeletes;
+}
