@@ -1,6 +1,6 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {KeyboardAvoidingView} from 'react-native'
+import {KeyboardAvoidingView, Platform, StyleSheet} from 'react-native'
 
 import {buildCapabilities, type Backend, type Session} from '@keystone/fedi'
 
@@ -130,5 +130,26 @@ describe('CompactComposer', () => {
     expect(screen.UNSAFE_queryAllByType(KeyboardAvoidingView)).toHaveLength(0)
     expect(screen.getByTestId('composer-text')).toBeTruthy()
     expect(screen.getByTestId('composer-submit')).toBeTruthy()
+  })
+
+  it('draws the alf focus ring on the input only while focused (web)', () => {
+    const restoreOs = jest.replaceProperty(Platform, 'OS', 'web')
+    try {
+      setup()
+      const outline = () =>
+        StyleSheet.flatten(screen.getByTestId('composer-text').props.style) as {
+          outlineWidth?: number
+          outlineStyle?: string
+        }
+      // Chrome-free prose while unfocused (the audit's outlineWidth: 0).
+      expect(outline().outlineWidth).toBe(0)
+      fireEvent(screen.getByTestId('composer-text'), 'focus')
+      expect(outline().outlineWidth).toBe(2)
+      expect(outline().outlineStyle).toBe('solid')
+      fireEvent(screen.getByTestId('composer-text'), 'blur')
+      expect(outline().outlineWidth).toBe(0)
+    } finally {
+      restoreOs.restore()
+    }
   })
 })

@@ -4,7 +4,7 @@ import {useI18n} from '#/locale/i18n'
 
 import {useTheme as useAlfTheme} from '#/alf'
 import {useShellLayout} from '#/alf/breakpoints'
-import {Body} from '#/alf/typography'
+import {Heading} from '#/alf/typography'
 import {BackIcon} from '#/components/icons'
 import {navigationRef} from '#/navigationRef'
 
@@ -47,7 +47,7 @@ export function Pagehead({title, right}: {title: string; right?: React.ReactNode
         testID="pagehead-back">
         <BackIcon size={20} color={alf.palette.text} />
       </Pressable>
-      <Body style={styles.title}>{title}</Body>
+      <Heading level={1} style={styles.title}>{title}</Heading>
       {right}
     </View>
   )

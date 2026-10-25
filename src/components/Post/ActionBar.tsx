@@ -52,7 +52,7 @@ export const toastError = (e: unknown): void => {
   // the generic translated fallback — raw error text and server response
   // text never reach the toast (security L2). The redacted reason still
   // goes to the logger at the throw site.
-  showToast(formatFediError(lingui, toCodedError(e)))
+  showToast(formatFediError(lingui, toCodedError(e)), {kind: 'error'})
 }
 
 function ActionContent({

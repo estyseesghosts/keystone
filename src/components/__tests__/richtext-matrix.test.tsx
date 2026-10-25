@@ -3,7 +3,8 @@
 // lives in the shared HoverLayer, pinned by its own tests).
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
-import {fireEvent, render, screen} from '@testing-library/react-native'
+import {act, fireEvent, render, screen} from '@testing-library/react-native'
+import {Platform} from 'react-native'
 
 import type {ContentNode} from '@keystone/fedi'
 
@@ -58,5 +59,42 @@ describe('MatrixHovercard', () => {
     fireEvent.press(screen.getByTestId('matrix-copy'))
     await Promise.resolve()
     expect(copyText).toHaveBeenCalledWith('@jm:nope.chat')
+  })
+})
+
+describe('MatrixHover keyboard (X10.1, a11y 12)', () => {
+  it('opens the hovercard on focus after the delay and closes on blur', () => {
+    const restoreOs = jest.replaceProperty(Platform, 'OS', 'web')
+    jest.useFakeTimers()
+    try {
+      const {unmount} = renderWithProviders(<RichText nodes={MATRIX_NODES} />)
+      try {
+        // The anchor wraps the chip; focus bubbles to it on web (in the
+        // test renderer events do not bubble, so fire on the anchor — not
+        // on the chip, whose own hover/focus props are RN pressability
+        // plumbing).
+        const anchor = screen.getByTestId('richtext-matrix-hover-anchor')
+        expect(screen.queryByTestId('matrix-popup')).toBeNull()
+        fireEvent(anchor, 'focus')
+        act(() => {
+          jest.advanceTimersByTime(399)
+        })
+        expect(screen.queryByTestId('matrix-popup')).toBeNull()
+        act(() => {
+          jest.advanceTimersByTime(1)
+        })
+        expect(screen.getByTestId('matrix-popup')).toBeTruthy()
+        fireEvent(anchor, 'blur')
+        act(() => {
+          jest.advanceTimersByTime(551)
+        })
+        expect(screen.queryByTestId('matrix-popup')).toBeNull()
+      } finally {
+        unmount()
+      }
+    } finally {
+      restoreOs.restore()
+      jest.useRealTimers()
+    }
   })
 })

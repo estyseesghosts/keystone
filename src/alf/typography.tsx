@@ -41,8 +41,22 @@ function Type({
   )
 }
 
-export function Heading(props: Omit<Props, 'variant'>) {
-  return <Type variant="heading" {...props} />
+export function Heading(
+  props: Omit<Props, 'variant'> & {
+    /** Web heading level for `aria-level` (screen-reader heading
+     * navigation). Unset renders a header with the platform default level. */
+    level?: number
+  },
+) {
+  const {level, ...rest} = props
+  return (
+    <Type
+      variant="heading"
+      accessibilityRole="header"
+      aria-level={level}
+      {...rest}
+    />
+  )
 }
 
 export function Body(props: Omit<Props, 'variant'>) {

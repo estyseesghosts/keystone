@@ -17,6 +17,7 @@
 // except the card itself, so the anchor keeps hover while open.
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -24,7 +25,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
-import {Platform, StyleSheet, View, type View as ViewType, type ViewStyle, type StyleProp} from 'react-native'
+import {Platform, StyleSheet, View, type NativeSyntheticEvent, type TargetedEvent, type View as ViewType, type ViewStyle, type StyleProp} from 'react-native'
 
 import type {Account, Backend} from '@keystone/fedi'
 
@@ -242,9 +243,14 @@ export function shouldReviveOnCardEnter(
   )
 }
 
-/** True when the anchor drifted out from under the pointer (streaming
- * inserts, late image loads): the open card points at stale
- * coordinates and must dismiss. Pure — pinned by unit tests. */
+/** `relatedTarget` of a blur/focus event: top-level in tests and some
+ * web paths, `nativeEvent`-level in RNW's DOM-mapped events. Pure. */
+export function blurRelatedTarget(e: unknown): unknown {
+  const top = (e as {relatedTarget?: unknown} | null | undefined)?.relatedTarget
+  if (top !== undefined) return top
+  const native = (e as {nativeEvent?: unknown} | null | undefined)?.nativeEvent
+  return (native as {relatedTarget?: unknown} | null | undefined)?.relatedTarget
+}
 export function anchorMoved(
   baseline: {top: number; left: number} | null,
   rect: {top: number; left: number},
@@ -415,7 +421,9 @@ export function HoverLayer({
             transition: `opacity ${HOVER_FADE_MS}ms ease`,
           }}
           onMouseEnter={onEnterCard}
-          onMouseLeave={onLeaveCard}>
+          onMouseLeave={onLeaveCard}
+          onFocus={e => onEnterCard(e as unknown as {relatedTarget?: unknown})}
+          onBlur={e => onLeaveCard(e as unknown as {relatedTarget?: unknown})}>
           {children}
         </div>
       )
@@ -455,7 +463,9 @@ export function HoverLayer({
       }}
       style={style}
       onMouseEnter={onEnterCard}
-      onMouseLeave={onLeaveCard}>
+      onMouseLeave={onLeaveCard}
+      onFocus={e => onEnterCard(e as unknown as {relatedTarget?: unknown})}
+      onBlur={e => onLeaveCard(e as unknown as {relatedTarget?: unknown})}>
       {children}
     </div>,
     host,
@@ -507,6 +517,11 @@ export function HoverPreview({
   useEffect(() => {
     ensurePointerTracking()
   }, [])
+  // Stable dismiss identity (X10.1): the drift-poll interval and the
+  // scroll/resize/Escape listeners depend on `onDismiss` — an inline
+  // closure would restart them on every render. (Hook, so it lives with
+  // the other hooks above the web early-return.)
+  const dismissCard = useCallback(() => setShow(false), [])
   // `relatedTarget` is where the pointer went. A leave whose target
   // is still inside the anchor-or-card subtree is a layout-shift ghost
   // (images loading, streamer banners moving boxes under a stationary
@@ -538,12 +553,13 @@ export function HoverPreview({
     cancelClose()
     closeTimer.current = setTimeout(() => setShow(false), HOVER_CLOSE_DELAY_MS)
   }
-  const handleEnter = () => {
+  const handleEnter = (fromFocus = false) => {
     // Layout-shift ghost (streaming inserts / image loads sliding the
     // anchor under a stationary pointer): without recent pointer
     // movement this arrival isn't the user — ignore it, or closed
-    // cards reopen by themselves.
-    if (!pointerRecentlyMoved()) return
+    // cards reopen by themselves. Keyboard focus bypasses the gate (a
+    // Tab arrival has no pointer movement by definition).
+    if (!fromFocus && !pointerRecentlyMoved()) return
     cancelClose()
     // Still mounted (mid-fade or open): fade back in, no reopen delay.
     if (show) {
@@ -581,9 +597,26 @@ export function HoverPreview({
     onMouseEnter?: (e?: {relatedTarget?: unknown}) => void
     onMouseLeave?: (e?: {relatedTarget?: unknown}) => void
   } = {
-    onMouseEnter: handleEnter,
+    onMouseEnter: () => handleEnter(),
     onMouseLeave: e => {
       if (leaveStaysInside(e)) return
+      handleLeave()
+    },
+  }
+  // Keyboard (X10.1, audit a11y 12): the anchor is focusable on web, so
+  // Tab opens the card after the same delay and blur closes it — the
+  // link itself stays navigable either way. Focus arrivals bypass the
+  // pointer-freshness gate; a blur into the card subtree (Tab into the
+  // card's own controls) keeps it alive via the same stays-inside rule
+  // as the mouse crossing. Escape dismisses through the HoverLayer's
+  // keyup handler.
+  const focusHandlers: {
+    onFocus?: () => void
+    onBlur?: (e: NativeSyntheticEvent<TargetedEvent>) => void
+  } = {
+    onFocus: () => handleEnter(true),
+    onBlur: e => {
+      if (leaveTargetStaysInside([anchor.current, cardEl.current], blurRelatedTarget(e))) return
       handleLeave()
     },
   }
@@ -617,7 +650,10 @@ export function HoverPreview({
         ref={anchor}
         testID={testID ? `${testID}-anchor` : undefined}
         style={style}
-        {...hoverHandlers}>
+        focusable={account ? true : undefined}
+        tabIndex={account ? 0 : undefined}
+        {...hoverHandlers}
+        {...focusHandlers}>
         {children}
       </View>
       {show && account ? (
@@ -628,7 +664,7 @@ export function HoverPreview({
           fade={faded}
           onEnterCard={cardHandlers.onMouseEnter!}
           onLeaveCard={cardHandlers.onMouseLeave!}
-          onDismiss={() => setShow(false)}>
+          onDismiss={dismissCard}>
           <UserHoverCard
             account={account}
             sessionId={sessionId}

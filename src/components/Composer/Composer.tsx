@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
-import {ScrollView, StyleSheet, TextInput, View} from 'react-native'
+import {ScrollView, StyleSheet, TextInput, View, Platform} from 'react-native'
 import {useQuery} from '@tanstack/react-query'
 
 import {msg, plural} from '@lingui/macro'
@@ -66,6 +66,7 @@ import {STALE} from '#/state/queries/stale'
 import {useSuggestions, type Suggestion} from './Autocomplete'
 import {useAutogrowInput, autogrowStyle} from './useAutogrowInput'
 import {NO_OUTLINE} from './noOutline'
+import {focusRingStyle} from '#/alf/focus'
 import {Chip} from './Chip'
 import {CloseConfirmDialog} from './CloseConfirmDialog'
 import {Dialog} from '#/components/Dialog'
@@ -246,8 +247,9 @@ const composerLayout = StyleSheet.create({
     borderRadius: radius.md,
     padding: space.md,
     textAlignVertical: 'top',
-    // No focus ring ever and no box of our own either: chrome-free
-    // prose like the inline composer (style kill — see noOutline).
+    // Chrome-free prose while unfocused (style kill — see noOutline);
+    // keyboard focus draws the shared alf ring at the input call site
+    // (X10.1), so focus is never invisible.
     outlineColor: 'transparent',
     outlineWidth: 0,
   },
@@ -1212,6 +1214,10 @@ export function Composer(props: ComposerProps) {
   // Floating box rests at 120px and grows with the prose to 480px, then
   // scrolls internally. Same hook as the inline composer.
   const autogrow = useAutogrowInput(120, 480, state.text)
+  // Visible keyboard-focus ring (repair X10.1, audit a11y 11): the input
+  // is chrome-free prose (NO_OUTLINE), so focus draws the shared alf ring
+  // instead of the UA default — focus-only, never while unfocused.
+  const [inputFocused, setInputFocused] = useState(false)
 
   return (
     <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled">
@@ -1265,6 +1271,8 @@ export function Composer(props: ComposerProps) {
           autogrow.remeasure()
         }}
         onSelectionChange={e => setCaret(e.nativeEvent.selection.end)}
+        onFocus={() => setInputFocused(true)}
+        onBlur={() => setInputFocused(false)}
         placeholder={
           replyTo
             ? i18n._(msg`Write your reply`)
@@ -1275,7 +1283,7 @@ export function Composer(props: ComposerProps) {
         placeholderTextColor={theme.palette.faint}
         accessibilityLabel={i18n._(msg`Post text`)}
         ref={autogrow.inputRef}
-        style={[styles.input, autogrowStyle(autogrow.height), NO_OUTLINE]}
+        style={[styles.input, autogrowStyle(autogrow.height), NO_OUTLINE, inputFocused && Platform.OS === 'web' && focusRingStyle(theme)]}
         onContentSizeChange={autogrow.onContentSizeChange}
       />
       <QuotePreviewSection c={controller} />

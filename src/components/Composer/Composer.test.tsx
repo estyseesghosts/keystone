@@ -1,6 +1,6 @@
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {StyleSheet} from 'react-native'
+import {Platform, StyleSheet} from 'react-native'
 import {I18nProvider} from '@lingui/react'
 import {i18n} from '@lingui/core'
 
@@ -1470,6 +1470,27 @@ describe('direct draft gating, eviction, flush (repair X6.2 step 7)', () => {
       expect(getOpenDraftId(store, s.id)).not.toBeNull()
     } finally {
       jest.useRealTimers()
+    }
+  })
+
+  it('draws the alf focus ring on the input only while focused (web)', () => {
+    const restoreOs = jest.replaceProperty(Platform, 'OS', 'web')
+    try {
+      setup('sharkey')
+      const outline = () =>
+        StyleSheet.flatten(screen.getByTestId('composer-text').props.style) as {
+          outlineWidth?: number
+          outlineStyle?: string
+        }
+      // Chrome-free prose while unfocused (the audit's outlineWidth: 0).
+      expect(outline().outlineWidth).toBe(0)
+      fireEvent(screen.getByTestId('composer-text'), 'focus')
+      expect(outline().outlineWidth).toBe(2)
+      expect(outline().outlineStyle).toBe('solid')
+      fireEvent(screen.getByTestId('composer-text'), 'blur')
+      expect(outline().outlineWidth).toBe(0)
+    } finally {
+      restoreOs.restore()
     }
   })
 })

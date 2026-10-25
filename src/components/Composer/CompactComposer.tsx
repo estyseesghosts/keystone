@@ -43,6 +43,7 @@ import {Pressable} from '#/components/Pressable'
 import {useComposerController, type CloseGuardHandle, type ComposerProps} from './Composer'
 import {useAutogrowInput, autogrowStyle} from './useAutogrowInput'
 import {NO_OUTLINE} from './noOutline'
+import {focusRingStyle} from '#/alf/focus'
 import {
   CwSection,
   PollSection,
@@ -167,6 +168,9 @@ export function CompactComposer(props: CompactComposerProps) {
   // Inline box rests at 72px and grows with the prose to 320px, then
   // scrolls internally. Same hook as the floating composer.
   const autogrow = useAutogrowInput(72, 320, c.state.text)
+  // Visible keyboard-focus ring (repair X10.1, audit a11y 11): chrome-free
+  // prose while unfocused, shared alf ring on focus — focus-only.
+  const [inputFocused, setInputFocused] = useState(false)
   const audienceAnchor = useRef<ViewType | null>(null)
   const moreAnchor = useRef<ViewType | null>(null)
   const emojiAnchor = useRef<ViewType | null>(null)
@@ -216,6 +220,8 @@ export function CompactComposer(props: CompactComposerProps) {
               autogrow.remeasure()
             }}
             onSelectionChange={e => c.setCaret(e.nativeEvent.selection.end)}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
             placeholder={
               c.state.replyTo
                 ? i18n._(msg`Write your reply`)
@@ -236,6 +242,7 @@ export function CompactComposer(props: CompactComposerProps) {
               },
               autogrowStyle(autogrow.height),
               NO_OUTLINE,
+              inputFocused && Platform.OS === 'web' && focusRingStyle(theme),
             ]}
             onContentSizeChange={autogrow.onContentSizeChange}
           />
@@ -555,8 +562,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     textAlignVertical: 'top',
-    // No focus ring ever: width-only + transparent color do not kill every
-    // UA's `auto`-style ring, so the style itself goes (see noOutline).
+    // Chrome-free prose while unfocused (the style itself goes — see
+    // noOutline); keyboard focus draws the shared alf ring at the input
+    // call site (X10.1), so focus is never invisible.
     outlineWidth: 0,
     outlineColor: 'transparent',
   },

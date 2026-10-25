@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
-import {Modal, Platform, ScrollView, StyleSheet, Switch, View} from 'react-native'
+import {Modal, ScrollView, StyleSheet, Switch, View, type View as ViewType} from 'react-native'
 import {msg} from '@lingui/macro'
 import type {I18n} from '@lingui/core'
 
@@ -9,6 +9,8 @@ import {overlayChrome} from '#/alf/themes'
 import {Body, Caption, Heading} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Pressable} from '#/components/Pressable'
+import {useKeyboardLayer} from '#/components/keyboardLayer'
+import {useModalFocus} from '#/components/modalFocus'
 import {showToast} from '#/lib/toast'
 import {useLocale, useI18n} from '#/locale/i18n'
 import {useBackendForSessionId} from '#/screens/HomeFeed'
@@ -213,6 +215,11 @@ export function RecommendationsSettingsOverlay({
     }
   }, [open])
 
+  // Modal focus (X10.1): focus moves into the card on open and returns to
+  // the opener on close (web only).
+  const cardRef = useRef<ViewType | null>(null)
+  useModalFocus(open, cardRef)
+
   const dirty = useMemo(
     () => (draft && baseline ? JSON.stringify(draft) !== JSON.stringify(baseline) : false),
     [draft, baseline],
@@ -229,17 +236,12 @@ export function RecommendationsSettingsOverlay({
     onClose()
   }, [dirty, confirming, onClose])
 
-  useEffect(() => {
-    if (!open || Platform.OS !== 'web' || typeof document === 'undefined') return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        requestClose()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, requestClose])
+  // Escape asks save-or-discard through the same gate as the chrome
+  // buttons, routed via the shared layer stack (X10.1) so a popup open
+  // over this overlay consumes the first Escape.
+  useKeyboardLayer(open, e => {
+    if (e.key === 'Escape') requestClose()
+  })
 
   if (!open) return null
 
@@ -295,7 +297,11 @@ export function RecommendationsSettingsOverlay({
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={requestClose} testID="rec-settings-overlay">
-      <View style={[atoms.flex1, atoms.centered]}>
+      <View
+        style={[atoms.flex1, atoms.centered]}
+        accessibilityViewIsModal
+        role="dialog"
+        aria-modal>
         <Pressable
           testID="rec-settings-overlay-backdrop"
           onPress={requestClose}
@@ -304,6 +310,7 @@ export function RecommendationsSettingsOverlay({
           style={styles.backdrop}
         />
         <View
+          ref={cardRef}
           testID="rec-settings-overlay-card"
           style={[styles.card, {backgroundColor: theme.palette.bg, borderColor: theme.palette.border}]}>
           <View style={[atoms.row, atoms.itemsCenter, {gap: 12}]}>
@@ -391,6 +398,7 @@ export function RecommendationsSettingsOverlay({
                           key={l}
                           testID={`rec-settings-lang-${l}`}
                           accessibilityRole="button"
+                          accessibilityState={{selected: on}}
                           onPress={() => toggleLanguage(l)}
                           disabled={saving || !draft.enabled}
                           style={[
@@ -479,6 +487,8 @@ export function RecommendationsSettingsOverlay({
                       <Pressable
                         key={t}
                         testID={`rec-settings-interested-${t}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={i18n._(msg`Remove ${t} from interested topics`)}
                         onPress={() => patch({interestTopics: draft.interestTopics.filter(x => x !== t)})}
                         style={[
                           styles.chip,
@@ -494,6 +504,8 @@ export function RecommendationsSettingsOverlay({
                       <Pressable
                         key={t}
                         testID={`rec-settings-add-interest-${t}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={i18n._(msg`Add ${t} to interested topics`)}
                         onPress={() => patch({interestTopics: [...draft.interestTopics, t]})}
                         style={[styles.chip, {borderColor: theme.palette.edge}]}>
                         <Body>+ {t}</Body>
@@ -506,6 +518,8 @@ export function RecommendationsSettingsOverlay({
                       <Pressable
                         key={t}
                         testID={`rec-settings-disinterested-${t}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={i18n._(msg`Remove ${t} from ignored topics`)}
                         onPress={() => patch({disinterestTopics: draft.disinterestTopics.filter(x => x !== t)})}
                         style={[styles.chip, {borderColor: theme.palette.borderStrong}]}>
                         <Body>{t} ✕</Body>
@@ -515,6 +529,8 @@ export function RecommendationsSettingsOverlay({
                       <Pressable
                         key={t}
                         testID={`rec-settings-add-disinterest-${t}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={i18n._(msg`Add ${t} to ignored topics`)}
                         onPress={() => patch({disinterestTopics: [...draft.disinterestTopics, t]})}
                         style={[styles.chip, {borderColor: theme.palette.edge}]}>
                         <Body>+ {t}</Body>

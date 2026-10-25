@@ -40,7 +40,7 @@ msgstr ", selected"
 #. placeholder {1}: formatByteLimit(attachmentCapFor(kind, caps))
 #. placeholder {1}: formatByteLimit(overCap[0].limit)
 #. placeholder {1}: formatByteLimit(tooLarge[0].limit)
-#: src/components/Composer/Composer.tsx:911
+#: src/components/Composer/Composer.tsx:913
 #: src/screens/Note.tsx:395
 #: src/state/queries/composer.ts:730
 msgid "\"{0}\" is too large to attach (limit {1})."
@@ -56,7 +56,7 @@ msgstr "\"{0}\" is too large to upload (limit {1})."
 msgid "(empty message)"
 msgstr "(empty message)"
 
-#: src/components/Composer/CompactComposer.tsx:500
+#: src/components/Composer/CompactComposer.tsx:507
 #: src/components/Composer/ComposerSections.tsx:636
 #: src/components/Composer/ComposerSections.tsx:638
 #: src/components/Composer/ComposerSections.tsx:682
@@ -67,7 +67,7 @@ msgstr "(no text)"
 msgid "(poll / CW only)"
 msgstr "(poll / CW only)"
 
-#: src/components/richtext/MatrixHover.tsx:250
+#: src/components/richtext/MatrixHover.tsx:267
 msgid "[m] {short}"
 msgstr "[m] {short}"
 
@@ -86,13 +86,13 @@ msgid "{0, plural, one {{1} post} other {{2} posts}}"
 msgstr "{0, plural, one {{1} post} other {{2} posts}}"
 
 #. placeholder {0}: unreadable.length
-#: src/components/Composer/Composer.tsx:902
+#: src/components/Composer/Composer.tsx:904
 msgid "{0, plural, one {# file could not be read. Try again or pick other photos.} other {# files could not be read. Try again or pick other photos.}}"
 msgstr "{0, plural, one {# file could not be read. Try again or pick other photos.} other {# files could not be read. Try again or pick other photos.}}"
 
 #. placeholder {0}: overCap.length
 #. placeholder {0}: tooLarge.length
-#: src/components/Composer/Composer.tsx:916
+#: src/components/Composer/Composer.tsx:918
 #: src/screens/Note.tsx:399
 msgid "{0, plural, one {# file was too large to attach.} other {# files were too large to attach.}}"
 msgstr "{0, plural, one {# file was too large to attach.} other {# files were too large to attach.}}"
@@ -267,7 +267,7 @@ msgstr "{followersExact} followers. Open followers list."
 msgid "{followingExact} following. Open following list."
 msgstr "{followingExact} following. Open following list."
 
-#: src/components/Composer/Composer.tsx:1242
+#: src/components/Composer/Composer.tsx:1248
 msgid "{imagesMissingAlt, plural, one {# attached image has no alt text.} other {# attached images have no alt text.}}"
 msgstr "{imagesMissingAlt, plural, one {# attached image has no alt text.} other {# attached images have no alt text.}}"
 
@@ -345,10 +345,10 @@ msgstr "A note you cannot see."
 msgid "a poll ended"
 msgstr "a poll ended"
 
-#: src/components/Composer/CompactComposer.tsx:301
-#: src/components/Composer/CompactComposer.tsx:311
-#: src/components/Composer/Composer.tsx:1411
-#: src/components/Composer/Composer.tsx:1427
+#: src/components/Composer/CompactComposer.tsx:308
+#: src/components/Composer/CompactComposer.tsx:318
+#: src/components/Composer/Composer.tsx:1419
+#: src/components/Composer/Composer.tsx:1435
 msgid "A post cannot have both media and a poll."
 msgstr "A post cannot have both media and a poll."
 
@@ -461,8 +461,16 @@ msgstr "Active users"
 msgid "Add"
 msgstr "Add"
 
-#: src/components/Composer/CompactComposer.tsx:223
-#: src/components/Composer/Composer.tsx:1272
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:533
+msgid "Add {t} to ignored topics"
+msgstr "Add {t} to ignored topics"
+
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:508
+msgid "Add {t} to interested topics"
+msgstr "Add {t} to interested topics"
+
+#: src/components/Composer/CompactComposer.tsx:229
+#: src/components/Composer/Composer.tsx:1280
 msgid "Add a comment"
 msgstr "Add a comment"
 
@@ -474,7 +482,7 @@ msgstr "Add a favourite"
 msgid "Add a filter"
 msgstr "Add a filter"
 
-#: src/components/Composer/CompactComposer.tsx:308
+#: src/components/Composer/CompactComposer.tsx:315
 msgid "Add a poll"
 msgstr "Add a poll"
 
@@ -545,7 +553,7 @@ msgstr "Add to list…"
 msgid "Added to {0}"
 msgstr "Added to {0}"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:75
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:77
 msgid "Adding a post to favorites."
 msgstr "Adding a post to favorites."
 
@@ -567,7 +575,7 @@ msgstr "Admin report lookup returned an unexpected response shape."
 msgid "all"
 msgstr "all"
 
-#: src/components/Composer/Composer.tsx:1463
+#: src/components/Composer/Composer.tsx:1471
 #: src/components/Profile/ProfileTabs.tsx:24
 #: src/screens/Notifications.tsx:104
 msgid "All"
@@ -578,7 +586,7 @@ msgctxt "reports filter: show every report"
 msgid "All"
 msgstr "All"
 
-#: src/components/Composer/CompactComposer.tsx:405
+#: src/components/Composer/CompactComposer.tsx:412
 msgid "All reactions"
 msgstr "All reactions"
 
@@ -734,7 +742,7 @@ msgstr "Assignee: {0}"
 msgid "Assignee: Unassigned"
 msgstr "Assignee: Unassigned"
 
-#: src/components/Composer/CompactComposer.tsx:298
+#: src/components/Composer/CompactComposer.tsx:305
 #: src/screens/Note.tsx:627
 #: src/screens/Note.tsx:629
 #: src/screens/Note.tsx:632
@@ -743,7 +751,7 @@ msgstr "Attach media"
 
 #. placeholder {0}: c.uploads.items.length
 #. placeholder {0}: uploads.items.length
-#: src/components/Composer/CompactComposer.tsx:298
+#: src/components/Composer/CompactComposer.tsx:305
 #: src/screens/Note.tsx:631
 msgid "Attach media ({0} attached)"
 msgstr "Attach media ({0} attached)"
@@ -775,13 +783,13 @@ msgstr "Attachment {0}: no description"
 msgid "Attachment is still processing."
 msgstr "Attachment is still processing."
 
-#: src/components/Composer/CompactComposer.tsx:301
-#: src/components/Composer/Composer.tsx:1428
+#: src/components/Composer/CompactComposer.tsx:308
+#: src/components/Composer/Composer.tsx:1436
 #: src/screens/Note.tsx:629
 msgid "Attachment limit reached."
 msgstr "Attachment limit reached."
 
-#: src/components/Composer/Composer.tsx:1314
+#: src/components/Composer/Composer.tsx:1322
 msgid "Audience"
 msgstr "Audience"
 
@@ -789,7 +797,7 @@ msgstr "Audience"
 msgid "Audio unavailable"
 msgstr "Audio unavailable"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:44
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:46
 msgid "Authors whose style matches your taste."
 msgstr "Authors whose style matches your taste."
 
@@ -940,15 +948,15 @@ msgstr "Bookmarks are not available on this server."
 msgid "Boost"
 msgstr "Boost"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:60
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:62
 msgid "Boost for followed authors."
 msgstr "Boost for followed authors."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:62
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:64
 msgid "Boost for posts liked by similar-taste users."
 msgstr "Boost for posts liked by similar-taste users."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:73
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:75
 msgid "Boosting (renoting) a post."
 msgstr "Boosting (renoting) a post."
 
@@ -973,8 +981,8 @@ msgstr "Browser sign-in — approve on {0}."
 msgid "by {shown}"
 msgstr "by {shown}"
 
-#: src/components/Composer/CompactComposer.tsx:203
-#: src/components/Composer/Composer.tsx:1220
+#: src/components/Composer/CompactComposer.tsx:207
+#: src/components/Composer/Composer.tsx:1226
 #: src/components/Composer/ComposerSections.tsx:665
 #: src/components/Post/ReportChooser.tsx:201
 #: src/components/RichText.tsx:406
@@ -1250,7 +1258,7 @@ msgstr "Close"
 msgid "Close composer"
 msgstr "Close composer"
 
-#: src/components/Dialog.tsx:27
+#: src/components/Dialog.tsx:29
 msgid "Close dialog"
 msgstr "Close dialog"
 
@@ -1262,12 +1270,12 @@ msgctxt "navigation"
 msgid "Close editor"
 msgstr "Close editor"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:303
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:317
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:309
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:324
 msgid "Close recommendations settings"
 msgstr "Close recommendations settings"
 
-#: src/components/Composer/Composer.tsx:215
+#: src/components/Composer/Composer.tsx:216
 msgid "Close without saving your changes?"
 msgstr "Close without saving your changes?"
 
@@ -1322,7 +1330,7 @@ msgstr "Confirm delete"
 msgid "Connecting…"
 msgstr "Connecting…"
 
-#: src/components/Composer/CompactComposer.tsx:339
+#: src/components/Composer/CompactComposer.tsx:346
 #: src/components/Composer/ComposerSections.tsx:55
 msgid "Content warning"
 msgstr "Content warning"
@@ -1719,7 +1727,7 @@ msgstr "Could not open the file picker."
 msgid "errors.stream.unavailable"
 msgstr "Could not open the live connection."
 
-#: src/components/Composer/Composer.tsx:926
+#: src/components/Composer/Composer.tsx:928
 #: src/screens/Note.tsx:407
 msgid "Could not open the media picker."
 msgstr "Could not open the media picker."
@@ -1746,8 +1754,8 @@ msgstr "Could not open this link."
 msgid "could not post your scheduled note"
 msgstr "could not post your scheduled note"
 
-#: src/components/Composer/Composer.tsx:855
-#: src/components/Composer/Composer.tsx:859
+#: src/components/Composer/Composer.tsx:857
+#: src/components/Composer/Composer.tsx:861
 #: src/screens/Note.tsx:466
 msgid "Could not post."
 msgstr "Could not post."
@@ -1773,7 +1781,7 @@ msgid "errors.network.unreachableServer"
 msgstr "Could not reach the server ({reason}). Is it running?"
 
 #. placeholder {0}: unreadable[0].name
-#: src/components/Composer/Composer.tsx:897
+#: src/components/Composer/Composer.tsx:899
 msgid "Could not read \"{0}\". Try again or pick another photo."
 msgstr "Could not read \"{0}\". Try again or pick another photo."
 
@@ -1814,20 +1822,20 @@ msgstr "Could not resolve \"{raw}\"."
 msgid "Could not save notification settings."
 msgstr "Could not save notification settings."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:269
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:271
 msgid "Could not save recommendations settings."
 msgstr "Could not save recommendations settings."
 
-#: src/components/Composer/Composer.tsx:505
+#: src/components/Composer/Composer.tsx:507
 msgid "Could not save the draft on this device."
 msgstr "Could not save the draft on this device."
 
-#: src/components/Composer/Composer.tsx:1044
+#: src/components/Composer/Composer.tsx:1046
 #: src/components/Composer/ComposerSections.tsx:709
 msgid "Could not save the draft."
 msgstr "Could not save the draft."
 
-#: src/components/Composer/Composer.tsx:766
+#: src/components/Composer/Composer.tsx:768
 msgid "Could not save the edit."
 msgstr "Could not save the edit."
 
@@ -1966,12 +1974,12 @@ msgstr "Custom emojis returned an unexpected response shape."
 msgid "Custom like emoji"
 msgstr "Custom like emoji"
 
-#: src/components/Composer/Composer.tsx:1395
+#: src/components/Composer/Composer.tsx:1403
 msgid "CW"
 msgstr "CW"
 
 #. Short button label; abbreviation of "Content warning"
-#: src/components/Composer/CompactComposer.tsx:344
+#: src/components/Composer/CompactComposer.tsx:351
 msgctxt "composer content-warning toggle"
 msgid "CW"
 msgstr "CW"
@@ -1994,7 +2002,7 @@ msgid "Debug"
 msgstr "Debug"
 
 #. Decrease the numeric setting
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:120
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:122
 msgctxt "stepper button"
 msgid "Decrease"
 msgstr "Decrease"
@@ -2057,7 +2065,7 @@ msgstr "Delete conversation"
 msgid "Delete message"
 msgstr "Delete message"
 
-#: src/components/Composer/CompactComposer.tsx:506
+#: src/components/Composer/CompactComposer.tsx:513
 msgid "Delete this draft"
 msgstr "Delete this draft"
 
@@ -2076,15 +2084,15 @@ msgctxt "button"
 msgid "Deleting…"
 msgstr "Deleting…"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:54
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:56
 msgid "Demote hashtag-stuffed posts."
 msgstr "Demote hashtag-stuffed posts."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:56
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:58
 msgid "Demote standalone replies lacking context."
 msgstr "Demote standalone replies lacking context."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:52
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:54
 msgid "Demote very short text."
 msgstr "Demote very short text."
 
@@ -2122,7 +2130,7 @@ msgstr "Device only: the server refused the value."
 msgid "Device only: this server has no default-reaction field."
 msgstr "Device only: this server has no default-reaction field."
 
-#: src/components/Composer/Composer.tsx:481
+#: src/components/Composer/Composer.tsx:483
 msgid "Direct and specified posts aren't autosaved on this device. Use Save to keep a copy."
 msgstr "Direct and specified posts aren't autosaved on this device. Use Save to keep a copy."
 
@@ -2135,15 +2143,15 @@ msgid "Direct message"
 msgstr "Direct message"
 
 #: src/components/Composer/CloseConfirmDialog.tsx:27
-#: src/components/Composer/Composer.tsx:217
+#: src/components/Composer/Composer.tsx:218
 msgid "Discard"
 msgstr "Discard"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:331
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:338
 msgid "Discard changes"
 msgstr "Discard changes"
 
-#: src/components/Composer/Composer.tsx:214
+#: src/components/Composer/Composer.tsx:215
 msgid "Discard changes?"
 msgstr "Discard changes?"
 
@@ -2171,13 +2179,13 @@ msgid "Disk {0} of {1}"
 msgstr "Disk {0} of {1}"
 
 #: src/components/Notification/NotificationRow.tsx:401
-#: src/components/Popup.tsx:256
+#: src/components/Popup.tsx:255
 #: src/screens/Notifications.tsx:560
 msgid "Dismiss"
 msgstr "Dismiss"
 
 #: src/components/Notification/NotificationRow.tsx:399
-#: src/components/ToastHost.tsx:51
+#: src/components/ToastHost.tsx:63
 msgid "Dismiss notification"
 msgstr "Dismiss notification"
 
@@ -2215,13 +2223,13 @@ msgstr "Done."
 msgid "Double-tap to zoom"
 msgstr "Double-tap to zoom"
 
-#: src/components/Composer/CompactComposer.tsx:480
-#: src/components/Composer/Composer.tsx:1445
+#: src/components/Composer/CompactComposer.tsx:487
+#: src/components/Composer/Composer.tsx:1453
 msgid "Drafts"
 msgstr "Drafts"
 
 #. placeholder {0}: c.drafts.length
-#: src/components/Composer/CompactComposer.tsx:480
+#: src/components/Composer/CompactComposer.tsx:487
 msgid "Drafts ({0})"
 msgstr "Drafts ({0})"
 
@@ -2253,7 +2261,7 @@ msgstr "Drive never shows sample data when signed out."
 msgid "Each post renders through its own source parser."
 msgstr "Each post renders through its own source parser."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:426
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:434
 msgid "Each slider multiplies how much a factor counts: 0 ignores it, 1 keeps the default, 2 doubles it."
 msgstr "Each slider multiplies how much a factor counts: 0 ignores it, 1 keeps the default, 2 doubles it."
 
@@ -2301,7 +2309,7 @@ msgstr "Edited · {0}"
 msgid "Editing the first keyword. The rest of this group stay as they are: {0}"
 msgstr "Editing the first keyword. The rest of this group stay as they are: {0}"
 
-#: src/components/Composer/Composer.tsx:1253
+#: src/components/Composer/Composer.tsx:1259
 msgid "Editing your post"
 msgstr "Editing your post"
 
@@ -2309,7 +2317,7 @@ msgstr "Editing your post"
 msgid "Either"
 msgstr "Either"
 
-#: src/components/Composer/Composer.tsx:1393
+#: src/components/Composer/Composer.tsx:1401
 msgid "Emoji"
 msgstr "Emoji"
 
@@ -2323,7 +2331,7 @@ msgstr "Emoji style"
 msgid "en"
 msgstr "en"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:363
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:370
 msgid "Enable recommendations"
 msgstr "Enable recommendations"
 
@@ -2597,7 +2605,7 @@ msgid "followed you"
 msgstr "followed you"
 
 #. placeholder {0}: Math.round(draft.followedRatio * 100)
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:410
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:418
 msgid "Followed-post share: {0}%"
 msgstr "Followed-post share: {0}%"
 
@@ -2760,7 +2768,7 @@ msgctxt "emoji group status"
 msgid "hidden"
 msgstr "hidden"
 
-#: src/components/Composer/CompactComposer.tsx:79
+#: src/components/Composer/CompactComposer.tsx:80
 msgid "Hidden from global timelines"
 msgstr "Hidden from global timelines"
 
@@ -2830,7 +2838,7 @@ msgstr "Home"
 msgid "Home timelines"
 msgstr "Home timelines"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:42
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:44
 msgid "How closely a post matches your interests."
 msgstr "How closely a post matches your interests."
 
@@ -2842,7 +2850,7 @@ msgstr "How link previews in posts load. Private posts never load automatically.
 msgid "How post bodies, bios and quotes render."
 msgstr "How post bodies, bios and quotes render."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:445
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:453
 msgid "How strongly each interaction nudges your interests toward similar posts."
 msgstr "How strongly each interaction nudges your interests toward similar posts."
 
@@ -2880,7 +2888,7 @@ msgid "In clips"
 msgstr "In clips"
 
 #. Increase the numeric setting
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:131
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:133
 msgctxt "stepper button"
 msgid "Increase"
 msgstr "Increase"
@@ -2895,7 +2903,7 @@ msgstr "Inferred topic: {0}"
 msgid "Insert {0}"
 msgstr "Insert {0}"
 
-#: src/components/Composer/CompactComposer.tsx:332
+#: src/components/Composer/CompactComposer.tsx:339
 #: src/components/Composer/ComposerSections.tsx:776
 #: src/screens/Note.tsx:648
 msgid "Insert emoji"
@@ -2909,11 +2917,11 @@ msgstr "Instance"
 msgid "Instance settings need an admin account on this server."
 msgstr "Instance settings need an admin account on this server."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:443
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:451
 msgid "Interaction weights"
 msgstr "Interaction weights"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:476
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:484
 msgid "Interested in"
 msgstr "Interested in"
 
@@ -2954,7 +2962,7 @@ msgctxt "button"
 msgid "Keep"
 msgstr "Keep"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:338
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:345
 msgid "Keep editing"
 msgstr "Keep editing"
 
@@ -2963,7 +2971,7 @@ msgid "Keep original"
 msgstr "Keep original"
 
 #: src/components/Composer/CloseConfirmDialog.tsx:33
-#: src/components/Composer/Composer.tsx:223
+#: src/components/Composer/Composer.tsx:224
 msgid "Keep writing"
 msgstr "Keep writing"
 
@@ -2998,7 +3006,7 @@ msgstr "keyword1 keyword2"
 msgid "Keywords (space-separated, all must match)"
 msgstr "Keywords (space-separated, all must match)"
 
-#: src/components/Composer/Composer.tsx:1378
+#: src/components/Composer/Composer.tsx:1386
 #: src/components/Settings/LanguageSection.tsx:31
 #: src/routes.ts:445
 #: src/screens/ProfileEditor.tsx:409
@@ -3006,7 +3014,7 @@ msgstr "Keywords (space-separated, all must match)"
 msgid "Language"
 msgstr "Language"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:382
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:389
 #: src/screens/AdminInsight.tsx:69
 msgid "Languages"
 msgstr "Languages"
@@ -3208,8 +3216,8 @@ msgstr "Loading the filter policy."
 msgid "Loading this server's rules…"
 msgstr "Loading this server's rules…"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:349
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:351
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:356
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:358
 #: src/components/Settings/AccountLists.tsx:104
 #: src/components/Settings/DomainBlocks.tsx:172
 #: src/components/Settings/FiltersSection.tsx:135
@@ -3240,8 +3248,8 @@ msgstr "Local accounts"
 msgid "local only"
 msgstr "local only"
 
-#: src/components/Composer/CompactComposer.tsx:444
-#: src/components/Composer/Composer.tsx:1329
+#: src/components/Composer/CompactComposer.tsx:451
+#: src/components/Composer/Composer.tsx:1337
 msgid "Local only"
 msgstr "Local only"
 
@@ -3294,7 +3302,7 @@ msgstr "Mark all read"
 msgid "Mark as read"
 msgstr "Mark as read"
 
-#: src/components/Composer/Composer.tsx:1372
+#: src/components/Composer/Composer.tsx:1380
 msgid "Mark media sensitive"
 msgstr "Mark media sensitive"
 
@@ -3347,11 +3355,11 @@ msgstr "Marking…"
 msgid "Mastodon server · @{0}"
 msgstr "Mastodon server · @{0}"
 
-#: src/components/richtext/MatrixHover.tsx:244
+#: src/components/richtext/MatrixHover.tsx:261
 msgid "Matrix handle: {userId}"
 msgstr "Matrix handle: {userId}"
 
-#: src/components/richtext/MatrixHover.tsx:245
+#: src/components/richtext/MatrixHover.tsx:262
 msgid "Matrix handle: {userId}. Tap to copy."
 msgstr "Matrix handle: {userId}. Tap to copy."
 
@@ -3359,12 +3367,12 @@ msgstr "Matrix handle: {userId}. Tap to copy."
 msgid "Matrix is a secure and decentralized messaging protocol. You can message this user from Element, or any other Matrix chat client."
 msgstr "Matrix is a secure and decentralized messaging protocol. You can message this user from Element, or any other Matrix chat client."
 
-#: src/components/Composer/Composer.tsx:1421
+#: src/components/Composer/Composer.tsx:1429
 #: src/components/Profile/ProfileTabs.tsx:28
 msgid "Media"
 msgstr "Media"
 
-#: src/components/Composer/Composer.tsx:877
+#: src/components/Composer/Composer.tsx:879
 #: src/screens/Note.tsx:384
 msgid "Media library access was denied. Allow access to attach photos or videos."
 msgstr "Media library access was denied. Allow access to attach photos or videos."
@@ -3373,7 +3381,7 @@ msgstr "Media library access was denied. Allow access to attach photos or videos
 msgid "Media library access was denied. Allow access to pick a file."
 msgstr "Media library access was denied. Allow access to pick a file."
 
-#: src/components/Composer/Composer.tsx:879
+#: src/components/Composer/Composer.tsx:881
 #: src/screens/Note.tsx:386
 msgid "Media library access was denied. Enable it in the system settings to attach photos or videos."
 msgstr "Media library access was denied. Enable it in the system settings to attach photos or videos."
@@ -3456,7 +3464,7 @@ msgstr "Moderator note: {0}"
 msgid "More"
 msgstr "More"
 
-#: src/components/Composer/CompactComposer.tsx:357
+#: src/components/Composer/CompactComposer.tsx:364
 #: src/components/Post/PostMenu.tsx:51
 msgid "More options"
 msgstr "More options"
@@ -3714,7 +3722,7 @@ msgstr "No description."
 msgid "No drafts on this device."
 msgstr "No drafts on this device."
 
-#: src/components/Composer/CompactComposer.tsx:487
+#: src/components/Composer/CompactComposer.tsx:494
 msgid "No drafts yet."
 msgstr "No drafts yet."
 
@@ -3792,8 +3800,8 @@ msgstr "No profile URL known."
 msgid "No profiles found."
 msgstr "No profiles found."
 
-#: src/components/Composer/CompactComposer.tsx:430
-#: src/components/Composer/Composer.tsx:1346
+#: src/components/Composer/CompactComposer.tsx:437
+#: src/components/Composer/Composer.tsx:1354
 msgid "No quotes for this post"
 msgstr "No quotes for this post"
 
@@ -3856,7 +3864,7 @@ msgstr "Not following anyone yet."
 msgid "Not interested"
 msgstr "Not interested"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:503
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:515
 msgid "Not interested in"
 msgstr "Not interested in"
 
@@ -4020,7 +4028,7 @@ msgstr "One phrase; matches everywhere."
 msgid "Only available on Misskey-family servers."
 msgstr "Only available on Misskey-family servers."
 
-#: src/components/Composer/CompactComposer.tsx:83
+#: src/components/Composer/CompactComposer.tsx:84
 msgid "Only people you name"
 msgstr "Only people you name"
 
@@ -4029,12 +4037,12 @@ msgstr "Only people you name"
 msgid "Only show authorized quotes"
 msgstr "Only show authorized quotes"
 
-#: src/components/Composer/CompactComposer.tsx:437
-#: src/components/Composer/Composer.tsx:1355
+#: src/components/Composer/CompactComposer.tsx:444
+#: src/components/Composer/Composer.tsx:1363
 msgid "Only this post refuses quotes. The account-wide setting is in Settings → Account."
 msgstr "Only this post refuses quotes. The account-wide setting is in Settings → Account."
 
-#: src/components/Composer/CompactComposer.tsx:81
+#: src/components/Composer/CompactComposer.tsx:82
 msgid "Only your followers"
 msgstr "Only your followers"
 
@@ -4187,13 +4195,13 @@ msgstr "OS screenshot blocking"
 msgid "Other"
 msgstr "Other"
 
-#: src/components/Composer/CompactComposer.tsx:375
-#: src/components/Composer/Composer.tsx:1228
+#: src/components/Composer/CompactComposer.tsx:382
+#: src/components/Composer/Composer.tsx:1234
 #: src/screens/Note.tsx:496
 msgid "Over the character limit."
 msgstr "Over the character limit."
 
-#: src/components/Composer/Composer.tsx:1288
+#: src/components/Composer/Composer.tsx:1296
 msgid "Over the limit"
 msgstr "Over the limit"
 
@@ -4250,7 +4258,7 @@ msgstr "Photo access was denied. Try again and allow access when your device ask
 msgid "Phrase"
 msgstr "Phrase"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:249
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:251
 msgid "Pick at least one language."
 msgstr "Pick at least one language."
 
@@ -4308,7 +4316,7 @@ msgstr "Play"
 msgid "Play {0}"
 msgstr "Play {0}"
 
-#: src/components/Composer/Composer.tsx:1403
+#: src/components/Composer/Composer.tsx:1411
 msgid "Poll"
 msgstr "Poll"
 
@@ -4316,12 +4324,12 @@ msgstr "Poll"
 msgid "Polls"
 msgstr "Polls"
 
-#: src/components/Composer/Composer.tsx:700
+#: src/components/Composer/Composer.tsx:702
 msgid "Polls must stay open at least 5 minutes on this server."
 msgstr "Polls must stay open at least 5 minutes on this server."
 
-#: src/components/Composer/CompactComposer.tsx:189
-#: src/components/Composer/Composer.tsx:1223
+#: src/components/Composer/CompactComposer.tsx:193
+#: src/components/Composer/Composer.tsx:1229
 #: src/components/shell/Sidebar.tsx:350
 msgid "Post"
 msgstr "Post"
@@ -4330,7 +4338,7 @@ msgstr "Post"
 msgid "Post at (ISO time)"
 msgstr "Post at (ISO time)"
 
-#: src/components/Composer/CompactComposer.tsx:463
+#: src/components/Composer/CompactComposer.tsx:470
 msgid "Post at a later time"
 msgstr "Post at a later time"
 
@@ -4343,12 +4351,12 @@ msgstr "Post content"
 msgid "Post details"
 msgstr "Post details"
 
-#: src/components/Composer/CompactComposer.tsx:453
+#: src/components/Composer/CompactComposer.tsx:460
 msgid "Post now instead"
 msgstr "Post now instead"
 
-#: src/components/Composer/CompactComposer.tsx:227
-#: src/components/Composer/Composer.tsx:1276
+#: src/components/Composer/CompactComposer.tsx:233
+#: src/components/Composer/Composer.tsx:1284
 msgid "Post text"
 msgstr "Post text"
 
@@ -4375,13 +4383,13 @@ msgstr "PostgreSQL {0}"
 msgid "Posting apps"
 msgstr "Posting apps"
 
-#: src/components/Composer/CompactComposer.tsx:375
-#: src/components/Composer/Composer.tsx:1230
+#: src/components/Composer/CompactComposer.tsx:382
+#: src/components/Composer/Composer.tsx:1236
 #: src/screens/Note.tsx:498
 msgid "Posting..."
 msgstr "Posting..."
 
-#: src/components/Composer/CompactComposer.tsx:369
+#: src/components/Composer/CompactComposer.tsx:376
 #: src/screens/Note.tsx:491
 msgid "Posting…"
 msgstr "Posting…"
@@ -4396,15 +4404,15 @@ msgid "Posts"
 msgstr "Posts"
 
 #. placeholder {0}: formatDateTime(c.state.scheduledAt, i18n.locale)
-#: src/components/Composer/CompactComposer.tsx:462
+#: src/components/Composer/CompactComposer.tsx:469
 msgid "Posts {0}"
 msgstr "Posts {0}"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:384
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:391
 msgid "Posts from all selected languages are pooled and ranked together."
 msgstr "Posts from all selected languages are pooled and ranked together."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:48
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:50
 msgid "Posts with many reactions, replies and boosts."
 msgstr "Posts with many reactions, replies and boosts."
 
@@ -4412,7 +4420,7 @@ msgstr "Posts with many reactions, replies and boosts."
 msgid "Posts, bios and quotes render as plain text."
 msgstr "Posts, bios and quotes render as plain text."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:50
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:52
 msgid "Prefer newer posts."
 msgstr "Prefer newer posts."
 
@@ -4492,7 +4500,7 @@ msgstr "Pull to refresh."
 msgid "Queues"
 msgstr "Queues"
 
-#: src/components/Composer/CompactComposer.tsx:188
+#: src/components/Composer/CompactComposer.tsx:192
 #: src/components/Post/ActionBar.tsx:188
 #: src/components/Post/ActionBar.tsx:191
 msgid "Quote"
@@ -4515,7 +4523,7 @@ msgstr "Quoted post unavailable. The target could not be shown."
 msgid "quoted your post"
 msgstr "quoted your post"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:424
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:432
 msgid "Ranking factors"
 msgstr "Ranking factors"
 
@@ -4538,7 +4546,7 @@ msgstr "reacted {0}"
 msgid "reacted to your post"
 msgstr "reacted to your post"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:69
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:71
 msgid "Reacting to a post."
 msgstr "Reacting to a post."
 
@@ -4557,7 +4565,7 @@ msgstr "Reaction listings are not available on this server."
 msgid "reactions"
 msgstr "reactions"
 
-#: src/components/Composer/Composer.tsx:1461
+#: src/components/Composer/Composer.tsx:1469
 #: src/screens/Note.tsx:1307
 #: src/screens/Notifications.tsx:108
 msgid "Reactions"
@@ -4603,11 +4611,11 @@ msgstr "Recent reactions"
 msgid "Recently used"
 msgstr "Recently used"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:464
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:472
 msgid "Recommend NSFW posts"
 msgstr "Recommend NSFW posts"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:311
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:318
 #: src/screens/Home.tsx:122
 msgid "Recommendations"
 msgstr "Recommendations"
@@ -4695,7 +4703,7 @@ msgstr "Release claim"
 msgid "Release your claim on this report?"
 msgstr "Release your claim on this report?"
 
-#: src/components/Composer/Composer.tsx:1448
+#: src/components/Composer/Composer.tsx:1456
 msgid "Remind me about alt text"
 msgstr "Remind me about alt text"
 
@@ -4724,6 +4732,14 @@ msgstr "Remove"
 #: src/screens/Note.tsx:608
 msgid "Remove {0}"
 msgstr "Remove {0}"
+
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:522
+msgid "Remove {t} from ignored topics"
+msgstr "Remove {t} from ignored topics"
+
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:491
+msgid "Remove {t} from interested topics"
+msgstr "Remove {t} from interested topics"
 
 #: src/screens/ProfileEditor.tsx:442
 msgid "Remove field"
@@ -4783,7 +4799,7 @@ msgstr "replied to you"
 msgid "Replies"
 msgstr "Replies"
 
-#: src/components/Composer/CompactComposer.tsx:186
+#: src/components/Composer/CompactComposer.tsx:190
 #: src/screens/Conversation.tsx:202
 #: src/screens/Note.tsx:491
 msgid "Reply"
@@ -4811,7 +4827,7 @@ msgstr "Reply, {0} replies"
 msgid "Replying to @{0}"
 msgstr "Replying to @{0}"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:71
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:73
 msgid "Replying to a post."
 msgstr "Replying to a post."
 
@@ -4961,11 +4977,11 @@ msgid "Restore"
 msgstr "Restore"
 
 #. placeholder {0}: d.text.slice(0, 60) || '(no text)'
-#: src/components/Composer/CompactComposer.tsx:498
+#: src/components/Composer/CompactComposer.tsx:505
 msgid "Restore draft: {0}"
 msgstr "Restore draft: {0}"
 
-#: src/components/Composer/Composer.tsx:405
+#: src/components/Composer/Composer.tsx:407
 msgid "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 
@@ -5064,10 +5080,10 @@ msgstr "Rule ids"
 msgid "Rule violation"
 msgstr "Rule violation"
 
-#: src/components/Composer/CompactComposer.tsx:182
-#: src/components/Composer/Composer.tsx:1223
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:376
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:526
+#: src/components/Composer/CompactComposer.tsx:186
+#: src/components/Composer/Composer.tsx:1229
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:383
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:542
 #: src/components/Settings/FiltersSection.tsx:151
 #: src/components/Settings/WordFields.tsx:128
 #: src/screens/Antennas.tsx:194
@@ -5091,7 +5107,7 @@ msgctxt "settings button"
 msgid "Save"
 msgstr "Save"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:325
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:332
 msgid "Save changes"
 msgstr "Save changes"
 
@@ -5135,15 +5151,15 @@ msgstr "Saving notification settings."
 msgid "Saving the filter policy."
 msgstr "Saving the filter policy."
 
-#: src/components/Composer/Composer.tsx:1208
+#: src/components/Composer/Composer.tsx:1210
 #: src/components/Composer/ComposerSections.tsx:66
 #: src/components/Composer/ComposerSections.tsx:176
 #: src/components/Composer/ComposerSections.tsx:252
 #: src/components/Composer/ComposerSections.tsx:402
 #: src/components/Composer/ComposerSections.tsx:754
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:325
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:376
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:526
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:332
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:383
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:542
 #: src/components/Settings/DomainBlocks.tsx:165
 #: src/components/Settings/WordFields.tsx:128
 #: src/screens/Antennas.tsx:194
@@ -5160,13 +5176,13 @@ msgctxt "button"
 msgid "Saving…"
 msgstr "Saving…"
 
-#: src/components/Composer/CompactComposer.tsx:184
-#: src/components/Composer/Composer.tsx:1223
-#: src/components/Composer/Composer.tsx:1435
+#: src/components/Composer/CompactComposer.tsx:188
+#: src/components/Composer/Composer.tsx:1229
+#: src/components/Composer/Composer.tsx:1443
 msgid "Schedule"
 msgstr "Schedule"
 
-#: src/components/Composer/CompactComposer.tsx:453
+#: src/components/Composer/CompactComposer.tsx:460
 msgid "Schedule…"
 msgstr "Schedule…"
 
@@ -5174,7 +5190,7 @@ msgstr "Schedule…"
 msgid "Scheduled posts"
 msgstr "Scheduled posts"
 
-#: src/components/Composer/Composer.tsx:711
+#: src/components/Composer/Composer.tsx:713
 msgid "Scheduled posts must be scheduled at least 5 minutes ahead on this server."
 msgstr "Scheduled posts must be scheduled at least 5 minutes ahead on this server."
 
@@ -5325,7 +5341,7 @@ msgstr "Server insight is not available on this server."
 msgid "Server insight never shows sample data when signed out."
 msgstr "Server insight never shows sample data when signed out."
 
-#: src/components/Composer/Composer.tsx:1291
+#: src/components/Composer/Composer.tsx:1299
 msgid "Server limits couldn't be verified — posting won't be blocked."
 msgstr "Server limits couldn't be verified — posting won't be blocked."
 
@@ -5367,7 +5383,7 @@ msgstr "Settings"
 msgid "Share"
 msgstr "Share"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:413
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:421
 msgid "Share of the feed from follows (max 7 days old, unseen). 0% = off."
 msgstr "Share of the feed from follows (max 7 days old, unseen). 0% = off."
 
@@ -5466,7 +5482,7 @@ msgstr "Showing original · Show translation?"
 msgid "Showing the first 100 blocked domains."
 msgstr "Showing the first 100 blocked domains."
 
-#: src/components/Composer/CompactComposer.tsx:77
+#: src/components/Composer/CompactComposer.tsx:78
 msgid "Shown everywhere"
 msgstr "Shown everywhere"
 
@@ -5764,12 +5780,12 @@ msgstr "Soft words, hard words, muted servers."
 msgid "Soft-muted"
 msgstr "Soft-muted"
 
-#: src/components/Composer/Composer.tsx:923
+#: src/components/Composer/Composer.tsx:925
 msgid "Some attachments could not be added."
 msgstr "Some attachments could not be added."
 
-#: src/components/Composer/Composer.tsx:738
-#: src/components/Composer/Composer.tsx:799
+#: src/components/Composer/Composer.tsx:740
+#: src/components/Composer/Composer.tsx:801
 #: src/screens/Note.tsx:437
 msgid "Some attachments failed to upload. Retry or remove them."
 msgstr "Some attachments failed to upload. Retry or remove them."
@@ -5958,7 +5974,7 @@ msgstr "The notification policy returned an unexpected response shape."
 msgid "The one-tap like on every post. Saved on this device; sent to the server where supported."
 msgstr "The one-tap like on every post. Saved on this device; sent to the server where supported."
 
-#: src/components/Composer/Composer.tsx:596
+#: src/components/Composer/Composer.tsx:598
 msgid "The original reply or quote target could not be loaded; the text was kept."
 msgstr "The original reply or quote target could not be loaded; the text was kept."
 
@@ -5970,7 +5986,7 @@ msgstr "The post is marked as edited, but this server does not expose the revisi
 msgid "The queue never shows sample data when signed out."
 msgstr "The queue never shows sample data when signed out."
 
-#: src/components/Composer/Composer.tsx:852
+#: src/components/Composer/Composer.tsx:854
 msgid "The quoted account does not allow quotes; posted without it."
 msgstr "The quoted account does not allow quotes; posted without it."
 
@@ -6340,7 +6356,7 @@ msgstr "This server has no profile field for {fields}."
 msgid "This server has no recommendations feed."
 msgstr "This server has no recommendations feed."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:352
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:359
 msgid "This server has no recommendations."
 msgstr "This server has no recommendations."
 
@@ -6495,7 +6511,7 @@ msgstr "Trending users are not available on this server."
 msgid "Try again"
 msgstr "Try again"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:359
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:366
 msgid "Tune how the recommendations feed (the ✨ tab) picks posts for you."
 msgstr "Tune how the recommendations feed (the ✨ tab) picks posts for you."
 
@@ -6659,7 +6675,7 @@ msgstr "Unread"
 msgid "Unsaved draft"
 msgstr "Unsaved draft"
 
-#: src/components/Composer/CompactComposer.tsx:482
+#: src/components/Composer/CompactComposer.tsx:489
 msgid "Unsent posts on this device"
 msgstr "Unsent posts on this device"
 
@@ -6810,7 +6826,7 @@ msgstr "Version {0}"
 msgid "Video unavailable"
 msgstr "Video unavailable"
 
-#: src/components/Composer/Composer.tsx:425
+#: src/components/Composer/Composer.tsx:427
 msgid "Videos are sent unchanged, including any location or device data they carry."
 msgstr "Videos are sent unchanged, including any location or device data they carry."
 
@@ -6835,7 +6851,7 @@ msgstr "View requests"
 msgid "Violates server rules"
 msgstr "Violates server rules"
 
-#: src/components/Composer/CompactComposer.tsx:447
+#: src/components/Composer/CompactComposer.tsx:454
 msgid "Visible only on this server"
 msgstr "Visible only on this server"
 
@@ -6866,24 +6882,24 @@ msgstr "We'll show you fewer posts like this."
 msgid "Week {0}: {1}"
 msgstr "Week {0}: {1}"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:46
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:48
 msgid "Well-written, substantive posts."
 msgstr "Well-written, substantive posts."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:77
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:79
 msgid "What you post yourself."
 msgstr "What you post yourself."
 
-#: src/components/Composer/CompactComposer.tsx:224
-#: src/components/Composer/Composer.tsx:1273
+#: src/components/Composer/CompactComposer.tsx:230
+#: src/components/Composer/Composer.tsx:1281
 msgid "What's happening?"
 msgstr "What's happening?"
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:466
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:474
 msgid "When off, posts with sensitive media are never recommended."
 msgstr "When off, posts with sensitive media are never recommended."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:365
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:372
 msgid "When off, the feed is removed and settings below are disabled."
 msgstr "When off, the feed is removed and settings below are disabled."
 
@@ -6895,16 +6911,16 @@ msgstr "Which Network tabs to show."
 msgid "Which rules are being violated? Optional"
 msgstr "Which rules are being violated? Optional"
 
-#: src/components/Composer/CompactComposer.tsx:404
+#: src/components/Composer/CompactComposer.tsx:411
 msgid "Who can react"
 msgstr "Who can react"
 
-#: src/components/Composer/CompactComposer.tsx:269
+#: src/components/Composer/CompactComposer.tsx:276
 msgid "Who can see this post"
 msgstr "Who can see this post"
 
 #. placeholder {0}: current.label
-#: src/components/Composer/CompactComposer.tsx:257
+#: src/components/Composer/CompactComposer.tsx:264
 msgid "Who can see this post: {0}. Change audience."
 msgstr "Who can see this post: {0}. Change audience."
 
@@ -6978,8 +6994,8 @@ msgstr "Write a post"
 msgid "Write something first."
 msgstr "Write something first."
 
-#: src/components/Composer/CompactComposer.tsx:221
-#: src/components/Composer/Composer.tsx:1270
+#: src/components/Composer/CompactComposer.tsx:227
+#: src/components/Composer/Composer.tsx:1278
 msgid "Write your reply"
 msgstr "Write your reply"
 
@@ -7038,7 +7054,7 @@ msgstr "You have no lists yet."
 msgid "You have no lists yet."
 msgstr "You have no lists yet."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:323
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:330
 msgid "You have unsaved changes. Save them or discard?"
 msgstr "You have unsaved changes. Save them or discard?"
 
@@ -7142,11 +7158,11 @@ msgstr "Your device font. No downloads."
 msgid "Your export is ready — find it in Notifications."
 msgstr "Your export is ready — find it in Notifications."
 
-#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:58
+#: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:60
 msgid "Your liked / disliked topics weight."
 msgstr "Your liked / disliked topics weight."
 
-#: src/components/Composer/Composer.tsx:511
+#: src/components/Composer/Composer.tsx:513
 msgid "Your oldest draft was removed to make room for this one."
 msgstr "Your oldest draft was removed to make room for this one."
 

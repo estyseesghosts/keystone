@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react'
-import {Platform, StyleSheet, View, type View as ViewType} from 'react-native'
+import {StyleSheet, View, type View as ViewType} from 'react-native'
 
 import {atoms} from '#/alf/atoms'
 import {useTheme} from '#/alf/index'
@@ -8,6 +8,7 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {AnchoredPopup} from '#/components/Popup'
 import {Pressable} from '#/components/Pressable'
+import {useKeyboardLayer} from '#/components/keyboardLayer'
 
 export type MenuItem = {
   key: string
@@ -56,8 +57,6 @@ export function Menu({label, items, testID, trigger}: MenuProps) {
   const [focusIdx, setFocusIdx] = useState(0)
   const focusRef = useRef(0)
   focusRef.current = focusIdx
-  const openRef = useRef(false)
-  openRef.current = open
   const itemsRef = useRef(items)
   itemsRef.current = items
   const theme = useTheme()
@@ -75,35 +74,35 @@ export function Menu({label, items, testID, trigger}: MenuProps) {
   useEffect(() => {
     if (open) setFocusIdx(firstEnabledIndex(itemsRef.current))
   }, [open])
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return
-    const onKey = (e: KeyboardEvent) => {
-      if (!openRef.current) return
-      if (e.key === 'Escape') {
+  // Web keyboard (P8, repair X10.1): Up/Down moves across enabled items
+  // (roving focus, wrap-around), Enter selects, Escape closes — routed
+  // through the single shared layer stack, so a Menu inside a Dialog
+  // consumes the first Escape and the Dialog the second. Typing in a
+  // field never triggers navigation. Native D-pad is tolerant: focus
+  // state simply never changes there, and every item stays pressable.
+  useKeyboardLayer(open, e => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setOpen(false)
+      return
+    }
+    const t = e.target as {tagName?: string; isContentEditable?: boolean} | null
+    const typing =
+      !!t &&
+      (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || !!t.isContentEditable)
+    if (typing) return
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      setFocusIdx(prev => nextEnabledIndex(itemsRef.current, prev, e.key === 'ArrowDown' ? 1 : -1))
+    } else if (e.key === 'Enter') {
+      const item = itemsRef.current[focusRef.current]
+      if (item && !item.disabled) {
         e.preventDefault()
+        item.onSelect()
         setOpen(false)
-        return
-      }
-      const t = e.target as {tagName?: string; isContentEditable?: boolean} | null
-      const typing =
-        !!t &&
-        (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || !!t.isContentEditable)
-      if (typing) return
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault()
-        setFocusIdx(prev => nextEnabledIndex(itemsRef.current, prev, e.key === 'ArrowDown' ? 1 : -1))
-      } else if (e.key === 'Enter') {
-        const item = itemsRef.current[focusRef.current]
-        if (item && !item.disabled) {
-          e.preventDefault()
-          item.onSelect()
-          setOpen(false)
-        }
       }
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [])
+  })
   return (
     <>
       <View ref={anchor} collapsable={false}>
@@ -125,7 +124,7 @@ export function Menu({label, items, testID, trigger}: MenuProps) {
         )}
       </View>
       {open ? (
-        <AnchoredPopup anchor={anchor} onClose={() => setOpen(false)} testID={testID}>
+        <AnchoredPopup anchor={anchor} onClose={() => setOpen(false)} testID={testID} role="menu">
           <View style={atoms.gap_sm}>
             {items.map((item, idx) => (
               <Pressable

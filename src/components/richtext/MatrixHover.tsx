@@ -4,7 +4,7 @@
 // the small hovercard; native has no hover, so a tap copies directly.
 
 import {useCallback, useEffect, useRef, useState, type ReactNode} from 'react'
-import {Platform, StyleSheet, Text, View, type View as ViewType} from 'react-native'
+import {Platform, StyleSheet, Text, View, type NativeSyntheticEvent, type TargetedEvent, type View as ViewType} from 'react-native'
 
 import {msg} from '@lingui/macro'
 import {useI18n} from '#/locale/i18n'
@@ -12,7 +12,7 @@ import {useI18n} from '#/locale/i18n'
 import {useTheme} from '#/alf/index'
 import {Body} from '#/alf/typography'
 import {Button} from '#/components/Button'
-import {HoverLayer, HOVER_CLOSE_DELAY_MS, HOVER_FADE_LEAD_MS, cardPosition, ensurePointerTracking, leaveTargetStaysInside, pointerRecentlyMoved, shouldReviveOnCardEnter} from '#/components/Profile/HoverPreview'
+import {HoverLayer, HOVER_CLOSE_DELAY_MS, HOVER_FADE_LEAD_MS, blurRelatedTarget, cardPosition, ensurePointerTracking, leaveTargetStaysInside, pointerRecentlyMoved, shouldReviveOnCardEnter} from '#/components/Profile/HoverPreview'
 import {Pressable} from '#/components/Pressable'
 import {canCopy, copyText} from '#/lib/clipboard'
 import {showToast} from '#/lib/toast'
@@ -149,10 +149,16 @@ function MatrixHover({
     cancelClose()
     closeTimer.current = setTimeout(() => setShow(false), HOVER_CLOSE_DELAY_MS)
   }
-  const handleEnter = () => {
+  // Stable dismiss identity (X10.1): the drift-poll interval and the
+  // scroll/resize/Escape listeners depend on `onDismiss` — an inline
+  // closure would restart them on every render.
+  const dismissCard = useCallback(() => setShow(false), [])
+  const handleEnter = (fromFocus = false) => {
     // Layout-shift ghost: without recent pointer movement this arrival
     // isn't the user — ignore it, or closed cards reopen by themselves.
-    if (!pointerRecentlyMoved()) return
+    // Keyboard focus bypasses the gate (a Tab arrival has no pointer
+    // movement by definition).
+    if (!fromFocus && !pointerRecentlyMoved()) return
     cancelClose()
     if (show) {
       setFaded(true)
@@ -183,15 +189,26 @@ function MatrixHover({
   // (only Pressable wires them) — but it DOES forward `onMouseEnter`/
   // `onMouseLeave`, so the anchor uses those (same as HoverPreview).
   const hoverHandlers = {
-    onMouseEnter: handleEnter,
+    onMouseEnter: () => handleEnter(),
     onMouseLeave: (e?: {relatedTarget?: unknown}) => {
       if (leaveTargetStaysInside([anchor.current, cardEl.current], e?.relatedTarget)) return
       handleLeave()
     },
   }
+  // Keyboard (X10.1, audit a11y 12): the chip is a Pressable, so it is
+  // already Tab-focusable on web — focus opens the card after the same
+  // delay, blur closes it. Escape dismisses through the HoverLayer's
+  // keyup handler.
+  const focusHandlers = {
+    onFocus: () => handleEnter(true),
+    onBlur: (e: NativeSyntheticEvent<TargetedEvent>) => {
+      if (leaveTargetStaysInside([anchor.current, cardEl.current], blurRelatedTarget(e))) return
+      handleLeave()
+    },
+  }
   return (
     <>
-      <View ref={anchor} {...hoverHandlers}>
+      <View ref={anchor} testID="richtext-matrix-hover-anchor" {...hoverHandlers} {...focusHandlers}>
         {children}
       </View>
       {show ? (
@@ -213,7 +230,7 @@ function MatrixHover({
             if (leaveTargetStaysInside([anchor.current, cardEl.current], e?.relatedTarget)) return
             handleLeave()
           }}
-          onDismiss={() => setShow(false)}>
+          onDismiss={dismissCard}>
           <MatrixHovercard userId={userId} />
         </HoverLayer>
       ) : null}

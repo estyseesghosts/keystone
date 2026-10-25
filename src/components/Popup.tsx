@@ -15,6 +15,7 @@ import {
 import {useTheme} from '#/alf/index'
 import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
+import {useKeyboardLayer} from '#/components/keyboardLayer'
 import {i18n} from '#/locale/i18n'
 import {useReducedMotionSetting} from '#/lib/motion'
 
@@ -178,29 +179,27 @@ export function AnchoredPopup({
   minWidth = CARD_MIN,
   testID,
   children,
+  /** Web role for the card (e.g. `"menu"` when hosting menu items).
+   * Unset renders no role claim — the card is still modal-flagged. */
+  role,
 }: {
   anchor: RefObject<ViewType | null>
   onClose: () => void
   side?: PopupSide
   minWidth?: number
   testID?: string
+  role?: 'menu' | 'dialog'
   children: ReactNode
 }) {
   const theme = useTheme()
   const enter = usePopupEnter()
-  // Web keyboard (P8): Escape dismisses the popup. Guarded to web with
-  // cleanup on unmount; native keeps the backdrop tap + `onRequestClose`.
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Web keyboard (P8, repair X10.1): Escape dismisses via the single shared
+  // layer stack, so a popup stacked over a dialog (or another popup) closes
+  // top-first instead of everything at once. Native keeps backdrop tap +
+  // `onRequestClose`.
+  useKeyboardLayer(true, e => {
+    if (e.key === 'Escape') onClose()
+  })
   // Synchronously-initialized fallback position (viewport-centered): content
   // renders on first paint everywhere, then snaps to the anchor once
   // measured. Effects inside freshly-mounted Modal subtrees are not
@@ -254,8 +253,16 @@ export function AnchoredPopup({
   // The backdrop label is UI chrome (Lingui macro); the singleton call
   // (not the hook) keeps provider-less trees — jest, previews — working.
   const dismissLabel = i18n._(msg`Dismiss`)
+  // The modal flag sits on the root, not the card: flagging the card
+  // would hide its sibling backdrop (the dismiss control) from assistive
+  // tech — the whole Modal content, backdrop included, is the modal
+  // region. The root fills the Modal; the absolutely-positioned card
+  // resolves against it at identical full-screen coordinates. Same rule
+  // for `role`: a card-level `role="dialog"` hides the backdrop from
+  // queries, so the region role (e.g. `"menu"`) lives on the root.
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose}>
+      <View style={styles.modalRoot} accessibilityViewIsModal role={role}>
       <Pressable
         style={styles.backdrop}
         onPress={onClose}
@@ -303,11 +310,13 @@ export function AnchoredPopup({
         ) : null}
         <ScrollView>{children}</ScrollView>
       </Animated.View>
+      </View>
     </Modal>
   )
 }
 
 const styles = StyleSheet.create({
+  modalRoot: {flex: 1},
   backdrop: {
     ...StyleSheet.absoluteFill,
   },

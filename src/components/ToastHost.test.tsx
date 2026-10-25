@@ -4,7 +4,7 @@
 
 import {I18nProvider} from '@lingui/react'
 import {act, fireEvent, render, screen} from '@testing-library/react-native'
-import {StyleSheet} from 'react-native'
+import {AccessibilityInfo, StyleSheet} from 'react-native'
 import {SafeAreaProvider} from 'react-native-safe-area-context'
 
 import {ThemeProvider} from '#/alf/index'
@@ -134,6 +134,55 @@ describe('ToastHost timer + early dismiss (rn-ui M4)', () => {
       expect(screen.queryByTestId(`toast-${id}`)).toBeNull()
     } finally {
       unmount()
+    }
+  })
+})
+
+describe('ToastHost announcement (a11y 6)', () => {
+  it('renders info toasts as a polite live region with no alert role', () => {
+    const {unmount} = renderHost(0)
+    try {
+      let id = 0
+      act(() => {
+        id = showToast('saved')
+      })
+      const toast = screen.getByTestId(`toast-${id}`)
+      expect(toast.props.accessibilityLiveRegion).toBe('polite')
+      expect(toast.props.accessibilityRole).toBeUndefined()
+      expect(screen.queryByRole('alert')).toBeNull()
+    } finally {
+      unmount()
+    }
+  })
+
+  it('renders error toasts as an assertive alert', () => {
+    const {unmount} = renderHost(0)
+    try {
+      let id = 0
+      act(() => {
+        id = showToast('failed', {kind: 'error'})
+      })
+      // (Role-queried: the toast sits inside the accessible dismiss
+      // control, so assert the props directly.)
+      const toast = screen.getByTestId(`toast-${id}`)
+      expect(toast.props.accessibilityLiveRegion).toBe('assertive')
+      expect(toast.props.accessibilityRole).toBe('alert')
+    } finally {
+      unmount()
+    }
+  })
+
+  it('announces the head message on native via AccessibilityInfo', () => {
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {})
+    const {unmount} = renderHost(0)
+    try {
+      act(() => {
+        showToast('hello native')
+      })
+      expect(announce).toHaveBeenCalledWith('hello native')
+    } finally {
+      unmount()
+      announce.mockRestore()
     }
   })
 })

@@ -425,3 +425,142 @@ describe('layout-shift ghosts', () => {
     }
   })
 })
+
+describe('HoverPreview keyboard (X10.1, a11y 12)', () => {
+  // NOTE: this suite runs last on purpose. The pointer-movement tracker
+  // (`ensurePointerTracking`) attaches once per process to the first window
+  // with a listener API — the ghost suite above owns it. These tests open
+  // via keyboard focus (which bypasses the pointer-freshness gate), so
+  // they neither need nor disturb that attachment.
+  function fakeDom() {
+    const winListeners = new Map<string, Array<(e: unknown) => void>>()
+    const win = {
+      innerWidth: 1280,
+      innerHeight: 800,
+      addEventListener: (type: string, fn: (e: unknown) => void) => {
+        const list = winListeners.get(type) ?? []
+        list.push(fn)
+        winListeners.set(type, list)
+      },
+      removeEventListener: jest.fn(),
+    }
+    const doc = {
+      createElement: () => ({style: {}, setAttribute: () => {}, remove: () => {}}),
+      body: {appendChild: () => {}, removeChild: () => {}},
+    }
+    return {
+      win,
+      doc,
+      fireWin: (type: string, e: unknown) => winListeners.get(type)?.forEach(fn => fn(e)),
+    }
+  }
+
+  function setupDomKeyboard() {
+    const dom = fakeDom()
+    const prevWindow = (globalThis as Record<string, unknown>).window
+    const prevDocument = (globalThis as Record<string, unknown>).document
+    ;(globalThis as Record<string, unknown>).window = dom.win
+    ;(globalThis as Record<string, unknown>).document = dom.doc
+    const store = createSessionStore({
+      storage: createMemoryStore(),
+      vault: memVault(),
+      homeOrigin: 'https://app.example',
+    })
+    const restoreOs = jest.replaceProperty(Platform, 'OS', 'web')
+    jest.useFakeTimers()
+    const rendered = render(
+      <I18nProvider i18n={i18n}>
+        <ThemeProvider theme="light">
+          <QueryClientProvider client={new QueryClient()}>
+            <SessionProvider store={store} homeOrigin="https://app.example">
+              <HoverPreview account={account} sessionId="s1" testID="hover-prev">
+                <></>
+              </HoverPreview>
+            </SessionProvider>
+          </QueryClientProvider>
+        </ThemeProvider>
+      </I18nProvider>,
+    )
+    return {
+      dom,
+      done: () => {
+        rendered.unmount()
+        ;(globalThis as Record<string, unknown>).window = prevWindow
+        ;(globalThis as Record<string, unknown>).document = prevDocument
+        restoreOs.restore()
+        jest.useRealTimers()
+      },
+    }
+  }
+
+  it('opens the card on focus after the delay and closes on blur', () => {
+    const {done} = setup()
+    try {
+      const anchor = screen.getByTestId('hover-prev-anchor')
+      expect(screen.queryByTestId('hover-prev')).toBeNull()
+      // Keyboard arrival bypasses the pointer-freshness gate.
+      fireEvent(anchor, 'focus')
+      act(() => {
+        jest.advanceTimersByTime(399)
+      })
+      expect(screen.queryByTestId('hover-prev')).toBeNull()
+      act(() => {
+        jest.advanceTimersByTime(1)
+      })
+      expect(screen.getByTestId('hover-prev')).toBeTruthy()
+      fireEvent(anchor, 'blur')
+      act(() => {
+        jest.advanceTimersByTime(551)
+      })
+      expect(screen.queryByTestId('hover-prev')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('Escape dismisses the open card', () => {
+    const {dom, done} = setupDomKeyboard()
+    try {
+      const anchor = screen.getByTestId('hover-prev-anchor')
+      fireEvent(anchor, 'focus')
+      act(() => {
+        jest.advanceTimersByTime(500)
+      })
+      expect(screen.getByTestId('hover-prev')).toBeTruthy()
+      act(() => {
+        dom.fireWin('keyup', {key: 'Escape'})
+      })
+      expect(screen.queryByTestId('hover-prev')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('keeps one drift-poll interval across re-renders (stable onDismiss)', () => {
+    const {done} = setupDomKeyboard()
+    const setIntervalSpy = jest.spyOn(globalThis, 'setInterval')
+    const clearIntervalSpy = jest.spyOn(globalThis, 'clearInterval')
+    try {
+      const anchor = screen.getByTestId('hover-prev-anchor')
+      fireEvent(anchor, 'focus')
+      act(() => {
+        jest.advanceTimersByTime(500)
+      })
+      expect(screen.getByTestId('hover-prev')).toBeTruthy()
+      const live = () => setIntervalSpy.mock.calls.length - clearIntervalSpy.mock.calls.length
+      const before = live()
+      expect(before).toBeGreaterThanOrEqual(1)
+      // Blur + refocus re-render the owner several times; the interval
+      // effect must not re-run (its onDismiss dep is stable).
+      fireEvent(anchor, 'blur')
+      fireEvent(anchor, 'focus')
+      fireEvent(anchor, 'blur')
+      fireEvent(anchor, 'focus')
+      expect(live()).toBe(before)
+    } finally {
+      setIntervalSpy.mockRestore()
+      clearIntervalSpy.mockRestore()
+      done()
+    }
+  })
+})

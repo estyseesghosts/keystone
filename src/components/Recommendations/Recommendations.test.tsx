@@ -313,6 +313,28 @@ describe('recommendations settings overlay', () => {
       done()
     }
   })
+
+  it('labels topic chips with role and distinct add/remove labels (a11y 8)', async () => {
+    const {done} = await setupOverlay()
+    try {
+      expect(await screen.findByTestId('rec-settings-save-top')).toBeTruthy()
+      // The live interest read seeds 'tech' as picked: the remove chip
+      // announces itself as a removal, not as bare text.
+      const remove = await screen.findByTestId('rec-settings-interested-tech')
+      expect(remove.props.accessibilityRole).toBe('button')
+      expect(remove.props.accessibilityLabel).toBe('Remove tech from interested topics')
+      // An unpicked topic offers the distinct add label.
+      const add = await screen.findByTestId('rec-settings-add-interest-art')
+      expect(add.props.accessibilityRole).toBe('button')
+      expect(add.props.accessibilityLabel).toBe('Add art to interested topics')
+      expect(screen.getByLabelText('Add art to interested topics')).toBeTruthy()
+      // The overlay card carries the dialog region semantics.
+      const region = screen.UNSAFE_getByProps({'aria-modal': true})
+      expect(region.props.role).toBe('dialog')
+    } finally {
+      done()
+    }
+  })
 })
 
 describe('home recommendations tab', () => {

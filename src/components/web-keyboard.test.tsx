@@ -1,11 +1,14 @@
 import {I18nProvider} from '@lingui/react'
 import {act, fireEvent, render, screen} from '@testing-library/react-native'
 import {Platform} from 'react-native'
+import {useRef} from 'react'
 
 import {ThemeProvider} from '#/alf/index'
 import {i18n} from '#/locale/i18n'
 import {Dialog} from '#/components/Dialog'
 import {Menu, nextEnabledIndex} from '#/components/Menu'
+import {keyboardLayerDepth, pushKeyboardLayer} from '#/components/keyboardLayer'
+import {useModalFocus} from '#/components/modalFocus'
 
 i18n.load('en', {})
 i18n.activate('en')
@@ -147,5 +150,139 @@ describe('Dialog web keyboard', () => {
     )
     pressKey('Escape')
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('carries dialog modal semantics', () => {
+    const {unmount} = renderWithProviders(
+      <Dialog testID="d" open onClose={() => {}} title="Title">
+        <></>
+      </Dialog>,
+    )
+    try {
+      // Region semantics sit on the Modal content root (backdrop included),
+      // so the dismiss backdrop stays queryable — never on the sheet
+      // alone, which would hide its sibling backdrop from assistive tech.
+      const region = screen.UNSAFE_getByProps({'aria-modal': true})
+      expect(region.props.role).toBe('dialog')
+      expect(region.props.accessibilityViewIsModal).toBe(true)
+      expect(screen.getByTestId('d-backdrop')).toBeTruthy()
+      // The title inherits the header role from Heading.
+      expect(screen.getByText('Title').props.accessibilityRole).toBe('header')
+    } finally {
+      unmount()
+    }
+  })
+})
+
+describe('keyboard layer stack (X10.1)', () => {
+  it('routes only to the top layer; popping restores the next', () => {
+    const calls: Array<string> = []
+    const popA = pushKeyboardLayer(() => calls.push('a'))
+    const popB = pushKeyboardLayer(() => calls.push('b'))
+    expect(keyboardLayerDepth()).toBe(2)
+    try {
+      pressKey('Escape')
+      expect(calls).toEqual(['b'])
+      popB()
+      expect(keyboardLayerDepth()).toBe(1)
+      pressKey('Escape')
+      expect(calls).toEqual(['b', 'a'])
+      // Popping twice is a no-op, never unbalances the stack.
+      popB()
+      expect(keyboardLayerDepth()).toBe(1)
+    } finally {
+      popA()
+    }
+    expect(keyboardLayerDepth()).toBe(0)
+  })
+
+  it('detaches the document listener when the stack empties', () => {
+    const pop = pushKeyboardLayer(() => {})
+    expect(listeners.size).toBe(1)
+    pop()
+    expect(listeners.size).toBe(0)
+    expect(keyboardLayerDepth()).toBe(0)
+  })
+
+  it('Menu inside Dialog: first Escape closes the Menu, second the Dialog', () => {
+    const onDialogClose = jest.fn()
+    const onPick = jest.fn()
+    const {unmount} = renderWithProviders(
+      <Dialog testID="d" open onClose={onDialogClose} title="Title">
+        <Menu
+          testID="m"
+          label="Options"
+          items={[{key: 'a', label: 'Pick me', onSelect: onPick}]}
+        />
+      </Dialog>,
+    )
+    try {
+      fireEvent.press(screen.getByText('Options'))
+      expect(screen.getByTestId('m-item-a')).toBeTruthy()
+      // First Escape: only the Menu (top layer) fires.
+      pressKey('Escape')
+      expect(screen.queryByTestId('m-item-a')).toBeNull()
+      expect(onDialogClose).not.toHaveBeenCalled()
+      expect(onPick).not.toHaveBeenCalled()
+      // Second Escape: the Dialog is top now.
+      pressKey('Escape')
+      expect(onDialogClose).toHaveBeenCalledTimes(1)
+    } finally {
+      unmount()
+    }
+  })
+})
+
+describe('modal focus in/out (X10.1)', () => {
+  function FocusHarness({active, container}: {active: boolean; container: unknown}) {
+    const ref = useRef<unknown>(null)
+    ref.current = container
+    useModalFocus(active, ref)
+    return null
+  }
+
+  function installFocusDocument(activeElement: unknown) {
+    ;(globalThis as {document?: unknown}).document = {
+      activeElement,
+      addEventListener: (_t: string, fn: Listener) => listeners.add(fn),
+      removeEventListener: (_t: string, fn: Listener) => listeners.delete(fn),
+    }
+  }
+
+  it('focuses the first focusable on open and returns to the opener on close', () => {
+    const first = {focus: jest.fn()}
+    const second = {focus: jest.fn()}
+    const prev = {focus: jest.fn()}
+    installFocusDocument(prev)
+    const container = {querySelectorAll: () => [first, second]}
+    const {unmount} = renderWithProviders(<FocusHarness active container={container} />)
+    expect(first.focus).toHaveBeenCalledTimes(1)
+    expect(second.focus).not.toHaveBeenCalled()
+    unmount()
+    expect(prev.focus).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to the container when nothing inside is focusable', () => {
+    const containerFocus = jest.fn()
+    installFocusDocument(null)
+    const container = {querySelectorAll: () => [], focus: containerFocus}
+    const {unmount} = renderWithProviders(<FocusHarness active container={container} />)
+    try {
+      expect(containerFocus).toHaveBeenCalledTimes(1)
+    } finally {
+      unmount()
+    }
+  })
+
+  it('does nothing while inactive', () => {
+    const first = {focus: jest.fn()}
+    installFocusDocument(null)
+    const container = {querySelectorAll: () => [first]}
+    const {unmount} = renderWithProviders(<FocusHarness active={false} container={container} />)
+    try {
+      expect(first.focus).not.toHaveBeenCalled()
+    } finally {
+      unmount()
+    }
   })
 })

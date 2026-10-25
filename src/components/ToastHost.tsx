@@ -1,11 +1,11 @@
 import {useEffect, useState, useSyncExternalStore} from 'react'
-import {Pressable, StyleSheet, View} from 'react-native'
-import {useLingui} from '@lingui/react'
+import {AccessibilityInfo, Platform, Pressable, StyleSheet, View} from 'react-native'
 import {msg} from '@lingui/macro'
 
 import {useShellLayout} from '#/alf/breakpoints'
 import {useOptionalSafeAreaInsets} from '#/components/insets'
 import {dismissToast, toastStore} from '#/lib/toast'
+import {useI18n} from '#/locale/i18n'
 
 import {SHELL_TAB_BAR_HEIGHT} from './shell/TabBar'
 import {Toast} from './Toast'
@@ -23,9 +23,12 @@ const styles = StyleSheet.create({
 // Mount once near the app root. Shows the oldest queued toast, then the next.
 // Floats above the mobile tab bar (safe-area inset + bar height, rn-ui M4),
 // pauses its auto-dismiss while hovered/focused, and dismisses on tap.
-// (Live-region announcement is X10.1 — not added here.)
+// Announcement (X10.1, audit a11y 6): the toast box itself is a live region
+// (polite; errors assertive with an alert role — see Toast), and on native
+// the head message is additionally pushed through `announceForAccessibility`
+// (native has no DOM live-region to observe the view tree).
 export function ToastHost() {
-  const {i18n} = useLingui()
+  const i18n = useI18n()
   const layout = useShellLayout()
   const insets = useOptionalSafeAreaInsets()
   const items = useSyncExternalStore(toastStore.subscribe, toastStore.getSnapshot)
@@ -36,6 +39,15 @@ export function ToastHost() {
     const t = setTimeout(() => dismissToast(head.id), TOAST_MS)
     return () => clearTimeout(t)
   }, [head, paused])
+  useEffect(() => {
+    if (!head || Platform.OS === 'web') return
+    try {
+      AccessibilityInfo.announceForAccessibility(head.message)
+    } catch {
+      // Bare renderers without the native module: the live-region props
+      // on the toast box are the announcement path.
+    }
+  }, [head])
   if (!head) return null
   const bottom =
     insets.bottom + (layout === 'mobile' ? SHELL_TAB_BAR_HEIGHT + TOAST_ABOVE_BAR_GAP : TOAST_DESKTOP_BOTTOM)
@@ -50,7 +62,7 @@ export function ToastHost() {
         accessibilityRole="button"
         accessibilityLabel={i18n._(msg`Dismiss notification`)}
         testID={`toast-dismiss-${head.id}`}>
-        <Toast message={head.message} testID={`toast-${head.id}`} />
+        <Toast message={head.message} kind={head.kind} testID={`toast-${head.id}`} />
       </Pressable>
     </View>
   )
