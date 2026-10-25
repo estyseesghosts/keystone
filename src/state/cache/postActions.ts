@@ -1,4 +1,4 @@
-import {useMemo, useSyncExternalStore} from 'react'
+import {useCallback, useMemo, useSyncExternalStore} from 'react'
 import {useQueryClient, type QueryClient} from '@tanstack/react-query'
 
 import {backendForSession, isHeartReaction, LikeUnsupportedError, type Backend, type Post} from '@keystone/fedi'
@@ -389,35 +389,82 @@ export function usePostActions(sessionId: string, post: Post): PostActions {
   const caps = backend?.capabilities ?? null
   const isOwn = session != null && post.author.id === session.accountId
   const merged = shadowed.post
-  const toggle = <T,>(
-    kind: PostActionKind,
-    value: T,
-    set: (next: T) => Promise<void>,
-  ): PostToggle<T> => ({
-    gate: gateAction(kind, {capabilities: caps, backend, isOwn}),
-    value,
-    set,
-  })
-  return {
-    shadowed,
-    reaction: {
-      ...toggle<string | null>('reaction', merged.reactions?.mine ?? null, n =>
-        controller.setReaction(sessionId, backend, post, n),
-      ),
-      setWithArt: (key, emojiUrl) => controller.setReaction(sessionId, backend, post, key, {emojiUrl}),
-    },
-    favourite: toggle('favourite', merged.favourite?.mine ?? false, n =>
-      controller.setFavourite(sessionId, backend, post, n),
-    ),
-    renote: toggle('renote', merged.ext.reblogged ?? false, n =>
-      controller.setRenoted(sessionId, backend, post, n),
-    ),
-    bookmark: toggle('bookmark', merged.ext.bookmarked ?? false, n =>
-      controller.setBookmarked(sessionId, backend, post, n),
-    ),
-    delete: {
-      gate: gateAction('delete', {capabilities: caps, backend, isOwn}),
-      run: () => controller.deletePost(sessionId, backend, post, isOwn),
-    },
-  }
+  // Scalar values the memo below keys on: a parent re-render that keeps
+  // the same session/post/backend (and no shadow change) returns the SAME
+  // `PostActions` object, so memoized rows + ActionBar skip the cascade.
+  const reactionValue = merged.reactions?.mine ?? null
+  const favouriteValue = merged.favourite?.mine ?? false
+  const renoteValue = merged.ext.reblogged ?? false
+  const bookmarkValue = merged.ext.bookmarked ?? false
+  const setReaction = useCallback(
+    (next: string | null) => controller.setReaction(sessionId, backend, post, next),
+    [controller, sessionId, backend, post],
+  )
+  const setReactionWithArt = useCallback(
+    (key: string | null, emojiUrl: string | null) =>
+      controller.setReaction(sessionId, backend, post, key, {emojiUrl}),
+    [controller, sessionId, backend, post],
+  )
+  const setFavourite = useCallback(
+    (next: boolean) => controller.setFavourite(sessionId, backend, post, next),
+    [controller, sessionId, backend, post],
+  )
+  const setRenoted = useCallback(
+    (next: boolean) => controller.setRenoted(sessionId, backend, post, next),
+    [controller, sessionId, backend, post],
+  )
+  const setBookmarked = useCallback(
+    (next: boolean) => controller.setBookmarked(sessionId, backend, post, next),
+    [controller, sessionId, backend, post],
+  )
+  const runDelete = useCallback(
+    () => controller.deletePost(sessionId, backend, post, isOwn),
+    [controller, sessionId, backend, post, isOwn],
+  )
+  return useMemo<PostActions>(
+    () => ({
+      shadowed,
+      reaction: {
+        gate: gateAction('reaction', {capabilities: caps, backend, isOwn}),
+        value: reactionValue,
+        set: setReaction,
+        setWithArt: setReactionWithArt,
+      },
+      favourite: {
+        gate: gateAction('favourite', {capabilities: caps, backend, isOwn}),
+        value: favouriteValue,
+        set: setFavourite,
+      },
+      renote: {
+        gate: gateAction('renote', {capabilities: caps, backend, isOwn}),
+        value: renoteValue,
+        set: setRenoted,
+      },
+      bookmark: {
+        gate: gateAction('bookmark', {capabilities: caps, backend, isOwn}),
+        value: bookmarkValue,
+        set: setBookmarked,
+      },
+      delete: {
+        gate: gateAction('delete', {capabilities: caps, backend, isOwn}),
+        run: runDelete,
+      },
+    }),
+    [
+      shadowed,
+      caps,
+      backend,
+      isOwn,
+      reactionValue,
+      favouriteValue,
+      renoteValue,
+      bookmarkValue,
+      setReaction,
+      setReactionWithArt,
+      setFavourite,
+      setRenoted,
+      setBookmarked,
+      runDelete,
+    ],
+  )
 }

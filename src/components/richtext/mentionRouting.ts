@@ -9,10 +9,13 @@ import {Linking} from 'react-native'
 
 import {acctFromBridgeUrl, isBridgeUrl, parseAcct} from '@keystone/fedi'
 
+import {showToast} from '#/lib/toast'
 import {navigationRef} from '#/navigationRef'
 
 export function openExternal(href: string) {
-  void Linking.openURL(href).catch(() => {})
+  // One behavior with every other link surface (LinkCard, PostCard menu):
+  // a failed open toasts, never swallows.
+  void Linking.openURL(href).catch(e => showToast(`Could not open: ${String(e)}`))
 }
 
 /** Profile navigation for a mention tap (E2): the `User` screen resolves

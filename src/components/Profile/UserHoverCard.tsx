@@ -120,6 +120,40 @@ function UserHoverCardLoader({
   )
 }
 
+// Card geometry (module scope): one stylesheet for every hovercard.
+// Theme colors join inline below. The follow button carries minHeight 44
+// (touch-target floor) — it is a small text target with no other way to
+// reach 44pt.
+const hoverCardLayout = StyleSheet.create({
+  cardBase: {
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    width: 320,
+  },
+  bannerBase: {
+    width: '100%',
+    height: 88,
+  },
+  body: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    gap: 6,
+  },
+  avatarRow: {flexDirection: 'row', alignItems: 'center', gap: 10},
+  avatarOverlap: {marginTop: -28},
+  avatarBase: {width: 56, height: 56, borderRadius: 28},
+  followSlot: {flex: 1, alignItems: 'flex-end'},
+  followButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 44,
+  },
+  openLink: {textDecorationLine: 'underline'},
+})
+
 export function UserHoverCardView({
   account,
   sessionId = null,
@@ -180,38 +214,23 @@ export function UserHoverCardView({
           : null,
     [account.bio.html, account.bio.mfm],
   )
-  const styles = StyleSheet.create({
-    card: {
-      backgroundColor: theme.palette.bg,
-      borderColor: theme.palette.edge,
-      borderWidth: 1,
-      borderRadius: 12,
-      overflow: 'hidden',
-      width: 320,
-    },
-    banner: {
-      width: '100%',
-      height: 88,
-      backgroundColor: theme.palette.bgSoft,
-    },
-    body: {
-      paddingHorizontal: 12,
-      paddingBottom: 12,
-      gap: 6,
-    },
-    avatarRow: {flexDirection: 'row', alignItems: 'center', gap: 10},
-    avatarOverlap: {marginTop: -28},
-    avatar: {width: 56, height: 56, borderRadius: 28, backgroundColor: theme.palette.bgSoft},
-    followSlot: {flex: 1, alignItems: 'flex-end'},
-    followButton: {
-      borderWidth: 1,
-      borderColor: theme.palette.edge,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-    },
-    openLink: {textDecorationLine: 'underline'},
-  })
+  const styles = useMemo(
+    () => ({
+      card: [
+        hoverCardLayout.cardBase,
+        {backgroundColor: theme.palette.bg, borderColor: theme.palette.edge},
+      ],
+      banner: [hoverCardLayout.bannerBase, {backgroundColor: theme.palette.bgSoft}],
+      body: hoverCardLayout.body,
+      avatarRow: hoverCardLayout.avatarRow,
+      avatarOverlap: hoverCardLayout.avatarOverlap,
+      avatar: [hoverCardLayout.avatarBase, {backgroundColor: theme.palette.bgSoft}],
+      followSlot: hoverCardLayout.followSlot,
+      followButton: [hoverCardLayout.followButton, {borderColor: theme.palette.edge}],
+      openLink: hoverCardLayout.openLink,
+    }),
+    [theme],
+  )
   return (
     <View
       testID={testID}

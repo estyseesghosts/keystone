@@ -17,7 +17,7 @@
 // motion (`spin`, `tada`, …), `blur` and unknown functions degrade to
 // their children — content is never dropped, effects never faked.
 
-import {Fragment, useContext, useMemo} from 'react'
+import {Fragment, memo, useContext, useMemo} from 'react'
 import {Image, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle} from 'react-native'
 
 import {DEFAULT_EMOJI_STYLE, acctFromBridgeUrl, bareLinkLabel, displayNameOf, isBridgeUrl, parseAcct, plainTextOf, type Backend, type ContentNode, type EmojiStyle} from '@keystone/fedi'
@@ -303,8 +303,10 @@ function MentionChip({
 }
 
 // Inline nodes inside a parent <Text>. Block nodes (codeBlock, quote)
-// never appear here — the flow splitter hoists them out.
-function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; depth: number}) {
+// never appear here — the flow splitter hoists them out. Memoized: feeds
+// re-render the row on scroll, and an unchanged (nodes, ctx) pair skips
+// the whole subtree walk.
+const Inline = memo(function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; depth: number}) {
   return (
     <>
       {nodes.map((node, i) => {
@@ -499,7 +501,7 @@ function Inline({nodes, ctx, depth}: {nodes: readonly ContentNode[]; ctx: Ctx; d
       })}
     </>
   )
-}
+})
 
 function isBlock(node: ContentNode): boolean {
   if (node.kind === 'codeBlock' || node.kind === 'quote') return true
@@ -509,8 +511,9 @@ function isBlock(node: ContentNode): boolean {
 }
 
 // Top-level flow: runs of inline nodes share one <Text>; block nodes
-// (codeBlock, quote, top-level center) render as block views.
-function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ctx: Ctx}) {
+// (codeBlock, quote, top-level center) render as block views. Memoized
+// for the same reason as `Inline` above.
+const Flow = memo(function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ctx: Ctx}) {
   const parts: React.ReactNode[] = []
   let run: ContentNode[] = []
   let n = 0
@@ -558,7 +561,7 @@ function Flow({nodes, ctx}: {nodes: readonly ContentNode[]; ctx: Ctx}) {
   }
   flush()
   return <>{parts}</>
-}
+})
 
 export function RichText({
   nodes,

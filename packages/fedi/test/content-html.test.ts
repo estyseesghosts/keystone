@@ -479,3 +479,84 @@ describe("live Mastodon field markup (@ctr@mstdn.ca, recorded 2026-10-24)", () =
     ]);
   });
 });
+
+describe("P4.2 fromHtml gaps (non-XSS: parser branches the XSS suite never hits)", () => {
+  it("shortcodeOf trims and rejects empty names/hosts and spaces", () => {
+    expect(shortcodeOf("  :blob:  ")).toEqual({ name: "blob", host: null });
+    expect(shortcodeOf(":@h:")).toBeNull();
+    expect(shortcodeOf(":n@:")).toBeNull();
+    expect(shortcodeOf(":has space:")).toBeNull();
+  });
+
+  it("emoji images fall back to title, then to the file stem", () => {
+    expect(
+      contentFromHtml('<p><img class="emoji" title=":wave:" src="https://a.b/wave.png"></p>'),
+    ).toEqual([{ kind: "customEmoji", name: "wave", host: null, src: "https://a.b/wave.png" }]);
+    const stemmed = contentFromHtml(
+      '<p><img class="emoji" src="https://a.b/emoji/thinking.png?v=2"></p>',
+    );
+    expect(stemmed).toMatchObject([{ kind: "customEmoji", name: "thinking", host: null }]);
+  });
+
+  it("an emoji image with no usable code is dropped, never guessed", () => {
+    const long = "a".repeat(65);
+    expect(contentFromHtml(`<p><img class="emoji" src="https://a.b/${long}.png"></p>`)).toEqual([]);
+  });
+
+  it("a lone emoji span is one opaque emoji node, never prose", () => {
+    expect(contentFromHtml('<p><span class="emoji">🔥</span></p>')).toEqual([
+      { kind: "unicodeEmoji", emoji: "🔥" },
+    ]);
+  });
+
+  it("center becomes an fn node, an empty code block becomes nothing", () => {
+    expect(contentFromHtml("<p><center>hi</center></p>")).toEqual([
+      { kind: "fn", name: "center", args: {}, children: [{ kind: "text", text: "hi" }] },
+    ]);
+    expect(contentFromHtml("<p><code></code></p>")).toEqual([]);
+  });
+
+  it("a hashtag anchor with no label text still gets a #tag label", () => {
+    expect(
+      contentFromHtml('<p><a class="hashtag" href="https://a.b/tags/x" data-tag="x"></a></p>'),
+    ).toEqual([
+      {
+        kind: "hashtag",
+        tag: "x",
+        href: "https://a.b/tags/x",
+        children: [{ kind: "text", text: "#x" }],
+      },
+    ]);
+  });
+
+  it("mention+hashtag classes resolve as a hashtag, not a mention", () => {
+    const nodes = contentFromHtml(
+      '<p><a class="mention hashtag" href="https://a.b/tags/y" data-tag="y">#y</a></p>',
+    );
+    expect(nodes).toEqual([
+      {
+        kind: "hashtag",
+        tag: "y",
+        href: "https://a.b/tags/y",
+        children: [{ kind: "text", text: "#y" }],
+      },
+    ]);
+  });
+
+  it("mailto links stay links; comments vanish; divs keep paragraph breaks", () => {
+    expect(contentFromHtml('<p><a href="mailto:a@b.c">mail</a></p>')).toEqual([
+      { kind: "link", href: "mailto:a@b.c", children: [{ kind: "text", text: "mail" }] },
+    ]);
+    expect(contentFromHtml("<p>a<!--c-->b</p>")).toEqual([{ kind: "text", text: "ab" }]);
+    expect(contentFromHtml("<div><p>a</p><p>b</p></div>")).toEqual([
+      { kind: "text", text: "a" },
+      { kind: "br" },
+      { kind: "br" },
+      { kind: "text", text: "b" },
+    ]);
+  });
+
+  it("a blank blockquote leaves no node behind", () => {
+    expect(contentFromHtml("<blockquote><p>  </p></blockquote>")).toEqual([]);
+  });
+});

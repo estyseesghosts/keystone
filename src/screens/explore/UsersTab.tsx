@@ -75,6 +75,10 @@ export function AccountsSearch({backend, query}: {backend: Backend; query: strin
       data={accounts}
       keyExtractor={a => a.id}
       testID="explore-accounts"
+      // Conservative windowing (P4.1), mirroring FeedView.
+      windowSize={7}
+      initialNumToRender={6}
+      maxToRenderPerBatch={8}
       ItemSeparatorComponent={() => <RowSeparator testID="explore-accounts-sep" />}
       renderItem={({item}) => <AccountRow account={item} onOpen={() => openAccount(item.id)} />}
     />
@@ -161,6 +165,10 @@ export function UsersTab({backend, submitted}: {backend: Backend; submitted: str
   return (
     <FlatList
       testID="explore-users"
+      // Conservative windowing (P4.1), mirroring FeedView.
+      windowSize={7}
+      initialNumToRender={6}
+      maxToRenderPerBatch={8}
       ItemSeparatorComponent={() => <RowSeparator testID="explore-users-sep" />}
       data={[
         ...(users.pinned.length > 0 ? [{key: 'pinned-label', label: 'Pinned'}] : []),

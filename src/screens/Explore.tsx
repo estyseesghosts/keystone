@@ -178,6 +178,10 @@ function TagsTab({
       testID="explore-tags"
       data={tags}
       keyExtractor={t => t.name}
+      // Conservative windowing (P4.1), mirroring FeedView.
+      windowSize={7}
+      initialNumToRender={6}
+      maxToRenderPerBatch={8}
       ItemSeparatorComponent={() => <RowSeparator testID="explore-tags-sep" />}
       renderItem={({item}) => <TagChip tag={item} onOpen={() => openTag(item.name)} />}
     />

@@ -6,7 +6,7 @@
 // disabled WITH their reason — hidden only when the capability is
 // `unsupported`. Never wired, never inert, never faked.
 
-import {useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore} from 'react'
+import {memo, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore} from 'react'
 import {Image, Linking, Platform, Share, StyleSheet, View, type StyleProp, type ViewStyle} from 'react-native'
 
 import {QueryClientContext} from '@tanstack/react-query'
@@ -360,123 +360,176 @@ function LivePostCard(props: PostCardProps) {
     [backend],
   )
 
+  // Poll votes ride the owning session's backend (capability-gated in the
+  // view). Stable so the memoized `live` object below holds its identity.
+  const votePoll = useCallback(
+    async (postId: string, choices: number[]) => {
+      if (!backend) throw new Error(i18n._(msg`Sign in to vote.`))
+      await backend.votePoll(postId, choices)
+    },
+    [backend, i18n],
+  )
+
   // Recommendation rows (fork): the breakdown rides the OUTER wrapper
   // note, while the API takes the appeared (unwrapped) id. Hooks stay
   // above the deleted early-return: it flips mid-life and must not change
   // the hook count.
   const recBreakdown = post.ext?.recommendation ?? null
   const [recReasonOpen, setRecReasonOpen] = useState(false)
-  const recommendation =
-    recBreakdown != null && backend?.recommendations
-      ? {
-          onWhy: () => setRecReasonOpen(true),
-          onNotInterested: async () => {
+
+  // Post menu model: rebuilt only when its inputs change (never per
+  // scroll frame), so the memoized view below keeps a stable `menu`.
+  // The recommendation closures live here for the same reason.
+  const menu = useMemo(
+    () =>
+      buildPostMenu({
+        family: session?.family ?? 'misskey',
+        flavor: session?.flavor ?? null,
+        capabilities: backend?.capabilities ?? null,
+        post: shown,
+        origin: session?.origin ?? '',
+        isOwn,
+        copyAvailable: canCopy(),
+        bookmark: actions.bookmark,
+        del: actions.delete,
+        handlers: {
+          copy: async text => {
             try {
-              await backend.recommendations!.notInterested(effective.id)
-              showToast(i18n._(msg`We'll show you fewer posts like this.`))
+              await copyText(text)
+              showToast(i18n._(msg`Copied`))
             } catch (e) {
               toastError(e)
-              return
-            }
-            if (queryClient) {
-              patchPostInCaches(queryClient, sessionId, post.id, () => null)
-              if (effective.id !== post.id) {
-                patchPostInCaches(queryClient, sessionId, effective.id, () => null)
-              }
             }
           },
-        }
-      : undefined
+          share: async (url, text) => {
+            try {
+              await Share.share({message: text ? `${text}\n${url}` : url, url})
+            } catch (e) {
+              toastError(e)
+            }
+          },
+          open: url => void Linking.openURL(url).catch(toastError),
+          openBridgedPost: p => openPostDetail(p.id),
+          openBridgedProfile: accountId => openAuthorProfile(accountId),
+          // Manual translate: always sent on demand, never gated on
+          // translatability or source language — the user explicitly
+          // asked (the render discard below still drops a same-language
+          // result). Server-side and unscoped, like every translate call.
+          translate: async () => {
+            if (!backend) return
+            try {
+              setTranslation(
+                await backend.translate(effective.id, handlers.targetLang ?? viewerPrimaryOf(i18n.locale)),
+              )
+            } catch (e) {
+              toastError(e)
+            }
+          },
+          muteThread: async () => {
+            if (!backend) return
+            try {
+              await backend.muteThread(effective.id)
+              showToast(i18n._(msg`Thread muted`))
+            } catch (e) {
+              toastError(e)
+            }
+          },
+          togglePin: async () => {
+            if (!backend) return
+            try {
+              if (shown.pinned) await backend.unpinPost(effective.id)
+              else await backend.pinPost(effective.id)
+              showToast(shown.pinned ? i18n._(msg`Unpinned`) : i18n._(msg`Pinned`))
+            } catch (e) {
+              toastError(e)
+            }
+          },
+          onEdit: handlers.onEdit,
+          onRedraft:
+            handlers.onRedraft ??
+            (backend
+              ? async post => {
+                  try {
+                    await deleteAndRedraft(backend, post, {
+                      // Same cache removal a plain delete does: the deleted post
+                      // must not stay tappable in a feed behind the composer.
+                      onDeleted: p => {
+                        if (queryClient) patchPostInCaches(queryClient, sessionId, p.id, () => null)
+                      },
+                    })
+                    openRedraftComposer(post.id)
+                  } catch (e) {
+                    // A refused delete leaves the post alone: no composer opens.
+                    toastError(e)
+                  }
+                }
+              : undefined),
+          onClip: handlers.onClip,
+          user: handlers.user ?? handlers.userFor?.(effective, sessionId),
+        },
+        ...(recBreakdown != null && backend?.recommendations
+          ? {
+              recommendation: {
+                onWhy: () => setRecReasonOpen(true),
+                onNotInterested: async () => {
+                  try {
+                    await backend.recommendations!.notInterested(effective.id)
+                    showToast(i18n._(msg`We'll show you fewer posts like this.`))
+                  } catch (e) {
+                    toastError(e)
+                    return
+                  }
+                  if (queryClient) {
+                    patchPostInCaches(queryClient, sessionId, post.id, () => null)
+                    if (effective.id !== post.id) {
+                      patchPostInCaches(queryClient, sessionId, effective.id, () => null)
+                    }
+                  }
+                },
+              },
+            }
+          : {}),
+      }),
+    [
+      session?.family,
+      session?.flavor,
+      session?.origin,
+      backend,
+      shown,
+      isOwn,
+      actions.bookmark,
+      actions.delete,
+      handlers.onEdit,
+      handlers.onRedraft,
+      handlers.onClip,
+      handlers.user,
+      handlers.userFor,
+      handlers.targetLang,
+      effective,
+      sessionId,
+      queryClient,
+      post,
+      i18n,
+      recBreakdown,
+    ],
+  )
+
+  // The view contract: one stable object per input state, so
+  // `memo(PostCardView)` below skips re-renders when nothing it reads
+  // changed (scroll frames, sibling toasts, stream ticks elsewhere).
+  const live = useMemo<LiveBits>(
+    () => ({
+      actions,
+      family: session?.family ?? 'misskey',
+      menu,
+      handlers,
+      translation,
+      votePoll,
+    }),
+    [actions, session?.family, menu, handlers, translation, votePoll],
+  )
 
   if (actions.shadowed.isDeleted) return null
-
-  const menu = buildPostMenu({
-    family: session?.family ?? 'misskey',
-    flavor: session?.flavor ?? null,
-    capabilities: backend?.capabilities ?? null,
-    post: shown,
-    origin: session?.origin ?? '',
-    isOwn,
-    copyAvailable: canCopy(),
-    bookmark: actions.bookmark,
-    del: actions.delete,
-    handlers: {
-      copy: async text => {
-        try {
-          await copyText(text)
-          showToast(i18n._(msg`Copied`))
-        } catch (e) {
-          toastError(e)
-        }
-      },
-      share: async (url, text) => {
-        try {
-          await Share.share({message: text ? `${text}\n${url}` : url, url})
-        } catch (e) {
-          toastError(e)
-        }
-      },
-      open: url => void Linking.openURL(url).catch(toastError),
-      openBridgedPost: p => openPostDetail(p.id),
-      openBridgedProfile: accountId => openAuthorProfile(accountId),
-      // Manual translate: always sent on demand, never gated on
-      // translatability or source language — the user explicitly asked
-      // (the render discard below still drops a same-language result).
-      // Server-side and unscoped, like every translate call.
-      translate: async () => {
-        if (!backend) return
-        try {
-          setTranslation(
-            await backend.translate(effective.id, handlers.targetLang ?? viewerPrimaryOf(i18n.locale)),
-          )
-        } catch (e) {
-          toastError(e)
-        }
-      },
-      muteThread: async () => {
-        if (!backend) return
-        try {
-          await backend.muteThread(effective.id)
-          showToast(i18n._(msg`Thread muted`))
-        } catch (e) {
-          toastError(e)
-        }
-      },
-      togglePin: async () => {
-        if (!backend) return
-        try {
-          if (shown.pinned) await backend.unpinPost(effective.id)
-          else await backend.pinPost(effective.id)
-          showToast(shown.pinned ? i18n._(msg`Unpinned`) : i18n._(msg`Pinned`))
-        } catch (e) {
-          toastError(e)
-        }
-      },
-      onEdit: handlers.onEdit,
-      onRedraft:
-        handlers.onRedraft ??
-        (backend
-          ? async post => {
-              try {
-                await deleteAndRedraft(backend, post, {
-                  // Same cache removal a plain delete does: the deleted post
-                  // must not stay tappable in a feed behind the composer.
-                  onDeleted: p => {
-                    if (queryClient) patchPostInCaches(queryClient, sessionId, p.id, () => null)
-                  },
-                })
-                openRedraftComposer(post.id)
-              } catch (e) {
-                // A refused delete leaves the post alone: no composer opens.
-                toastError(e)
-              }
-            }
-          : undefined),
-      onClip: handlers.onClip,
-      user: handlers.user ?? handlers.userFor?.(effective, sessionId),
-    },
-    ...(recommendation ? {recommendation} : {}),
-  })
 
   return (
     <>
@@ -492,17 +545,7 @@ function LivePostCard(props: PostCardProps) {
         props.onEditedPress ??
         (backend?.editHistory ? () => openEditHistory(effective.id) : undefined)
       }
-      live={{
-        actions,
-        family: session?.family ?? 'misskey',
-        menu,
-        handlers,
-        translation,
-        votePoll: async (postId, choices) => {
-          if (!backend) throw new Error(i18n._(msg`Sign in to vote.`))
-          await backend.votePoll(postId, choices)
-        },
-      }}
+      live={live}
     />
     <RecommendationReasonDialog
       breakdown={recBreakdown}
@@ -513,7 +556,11 @@ function LivePostCard(props: PostCardProps) {
   )
 }
 
-function PostCardView({
+// The row body: memoized so a feed scroll that leaves this post's inputs
+// untouched skips the whole subtree (menu, RichText, quote, chips). All
+// tap handlers below are `useCallback`-stable for the same reason —
+// otherwise `memo` (and RichText's `ctx` memo) would never hold.
+const PostCardView = memo(function PostCardView({
   post,
   backend,
   capabilities,
@@ -646,51 +693,87 @@ function PostCardView({
   // Link presses keep working when the card supplies no handler (the
   // RichText defaults: external URLs open out, bare tags open the tag
   // route) — but every one of them stamps the guard first so the body
-  // press below does not double-navigate.
-  const handleLinkPress = (href: string) => {
-    markLink()
-    if (onLinkPress) onLinkPress(href)
-    else void Linking.openURL(href).catch(() => {})
-  }
-  const handleMentionPress = (href: string | null, label: string) => {
-    markLink()
-    if (onMentionPress) onMentionPress(href, label)
-    else defaultMentionPress(href, label)
-  }
-  const handleHashtagPress = (tag: string) => {
-    markLink()
-    if (onHashtagPress) onHashtagPress(tag)
-    else defaultHashtagPress(tag)
-  }
-  const openPost = () => {
+  // press below does not double-navigate. Stable identities: they feed
+  // RichText's `ctx` memo, so a fresh closure per render would invalidate
+  // it. Link failures toast (LinkCard parity), never swallow.
+  const handleLinkPress = useCallback(
+    (href: string) => {
+      markLink()
+      if (onLinkPress) onLinkPress(href)
+      else void Linking.openURL(href).catch(toastError)
+    },
+    [onLinkPress],
+  )
+  const handleMentionPress = useCallback(
+    (href: string | null, label: string) => {
+      markLink()
+      if (onMentionPress) onMentionPress(href, label)
+      else defaultMentionPress(href, label)
+    },
+    [onMentionPress],
+  )
+  const handleHashtagPress = useCallback(
+    (tag: string) => {
+      markLink()
+      if (onHashtagPress) onHashtagPress(tag)
+      else defaultHashtagPress(tag)
+    },
+    [onHashtagPress],
+  )
+  const openPost = useCallback(() => {
     if (Date.now() - linkGuard.current < 400) return
     openPostDetail(effective.id)
-  }
-  const openQuoted = (quoted: {id: string}) => {
+  }, [effective.id])
+  const openQuoted = useCallback((quoted: {id: string}) => {
     if (Date.now() - linkGuard.current < 400) return
     openPostDetail(quoted.id)
-  }
+  }, [])
+  const handleReveal = useCallback(() => setQuoteRevealed(true), [])
+  const handleOpenMedia = useCallback(
+    (items: Media[], index: number) => setLightbox({items, index}),
+    [],
+  )
 
   // One quote card: `quoteCardProps` picks the concealed / visible /
   // unavailable winner with the same guards the three former call sites
   // used, so which quote wins cannot change. Session-id threading stays
-  // here at the call site (R2.4).
-  const quoteProps = quoteCardProps({
-    postId: post.id,
-    sessionId,
-    emojiStyle,
-    visibleQuote,
-    structuredQuoteUnavailable,
-    quoteUnavailable: effective.quoteUnavailable,
-    quoteConcealed,
-    quoteStatus,
-    onReveal: () => setQuoteRevealed(true),
-    onPress: openQuoted,
-    onOpenMedia: (items, index) => setLightbox({items, index}),
-    onMentionPress: handleMentionPress,
-    onHashtagPress: handleHashtagPress,
-    onLinkPress: handleLinkPress,
-  })
+  // here at the call site (R2.4). Memoized on the same stable handlers
+  // so the quote card's props hold between data changes.
+  const quoteProps = useMemo(
+    () =>
+      quoteCardProps({
+        postId: post.id,
+        sessionId,
+        emojiStyle,
+        visibleQuote,
+        structuredQuoteUnavailable,
+        quoteUnavailable: effective.quoteUnavailable,
+        quoteConcealed,
+        quoteStatus,
+        onReveal: handleReveal,
+        onPress: openQuoted,
+        onOpenMedia: handleOpenMedia,
+        onMentionPress: handleMentionPress,
+        onHashtagPress: handleHashtagPress,
+        onLinkPress: handleLinkPress,
+      }),
+    [
+      post.id,
+      sessionId,
+      emojiStyle,
+      visibleQuote,
+      structuredQuoteUnavailable,
+      effective.quoteUnavailable,
+      quoteConcealed,
+      quoteStatus,
+      handleReveal,
+      openQuoted,
+      handleOpenMedia,
+      handleMentionPress,
+      handleHashtagPress,
+      handleLinkPress,
+    ],
+  )
 
   return (
     <View style={styles.card} testID={testID ?? `post-${post.id}`}>
@@ -710,6 +793,7 @@ function PostCardView({
                     testID={`post-badge-${b.key}-${post.id}`}
                     accessibilityRole="link"
                     accessibilityLabel={i18n._(msg`View edit history`)}
+                    hitSlop={16}
                     onPress={onEditedPress}>
                     <Caption color="muted">{b.label}</Caption>
                   </Pressable>
@@ -812,6 +896,7 @@ function PostCardView({
               testID={`cw-toggle-${post.id}`}
               onPress={() => setCwOpen(v => !v)}
               accessibilityRole="button"
+              hitSlop={16}
               accessibilityLabel={cwOpen ? i18n._(msg`Hide content`) : i18n._(msg`Show content`)}>
               <Caption>{cwOpen ? i18n._(msg`Hide`) : i18n._(msg`Show`)}</Caption>
             </Pressable>
@@ -822,6 +907,7 @@ function PostCardView({
             testID={`translation-toggle-${post.id}`}
             onPress={() => setShowOriginal(v => !v)}
             accessibilityRole="button"
+            hitSlop={16}
             accessibilityLabel={
               showOriginal ? i18n._(msg`Show translation`) : i18n._(msg`Show original`)
             }>
@@ -884,6 +970,7 @@ function PostCardView({
                   setExpanded(true)
                 }}
                 accessibilityRole="button"
+                hitSlop={16}
                 accessibilityLabel={i18n._(msg`Show more of this post`)}>
                 <Caption color="muted">{i18n._(msg`Show more`)}</Caption>
               </Pressable>
@@ -896,6 +983,7 @@ function PostCardView({
                   setExpanded(false)
                 }}
                 accessibilityRole="button"
+                hitSlop={16}
                 accessibilityLabel={i18n._(msg`Show less of this post`)}>
                 <Caption color="muted">{i18n._(msg`Show less`)}</Caption>
               </Pressable>
@@ -967,4 +1055,4 @@ function PostCardView({
       </View>
     </View>
   )
-}
+})

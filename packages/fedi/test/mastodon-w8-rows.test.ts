@@ -32,8 +32,10 @@ import { isPermissionError, isUnsupportedError } from "../src/misskey/client";
 import { ApiError } from "../src/core/errors";
 import type { FollowRequest, PageOpts } from "../src/core/backend";
 import { detectFamily } from "../src/mastodon/instance";
-import { collapseReblogs, foldTree } from "../src/mastodon/presentation";
-import { pickQuotedStatus } from "../src/mastodon/quoteMarker";
+import { collapseReblogs, foldPlainText, foldTree, isPureReblog, presentBody } from "../src/mastodon/presentation";
+import { findTextualQuoteMarker, pickQuotedStatus, stripQuoteMarker } from "../src/mastodon/quoteMarker";
+import { urisMatch } from "../src/core/quoteUri";
+import { br, t, textOf } from "../src/core/content/ast";
 import { rebuildThread } from "../src/mastodon/thread";
 import { adaptStatus } from "../src/mastodon/adapt";
 import {
@@ -632,5 +634,136 @@ describe("MD14 — bookmarks, lists, filters, uploadMedia paths", () => {
         ],
       },
     ]);
+  });
+});
+
+describe("MD14 — isPureReblog edge cases (P4.2)", () => {
+  const base = adaptStatus(status);
+  const original = { ...base, id: "o" };
+  const pure = {
+    ...base,
+    id: "w1",
+    content: { html: undefined, plain: "" },
+    cw: null,
+    media: [],
+    poll: null,
+    quote: null,
+    quoteUnavailable: false,
+    card: null,
+    renote: original,
+  };
+
+  it("a wrapper with no renote is never pure", () => {
+    expect(isPureReblog({ ...pure, renote: null })).toBe(false);
+  });
+
+  it("a wrapper with no independent content is pure", () => {
+    expect(isPureReblog(pure)).toBe(true);
+  });
+
+  it("any independent content disqualifies: mfm, cw, media, poll, quote, card", () => {
+    expect(isPureReblog({ ...pure, content: { mfm: "x", plain: "x" } })).toBe(false);
+    expect(isPureReblog({ ...pure, cw: "spoiler" })).toBe(false);
+    expect(isPureReblog({ ...pure, media: [{} as never] })).toBe(false);
+    expect(isPureReblog({ ...pure, poll: {} as never })).toBe(false);
+    expect(isPureReblog({ ...pure, quote: original })).toBe(false);
+    expect(isPureReblog({ ...pure, card: {} as never })).toBe(false);
+  });
+
+  it("an unavailable quote disqualifies (never collapses into a dangling row)", () => {
+    expect(isPureReblog({ ...pure, quoteUnavailable: true })).toBe(false);
+  });
+});
+
+describe("MD14 — urisMatch normalization + pickQuotedStatus url fallback (P4.2)", () => {
+  it("urisMatch normalizes host case and default ports; malformed never matches", () => {
+    expect(urisMatch("https://A.B/notes/1", "https://a.b/notes/1")).toBe(true);
+    expect(urisMatch("https://a.b:443/notes/1", "https://a.b/notes/1")).toBe(true);
+    expect(urisMatch("not a url", "https://a.b/notes/1")).toBe(false);
+  });
+
+  it("pickQuotedStatus falls back to url when uri is null; uri wins on ties", () => {
+    const urlOnly = { ...adaptStatus(status), id: "u1", uri: null, url: "https://remote.example/objects/1" };
+    expect(pickQuotedStatus([urlOnly], "https://remote.example/objects/1")).toBe(urlOnly);
+    const viaUri = { ...adaptStatus(status), id: "v1", uri: "https://remote.example/objects/1", url: null };
+    expect(pickQuotedStatus([viaUri, urlOnly], "https://remote.example/objects/1")).toBe(viaUri);
+    expect(pickQuotedStatus([], "https://remote.example/objects/1")).toBeNull();
+  });
+});
+
+describe("MD14 — findTextualQuoteMarker ends (P4.2)", () => {
+  const link = (href: string) => ({
+    kind: "link" as const,
+    href,
+    children: [t(href)],
+  });
+
+  it("a leading RE: line is a prefix marker", () => {
+    const nodes = [t("RE: https://a.b/notes/1"), br(), t("commentary")];
+    const marker = findTextualQuoteMarker(nodes);
+    expect(marker?.position).toBe("prefix");
+    expect(marker?.uri).toBe("https://a.b/notes/1");
+    expect(textOf(stripQuoteMarker(nodes, marker!))).toBe("commentary");
+  });
+
+  it("a suffix wins over a prefix naming a different URL", () => {
+    const nodes = [
+      t("RE: https://a.b/prefix"),
+      br(),
+      br(),
+      t("see RE: "),
+      link("https://a.b/suffix"),
+    ];
+    const marker = findTextualQuoteMarker(nodes);
+    expect(marker?.position).toBe("suffix");
+    expect(marker?.uri).toBe("https://a.b/suffix");
+  });
+
+  it("the same URL on both ends merges: one marker removes both lines", () => {
+    const head = t("RE: https://a.b/notes/1");
+    const nodes = [head, br(), br(), t("commentary RE: "), link("https://a.b/notes/1")];
+    const marker = findTextualQuoteMarker(nodes);
+    expect(marker?.position).toBe("suffix");
+    expect(marker?.removes.has(head)).toBe(true);
+    expect(textOf(stripQuoteMarker(nodes, marker!))).toBe("commentary");
+  });
+
+  it("a mention anchor is never the marker URL", () => {
+    const nodes = [
+      t("RE: "),
+      { kind: "mention" as const, href: "https://a.b/@u", children: [t("@u")] },
+    ];
+    expect(findTextualQuoteMarker(nodes)).toBeNull();
+  });
+
+  it("extra text on the marker line is commentary, not a bare marker", () => {
+    expect(findTextualQuoteMarker([t("RE: https://a.b/notes/1 talking")])).toBeNull();
+  });
+});
+
+describe("MD14 — foldPlainText + presentBody (P4.2)", () => {
+  it("foldPlainText leaves short text alone; cuts long text at whitespace with an ellipsis", () => {
+    expect(foldPlainText("hi")).toEqual({ text: "hi", folded: false });
+    const long = `${"word ".repeat(200)}tail`;
+    const cut = foldPlainText(long);
+    expect(cut.folded).toBe(true);
+    expect(cut.text.endsWith("word…")).toBe(true);
+  });
+
+  it("foldPlainText counts code points: an emoji at the cut survives whole", () => {
+    const text = `${"a".repeat(749)}🔥${"b".repeat(50)}`;
+    const cut = foldPlainText(text);
+    expect(cut.folded).toBe(true);
+    expect(cut.text).toContain("🔥");
+    expect(Array.from(cut.text.slice(0, -1))).toHaveLength(750);
+  });
+
+  it("presentBody without fold keeps the pruned tree; with fold it folds", () => {
+    const nodes = [t("hi")];
+    expect(presentBody(nodes, false)).toEqual({ nodes, folded: false });
+    const long = [t("a".repeat(800))];
+    const folded = presentBody(long, true);
+    expect(folded.folded).toBe(true);
+    expect(textOf(folded.nodes).endsWith("…")).toBe(true);
   });
 });

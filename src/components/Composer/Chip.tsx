@@ -1,3 +1,4 @@
+import {useMemo} from 'react'
 import {StyleSheet} from 'react-native'
 
 import {useTheme} from '#/alf/index'
@@ -7,6 +8,17 @@ import {Pressable} from '#/components/Pressable'
 
 // Small toggle/choice pill used across the composer. A disabled chip always
 // carries its reason (shown as the accessibility hint), never inert.
+
+// Chip shape (module scope): geometry never changes. Selection/disabled
+// colors join inline below.
+const chipLayout = StyleSheet.create({
+  chipBase: {
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+  },
+})
 export function Chip({
   label,
   selected,
@@ -23,17 +35,21 @@ export function Chip({
   testID?: string
 }) {
   const theme = useTheme()
-  const styles = StyleSheet.create({
-    chip: {
-      borderWidth: 1,
-      borderColor: selected ? theme.palette.borderStrong : theme.palette.edge,
-      backgroundColor: selected ? theme.palette.raise : 'transparent',
-      borderRadius: radius.full,
-      paddingHorizontal: space.md,
-      paddingVertical: space.xs,
-      opacity: disabled ? 0.5 : 1,
-    },
-  })
+  // Theme/selection colors join the hoisted shape here (memoized, so a
+  // parent re-render never rebuilds the style identity mid-press).
+  const styles = useMemo(
+    () => ({
+      chip: [
+        chipLayout.chipBase,
+        {
+          borderColor: selected ? theme.palette.borderStrong : theme.palette.edge,
+          backgroundColor: selected ? theme.palette.raise : 'transparent',
+          opacity: disabled ? 0.5 : 1,
+        },
+      ],
+    }),
+    [theme, selected, disabled],
+  )
   return (
     <Pressable
       testID={testID}

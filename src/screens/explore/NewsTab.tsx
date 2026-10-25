@@ -71,6 +71,7 @@ function NewsCard({link}: {link: NewsLink}) {
               onPress={() => navigation.navigate('NewsDiscussions', {url: link.url, title: link.title})}
               accessibilityRole="button"
               accessibilityLabel={`Discussions about ${link.title}`}
+              hitSlop={12}
               testID="explore-news-discussions"
               style={styles.discussPillWrap}>
               <View style={[styles.discussPill, {borderColor: theme.palette.edge}]}>
@@ -188,6 +189,12 @@ export function NewsTab({backend}: {backend: Backend}) {
       testID="explore-news"
       data={links}
       keyExtractor={l => l.url}
+      // Conservative windowing (P4.1), mirroring FeedView. No
+      // `getItemLayout` (variable card heights) and no
+      // `removeClippedSubviews` (unverified on Android).
+      windowSize={7}
+      initialNumToRender={6}
+      maxToRenderPerBatch={8}
       ItemSeparatorComponent={() => <RowSeparator testID="explore-news-sep" />}
       renderItem={({item}) => <NewsCard link={item} />}
       // Infinite scroll with early prefetch: the next page starts loading

@@ -4,6 +4,7 @@
 // (`TimelineFeed` feed-row-thread + `computeFeedThreadLinks`).
 // Own code, same behavior: adjacency only, via `replyToId`.
 
+import {memo} from 'react'
 import {StyleSheet, View} from 'react-native'
 
 import type {Account, Capabilities, EmojiStyle, Post} from '@keystone/fedi'
@@ -42,7 +43,7 @@ export type ThreadRowProps = {
   testID?: string
 }
 
-export function ThreadRow({
+export const ThreadRow = memo(function ThreadRow({
   post,
   sessionId,
   capabilities,
@@ -74,4 +75,4 @@ export function ThreadRow({
       <PostCard post={post} sessionId={sessionId} capabilities={capabilities} emojiStyle={emojiStyle} renoters={renoters} />
     </View>
   )
-}
+})

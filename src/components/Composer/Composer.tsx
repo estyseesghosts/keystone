@@ -141,6 +141,32 @@ function stateFromDraft(d: LocalDraft): Partial<ComposeState> {
   }
 }
 
+// Composer layout geometry (module scope): space/radius constants never
+// change, so one stylesheet serves every keystroke. Theme colors + the
+// text scale join inline in `useComposerController` below.
+const composerLayout = StyleSheet.create({
+  root: {padding: space.lg, gap: space.md},
+  inputBase: {
+    minHeight: 120,
+    borderRadius: radius.md,
+    padding: space.md,
+    textAlignVertical: 'top',
+    // No focus ring ever and no box of our own either: chrome-free
+    // prose like the inline composer (style kill — see noOutline).
+    outlineColor: 'transparent',
+    outlineWidth: 0,
+  },
+  row: {flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center'},
+  spread: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+  thumbBase: {width: 56, height: 56, borderRadius: radius.sm},
+  media: {flexDirection: 'row', gap: space.sm, alignItems: 'flex-start'},
+  contextBase: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: space.sm,
+  },
+})
+
 export function useComposerController({
   session,
   backend,
@@ -516,33 +542,29 @@ export function useComposerController({
     }
   }
 
-  const styles = StyleSheet.create({
-    root: {padding: space.lg, gap: space.md},
-    input: {
-      minHeight: 120,
-      borderRadius: radius.md,
-      padding: space.md,
-      color: theme.palette.text,
-      backgroundColor: theme.palette.bg,
-      // P1: the compose box is prose — it scales with the text setting.
-      fontSize: typeSize.body * theme.fontScaleMultiplier,
-      textAlignVertical: 'top',
-      // No focus ring ever and no box of our own either: chrome-free
-      // prose like the inline composer (style kill — see noOutline).
-      outlineColor: 'transparent',
-      outlineWidth: 0,
-    },
-    row: {flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center'},
-    spread: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
-    thumb: {width: 56, height: 56, borderRadius: radius.sm, backgroundColor: theme.palette.raise},
-    media: {flexDirection: 'row', gap: space.sm, alignItems: 'flex-start'},
-    context: {
-      borderWidth: 1,
-      borderColor: theme.palette.border,
-      borderRadius: radius.md,
-      padding: space.sm,
-    },
-  })
+  // Theme-dependent values join the hoisted layout here (memoized on
+  // the theme, so a keystroke never rebuilds the object identity that
+  // fans out as `c.styles` to every section).
+  const styles = useMemo(
+    () => ({
+      root: composerLayout.root,
+      input: [
+        composerLayout.inputBase,
+        {
+          color: theme.palette.text,
+          backgroundColor: theme.palette.bg,
+          // P1: the compose box is prose — it scales with the text setting.
+          fontSize: typeSize.body * theme.fontScaleMultiplier,
+        },
+      ],
+      row: composerLayout.row,
+      spread: composerLayout.spread,
+      thumb: [composerLayout.thumbBase, {backgroundColor: theme.palette.raise}],
+      media: composerLayout.media,
+      context: [composerLayout.contextBase, {borderColor: theme.palette.border}],
+    }),
+    [theme],
+  )
 
   const restore = (d: LocalDraft) => {
     setState(s => ({...s, ...stateFromDraft(d)}))

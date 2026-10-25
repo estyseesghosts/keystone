@@ -771,8 +771,7 @@ Audit: `results/03` quality 1–2; `results/07` lint gaps + i18n + SysDebug; `re
 
 ### P4.1 — Feed render cascade
 
-Status: not started
-Branch: `repair-p4.1-feed-memo`
+Status: done (2026-10-24, Wave 4 commit; memoized actions/menu/handlers, memo() on split components, StyleSheet hoists, windowSize 7/6/8, toast-everywhere link failures, identity test; unfurl gate noted small-stop; log `state/logs/2026-10-24-repair-p4.1.md`)
 Audit: `results/09` top 5 #2 and #4; `results/05` Q3
 Depends: D3.5 and D3.6 merged (memoize the post-split components)
 
@@ -811,8 +810,7 @@ Depends: D3.5 and D3.6 merged (memoize the post-split components)
 
 ### P4.2 — Coverage for the untested high-value modules
 
-Status: not started
-Branch: `repair-p4.2-coverage`
+Status: done (2026-10-24, Wave 4 commit; +2 suites +62 tests, no prod changes; fetchExternalMe-204-TypeError ticketed as follow-up; log `state/logs/2026-10-24-repair-p4.2.md`)
 Audit: `results/08` test coverage gaps
 Depends: D3.4 merged for Navigation helpers (those tests may already exist). Endpoints tests do not depend on a split.
 
@@ -880,7 +878,7 @@ Update the status line on the slice **and** this table when a session ends.
 | D3.6 PostCard hooks | done | `repair-d3.6-postcard-hooks` | R2.4 merged Wave 2 |
 | D3.7 Screen splits | done | `repair-d3.7-screen-splits` | R0.1 merged Wave 0 |
 | D3.8 Shared helpers / lint | done | `repair-d3.8-shared-helpers` | scanner skipped (D3.5 parallel) |
-| P4.1 Feed memo | not started | `repair-p4.1-feed-memo` | D3.5, D3.6 |
-| P4.2 Coverage | not started | `repair-p4.2-coverage` | D3.4 for nav helper tests |
+| P4.1 Feed memo | done | `repair-p4.1-feed-memo` | D3.5, D3.6 merged Wave 3 |
+| P4.2 Coverage | done | `repair-p4.2-coverage` | D3.4 merged Wave 3 |
 
 First parallel batch a coordinator can hand out today: **R0.1, R0.2, R0.3, R1.1, R1.3, R1.4, R2.1, R2.4**. Hold R1.2 until R1.1’s `backend.ts` diff is known. Hold R2.2’s poll vote until R1.1 merges. Hold every D slice until its Depends line is merged.

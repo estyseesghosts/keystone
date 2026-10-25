@@ -78,6 +78,17 @@ export function useSuggestions(
   return {trigger, suggestions}
 }
 
+// Suggestion dropdown geometry (module scope): one stylesheet shared by
+// every keystroke's list. Theme colors join inline below.
+const suggestionLayout = StyleSheet.create({
+  boxBase: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: space.xs,
+  },
+  row: {paddingHorizontal: space.sm, paddingVertical: space.sm},
+})
+
 export function SuggestionList({
   suggestions,
   onPick,
@@ -87,16 +98,18 @@ export function SuggestionList({
 }) {
   const theme = useTheme()
   if (suggestions.length === 0) return null
-  const styles = StyleSheet.create({
-    box: {
-      borderWidth: 1,
-      borderColor: theme.palette.edge,
-      borderRadius: radius.md,
-      backgroundColor: theme.palette.bgSoft,
-      padding: space.xs,
-    },
-    row: {paddingHorizontal: space.sm, paddingVertical: space.sm},
-  })
+  // Theme colors join the hoisted layout here (memoized on the theme, so
+  // typing never rebuilds the stylesheet identity mid-list).
+  const styles = useMemo(
+    () => ({
+      box: [
+        suggestionLayout.boxBase,
+        {borderColor: theme.palette.edge, backgroundColor: theme.palette.bgSoft},
+      ],
+      row: suggestionLayout.row,
+    }),
+    [theme],
+  )
   return (
     <View style={styles.box} testID="composer-suggestions">
       {suggestions.map(s => (

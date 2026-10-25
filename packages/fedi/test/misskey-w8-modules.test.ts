@@ -35,6 +35,7 @@ import {
   checkExternalSession,
   enrichLegacyExternalUsers,
   externalOrigin,
+  fetchExternalMe,
   getActiveExternal,
   loadExternalSessions,
   newExternalSessionId,
@@ -1058,6 +1059,84 @@ describe("MisskeyBackend sub-modules (MK12 indirect)", () => {
     expect(notes.items).toHaveLength(1);
     await expect(backend.lists!.membership!.containing("u1")).resolves.toEqual(["l1"]);
     expect(calls.map((c) => c.endpoint)).toContain("users/lists/list");
+  });
+});
+
+// --- external MiAuth check shape + empty-body (P4.2) ---------------------------
+// Characterization: the check endpoint's two documented shapes pass
+// through verbatim; an empty 204 `/api/i` body never becomes an account
+// (it rejects — it must not adaptMe(undefined) into a value).
+
+describe("misskey/external MiAuth check + empty-body (P4.2)", () => {
+  const realFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  function stubFetch(
+    respond: () => { status: number; body: string },
+    seen: Array<{ url: string; body: string }>,
+  ): void {
+    (globalThis as { fetch: unknown }).fetch = async (url: string, init?: RequestInit) => {
+      seen.push({ url: String(url), body: String(init?.body ?? "") });
+      const { status, body } = respond();
+      return new Response(body, { status });
+    };
+  }
+
+  it("pending {ok:false} and approved {ok:true,token} pass through with an empty {} check body", async () => {
+    const seen: Array<{ url: string; body: string }> = [];
+    stubFetch(() => ({ status: 200, body: JSON.stringify({ ok: false }) }), seen);
+    await expect(checkExternalSession("https", "example.com", "sess")).resolves.toEqual({
+      ok: false,
+    });
+    stubFetch(
+      () => ({ status: 200, body: JSON.stringify({ ok: true, token: "tok" }) }),
+      seen,
+    );
+    await expect(checkExternalSession("https", "example.com", "sess")).resolves.toEqual({
+      ok: true,
+      token: "tok",
+    });
+    expect(seen.map((s) => s.url)).toEqual([
+      "https://example.com/api/miauth/sess/check",
+      "https://example.com/api/miauth/sess/check",
+    ]);
+    expect(seen.map((s) => s.body)).toEqual(["{}", "{}"]);
+  });
+
+  it("a refused check (401) surfaces as ApiError with the status, never pending", async () => {
+    const seen: Array<{ url: string; body: string }> = [];
+    stubFetch(
+      () => ({ status: 401, body: JSON.stringify({ error: { message: "bad" } }) }),
+      seen,
+    );
+    const err = await checkExternalSession("https", "example.com", "sess").catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(401);
+  });
+
+  it("a non-JSON 200 check body is errors.network.badJson, not a silent pending", async () => {
+    const seen: Array<{ url: string; body: string }> = [];
+    stubFetch(() => ({ status: 200, body: "not json" }), seen);
+    const err = await checkExternalSession("https", "example.com", "sess").catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).code).toBe("errors.network.badJson");
+  });
+
+  it("fetchExternalMe on an empty 204 body rejects (never an account from undefined)", async () => {
+    const seen: Array<{ url: string; body: string }> = [];
+    (globalThis as { fetch: unknown }).fetch = async (url: string, init?: RequestInit) => {
+      seen.push({ url: String(url), body: String(init?.body ?? "") });
+      return new Response(null, { status: 204 });
+    };
+    // Characterization only: today this rejects with the TypeError from
+    // adaptAccount(undefined) — no account value is ever produced. A
+    // follow-up should make it a typed shape FediError (R1.3 class);
+    // P4.2 makes no production change.
+    await expect(fetchExternalMe("https", "example.com", "tok")).rejects.toThrow();
+    expect(seen.map((s) => s.url)).toEqual(["https://example.com/api/i"]);
   });
 });
 

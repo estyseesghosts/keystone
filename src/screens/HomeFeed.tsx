@@ -237,6 +237,31 @@ export function FeedView({  sessionId,
     },
     [scrollKey, hasNextPage, isFetchingNextPage, fetchNextPage, hasStickyBar],
   )
+  // Stable row element: with memoized ThreadRow, an unchanged (post,
+  // session, capabilities, links) set skips the whole row subtree on
+  // scroll frames instead of rebuilding it.
+  const renderRow = useCallback(
+    ({item, index}: {item: Post; index: number}) => {
+      // Unreachable past the signed-out guard below, but the callback is
+      // a hook and must be defined above it — so it guards itself.
+      if (!sessionId || !resolved) return null
+      return (
+        <ThreadRow
+          post={item}
+          sessionId={sessionId}
+          capabilities={resolved.capabilities}
+          renoters={collapsed.renotersByRep.get(item.id)}
+          connectedAbove={links.connectedAbove[index] ?? false}
+          connectedBelow={links.connectedBelow[index] ?? false}
+          // v1 feed rule: a separator bounds every post except inside a
+          // connected reply run (joined by the thread line already) and
+          // above the first row (nothing above it but the header).
+          showSeparator={index > 0 && !(links.connectedAbove[index] ?? false)}
+        />
+      )
+    },
+    [sessionId, resolved, collapsed, links],
+  )
   // Scroll restoration (N14): offsets are remembered per session +
   // descriptor and restored once per mount, so back-navigation returns
   // to the same position. A key change with no saved offset (fresh feed
@@ -347,6 +372,14 @@ export function FeedView({  sessionId,
         testID="feed-list"
         data={visibleItems}
         keyExtractor={item => `${sessionId}:${item.id}`}
+        // Conservative windowing (P4.1): smaller batches keep scrolls at
+        // 60fps without starving the prefetch below. No `getItemLayout` —
+        // post rows vary in height and a lying layout corrupts scroll
+        // position on variable content. No `removeClippedSubviews` —
+        // unverified on Android (blank-row history there); prefer off.
+        windowSize={7}
+        initialNumToRender={6}
+        maxToRenderPerBatch={8}
         onScroll={handleScroll}
         scrollEventThrottle={32}
         ListHeaderComponent={
@@ -369,20 +402,7 @@ export function FeedView({  sessionId,
             </View>
           ) : undefined
         }
-        renderItem={({item, index}) => (
-          <ThreadRow
-            post={item}
-            sessionId={sessionId}
-            capabilities={resolved.capabilities}
-            renoters={collapsed.renotersByRep.get(item.id)}
-            connectedAbove={links.connectedAbove[index] ?? false}
-            connectedBelow={links.connectedBelow[index] ?? false}
-            // v1 feed rule: a separator bounds every post except inside a
-            // connected reply run (joined by the thread line already) and
-            // above the first row (nothing above it but the header).
-            showSeparator={index > 0 && !(links.connectedAbove[index] ?? false)}
-          />
-        )}
+        renderItem={renderRow}
         refreshControl={
           <RefreshControl
             refreshing={feed.isRefetching}

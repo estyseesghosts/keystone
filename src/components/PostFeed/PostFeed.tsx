@@ -86,6 +86,24 @@ export function PostFeed({
     },
     [canLoadMore, isFetchingMore, onLoadMore],
   )
+  // Stable row element (same rule as FeedView): memoized ThreadRow
+  // skips unchanged rows on scroll frames.
+  const renderRow = useCallback(
+    ({item, index}: {item: Post; index: number}) => (
+      <ThreadRow
+        post={item}
+        sessionId={sessionId}
+        capabilities={capabilities}
+        emojiStyle={emojiStyle}
+        connectedAbove={links.connectedAbove[index] ?? false}
+        connectedBelow={links.connectedBelow[index] ?? false}
+        // Same rule as production FeedView: bound every post except
+        // inside a connected run and above the first row.
+        showSeparator={index > 0 && !(links.connectedAbove[index] ?? false)}
+      />
+    ),
+    [sessionId, capabilities, emojiStyle, links],
+  )
   return (
     <View style={{flex: 1}} testID={testID ?? 'post-feed'}>
       {hasNewPosts && (
@@ -102,19 +120,13 @@ export function PostFeed({
         testID="post-feed-list"
         data={posts}
         keyExtractor={item => `${sessionId}:${item.id}`}
-        renderItem={({item, index}) => (
-          <ThreadRow
-            post={item}
-            sessionId={sessionId}
-            capabilities={capabilities}
-            emojiStyle={emojiStyle}
-            connectedAbove={links.connectedAbove[index] ?? false}
-            connectedBelow={links.connectedBelow[index] ?? false}
-            // Same rule as production FeedView: bound every post except
-            // inside a connected run and above the first row.
-            showSeparator={index > 0 && !(links.connectedAbove[index] ?? false)}
-          />
-        )}
+        // Conservative windowing (P4.1), mirroring FeedView. No
+        // `getItemLayout` (variable row heights) and no
+        // `removeClippedSubviews` (unverified on Android).
+        windowSize={7}
+        initialNumToRender={6}
+        maxToRenderPerBatch={8}
+        renderItem={renderRow}
         refreshControl={
           onRefresh ? (
             <RefreshControl refreshing={isLoading} onRefresh={onRefresh} testID="post-feed-refresh" />
