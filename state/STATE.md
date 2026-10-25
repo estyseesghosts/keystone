@@ -5,18 +5,19 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **258 suites / 3597 tests**,
+Gate baseline (last green on main): **260 suites / 3634 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Wave 4 in progress: X4.1–X4.4 committed (X4.4 step 7 revocation
-   blocked → tracked follow-up). (Coordinator fallout in those
-   commits: async stub, poll-meta regex, dual-class auth check,
-   markers-first order pins, sensitivity contract, db8 bytes,
-   un-awaited cleanup, evidence casts, socket token, mock-hoist
-   cast, FormData assertion.)
-2. Wave 4 last: X4.5 notification requests/policy (D8=yes).
-3. Wave 5 (X5.1–X5.6, misskey backend in order) next.
+1. Wave 4 done (X4.1–X4.5 committed; X4.4 step 7 revocation blocked
+   → tracked follow-up). (Coordinator fallout in those commits:
+   async stub, poll-meta regex, dual-class auth, markers-first
+   order pins, sensitivity contract, Page import, baseCapabilities,
+   FormData assertion.)
+2. Wave 5: X5.1, then X5.2+X5.3 parallel, then X5.4+X5.5 parallel,
+   then X5.6 last (no duplicate coverage).
+3. Waves 6+ in order; signing/App Links skipped (owner); no
+   non-English translations (English catalog only).
 
 Blockers / owner-open:
 - Rig `:3101`/`:3102` refused; device not run by agents — all live

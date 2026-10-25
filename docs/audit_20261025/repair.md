@@ -1089,8 +1089,8 @@ Audit: mastodon 9, 10, 11 (backend half), 15, 17, 18, 19, 21, 22
 
 ## X4.5 - Notification requests and policy (feature, D8)
 
-Status: not started (owner go/no-go)
-Branch: `repair25-x4.5-notif-requests`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x4.5.md`; D8=yes built; 260 suites / 3634 tests green at Wave-4 commit)
+Branch: `repair25-x4.5-notif-requests` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: mastodon 12 (policy/requests)
 
 **Goal.** Mastodon 4.3+ files non-follower notifications under "requests";
