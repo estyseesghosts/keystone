@@ -833,8 +833,8 @@ tests.
 
 ## X3.2 - Online and foreground awareness
 
-Status: not started (D10 default applies)
-Branch: `repair25-x3.2-online-focus`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x3.2.md`; 250 suites / 3496 tests green at Wave-3 commit)
+Branch: `repair25-x3.2-online-focus` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: networking M3, M7
 
 **Goal.** Offline queries pause and resume; the app refreshes on foreground;
@@ -901,8 +901,8 @@ Audit: networking H2, L6; rn-ui L1, L4
 
 ## X3.4 - Streams
 
-Status: not started
-Branch: `repair25-x3.4-streams`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x3.4.md`; 254 suites / 3520 tests green at Wave-3 commit)
+Branch: `repair25-x3.4-streams` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: networking M4, M5, M6, L4, L7; misskey M12, M13; mastodon 13, 14
 
 **Goal.** Streaming is stable, pooled, observable, and applies deletes.
