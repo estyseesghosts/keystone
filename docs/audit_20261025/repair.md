@@ -1680,7 +1680,7 @@ baseline still lists that is not in X9.1-X9.3 or X9.5-X9.7.
 
 ## X9.5 - Locale-aware formatting and plurals
 
-Status: not started
+Status: done (2026-10-25; logs `state/logs/2026-10-25-repair25-x9.5.md` (slice) + `state/logs/2026-10-25-repair25-x9.5-coordinator.md` (batch-green); 283 suites / 4053 tests green at X9.5 commit)
 Branch: `repair25-x9.5-formatting`
 Audit: a11y 3, 4, 5; media (size units); richtext X6.3 (unixtime)
 

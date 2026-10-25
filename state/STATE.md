@@ -5,15 +5,13 @@ Phase: **repair program 2026-10-25** (`docs/audit_20261025/repair.md`,
 `state/logs/2026-10-25-repair25-x0.3.md`.
 Active branch: `main` (agents work in the shared tree; coordinator
 commits per green slice — no slice branches, per owner order).
-Gate baseline (last green on main): **281 suites / 4015 tests**,
+Gate baseline (last green on main): **283 suites / 4053 tests**,
 typecheck (ios+android+web) + lint clean.
 
 Next 3 steps:
-1. Wave 9 batch 1 done (X9.1–X9.4 committed green; 281 suites / 4015 tests;
-   baseline 620 → 0; coord: useI18n fallback hook + fr-test locale params —
-   see coord log).
-2. Wave 9 remainder SEQUENTIALLY (each tree-wide): X9.5 formatters, then
-   X9.6 RTL, then X9.7 error codes, then X9.8 close-out.
+1. X9.5 done (committed green; 283 suites / 4053 tests; shared format.ts +
+   minute ticker; no fallout).
+2. X9.6 RTL next (solo, tree-wide), then X9.7 error codes, then X9.8.
 3. Signing/App Links skipped (owner); no non-English translations.
 
 Blockers / owner-open:
