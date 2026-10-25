@@ -8,5 +8,6 @@ module.exports = {
     'no-inner-html': require('./no-inner-html'),
     'no-literal-ui-string': require('./no-literal-ui-string'),
     'prefer-logical-style': require('./prefer-logical-style'),
+    'no-any-in-tests': require('./no-any-in-tests'),
   },
 }

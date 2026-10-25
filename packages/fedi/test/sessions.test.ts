@@ -34,6 +34,7 @@ import {
   type KeyValueStore,
   type Session,
 } from "../src/core/sessions";
+import { firstFetchCall } from "./factories";
 
 const ORIGIN = "https://app.example";
 
@@ -351,10 +352,10 @@ describe("store API", () => {
 
 describe("revoke on logout (best-effort)", () => {
   it("misskey family revokes via POST /api/i/revoke-token with {i, token}", async () => {
-    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
-    await revokeSessionToken(internal(), { fetchImpl: fetchImpl as unknown as typeof fetch });
+    const fetchImpl: jest.Mock = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    await revokeSessionToken(internal(), { fetchImpl });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = firstFetchCall(fetchImpl);
     expect(url).toBe(`${ORIGIN}/api/i/revoke-token`);
     expect(init.method).toBe("POST");
     // Sharkey requires `tokenId` or `token` and ignores a bare `i` (M7).
@@ -362,14 +363,14 @@ describe("revoke on logout (best-effort)", () => {
   });
 
   it("misskey revoke includes tokenId when known", async () => {
-    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    const fetchImpl: jest.Mock = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
     await expect(
       revokeSessionToken(internal(), {
-        fetchImpl: fetchImpl as unknown as typeof fetch,
+        fetchImpl: fetchImpl,
         tokenId: "app-token-id",
       }),
     ).resolves.toBe(true);
-    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const [, init] = firstFetchCall(fetchImpl);
     expect(JSON.parse(String(init.body))).toEqual({
       i: "tok-internal",
       token: "tok-internal",
@@ -378,9 +379,9 @@ describe("revoke on logout (best-effort)", () => {
   });
 
   it("misskey revoke returns false on non-2xx (M7)", async () => {
-    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 401 })));
+    const fetchImpl: jest.Mock = jest.fn(() => Promise.resolve(new Response("{}", { status: 401 })));
     await expect(
-      revokeSessionToken(internal(), { fetchImpl: fetchImpl as unknown as typeof fetch }),
+      revokeSessionToken(internal(), { fetchImpl }),
     ).resolves.toBe(false);
   });
 
@@ -388,7 +389,7 @@ describe("revoke on logout (best-effort)", () => {
     setJson(OAUTH_APPS_KEY, {
       "https://mastodon.example": { client_id: "cid", client_secret: "csec" },
     });
-    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 400 })));
+    const fetchImpl: jest.Mock = jest.fn(() => Promise.resolve(new Response("{}", { status: 400 })));
     await expect(
       revokeSessionToken(
         {
@@ -401,7 +402,7 @@ describe("revoke on logout (best-effort)", () => {
           grant: "oauth-pkce",
           hosting: "third-party",
         },
-        { fetchImpl: fetchImpl as unknown as typeof fetch, store },
+        { fetchImpl: fetchImpl, store },
       ),
     ).resolves.toBe(false);
   });
@@ -410,7 +411,7 @@ describe("revoke on logout (best-effort)", () => {
     setJson(OAUTH_APPS_KEY, {
       "https://mastodon.example": { client_id: "cid", client_secret: "csec" },
     });
-    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    const fetchImpl: jest.Mock = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
     await revokeSessionToken(
       {
         id: "https://mastodon.example 7",
@@ -422,9 +423,9 @@ describe("revoke on logout (best-effort)", () => {
         grant: "oauth-pkce",
         hosting: "third-party",
       },
-      { fetchImpl: fetchImpl as unknown as typeof fetch, store },
+      { fetchImpl: fetchImpl, store },
     );
-    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const [url, init] = firstFetchCall(fetchImpl);
     expect(url).toBe("https://mastodon.example/oauth/revoke");
     const form = new URLSearchParams(String(init.body));
     expect(form.get("token")).toBe("masto-token");
@@ -433,7 +434,7 @@ describe("revoke on logout (best-effort)", () => {
   });
 
   it("no cached app means no request (matching mastodon/oauth.ts)", async () => {
-    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    const fetchImpl: jest.Mock = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
     await expect(
       revokeSessionToken(
         {
@@ -446,16 +447,16 @@ describe("revoke on logout (best-effort)", () => {
           grant: "oauth-pkce",
           hosting: "third-party",
         },
-        { fetchImpl: fetchImpl as unknown as typeof fetch, store },
+        { fetchImpl: fetchImpl, store },
       ),
     ).resolves.toBe(false); // the skip is observable, never silent
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("network failures never throw", async () => {
-    const fetchImpl = jest.fn(() => Promise.reject(new Error("offline")));
+    const fetchImpl: jest.Mock = jest.fn(() => Promise.reject(new Error("offline")));
     await expect(
-      revokeSessionToken(internal(), { fetchImpl: fetchImpl as unknown as typeof fetch }),
+      revokeSessionToken(internal(), { fetchImpl }),
     ).resolves.toBe(true); // attempted (and failed) — best-effort, never throws
   });
 });
@@ -491,7 +492,7 @@ describe("ADR 0011: secret-free envelope rows", () => {
     setJson(OAUTH_APPS_KEY, {
       "https://mastodon.example": { client_id: "cid", client_secret: "row-secret" },
     });
-    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    const fetchImpl: jest.Mock = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
     const session = {
       id: "https://mastodon.example 7",
       origin: "https://mastodon.example",
@@ -503,17 +504,17 @@ describe("ADR 0011: secret-free envelope rows", () => {
       hosting: "third-party" as const,
     };
     await revokeSessionToken(session, {
-      fetchImpl: fetchImpl as unknown as typeof fetch,
+      fetchImpl: fetchImpl,
       store,
       appSecret: "vault-secret",
     });
-    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const [, init] = firstFetchCall(fetchImpl);
     expect(new URLSearchParams(String(init.body)).get("client_secret")).toBe("vault-secret");
   });
 
   it("revokeSessionToken uses the vault secret after the MMKV row is scrubbed", async () => {
     setJson(OAUTH_APPS_KEY, { "https://mastodon.example": { client_id: "cid" } });
-    const fetchImpl = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    const fetchImpl: jest.Mock = jest.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
     const session = {
       id: "https://mastodon.example 7",
       origin: "https://mastodon.example",
@@ -526,12 +527,12 @@ describe("ADR 0011: secret-free envelope rows", () => {
     };
     await expect(
       revokeSessionToken(session, {
-        fetchImpl: fetchImpl as unknown as typeof fetch,
+        fetchImpl: fetchImpl,
         store,
         appSecret: "vault-secret",
       }),
     ).resolves.toBe(true);
-    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    const [, init] = firstFetchCall(fetchImpl);
     const form = new URLSearchParams(String(init.body));
     expect(form.get("client_id")).toBe("cid");
     expect(form.get("client_secret")).toBe("vault-secret");

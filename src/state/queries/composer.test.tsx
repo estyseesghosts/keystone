@@ -2,7 +2,9 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {act, renderHook, waitFor} from '@testing-library/react-native'
 import React from 'react'
 
-import {createMemoryStore, type Backend, type Post, type ScheduledNote, type ServerDraft, type Session} from '@keystone/fedi'
+import {createMemoryStore, type Post, type ScheduledNote, type ServerDraft} from '@keystone/fedi'
+
+import {makeAccount, makeBackend, makePost, makeSession, makeTestFile} from '#/__tests__/factories'
 
 import {feedQueryKey} from './keys'
 import {
@@ -49,16 +51,16 @@ const Manip = require('expo-image-manipulator') as {
 const FS = require('expo-file-system') as {getInfoAsync: jest.Mock}
 
 const post = (id: string, over: Partial<Post> = {}): Post =>
-  ({
+  makePost({
     id,
-    author: {id: 'me'},
+    author: makeAccount({id: 'me'}),
     counts: {replies: 0, boosts: 0, quotes: 0, reactions: 0, favourites: 0},
-    content: {},
+    content: {plain: ''},
     ...over,
-  }) as unknown as Post
+  })
 
 const visPost = (id: string, kind: 'public' | 'quiet' | 'followers' | 'direct'): Post =>
-  post(id, {visibility: {kind, localOnly: false, raw: kind}} as unknown as Partial<Post>)
+  post(id, {visibility: {kind, localOnly: false, raw: kind}})
 
 const feed = (items: Post[]) => ({pages: [{items, cursor: null, end: true}], pageParams: [null]})
 
@@ -133,12 +135,12 @@ describe('submitPost', () => {
   it('posts now via createPost, or schedules via the sub-module only', async () => {
     const createPost = jest.fn().mockResolvedValue(post('x'))
     const create = jest.fn().mockResolvedValue({id: 's1', scheduledAt: 't', post: null})
-    const backend = {createPost, scheduled: {create}} as unknown as Backend
+    const backend = makeBackend({createPost, scheduled: {create}})
     expect((await submitPost(backend, {draft: {text: 'a'}})).kind).toBe('posted')
     expect((await submitPost(backend, {draft: {text: 'a'}, scheduledAt: 't'})).kind).toBe('scheduled')
     expect(create).toHaveBeenCalledWith({text: 'a', scheduledAt: 't'})
     await expect(
-      submitPost({createPost} as unknown as Backend, {draft: {text: 'a'}, scheduledAt: 't'}),
+      submitPost(makeBackend({createPost}), {draft: {text: 'a'}, scheduledAt: 't'}),
     ).rejects.toThrow(/schedul/i)
   })
 })
@@ -162,7 +164,7 @@ describe('uploadAll', () => {
 
   it('uploads with alt as comment, skips done items, reports status', async () => {
     const uploadMedia = jest.fn().mockImplementation(async () => ({id: 'm-new', url: 'https://x.example/m-new.png'}))
-    const backend = {uploadMedia} as unknown as Backend
+    const backend = makeBackend({uploadMedia})
     const files = new Map([['a', new File(['x'], 'a.png')], ['b', new File(['y'], 'b.png')]])
     const events: Array<[string, string | undefined]> = []
     const ids = await uploadAll(
@@ -185,7 +187,7 @@ describe('uploadAll', () => {
     const files = new Map([['a', new File(['x'], 'a')], ['b', new File(['y'], 'b')]])
     const patches: Record<string, Partial<UploadItem>> = {}
     const ids = await uploadAll(
-      {uploadMedia} as unknown as Backend,
+      makeBackend({uploadMedia}),
       [item('a'), item('b')],
       files,
       (k, p) => (patches[k] = {...patches[k], ...p}),
@@ -199,7 +201,7 @@ describe('uploadAll', () => {
     const uploadMedia = jest.fn().mockImplementation(async () => ({id: 'm-new'}))
     const files = new Map([['a', new File(['x'], 'a.png')]])
     await uploadAll(
-      {uploadMedia} as unknown as Backend,
+      makeBackend({uploadMedia}),
       [item('a', {alt: 'a cat'})],
       files,
       () => {},
@@ -214,7 +216,7 @@ describe('uploadAll', () => {
     // Root: no folderId/force reaches the backend (never an empty field).
     uploadMedia.mockClear()
     await uploadAll(
-      {uploadMedia} as unknown as Backend,
+      makeBackend({uploadMedia}),
       [item('a')],
       files,
       () => {},
@@ -230,7 +232,7 @@ describe('uploadAll', () => {
       ['b', new File(['y'], 'b.png')],
     ])
     await uploadAll(
-      {uploadMedia} as unknown as Backend,
+      makeBackend({uploadMedia}),
       [item('a', {alt: 'a cat', sensitive: true}), item('b', {alt: 'b cat'})],
       files,
       () => {},
@@ -243,11 +245,11 @@ describe('uploadAll', () => {
 
   it('refuses an over-cap File before upload starts (never calls upload)', async () => {
     const uploadMedia = jest.fn().mockResolvedValue({id: 'm-new'})
-    const big = {size: MAX_MEDIA_BYTES + 1, name: 'big.png'} as unknown as File
+    const big = makeTestFile({size: MAX_MEDIA_BYTES + 1, name: 'big.png'})
     const files = new Map([['a', big]])
     const patches: Record<string, Partial<UploadItem>> = {}
     const ids = await uploadAll(
-      {uploadMedia} as unknown as Backend,
+      makeBackend({uploadMedia}),
       [item('a')],
       files,
       (k, p) => (patches[k] = {...patches[k], ...p}),
@@ -261,13 +263,13 @@ describe('uploadAll', () => {
 
   it('enforces per-kind server caps with the real number in the message', async () => {
     const uploadMedia = jest.fn().mockResolvedValue({id: 'm-new'})
-    const image = {size: 20 * 1024 * 1024, name: 'photo.png', type: 'image/png'} as unknown as File
-    const video = {size: 20 * 1024 * 1024, name: 'clip.mp4', type: 'video/mp4'} as unknown as File
+    const image = makeTestFile({size: 20 * 1024 * 1024, name: 'photo.png', type: 'image/png'})
+    const video = makeTestFile({size: 20 * 1024 * 1024, name: 'clip.mp4', type: 'video/mp4'})
     const caps = {imageBytes: 16 * 1024 * 1024, videoBytes: 99 * 1024 * 1024}
     const patches: Record<string, Partial<UploadItem>> = {}
     // Same 20 MB: over the 16 MB image cap, under the 99 MB video cap.
     const ids = await uploadAll(
-      {uploadMedia} as unknown as Backend,
+      makeBackend({uploadMedia}),
       [item('a'), item('b')],
       new Map([
         ['a', image],
@@ -285,9 +287,9 @@ describe('uploadAll', () => {
 
   it('falls back to the heap bound when the server reported nothing', async () => {
     const uploadMedia = jest.fn().mockResolvedValue({id: 'm-new'})
-    const big = {size: MAX_MEDIA_BYTES + 1, name: 'big.bin', type: ''} as unknown as File
+    const big = makeTestFile({size: MAX_MEDIA_BYTES + 1, name: 'big.bin', type: ''})
     const ids = await uploadAll(
-      {uploadMedia} as unknown as Backend,
+      makeBackend({uploadMedia}),
       [item('a')],
       new Map([['a', big]]),
       () => {},
@@ -300,7 +302,7 @@ describe('uploadAll', () => {
 
   it('uploadOne passes small files straight through', async () => {
     const uploadMedia = jest.fn().mockResolvedValue({id: 'm-1'})
-    await uploadOne({uploadMedia} as unknown as Backend, new File(['x'], 'ok.png'))
+    await uploadOne(makeBackend({uploadMedia}), new File(['x'], 'ok.png'))
     expect(uploadMedia).toHaveBeenCalledTimes(1)
   })
   it('skips keys removed mid-submit and never attaches a removed id', async () => {
@@ -309,7 +311,7 @@ describe('uploadAll', () => {
     // removed done id must not ride the post, and the removed pending
     // row must not fail the submit.
     const uploadMedia = jest.fn().mockResolvedValue({id: 'm-new'})
-    const backend = {uploadMedia} as unknown as Backend
+    const backend = makeBackend({uploadMedia})
     const files = new Map([['a', new File(['x'], 'a.png')]])
     const patches: Array<[string, Partial<UploadItem>]> = []
     const ids = await uploadAll(
@@ -344,7 +346,7 @@ describe('useUploads size guard', () => {
   it('refuses over-cap Files before staging and reports name + limit', () => {
     const {result} = renderHook(() => useUploads(null))
     const ok = new File(['x'], 'ok.png')
-    const big = {size: MAX_MEDIA_BYTES + 1, name: 'big.png'} as unknown as File
+    const big = makeTestFile({size: MAX_MEDIA_BYTES + 1, name: 'big.png'})
     let refused: Array<{name: string; limit: number}> = []
     act(() => {
       refused = result.current.add([
@@ -357,7 +359,7 @@ describe('useUploads size guard', () => {
   })
 
   it('uses the per-kind server cap from the limits', () => {
-    const video = {size: 20 * 1024 * 1024, name: 'clip.mp4', type: 'video/mp4'} as unknown as File
+    const video = makeTestFile({size: 20 * 1024 * 1024, name: 'clip.mp4', type: 'video/mp4'})
     const caps = {imageBytes: 16 * 1024 * 1024, videoBytes: 99 * 1024 * 1024}
     const {result} = renderHook(() => useUploads(null, {}, caps))
     let refused: Array<{name: string; limit: number}> = []
@@ -370,7 +372,7 @@ describe('useUploads size guard', () => {
   })
 })
 
-const SESS = {id: 's1', origin: 'https://x.example', family: 'misskey'} as unknown as Session
+const SESS = makeSession({id: 's1', origin: 'https://x.example', family: 'misskey'})
 
 function testClient(): QueryClient {
   return new QueryClient({defaultOptions: {queries: {retry: false, gcTime: 60_000}}})
@@ -386,7 +388,7 @@ describe('useEditPost (C7)', () => {
   it('keys session-scoped edit: calls through and patches the cached copy', async () => {
     const updated = post('p1', {content: {edited: true}} as unknown as Partial<Post>)
     const editPost = jest.fn().mockResolvedValue(updated)
-    const backend = {editPost} as unknown as Backend
+    const backend = makeBackend({editPost})
     const client = testClient()
     client.setQueryData(feedQueryKey(SESS.id, 'timeline|home'), feed([post('p1')]))
     const {result} = renderHook(() => useEditPost(SESS, backend), {wrapper: wrapper(client)})
@@ -397,7 +399,7 @@ describe('useEditPost (C7)', () => {
   })
 
   it('throws Sign in when session/backend missing', async () => {
-    const backend = {editPost: jest.fn()} as unknown as Backend
+    const backend = makeBackend({editPost: jest.fn()})
     const client = testClient()
     const {result} = renderHook(() => useEditPost(null, backend), {wrapper: wrapper(client)})
     await expect(result.current.mutateAsync({id: 'p1', draft: {}})).rejects.toThrow(/sign in/i)
@@ -412,7 +414,7 @@ describe('scheduled hooks (C8b)', () => {
     expect(scheduledPostsKey('s1')[0]).toBe('s1')
     expect(scheduledPostsKey('s1')).not.toEqual(scheduledPostsKey('s2'))
     const list = jest.fn().mockResolvedValue([sched('a')])
-    const backend = {scheduled: {list}} as unknown as Backend
+    const backend = makeBackend({scheduled: {list}})
     const {result} = renderHook(() => useScheduledPosts(SESS, backend), {wrapper: wrapper(testClient())})
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(list).toHaveBeenCalled()
@@ -420,14 +422,14 @@ describe('scheduled hooks (C8b)', () => {
   })
 
   it('list stays disabled without the sub-module and fetches nothing', () => {
-    const backend = {} as unknown as Backend
+    const backend = makeBackend()
     const {result} = renderHook(() => useScheduledPosts(SESS, backend), {wrapper: wrapper(testClient())})
     expect(result.current.fetchStatus).toBe('idle')
   })
 
   it('cancel calls delete and invalidates the scheduled list key', async () => {
     const del = jest.fn().mockResolvedValue(undefined)
-    const backend = {scheduled: {delete: del}} as unknown as Backend
+    const backend = makeBackend({scheduled: {delete: del}})
     const client = testClient()
     client.setQueryData(scheduledPostsKey(SESS.id), [sched('a')])
     const {result} = renderHook(() => useCancelScheduled(SESS, backend), {wrapper: wrapper(client)})
@@ -440,7 +442,7 @@ describe('scheduled hooks (C8b)', () => {
     const client = testClient()
     const {result} = renderHook(() => useCancelScheduled(null, null), {wrapper: wrapper(client)})
     await expect(result.current.mutateAsync('a')).rejects.toThrow(/sign in/i)
-    const noMod = renderHook(() => useCancelScheduled(SESS, {} as unknown as Backend), {
+    const noMod = renderHook(() => useCancelScheduled(SESS, makeBackend()), {
       wrapper: wrapper(testClient()),
     })
     await expect(noMod.result.current.mutateAsync('a')).rejects.toThrow(/schedul/i)
@@ -454,14 +456,14 @@ describe('server draft hooks (C9/MK5)', () => {
     expect(serverDraftsKey('s1')[0]).toBe('s1')
     expect(serverDraftsKey('s1')).not.toEqual(serverDraftsKey('s2'))
     const list = jest.fn().mockResolvedValue([draft('d1')])
-    const backend = {serverDrafts: {list}} as unknown as Backend
+    const backend = makeBackend({serverDrafts: {list}})
     const {result} = renderHook(() => useServerDrafts(SESS, backend), {wrapper: wrapper(testClient())})
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data?.map(d => d.id)).toEqual(['d1'])
   })
 
   it('list stays disabled without the sub-module (e.g. Mastodon) and fetches nothing', () => {
-    const backend = {} as unknown as Backend
+    const backend = makeBackend()
     const {result} = renderHook(() => useServerDrafts(SESS, backend), {wrapper: wrapper(testClient())})
     expect(result.current.fetchStatus).toBe('idle')
   })
@@ -469,7 +471,7 @@ describe('server draft hooks (C9/MK5)', () => {
   it('save creates without id, updates with id, and invalidates the drafts key', async () => {
     const create = jest.fn().mockResolvedValue(draft('new'))
     const update = jest.fn().mockResolvedValue(draft('d1'))
-    const backend = {serverDrafts: {create, update}} as unknown as Backend
+    const backend = makeBackend({serverDrafts: {create, update}})
     const client = testClient()
     client.setQueryData(serverDraftsKey(SESS.id), [draft('d1')])
     const {result} = renderHook(() => useSaveServerDraft(SESS, backend), {wrapper: wrapper(client)})
@@ -482,7 +484,7 @@ describe('server draft hooks (C9/MK5)', () => {
 
   it('delete calls through and invalidates; missing session/module throw honestly', async () => {
     const del = jest.fn().mockResolvedValue(undefined)
-    const backend = {serverDrafts: {delete: del}} as unknown as Backend
+    const backend = makeBackend({serverDrafts: {delete: del}})
     const client = testClient()
     client.setQueryData(serverDraftsKey(SESS.id), [draft('d1')])
     const {result} = renderHook(() => useDeleteServerDraft(SESS, backend), {wrapper: wrapper(client)})
@@ -491,7 +493,7 @@ describe('server draft hooks (C9/MK5)', () => {
     expect(client.getQueryState(serverDraftsKey(SESS.id))?.isInvalidated).toBe(true)
     const signedOut = renderHook(() => useDeleteServerDraft(null, null), {wrapper: wrapper(testClient())})
     await expect(signedOut.result.current.mutateAsync('d1')).rejects.toThrow(/sign in/i)
-    const noMod = renderHook(() => useDeleteServerDraft(SESS, {} as unknown as Backend), {
+    const noMod = renderHook(() => useDeleteServerDraft(SESS, makeBackend()), {
       wrapper: wrapper(testClient()),
     })
     await expect(noMod.result.current.mutateAsync('d1')).rejects.toThrow(/draft/i)
@@ -532,7 +534,7 @@ describe('uploadAll concurrency (X7.4 step 4)', () => {
       ['a', 'b', 'c', 'd', 'e', 'f'].map(k => [k, new File(['x'], `${k}.png`)] as [string, File]),
     )
     const ids = await uploadAll(
-      {uploadMedia} as unknown as Backend,
+      makeBackend({uploadMedia}),
       ['a', 'b', 'c', 'd', 'e', 'f'].map(k => item(k)),
       files,
       () => {},
@@ -555,7 +557,7 @@ describe('uploadAll concurrency (X7.4 step 4)', () => {
       ['a', new File(['x'], 'a.png')],
       ['b', new File(['y'], 'b.png')],
     ])
-    const backend = {uploadMedia} as unknown as Backend
+    const backend = makeBackend({uploadMedia})
     const patches: Record<string, Partial<UploadItem>> = {}
     const first = await uploadAll(
       backend,
@@ -596,7 +598,7 @@ describe('uploadAll concurrency (X7.4 step 4)', () => {
     const files = new Map([['a', new File(['x'], 'a.png')]])
     const patches: Record<string, Partial<UploadItem>> = {}
     const promise = uploadAll(
-      {uploadMedia} as unknown as Backend,
+      makeBackend({uploadMedia}),
       [item('a')],
       files,
       (k, p) => (patches[k] = {...patches[k], ...p}),
@@ -641,7 +643,7 @@ describe('uploadAll processing re-check (X7.4 step 5)', () => {
     const uploadMedia = jest.fn(async () => ({id: 'm1', url: null}))
     const patches: Record<string, Partial<UploadItem>> = {}
     const ids = await uploadAll(
-      {uploadMedia} as unknown as Backend,
+      makeBackend({uploadMedia}),
       [item('a')],
       new Map([['a', new File(['x'], 'a.png')]]),
       (k, p) => (patches[k] = {...patches[k], ...p}),
@@ -654,7 +656,7 @@ describe('uploadAll processing re-check (X7.4 step 5)', () => {
     const updateMedia = jest.fn(async () => ({id: 'm1', url: 'https://x.example/m1.png'}))
     const patches: Record<string, Partial<UploadItem>> = {}
     const ids = await uploadAll(
-      {updateMedia} as unknown as Backend,
+      makeBackend({updateMedia}),
       [item('a', {status: 'processing', mediaId: 'm1', alt: 'a cat'})],
       new Map([['a', new File(['x'], 'a.png')]]),
       (k, p) => (patches[k] = {...patches[k], ...p}),
@@ -668,7 +670,7 @@ describe('uploadAll processing re-check (X7.4 step 5)', () => {
     const updateMedia = jest.fn(async () => ({id: 'm1', url: null}))
     const patches: Record<string, Partial<UploadItem>> = {}
     const ids = await uploadAll(
-      {updateMedia} as unknown as Backend,
+      makeBackend({updateMedia}),
       [item('a', {status: 'processing', mediaId: 'm1'})],
       new Map([['a', new File(['x'], 'a.png')]]),
       (k, p) => (patches[k] = {...patches[k], ...p}),
@@ -698,7 +700,7 @@ describe('useUploads cancel + remove (X7.4 step 1)', () => {
           )
         }),
     )
-    const {result} = renderHook(() => useUploads({uploadMedia} as unknown as Backend))
+    const {result} = renderHook(() => useUploads(makeBackend({uploadMedia})))
     act(() => {
       result.current.add([file()])
     })
@@ -725,10 +727,10 @@ describe('useUploads cancel + remove (X7.4 step 1)', () => {
 
   it('remove() best-effort deletes a stored Misskey file, and drops Mastodon ids silently', async () => {
     const deleteFile = jest.fn(async () => undefined)
-    const backend = {
+    const backend = makeBackend({
       uploadMedia: jest.fn(async () => ({id: 'm1', url: 'https://x.example/m1.png'})),
       drive: {deleteFile},
-    } as unknown as Backend
+    })
     const {result} = renderHook(() => useUploads(backend))
     act(() => {
       result.current.add([file()])
@@ -745,9 +747,9 @@ describe('useUploads cancel + remove (X7.4 step 1)', () => {
   })
 
   it('remove() of a stored row without a drive module just drops it', async () => {
-    const backend = {
+    const backend = makeBackend({
       uploadMedia: jest.fn(async () => ({id: 'm1', url: null})),
-    } as unknown as Backend
+    })
     const {result} = renderHook(() => useUploads(backend))
     act(() => {
       result.current.add([file()])
@@ -803,7 +805,7 @@ describe('strip + re-encode (X7.4 step 6, D9)', () => {
     try {
       const uploadMedia: jest.Mock = jest.fn(async () => ({id: 'm1', url: 'https://x.example/m1.jpg'}))
       const jpeg = new File(['x'], 'photo.jpg', {type: 'image/jpeg'})
-      const {id, processing} = await uploadOne({uploadMedia} as unknown as Backend, jpeg, {
+      const {id, processing} = await uploadOne(makeBackend({uploadMedia}), jpeg, {
         name: 'photo.jpg',
         mimeType: 'image/jpeg',
       })
@@ -827,7 +829,7 @@ describe('strip + re-encode (X7.4 step 6, D9)', () => {
   it('uploadOne keeps the original when keepOriginal is set (no manipulator call)', async () => {
     const uploadMedia: jest.Mock = jest.fn(async () => ({id: 'm1', url: 'https://x.example/m1.jpg'}))
     const jpeg = new File(['x'], 'photo.jpg', {type: 'image/jpeg'})
-    await uploadOne({uploadMedia} as unknown as Backend, jpeg, {
+    await uploadOne(makeBackend({uploadMedia}), jpeg, {
       name: 'photo.jpg',
       mimeType: 'image/jpeg',
       keepOriginal: true,
@@ -843,7 +845,7 @@ describe('strip + re-encode (X7.4 step 6, D9)', () => {
     try {
       const uploadMedia: jest.Mock = jest.fn(async () => ({id: 'm1', url: 'https://x.example/m1.jpg'}))
       const jpeg = new File(['x'], 'photo.jpg', {type: 'image/jpeg'})
-      await uploadOne({uploadMedia} as unknown as Backend, jpeg, {
+      await uploadOne(makeBackend({uploadMedia}), jpeg, {
         name: 'photo.jpg',
         mimeType: 'image/jpeg',
       })

@@ -20,6 +20,7 @@ import { createMisskeyBackend, type MisskeyTransport } from "../src/misskey/back
 import { createMastodonBackend } from "../src/mastodon/backend";
 import { buildCapabilities } from "../src/core/detect";
 import type { Post } from "../src/core/models";
+import { makeAccount } from "./factories";
 
 function caps(flavor: "misskey" | "sharkey" | "mastodon" | "akkoma") {
   return buildCapabilities(flavor, undefined as never);
@@ -439,17 +440,17 @@ describe("golden wire bodies", () => {
 describe("fetchComposeLimits", () => {
   it("reads Misskey maxNoteTextLength without a token and falls back on failure", async () => {
     let seen: { url: string; init?: RequestInit } | null = null;
-    const ok = (async (url: string, init?: RequestInit) => {
+    const ok: jest.Mock = jest.fn(async (url: string, init?: RequestInit) => {
       seen = { url, init };
       return { ok: true, json: async () => ({ maxNoteTextLength: 8192 }) };
-    }) as unknown as typeof fetch;
+    });
     const l = await fetchComposeLimits({ origin: "https://s.example", family: "misskey" }, ok);
     expect(l.maxChars).toBe(8192);
     expect(seen!.url).toBe("https://s.example/api/meta");
     expect(JSON.stringify(seen!.init)).not.toMatch(/authorization|"i"/i);
-    const bad = (async () => {
+    const bad: jest.Mock = jest.fn(async () => {
       throw new Error("net");
-    }) as unknown as typeof fetch;
+    });
     expect((await fetchComposeLimits({ origin: "https://s.example", family: "misskey" }, bad)).maxChars).toBe(3000);
   });
 
@@ -491,7 +492,7 @@ describe("fetchComposeLimits full (repair X6.2 step 1)", () => {
           : new Response("", { status: v1Status });
       }
       return new Response("", { status: 404 });
-    }) as unknown as jest.Mock;
+    });
   }
 
   it("reads the full Mastodon configuration block with source server", async () => {
@@ -507,7 +508,7 @@ describe("fetchComposeLimits full (repair X6.2 step 1)", () => {
     });
     const l = await fetchComposeLimits(
       { origin: "https://m.example", family: "mastodon" },
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
     expect(l).toEqual({
       maxChars: 1000,
@@ -537,7 +538,7 @@ describe("fetchComposeLimits full (repair X6.2 step 1)", () => {
     });
     const l = await fetchComposeLimits(
       { origin: "https://a.example", family: "mastodon" },
-      fetchImpl as unknown as typeof fetch,
+      fetchImpl,
     );
     expect(l.source).toBe("server");
     expect(l.maxChars).toBe(5000);
@@ -550,10 +551,10 @@ describe("fetchComposeLimits full (repair X6.2 step 1)", () => {
   });
 
   it("never falls back on timeout/500: retries, then reports fallback", async () => {
-    const fail = jest.fn(async (): Promise<Response> => new Response("", { status: 500 }));
+    const fail: jest.Mock = jest.fn(async (): Promise<Response> => new Response("", { status: 500 }));
     const l = await fetchComposeLimits(
       { origin: "https://m.example", family: "mastodon" },
-      fail as unknown as typeof fetch,
+      fail,
       { retries: 2, retryDelayMs: 0 },
     );
     expect(l.source).toBe("fallback");
@@ -564,7 +565,7 @@ describe("fetchComposeLimits full (repair X6.2 step 1)", () => {
 
   it("a transient failure then success resolves server (backoff, no sleep in tests)", async () => {
     let n = 0;
-    const flaky = jest.fn(async (url: string | URL): Promise<Response> => {
+    const flaky: jest.Mock = jest.fn(async (url: string | URL): Promise<Response> => {
       n++;
       if (String(url).endsWith("/api/v1/instance")) return new Response("", { status: 404 });
       if (n <= 2) throw new Error("net down");
@@ -575,7 +576,7 @@ describe("fetchComposeLimits full (repair X6.2 step 1)", () => {
     });
     const l = await fetchComposeLimits(
       { origin: "https://m.example", family: "mastodon" },
-      flaky as unknown as typeof fetch,
+      flaky,
       { retries: 3, retryDelayMs: 0 },
     );
     expect(l).toMatchObject({ maxChars: 750, source: "server" });
@@ -583,10 +584,10 @@ describe("fetchComposeLimits full (repair X6.2 step 1)", () => {
   });
 
   it("Misskey meta carries chars + langs with source server", async () => {
-    const ok = (async () => ({
+    const ok: jest.Mock = jest.fn(async () => ({
       ok: true,
       json: async () => ({ maxNoteTextLength: 8192, langs: ["en", "ja"] }),
-    })) as unknown as typeof fetch;
+    }));
     const l = await fetchComposeLimits({ origin: "https://s.example", family: "misskey" }, ok);
     expect(l).toMatchObject({ maxChars: 8192, supportedLanguages: ["en", "ja"], source: "server" });
     // Family static: Misskey CW cap rides along even when meta says nothing.
@@ -755,10 +756,8 @@ describe("buildPostDraft validation (repair X6.2 step 3)", () => {
 });
 
 describe("composePrefsOf + narrowest-unknown default (repair X6.2 step 4)", () => {
-  const mastoMe = (source: Record<string, unknown>) =>
-    ({ ext: { mastodon: { source } } }) as unknown as Parameters<typeof composePrefsOf>[0];
-  const misskeyMe = (me: Record<string, unknown>) =>
-    ({ ext: { me } }) as unknown as Parameters<typeof composePrefsOf>[0];
+  const mastoMe = (source: Record<string, unknown>) => makeAccount({ ext: { mastodon: { source } } });
+  const misskeyMe = (me: Record<string, unknown>) => makeAccount({ ext: { me } });
 
   it("reads Mastodon source.privacy/sensitive/language", () => {
     expect(composePrefsOf(mastoMe({ privacy: "unlisted", sensitive: true, language: "ja" }))).toEqual({

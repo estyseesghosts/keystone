@@ -32,6 +32,7 @@ export default [
     rules: {
       'keystone/no-ui-in-fedi': 'error',
       'keystone/no-inner-html': 'error',
+      'keystone/no-any-in-tests': 'error',
     },
   },
   {
@@ -47,6 +48,8 @@ export default [
       'keystone/query-key-session-first': 'error',
       'keystone/no-inner-html': 'error',
       'keystone/no-literal-ui-string': 'error',
+      // X11.2 test quality: no new `as any` in tests (12 grandfathered).
+      'keystone/no-any-in-tests': 'error',
       // X9.6 RTL: logical start/end props only (tree converted, clean).
       'keystone/prefer-logical-style': 'error',
       // Promoted to error by X8.4 (cleanup pass landed, warning set is empty).

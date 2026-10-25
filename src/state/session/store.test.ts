@@ -15,6 +15,8 @@ import {
 
 import {readDeviceState, type SecureTokenVault, type TokenVault} from '#/storage'
 
+import {makeFetchSpy} from '#/__tests__/factories'
+
 import {createSessionStore, resolveActiveId, type NewSessionInput, type VaultFailure} from './store'
 
 const HOME_ORIGIN = 'https://app.example'
@@ -45,10 +47,10 @@ function stubVault(initial: Record<string, string> = {}): {
 
 function stubRevoke() {
   const calls: Array<{url: string; init: RequestInit}> = []
-  const fetchImpl = jest.fn((url: string, init?: RequestInit) => {
-    calls.push({url, init: init ?? {}})
+  const {fetchImpl} = makeFetchSpy((url, init) => {
+    calls.push({url, init})
     return Promise.resolve(new Response('{}', {status: 200}))
-  }) as unknown as typeof fetch
+  })
   return {calls, fetchImpl}
 }
 
@@ -202,7 +204,7 @@ describe('remove / sign-out', () => {
   it('remove returns false when the server revoke fails, but still clears local state (M7)', async () => {
     const storage: KeyValueStore = createMemoryStore()
     const {vault} = stubVault()
-    const failing = jest.fn(() => Promise.resolve(new Response('{}', {status: 401}))) as unknown as typeof fetch
+    const {fetchImpl: failing} = makeFetchSpy(() => new Response('{}', {status: 401}))
     const store = createSessionStore({storage, vault, homeOrigin: HOME_ORIGIN, revokeFetch: failing})
     const a = await store.add(sessionA())
     await expect(store.signOut(a.id)).resolves.toBe(false)
@@ -213,7 +215,7 @@ describe('remove / sign-out', () => {
   it('signOutEverywhere returns false when any revoke fails, but still empties the store', async () => {
     const storage: KeyValueStore = createMemoryStore()
     const {vault} = stubVault()
-    const failing = jest.fn(() => Promise.resolve(new Response('{}', {status: 500}))) as unknown as typeof fetch
+    const {fetchImpl: failing} = makeFetchSpy(() => new Response('{}', {status: 500}))
     const store = createSessionStore({storage, vault, homeOrigin: HOME_ORIGIN, revokeFetch: failing})
     await store.add(sessionA())
     await store.add(sessionB())
@@ -303,10 +305,10 @@ describe('cross-origin token isolation (store level)', () => {
     expect(b.origin).toBe(ORIGIN_B)
 
     const calls: Array<{url: string; init: RequestInit}> = []
-    globalThis.fetch = jest.fn((url: string, init?: RequestInit) => {
-      calls.push({url, init: init ?? {}})
+    globalThis.fetch = makeFetchSpy((url, init) => {
+      calls.push({url, init})
       return Promise.resolve(new Response('{}', {status: 200}))
-    }) as unknown as typeof fetch
+    }).fetchImpl
 
     await createMisskeyClient(a).call('i', {})
     expect(calls).toHaveLength(1)
@@ -342,10 +344,10 @@ describe('cross-origin token isolation (store level)', () => {
     expect(masto).toBeTruthy()
 
     const calls: Array<{url: string; init: RequestInit}> = []
-    globalThis.fetch = jest.fn((url: string, init?: RequestInit) => {
-      calls.push({url, init: init ?? {}})
+    globalThis.fetch = makeFetchSpy((url, init) => {
+      calls.push({url, init})
       return Promise.resolve(new Response('{}', {status: 200}))
-    }) as unknown as typeof fetch
+    }).fetchImpl
 
     await createMastodonClient(masto!.origin, masto!.token).post('/api/v1/accounts', {})
     expect(calls).toHaveLength(1)
@@ -360,9 +362,7 @@ describe('verifySession / verifyActive (MD5 boot re-verify)', () => {
   const mePayload = {id: 'alice', username: 'alice', isBot: false, isCat: false}
 
   function stubMe(status: number, body: unknown = {}): void {
-    globalThis.fetch = jest.fn(() =>
-      Promise.resolve(new Response(JSON.stringify(body), {status})),
-    ) as unknown as typeof fetch
+    globalThis.fetch = makeFetchSpy(() => new Response(JSON.stringify(body), {status})).fetchImpl
   }
 
   it('signed out verifies as signed-out (never an error)', async () => {
@@ -436,7 +436,7 @@ describe('verifySession / verifyActive (MD5 boot re-verify)', () => {
   it('network failure never clears', async () => {
     const {store} = setup()
     const a = await store.add(sessionA())
-    globalThis.fetch = jest.fn(() => Promise.reject(new TypeError('fetch failed'))) as unknown as typeof fetch
+    globalThis.fetch = makeFetchSpy(() => Promise.reject(new TypeError('fetch failed'))).fetchImpl
     await expect(store.verifyActive()).resolves.toEqual({
       ok: false,
       reason: 'network',
@@ -450,7 +450,7 @@ describe('verifySession / verifyActive (MD5 boot re-verify)', () => {
     try {
       const {store} = setup()
       const a = await store.add(sessionA())
-      globalThis.fetch = jest.fn(() => new Promise(() => {})) as unknown as typeof fetch
+      globalThis.fetch = makeFetchSpy(() => new Promise<Response>(() => {})).fetchImpl
       const pending = store.verifyActive()
       const assertion = expect(pending).resolves.toEqual({
         ok: false,
@@ -998,10 +998,10 @@ describe('secure vault (native, ADR 0011)', () => {
     const active = store.active()
     expect(active?.token).toBe('token-a')
     const calls: Array<{url: string; init: RequestInit}> = []
-    globalThis.fetch = jest.fn((url: string, init?: RequestInit) => {
-      calls.push({url, init: init ?? {}})
+    globalThis.fetch = makeFetchSpy((url, init) => {
+      calls.push({url, init})
       return Promise.resolve(new Response('{}', {status: 200}))
-    }) as unknown as typeof fetch
+    }).fetchImpl
     await createMisskeyClient(active!).call('i', {})
     expect(calls).toHaveLength(1)
     expect(JSON.parse(String(calls[0].init.body))).toEqual({i: 'token-a'})
@@ -1022,10 +1022,10 @@ describe('secure vault (native, ADR 0011)', () => {
     const active = store.active()
     expect(active?.token).toBe('masto-b')
     const calls: Array<{url: string; init: RequestInit}> = []
-    globalThis.fetch = jest.fn((url: string, init?: RequestInit) => {
-      calls.push({url, init: init ?? {}})
+    globalThis.fetch = makeFetchSpy((url, init) => {
+      calls.push({url, init})
       return Promise.resolve(new Response('{}', {status: 200}))
-    }) as unknown as typeof fetch
+    }).fetchImpl
     await createMastodonClient(active!.origin, active!.token).post('/api/v1/accounts', {})
     expect(calls).toHaveLength(1)
     expect((calls[0].init.headers as Record<string, string>).Authorization).toBe('Bearer masto-b')

@@ -4,6 +4,8 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 
 import {ThemeProvider} from '#/alf/index'
 
+import {asController, asControllerOptions} from '#/__tests__/factories'
+
 import type {ComposerController} from './Composer'
 import {
   DraftsSection,
@@ -21,19 +23,19 @@ type FakeState = {
   scheduledAt: string | null
 }
 
-const MISSKEY_OPTIONS = [
+const MISSKEY_OPTIONS = asControllerOptions([
   {raw: 'public', kind: 'public', label: 'Public'},
   {raw: 'home', kind: 'quiet', label: 'Home'},
   {raw: 'followers', kind: 'followers', label: 'Followers'},
   {raw: 'specified', kind: 'direct', label: 'Specified users'},
-] as unknown as ComposerController['options']
+])
 
-const MASTODON_OPTIONS = [
+const MASTODON_OPTIONS = asControllerOptions([
   {raw: 'public', kind: 'public', label: 'Public'},
   {raw: 'unlisted', kind: 'quiet', label: 'Unlisted'},
   {raw: 'private', kind: 'followers', label: 'Followers only'},
   {raw: 'direct', kind: 'direct', label: 'Mentioned people'},
-] as unknown as ComposerController['options']
+])
 
 function Harness({
   initial,
@@ -49,14 +51,14 @@ function Harness({
   section: 'recipients' | 'schedule'
 }) {
   const [state, setState] = useState(initial)
-  const c = {
+  const c = asController({
     state,
     patch: (p: Partial<FakeState>) => setState(s => ({...s, ...p})),
     options,
     gates: {schedule: scheduleEnabled ? {enabled: true} : {enabled: false, reason: 'no'}},
     styles: {row: {}},
     backend,
-  } as unknown as ComposerController
+  })
   return section === 'recipients' ? <RecipientSection c={c} /> : <ScheduleSection c={c} />
 }
 
@@ -212,7 +214,7 @@ describe('UploadsSection', () => {
     status?: 'staged' | 'done'
   } = {}) {
     const setSensitive = jest.fn()
-    const c = {
+    const c = asController({
       styles: {media: {}, row: {}, thumb: {}},
       gates: {
         mediaSensitive: sensitiveEnabled
@@ -240,7 +242,7 @@ describe('UploadsSection', () => {
         setSensitive,
         remove: jest.fn(),
       },
-    } as unknown as ComposerController
+    })
     render(
       <ThemeProvider>
         <UploadsSection c={c} />
@@ -286,7 +288,7 @@ describe('UploadsSection upload controls (X7.4)', () => {
     const cancel = jest.fn()
     const setKeepOriginal = jest.fn()
     const dismissVideoNotice = jest.fn()
-    const c = {
+    const c = asController({
       styles: {media: {}, row: {}, thumb: {}},
       gates: {
         mediaSensitive: {enabled: true},
@@ -317,7 +319,7 @@ describe('UploadsSection upload controls (X7.4)', () => {
       },
       videoNotice,
       dismissVideoNotice,
-    } as unknown as ComposerController
+    })
     render(
       <ThemeProvider>
         <UploadsSection c={c} />
@@ -382,13 +384,13 @@ describe('ScheduledListSection', () => {
   }
   function listSetup(backend: unknown, scheduleEnabled = true) {
     const qc = new QueryClient({defaultOptions: {queries: {retry: false}}})
-    const c = {
+    const c = asController({
       session,
       backend,
       family: 'misskey',
       gates: {schedule: scheduleEnabled ? {enabled: true} : {enabled: false, reason: 'no'}},
       styles: {row: {}},
-    } as unknown as ComposerController
+    })
     return render(
       <QueryClientProvider client={qc}>
         <ThemeProvider>
@@ -447,7 +449,7 @@ describe('ServerDraftsSection', () => {
     const attachTargets = jest.fn()
     const restoreServerDraft = jest.fn()
     const saveServerDraftNow = jest.fn(async () => ({id: 'new-d'}))
-    const c = {
+    const c = asController({
       session,
       backend,
       family: 'misskey',
@@ -469,7 +471,7 @@ describe('ServerDraftsSection', () => {
       },
       limits: {maxChars: 3000, maxMedia: 4, maxPollOptions: 4},
       styles: {row: {}},
-    } as unknown as ComposerController
+    })
     render(
       <QueryClientProvider client={qc}>
         <ThemeProvider>
@@ -529,12 +531,12 @@ describe('DraftsSection locations (slice 3)', () => {
     serverDrafts?: boolean
   }) {
     const restore = jest.fn()
-    const c = {
+    const c = asController({
       drafts,
       showDrafts,
       restore,
       backend: serverDrafts ? {serverDrafts: {}} : {},
-    } as unknown as ComposerController
+    })
     render(
       <ThemeProvider>
         <DraftsSection c={c} />
@@ -565,7 +567,7 @@ describe('DraftsSection locations (slice 3)', () => {
     const {unmount} = render(
       <ThemeProvider>
         <DraftsSection
-          c={{drafts: [], showDrafts: true, backend: {serverDrafts: {}}} as unknown as ComposerController}
+          c={asController({drafts: [], showDrafts: true, backend: {serverDrafts: {}}})}
         />
       </ThemeProvider>,
     )
@@ -574,7 +576,7 @@ describe('DraftsSection locations (slice 3)', () => {
     render(
       <ThemeProvider>
         <DraftsSection
-          c={{drafts: [], showDrafts: true, backend: {}} as unknown as ComposerController}
+          c={asController({drafts: [], showDrafts: true, backend: {}})}
         />
       </ThemeProvider>,
     )
@@ -585,7 +587,7 @@ describe('DraftsSection locations (slice 3)', () => {
     render(
       <ThemeProvider>
         <DraftsSection
-          c={{drafts: [], showDrafts: false, backend: {serverDrafts: {}}} as unknown as ComposerController}
+          c={asController({drafts: [], showDrafts: false, backend: {serverDrafts: {}}})}
         />
       </ThemeProvider>,
     )
@@ -609,7 +611,7 @@ describe('PollSection hide totals', () => {
     multipleEnabled?: boolean
   }) {
     const patch = jest.fn()
-    const c = {
+    const c = asController({
       state: {
         text: 'vote',
         cw: '',
@@ -633,7 +635,7 @@ describe('PollSection hide totals', () => {
       },
       limits: {maxChars: 500, maxMedia: 4, maxPollOptions: 4},
       styles: {row: {}},
-    } as unknown as ComposerController
+    })
     render(
       <ThemeProvider>
         <PollSection c={c} />
