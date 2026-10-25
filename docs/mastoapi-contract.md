@@ -225,6 +225,14 @@ Order: `GET /api/v2/instance` → on **404/405 only** fall back to
   DIFFERENT host); Akkoma v1 `urls.streaming_api` = `ws(s)://<origin>`.
   Never hardcode the REST host as streaming host; Mastodon's Rails
   `/api/v1/streaming` 301-redirects to the right host (or 404s same-host).
+  Repair 2026-10-25 (X2.3, wired X3.4): the advertised origin is *validated*
+  before any token rides it — accepted only when its host equals the session
+  host, is a subdomain of it, or is a sibling under a shared parent of at
+  least two labels, with the scheme pinned (`https`→`wss`, `http`→`ws`).
+  Foreign hosts, IP literals, and userinfo-bearing URLs are refused and the
+  REST origin is dialed instead, with the reason kept in session `evidence`
+  (`streamingOriginReason`: `equal`/`subdomain`/`sibling`/`foreign`/
+  `ip-literal`/`credentials`/`scheme-mismatch`/`invalid`).
 - Feature probing must distinguish 404/405 (absent) from 401/403
   (auth/scope) from 200-empty (genuinely empty OR unimplemented — decide
   via family + metadata, e.g. Akkoma `GET /api/v1/trends` returns `[]`).
@@ -259,10 +267,10 @@ Order: `GET /api/v2/instance` → on **404/405 only** fall back to
 | Followers/following | `GET /api/v1/accounts/:id/followers` `/following` | read:follows | Both, Link headers, default limit 40. Hidden lists → `[]`/404 per server. |
 | Account statuses | `GET /api/v1/accounts/:id/statuses` | read:statuses | Both. Params `only_media,exclude_replies,exclude_reblogs` (+A `pinned,tagged,with_muted`). |
 | Notifications | `GET /api/v1/notifications` | read:notifications | Both. Params `types[]/exclude_types[]` (A: `include_types[]` deprecated alias), `account_id`, pagination. M limit default 40, `supported_types[]` → `fallback` field. Type sets differ — see §6. |
-| Dismiss/clear notif. | `POST /api/v1/notifications/:id/dismiss`, `/clear` | write:notifications | Both → `{}`. A extra: `POST /api/v1/pleroma/notifications/read`. |
-| Read position | `GET/POST /api/v1/markers` | write:notifications | Both (A adds `pleroma.unread_count`). There is NO v1 mark-as-read endpoint on either. |
+| Dismiss/clear notif. | `POST /api/v1/notifications/:id/dismiss`, `/clear` | write:notifications | Both → `{}`. A extra: `POST /api/v1/pleroma/notifications/read`. Repair 2026-10-25 (X4.1): grouped rows (Mastodon 4.3+ v2, `group_key` as row id, `most_recent_notification_id` kept in `ext`) dismiss via `DELETE /api/v2/notifications/:group_key`, capability-gated on v2 — tried only after a v1 404/405 absence; only absence falls through (auth/timeout/5xx rethrow). A 404 from both routes is "already gone" (row removed, never "unsupported"): support is never decided from errors. |
+| Read position | `GET/POST /api/v1/markers` | write:notifications | Both (A adds `pleroma.unread_count`). There is NO v1 mark-as-read endpoint on either. Repair 2026-10-25 (X4.4): `GET /api/v1/markers?timeline[]=notifications` derives `read` per row against `last_read_id` (v2 groups compare `ext.mostRecentNotificationId`, flat rows their own id); unorderable pairs stay unknown, never guessed. No markers on the server (404/405) is typed `errors.unsupported.markers` and hides "mark read" (capability), never an inert control. |
 | Upload media | `POST /api/v2/media` | write:media | multipart `file, description, focus`. M: 202 async — poll `GET /api/v1/media/:id` (206 processing/200 done/422 failed), `url` null until done; limits 16 MB img / 99 MB video. A: 202 but SYNCHRONOUS (body final); `focus` ignored; no size cap server-side (client uses `upload_limit` from instance meta). `PUT /api/v1/media/:id` edits description (both). |
-| Search | `GET /api/v2/search` | read:search | Both. `{accounts, statuses, hashtags}` (+M `collections`). M: unauth `offset`/`resolve` → 401; status search needs Elasticsearch. A: may 403 if instance restricts; hashtags `{name,url}` no history. `GET /api/v1/search` absent on BOTH — never use. A extra: `/api/v1/accounts/search`. |
+| Search | `GET /api/v2/search` | read:search | Both. `{accounts, statuses, hashtags}` (+M `collections`). M: unauth `offset`/`resolve` → 401; status search needs Elasticsearch. A: may 403 if instance restricts; hashtags `{name,url}` no history. `GET /api/v1/search` absent on BOTH — never use. A extra: `/api/v1/accounts/search`. Repair 2026-10-25 (X4.2): `SearchV2Options.resolve` sends `resolve=true` when the query is a URL or handle-shaped (`@`-containing), authenticated sessions only; autocomplete `@` suggestions stay local (no resolve). |
 | Poll vote | `POST /api/v1/polls/:id/votes` | write:statuses | Both: body `choices` = int indices. Poll entity: `voted/own_votes` auth-only; A `voters_count` null for single-choice, no `locked`. |
 | Custom emoji | `GET /api/v1/custom_emojis` | — | Both: `{shortcode,url,static_url,visible_in_picker,category[,featured]}`. A adds `tags[]`. A alternate: `/api/v1/pleroma/emoji` (object map). |
 | Emoji reactions (ext) | A: `GET /api/v1/pleroma/statuses/:id/reactions[/:emoji]`; `PUT/DELETE …/reactions/:emoji` (path segment, URL-encoded) → Status. Fedibird-compat `PUT /api/v1/statuses/:id/emoji_reactions/:emoji` (no DELETE). | read (GET), write:statuses (PUT/DELETE) | **Akkoma/Pleroma extension only.** Status carries `emoji_reactions: [{name,count,url,me,account_ids}]`. M: absent — favourite/reblog are the only reactions. Gate all reaction UI on detected support. |

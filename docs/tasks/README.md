@@ -70,4 +70,69 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p6.3-reports-queue](p6.3-reports-queue.md) | clickstone §3.2 | done | `p6.3-reports-queue` | `state/logs/2026-10-22-p6.3-reports-queue.md` |
 | [p6.4-sidebar-reshuffle](p6.4-sidebar-reshuffle.md) | sidebar.jpg sketch (pre-W3) | in progress | `p6.4-sidebar-reshuffle` | `state/logs/2026-10-22-sidebar-reshuffle.md` |
 
+## Repair program 2026-10-25 (`docs/audit_20261025/repair.md`)
+
+One row per repair slice (no per-slice task files — `repair.md` is the plan; the two shipped task files are linked from X4.4/X4.5 rows where relevant). All work lands on shared `main` per owner order; the Branch column names the repair.md slice branch.
+
+| Task | Plan ref | Status | Branch | Latest log |
+| repair25-x0.1-lint-gaps | repair.md §X0.1 | done | `repair25-x0.1-lint-gaps` | `state/logs/2026-10-25-repair25-x0.1.md` |
+| repair25-x0.2-i18n-ratchet | repair.md §X0.2 | done | `main` | `state/logs/2026-10-25-repair25-x0.2.md` |
+| repair25-x0.3-state-reset | repair.md §X0.3 | done | `main` | `state/logs/2026-10-25-repair25-x0.3.md` |
+| repair25-x0.4-native-dirs | repair.md §X0.4 | done | `repair25-x0.4-native-dirs` | `state/logs/2026-10-25-repair25-x0.4.md` |
+| repair25-x1.1-vault | repair.md §X1.1 | done | `repair25-x1.1-vault` | `state/logs/2026-10-25-repair25-x1.1.md` |
+| repair25-x1.2-session-purge | repair.md §X1.2 | done | `repair25-x1.2-session-purge` | `state/logs/2026-10-25-repair25-x1.2.md` |
+| repair25-x1.3-storage-resilience | repair.md §X1.3 | done | `repair25-x1.3-storage-resilience` | `state/logs/2026-10-25-repair25-x1.3.md` |
+| repair25-x1.4-cache-policy | repair.md §X1.4 | done | `repair25-x1.4-cache-policy` | `state/logs/2026-10-25-repair25-x1.4.md` |
+| repair25-x1.5-runtime-401 | repair.md §X1.5 | done | `repair25-x1.5-runtime-401` | `state/logs/2026-10-25-repair25-x1.5.md` |
+| repair25-x1.6-platform-config | repair.md §X1.6 | done | `repair25-x1.6-platform-config` | `state/logs/2026-10-25-repair25-x1.6.md` |
+| repair25-x2.1-crypto | repair.md §X2.1 | done | `repair25-x2.1-crypto` | `state/logs/2026-10-25-repair25-x2.1.md` |
+| repair25-x2.2-transport | repair.md §X2.2 | done | `repair25-x2.2-transport` | `state/logs/2026-10-25-repair25-x2.2.md` |
+| repair25-x2.3-auth-links | repair.md §X2.3 | done | `repair25-x2.3-auth-links` | `state/logs/2026-10-25-repair25-x2.3.md` |
+| repair25-x2.4-outbound-urls | repair.md §X2.4 | done | `repair25-x2.4-outbound-urls` | `state/logs/2026-10-25-repair25-x2.4.md` |
+| repair25-x2.5-privacy-defaults | repair.md §X2.5 | done | `repair25-x2.5-privacy-defaults` | `state/logs/2026-10-25-repair25-x2.5.md` |
+| repair25-x3.1-cancellation | repair.md §X3.1 | done | `repair25-x3.1-cancellation` | `state/logs/2026-10-25-repair25-x3.1.md` |
+| repair25-x3.2-online-focus | repair.md §X3.2 | done | `repair25-x3.2-online-focus` | `state/logs/2026-10-25-repair25-x3.2.md` |
+| repair25-x3.3-paging | repair.md §X3.3 | done | `repair25-x3.3-paging` | `state/logs/2026-10-25-repair25-x3.3.md` |
+| repair25-x3.4-streams | repair.md §X3.4 | done | `repair25-x3.4-streams` | `state/logs/2026-10-25-repair25-x3.4.md` |
+| repair25-x3.5-boot | repair.md §X3.5 | done | `repair25-x3.5-boot` | `state/logs/2026-10-25-repair25-x3.5.md` |
+| repair25-x4.1-notif-dismiss | repair.md §X4.1 | done | `repair25-x4.1-notif-dismiss` | `state/logs/2026-10-25-repair25-x4.1.md` |
+| repair25-x4.2-search-caps | repair.md §X4.2 | done | `repair25-x4.2-search-caps` | `state/logs/2026-10-25-repair25-x4.2.md` |
+| repair25-x4.3-polls | repair.md §X4.3 | done | `repair25-x4.3-polls` | `state/logs/2026-10-25-repair25-x4.3.md` |
+| repair25-x4.4-mastodon-misc | repair.md §X4.4 | done | `repair25-x4.4-mastodon-misc` | `state/logs/2026-10-25-repair25-x4.4.md` |
+| repair25-x4.5-notif-requests | repair.md §X4.5 | done | `repair25-x4.5-notif-requests` | `state/logs/2026-10-25-repair25-x4.5.md` |
+| repair25-x5.1-wrapper-rows | repair.md §X5.1 | done | `repair25-x5.1-wrapper-rows` | `state/logs/2026-10-25-repair25-x5.1.md` |
+| repair25-x5.2-misskey-paging | repair.md §X5.2 | done | `repair25-x5.2-misskey-paging` | `state/logs/2026-10-25-repair25-x5.2.md` |
+| repair25-x5.3-reaction-emoji | repair.md §X5.3 | done | `repair25-x5.3-reaction-emoji` | `state/logs/2026-10-25-repair25-x5.3.md` |
+| repair25-x5.4-misskey-caps-edit | repair.md §X5.4 | done | `repair25-x5.4-misskey-caps-edit` | `state/logs/2026-10-25-repair25-x5.4.md` |
+| repair25-x5.5-misskey-misc | repair.md §X5.5 | done | `repair25-x5.5-misskey-misc` | `state/logs/2026-10-25-repair25-x5.5.md` |
+| repair25-x5.6-capture-fixtures | repair.md §X5.6 | done | `repair25-x5.6-capture-fixtures` | `state/logs/2026-10-25-repair25-x5.6.md` |
+| repair25-x6.1-composer-edit | repair.md §X6.1 | done | `repair25-x6.1-composer-edit` | `state/logs/2026-10-25-repair25-x6.1.md` |
+| repair25-x6.2-composer-validation | repair.md §X6.2 | done | `repair25-x6.2-composer-validation` | `state/logs/2026-10-25-repair25-x6.2.md` |
+| repair25-x6.3-parser | repair.md §X6.3 | done | `repair25-x6.3-parser` | `state/logs/2026-10-25-repair25-x6.3.md` |
+| repair25-x6.4-link-disclosure | repair.md §X6.4 | done | `repair25-x6.4-link-disclosure` | `state/logs/2026-10-25-repair25-x6.4.md` |
+| repair25-x6.5-composer-device | repair.md §X6.5 | done | `repair25-x6.5-composer-device` | `state/logs/2026-10-25-repair25-x6.5.md` |
+| repair25-x7.1-lightbox | repair.md §X7.1 | done | `repair25-x7.1-lightbox` | `state/logs/2026-10-25-repair25-x7.1-x7.2-coordinator.md` |
+| repair25-x7.2-players | repair.md §X7.2 | done | `repair25-x7.2-players` | `state/logs/2026-10-25-repair25-x7.1-x7.2-coordinator.md` |
+| repair25-x7.3-images | repair.md §X7.3 | done | `repair25-x7.3-images` | `state/logs/2026-10-25-repair25-x7.3-x7.4-coordinator.md` |
+| repair25-x7.4-uploads | repair.md §X7.4 | done | `repair25-x7.4-uploads` | `state/logs/2026-10-25-repair25-x7.3-x7.4-coordinator.md` |
+| repair25-x8.1-boundaries-logger | repair.md §X8.1 | done | `repair25-x8.1-boundaries-logger` | `state/logs/2026-10-25-repair25-x8.1-x8.2-x8.3-coordinator.md` |
+| repair25-x8.2-screens | repair.md §X8.2 | done | `repair25-x8.2-screens` | `state/logs/2026-10-25-repair25-x8.1-x8.2-x8.3-coordinator.md` |
+| repair25-x8.3-cache-correctness | repair.md §X8.3 | done | `repair25-x8.3-cache-correctness` | `state/logs/2026-10-25-repair25-x8.1-x8.2-x8.3-coordinator.md` |
+| repair25-x8.4-hooks-cleanup | repair.md §X8.4 | done | `repair25-x8.4-hooks-cleanup` | `state/logs/2026-10-25-repair25-x8.4-coordinator.md` |
+| repair25-x9.1-i18n-admin-etc | repair.md §X9.1 | done | `repair25-x9.1-i18n-admin-etc` | `state/logs/2026-10-25-repair25-x9.1-x9.2-x9.3-x9.4-coordinator.md` |
+| repair25-x9.2-i18n-chat-etc | repair.md §X9.2 | done | `repair25-x9.2-i18n-chat-etc` | `state/logs/2026-10-25-repair25-x9.1-x9.2-x9.3-x9.4-coordinator.md` |
+| repair25-x9.3-i18n-drive-etc | repair.md §X9.3 | done | `repair25-x9.3-i18n-drive-etc` | `state/logs/2026-10-25-repair25-x9.1-x9.2-x9.3-x9.4-coordinator.md` |
+| repair25-x9.4-i18n-components | repair.md §X9.4 | done | `repair25-x9.4-i18n-components` | `state/logs/2026-10-25-repair25-x9.1-x9.2-x9.3-x9.4-coordinator.md` |
+| repair25-x9.5-formatting | repair.md §X9.5 | done | `repair25-x9.5-formatting` | `state/logs/2026-10-25-repair25-x9.5-coordinator.md` |
+| repair25-x9.6-rtl | repair.md §X9.6 | done | `repair25-x9.6-rtl` | `state/logs/2026-10-25-repair25-x9.6-coordinator.md` |
+| repair25-x9.7-error-codes | repair.md §X9.7 | done | `repair25-x9.7-error-codes` | `state/logs/2026-10-25-repair25-x9.7-coordinator.md` |
+| repair25-x9.8-i18n-close | repair.md §X9.8 | done | `repair25-x9.8-i18n-close` | `state/logs/2026-10-25-repair25-x9.8-coordinator.md` |
+| repair25-x10.1-a11y-semantics | repair.md §X10.1 | done | `repair25-x10.1-a11y-semantics` | `state/logs/2026-10-25-repair25-x10.1-coordinator.md` |
+| repair25-x10.2-contrast | repair.md §X10.2 | done | `repair25-x10.2-contrast` | `state/logs/2026-10-25-repair25-x10.2-coordinator.md` |
+| repair25-x11.1-deps | repair.md §X11.1 | done | `repair25-x11.1-deps` | `state/logs/2026-10-25-repair25-x11.1-coordinator.md` |
+| repair25-x11.2-test-quality | repair.md §X11.2 | done | `repair25-x11.2-test-quality` | `state/logs/2026-10-25-repair25-x11.2-coordinator.md` |
+| repair25-x11.3-docs | repair.md §X11.3 | in progress | `repair25-x11.3-docs` | `state/logs/2026-10-25-repair25-x11.3.md` |
+| repair25-x12.1-owner-checklists | repair.md §X12.1 | not started | `repair25-x12.1-owner-checklists` | — |
+| repair25-x12.2-final | repair.md §X12.2 | not started | `repair25-x12.2-final` | — |
+
 Status values: `not started` | `in progress` | `blocked` | `done`.
