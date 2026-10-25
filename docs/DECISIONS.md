@@ -198,3 +198,4 @@ in `adr/` when load-bearing.
 | 2026-10-25 | D4: keep avatar_static, defer animateAvatars (needs model+adapt+pref+UI, over the 20-line budget) | X4.4 |
 | 2026-10-25 | X4.4 models (additive): PostExt.quoteRef (lazy nested-quote fetch), NotificationExt.mostRecentNotificationId, PostDraft.sensitive/language; new codes errors.unsupported.markers + errors.shape.markers ship English-only pending X9.7 | mastodon honesty |
 | 2026-10-25 | X4.4 step 7 BLOCKED: per-session issuing-app credentials for revocation need oauth/Login/sessions shape work — stays per-origin-current-app until a slice owning those lands | tracked follow-up, not silently dropped |
+| 2026-10-25 | X6.2 step 6 BLOCKED: attemptKey needs PostDraft.attemptKey (core/backend.ts) + Mastodon backend honor — both out of slice scope; composer-side patch logged in the slice log | tracked follow-up, not silently dropped |

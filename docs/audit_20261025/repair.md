@@ -1244,8 +1244,8 @@ the script.
 
 ## X6.1 - Composer edit mode
 
-Status: not started
-Branch: `repair25-x6.1-composer-edit`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x6.1.md`; 266 suites / 3702 tests green at Wave-6 commit)
+Branch: `repair25-x6.1-composer-edit` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: richtext F1, F2, F3
 
 **Read first.** `src/components/Composer/Composer.tsx:230-300,330-350,480-540,660-745`,
@@ -1269,8 +1269,8 @@ Audit: richtext F1, F2, F3
 
 ## X6.2 - Composer limits, validation, drafts, defaults
 
-Status: not started
-Branch: `repair25-x6.2-composer-validation`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x6.2.md`; step 6 attemptKey blocked → tracked follow-up; 266 suites / 3792 tests green at Wave-6 commit)
+Branch: `repair25-x6.2-composer-validation` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: richtext F9, F10, F11, F12, F13 (drafts, insertCreatedPost); media M8; privacy 4, 7; rn-ui L2; mastodon 8 (UI half), 11 (UI half)
 
 **Read first.** `packages/fedi/src/api/composer.ts` (whole), `Composer.tsx`,
@@ -1321,8 +1321,8 @@ Audit: richtext F9, F10, F11, F12, F13 (drafts, insertCreatedPost); media M8; pr
 
 ## X6.3 - Content parser hardening
 
-Status: not started
-Branch: `repair25-x6.3-parser`
+Status: done (2026-10-25; log `state/logs/2026-10-25-repair25-x6.3.md`; 266 suites / 3792 tests green at Wave-6 commit)
+Branch: `repair25-x6.3-parser` (worked in shared tree per owner order; committed per slice, no merge)
 Audit: richtext F4, F5, F13 (fidelity, quadratic); misskey M17 (fn)
 
 **Read first.** `packages/fedi/src/core/content/{fromHtml,fromMfm,ast,fields}.ts`,
