@@ -3,6 +3,7 @@
 // (privacy 13, via the session redact helper).
 import {createMemoryStore, sessionWithoutToken, type Session} from '@keystone/fedi'
 
+import {addSink, type LogRecord} from '#/lib/logger'
 import {readDeviceState, writeDeviceState} from '#/storage'
 import {emitStorageWriteFailed} from '#/storage/storageEvents'
 
@@ -184,17 +185,22 @@ describe('logger redaction (privacy 13)', () => {
   })
 
   it('storage write failures log scope only (never keys, values, or tokens)', () => {
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    // The X8.1 logger (subscribed at import) is the only record — there is
+    // no direct console output anymore, so capture the sink instead.
+    const records: LogRecord[] = []
+    const off = addSink(record => {
+      records.push(record)
+    })
     try {
       emitStorageWriteFailed('keystone_sessions')
-      expect(warn).toHaveBeenCalled()
-      const logged = warn.mock.calls.map(call => JSON.stringify(call)).join('\n')
+      expect(records.length).toBeGreaterThan(0)
+      const logged = records.map(record => JSON.stringify(record)).join('\n')
       // Scope words only — no key material, no values, no bearer.
       expect(logged).not.toContain('keystone_sessions')
       expect(logged).not.toContain('SECRET')
       expect(logged).not.toContain('tok-live')
     } finally {
-      warn.mockRestore()
+      off()
     }
   })
 })

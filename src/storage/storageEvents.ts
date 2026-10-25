@@ -55,10 +55,11 @@ export function onStorageWriteFailed(listener: StorageWriteListener): () => void
   }
 }
 
-/** Emit one failure: dev-logged (scope only, never keys or values), then fanned out. Listener throws never propagate. Never throws. */
+/** Emit one failure: fanned out to listeners (the X8.1 logger records it
+ * there — no direct console output, so URLs/tokens can never leak through
+ * a debug line). Listener throws never propagate. Never throws. */
 export function emitStorageWriteFailed(key: string, scope?: StorageWriteScope): void {
   const resolved = scope ?? scopeForStorageKey(key)
-  console.warn('[storage] write failed', resolved)
   const failure: StorageWriteFailure = {key, scope: resolved, at: Date.now()}
   for (const listener of [...listeners]) {
     try {

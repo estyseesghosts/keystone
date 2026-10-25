@@ -50,6 +50,7 @@ import type {
 } from "../core/backend";
 import type { Notification, Post } from "../core/models";
 import { FediError } from "../core/errors";
+import { randomBytes } from "../core/random";
 import { adaptChatMessage } from "./chat";
 import { adaptNote, adaptNotification } from "./adapt";
 import type { Note, NotificationItem } from "./wire";
@@ -298,7 +299,19 @@ export function createStreamPool(opts: StreamPoolOptions): StreamPool {
 
   function scheduleReconnect(): void {
     if (reconnectTimer || !wantSocket) return;
-    const delay = backoffMs + Math.floor(Math.random() * 500);
+    // Reconnect jitter (X12.2): decorrelates client stampedes after a
+    // server restart. Non-security use, but drawn from the CSPRNG seam
+    // (never `Math.random`, which is banned under `packages/fedi/src`) —
+    // a missing CSPRNG degrades to zero jitter, never a throw: the reconnect
+    // timer must always arm.
+    let jitter = 0;
+    try {
+      const rb = randomBytes(2);
+      jitter = (((rb[0] ?? 0) * 256 + (rb[1] ?? 0)) % 500 + 500) % 500;
+    } catch {
+      jitter = 0;
+    }
+    const delay = backoffMs + jitter;
     backoffMs = Math.min(backoffMs * 2, BACKOFF_MAX_MS);
     poolAttempt += 1;
     reconnectTimer = setTimeout(() => {

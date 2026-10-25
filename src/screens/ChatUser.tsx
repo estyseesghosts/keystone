@@ -62,7 +62,7 @@ export function ChatUserScreen() {
   // stays the fallback; a failed fetch never blocks the thread.
   const account = useQuery({
     queryKey: accountQueryKey(session?.id ?? 'signed-out', userId ?? ''),
-    queryFn: () => backend!.account({id: userId!}),
+    queryFn: ({signal}) => backend!.account({id: userId!}, {signal}),
     enabled: backend != null && session != null && userId != null,
     retry: false,
     staleTime: 60_000,
