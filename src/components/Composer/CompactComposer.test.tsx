@@ -6,6 +6,8 @@ import {buildCapabilities, type Backend, type Session} from '@keystone/fedi'
 
 import {ThemeProvider} from '#/alf/index'
 import {createMemoryStore} from '@keystone/fedi'
+import {getOpenDraftId, listDrafts} from '#/storage/drafts'
+import type {PageHideTargets} from './pageHideFlush'
 
 import {CompactComposer} from './CompactComposer'
 
@@ -30,7 +32,11 @@ const session = (): Session =>
     user: {id: 'me', displayName: 'Me', avatarUrl: null},
   }) as unknown as Session
 
-function setup(props?: {onClose?: () => void; disableKeyboardAvoidance?: boolean}) {
+function setup(props?: {
+  onClose?: () => void
+  disableKeyboardAvoidance?: boolean
+  pageHideTargets?: PageHideTargets
+}) {
   const store = createMemoryStore()
   const backend = {
     family: 'misskey',
@@ -55,6 +61,7 @@ function setup(props?: {onClose?: () => void; disableKeyboardAvoidance?: boolean
           store={store}
           onClose={props?.onClose}
           disableKeyboardAvoidance={props?.disableKeyboardAvoidance}
+          pageHideTargets={props?.pageHideTargets}
         />
       </ThemeProvider>
     </QueryClientProvider>,
@@ -150,6 +157,28 @@ describe('CompactComposer', () => {
       expect(outline().outlineWidth).toBe(0)
     } finally {
       restoreOs.restore()
+    }
+  })
+
+  it('pagehide flushes pending typing (shared controller reload path)', () => {
+    // The compact chrome shares `useComposerController`, so the same
+    // page-hide flush covers it: pending typing survives a web reload
+    // without waiting for the debounced autosave.
+    jest.useFakeTimers()
+    try {
+      const win = new EventTarget()
+      const {store, s} = setup({
+        pageHideTargets: {win: win as unknown as PageHideTargets['win']},
+      })
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'compact typing')
+      expect(listDrafts(store, s.id)).toEqual([])
+      win.dispatchEvent(new Event('pagehide'))
+      const saved = listDrafts(store, s.id)
+      expect(saved).toHaveLength(1)
+      expect(saved[0].text).toBe('compact typing')
+      expect(getOpenDraftId(store, s.id)).toBe(saved[0].id)
+    } finally {
+      jest.useRealTimers()
     }
   })
 })

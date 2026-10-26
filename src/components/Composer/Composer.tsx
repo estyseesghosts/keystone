@@ -66,6 +66,7 @@ import {STALE} from '#/state/queries/stale'
 import {useSuggestions, type Suggestion} from './Autocomplete'
 import {useAutogrowInput, autogrowStyle} from './useAutogrowInput'
 import {NO_OUTLINE} from './noOutline'
+import {realPageHideTargets, subscribePageHideFlush, type PageHideTargets} from './pageHideFlush'
 import {focusRingStyle} from '#/alf/focus'
 import {Chip} from './Chip'
 import {CloseConfirmDialog} from './CloseConfirmDialog'
@@ -153,6 +154,10 @@ export interface ComposerProps {
    * no Cancel button — it stays mounted like the reference client. */
   onClose?: () => void
   onPosted?: (kind: 'posted' | 'scheduled') => void
+  /** Page-hide event targets for the reload flush (test seam — defaults
+   * to the real browser globals, absent off-web). Both composer chromes
+   * share this controller, so one subscription covers both. */
+  pageHideTargets?: PageHideTargets
 }
 
 function stateFromDraft(d: LocalDraft): Partial<ComposeState> {
@@ -276,6 +281,7 @@ export function useComposerController({
   uploadFolderId = null,
   onClose,
   onPosted,
+  pageHideTargets,
 }: ComposerProps) {
   const theme = useTheme()
   const family = session.family
@@ -543,6 +549,17 @@ export function useComposerController({
     }
   }
   useEffect(() => () => flushAutosaveRef.current(), [])
+
+  // Web reload (slice 1): a full page reload never runs the unmount flush
+  // above, so without this the last <400 ms of typing (and the open-draft
+  // pointer when nothing was ever autosaved) is lost. The shared ref
+  // carries the unmount-flush guards (edit mode, posted/saved/discarded,
+  // direct drafts skipped; failures silent), so the reload path keeps them
+  // with no fork.
+  useEffect(() => {
+    const targets = pageHideTargets ?? realPageHideTargets()
+    return subscribePageHideFlush(() => flushAutosaveRef.current(), targets.win, targets.doc)
+  }, [pageHideTargets])
 
   // Async-arriving server defaults (privacy 4): the `me` query usually
   // resolves after the composer mounts, so apply the prefs once — and only

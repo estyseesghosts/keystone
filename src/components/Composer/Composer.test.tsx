@@ -10,11 +10,12 @@ import {meQueryKey} from '#/state/queries/keys'
 
 import {ThemeProvider} from '#/alf/index'
 import {themes, type ThemeName} from '#/alf/themes'
-import {draftsKeyFor, getOpenDraftId, listDrafts, setOpenDraftId} from '#/storage/drafts'
+import {draftsKeyFor, getOpenDraftId, listDrafts, loadDraft, setOpenDraftId} from '#/storage/drafts'
 import {makePost} from '#/components/__tests__/fixtures'
 
 import {Composer, sheetKeyboardInset, sheetVisibleMaxHeight, type ComposerProps} from './Composer'
 import {pickMedia} from './pickMedia'
+import type {PageHideTarget} from './pageHideFlush'
 
 i18n.load('en', {})
 i18n.activate('en')
@@ -678,6 +679,24 @@ describe('open-draft pointer (slice 1)', () => {
     store.setItem(draftsKeyFor(sid), JSON.stringify({version: 1, drafts: [row]}))
   }
 
+  // Fake page-hide bus (the `pageHideTargets` seam): real `EventTarget`s
+  // standing in for the browser globals, which the RN test env lacks.
+  function fakeHideTargets() {
+    const win = new EventTarget()
+    const doc = Object.assign(new EventTarget(), {hidden: false})
+    return {
+      win,
+      doc,
+      targets: {
+        win: win as unknown as PageHideTarget,
+        doc: doc as unknown as PageHideTarget,
+      },
+      setHidden(value: boolean) {
+        ;(doc as {hidden: boolean}).hidden = value
+      },
+    }
+  }
+
   beforeEach(() => {
     pickMediaMock.mockReset()
     pickMediaMock.mockImplementation(async () => ({kind: 'cancelled'}))
@@ -807,6 +826,98 @@ describe('open-draft pointer (slice 1)', () => {
       expect(screen.getByTestId('composer-text').props.value).toBe('keep me')
       // No media were staged, so the restore stays silent.
       expect(screen.queryByTestId('composer-notice')).toBeNull()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('pagehide flushes pending typing so a web reload keeps it (no unmount)', () => {
+    // Regression: a full page reload never runs React unmount cleanups,
+    // so without the page-hide flush the last <400 ms of typing (or
+    // anything never autosaved) is lost. Dispatch the real `pagehide`
+    // event on the seam bus with the debounced autosave still pending —
+    // the component stays mounted throughout — and assert the store
+    // round-trips through the actual flush (not the unmount cleanup).
+    jest.useFakeTimers()
+    try {
+      const store = createMemoryStore()
+      const backend = backendFor('sharkey')
+      const hide = fakeHideTargets()
+      const first = renderFresh(store, backend, {pageHideTargets: hide.targets})
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'unsaved typing')
+      // The debounced autosave has NOT run and no pointer is set yet.
+      expect(listDrafts(store, sid)).toEqual([])
+      expect(getOpenDraftId(store, sid)).toBeNull()
+      hide.win.dispatchEvent(new Event('pagehide'))
+      const saved = listDrafts(store, sid)
+      expect(saved).toHaveLength(1)
+      expect(saved[0].text).toBe('unsaved typing')
+      const pointer = getOpenDraftId(store, sid)
+      expect(pointer).toBe(saved[0].id)
+      expect(loadDraft(store, sid, pointer as string)?.text).toBe('unsaved typing')
+      // And a fresh open after the reload restores it.
+      first.unmount()
+      renderFresh(store, backendFor('sharkey'))
+      expect(screen.getByTestId('composer-text').props.value).toBe('unsaved typing')
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('pagehide keeps the unmount-flush guards: edit mode never writes', () => {
+    jest.useFakeTimers()
+    try {
+      const editing = {
+        id: 'p9',
+        content: {mfm: 'orig', plain: 'orig'},
+        cw: null,
+        visibility: {kind: 'public', localOnly: false, raw: 'public'},
+        mediaIds: [],
+        media: [],
+        author: {id: 'me'},
+      } as never
+      const store = createMemoryStore()
+      const hide = fakeHideTargets()
+      renderFresh(store, backendFor('sharkey'), {editing, pageHideTargets: hide.targets})
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'touched during edit')
+      hide.win.dispatchEvent(new Event('pagehide'))
+      expect(listDrafts(store, sid)).toEqual([])
+      expect(getOpenDraftId(store, sid)).toBeNull()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('pagehide keeps the unmount-flush guards: direct visibility never writes', () => {
+    jest.useFakeTimers()
+    try {
+      const store = createMemoryStore()
+      const hide = fakeHideTargets()
+      renderFresh(store, backendFor('sharkey'), {pageHideTargets: hide.targets})
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'secret words')
+      fireEvent.press(screen.getByTestId('composer-vis-specified'))
+      hide.win.dispatchEvent(new Event('pagehide'))
+      expect(listDrafts(store, sid)).toEqual([])
+      expect(getOpenDraftId(store, sid)).toBeNull()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('visibilitychange while hidden flushes pending typing; while visible it does not', () => {
+    jest.useFakeTimers()
+    try {
+      const store = createMemoryStore()
+      const hide = fakeHideTargets()
+      renderFresh(store, backendFor('sharkey'), {pageHideTargets: hide.targets})
+      fireEvent.changeText(screen.getByTestId('composer-text'), 'tab-hide typing')
+      hide.setHidden(false)
+      hide.doc.dispatchEvent(new Event('visibilitychange'))
+      expect(listDrafts(store, sid)).toEqual([])
+      hide.setHidden(true)
+      hide.doc.dispatchEvent(new Event('visibilitychange'))
+      expect(listDrafts(store, sid).map(d => d.text)).toEqual(['tab-hide typing'])
+      expect(getOpenDraftId(store, sid)).not.toBeNull()
     } finally {
       jest.useRealTimers()
     }
