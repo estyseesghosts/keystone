@@ -95,6 +95,22 @@
       "recordedAt": null,
       "unverified": "Noteless rows (deleted/gone favorites) per the audit finding M10; the list must skip them, never crash in adaptNote. Not recorded against a live server (rig refused to agents). Real capture: X5.6."
     },
+    "misskey/clip.json": {
+      "endpoint": "POST /api/clips/show (PackedClip: owner, description, notesCount)",
+      "source": "synthesised",
+      "_synthetic": true,
+      "synthesisedFrom": ["packages/fedi/src/misskey/clips.ts (PackedClip)", "docs/p6.6-drive-clips.md"],
+      "recordedAt": null,
+      "unverified": "Not recorded against a live server (rig refused to agents). Real capture: slice 9."
+    },
+    "misskey/drive-folder.json": {
+      "endpoint": "POST /api/drive/folders (DriveFolder shape)",
+      "source": "synthesised",
+      "_synthetic": true,
+      "synthesisedFrom": ["packages/fedi/src/misskey/wire.ts (DriveFolder)", "docs/p6.6-drive-clips.md"],
+      "recordedAt": null,
+      "unverified": "Not recorded against a live server (rig refused to agents). Real capture: slice 9."
+    },
     "misskey/drive-file.json": {
       "endpoint": "POST /api/drive/files (DriveFile shape)",
       "source": "synthesised",

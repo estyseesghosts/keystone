@@ -102,13 +102,15 @@ import {
 import { createStreamHandle } from "./stream";
 import { createQuoteResolver } from "./quote";
 import {
-  addNoteToClip,
+  adaptClipNotes,
   adaptClipSummary,
+  addNoteToClip,
   createClip,
   deleteClip,
   listClips,
   listClipsContaining,
   removeNoteFromClip,
+  showClip,
   updateClip,
 } from "./clips";
 import { createChannelsApi } from "./channels";
@@ -209,13 +211,19 @@ export function createMisskeyBackend(
   // Drive (`drive/files/*`, `drive/folders/*`) and antennas
   // (`antennas/*`) live in `./drive` / `./antennas` (D3.1) — same calls,
   // same omit-null params, shared paging via `callNotes` above.
-  const drive: DriveApi = createDriveApi(call, callNotes);
+  const drive: DriveApi = createDriveApi(call, callNotes, opts.origin ?? null);
 
   const antennas: AntennasApi = createAntennasApi(call, callNotes);
 
   const clips: ClipsApi = {
-    async list() {
-      return (await listClips(call)).map(adaptClipSummary);
+    async list(opts = {}) {
+      const page = await listClips(call, opts);
+      // `clips/list` is own-clips-only by endpoint contract.
+      return {...page, items: page.items.map(c => ({...c, isOwn: true}))};
+    },
+    async show(id) {
+      const clip = await showClip(call, id);
+      return clip;
     },
     async addNote(clipId, noteId) {
       await addNoteToClip(call, clipId, noteId);
@@ -244,7 +252,7 @@ export function createMisskeyBackend(
       );
     },
     async containing(noteId) {
-      return (await listClipsContaining(call, noteId)).map(adaptClipSummary);
+      return (await listClipsContaining(call, noteId)).map(c => ({...c, isOwn: true}));
     },
   };
 

@@ -136,6 +136,14 @@ export function visibilityOf(raw: string, localOnly: boolean): Visibility {
 
 // --- Accounts --------------------------------------------------------------
 
+/** Server role-policy limits for the viewer (Misskey-family `i.policies`).
+ * Every field is optional: absent stays absent. */
+export interface AccountLimits {
+  clipLimit?: number;
+  noteEachClipsLimit?: number;
+  driveCapacityMb?: number;
+}
+
 export interface AccountFieldModel {
   name: string;
   value: string;
@@ -197,6 +205,9 @@ export interface Account {
   /** Pinned posts (the Featured tab ships absent, never faked). */
   pinnedPostIds: string[] | null;
   pinnedPosts: Post[] | null;
+  /** Server role-policy limits for the viewer (`i.policies`; absent
+   * fields stay absent — never defaulted, never faked). */
+  limits?: AccountLimits;
 
   // --- Viewer state (auth-only; absent means unknown, never false) ---
   isFollowing?: boolean;

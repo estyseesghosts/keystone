@@ -110,11 +110,13 @@ export function DriveScreen() {
     setFetching(true)
     setError(null)
     try {
-      const [folderList, filePage] = await Promise.all([
-        backend.drive.folders ? backend.drive.folders.list() : Promise.resolve(null),
+      const [folderPage, filePage] = await Promise.all([
+        backend.drive.folders
+          ? backend.drive.folders.list({parentId: selectedFolderId, limit: FILES_PAGE})
+          : Promise.resolve(null),
         backend.drive.files({limit: FILES_PAGE, folderId: selectedFolderId}),
       ])
-      setFolders(folderList)
+      setFolders(folderPage?.items ?? null)
       setFiles(filePage.items)
       setCursor(filePage.cursor)
       setHasMore(!filePage.end)

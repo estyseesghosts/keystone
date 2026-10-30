@@ -46,9 +46,9 @@ export function ClipScreen() {
     setName(null)
     void backend.clips
       .list()
-      .then(found => {
+      .then(page => {
         if (cancelled) return
-        const match = found.find(c => c.id === id) ?? null
+        const match = page.items.find(c => c.id === id) ?? null
         setName(match?.name ?? null)
         setNameState(match ? 'ready' : 'missing')
       })
@@ -104,8 +104,8 @@ export function ClipScreen() {
             if (!backend.clips) return
             void backend.clips
               .list()
-              .then(found => {
-                const match = found.find(c => c.id === id) ?? null
+              .then(page => {
+                const match = page.items.find(c => c.id === id) ?? null
                 setName(match?.name ?? null)
                 setNameState(match ? 'ready' : 'missing')
               })

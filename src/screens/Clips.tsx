@@ -264,7 +264,7 @@ export function ClipsScreen() {
     setFetching(true)
     setError(null)
     try {
-      setClips(await backend.clips.list())
+      setClips((await backend.clips.list()).items)
       setUnsupported(false)
       setDenied(false)
     } catch (err) {
@@ -363,7 +363,12 @@ export function ClipsScreen() {
                 if (!backend.clips) return
                 setActionError(null)
                 try {
-                  const updated = await backend.clips.update(item.id, {name, isPublic})
+                  // Full body (DC-6/B1): the server wipes omitted fields.
+                  const updated = await backend.clips.update(item.id, {
+                    name,
+                    isPublic,
+                    description: item.description ?? null,
+                  })
                   setClips(prev => (prev ?? []).map(c => (c.id === item.id ? updated : c)))
                 } catch (err) {
                   setActionError(errorText(i18n, err, i18n._(msg`Could not rename the clip.`)))

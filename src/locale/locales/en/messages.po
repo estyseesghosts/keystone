@@ -48,7 +48,7 @@ msgstr "\"{0}\" is too large to attach (limit {1})."
 
 #. placeholder {0}: rejected.name
 #. placeholder {1}: formatByteLimit(rejected.limit)
-#: src/screens/Drive.tsx:189
+#: src/screens/Drive.tsx:191
 msgid "\"{0}\" is too large to upload (limit {1})."
 msgstr "\"{0}\" is too large to upload (limit {1})."
 
@@ -340,9 +340,14 @@ msgid "@user or @user@host"
 msgstr "@user or @user@host"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:83
+#: src/lib/localeErrors.ts:95
 msgid "errors.chat.messageRequired"
 msgstr "A chat message needs text or a file."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:87
+msgid "errors.drive.recursiveNesting"
+msgstr "A folder cannot go inside itself."
 
 #: src/components/Profile/AccountReactions.tsx:103
 msgid "A note you cannot see."
@@ -364,12 +369,12 @@ msgid "A pure grey system — no accent colour."
 msgstr "A pure grey system — no accent colour."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:82
+#: src/lib/localeErrors.ts:94
 msgid "errors.report.commentRequired"
 msgstr "A report needs a reason on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:78
+#: src/lib/localeErrors.ts:90
 msgid "errors.session.missingId"
 msgstr "A session id is required."
 
@@ -457,7 +462,7 @@ msgid "Action failed."
 msgstr "Action failed."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:115
+#: src/lib/localeErrors.ts:127
 msgid "errors.compose.actionFailed"
 msgstr "Action failed."
 
@@ -483,7 +488,7 @@ msgstr "Add {t} to interested topics"
 msgid "Add a comment"
 msgstr "Add a comment"
 
-#: src/components/Settings/ReactionsSection.tsx:176
+#: src/components/Settings/ReactionsSection.tsx:177
 msgid "Add a favourite"
 msgstr "Add a favourite"
 
@@ -510,7 +515,7 @@ msgstr "Add account"
 msgid "Add choice"
 msgstr "Add choice"
 
-#: src/components/Settings/ReactionsSection.tsx:183
+#: src/components/Settings/ReactionsSection.tsx:184
 msgid "Add favourite"
 msgstr "Add favourite"
 
@@ -562,7 +567,7 @@ msgid "Add widgets"
 msgstr "Add widgets"
 
 #. placeholder {0}: item.name
-#: src/screens/Clips.tsx:396
+#: src/screens/Clips.tsx:401
 msgid "Added to {0}"
 msgstr "Added to {0}"
 
@@ -580,7 +585,7 @@ msgid "Admin metrics and public server info. No changes can be made here."
 msgstr "Admin metrics and public server info. No changes can be made here."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:95
+#: src/lib/localeErrors.ts:107
 msgid "errors.shape.reportLookup"
 msgstr "Admin report lookup returned an unexpected response shape."
 
@@ -627,7 +632,7 @@ msgstr "Already at the smallest size."
 msgid "Already forwarded."
 msgstr "Already forwarded."
 
-#: src/components/Settings/ReactionsSection.tsx:125
+#: src/components/Settings/ReactionsSection.tsx:126
 msgid "Already the default heart."
 msgstr "Already the default heart."
 
@@ -645,7 +650,7 @@ msgid "Always light."
 msgstr "Always light."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:81
+#: src/lib/localeErrors.ts:93
 msgid "errors.account.refRequired"
 msgstr "An account lookup needs an id or a username."
 
@@ -711,7 +716,7 @@ msgid "Antennas are not available on this server."
 msgstr "Antennas are not available on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:99
+#: src/lib/localeErrors.ts:111
 msgid "errors.unsupported.antennas"
 msgstr "Antennas are not available on this server."
 
@@ -867,7 +872,7 @@ msgstr "Back"
 msgid "Back to sign in"
 msgstr "Back to sign in"
 
-#: src/components/Settings/ReactionsSection.tsx:345
+#: src/components/Settings/ReactionsSection.tsx:361
 msgid "Back up emoji prefs"
 msgstr "Back up emoji prefs"
 
@@ -958,7 +963,7 @@ msgid "Bookmarks are not available on this server."
 msgstr "Bookmarks are not available on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:100
+#: src/lib/localeErrors.ts:112
 msgid "errors.unsupported.bookmarks"
 msgstr "Bookmarks are not available on this server."
 
@@ -1074,7 +1079,7 @@ msgid "Channels are not available on this server."
 msgstr "Channels are not available on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:101
+#: src/lib/localeErrors.ts:113
 msgid "errors.unsupported.channels"
 msgstr "Channels are not available on this server."
 
@@ -1250,7 +1255,7 @@ msgid "Clips are not available on this server."
 msgstr "Clips are not available on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:102
+#: src/lib/localeErrors.ts:114
 msgid "errors.unsupported.clips"
 msgstr "Clips are not available on this server."
 
@@ -1416,7 +1421,7 @@ msgstr "Could not accept that request."
 msgid "Could not add the filter."
 msgstr "Could not add the filter."
 
-#: src/screens/Clips.tsx:399
+#: src/screens/Clips.tsx:404
 msgid "Could not add to the clip."
 msgstr "Could not add to the clip."
 
@@ -1444,7 +1449,7 @@ msgstr "Could not create the antenna."
 msgid "Could not create the clip."
 msgstr "Could not create the clip."
 
-#: src/screens/Drive.tsx:420
+#: src/screens/Drive.tsx:422
 msgid "Could not create the folder."
 msgstr "Could not create the folder."
 
@@ -1456,7 +1461,7 @@ msgstr "Could not create the list."
 msgid "Could not delete the antenna."
 msgstr "Could not delete the antenna."
 
-#: src/screens/Clips.tsx:381
+#: src/screens/Clips.tsx:386
 msgid "Could not delete the clip."
 msgstr "Could not delete the clip."
 
@@ -1465,11 +1470,11 @@ msgstr "Could not delete the clip."
 msgid "Could not delete the conversation."
 msgstr "Could not delete the conversation."
 
-#: src/screens/Drive.tsx:306
+#: src/screens/Drive.tsx:308
 msgid "Could not delete the file."
 msgstr "Could not delete the file."
 
-#: src/screens/Drive.tsx:380
+#: src/screens/Drive.tsx:382
 msgid "Could not delete the folder."
 msgstr "Could not delete the folder."
 
@@ -1530,7 +1535,7 @@ msgstr "Could not load clips."
 msgid "Could not load custom emoji."
 msgstr "Could not load custom emoji."
 
-#: src/screens/Drive.tsx:265
+#: src/screens/Drive.tsx:267
 msgid "Could not load drive."
 msgstr "Could not load drive."
 
@@ -1571,7 +1576,7 @@ msgstr "Could not load messages."
 msgid "Could not load more channels."
 msgstr "Could not load more channels."
 
-#: src/screens/Drive.tsx:163
+#: src/screens/Drive.tsx:165
 msgid "Could not load more files."
 msgstr "Could not load more files."
 
@@ -1663,7 +1668,7 @@ msgid "Could not load the queue."
 msgstr "Could not load the queue."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:76
+#: src/lib/localeErrors.ts:88
 msgid "errors.compose.limitsUnavailable"
 msgstr "Could not load the server limits."
 
@@ -1745,12 +1750,12 @@ msgstr "Could not mark notifications read."
 msgid "Could not mark the announcement as read."
 msgstr "Could not mark the announcement as read."
 
-#: src/screens/Drive.tsx:195
+#: src/screens/Drive.tsx:197
 msgid "Could not open the file picker."
 msgstr "Could not open the file picker."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:79
+#: src/lib/localeErrors.ts:91
 msgid "errors.stream.unavailable"
 msgstr "Could not open the live connection."
 
@@ -1822,7 +1827,7 @@ msgid "Could not rename the antenna."
 msgstr "Could not rename the antenna."
 
 #: src/screens/Clips.tsx:115
-#: src/screens/Clips.tsx:369
+#: src/screens/Clips.tsx:374
 msgid "Could not rename the clip."
 msgstr "Could not rename the clip."
 
@@ -1915,7 +1920,7 @@ msgstr "Could not update the file."
 msgid "Could not upload that picture."
 msgstr "Could not upload that picture."
 
-#: src/screens/Drive.tsx:218
+#: src/screens/Drive.tsx:220
 msgid "Could not upload the file."
 msgstr "Could not upload the file."
 
@@ -1949,7 +1954,7 @@ msgstr "Create antenna"
 msgid "Create clip"
 msgstr "Create clip"
 
-#: src/screens/Drive.tsx:402
+#: src/screens/Drive.tsx:404
 msgctxt "button"
 msgid "Create folder"
 msgstr "Create folder"
@@ -1973,7 +1978,7 @@ msgstr "created an access token"
 msgid "Creating…"
 msgstr "Creating…"
 
-#: src/screens/Drive.tsx:401
+#: src/screens/Drive.tsx:403
 #: src/screens/Lists.tsx:185
 msgctxt "button"
 msgid "Creating…"
@@ -1996,16 +2001,16 @@ msgstr "Current widgets"
 msgid "custom emoji"
 msgstr "custom emoji"
 
-#: src/components/Settings/ReactionsSection.tsx:308
+#: src/components/Settings/ReactionsSection.tsx:324
 msgid "Custom emoji groups"
 msgstr "Custom emoji groups"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:91
+#: src/lib/localeErrors.ts:103
 msgid "errors.shape.customEmojis"
 msgstr "Custom emojis returned an unexpected response shape."
 
-#: src/components/Settings/ReactionsSection.tsx:106
+#: src/components/Settings/ReactionsSection.tsx:107
 msgid "Custom like emoji"
 msgstr "Custom like emoji"
 
@@ -2152,15 +2157,15 @@ msgctxt "button"
 msgid "Details"
 msgstr "Details"
 
-#: src/components/Settings/ReactionsSection.tsx:68
+#: src/components/Settings/ReactionsSection.tsx:69
 msgid "Device only while signed out."
 msgstr "Device only while signed out."
 
-#: src/components/Settings/ReactionsSection.tsx:78
+#: src/components/Settings/ReactionsSection.tsx:79
 msgid "Device only: the server refused the value."
 msgstr "Device only: the server refused the value."
 
-#: src/components/Settings/ReactionsSection.tsx:76
+#: src/components/Settings/ReactionsSection.tsx:77
 msgid "Device only: this server has no default-reaction field."
 msgstr "Device only: this server has no default-reaction field."
 
@@ -2276,18 +2281,18 @@ msgid "Drive"
 msgstr "Drive"
 
 #. js-lingui-explicit-id
-#: src/screens/Drive.tsx:228
-#: src/screens/Drive.tsx:241
-#: src/screens/Drive.tsx:249
+#: src/screens/Drive.tsx:230
+#: src/screens/Drive.tsx:243
+#: src/screens/Drive.tsx:251
 msgctxt "file storage screen title"
 msgid "drive.title"
 msgstr "Drive"
 
-#: src/screens/Drive.tsx:242
+#: src/screens/Drive.tsx:244
 msgid "Drive is not available on this server."
 msgstr "Drive is not available on this server."
 
-#: src/screens/Drive.tsx:231
+#: src/screens/Drive.tsx:233
 msgid "Drive never shows sample data when signed out."
 msgstr "Drive never shows sample data when signed out."
 
@@ -2383,8 +2388,8 @@ msgstr "Enter a domain like example.com."
 msgid "Enter a server, e.g. example.social."
 msgstr "Enter a server, e.g. example.social."
 
-#: src/components/Settings/ReactionsSection.tsx:88
-#: src/components/Settings/ReactionsSection.tsx:143
+#: src/components/Settings/ReactionsSection.tsx:89
+#: src/components/Settings/ReactionsSection.tsx:144
 msgid "Enter an emoji first."
 msgstr "Enter an emoji first."
 
@@ -2443,7 +2448,7 @@ msgstr "Explore never shows sample data when signed out."
 msgid "Export"
 msgstr "Export"
 
-#: src/components/Settings/ReactionsSection.tsx:346
+#: src/components/Settings/ReactionsSection.tsx:362
 msgid "Export likes, pins, and hides to a file; import them back."
 msgstr "Export likes, pins, and hides to a file; import them back."
 
@@ -2486,7 +2491,7 @@ msgstr "Favorites are not available on this server."
 msgid "Favorites never show sample data when signed out."
 msgstr "Favorites never show sample data when signed out."
 
-#: src/components/Settings/ReactionsSection.tsx:152
+#: src/components/Settings/ReactionsSection.tsx:153
 msgid "Favourite emoji"
 msgstr "Favourite emoji"
 
@@ -2592,14 +2597,14 @@ msgstr "Finishing sign-in"
 msgid "Flat"
 msgstr "Flat"
 
-#: src/screens/Drive.tsx:394
+#: src/screens/Drive.tsx:396
 #: src/screens/Drive/rows.tsx:83
 #: src/screens/Drive/rows.tsx:86
 msgctxt "drive folder name input"
 msgid "Folder name"
 msgstr "Folder name"
 
-#: src/screens/Drive.tsx:350
+#: src/screens/Drive.tsx:352
 msgctxt "drive section header"
 msgid "Folders"
 msgstr "Folders"
@@ -2808,7 +2813,7 @@ msgid "Hashtag following needs a Mastodon-family server."
 msgstr "Hashtag following needs a Mastodon-family server."
 
 #. Status: the group is hidden
-#: src/components/Settings/ReactionsSection.tsx:211
+#: src/components/Settings/ReactionsSection.tsx:212
 msgctxt "emoji group status"
 msgid "hidden"
 msgstr "hidden"
@@ -2827,12 +2832,12 @@ msgid "Hide"
 msgstr "Hide"
 
 #. Hide the emoji group
-#: src/components/Settings/ReactionsSection.tsx:235
+#: src/components/Settings/ReactionsSection.tsx:236
 msgctxt "emoji group toggle"
 msgid "Hide"
 msgstr "Hide"
 
-#: src/components/Settings/ReactionsSection.tsx:229
+#: src/components/Settings/ReactionsSection.tsx:230
 msgid "Hide {category}"
 msgstr "Hide {category}"
 
@@ -2970,12 +2975,12 @@ msgid "Interested in"
 msgstr "Interested in"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:110
+#: src/lib/localeErrors.ts:122
 msgid "errors.feeds.invalidDescriptor"
 msgstr "Invalid feed descriptor."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:109
+#: src/lib/localeErrors.ts:121
 msgid "errors.filter.invalidRegex"
 msgstr "Invalid regular expression on line {line}."
 
@@ -3089,7 +3094,7 @@ msgstr "Light"
 msgid "Light or dark app chrome."
 msgstr "Light or dark app chrome."
 
-#: src/components/Settings/ReactionsSection.tsx:98
+#: src/components/Settings/ReactionsSection.tsx:99
 msgid "Like emoji"
 msgstr "Like emoji"
 
@@ -3176,7 +3181,7 @@ msgid "Lists are not available on this server."
 msgstr "Lists are not available on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:104
+#: src/lib/localeErrors.ts:116
 msgid "errors.unsupported.lists"
 msgstr "Lists are not available on this server."
 
@@ -3197,7 +3202,7 @@ msgstr "Live updates stopped"
 msgid "Live updates unavailable"
 msgstr "Live updates unavailable"
 
-#: src/screens/Drive.tsx:448
+#: src/screens/Drive.tsx:450
 #: src/screens/Followers.tsx:301
 #: src/screens/Following.tsx:301
 msgctxt "button"
@@ -3284,7 +3289,7 @@ msgstr "Loading this server's rules…"
 msgid "Loading…"
 msgstr "Loading…"
 
-#: src/screens/Drive.tsx:447
+#: src/screens/Drive.tsx:449
 #: src/screens/Drive/detail.tsx:225
 #: src/screens/Followers.tsx:300
 #: src/screens/Following.tsx:300
@@ -3379,17 +3384,17 @@ msgid "Mark-all-read is not on this server."
 msgstr "Mark-all-read is not on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:90
+#: src/lib/localeErrors.ts:102
 msgid "errors.shape.markers"
 msgstr "Markers returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:87
+#: src/lib/localeErrors.ts:99
 msgid "errors.shape.conversation"
 msgstr "Marking conversation {id} read returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:106
+#: src/lib/localeErrors.ts:118
 msgid "errors.unsupported.markers"
 msgstr "Marking notifications read is not on this server."
 
@@ -3433,7 +3438,7 @@ msgstr "Media"
 msgid "Media library access was denied. Allow access to attach photos or videos."
 msgstr "Media library access was denied. Allow access to attach photos or videos."
 
-#: src/screens/Drive.tsx:178
+#: src/screens/Drive.tsx:180
 msgid "Media library access was denied. Allow access to pick a file."
 msgstr "Media library access was denied. Allow access to pick a file."
 
@@ -3442,7 +3447,7 @@ msgstr "Media library access was denied. Allow access to pick a file."
 msgid "Media library access was denied. Enable it in the system settings to attach photos or videos."
 msgstr "Media library access was denied. Enable it in the system settings to attach photos or videos."
 
-#: src/screens/Drive.tsx:179
+#: src/screens/Drive.tsx:181
 msgid "Media library access was denied. Enable it in the system settings to pick a file."
 msgstr "Media library access was denied. Enable it in the system settings to pick a file."
 
@@ -3631,7 +3636,7 @@ msgstr "Needs a native screenshot-blocking module (not installed)."
 msgid "Needs a server with word filters (this one has none)."
 msgstr "Needs a server with word filters (this one has none)."
 
-#: src/components/Settings/ReactionsSection.tsx:347
+#: src/components/Settings/ReactionsSection.tsx:363
 msgid "Needs file sharing — not available in this build."
 msgstr "Needs file sharing — not available in this build."
 
@@ -3668,7 +3673,7 @@ msgstr "New antenna"
 msgid "New clip"
 msgstr "New clip"
 
-#: src/screens/Drive.tsx:391
+#: src/screens/Drive.tsx:393
 msgctxt "drive folder creation"
 msgid "New folder"
 msgstr "New folder"
@@ -3717,7 +3722,7 @@ msgid "errors.unsupported.noAccountFound"
 msgstr "No account found for {acct}."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:86
+#: src/lib/localeErrors.ts:98
 msgid "errors.shape.noAccountFound"
 msgstr "No account found for {acct}."
 
@@ -3765,7 +3770,7 @@ msgid "No composer is connected to this view."
 msgstr "No composer is connected to this view."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:85
+#: src/lib/localeErrors.ts:97
 msgid "errors.shape.noConversationFound"
 msgstr "No conversation found for {id}."
 
@@ -3802,7 +3807,7 @@ msgstr "No emoji found."
 msgid "no extra filters"
 msgstr "no extra filters"
 
-#: src/components/Settings/ReactionsSection.tsx:156
+#: src/components/Settings/ReactionsSection.tsx:157
 msgid "No favourites yet. Add one below, or star emoji in the picker."
 msgstr "No favourites yet. Add one below, or star emoji in the picker."
 
@@ -3822,6 +3827,11 @@ msgstr "No follow requests."
 #: src/screens/Followers.tsx:279
 msgid "No followers yet."
 msgstr "No followers yet."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:84
+msgid "errors.drive.noSpace"
+msgstr "No free Drive space."
 
 #: src/components/Post/menuModel.ts:176
 msgid "No message composer is connected to this view yet."
@@ -4002,7 +4012,7 @@ msgid "Nothing to copy."
 msgstr "Nothing to copy."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:96
+#: src/lib/localeErrors.ts:108
 msgid "errors.shape.emptyReportPatch"
 msgstr "Nothing to update: set a category or rule ids first."
 
@@ -4015,7 +4025,7 @@ msgid "Notification grouping"
 msgstr "Notification grouping"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:94
+#: src/lib/localeErrors.ts:106
 msgid "errors.shape.notificationRequests"
 msgstr "Notification requests returned an unexpected response shape (HTTP {status})."
 
@@ -4030,7 +4040,7 @@ msgid "Notification settings are not on this server."
 msgstr "Notification settings are not on this server."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:107
+#: src/lib/localeErrors.ts:119
 msgid "errors.unsupported.notification_unread_count"
 msgstr "Notification unread count is not on this server."
 
@@ -4301,7 +4311,7 @@ msgid "Palette"
 msgstr "Palette"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:80
+#: src/lib/localeErrors.ts:92
 msgid "errors.poll.partialVote"
 msgstr "Part of the vote was recorded before it failed."
 
@@ -4341,12 +4351,12 @@ msgid "Pick at least one language."
 msgstr "Pick at least one language."
 
 #. Pin the emoji group
-#: src/components/Settings/ReactionsSection.tsx:223
+#: src/components/Settings/ReactionsSection.tsx:224
 msgctxt "emoji group toggle"
 msgid "Pin"
 msgstr "Pin"
 
-#: src/components/Settings/ReactionsSection.tsx:217
+#: src/components/Settings/ReactionsSection.tsx:218
 msgid "Pin {category}"
 msgstr "Pin {category}"
 
@@ -4354,11 +4364,11 @@ msgstr "Pin {category}"
 msgid "Pin emoji to favourites"
 msgstr "Pin emoji to favourites"
 
-#: src/components/Settings/ReactionsSection.tsx:249
+#: src/components/Settings/ReactionsSection.tsx:250
 msgid "Pin groups to the top of the picker, or hide the ones you never use."
 msgstr "Pin groups to the top of the picker, or hide the ones you never use."
 
-#: src/components/Settings/ReactionsSection.tsx:309
+#: src/components/Settings/ReactionsSection.tsx:325
 msgid "Pin server groups to the top of the picker, or hide the ones you never use. Unhide restores a hidden group."
 msgstr "Pin server groups to the top of the picker, or hide the ones you never use. Unhide restores a hidden group."
 
@@ -4367,7 +4377,7 @@ msgid "Pin to profile"
 msgstr "Pin to profile"
 
 #. Status: the group is pinned
-#: src/components/Settings/ReactionsSection.tsx:209
+#: src/components/Settings/ReactionsSection.tsx:210
 msgctxt "emoji group status"
 msgid "pinned"
 msgstr "pinned"
@@ -4377,7 +4387,7 @@ msgstr "pinned"
 msgid "Pinned"
 msgstr "Pinned"
 
-#: src/components/Settings/ReactionsSection.tsx:153
+#: src/components/Settings/ReactionsSection.tsx:154
 msgid "Pinned at the very top of the emoji picker."
 msgstr "Pinned at the very top of the emoji picker."
 
@@ -4706,7 +4716,7 @@ msgid "Recommendations"
 msgstr "Recommendations"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:105
+#: src/lib/localeErrors.ts:117
 msgid "errors.unsupported.recommendations"
 msgstr "Recommendations are not available on this server."
 
@@ -4809,7 +4819,7 @@ msgid "Remove"
 msgstr "Remove"
 
 #. Remove the emoji from favourites
-#: src/components/Settings/ReactionsSection.tsx:165
+#: src/components/Settings/ReactionsSection.tsx:166
 msgctxt "settings button"
 msgid "Remove"
 msgstr "Remove"
@@ -5038,7 +5048,7 @@ msgstr "Requires an admin or moderator account."
 msgid "Reset"
 msgstr "Reset"
 
-#: src/components/Settings/ReactionsSection.tsx:122
+#: src/components/Settings/ReactionsSection.tsx:123
 msgid "Reset to heart"
 msgstr "Reset to heart"
 
@@ -5132,8 +5142,8 @@ msgstr "Retry"
 #. Retry loading the drive
 #. Retry loading the drive
 #. Retry loading the list
-#: src/screens/Drive.tsx:257
-#: src/screens/Drive.tsx:267
+#: src/screens/Drive.tsx:259
+#: src/screens/Drive.tsx:269
 #: src/screens/Drive/detail.tsx:172
 #: src/screens/Drive/detail.tsx:201
 #: src/screens/Followers.tsx:240
@@ -5192,7 +5202,7 @@ msgid "Save"
 msgstr "Save"
 
 #. Save the custom like emoji
-#: src/components/Settings/ReactionsSection.tsx:115
+#: src/components/Settings/ReactionsSection.tsx:116
 msgctxt "settings button"
 msgid "Save"
 msgstr "Save"
@@ -5332,7 +5342,7 @@ msgid "Searching…"
 msgstr "Searching…"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:77
+#: src/lib/localeErrors.ts:89
 msgid "errors.crypto.unavailable"
 msgstr "Secure random values are unavailable on this device."
 
@@ -5419,7 +5429,7 @@ msgid "Server insight"
 msgstr "Server insight"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:98
+#: src/lib/localeErrors.ts:110
 msgid "errors.unsupported.adminInsight"
 msgstr "Server insight {scope} is not available on this server."
 
@@ -5751,7 +5761,7 @@ msgid "Sign in to see your clips."
 msgstr "Sign in to see your clips."
 
 #. js-lingui-explicit-id
-#: src/screens/Drive.tsx:229
+#: src/screens/Drive.tsx:231
 msgid "drive.signedOut"
 msgstr "Sign in to see your drive."
 
@@ -5831,7 +5841,7 @@ msgstr "Signed out of {label}: session expired"
 msgid "Signed out, but the token could not be revoked on the server."
 msgstr "Signed out, but the token could not be revoked on the server."
 
-#: src/components/Settings/ReactionsSection.tsx:337
+#: src/components/Settings/ReactionsSection.tsx:353
 msgid "Signed out: likes and favourites save to this device only, under a shared account."
 msgstr "Signed out: likes and favourites save to this device only, under a shared account."
 
@@ -5932,7 +5942,7 @@ msgid "errors.shape.statusContext"
 msgstr "Status context returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:88
+#: src/lib/localeErrors.ts:100
 msgid "errors.shape.statusHistory"
 msgstr "Status history returned an unexpected response shape."
 
@@ -5991,7 +6001,7 @@ msgid "Tag"
 msgstr "Tag"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:84
+#: src/lib/localeErrors.ts:96
 msgid "errors.shape.tag"
 msgstr "Tag {name} returned an unexpected response shape."
 
@@ -6016,14 +6026,59 @@ msgstr "Tap to load"
 msgid "Text size"
 msgstr "Text size"
 
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:78
+msgid "errors.clips.tooManyNotes"
+msgstr "That clip is full."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:77
+msgid "errors.clips.noSuchClip"
+msgstr "That clip no longer exists."
+
 #: src/components/ProfileActions/ProfileActions.tsx:55
 msgid "That did not work."
 msgstr "That did not work."
 
 #. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:81
+msgid "errors.drive.fileTooLarge"
+msgstr "That file exceeds the server size limit."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:79
+msgid "errors.drive.badFileName"
+msgstr "That file name is not allowed."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:80
+msgid "errors.drive.badFileType"
+msgstr "That file type is not allowed."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:82
+msgid "errors.drive.folderNotEmpty"
+msgstr "That folder is not empty."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:85
+msgid "errors.drive.noSuchFolder"
+msgstr "That folder no longer exists."
+
+#. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:23
 msgid "errors.validation.hostInvalid"
 msgstr "That host does not look like a valid instance address."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:86
+msgid "errors.drive.noSuchParent"
+msgstr "That parent folder no longer exists."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:76
+msgid "errors.clips.alreadyClipped"
+msgstr "That post is already in the clip."
 
 #: src/components/ErrorBoundary.tsx:105
 msgid "The app hit a problem it couldn't recover from. Try again, or sign out and back in."
@@ -6059,21 +6114,21 @@ msgid "The like button reacts with this"
 msgstr "The like button reacts with this"
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:89
+#: src/lib/localeErrors.ts:101
 msgid "errors.shape.mediaUpdate"
 msgstr "The media update returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:92
+#: src/lib/localeErrors.ts:104
 msgid "errors.shape.notificationPolicy"
 msgstr "The notification policy returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:93
+#: src/lib/localeErrors.ts:105
 msgid "errors.shape.notificationUnreadCount"
 msgstr "The notification unread count returned an unexpected response shape."
 
-#: src/components/Settings/ReactionsSection.tsx:99
+#: src/components/Settings/ReactionsSection.tsx:100
 msgid "The one-tap like on every post. Saved on this device; sent to the server where supported."
 msgstr "The one-tap like on every post. Saved on this device; sent to the server where supported."
 
@@ -6124,7 +6179,7 @@ msgid "errors.shape.updatedProfile"
 msgstr "The server did not return the updated profile."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:97
+#: src/lib/localeErrors.ts:109
 msgid "errors.shape.uploadedFile"
 msgstr "The server did not return the uploaded file."
 
@@ -6138,6 +6193,11 @@ msgstr "The server did not return the uploaded media."
 #: src/screens/User.tsx:153
 msgid "The server is throttling requests right now. Wait a moment, then try again."
 msgstr "The server is throttling requests right now. Wait a moment, then try again."
+
+#. js-lingui-explicit-id
+#: src/lib/localeErrors.ts:83
+msgid "errors.drive.inappropriate"
+msgstr "The server refused that upload."
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:39
@@ -6234,7 +6294,7 @@ msgstr "This clip does not exist."
 msgid "This device"
 msgstr "This device"
 
-#: src/screens/Drive.tsx:436
+#: src/screens/Drive.tsx:438
 msgid "This folder has no files yet."
 msgstr "This folder has no files yet."
 
@@ -6505,7 +6565,7 @@ msgid "This server publishes no rule list."
 msgstr "This server publishes no rule list."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:108
+#: src/lib/localeErrors.ts:120
 msgid "errors.unsupported.reportDecision"
 msgstr "This server records no verdict on resolved reports."
 
@@ -6589,7 +6649,7 @@ msgid "errors.shape.trendingLinks"
 msgstr "Trending links returned an unexpected response shape."
 
 #. js-lingui-explicit-id
-#: src/lib/localeErrors.ts:103
+#: src/lib/localeErrors.ts:115
 msgid "errors.unsupported.explore"
 msgstr "Trending posts are not available on this server."
 
@@ -6703,12 +6763,12 @@ msgid "Unfollow hashtag"
 msgstr "Unfollow hashtag"
 
 #. Show the emoji group again
-#: src/components/Settings/ReactionsSection.tsx:234
+#: src/components/Settings/ReactionsSection.tsx:235
 msgctxt "emoji group toggle"
 msgid "Unhide"
 msgstr "Unhide"
 
-#: src/components/Settings/ReactionsSection.tsx:248
+#: src/components/Settings/ReactionsSection.tsx:249
 msgid "Unicode groups"
 msgstr "Unicode groups"
 
@@ -6760,7 +6820,7 @@ msgid "Unnamed room"
 msgstr "Unnamed room"
 
 #. Unpin the emoji group
-#: src/components/Settings/ReactionsSection.tsx:222
+#: src/components/Settings/ReactionsSection.tsx:223
 msgctxt "emoji group toggle"
 msgid "Unpin"
 msgstr "Unpin"
@@ -6825,7 +6885,7 @@ msgid "uploaded"
 msgstr "uploaded"
 
 #. placeholder {0}: media.name
-#: src/screens/Drive.tsx:213
+#: src/screens/Drive.tsx:215
 msgid "Uploaded “{0}”."
 msgstr "Uploaded “{0}”."
 
@@ -6858,11 +6918,11 @@ msgid "Uploading…"
 msgstr "Uploading…"
 
 #. placeholder {0}: selectedFolder.name
-#: src/screens/Drive.tsx:329
+#: src/screens/Drive.tsx:331
 msgid "Uploads go to “{0}”."
 msgstr "Uploads go to “{0}”."
 
-#: src/screens/Drive.tsx:330
+#: src/screens/Drive.tsx:332
 msgid "Uploads go to Root."
 msgstr "Uploads go to Root."
 
@@ -7163,11 +7223,11 @@ msgstr "You follow this account."
 msgid "You have no antennas yet."
 msgstr "You have no antennas yet."
 
-#: src/screens/Clips.tsx:418
+#: src/screens/Clips.tsx:423
 msgid "You have no clips yet."
 msgstr "You have no clips yet."
 
-#: src/screens/Drive.tsx:437
+#: src/screens/Drive.tsx:439
 msgid "You have no files yet."
 msgstr "You have no files yet."
 
@@ -7212,7 +7272,7 @@ msgstr "Your account cannot view antennas here."
 msgid "Your account cannot view clips here."
 msgstr "Your account cannot view clips here."
 
-#: src/screens/Drive.tsx:255
+#: src/screens/Drive.tsx:257
 msgid "Your account cannot view drive here."
 msgstr "Your account cannot view drive here."
 

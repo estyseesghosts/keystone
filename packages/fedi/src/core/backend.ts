@@ -705,13 +705,29 @@ export interface StreamHandle {
 
 export type MediaKindFilter = "image" | "video" | "audio" | "file";
 
+/** Drive sort orders (`drive/files` `sort`, newer upstream; absent on
+ * Sharkey/older Misskey — never sent when the `drive_sort` probe says
+ * unsupported). */
+export type DriveSort =
+  | "+createdAt"
+  | "-createdAt"
+  | "+name"
+  | "-name"
+  | "+size"
+  | "-size";
+
 export interface DriveApi {
   /** List files (newest-first cursor paging). `type` is the server-side
    * MIME filter the category views page on. `folderId` scopes the listing
    * to one folder; omitted (or null) means the Drive root — the same
    * default the server takes when the field is absent, so it is never put
-   * on the wire for root. */
-  files(opts?: PageOpts & { type?: string; folderId?: string | null }): Promise<Page<Media>>;
+   * on the wire for root. `sort` is sent only when the `drive_sort`
+   * probe verdict for the origin is not `false`. */
+  files(
+    opts?: PageOpts & { type?: string; folderId?: string | null; sort?: DriveSort },
+  ): Promise<Page<Media>>;
+  /** Storage usage (`drive`, `{capacity, usage}` bytes). */
+  usage(): Promise<{ capacity: number; usage: number }>;
   /** One file's current metadata (`drive/files/show`). */
   showFile(id: string): Promise<Media>;
   /** Notes that attach this file (`drive/files/attached-notes`),
@@ -722,6 +738,15 @@ export interface DriveApi {
     patch: { name?: string; isSensitive?: boolean; comment?: string | null; folderId?: string | null },
   ): Promise<Media>;
   deleteFile(id: string): Promise<void>;
+  /** Move files (`drive/files/move-bulk`, newer upstream) with fallback to
+   * per-file `updateFile` when the `drive_move_bulk` probe says
+   * unsupported (plan DC-7; the member is always present so callers never
+   * branch — the fallback is inside). */
+  moveMany(fileIds: string[], folderId: string | null): Promise<void>;
+  /** Probe verdict accessors (the `like.ts` pattern): true/false, or null
+   * when unprobed. The UI gates sort UI and bulk paths on these. */
+  isSortSupported(): boolean | null;
+  isMoveBulkSupported(): boolean | null;
   /** Drive folders (addition — Misskey `drive/folders/*`). The browser
    * lists/creates/renames/deletes them and scopes file listings and
    * uploads to the selected folder. */
@@ -735,10 +760,25 @@ export interface DriveFolder {
   parentId: string | null;
 }
 
+/** One drive folder path element (root → self) with sibling counts. */
+export interface DriveFolderDetail {
+  folder: DriveFolder;
+  /** Ancestor chain, root first, self last (partial when a parent 404s). */
+  path: DriveFolder[];
+  /** Packed counts when the server sends them, else null (the UI walks
+   * the tree for exact counts when it needs them). */
+  filesCount: number | null;
+  foldersCount: number | null;
+}
+
 /** Drive-folder management (addition — optional like every gated
  * sub-module; backends without the endpoints leave it undefined). */
 export interface DriveFoldersApi {
-  list(): Promise<DriveFolder[]>;
+  /** List one level (B2: `parentId` scopes; null = root) with paging. */
+  list(opts: { parentId: string | null } & PageOpts): Promise<Page<DriveFolder>>;
+  /** One folder with `detail: true` (parent chain + counts) for
+   * breadcrumbs and the delete confirm (DC-9). */
+  show(id: string): Promise<DriveFolderDetail>;
   create(name: string, opts?: { parentId?: string | null }): Promise<DriveFolder>;
   update(id: string, patch: { name?: string; parentId?: string | null }): Promise<DriveFolder>;
   delete(id: string): Promise<void>;
@@ -780,19 +820,32 @@ export interface ClipSummary {
   description?: string | null;
   /** Packed `notesCount` when the server sent it (list views). */
   notesCount?: number | null;
+  /** `lastClippedAt` when packed (owner views). */
+  lastClippedAt?: string | null;
+  createdAt?: string | null;
+  /** Packed author (owner views); null for others' clips. */
+  owner?: Account | null;
+  /** True when the viewer owns the clip. */
+  isOwn?: boolean;
 }
 
 export interface ClipsApi {
-  list(): Promise<ClipSummary[]>;
+  /** Own clips, paged (B3: no silent 100-cap). */
+  list(opts?: PageOpts): Promise<Page<ClipSummary>>;
+  /** One clip (`clips/show`); null when missing (the screen renders the
+   * honest not-found state instead of crashing on `list().find`). */
+  show(id: string): Promise<ClipSummary | null>;
   addNote(clipId: string, noteId: string): Promise<void>;
   removeNote(clipId: string, noteId: string): Promise<void>;
   create(
     name: string,
     opts?: { isPublic?: boolean; description?: string | null },
   ): Promise<ClipSummary>;
+  /** Full body (DC-6/B1): all of `name`, `isPublic`, `description` —
+   * the server wipes omitted fields (`description || null`). */
   update(
     clipId: string,
-    patch: { name?: string; isPublic?: boolean; description?: string | null },
+    patch: { name: string; isPublic: boolean; description: string | null },
   ): Promise<ClipSummary>;
   delete(clipId: string): Promise<void>;
   /** A clip's notes (`clips/notes`). */

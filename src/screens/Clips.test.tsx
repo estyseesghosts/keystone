@@ -80,16 +80,20 @@ async function setup({backend, params}: {backend?: any; params?: {addNoteId?: st
 }
 
 const fullClips = () => ({
-  list: jest.fn(async () => [
-    {id: 'c1', name: 'Fun', isPublic: false, notesCount: 3},
-    {id: 'c2', name: 'Work', isPublic: true, notesCount: 0},
-  ]),
+  list: jest.fn(async () => ({
+    items: [
+      {id: 'c1', name: 'Fun', isPublic: false, notesCount: 3},
+      {id: 'c2', name: 'Work', isPublic: true, notesCount: 0},
+    ],
+    cursor: null,
+    end: true,
+  })),
   create: jest.fn(async (name: string, opts?: {isPublic?: boolean}) => ({
     id: 'c3',
     name,
     isPublic: opts?.isPublic ?? false,
   })),
-  update: jest.fn(async (id: string, patch: {name: string}) => ({id, name: patch.name})),
+  update: jest.fn(async (id: string, patch: {name: string; isPublic: boolean; description: string | null}) => ({id, name: patch.name, isPublic: patch.isPublic, description: patch.description})),
   delete: jest.fn(async () => undefined),
 })
 
@@ -156,7 +160,7 @@ describe('Clips screen', () => {
       fireEvent.changeText(screen.getByTestId('clips-rename-input-c1'), 'Play')
       fireEvent.press(screen.getByTestId('clips-rename-save-c1'))
       await waitFor(() =>
-        expect(backend.clips.update).toHaveBeenCalledWith('c1', {name: 'Play', isPublic: false}),
+        expect(backend.clips.update).toHaveBeenCalledWith('c1', {name: 'Play', isPublic: false, description: null}),
       )
       expect(await screen.findByText('Play')).toBeTruthy()
     } finally {
@@ -173,7 +177,7 @@ describe('Clips screen', () => {
       fireEvent.press(screen.getByTestId('clips-rename-public-c1'))
       fireEvent.press(screen.getByTestId('clips-rename-save-c1'))
       await waitFor(() =>
-        expect(backend.clips.update).toHaveBeenCalledWith('c1', {name: 'Fun', isPublic: true}),
+        expect(backend.clips.update).toHaveBeenCalledWith('c1', {name: 'Fun', isPublic: true, description: null}),
       )
     } finally {
       done()
@@ -200,7 +204,7 @@ describe('Clips screen', () => {
     const list = jest
       .fn()
       .mockRejectedValueOnce(new Error('boom'))
-      .mockResolvedValue([{id: 'c1', name: 'Fun'}])
+      .mockResolvedValue({items: [{id: 'c1', name: 'Fun'}], cursor: null, end: true})
     const {done} = await setup({
       backend: {family: 'misskey', capabilities: {clips: 'supported'}, clips: {list}},
     })
