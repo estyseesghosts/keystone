@@ -1,10 +1,11 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
 Phase: **P6.5 Pages program IN PROGRESS** (plan `docs/p6.5-pages.md`;
-task `docs/tasks/p6.5-pages.md`; branch `p6.5-pages`, uncommitted; do NOT
+task `docs/tasks/p6.5-pages.md`; branch `p6.5-pages`; do NOT
 merge without owner approval; never `git push`). Slices 0 (spike → ADR
-0016, option B) + 1 (fedi data layer) DONE, gate green. Next: slice 2
-(queries, routes, reader).
+0016, option B) + 1 (fedi data layer) + 2 (reader: routes, PageView,
+actions, card, screen, queries; commit `f98362a`) DONE, gate green.
+Next: slice 3 (index, profile tab, nav entry).
 ADR 0014 is taken — the plan's "ADR 0014" is filed as **0016**.
 Gate (this program): per-slice `pnpm typecheck && pnpm lint && pnpm test`
 green, pasted in each log; full-suite flat at pre-existing 90 required
@@ -41,6 +42,7 @@ Links:
 - Fix ADR: `docs/adr/0015-gapfill-keeps-mounted-pages.md` (accepted)
 - Fix task: `docs/tasks/fix-feed-gapfill-jump.md` (merged; owner repros open)
 - Latest logs: `state/logs/2026-10-30-p6.5-pages-program.md` (setup + slices 0–1),
+  `state/logs/2026-10-30-p6.5-pages-slice-2.md` (slice 2: reader),
   `state/logs/2026-10-30-merge-like-picker.md` (last merge),
   `state/logs/2026-10-29-fix-feed-gapfill-jump*.md` (gap-fill rounds 1–2),
   `state/logs/2026-10-29-polish-*.md` (polish 1–8, one per slice)
