@@ -1,22 +1,21 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase: **feed gap-fill jump fix IN PROGRESS** (branch `fix/feed-gapfill-jump`,
-cut from the `polish/8-media-caps` dirty tree; do NOT merge without owner
-approval; never `git push`). Visual-polish program 2026-10-29 COMPLETE
-(slices 1–6, unmerged). Repair program 2026-10-25 remains COMPLETE (59/59).
-Active branch: `fix/feed-gapfill-jump` (was `polish/8-media-caps`; owner
-follow-up 520 caps + feed-fill underneath, untouched).
-Gate (this branch): typecheck (ios+android+web) + lint clean (both rounds); targeted
-suites green — round 1 (streaming-lifecycle 25; streaming + usePagedLoad +
-HomeFeed + HomeFeed.live 59), round 2 (streaming-lifecycle + keys +
-lifecycle 45). Full `pnpm test` NOT run — must confirm flat at
-pre-existing 90 before merge. `pnpm build-web` exports;
-visual/device inspection `not verified` (owner repros: Home deep-scroll +
-socket-kill; rec feed hands-off through a reconnect).
-Prior polish baseline (unmerged chain `p6.5-unread-counter` → `polish/1-thread-order`
-→ `2-shell` → `3-widget-core` → `4-rail-editor` → `5-nav-polish` →
-`polish/6-regression` → `7-feed-fill` → `8-media-caps`): typecheck + lint
-clean; `pnpm test` → 302 suites / 4243 tests: 4153 pass, 90 fail — all 90
+Phase: **batch merged to `main` 2026-10-30** (`6f49197`: P6.5 unread
+badge + visual-polish 1–8 + feed gap-fill fix, two rounds). Only branch
+left is `main`; all ten program branches pruned. Tree clean.
+Gate (merge commit): typecheck (ios+android+web) + lint clean; `pnpm test`
+→ 303 suites / 4260 tests: 4170 pass, 90 fail — all 90 the pre-existing
+content/linkpreview/richtext/post set (13 suites), unchanged from the
+2026-10-28 clean-tree baseline. Zero attributable failures.
+`pnpm build-web` exports; visual/device inspection `not verified`
+(owner repros still open: Home deep-scroll + socket-kill; rec feed
+hands-off through a reconnect).
+Prior polish baseline (merged to `main` 2026-10-30 as `6f49197` — chain
+`p6.5-unread-counter` → `polish/1-thread-order` → `2-shell` →
+`3-widget-core` → `4-rail-editor` → `5-nav-polish` →
+`polish/6-regression` → `7-feed-fill` → `8-media-caps` →
+`fix/feed-gapfill-jump`, all pruned): typecheck + lint
+clean; `pnpm test` → 303 suites / 4260 tests: 4170 pass, 90 fail — all 90
 pre-existing content/link/richtext/post failures, unchanged since the
 2026-10-28 clean-tree verification. Zero program-attributable failures.
 `pnpm build-web` exports; visual/device inspection `not verified`.
@@ -36,13 +35,13 @@ Owner actions (all collected in `docs/audit_20261025/device-checks.md`
    `assetlinks.json`, `app.config.js` name/bundle identifiers.
 
 Links:
-- Plan: `docs/visual-polish.md` (all 6 deliverables implemented, unmerged)
-- Task: `docs/tasks/visual-polish.md` (all slice boxes done; owner visual checks open)
-- P6.5 task: `docs/tasks/p6.5-unread-counter.md` (in progress, steps 1–4 done)
+- Plan: `docs/visual-polish.md` (all 6 deliverables implemented, merged)
+- Task: `docs/tasks/visual-polish.md` (merged; owner visual checks open)
+- P6.5 task: `docs/tasks/p6.5-unread-counter.md` (merged; owner visual checks open)
 - P6.5 ADR: `docs/adr/0014-notification-unread-source.md` (accepted)
 - Fix ADR: `docs/adr/0015-gapfill-keeps-mounted-pages.md` (accepted)
-- Fix task: `docs/tasks/fix-feed-gapfill-jump.md` (in progress, steps 1–4 done; owner repro + full suite open)
-- Latest logs: `state/logs/2026-10-29-fix-feed-gapfill-jump-2.md` (ranked-feed reroll round),
+- Fix task: `docs/tasks/fix-feed-gapfill-jump.md` (merged; owner repros open)
+- Latest logs: `state/logs/2026-10-30-merge-batch.md` (this merge),
   `state/logs/2026-10-29-fix-feed-gapfill-jump.md` (round 1: active-trim fix),
   `state/logs/2026-10-29-polish-7-feed-fill.md` (feed fill),
   `state/logs/2026-10-29-polish-*.md` (1–6, one per slice)
