@@ -180,6 +180,11 @@ msgstr "{0} (was {1})"
 msgid "{0} / {clipLimit}"
 msgstr "{0} / {clipLimit}"
 
+#. placeholder {0}: clip.notesCount
+#: src/screens/Clip.tsx:223
+msgid "{0} / {noteLimit} notes"
+msgstr "{0} / {noteLimit} notes"
+
 #. placeholder {0}: queueCountDisplay(counts.active)
 #. placeholder {1}: queueCountDisplay(counts.waiting)
 #. placeholder {2}: queueCountDisplay(counts.delayed)
@@ -202,6 +207,11 @@ msgstr "{0} boosted"
 #: src/screens/AdminInsight.tsx:195
 msgid "{0} logins"
 msgstr "{0} logins"
+
+#. placeholder {0}: clip.notesCount
+#: src/screens/Clip.tsx:225
+msgid "{0} notes"
+msgstr "{0} notes"
 
 #. placeholder {0}: w.statuses ?? '—'
 #: src/screens/AdminInsight.tsx:194
@@ -333,7 +343,7 @@ msgstr "{total, plural, one {Image {position} of {total}} other {Image {position
 msgid "{unread} new"
 msgstr "{unread} new"
 
-#: src/components/Post/menuModel.ts:152
+#: src/components/Post/menuModel.ts:155
 msgid "{what} is not available in this build yet."
 msgstr "{what} is not available in this build yet."
 
@@ -418,7 +428,7 @@ msgstr "Accessibility and display"
 msgid "errors.shape.account"
 msgstr "Account {id} returned an unexpected response shape."
 
-#: src/components/Post/menuModel.ts:277
+#: src/components/Post/menuModel.ts:280
 msgid "Account actions are not connected to this view yet."
 msgstr "Account actions are not connected to this view yet."
 
@@ -427,7 +437,7 @@ msgstr "Account actions are not connected to this view yet."
 msgid "Account menu"
 msgstr "Account menu"
 
-#: src/components/Post/menuModel.ts:217
+#: src/components/Post/menuModel.ts:220
 msgid "Account relations are not connected to this view yet."
 msgstr "Account relations are not connected to this view yet."
 
@@ -535,23 +545,23 @@ msgstr "Add recipient"
 
 #. placeholder {0}: bmLabel.toLowerCase()
 #. placeholder {0}: l.name
-#: src/components/Post/menuModel.ts:383
 #: src/components/Post/menuModel.ts:386
+#: src/components/Post/menuModel.ts:389
 #: src/components/ProfileActions/ProfileActions.tsx:163
 msgid "Add to {0}"
 msgstr "Add to {0}"
 
-#: src/components/Post/menuModel.ts:246
+#: src/components/Post/menuModel.ts:249
 msgid "Add to antenna"
 msgstr "Add to antenna"
 
-#: src/components/Post/menuModel.ts:143
 #: src/components/Post/menuModel.ts:146
-#: src/components/Post/menuModel.ts:148
+#: src/components/Post/menuModel.ts:149
+#: src/components/Post/menuModel.ts:151
 msgid "Add to clip"
 msgstr "Add to clip"
 
-#: src/components/Post/menuModel.ts:245
+#: src/components/Post/menuModel.ts:248
 #: src/components/ProfileActions/ProfileActions.tsx:154
 msgid "Add to list"
 msgstr "Add to list"
@@ -898,14 +908,14 @@ msgstr "Bio (MFM)"
 msgid "Birthday"
 msgstr "Birthday"
 
-#: src/components/Post/menuModel.ts:216
-#: src/components/Post/menuModel.ts:253
+#: src/components/Post/menuModel.ts:219
+#: src/components/Post/menuModel.ts:256
 #: src/components/ProfileActions/ProfileActions.tsx:82
 #: src/components/Settings/MuteBlockSearch.tsx:203
 msgid "Block"
 msgstr "Block"
 
-#: src/components/Post/menuModel.ts:216
+#: src/components/Post/menuModel.ts:219
 msgid "Block {handle}?"
 msgstr "Block {handle}?"
 
@@ -943,7 +953,7 @@ msgstr "Blocked you"
 msgid "blocks"
 msgstr "blocks"
 
-#: src/components/Post/menuModel.ts:378
+#: src/components/Post/menuModel.ts:381
 msgid "Bookmark"
 msgstr "Bookmark"
 
@@ -955,12 +965,12 @@ msgstr "Bookmarked"
 msgid "Bookmarks"
 msgstr "Bookmarks"
 
-#: src/screens/Favorites.tsx:29
+#: src/screens/Favorites.tsx:62
 msgctxt "saved posts screen title"
 msgid "Bookmarks"
 msgstr "Bookmarks"
 
-#: src/screens/Favorites.tsx:35
+#: src/screens/Favorites.tsx:67
 msgid "Bookmarks are not available on this server."
 msgstr "Bookmarks are not available on this server."
 
@@ -1125,7 +1135,6 @@ msgstr "Check for the file"
 #: src/components/Recommendations/RecommendationsFeed.tsx:105
 #: src/screens/Antenna.tsx:118
 #: src/screens/Channel.tsx:140
-#: src/screens/Clip.tsx:98
 #: src/screens/HomeFeed.tsx:368
 #: src/screens/List.tsx:98
 msgid "Check your connection and try again."
@@ -1214,12 +1223,10 @@ msgid "Clearing…"
 msgstr "Clearing…"
 
 #: src/routes.ts:386
-#: src/screens/Clip.tsx:67
 #: src/screens/Clip.tsx:78
-#: src/screens/Clip.tsx:87
-#: src/screens/Clip.tsx:96
-#: src/screens/Clip.tsx:125
-#: src/screens/Clip.tsx:134
+#: src/screens/Clip.tsx:89
+#: src/screens/Clip.tsx:98
+#: src/screens/Clip.tsx:109
 msgid "Clip"
 msgstr "Clip"
 
@@ -1231,11 +1238,12 @@ msgstr "Clip limit reached ({clipLimit})."
 msgid "Clip name"
 msgstr "Clip name"
 
-#: src/screens/Clips.tsx:281
+#: src/screens/Clip.tsx:240
+#: src/screens/Clips.tsx:282
 msgid "Clip options"
 msgstr "Clip options"
 
-#: src/components/Post/menuModel.ts:151
+#: src/components/Post/menuModel.ts:154
 #: src/components/richtext/MatrixHover.tsx:32
 #: src/components/richtext/MatrixHover.tsx:63
 msgid "Clipboard is not available on this platform."
@@ -1250,15 +1258,12 @@ msgstr "clips"
 #: src/screens/Clips.tsx:167
 #: src/screens/Clips.tsx:189
 #: src/screens/Clips.tsx:209
+#: src/screens/Favorites.tsx:113
 msgid "Clips"
 msgstr "Clips"
 
-#: src/screens/Favorites.tsx:67
-msgctxt "navigation button"
-msgid "Clips"
-msgstr "Clips"
-
-#: src/screens/Clip.tsx:79
+#: src/screens/Clip.tsx:90
+#: src/screens/Clip.tsx:112
 #: src/screens/Clips.tsx:198
 msgid "Clips are not available on this server."
 msgstr "Clips are not available on this server."
@@ -1268,7 +1273,7 @@ msgstr "Clips are not available on this server."
 msgid "errors.unsupported.clips"
 msgstr "Clips are not available on this server."
 
-#: src/screens/Clip.tsx:69
+#: src/screens/Clip.tsx:80
 msgid "Clips never show sample data when signed out."
 msgstr "Clips never show sample data when signed out."
 
@@ -1360,7 +1365,8 @@ msgid "Confirm"
 msgstr "Confirm"
 
 #: src/screens/Antennas.tsx:230
-#: src/screens/Clips.tsx:324
+#: src/screens/Clip.tsx:267
+#: src/screens/Clips.tsx:325
 msgid "Confirm delete"
 msgstr "Confirm delete"
 
@@ -1394,10 +1400,11 @@ msgstr "Conversation"
 
 #: src/components/Post/PostCard.tsx:497
 #: src/components/richtext/MatrixHover.tsx:30
+#: src/screens/Clip.tsx:184
 msgid "Copied"
 msgstr "Copied"
 
-#: src/components/Post/menuModel.ts:325
+#: src/components/Post/menuModel.ts:328
 msgid "Copy contents"
 msgstr "Copy contents"
 
@@ -1405,24 +1412,25 @@ msgstr "Copy contents"
 msgid "Copy handle"
 msgstr "Copy handle"
 
-#: src/components/Post/menuModel.ts:327
-#: src/components/Post/menuModel.ts:328
+#: src/components/Post/menuModel.ts:330
+#: src/components/Post/menuModel.ts:331
+#: src/screens/Clip.tsx:231
 msgid "Copy link"
 msgstr "Copy link"
 
-#: src/components/Post/menuModel.ts:236
+#: src/components/Post/menuModel.ts:239
 msgid "Copy profile URL"
 msgstr "Copy profile URL"
 
-#: src/components/Post/menuModel.ts:346
+#: src/components/Post/menuModel.ts:349
 msgid "Copy remote link"
 msgstr "Copy remote link"
 
-#: src/components/Post/menuModel.ts:240
+#: src/components/Post/menuModel.ts:243
 msgid "Copy RSS"
 msgstr "Copy RSS"
 
-#: src/components/Post/menuModel.ts:235
+#: src/components/Post/menuModel.ts:238
 msgid "Copy username"
 msgstr "Copy username"
 
@@ -1455,6 +1463,10 @@ msgstr "Could not clear notifications."
 msgid "Could not complete this action."
 msgstr "Could not complete this action."
 
+#: src/screens/Clip.tsx:186
+msgid "Could not copy the link."
+msgstr "Could not copy the link."
+
 #: src/screens/Antennas.tsx:90
 msgid "Could not create the antenna."
 msgstr "Could not create the antenna."
@@ -1471,6 +1483,7 @@ msgstr "Could not create the list."
 msgid "Could not delete the antenna."
 msgstr "Could not delete the antenna."
 
+#: src/screens/Clip.tsx:198
 #: src/screens/Clips.tsx:116
 msgid "Could not delete the clip."
 msgstr "Could not delete the clip."
@@ -1537,7 +1550,7 @@ msgstr "Could not load channels."
 msgid "Could not load chats."
 msgstr "Could not load chats."
 
-#: src/screens/Clips.tsx:298
+#: src/screens/Clips.tsx:299
 msgid "Could not load clips."
 msgstr "Could not load clips."
 
@@ -1690,7 +1703,7 @@ msgstr "Could not load this antenna."
 msgid "Could not load this channel."
 msgstr "Could not load this channel."
 
-#: src/screens/Clip.tsx:97
+#: src/screens/Clip.tsx:115
 msgid "Could not load this clip."
 msgstr "Could not load this clip."
 
@@ -2064,12 +2077,13 @@ msgid "Default. Colourful open-source set."
 msgstr "Default. Colourful open-source set."
 
 #: src/components/Composer/ComposerSections.tsx:736
-#: src/components/Post/menuModel.ts:456
-#: src/components/Post/menuModel.ts:458
-#: src/components/Post/menuModel.ts:461
+#: src/components/Post/menuModel.ts:463
+#: src/components/Post/menuModel.ts:465
+#: src/components/Post/menuModel.ts:468
 #: src/screens/Antennas.tsx:248
 #: src/screens/ChatThread.tsx:129
-#: src/screens/Clips.tsx:284
+#: src/screens/Clip.tsx:243
+#: src/screens/Clips.tsx:285
 #: src/screens/Conversation.tsx:228
 #: src/screens/Conversations.tsx:98
 msgid "Delete"
@@ -2083,24 +2097,25 @@ msgid "Delete"
 msgstr "Delete"
 
 #. placeholder {0}: antenna.name
+#. placeholder {0}: clip.name
 #. placeholder {0}: deleteTarget.name
-#. placeholder {0}: file.name
 #: src/screens/Antennas.tsx:226
-#: src/screens/Clips.tsx:321
+#: src/screens/Clip.tsx:264
+#: src/screens/Clips.tsx:322
 #: src/screens/Drive/rows.tsx:119
 #: src/screens/Drive/rows.tsx:320
 #: src/screens/Lists.tsx:326
 msgid "Delete “{0}”? This cannot be undone."
 msgstr "Delete “{0}”? This cannot be undone."
 
-#: src/components/Post/menuModel.ts:435
-#: src/components/Post/menuModel.ts:439
+#: src/components/Post/menuModel.ts:442
 #: src/components/Post/menuModel.ts:446
-#: src/components/Post/menuModel.ts:450
+#: src/components/Post/menuModel.ts:453
+#: src/components/Post/menuModel.ts:457
 msgid "Delete and redraft"
 msgstr "Delete and redraft"
 
-#: src/components/Post/menuModel.ts:438
+#: src/components/Post/menuModel.ts:445
 msgid "Delete and redraft this post?"
 msgstr "Delete and redraft this post?"
 
@@ -2117,12 +2132,13 @@ msgstr "Delete message"
 msgid "Delete this draft"
 msgstr "Delete this draft"
 
-#: src/components/Post/menuModel.ts:458
+#: src/components/Post/menuModel.ts:465
 msgid "Delete this post?"
 msgstr "Delete this post?"
 
 #: src/screens/ChatThread.tsx:113
-#: src/screens/Clips.tsx:324
+#: src/screens/Clip.tsx:267
+#: src/screens/Clips.tsx:325
 #: src/screens/Conversation.tsx:212
 #: src/screens/Conversations.tsx:82
 msgid "Deleting…"
@@ -2333,11 +2349,12 @@ msgstr "Earlier reply context unavailable."
 msgid "earned an achievement"
 msgstr "earned an achievement"
 
-#: src/components/Post/menuModel.ts:394
-#: src/components/Post/menuModel.ts:396
-#: src/components/Post/menuModel.ts:397
+#: src/components/Post/menuModel.ts:401
+#: src/components/Post/menuModel.ts:403
+#: src/components/Post/menuModel.ts:404
 #: src/components/Settings/FiltersSection.tsx:178
-#: src/screens/Clips.tsx:283
+#: src/screens/Clip.tsx:242
+#: src/screens/Clips.tsx:284
 msgid "Edit"
 msgstr "Edit"
 
@@ -2350,7 +2367,7 @@ msgstr "Edit clip"
 msgid "Edit history"
 msgstr "Edit history"
 
-#: src/components/Post/menuModel.ts:244
+#: src/components/Post/menuModel.ts:247
 msgid "Edit memo"
 msgstr "Edit memo"
 
@@ -2498,22 +2515,22 @@ msgstr "Favorite"
 msgid "favorites"
 msgstr "favorites"
 
-#: src/components/Post/menuModel.ts:378
+#: src/components/Post/menuModel.ts:381
 #: src/routes.ts:420
 msgid "Favorites"
 msgstr "Favorites"
 
-#: src/screens/Favorites.tsx:32
-#: src/screens/Favorites.tsx:43
+#: src/screens/Favorites.tsx:65
+#: src/screens/Favorites.tsx:75
 msgctxt "saved posts screen title"
 msgid "Favorites"
 msgstr "Favorites"
 
-#: src/screens/Favorites.tsx:38
+#: src/screens/Favorites.tsx:70
 msgid "Favorites are not available on this server."
 msgstr "Favorites are not available on this server."
 
-#: src/screens/Favorites.tsx:45
+#: src/screens/Favorites.tsx:77
 msgid "Favorites never show sample data when signed out."
 msgstr "Favorites never show sample data when signed out."
 
@@ -2525,12 +2542,12 @@ msgstr "Favourite emoji"
 msgid "Favourites"
 msgstr "Favourites"
 
-#: src/screens/Favorites.tsx:31
+#: src/screens/Favorites.tsx:64
 msgctxt "saved posts screen title"
 msgid "Favourites"
 msgstr "Favourites"
 
-#: src/screens/Favorites.tsx:37
+#: src/screens/Favorites.tsx:69
 msgid "Favourites are not available on this server."
 msgstr "Favourites are not available on this server."
 
@@ -3034,7 +3051,8 @@ msgid "It may be deleted, suspended, or unreachable."
 msgstr "It may be deleted, suspended, or unreachable."
 
 #: src/screens/Antennas.tsx:237
-#: src/screens/Clips.tsx:331
+#: src/screens/Clip.tsx:274
+#: src/screens/Clips.tsx:332
 msgid "Keep"
 msgstr "Keep"
 
@@ -3584,13 +3602,13 @@ msgstr "Move up"
 msgid "Multiple choice"
 msgstr "Multiple choice"
 
-#: src/components/Post/menuModel.ts:251
+#: src/components/Post/menuModel.ts:254
 #: src/components/ProfileActions/ProfileActions.tsx:75
 #: src/components/Settings/MuteBlockSearch.tsx:169
 msgid "Mute"
 msgstr "Mute"
 
-#: src/components/Post/menuModel.ts:252
+#: src/components/Post/menuModel.ts:255
 msgid "Mute boosts"
 msgstr "Mute boosts"
 
@@ -3607,8 +3625,8 @@ msgstr "Mute reposts"
 msgid "Mute this hashtag"
 msgstr "Mute this hashtag"
 
-#: src/components/Post/menuModel.ts:375
-#: src/components/Post/menuModel.ts:376
+#: src/components/Post/menuModel.ts:378
+#: src/components/Post/menuModel.ts:379
 msgid "Mute thread"
 msgstr "Mute thread"
 
@@ -3815,13 +3833,13 @@ msgstr "No channels found on this server."
 msgid "No chat rooms yet."
 msgstr "No chat rooms yet."
 
-#: src/components/Post/menuModel.ts:146
+#: src/components/Post/menuModel.ts:149
 msgid "No clip picker is connected to this view."
 msgstr "No clip picker is connected to this view."
 
 #: src/components/Post/ActionBar.tsx:224
 #: src/components/Post/ActionBar.tsx:302
-#: src/components/Post/menuModel.ts:448
+#: src/components/Post/menuModel.ts:455
 msgid "No composer is connected to this view."
 msgstr "No composer is connected to this view."
 
@@ -3851,7 +3869,7 @@ msgstr "No drafts on this device."
 msgid "No drafts yet."
 msgstr "No drafts yet."
 
-#: src/components/Post/menuModel.ts:397
+#: src/components/Post/menuModel.ts:404
 msgid "No editor is connected to this view."
 msgstr "No editor is connected to this view."
 
@@ -3889,7 +3907,7 @@ msgstr "No followers yet."
 msgid "errors.drive.noSpace"
 msgstr "No free Drive space."
 
-#: src/components/Post/menuModel.ts:176
+#: src/components/Post/menuModel.ts:179
 msgid "No message composer is connected to this view yet."
 msgstr "No message composer is connected to this view yet."
 
@@ -3922,7 +3940,7 @@ msgstr "No one"
 msgid "No posts yet"
 msgstr "No posts yet"
 
-#: src/components/Post/menuModel.ts:236
+#: src/components/Post/menuModel.ts:239
 msgid "No profile URL known."
 msgstr "No profile URL known."
 
@@ -3997,7 +4015,7 @@ msgstr "Not built yet"
 msgid "Not following anyone yet."
 msgstr "Not following anyone yet."
 
-#: src/components/Post/menuModel.ts:417
+#: src/components/Post/menuModel.ts:424
 #: src/components/Recommendations/RecommendationReasonDialog.tsx:35
 msgid "Not interested"
 msgstr "Not interested"
@@ -4063,7 +4081,7 @@ msgstr "Notes using this file"
 msgid "Nothing here yet."
 msgstr "Nothing here yet."
 
-#: src/components/Post/menuModel.ts:201
+#: src/components/Post/menuModel.ts:204
 msgid "Nothing to copy."
 msgstr "Nothing to copy."
 
@@ -4112,7 +4130,7 @@ msgstr "Notifications"
 msgid "Notifications never show sample data when signed out."
 msgstr "Notifications never show sample data when signed out."
 
-#: src/components/Post/menuModel.ts:247
+#: src/components/Post/menuModel.ts:250
 msgid "Notify about new posts"
 msgstr "Notify about new posts"
 
@@ -4215,8 +4233,8 @@ msgstr "Open attachment {label}"
 msgid "Open clip {0}"
 msgstr "Open clip {0}"
 
-#: src/components/Post/menuModel.ts:227
-#: src/components/Post/menuModel.ts:341
+#: src/components/Post/menuModel.ts:230
+#: src/components/Post/menuModel.ts:344
 msgid "Open in Keystone"
 msgstr "Open in Keystone"
 
@@ -4434,7 +4452,7 @@ msgstr "Pin groups to the top of the picker, or hide the ones you never use."
 msgid "Pin server groups to the top of the picker, or hide the ones you never use. Unhide restores a hidden group."
 msgstr "Pin server groups to the top of the picker, or hide the ones you never use. Unhide restores a hidden group."
 
-#: src/components/Post/menuModel.ts:398
+#: src/components/Post/menuModel.ts:405
 msgid "Pin to profile"
 msgstr "Pin to profile"
 
@@ -4598,6 +4616,10 @@ msgstr "Previous"
 msgid "Privacy shield"
 msgstr "Privacy shield"
 
+#: src/screens/Clip.tsx:218
+msgid "Private"
+msgstr "Private"
+
 #: src/screens/Notifications.tsx:430
 msgid "Private mentions"
 msgstr "Private mentions"
@@ -4635,6 +4657,7 @@ msgid "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 msgstr "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 
 #: src/components/Clips/ClipDialog.tsx:84
+#: src/screens/Clip.tsx:218
 msgid "Public"
 msgstr "Public"
 
@@ -4790,7 +4813,7 @@ msgstr "Reconnecting…"
 msgid "Recorded {0} of {1} choices. Retry sends only the rest."
 msgstr "Recorded {0} of {1} choices. Retry sends only the rest."
 
-#: src/components/Post/menuModel.ts:254
+#: src/components/Post/menuModel.ts:257
 msgid "Refresh remote data"
 msgstr "Refresh remote data"
 
@@ -4903,14 +4926,26 @@ msgstr "Remove field"
 
 #. placeholder {0}: bmLabel.toLowerCase()
 #. placeholder {0}: l.name
-#: src/components/Post/menuModel.ts:383
+#: src/components/Post/menuModel.ts:386
 #: src/components/ProfileActions/ProfileActions.tsx:163
 msgid "Remove from {0}"
 msgstr "Remove from {0}"
 
+#: src/screens/Favorites.tsx:46
+msgid "Remove from Bookmarks"
+msgstr "Remove from Bookmarks"
+
 #: src/components/EmojiPicker/EmojiPicker.tsx:312
 msgid "Remove from favourites"
 msgstr "Remove from favourites"
+
+#: src/screens/Favorites.tsx:46
+msgid "Remove from Favourites"
+msgstr "Remove from Favourites"
+
+#: src/screens/Clip.tsx:53
+msgid "Remove from this clip"
+msgstr "Remove from this clip"
 
 #: src/components/Composer/ComposerSections.tsx:209
 msgid "Remove last"
@@ -4990,9 +5025,9 @@ msgstr "Replying to @{0}"
 msgid "Replying to a post."
 msgstr "Replying to a post."
 
-#: src/components/Post/menuModel.ts:269
-#: src/components/Post/menuModel.ts:275
-#: src/components/Post/menuModel.ts:285
+#: src/components/Post/menuModel.ts:272
+#: src/components/Post/menuModel.ts:278
+#: src/components/Post/menuModel.ts:288
 #: src/routes.ts:416
 #: src/screens/AdminReportDetail.tsx:154
 #: src/screens/AdminReportDetail.tsx:165
@@ -5000,7 +5035,7 @@ msgstr "Replying to a post."
 msgid "Report"
 msgstr "Report"
 
-#: src/components/Post/menuModel.ts:287
+#: src/components/Post/menuModel.ts:290
 msgid "Report {handle}"
 msgstr "Report {handle}"
 
@@ -5164,7 +5199,7 @@ msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach i
 #: src/screens/ChatRooms.tsx:154
 #: src/screens/ChatThread.tsx:229
 #: src/screens/ChatThread.tsx:279
-#: src/screens/Clip.tsx:100
+#: src/screens/Clip.tsx:119
 #: src/screens/Conversation.tsx:158
 #: src/screens/Conversations.tsx:192
 #: src/screens/Conversations.tsx:242
@@ -5293,6 +5328,10 @@ msgstr "Save this moderator note?"
 msgid "Save this moderator note? (Empty clears the note.)"
 msgstr "Save this moderator note? (Empty clears the note.)"
 
+#: src/screens/Favorites.tsx:109
+msgid "Saved posts"
+msgstr "Saved posts"
+
 #: src/components/Settings/WordFields.tsx:102
 msgid "Saved."
 msgstr "Saved."
@@ -5383,7 +5422,7 @@ msgstr "Search emoji"
 msgid "Search failed."
 msgstr "Search failed."
 
-#: src/components/Post/menuModel.ts:241
+#: src/components/Post/menuModel.ts:244
 msgid "Search this user's notes"
 msgstr "Search this user's notes"
 
@@ -5408,9 +5447,9 @@ msgstr "Secure random values are unavailable on this device."
 msgid "Send"
 msgstr "Send"
 
-#: src/components/Post/menuModel.ts:166
-#: src/components/Post/menuModel.ts:174
-#: src/components/Post/menuModel.ts:179
+#: src/components/Post/menuModel.ts:169
+#: src/components/Post/menuModel.ts:177
+#: src/components/Post/menuModel.ts:182
 msgid "Send a message"
 msgstr "Send a message"
 
@@ -5418,7 +5457,7 @@ msgstr "Send a message"
 msgid "Send an anonymized copy of this report to that server's moderators as well."
 msgstr "Send an anonymized copy of this report to that server's moderators as well."
 
-#: src/components/Post/menuModel.ts:288
+#: src/components/Post/menuModel.ts:291
 msgid "Send report"
 msgstr "Send report"
 
@@ -5538,8 +5577,8 @@ msgstr "Session info and sign out."
 msgid "Settings"
 msgstr "Settings"
 
-#: src/components/Post/menuModel.ts:353
-#: src/components/Post/menuModel.ts:354
+#: src/components/Post/menuModel.ts:356
+#: src/components/Post/menuModel.ts:357
 msgid "Share"
 msgstr "Share"
 
@@ -5547,7 +5586,7 @@ msgstr "Share"
 msgid "Share of the feed from follows (max 7 days old, unseen). 0% = off."
 msgstr "Share of the feed from follows (max 7 days old, unseen). 0% = off."
 
-#: src/components/Post/menuModel.ts:318
+#: src/components/Post/menuModel.ts:321
 msgid "Sharing or copying it can expose it beyond its audience."
 msgstr "Sharing or copying it can expose it beyond its audience."
 
@@ -5679,7 +5718,7 @@ msgstr "Sign in again"
 msgid "Sign in again to grant it. Everything this sign-in can already do keeps working."
 msgstr "Sign in again to grant it. Everything this sign-in can already do keeps working."
 
-#: src/components/Post/menuModel.ts:371
+#: src/components/Post/menuModel.ts:374
 msgid "Sign in again to refresh server features."
 msgstr "Sign in again to refresh server features."
 
@@ -5691,8 +5730,8 @@ msgstr "Sign in again to refresh this account's permissions."
 msgid "Sign in to browse this tag."
 msgstr "Sign in to browse this tag."
 
-#: src/components/Post/menuModel.ts:269
-#: src/components/Post/menuModel.ts:376
+#: src/components/Post/menuModel.ts:272
+#: src/components/Post/menuModel.ts:379
 msgid "Sign in to do this."
 msgstr "Sign in to do this."
 
@@ -5799,7 +5838,7 @@ msgstr "Sign in to see this antenna."
 msgid "Sign in to see this channel."
 msgstr "Sign in to see this channel."
 
-#: src/screens/Clip.tsx:68
+#: src/screens/Clip.tsx:79
 msgid "Sign in to see this clip."
 msgstr "Sign in to see this clip."
 
@@ -5834,7 +5873,7 @@ msgid "drive.signedOut"
 msgstr "Sign in to see your drive."
 
 #. js-lingui-explicit-id
-#: src/screens/Favorites.tsx:44
+#: src/screens/Favorites.tsx:76
 msgid "favorites.signedOut"
 msgstr "Sign in to see your favorites."
 
@@ -6357,7 +6396,7 @@ msgstr "This channel does not exist."
 msgid "This channel is archived."
 msgstr "This channel is archived."
 
-#: src/screens/Clip.tsx:126
+#: src/screens/Clip.tsx:114
 msgid "This clip does not exist."
 msgstr "This clip does not exist."
 
@@ -6396,8 +6435,8 @@ msgstr "This list is not visible to you."
 msgid "This photo contains location data, which will be sent unchanged."
 msgstr "This photo contains location data, which will be sent unchanged."
 
-#: src/components/Post/menuModel.ts:328
-#: src/components/Post/menuModel.ts:354
+#: src/components/Post/menuModel.ts:331
+#: src/components/Post/menuModel.ts:357
 msgid "This post has no known link."
 msgstr "This post has no known link."
 
@@ -6406,8 +6445,8 @@ msgstr "This post has no known link."
 msgid "errors.shape.noPoll"
 msgstr "This post has no poll to vote in."
 
-#: src/components/Post/menuModel.ts:325
-#: src/components/Post/menuModel.ts:369
+#: src/components/Post/menuModel.ts:328
+#: src/components/Post/menuModel.ts:372
 msgid "This post has no text."
 msgstr "This post has no text."
 
@@ -6415,7 +6454,7 @@ msgstr "This post has no text."
 msgid "This post is from an account you follow. It's still scored and ranked like discovery posts."
 msgstr "This post is from an account you follow. It's still scored and ranked like discovery posts."
 
-#: src/components/Post/menuModel.ts:317
+#: src/components/Post/menuModel.ts:320
 msgid "This post isn't public"
 msgstr "This post isn't public"
 
@@ -6514,7 +6553,7 @@ msgstr "This server does not publish the announcement endpoints Keystone reads."
 msgid "This server does not report whether you follow this channel."
 msgstr "This server does not report whether you follow this channel."
 
-#: src/components/Post/menuModel.ts:394
+#: src/components/Post/menuModel.ts:401
 msgid "This server does not support editing posts."
 msgstr "This server does not support editing posts."
 
@@ -6555,7 +6594,7 @@ msgstr "This server has no {kind} import."
 msgid "This server has no chat."
 msgstr "This server has no chat."
 
-#: src/components/Post/menuModel.ts:143
+#: src/components/Post/menuModel.ts:146
 msgid "This server has no clips."
 msgstr "This server has no clips."
 
@@ -6603,7 +6642,7 @@ msgstr "This server has no repost-mute list."
 msgid "This server has no state for this hashtag yet."
 msgstr "This server has no state for this hashtag yet."
 
-#: src/components/Post/menuModel.ts:372
+#: src/components/Post/menuModel.ts:375
 msgid "This server has no translation service."
 msgstr "This server has no translation service."
 
@@ -6697,8 +6736,8 @@ msgstr "Timeline {kind} returned an unexpected response shape (HTTP {status})."
 msgid "Tomorrow 9:00"
 msgstr "Tomorrow 9:00"
 
-#: src/components/Post/menuModel.ts:360
 #: src/components/Post/menuModel.ts:363
+#: src/components/Post/menuModel.ts:366
 msgid "Translate"
 msgstr "Translate"
 
@@ -6803,7 +6842,7 @@ msgstr "Type: Score"
 msgid "Unavailable"
 msgstr "Unavailable"
 
-#: src/components/Post/menuModel.ts:253
+#: src/components/Post/menuModel.ts:256
 #: src/components/ProfileActions/ProfileActions.tsx:40
 #: src/components/ProfileActions/ProfileActions.tsx:82
 #: src/components/Settings/DomainBlocks.tsx:186
@@ -6859,7 +6898,7 @@ msgstr "Unknown account"
 msgid "Unlike, {count} likes"
 msgstr "Unlike, {count} likes"
 
-#: src/components/Post/menuModel.ts:251
+#: src/components/Post/menuModel.ts:254
 #: src/components/ProfileActions/ProfileActions.tsx:75
 #: src/components/Settings/MuteBlockSearch.tsx:161
 #: src/components/Settings/MuteBlockSearch.tsx:178
@@ -6867,7 +6906,7 @@ msgstr "Unlike, {count} likes"
 msgid "Unmute"
 msgstr "Unmute"
 
-#: src/components/Post/menuModel.ts:252
+#: src/components/Post/menuModel.ts:255
 msgid "Unmute boosts"
 msgstr "Unmute boosts"
 
@@ -6897,7 +6936,7 @@ msgctxt "emoji group toggle"
 msgid "Unpin"
 msgstr "Unpin"
 
-#: src/components/Post/menuModel.ts:398
+#: src/components/Post/menuModel.ts:405
 msgid "Unpin from profile"
 msgstr "Unpin from profile"
 
@@ -7012,7 +7051,7 @@ msgstr "Use an http(s) instance address, e.g. example.com."
 msgid "Use emoji as like"
 msgstr "Use emoji as like"
 
-#: src/components/Post/menuModel.ts:401
+#: src/components/Post/menuModel.ts:408
 msgid "User"
 msgstr "User"
 
@@ -7085,8 +7124,8 @@ msgstr "View edit history"
 msgid "View insight"
 msgstr "View insight"
 
-#: src/components/Post/menuModel.ts:231
-#: src/components/Post/menuModel.ts:347
+#: src/components/Post/menuModel.ts:234
+#: src/components/Post/menuModel.ts:350
 msgid "View on remote instance"
 msgstr "View on remote instance"
 
@@ -7175,7 +7214,7 @@ msgstr "Who can see this post: {0}. Change audience."
 msgid "Why are you reporting this?"
 msgstr "Why are you reporting this?"
 
-#: src/components/Post/menuModel.ts:412
+#: src/components/Post/menuModel.ts:419
 #: src/components/Recommendations/RecommendationReasonDialog.tsx:58
 msgid "Why is this post recommended?"
 msgstr "Why is this post recommended?"
@@ -7295,7 +7334,7 @@ msgstr "You follow this account."
 msgid "You have no antennas yet."
 msgstr "You have no antennas yet."
 
-#: src/screens/Clips.tsx:300
+#: src/screens/Clips.tsx:301
 msgid "You have no clips yet."
 msgstr "You have no clips yet."
 

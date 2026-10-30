@@ -126,6 +126,44 @@ describe('clip row (W5)', () => {
   })
 })
 
+describe('remove-from-collection row (P6.6 slice 4)', () => {
+  function removeRow(removeFromCollection?: {label: string; run: jest.Mock}) {
+    const post = makePost()
+    const input = {
+      family: 'misskey',
+      capabilities: {clips: 'supported'},
+      post,
+      origin: 'https://misskey.example',
+      isOwn: false,
+      copyAvailable: true,
+      bookmark: {gate: {enabled: false, reason: 'x'}, value: false, set: jest.fn()},
+      del: {gate: {enabled: false, reason: 'x'}, run: jest.fn()},
+      handlers: {
+        copy: jest.fn(),
+        share: jest.fn(),
+        open: jest.fn(),
+        translate: jest.fn(),
+        muteThread: jest.fn(),
+        togglePin: jest.fn(),
+        ...(removeFromCollection ? {removeFromCollection} : {}),
+      },
+    } as never
+    return flatten(buildPostMenu(input)).find(i => i.key === 'remove-from-collection')
+  }
+
+  it('appears with the screen label and runs the handler', () => {
+    const run = jest.fn()
+    const row = removeRow({label: 'Remove from this clip', run})!
+    expect(row.label).toBe('Remove from this clip')
+    row.run!()
+    expect(run).toHaveBeenCalled()
+  })
+
+  it('is absent without a connected collection', () => {
+    expect(removeRow()).toBeUndefined()
+  })
+})
+
 describe('DM row (2.1 — inbox ships on mastodon + akkoma; 2.2 — chat ships on misskey + sharkey)', () => {
   function dmInput(opts: {caps?: unknown; onMessage?: () => void; family?: 'mastodon' | 'misskey'; flavor?: 'mastodon' | 'akkoma' | 'pleroma' | 'misskey' | 'sharkey' | 'catodon' | 'pinetree' | 'unknown'} = {}) {
     const post = makePost()
