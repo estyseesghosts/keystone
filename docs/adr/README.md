@@ -20,6 +20,7 @@ Load-bearing decisions. Numbered, append-only, never renumbered.
 | [0013](0013-poll-hidden-totals.md) | Poll hidden totals: PollOption.votesCount nullable | 2026-10-25 | accepted |
 | [0014](0014-notification-unread-source.md) | Notification unread count is server-authoritative (reverses W4 N18 cache-only) | 2026-10-28 | accepted |
 | [0015](0015-gapfill-keeps-mounted-pages.md) | Gap-fill never rewrites a mounted feed's pages (invalidate active, trim inactive) | 2026-10-29 | accepted |
+| [0016](0016-page-editor-formatting.md) | Page editor formatting: render-on-blur (live-markdown rejected — guard downgrade + node_modules patch + worklet fork) | 2026-10-30 | accepted |
 
 ## When to write one
 
