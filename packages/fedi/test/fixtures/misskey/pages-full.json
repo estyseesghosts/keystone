@@ -1,0 +1,76 @@
+{
+  "id": "9pagesfull00001",
+  "createdAt": "2026-10-20T12:00:00.000Z",
+  "updatedAt": "2026-10-21T12:00:00.000Z",
+  "userId": "9sharkeyuser00001",
+  "user": {
+    "id": "9sharkeyuser00001",
+    "name": "Sharkey User",
+    "username": "sk",
+    "host": null,
+    "avatarUrl": "https://sharkey.example.com/avatars/sk.png",
+    "avatarBlurhash": null,
+    "isBot": false,
+    "isCat": false,
+    "emojis": {},
+    "onlineStatus": "online"
+  },
+  "content": [
+    {"id": "b1", "type": "text", "text": "Hello **world**"},
+    {"id": "b2", "type": "section", "title": "Part one", "children": [
+      {"id": "b2a", "type": "text", "text": "nested"},
+      {"id": "b2b", "type": "section", "title": "Deep", "children": [
+        {"id": "b2b1", "type": "text", "text": "three deep"}
+      ]}
+    ]},
+    {"id": "b3", "type": "image", "fileId": "9drivefile0001"},
+    {"id": "b4", "type": "note", "note": "9note00000001", "detailed": true},
+    {"id": "b5", "type": "button", "title": "Legacy", "action": "dialog", "text": "kept verbatim"},
+    {"id": "b6", "type": "future-widget", "anything": [1, 2, 3]}
+  ],
+  "variables": [],
+  "title": "Full Page",
+  "name": "full-page",
+  "summary": "A page exercising every block kind.",
+  "hideTitleWhenPinned": true,
+  "alignCenter": false,
+  "font": "serif",
+  "script": "let x = 1;",
+  "eyeCatchingImageId": "9drivefile0001",
+  "eyeCatchingImage": {
+    "id": "9drivefile0001",
+    "createdAt": "2026-10-20T11:00:00.000Z",
+    "name": "cover.png",
+    "type": "image/png",
+    "md5": "abc",
+    "size": 1234,
+    "isSensitive": false,
+    "blurhash": null,
+    "properties": {"width": 800, "height": 400},
+    "url": "https://sharkey.example.com/files/cover.png",
+    "thumbnailUrl": "https://sharkey.example.com/files/cover-thumb.png",
+    "comment": null,
+    "folderId": null,
+    "userId": "9sharkeyuser00001"
+  },
+  "attachedFiles": [
+    {
+      "id": "9drivefile0001",
+      "createdAt": "2026-10-20T11:00:00.000Z",
+      "name": "cover.png",
+      "type": "image/png",
+      "md5": "abc",
+      "size": 1234,
+      "isSensitive": false,
+      "blurhash": null,
+      "properties": {"width": 800, "height": 400},
+      "url": "https://sharkey.example.com/files/cover.png",
+      "thumbnailUrl": "https://sharkey.example.com/files/cover-thumb.png",
+      "comment": null,
+      "folderId": null,
+      "userId": "9sharkeyuser00001"
+    }
+  ],
+  "likedCount": 3,
+  "isLiked": true
+}

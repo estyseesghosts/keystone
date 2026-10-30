@@ -1,0 +1,34 @@
+[
+  {
+    "id": "9pagelike00001",
+    "page": {
+      "id": "9pagesmin000001",
+      "userId": "9sharkeyuser00001",
+      "user": {
+        "id": "9sharkeyuser00001",
+        "name": "Sharkey User",
+        "username": "sk",
+        "host": null,
+        "avatarUrl": null,
+        "avatarBlurhash": null,
+        "isBot": false,
+        "isCat": false,
+        "emojis": {},
+        "onlineStatus": "online"
+      },
+      "content": [{"id": "m1", "type": "text", "text": "liked page"}],
+      "variables": [],
+      "title": "Liked",
+      "name": "liked",
+      "summary": null,
+      "hideTitleWhenPinned": false,
+      "alignCenter": false,
+      "font": "sans-serif",
+      "script": "",
+      "eyeCatchingImageId": null,
+      "eyeCatchingImage": null,
+      "attachedFiles": [],
+      "likedCount": 1
+    }
+  }
+]

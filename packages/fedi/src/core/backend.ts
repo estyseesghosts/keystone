@@ -20,6 +20,9 @@ import type {
   Media,
   Notification,
   Page,
+  PageBlock,
+  PageFont,
+  PageModel,
   Poll,
   Post,
   PostRevision,
@@ -801,6 +804,60 @@ export interface ClipsApi {
   containing(noteId: string): Promise<ClipSummary[]>;
 }
 
+/** Draft for `pages/create` (PG-4: `script: ''` + `variables: []` are added by the caller). */
+export interface PageDraft {
+  title: string;
+  name: string;
+  content: PageBlock[];
+  variables: unknown[];
+  summary?: string | null;
+  eyeCatchingImageId?: string | null;
+  font?: PageFont;
+  alignCenter?: boolean;
+  hideTitleWhenPinned?: boolean;
+}
+
+/** Patch for `pages/update` (partial — only present keys are sent; PG-4).
+ * `summary`/`eyeCatchingImageId` accept null to clear; `script` and
+ * `variables` are never sent on update. */
+export interface PagePatch {
+  title?: string;
+  name?: string;
+  content?: PageBlock[];
+  summary?: string | null;
+  eyeCatchingImageId?: string | null;
+  font?: PageFont;
+  alignCenter?: boolean;
+  hideTitleWhenPinned?: boolean;
+}
+
+/** Misskey-family Pages (`pages/*`, `users/pages`, `i/pages`,
+ * `i/page-likes`, pin via `i/update`). Optional module like `ClipsApi`. */
+export interface PagesApi {
+  /** `pages/show` by id, or by local username + name. */
+  show(ref: {id: string} | {username: string; name: string}): Promise<PageModel>;
+  /** `pages/create` (adds `script: ''`, `variables: []`; PG-4). */
+  create(draft: PageDraft): Promise<PageModel>;
+  /** `pages/update` with a partial patch (204, no body). */
+  update(pageId: string, patch: PagePatch): Promise<void>;
+  /** `pages/delete` (owner or moderator). */
+  delete(pageId: string): Promise<void>;
+  /** `pages/like` / `pages/unlike` (never the viewer's own). */
+  like(pageId: string): Promise<void>;
+  unlike(pageId: string): Promise<void>;
+  /** `pages/featured` (single fetch, ≤10). */
+  featured(): Promise<PageModel[]>;
+  /** `users/pages` (public, paged). */
+  byUser(userId: string, opts?: PageOpts): Promise<Page<PageModel>>;
+  /** `i/pages` (own, paged). Absent where `pages_own_lists` unsupported. */
+  mine?(opts?: PageOpts): Promise<Page<PageModel>>;
+  /** `i/page-likes` (own likes, paged `{id, page}` rows). Absent where
+   * `pages_own_lists` is unsupported. */
+  liked?(opts?: PageOpts): Promise<Page<{id: string; page: PageModel}>>;
+  /** Pin/unpin via `i/update {pinnedPageId}`. */
+  pin(pageId: string | null): Promise<void>;
+}
+
 /** Which of the viewer's lists hold an account, and edit that (slice 4.4). */
 export interface ListMembershipApi {
   containing(accountId: string): Promise<string[]>;
@@ -1536,6 +1593,7 @@ export interface Backend {
   drive?: DriveApi;
   antennas?: AntennasApi;
   clips?: ClipsApi;
+  pages?: PagesApi;
   lists?: ListsApi;
   channels?: ChannelsApi;
   announcements?: AnnouncementsApi;

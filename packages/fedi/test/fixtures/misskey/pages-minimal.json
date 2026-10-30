@@ -1,0 +1,26 @@
+{
+  "id": "9pagesmin000001",
+  "userId": "9sharkeyuser00001",
+  "user": {
+    "id": "9sharkeyuser00001",
+    "name": "Sharkey User",
+    "username": "sk",
+    "host": null,
+    "avatarUrl": null,
+    "avatarBlurhash": null,
+    "isBot": false,
+    "isCat": false,
+    "emojis": {},
+    "onlineStatus": "online"
+  },
+  "content": [
+    {"id": "m1", "type": "text"},
+    {"id": "m2", "type": "image", "fileId": 42},
+    {"id": "m3", "type": "note"},
+    {"id": "m4", "type": "section", "children": "not-an-array"}
+  ],
+  "title": "Minimal",
+  "name": "minimal",
+  "script": "",
+  "likedCount": 0
+}

@@ -332,6 +332,24 @@
       "source": "synthesised",
       "synthesisedFrom": ["packages/fedi/src/mastodon/wire.ts (Notification + emoji/pleroma.is_seen)"],
       "recordedAt": null
+    },
+    "misskey/pages-full.json": {
+      "endpoint": "POST /api/pages/show (packed Page, all block kinds + legacy button + unknown block)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/pages.ts", "docs/pages-clips.md §4.4"],
+      "recordedAt": null
+    },
+    "misskey/pages-minimal.json": {
+      "endpoint": "POST /api/pages/show (sparse pack: missing/odd fields tolerated)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/pages.ts", "docs/pages-clips.md §4.4"],
+      "recordedAt": null
+    },
+    "misskey/pages-likes.json": {
+      "endpoint": "POST /api/i/page-likes (packed {id, page} rows)",
+      "source": "synthesised",
+      "synthesisedFrom": ["packages/fedi/src/misskey/pages.ts", "docs/pages-clips.md §3.5"],
+      "recordedAt": null
     }
   }
 }

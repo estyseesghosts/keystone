@@ -1006,3 +1006,44 @@ export function headNameOf(
 ): string {
   return hasRealDisplayName(user) ? displayNameOf(user) : handleOf(user);
 }
+
+// --- Pages (P6.5) --------------------------------------------------------------
+
+/** Misskey page font (packed `font`). */
+export type PageFont = "serif" | "sans-serif";
+
+/** Domain page block. `kind: 'unknown'` preserves legacy/AiScript block
+ * types verbatim (`raw`) so editing an old page never destroys content
+ * (PG-3). Known blocks keep unmodelled wire fields in `extra` for the
+ * byte-equal serialize round-trip. */
+export type PageBlock =
+  | {kind: "text"; id: string; text: string; extra?: Record<string, unknown>}
+  | {kind: "section"; id: string; title: string; children: PageBlock[]; extra?: Record<string, unknown>}
+  | {kind: "image"; id: string; fileId: string | null; extra?: Record<string, unknown>}
+  | {kind: "note"; id: string; noteId: string | null; detailed: boolean; extra?: Record<string, unknown>}
+  | {kind: "unknown"; id: string; type: string; raw: Record<string, unknown>};
+
+/** Domain Misskey page (packed page + resolved relations). */
+export interface PageModel {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  author: Account;
+  title: string;
+  name: string;
+  summary: string | null;
+  font: PageFont;
+  alignCenter: boolean;
+  hideTitleWhenPinned: boolean;
+  eyeCatchingImageId: string | null;
+  eyeCatchingImage: Media | null;
+  attachedFiles: Media[];
+  blocks: PageBlock[];
+  likedCount: number;
+  /** `isLiked` only when the viewer is authed (pack omits it otherwise). */
+  isLiked: boolean | undefined;
+  /** True when the packed `script` is non-blank (legacy AiScript page). */
+  hasLegacyScript: boolean;
+  /** Canonical public URL (`{origin}/@{username}/pages/{name}`). */
+  url: string;
+}

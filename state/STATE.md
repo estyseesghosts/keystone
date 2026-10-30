@@ -1,14 +1,15 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase: **like-button + picker groups merged to `main` 2026-10-30**
-(`2264634` + `ae638e4` + bookkeeping; fast-forward, both branches
-pruned, pushed to github). Only branch left is `main`. Tree clean.
-Gate (merge): typecheck (ios+android+web) + lint clean; `pnpm test`
-→ 305 suites / 4278 tests: 4188 pass, 90 fail — all 90 the pre-existing
-content/linkpreview/richtext/post set (13 suites). Zero attributable
-failures (one self-caught pre-merge regression fixed: provider-less
-`CustomGroupsRow` crash — see merge log).
-Web/device inspection `not verified` (owner checks open).
+Phase: **P6.5 Pages program IN PROGRESS** (plan `docs/p6.5-pages.md`;
+task `docs/tasks/p6.5-pages.md`; branch `p6.5-pages`, uncommitted; do NOT
+merge without owner approval; never `git push`). Slices 0 (spike → ADR
+0016, option B) + 1 (fedi data layer) DONE, gate green. Next: slice 2
+(queries, routes, reader).
+ADR 0014 is taken — the plan's "ADR 0014" is filed as **0016**.
+Gate (this program): per-slice `pnpm typecheck && pnpm lint && pnpm test`
+green, pasted in each log; full-suite flat at pre-existing 90 required
+before any merge. Web/device evidence per plan §6 or `not verified`
+(owner owns rig checks: `:3101`/`:3102`/Mastodon refused to agents).
 Gate (merge commit): typecheck (ios+android+web) + lint clean; `pnpm test`
 → 303 suites / 4260 tests: 4170 pass, 90 fail — all 90 the pre-existing
 content/linkpreview/richtext/post set (13 suites), unchanged from the
@@ -39,9 +40,8 @@ Links:
 - P6.5 ADR: `docs/adr/0014-notification-unread-source.md` (accepted)
 - Fix ADR: `docs/adr/0015-gapfill-keeps-mounted-pages.md` (accepted)
 - Fix task: `docs/tasks/fix-feed-gapfill-jump.md` (merged; owner repros open)
-- Latest logs: `state/logs/2026-10-30-emoji-picker-groups.md` (this slice),
-  `state/logs/2026-10-30-like-button-state.md` (carried slice),
-  `state/logs/2026-10-30-merge-batch.md` (the merge),
+- Latest logs: `state/logs/2026-10-30-p6.5-pages-program.md` (setup + slices 0–1),
+  `state/logs/2026-10-30-merge-like-picker.md` (last merge),
   `state/logs/2026-10-29-fix-feed-gapfill-jump*.md` (gap-fill rounds 1–2),
   `state/logs/2026-10-29-polish-*.md` (polish 1–8, one per slice)
 - Repair program: `docs/audit_20261025/repair.md` + `report.md` (COMPLETE, unchanged)

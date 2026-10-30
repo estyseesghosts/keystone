@@ -129,6 +129,14 @@ export const KEYSTONE_PERMISSIONS: string[] = [
   // `scopeHealth`/403 PERMISSION_DENIED, which is the honest re-auth path.
   "read:channels",
   "write:channels",
+  // P6.5 Pages: exact endpoint `kind`s (`pages/*` declare
+  // `write:pages`; `pages/like|unlike` declare `write:page-likes`;
+  // `i/pages` declares `read:pages`; `i/page-likes` declares
+  // `read:page-likes`). Same honest re-auth path for old tokens.
+  "read:pages",
+  "write:pages",
+  "read:page-likes",
+  "write:page-likes",
   // Chat (P6.2 §2.2): every `chat/*` endpoint declares `kind:
   // read:chat | write:chat` (verified in the upstream endpoint `meta`).
   // Same honest re-auth path for old tokens; `miauth/gen-token` stores

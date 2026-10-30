@@ -45,6 +45,7 @@ import type {
   NoteReactionRow,
   NotificationsOpts,
   PageOpts,
+  PagesApi,
   ProfileImageKind,
   ProfileUpdate,
   RecommendationsApi,
@@ -111,6 +112,19 @@ import {
   removeNoteFromClip,
   updateClip,
 } from "./clips";
+import {
+  createPage,
+  deletePage,
+  featuredPages,
+  likePage,
+  likedPages,
+  myPages,
+  pagesByUser,
+  pinPage,
+  showPage,
+  unlikePage,
+  updatePage,
+} from "./pages";
 import { createChannelsApi } from "./channels";
 import { createChatApi } from "./chat";
 import { createAnnouncementsApi } from "./announcements";
@@ -246,6 +260,28 @@ export function createMisskeyBackend(
     async containing(noteId) {
       return (await listClipsContaining(call, noteId)).map(adaptClipSummary);
     },
+  };
+
+  // P6.5 Pages (`pages/*`, `users/pages`, `i/pages`, `i/page-likes`, pin
+  // via `i/update`). `mine`/`liked` ride the `pages_own_lists` capability:
+  // Pinetree 404s both, so the member stays off and the UI gates instead
+  // of erroring (plan §2 + pinetree §1.3).
+  const pages: PagesApi = {
+    show: ref => showPage(call, opts.origin ?? null, ref),
+    create: draft => createPage(call, opts.origin ?? null, draft),
+    update: (pageId, patch) => updatePage(call, pageId, patch),
+    delete: pageId => deletePage(call, pageId),
+    like: pageId => likePage(call, pageId),
+    unlike: pageId => unlikePage(call, pageId),
+    featured: () => featuredPages(call, opts.origin ?? null),
+    byUser: (userId, pageOpts) => pagesByUser(call, opts.origin ?? null, userId, pageOpts),
+    pin: pageId => pinPage(call, pageId),
+    ...(flavor === "pinetree"
+      ? {}
+      : {
+          mine: pageOpts => myPages(call, opts.origin ?? null, pageOpts),
+          liked: pageOpts => likedPages(call, opts.origin ?? null, pageOpts),
+        }),
   };
 
   // Domain sub-APIs live in their modules (D3.1) — same calls, same
@@ -1070,6 +1106,7 @@ export function createMisskeyBackend(
     drive,
     antennas,
     clips,
+    pages,
     channels,
     // Chat ships on misskey + sharkey (verified `chat/*` presence:
     // upstream develop tree + live Sharkey probe). Catodon is unverified

@@ -77,6 +77,10 @@ export type FeatureKey =
   | "drive"
   | "antennas"
   | "clips"
+  // Misskey-family Pages (P6.5): reader + editor. `pages_own_lists`
+  // covers `i/pages` + `i/page-likes` (Pinetree 404s both).
+  | "pages"
+  | "pages_own_lists"
   | "channels"
   // Server announcements (clickstone §1.12): read + per-row dismiss. The
   // Misskey family serves `announcements` + `i/read-announcement`; the
@@ -152,6 +156,8 @@ export const FEATURE_KEYS: readonly FeatureKey[] = [
   "drive",
   "antennas",
   "clips",
+  "pages",
+  "pages_own_lists",
   "channels",
   "announcements",
   "chats",
@@ -350,6 +356,10 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     lists_replies_policy: "unsupported",
     lists_exclusive: "unsupported",
     clips: "supported",
+    // P6.5 Pages: full `pages/*` + `users/pages` + `i/pages` +
+    // `i/page-likes` surface (docs/pages-clips.md §4).
+    pages: "supported",
+    pages_own_lists: "supported",
     // `channels/*` exists in stock Misskey (verified against the local
     // backend: search/show/timeline/followed/follow/unfollow), and the
     // channel screen + live channel are implemented (clickstone §1.9).
@@ -403,6 +413,9 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     lists_replies_policy: "unsupported",
     lists_exclusive: "unsupported",
     clips: "supported",
+    // Same Misskey-family Pages surface (docs/pages-clips.md §4).
+    pages: "supported",
+    pages_own_lists: "supported",
     // Same Misskey-family `channels/*` endpoints (Sharkey inherits them).
     channels: "supported",
     // Same Misskey-family `announcements` + `i/read-announcement` endpoints
@@ -459,6 +472,10 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     local_only: "supported",
     drive: "unsupported",
     antennas: "unsupported",
+    // Pinetree serves Pages (`pages/*`, `users/pages`, `i/update` pin)
+    // but 404s the own-lists (`i/pages`, `i/page-likes`).
+    pages: "supported",
+    pages_own_lists: "unsupported",
     // Pinetree's endpoint table has no `announcements` (and its account pack
     // hard-codes `hasUnreadAnnouncement: false`) — a verified absence.
     announcements: "unsupported",
@@ -508,6 +525,8 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     lists_exclusive: "supported",
     bookmarks: "supported",
     clips: "unsupported",
+    pages: "unsupported",
+    pages_own_lists: "unsupported",
     // P6.2 ships the DM inbox on vanilla Mastodon (`ConversationsController`
     // + `REST::ConversationSerializer`, verified in the local checkout).
     direct_messages: "supported",
@@ -542,6 +561,8 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     // (`MastodonAPI.AnnouncementController#index/#mark_read`).
     announcements: "supported",
     clips: "unsupported",
+    pages: "unsupported",
+    pages_own_lists: "unsupported",
     // P6.2 ships the inbox on Akkoma too (`ConversationController` index/
     // read/delete on `/api/v1/conversations` + the Mastodon-shaped
     // `participation.json` view, verified in the local 3.20.1 checkout).
@@ -575,6 +596,8 @@ const FLAVOR_FEATURES: Record<ServerFlavor, Partial<Capabilities>> = {
     media_sensitivity: "unsupported",
     favourites_distinct_from_reactions: "supported",
     clips: "unsupported",
+    pages: "unsupported",
+    pages_own_lists: "unsupported",
     // Pleroma proper is unverified for `/api/v1/conversations` (only
     // Akkoma's fork was checked) — stays gated, never unlocked on a guess.
     direct_messages: "unsupported",
