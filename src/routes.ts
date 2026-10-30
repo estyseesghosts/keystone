@@ -149,6 +149,7 @@ export type RootParamList = {
   /** v1 root-base callback URL (`/keystone/callback`) — same screen. */
   KeystoneCallback: undefined
   SysDebug: undefined
+  CollectionDebug: undefined
   Compose:
     | {
         replyToId?: string
@@ -201,6 +202,7 @@ export const paths: Record<keyof RootParamList, string> = {
   AuthCallback: AUTH_CALLBACK_PATH,
   KeystoneCallback: LEGACY_AUTH_CALLBACK_PATH,
   SysDebug: '/sys/debug',
+  CollectionDebug: '/sys/collection',
   Compose: '/compose',
 }
 
@@ -341,10 +343,12 @@ export function linkingScreens(): LinkingScreens {
     // resolve (clickstone §1.13).
     KeystoneCallback: leaf('KeystoneCallback'),
     SysDebug: leaf('SysDebug'),
+    CollectionDebug: leaf('CollectionDebug'),
     Compose: leaf('Compose'),
   }
   if (!isDevBuild()) {
     delete screens.SysDebug
+    delete screens.CollectionDebug
   }
   return screens
 }
@@ -453,6 +457,8 @@ export function titleForRoute(
       return t`Sign in`
     case 'SysDebug':
       return t`Debug`
+    case 'CollectionDebug':
+      return t`Collection debug`
     case 'Compose':
       return t`New post`
     default:

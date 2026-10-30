@@ -258,6 +258,10 @@ msgstr "{0}. Open list."
 msgid "{0}. Open report."
 msgstr "{0}. Open report."
 
+#: src/components/Collection/SelectionBar.tsx:27
+msgid "{count, plural, one {# selected} other {# selected}}"
+msgstr "{count, plural, one {# selected} other {# selected}}"
+
 #: src/components/shell/shellNav.tsx:130
 msgid "{count, plural, one {# unread} other {# unread}}"
 msgstr "{count, plural, one {# unread} other {# unread}}"
@@ -406,7 +410,7 @@ msgstr "accepted your follow request"
 msgid "Accepting…"
 msgstr "Accepting…"
 
-#: src/routes.ts:431
+#: src/routes.ts:435
 #: src/screens/settings/meta.ts:17
 msgid "Accessibility and display"
 msgstr "Accessibility and display"
@@ -659,7 +663,7 @@ msgid "An empty placeholder. Real widgets will plug in here later."
 msgstr "An empty placeholder. Real widgets will plug in here later."
 
 #: src/components/shell/AccountMenu.tsx:151
-#: src/routes.ts:406
+#: src/routes.ts:410
 #: src/screens/Announcements.tsx:225
 #: src/screens/Announcements.tsx:240
 #: src/screens/Announcements.tsx:251
@@ -678,7 +682,7 @@ msgstr "Announcements never show sample data when signed out."
 msgid "Another server"
 msgstr "Another server"
 
-#: src/routes.ts:386
+#: src/routes.ts:390
 #: src/screens/Antenna.tsx:81
 #: src/screens/Antenna.tsx:98
 #: src/screens/Antenna.tsx:107
@@ -698,7 +702,7 @@ msgid "antennas"
 msgstr "antennas"
 
 #: src/components/shell/Sidebar.tsx:105
-#: src/routes.ts:388
+#: src/routes.ts:392
 #: src/screens/Antennas.tsx:312
 #: src/screens/Antennas.tsx:325
 #: src/screens/Antennas.tsx:333
@@ -1055,7 +1059,7 @@ msgstr "Change category"
 msgid "Change the category?"
 msgstr "Change the category?"
 
-#: src/routes.ts:390
+#: src/routes.ts:394
 #: src/screens/Channel.tsx:107
 #: src/screens/Channel.tsx:120
 #: src/screens/Channel.tsx:129
@@ -1065,7 +1069,7 @@ msgid "Channel"
 msgstr "Channel"
 
 #: src/components/shell/Sidebar.tsx:101
-#: src/routes.ts:392
+#: src/routes.ts:396
 #: src/screens/Channels.tsx:203
 #: src/screens/Channels.tsx:218
 #: src/screens/Channels.tsx:226
@@ -1088,7 +1092,7 @@ msgstr "Channels are not available on this server."
 msgid "Channels never show sample data when signed out."
 msgstr "Channels never show sample data when signed out."
 
-#: src/routes.ts:400
+#: src/routes.ts:404
 #: src/screens/ChatRooms.tsx:116
 #: src/screens/ChatRooms.tsx:133
 #: src/screens/ChatRooms.tsx:146
@@ -1101,7 +1105,7 @@ msgstr "Chat"
 msgid "Chat is not available on this server."
 msgstr "Chat is not available on this server."
 
-#: src/routes.ts:402
+#: src/routes.ts:406
 #: src/screens/ChatRoom.tsx:93
 #: src/screens/ChatRoom.tsx:106
 #: src/screens/ChatRoom.tsx:126
@@ -1185,6 +1189,7 @@ msgstr "Claim this report for yourself?"
 msgid "Classic flat set."
 msgstr "Classic flat set."
 
+#: src/components/Collection/SelectionBar.tsx:36
 #: src/components/Explore/ExploreSearchBar.tsx:66
 msgid "Clear"
 msgstr "Clear"
@@ -1210,7 +1215,7 @@ msgstr "Clearing notifications."
 msgid "Clearing…"
 msgstr "Clearing…"
 
-#: src/routes.ts:382
+#: src/routes.ts:386
 #: src/screens/Clip.tsx:67
 #: src/screens/Clip.tsx:78
 #: src/screens/Clip.tsx:87
@@ -1237,7 +1242,7 @@ msgid "clips"
 msgstr "clips"
 
 #: src/components/shell/Sidebar.tsx:103
-#: src/routes.ts:384
+#: src/routes.ts:388
 #: src/screens/Clips.tsx:292
 #: src/screens/Clips.tsx:303
 #: src/screens/Clips.tsx:311
@@ -1320,6 +1325,11 @@ msgstr "Collapse sidebar"
 msgid "Collapse widgets panel"
 msgstr "Collapse widgets panel"
 
+#: src/routes.ts:461
+#: src/screens/CollectionDebug.tsx:79
+msgid "Collection debug"
+msgstr "Collection debug"
+
 #: src/components/Settings/DisplaySection.tsx:57
 #: src/components/Settings/DisplaySection.tsx:58
 msgid "Colour mode"
@@ -1372,7 +1382,7 @@ msgstr "Content warning"
 msgid "Continue"
 msgstr "Continue"
 
-#: src/routes.ts:396
+#: src/routes.ts:400
 #: src/screens/Conversation.tsx:117
 #: src/screens/Conversation.tsx:128
 #: src/screens/Conversation.tsx:150
@@ -2037,7 +2047,11 @@ msgstr "Dark"
 msgid "Data saver"
 msgstr "Data saver"
 
-#: src/routes.ts:455
+#: src/screens/CollectionDebug.tsx:85
+msgid "Date"
+msgstr "Date"
+
+#: src/routes.ts:459
 msgid "Debug"
 msgstr "Debug"
 
@@ -2173,7 +2187,7 @@ msgstr "Device only: this server has no default-reaction field."
 msgid "Direct and specified posts aren't autosaved on this device. Use Save to keep a copy."
 msgstr "Direct and specified posts aren't autosaved on this device. Use Save to keep a copy."
 
-#: src/routes.ts:404
+#: src/routes.ts:408
 #: src/screens/ChatUser.tsx:74
 #: src/screens/ChatUser.tsx:115
 #: src/screens/ChatUser.tsx:128
@@ -2194,7 +2208,7 @@ msgstr "Discard changes"
 msgid "Discard changes?"
 msgstr "Discard changes?"
 
-#: src/routes.ts:398
+#: src/routes.ts:402
 #: src/screens/explore/NewsTab.tsx:80
 #: src/screens/NewsDiscussions.tsx:32
 #: src/screens/NewsDiscussions.tsx:43
@@ -2276,7 +2290,7 @@ msgstr "Drafts ({0})"
 msgid "Draw an opaque cover over the app when it goes to the background, so the task switcher shows nothing. Always on while a chat is open."
 msgstr "Draw an opaque cover over the app when it goes to the background, so the task switcher shows nothing. Always on while a chat is open."
 
-#: src/routes.ts:414
+#: src/routes.ts:418
 msgid "Drive"
 msgstr "Drive"
 
@@ -2295,6 +2309,10 @@ msgstr "Drive is not available on this server."
 #: src/screens/Drive.tsx:233
 msgid "Drive never shows sample data when signed out."
 msgstr "Drive never shows sample data when signed out."
+
+#: src/components/Collection/DropZone.web.tsx:102
+msgid "Drop to upload to {targetName}"
+msgstr "Drop to upload to {targetName}"
 
 #: src/components/Settings/DisplaySection.tsx:136
 msgid "Each post renders through its own source parser."
@@ -2319,7 +2337,7 @@ msgstr "earned an achievement"
 msgid "Edit"
 msgstr "Edit"
 
-#: src/routes.ts:374
+#: src/routes.ts:378
 #: src/screens/NoteHistory.tsx:100
 msgid "Edit history"
 msgstr "Edit history"
@@ -2328,7 +2346,7 @@ msgstr "Edit history"
 msgid "Edit memo"
 msgstr "Edit memo"
 
-#: src/routes.ts:424
+#: src/routes.ts:428
 #: src/screens/ProfileEditor.tsx:342
 #: src/screens/User.tsx:191
 msgid "Edit profile"
@@ -2428,7 +2446,7 @@ msgid "errors.shape.expectedList"
 msgstr "Expected a {kind} list (HTTP {status})."
 
 #: src/components/shell/Sidebar.tsx:174
-#: src/Navigation.tsx:124
+#: src/Navigation.tsx:125
 msgid "Explore"
 msgstr "Explore"
 
@@ -2443,7 +2461,7 @@ msgid "Explore never shows sample data when signed out."
 msgstr "Explore never shows sample data when signed out."
 
 #: src/components/Settings/TransferSections.tsx:310
-#: src/routes.ts:441
+#: src/routes.ts:445
 #: src/screens/settings/meta.ts:27
 msgid "Export"
 msgstr "Export"
@@ -2473,7 +2491,7 @@ msgid "favorites"
 msgstr "favorites"
 
 #: src/components/Post/menuModel.ts:378
-#: src/routes.ts:416
+#: src/routes.ts:420
 msgid "Favorites"
 msgstr "Favorites"
 
@@ -2526,7 +2544,7 @@ msgstr "Featured hashtags are not available on this server."
 msgid "Federated"
 msgstr "Federated"
 
-#: src/routes.ts:435
+#: src/routes.ts:439
 #: src/screens/settings/meta.ts:21
 msgid "Feeds"
 msgstr "Feeds"
@@ -2555,6 +2573,14 @@ msgstr "File is too large ({kb} KB — limit is 10 MB)."
 msgctxt "drive file name input"
 msgid "File name"
 msgstr "File name"
+
+#: src/components/Collection/Toolbar.tsx:50
+msgid "Filter"
+msgstr "Filter"
+
+#: src/components/Collection/Toolbar.tsx:53
+msgid "Filter by name"
+msgstr "Filter by name"
 
 #: src/screens/Notifications.tsx:437
 msgid "Filtered notifications"
@@ -2668,7 +2694,7 @@ msgstr "Follower"
 msgid "followers"
 msgstr "followers"
 
-#: src/routes.ts:418
+#: src/routes.ts:422
 msgid "Followers"
 msgstr "Followers"
 
@@ -2694,7 +2720,7 @@ msgid "following"
 msgstr "following"
 
 #: src/components/ProfileActions/ProfileActions.tsx:32
-#: src/routes.ts:420
+#: src/routes.ts:424
 #: src/screens/Notifications.tsx:72
 msgid "Following"
 msgstr "Following"
@@ -2723,7 +2749,7 @@ msgstr "Following and followers are visible to followers."
 msgid "Following is not available on this server."
 msgstr "Following is not available on this server."
 
-#: src/routes.ts:422
+#: src/routes.ts:426
 #: src/screens/Notifications.tsx:111
 msgid "Follows"
 msgstr "Follows"
@@ -2795,6 +2821,10 @@ msgstr "Google’s set."
 #: src/components/Composer/ComposerSections.tsx:259
 msgid "Got it"
 msgstr "Got it"
+
+#: src/components/Collection/ViewToggle.tsx:23
+msgid "Grid"
+msgstr "Grid"
 
 #: src/screens/Notifications.tsx:742
 msgid "Grouped"
@@ -2871,8 +2901,8 @@ msgstr "home"
 
 #: src/components/shell/Sidebar.tsx:172
 #: src/components/shell/TabBar.tsx:32
-#: src/Navigation.tsx:114
-#: src/routes.ts:362
+#: src/Navigation.tsx:115
+#: src/routes.ts:366
 msgid "Home"
 msgstr "Home"
 
@@ -2919,7 +2949,7 @@ msgstr "Illegal content"
 msgid "Image unavailable"
 msgstr "Image unavailable"
 
-#: src/routes.ts:439
+#: src/routes.ts:443
 #: src/screens/settings/meta.ts:25
 msgid "Import"
 msgstr "Import"
@@ -3029,7 +3059,7 @@ msgid "Keep writing"
 msgstr "Keep writing"
 
 #: src/components/shell/Sidebar.tsx:295
-#: src/routes.ts:459
+#: src/routes.ts:465
 #: src/state/PrivacyShieldHost.tsx:50
 msgid "Keystone"
 msgstr "Keystone"
@@ -3061,7 +3091,7 @@ msgstr "Keywords (space-separated, all must match)"
 
 #: src/components/Composer/Composer.tsx:1403
 #: src/components/Settings/LanguageSection.tsx:31
-#: src/routes.ts:445
+#: src/routes.ts:449
 #: src/screens/ProfileEditor.tsx:409
 #: src/screens/settings/meta.ts:31
 msgid "Language"
@@ -3135,7 +3165,8 @@ msgstr "liked your post"
 msgid "Link previews"
 msgstr "Link previews"
 
-#: src/routes.ts:378
+#: src/components/Collection/ViewToggle.tsx:30
+#: src/routes.ts:382
 #: src/screens/Notifications.tsx:80
 msgid "List"
 msgstr "List"
@@ -3163,7 +3194,7 @@ msgid "lists"
 msgstr "lists"
 
 #: src/components/shell/Sidebar.tsx:107
-#: src/routes.ts:380
+#: src/routes.ts:384
 #: src/screens/Antennas.tsx:339
 msgid "Lists"
 msgstr "Lists"
@@ -3201,6 +3232,10 @@ msgstr "Live updates stopped"
 #: src/components/StreamBadge.tsx:46
 msgid "Live updates unavailable"
 msgstr "Live updates unavailable"
+
+#: src/components/Collection/Thumb.tsx:99
+msgid "Load image"
+msgstr "Load image"
 
 #: src/screens/Drive.tsx:450
 #: src/screens/Followers.tsx:301
@@ -3474,7 +3509,7 @@ msgid "Mentions"
 msgstr "Mentions"
 
 #: src/components/shell/Sidebar.tsx:199
-#: src/routes.ts:394
+#: src/routes.ts:398
 #: src/screens/Conversations.tsx:148
 #: src/screens/Conversations.tsx:164
 #: src/screens/Conversations.tsx:184
@@ -3586,7 +3621,7 @@ msgstr "Muted servers"
 msgid "mutes"
 msgstr "mutes"
 
-#: src/routes.ts:437
+#: src/routes.ts:441
 #: src/screens/settings/meta.ts:23
 msgid "Mutes and blocks"
 msgstr "Mutes and blocks"
@@ -3601,7 +3636,7 @@ msgstr "My channels"
 
 #: src/components/shell/Sidebar.tsx:173
 #: src/components/shell/TabBar.tsx:33
-#: src/routes.ts:364
+#: src/routes.ts:368
 msgid "My Network"
 msgstr "My Network"
 
@@ -3609,6 +3644,10 @@ msgstr "My Network"
 #: src/components/shell/Sidebar.tsx:208
 msgid "My Uploads"
 msgstr "My Uploads"
+
+#: src/screens/CollectionDebug.tsx:84
+msgid "Name"
+msgstr "Name"
 
 #: src/screens/Drive/detail.tsx:123
 msgctxt "drive file detail field"
@@ -3640,7 +3679,7 @@ msgstr "Needs a server with word filters (this one has none)."
 msgid "Needs file sharing — not available in this build."
 msgstr "Needs file sharing — not available in this build."
 
-#: src/Navigation.tsx:119
+#: src/Navigation.tsx:120
 #: src/screens/Network.tsx:55
 msgid "Network"
 msgstr "Network"
@@ -3683,7 +3722,7 @@ msgctxt "list creation"
 msgid "New list"
 msgstr "New list"
 
-#: src/routes.ts:457
+#: src/routes.ts:463
 msgid "New post"
 msgstr "New post"
 
@@ -3982,7 +4021,7 @@ msgstr "Not wired yet — no custom-font loading on native."
 msgid "Not wired yet — the app ships one light/dark pair."
 msgstr "Not wired yet — the app ships one light/dark pair."
 
-#: src/routes.ts:372
+#: src/routes.ts:376
 #: src/screens/Note.tsx:1196
 msgid "Note"
 msgstr "Note"
@@ -4046,8 +4085,8 @@ msgstr "Notification unread count is not on this server."
 
 #: src/components/shell/Sidebar.tsx:216
 #: src/components/shell/TabBar.tsx:35
-#: src/Navigation.tsx:134
-#: src/routes.ts:368
+#: src/Navigation.tsx:135
+#: src/routes.ts:372
 #: src/screens/Notifications.tsx:723
 msgid "Notifications"
 msgstr "Notifications"
@@ -4542,8 +4581,8 @@ msgstr "Private mentions"
 
 #: src/components/shell/AccountMenu.tsx:143
 #: src/components/shell/TabBar.tsx:36
-#: src/Navigation.tsx:139
-#: src/routes.ts:370
+#: src/Navigation.tsx:140
+#: src/routes.ts:374
 msgid "Profile"
 msgstr "Profile"
 
@@ -4666,7 +4705,7 @@ msgstr "reactions"
 msgid "Reactions"
 msgstr "Reactions"
 
-#: src/routes.ts:433
+#: src/routes.ts:437
 #: src/screens/settings/meta.ts:19
 msgid "Reactions and emoji"
 msgstr "Reactions and emoji"
@@ -4934,7 +4973,7 @@ msgstr "Replying to a post."
 #: src/components/Post/menuModel.ts:269
 #: src/components/Post/menuModel.ts:275
 #: src/components/Post/menuModel.ts:285
-#: src/routes.ts:412
+#: src/routes.ts:416
 #: src/screens/AdminReportDetail.tsx:154
 #: src/screens/AdminReportDetail.tsx:165
 #: src/screens/AdminReportDetail.tsx:219
@@ -4950,7 +4989,7 @@ msgid "Report sent"
 msgstr "Report sent"
 
 #: src/components/Settings/AccountSection.tsx:260
-#: src/routes.ts:410
+#: src/routes.ts:414
 #: src/screens/AdminReportsList.tsx:156
 #: src/screens/AdminReportsList.tsx:169
 #: src/screens/AdminReportsList.tsx:192
@@ -5085,6 +5124,7 @@ msgstr "Restore draft: {0}"
 msgid "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 
+#: src/components/Collection/CollectionScreen.tsx:103
 #: src/components/EmojiPicker/EmojiPicker.tsx:290
 #: src/components/PostFeed/PostFeed.tsx:207
 #: src/components/PostFeed/PostFeed.tsx:230
@@ -5301,7 +5341,7 @@ msgstr "Scheduled time must be in the future."
 #: src/components/Explore/ExploreSearchBar.tsx:69
 #: src/components/Settings/MuteBlockSearch.tsx:135
 #: src/components/shell/TabBar.tsx:34
-#: src/routes.ts:366
+#: src/routes.ts:370
 #: src/screens/Explore.tsx:361
 #: src/screens/Explore.tsx:372
 msgid "Search"
@@ -5368,6 +5408,8 @@ msgstr "Send report"
 msgid "Sending…"
 msgstr "Sending…"
 
+#: src/components/Collection/Thumb.tsx:78
+#: src/components/Collection/Thumb.tsx:112
 #: src/components/Composer/ComposerSections.tsx:320
 msgid "Sensitive"
 msgstr "Sensitive"
@@ -5421,7 +5463,7 @@ msgid "Server info"
 msgstr "Server info"
 
 #: src/components/Settings/AccountSection.tsx:230
-#: src/routes.ts:408
+#: src/routes.ts:412
 #: src/screens/AdminInsight.tsx:514
 #: src/screens/AdminInsight.tsx:527
 #: src/screens/AdminInsight.tsx:581
@@ -5473,7 +5515,7 @@ msgstr "Session info and sign out."
 
 #: src/components/shell/AccountMenu.tsx:162
 #: src/components/shell/Sidebar.tsx:191
-#: src/routes.ts:447
+#: src/routes.ts:451
 #: src/screens/Settings.tsx:49
 msgid "Settings"
 msgstr "Settings"
@@ -5562,6 +5604,14 @@ msgstr "Show previous image"
 msgid "Show replies from"
 msgstr "Show replies from"
 
+#: src/components/Collection/Thumb.tsx:99
+msgid "Show sensitive image"
+msgstr "Show sensitive image"
+
+#: src/components/Collection/Thumb.tsx:73
+msgid "Show sensitive images"
+msgstr "Show sensitive images"
+
 #: src/components/Post/TagBubble.tsx:65
 msgid "Show tags"
 msgstr "Show tags"
@@ -5595,8 +5645,8 @@ msgstr "Shown everywhere"
 #: src/components/shell/Sidebar.tsx:476
 #: src/components/shell/TabBar.tsx:37
 #: src/components/SignInButton.tsx:21
-#: src/Navigation.tsx:145
-#: src/routes.ts:453
+#: src/Navigation.tsx:146
+#: src/routes.ts:457
 #: src/screens/Login.tsx:573
 #: src/screens/Login.tsx:664
 #: src/screens/Login.tsx:770
@@ -5912,6 +5962,10 @@ msgstr "Something else"
 msgid "Something went wrong"
 msgstr "Something went wrong"
 
+#: src/components/Collection/Toolbar.tsx:38
+msgid "Sort"
+msgstr "Sort"
+
 #: src/components/Post/ReportChooser.tsx:45
 #: src/screens/AdminReportsList.tsx:51
 msgid "Spam"
@@ -5996,7 +6050,7 @@ msgstr "Switch to {name}"
 msgid "System"
 msgstr "System"
 
-#: src/routes.ts:376
+#: src/routes.ts:380
 msgid "Tag"
 msgstr "Tag"
 
@@ -7132,7 +7186,7 @@ msgid "Word and server mutes"
 msgstr "Word and server mutes"
 
 #: src/components/Settings/FiltersSection.tsx:216
-#: src/routes.ts:443
+#: src/routes.ts:447
 #: src/screens/settings/meta.ts:29
 msgid "Word filters"
 msgstr "Word filters"
@@ -7244,7 +7298,7 @@ msgstr "You have no lists yet."
 msgid "You have unsaved changes. Save them or discard?"
 msgstr "You have unsaved changes. Save them or discard?"
 
-#: src/routes.ts:429
+#: src/routes.ts:433
 #: src/screens/settings/meta.ts:15
 msgid "Your account"
 msgstr "Your account"
