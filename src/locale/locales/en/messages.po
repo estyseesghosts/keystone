@@ -483,7 +483,7 @@ msgstr "Add {t} to interested topics"
 msgid "Add a comment"
 msgstr "Add a comment"
 
-#: src/components/Settings/ReactionsSection.tsx:178
+#: src/components/Settings/ReactionsSection.tsx:176
 msgid "Add a favourite"
 msgstr "Add a favourite"
 
@@ -510,7 +510,7 @@ msgstr "Add account"
 msgid "Add choice"
 msgstr "Add choice"
 
-#: src/components/Settings/ReactionsSection.tsx:185
+#: src/components/Settings/ReactionsSection.tsx:183
 msgid "Add favourite"
 msgstr "Add favourite"
 
@@ -627,7 +627,7 @@ msgstr "Already at the smallest size."
 msgid "Already forwarded."
 msgstr "Already forwarded."
 
-#: src/components/Settings/ReactionsSection.tsx:127
+#: src/components/Settings/ReactionsSection.tsx:125
 msgid "Already the default heart."
 msgstr "Already the default heart."
 
@@ -810,7 +810,7 @@ msgstr "Attachment limit reached."
 msgid "Audience"
 msgstr "Audience"
 
-#: src/components/Post/PostMediaGrid.tsx:508
+#: src/components/Post/PostMediaGrid.tsx:522
 msgid "Audio unavailable"
 msgstr "Audio unavailable"
 
@@ -867,7 +867,7 @@ msgstr "Back"
 msgid "Back to sign in"
 msgstr "Back to sign in"
 
-#: src/components/Settings/ReactionsSection.tsx:262
+#: src/components/Settings/ReactionsSection.tsx:345
 msgid "Back up emoji prefs"
 msgstr "Back up emoji prefs"
 
@@ -962,7 +962,7 @@ msgstr "Bookmarks are not available on this server."
 msgid "errors.unsupported.bookmarks"
 msgstr "Bookmarks are not available on this server."
 
-#: src/components/Post/ActionBar.tsx:179
+#: src/components/Post/ActionBar.tsx:210
 msgid "Boost"
 msgstr "Boost"
 
@@ -1302,6 +1302,10 @@ msgstr "Close without saving your changes?"
 msgid "Code"
 msgstr "Code"
 
+#: src/components/EmojiPicker/EmojiPicker.tsx:149
+msgid "Collapse {title} ({count})"
+msgstr "Collapse {title} ({count})"
+
 #: src/components/shell/Sidebar.tsx:296
 #: src/components/shell/Sidebar.tsx:300
 msgid "Collapse sidebar"
@@ -1522,7 +1526,7 @@ msgstr "Could not load chats."
 msgid "Could not load clips."
 msgstr "Could not load clips."
 
-#: src/components/EmojiPicker/EmojiPicker.tsx:182
+#: src/components/EmojiPicker/EmojiPicker.tsx:289
 msgid "Could not load custom emoji."
 msgstr "Could not load custom emoji."
 
@@ -1763,9 +1767,9 @@ msgstr "Could not open the photo picker."
 msgid "Could not open this attachment."
 msgstr "Could not open this attachment."
 
-#: src/components/Post/LinkCard.tsx:69
-#: src/components/Post/LinkCard.tsx:225
-#: src/components/Post/PostMediaGrid.tsx:615
+#: src/components/Post/LinkCard.tsx:74
+#: src/components/Post/LinkCard.tsx:231
+#: src/components/Post/PostMediaGrid.tsx:629
 #: src/components/richtext/mentionRouting.ts:35
 #: src/components/richtext/mentionRouting.ts:38
 #: src/screens/explore/NewsTab.tsx:36
@@ -1992,12 +1996,16 @@ msgstr "Current widgets"
 msgid "custom emoji"
 msgstr "custom emoji"
 
+#: src/components/Settings/ReactionsSection.tsx:308
+msgid "Custom emoji groups"
+msgstr "Custom emoji groups"
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:91
 msgid "errors.shape.customEmojis"
 msgstr "Custom emojis returned an unexpected response shape."
 
-#: src/components/Settings/ReactionsSection.tsx:108
+#: src/components/Settings/ReactionsSection.tsx:106
 msgid "Custom like emoji"
 msgstr "Custom like emoji"
 
@@ -2144,16 +2152,15 @@ msgctxt "button"
 msgid "Details"
 msgstr "Details"
 
-#: src/components/Settings/ReactionsSection.tsx:65
+#: src/components/Settings/ReactionsSection.tsx:68
 msgid "Device only while signed out."
 msgstr "Device only while signed out."
 
-#: src/components/Settings/ReactionsSection.tsx:80
+#: src/components/Settings/ReactionsSection.tsx:78
 msgid "Device only: the server refused the value."
 msgstr "Device only: the server refused the value."
 
-#: src/components/Settings/ReactionsSection.tsx:69
-#: src/components/Settings/ReactionsSection.tsx:78
+#: src/components/Settings/ReactionsSection.tsx:76
 msgid "Device only: this server has no default-reaction field."
 msgstr "Device only: this server has no default-reaction field."
 
@@ -2376,8 +2383,8 @@ msgstr "Enter a domain like example.com."
 msgid "Enter a server, e.g. example.social."
 msgstr "Enter a server, e.g. example.social."
 
-#: src/components/Settings/ReactionsSection.tsx:90
-#: src/components/Settings/ReactionsSection.tsx:145
+#: src/components/Settings/ReactionsSection.tsx:88
+#: src/components/Settings/ReactionsSection.tsx:143
 msgid "Enter an emoji first."
 msgstr "Enter an emoji first."
 
@@ -2400,6 +2407,10 @@ msgstr "example.com"
 #: src/screens/Login.tsx:620
 msgid "example.social"
 msgstr "example.social"
+
+#: src/components/EmojiPicker/EmojiPicker.tsx:148
+msgid "Expand {title} ({count})"
+msgstr "Expand {title} ({count})"
 
 #: src/components/shell/Sidebar.tsx:283
 #: src/components/shell/Sidebar.tsx:287
@@ -2432,7 +2443,7 @@ msgstr "Explore never shows sample data when signed out."
 msgid "Export"
 msgstr "Export"
 
-#: src/components/Settings/ReactionsSection.tsx:263
+#: src/components/Settings/ReactionsSection.tsx:346
 msgid "Export likes, pins, and hides to a file; import them back."
 msgstr "Export likes, pins, and hides to a file; import them back."
 
@@ -2475,11 +2486,11 @@ msgstr "Favorites are not available on this server."
 msgid "Favorites never show sample data when signed out."
 msgstr "Favorites never show sample data when signed out."
 
-#: src/components/Settings/ReactionsSection.tsx:154
+#: src/components/Settings/ReactionsSection.tsx:152
 msgid "Favourite emoji"
 msgstr "Favourite emoji"
 
-#: src/components/EmojiPicker/model.ts:89
+#: src/components/EmojiPicker/model.ts:81
 #: src/screens/Clips.tsx:318
 msgid "Favourites"
 msgstr "Favourites"
@@ -2797,7 +2808,7 @@ msgid "Hashtag following needs a Mastodon-family server."
 msgstr "Hashtag following needs a Mastodon-family server."
 
 #. Status: the group is hidden
-#: src/components/Settings/ReactionsSection.tsx:210
+#: src/components/Settings/ReactionsSection.tsx:211
 msgctxt "emoji group status"
 msgid "hidden"
 msgstr "hidden"
@@ -2811,20 +2822,19 @@ msgid "Hidden until closed"
 msgstr "Hidden until closed"
 
 #: src/components/Post/PostCard.tsx:1030
-#: src/components/Post/PostMediaGrid.tsx:702
+#: src/components/Post/PostMediaGrid.tsx:716
 msgid "Hide"
 msgstr "Hide"
 
 #. Hide the emoji group
-#: src/components/Settings/ReactionsSection.tsx:236
+#: src/components/Settings/ReactionsSection.tsx:235
 msgctxt "emoji group toggle"
 msgid "Hide"
 msgstr "Hide"
 
-#. placeholder {0}: group.category
-#: src/components/Settings/ReactionsSection.tsx:228
-msgid "Hide {0}"
-msgstr "Hide {0}"
+#: src/components/Settings/ReactionsSection.tsx:229
+msgid "Hide {category}"
+msgstr "Hide {category}"
 
 #: src/components/Post/PostCard.tsx:1029
 msgid "Hide content"
@@ -2842,7 +2852,7 @@ msgstr "Hide on this device"
 msgid "Hide quotes the author has not approved behind a tap-to-reveal row. Off shows every quote."
 msgstr "Hide quotes the author has not approved behind a tap-to-reveal row. Off shows every quote."
 
-#: src/components/Post/PostMediaGrid.tsx:699
+#: src/components/Post/PostMediaGrid.tsx:713
 msgid "Hide sensitive media"
 msgstr "Hide sensitive media"
 
@@ -2900,7 +2910,7 @@ msgstr "IDs are sent verbatim on this server."
 msgid "Illegal content"
 msgstr "Illegal content"
 
-#: src/components/Post/PostMediaGrid.tsx:306
+#: src/components/Post/PostMediaGrid.tsx:320
 msgid "Image unavailable"
 msgstr "Image unavailable"
 
@@ -3000,6 +3010,10 @@ msgstr "Keep"
 msgid "Keep editing"
 msgstr "Keep editing"
 
+#: src/components/EmojiPicker/EmojiPicker.tsx:318
+msgid "Keep it pinned in Favourites"
+msgstr "Keep it pinned in Favourites"
+
 #: src/components/Composer/ComposerSections.tsx:335
 msgid "Keep original"
 msgstr "Keep original"
@@ -3075,7 +3089,7 @@ msgstr "Light"
 msgid "Light or dark app chrome."
 msgstr "Light or dark app chrome."
 
-#: src/components/Settings/ReactionsSection.tsx:100
+#: src/components/Settings/ReactionsSection.tsx:98
 msgid "Like emoji"
 msgstr "Like emoji"
 
@@ -3083,19 +3097,27 @@ msgstr "Like emoji"
 msgid "Like emoji and picker favourites."
 msgstr "Like emoji and picker favourites."
 
+#: src/components/EmojiPicker/EmojiPicker.tsx:240
+msgid "Like saved on this device; the server refused the value."
+msgstr "Like saved on this device; the server refused the value."
+
+#: src/components/EmojiPicker/EmojiPicker.tsx:238
+msgid "Like saved on this device; this server has no default-reaction field."
+msgstr "Like saved on this device; this server has no default-reaction field."
+
 #: src/components/Settings/MutesSection.tsx:98
 msgid "Like word mutes, but matching posts never load."
 msgstr "Like word mutes, but matching posts never load."
 
-#: src/components/Post/ActionBar.tsx:206
+#: src/components/Post/ActionBar.tsx:237
 msgid "Like, {count} likes"
 msgstr "Like, {count} likes"
 
-#: src/components/Post/ActionBar.tsx:225
+#: src/components/Post/ActionBar.tsx:263
 msgid "Like, {total} reactions"
 msgstr "Like, {total} reactions"
 
-#: src/components/Post/ActionBar.tsx:224
+#: src/components/Post/ActionBar.tsx:262
 msgid "Liked with {mine} — remove reaction"
 msgstr "Liked with {mine} — remove reaction"
 
@@ -3230,7 +3252,7 @@ msgstr "Loading notes…"
 msgid "Loading notification settings."
 msgstr "Loading notification settings."
 
-#: src/components/Post/LinkCard.tsx:294
+#: src/components/Post/LinkCard.tsx:300
 msgid "Loading preview…"
 msgstr "Loading preview…"
 
@@ -3609,7 +3631,7 @@ msgstr "Needs a native screenshot-blocking module (not installed)."
 msgid "Needs a server with word filters (this one has none)."
 msgstr "Needs a server with word filters (this one has none)."
 
-#: src/components/Settings/ReactionsSection.tsx:264
+#: src/components/Settings/ReactionsSection.tsx:347
 msgid "Needs file sharing — not available in this build."
 msgstr "Needs file sharing — not available in this build."
 
@@ -3736,8 +3758,8 @@ msgstr "No chat rooms yet."
 msgid "No clip picker is connected to this view."
 msgstr "No clip picker is connected to this view."
 
-#: src/components/Post/ActionBar.tsx:193
-#: src/components/Post/ActionBar.tsx:251
+#: src/components/Post/ActionBar.tsx:224
+#: src/components/Post/ActionBar.tsx:302
 #: src/components/Post/menuModel.ts:448
 msgid "No composer is connected to this view."
 msgstr "No composer is connected to this view."
@@ -3772,7 +3794,7 @@ msgstr "No drafts yet."
 msgid "No editor is connected to this view."
 msgstr "No editor is connected to this view."
 
-#: src/components/EmojiPicker/EmojiPicker.tsx:186
+#: src/components/EmojiPicker/EmojiPicker.tsx:293
 msgid "No emoji found."
 msgstr "No emoji found."
 
@@ -3780,7 +3802,7 @@ msgstr "No emoji found."
 msgid "no extra filters"
 msgstr "no extra filters"
 
-#: src/components/Settings/ReactionsSection.tsx:158
+#: src/components/Settings/ReactionsSection.tsx:156
 msgid "No favourites yet. Add one below, or star emoji in the picker."
 msgstr "No favourites yet. Add one below, or star emoji in the picker."
 
@@ -4102,7 +4124,7 @@ msgstr "Only this post refuses quotes. The account-wide setting is in Settings �
 msgid "Only your followers"
 msgstr "Only your followers"
 
-#: src/components/Post/PostMediaGrid.tsx:618
+#: src/components/Post/PostMediaGrid.tsx:632
 msgid "Open"
 msgstr "Open"
 
@@ -4112,7 +4134,7 @@ msgid "Open"
 msgstr "Open"
 
 #. placeholder {0}: item.name || item.kind
-#: src/components/Post/PostMediaGrid.tsx:617
+#: src/components/Post/PostMediaGrid.tsx:631
 msgid "Open attachment {0}"
 msgstr "Open attachment {0}"
 
@@ -4130,7 +4152,7 @@ msgstr "Open clip {0}"
 msgid "Open in Keystone"
 msgstr "Open in Keystone"
 
-#: src/components/Post/PostMediaGrid.tsx:589
+#: src/components/Post/PostMediaGrid.tsx:603
 msgid "Open in viewer"
 msgstr "Open in viewer"
 
@@ -4141,8 +4163,8 @@ msgstr "Open link"
 #. placeholder {0}: card.title || url
 #. placeholder {0}: link.title
 #. placeholder {0}: node.href
-#: src/components/Post/LinkCard.tsx:71
-#: src/components/Post/LinkCard.tsx:244
+#: src/components/Post/LinkCard.tsx:76
+#: src/components/Post/LinkCard.tsx:250
 #: src/components/RichText.tsx:415
 #: src/components/RichText.tsx:508
 #: src/screens/explore/NewsTab.tsx:49
@@ -4150,11 +4172,11 @@ msgid "Open link: {0}"
 msgstr "Open link: {0}"
 
 #. placeholder {0}: mediaLabel(item)
-#: src/components/Post/PostMediaGrid.tsx:588
+#: src/components/Post/PostMediaGrid.tsx:602
 msgid "Open media: {0}"
 msgstr "Open media: {0}"
 
-#: src/components/Post/PostMediaGrid.tsx:199
+#: src/components/Post/PostMediaGrid.tsx:210
 msgid "Open media: {label}"
 msgstr "Open media: {label}"
 
@@ -4288,12 +4310,12 @@ msgstr "Part of the vote was recorded before it failed."
 msgid "Password"
 msgstr "Password"
 
-#: src/components/Post/PostMediaGrid.tsx:583
+#: src/components/Post/PostMediaGrid.tsx:597
 msgid "Pause"
 msgstr "Pause"
 
 #. placeholder {0}: mediaLabel(item)
-#: src/components/Post/PostMediaGrid.tsx:574
+#: src/components/Post/PostMediaGrid.tsx:588
 msgid "Pause {0}"
 msgstr "Pause {0}"
 
@@ -4319,26 +4341,33 @@ msgid "Pick at least one language."
 msgstr "Pick at least one language."
 
 #. Pin the emoji group
-#: src/components/Settings/ReactionsSection.tsx:222
+#: src/components/Settings/ReactionsSection.tsx:223
 msgctxt "emoji group toggle"
 msgid "Pin"
 msgstr "Pin"
 
-#. placeholder {0}: group.category
-#: src/components/Settings/ReactionsSection.tsx:216
-msgid "Pin {0}"
-msgstr "Pin {0}"
+#: src/components/Settings/ReactionsSection.tsx:217
+msgid "Pin {category}"
+msgstr "Pin {category}"
 
-#: src/components/Settings/ReactionsSection.tsx:197
+#: src/components/EmojiPicker/EmojiPicker.tsx:312
+msgid "Pin emoji to favourites"
+msgstr "Pin emoji to favourites"
+
+#: src/components/Settings/ReactionsSection.tsx:249
 msgid "Pin groups to the top of the picker, or hide the ones you never use."
 msgstr "Pin groups to the top of the picker, or hide the ones you never use."
+
+#: src/components/Settings/ReactionsSection.tsx:309
+msgid "Pin server groups to the top of the picker, or hide the ones you never use. Unhide restores a hidden group."
+msgstr "Pin server groups to the top of the picker, or hide the ones you never use. Unhide restores a hidden group."
 
 #: src/components/Post/menuModel.ts:398
 msgid "Pin to profile"
 msgstr "Pin to profile"
 
 #. Status: the group is pinned
-#: src/components/Settings/ReactionsSection.tsx:208
+#: src/components/Settings/ReactionsSection.tsx:209
 msgctxt "emoji group status"
 msgid "pinned"
 msgstr "pinned"
@@ -4348,9 +4377,9 @@ msgstr "pinned"
 msgid "Pinned"
 msgstr "Pinned"
 
-#: src/components/Settings/ReactionsSection.tsx:155
-msgid "Pinned at the top of the emoji picker, after recents."
-msgstr "Pinned at the top of the emoji picker, after recents."
+#: src/components/Settings/ReactionsSection.tsx:153
+msgid "Pinned at the very top of the emoji picker."
+msgstr "Pinned at the very top of the emoji picker."
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:47
@@ -4361,14 +4390,14 @@ msgstr "Pinned-post listings are not available on this server."
 msgid "Plain text"
 msgstr "Plain text"
 
-#: src/components/Post/PostMediaGrid.tsx:422
-#: src/components/Post/PostMediaGrid.tsx:583
+#: src/components/Post/PostMediaGrid.tsx:436
+#: src/components/Post/PostMediaGrid.tsx:597
 msgid "Play"
 msgstr "Play"
 
 #. placeholder {0}: mediaLabel(item)
-#: src/components/Post/PostMediaGrid.tsx:418
-#: src/components/Post/PostMediaGrid.tsx:574
+#: src/components/Post/PostMediaGrid.tsx:432
+#: src/components/Post/PostMediaGrid.tsx:588
 msgid "Play {0}"
 msgstr "Play {0}"
 
@@ -4480,11 +4509,11 @@ msgstr "Posts, bios and quotes render as plain text."
 msgid "Prefer newer posts."
 msgstr "Prefer newer posts."
 
-#: src/components/Post/LinkCard.tsx:287
+#: src/components/Post/LinkCard.tsx:293
 msgid "Preview"
 msgstr "Preview"
 
-#: src/components/Post/LinkCard.tsx:285
+#: src/components/Post/LinkCard.tsx:291
 msgid "Preview link"
 msgstr "Preview link"
 
@@ -4557,8 +4586,8 @@ msgid "Queues"
 msgstr "Queues"
 
 #: src/components/Composer/CompactComposer.tsx:192
-#: src/components/Post/ActionBar.tsx:188
-#: src/components/Post/ActionBar.tsx:191
+#: src/components/Post/ActionBar.tsx:219
+#: src/components/Post/ActionBar.tsx:222
 msgid "Quote"
 msgstr "Quote"
 
@@ -4589,7 +4618,7 @@ msgstr "Ranking factors"
 msgid "Rate limited by the server."
 msgstr "Rate limited by the server."
 
-#: src/components/Post/ActionBar.tsx:274
+#: src/components/Post/ActionBar.tsx:325
 msgid "React with emoji"
 msgstr "React with emoji"
 
@@ -4663,7 +4692,7 @@ msgstr "Reason (optional)"
 msgid "Recent reactions"
 msgstr "Recent reactions"
 
-#: src/components/EmojiPicker/model.ts:84
+#: src/components/EmojiPicker/model.ts:85
 msgid "Recently used"
 msgstr "Recently used"
 
@@ -4763,7 +4792,7 @@ msgstr "Release your claim on this report?"
 msgid "Remind me about alt text"
 msgstr "Remind me about alt text"
 
-#: src/components/EmojiPicker/model.ts:114
+#: src/components/EmojiPicker/model.ts:155
 msgid "Remote"
 msgstr "Remote"
 
@@ -4780,7 +4809,7 @@ msgid "Remove"
 msgstr "Remove"
 
 #. Remove the emoji from favourites
-#: src/components/Settings/ReactionsSection.tsx:167
+#: src/components/Settings/ReactionsSection.tsx:165
 msgctxt "settings button"
 msgid "Remove"
 msgstr "Remove"
@@ -4808,6 +4837,10 @@ msgstr "Remove field"
 #: src/components/ProfileActions/ProfileActions.tsx:163
 msgid "Remove from {0}"
 msgstr "Remove from {0}"
+
+#: src/components/EmojiPicker/EmojiPicker.tsx:312
+msgid "Remove from favourites"
+msgstr "Remove from favourites"
 
 #: src/components/Composer/ComposerSections.tsx:209
 msgid "Remove last"
@@ -4873,7 +4906,7 @@ msgid "Reply engaged by author"
 msgstr "Reply engaged by author"
 
 #. placeholder {0}: formatCount(locale, post.counts.replies)
-#: src/components/Post/ActionBar.tsx:247
+#: src/components/Post/ActionBar.tsx:298
 msgid "Reply, {0} replies"
 msgstr "Reply, {0} replies"
 
@@ -4919,11 +4952,11 @@ msgstr "Reports"
 msgid "Reports are not available on this server."
 msgstr "Reports are not available on this server."
 
-#: src/components/Post/ActionBar.tsx:256
+#: src/components/Post/ActionBar.tsx:307
 msgid "Repost options"
 msgstr "Repost options"
 
-#: src/components/Post/ActionBar.tsx:256
+#: src/components/Post/ActionBar.tsx:307
 msgid "Repost options, already reposted"
 msgstr "Repost options, already reposted"
 
@@ -5005,7 +5038,7 @@ msgstr "Requires an admin or moderator account."
 msgid "Reset"
 msgstr "Reset"
 
-#: src/components/Settings/ReactionsSection.tsx:124
+#: src/components/Settings/ReactionsSection.tsx:122
 msgid "Reset to heart"
 msgstr "Reset to heart"
 
@@ -5042,7 +5075,7 @@ msgstr "Restore draft: {0}"
 msgid "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 
-#: src/components/EmojiPicker/EmojiPicker.tsx:183
+#: src/components/EmojiPicker/EmojiPicker.tsx:290
 #: src/components/PostFeed/PostFeed.tsx:207
 #: src/components/PostFeed/PostFeed.tsx:230
 #: src/components/Recommendations/RecommendationsFeed.tsx:107
@@ -5159,7 +5192,7 @@ msgid "Save"
 msgstr "Save"
 
 #. Save the custom like emoji
-#: src/components/Settings/ReactionsSection.tsx:117
+#: src/components/Settings/ReactionsSection.tsx:115
 msgctxt "settings button"
 msgid "Save"
 msgstr "Save"
@@ -5274,7 +5307,7 @@ msgstr "Search"
 msgid "Search accounts"
 msgstr "Search accounts"
 
-#: src/components/EmojiPicker/EmojiPicker.tsx:179
+#: src/components/EmojiPicker/EmojiPicker.tsx:286
 msgid "Search emoji"
 msgstr "Search emoji"
 
@@ -5340,11 +5373,11 @@ msgid "Sensitive"
 msgstr "Sensitive"
 
 #: src/components/Lightbox.tsx:186
-#: src/components/Post/PostMediaGrid.tsx:675
+#: src/components/Post/PostMediaGrid.tsx:689
 msgid "Sensitive media hidden — tap to show"
 msgstr "Sensitive media hidden — tap to show"
 
-#: src/components/Post/PostMediaGrid.tsx:651
+#: src/components/Post/PostMediaGrid.tsx:665
 msgid "Sensitive media hidden. The author marked this media sensitive."
 msgstr "Sensitive media hidden. The author marked this media sensitive."
 
@@ -5450,7 +5483,7 @@ msgstr "Sharing or copying it can expose it beyond its audience."
 
 #: src/components/Lightbox.tsx:188
 #: src/components/Post/PostCard.tsx:1030
-#: src/components/Post/PostMediaGrid.tsx:677
+#: src/components/Post/PostMediaGrid.tsx:691
 msgid "Show"
 msgstr "Show"
 
@@ -5798,7 +5831,7 @@ msgstr "Signed out of {label}: session expired"
 msgid "Signed out, but the token could not be revoked on the server."
 msgstr "Signed out, but the token could not be revoked on the server."
 
-#: src/components/Settings/ReactionsSection.tsx:255
+#: src/components/Settings/ReactionsSection.tsx:337
 msgid "Signed out: likes and favourites save to this device only, under a shared account."
 msgstr "Signed out: likes and favourites save to this device only, under a shared account."
 
@@ -6021,6 +6054,10 @@ msgstr "The issue does not fit another category"
 msgid "The label says {0}, but this link opens {1} ({2}). Open it?"
 msgstr "The label says {0}, but this link opens {1} ({2}). Open it?"
 
+#: src/components/EmojiPicker/EmojiPicker.tsx:326
+msgid "The like button reacts with this"
+msgstr "The like button reacts with this"
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:89
 msgid "errors.shape.mediaUpdate"
@@ -6036,7 +6073,7 @@ msgstr "The notification policy returned an unexpected response shape."
 msgid "errors.shape.notificationUnreadCount"
 msgstr "The notification unread count returned an unexpected response shape."
 
-#: src/components/Settings/ReactionsSection.tsx:101
+#: src/components/Settings/ReactionsSection.tsx:99
 msgid "The one-tap like on every post. Saved on this device; sent to the server where supported."
 msgstr "The one-tap like on every post. Saved on this device; sent to the server where supported."
 
@@ -6116,16 +6153,16 @@ msgstr "The server returned no translation for this post."
 msgid "The server returned the file directly ({payloadBytes} bytes)."
 msgstr "The server returned the file directly ({payloadBytes} bytes)."
 
-#: src/components/Post/PostMediaGrid.tsx:508
+#: src/components/Post/PostMediaGrid.tsx:522
 msgid "The server sent no audio URL."
 msgstr "The server sent no audio URL."
 
-#: src/components/Post/PostMediaGrid.tsx:307
+#: src/components/Post/PostMediaGrid.tsx:321
 msgid "The server sent no image URL."
 msgstr "The server sent no image URL."
 
-#: src/components/Post/PostMediaGrid.tsx:357
-#: src/components/Post/PostMediaGrid.tsx:436
+#: src/components/Post/PostMediaGrid.tsx:371
+#: src/components/Post/PostMediaGrid.tsx:450
 msgid "The server sent no video URL."
 msgstr "The server sent no video URL."
 
@@ -6362,7 +6399,7 @@ msgstr "This server does not support likes yet."
 msgid "This server does not support marking announcements as read."
 msgstr "This server does not support marking announcements as read."
 
-#: src/components/Post/ActionBar.tsx:193
+#: src/components/Post/ActionBar.tsx:224
 msgid "This server does not support quote posts."
 msgstr "This server does not support quote posts."
 
@@ -6630,7 +6667,7 @@ msgstr "Type: Following"
 msgid "Type: Score"
 msgstr "Type: Score"
 
-#: src/components/Post/PostMediaGrid.tsx:621
+#: src/components/Post/PostMediaGrid.tsx:635
 msgid "Unavailable"
 msgstr "Unavailable"
 
@@ -6651,7 +6688,7 @@ msgstr "Unblock to interact again."
 msgid "Unblocked"
 msgstr "Unblocked"
 
-#: src/components/Post/ActionBar.tsx:179
+#: src/components/Post/ActionBar.tsx:210
 msgid "Undo boost"
 msgstr "Undo boost"
 
@@ -6666,12 +6703,12 @@ msgid "Unfollow hashtag"
 msgstr "Unfollow hashtag"
 
 #. Show the emoji group again
-#: src/components/Settings/ReactionsSection.tsx:235
+#: src/components/Settings/ReactionsSection.tsx:234
 msgctxt "emoji group toggle"
 msgid "Unhide"
 msgstr "Unhide"
 
-#: src/components/Settings/ReactionsSection.tsx:196
+#: src/components/Settings/ReactionsSection.tsx:248
 msgid "Unicode groups"
 msgstr "Unicode groups"
 
@@ -6686,7 +6723,7 @@ msgstr "Unknown"
 msgid "Unknown account"
 msgstr "Unknown account"
 
-#: src/components/Post/ActionBar.tsx:206
+#: src/components/Post/ActionBar.tsx:237
 msgid "Unlike, {count} likes"
 msgstr "Unlike, {count} likes"
 
@@ -6723,7 +6760,7 @@ msgid "Unnamed room"
 msgstr "Unnamed room"
 
 #. Unpin the emoji group
-#: src/components/Settings/ReactionsSection.tsx:221
+#: src/components/Settings/ReactionsSection.tsx:222
 msgctxt "emoji group toggle"
 msgid "Unpin"
 msgstr "Unpin"
@@ -6731,6 +6768,10 @@ msgstr "Unpin"
 #: src/components/Post/menuModel.ts:398
 msgid "Unpin from profile"
 msgstr "Unpin from profile"
+
+#: src/components/EmojiPicker/EmojiPicker.tsx:317
+msgid "Unpin it from Favourites"
+msgstr "Unpin it from Favourites"
 
 #: src/components/Post/PostCard.tsx:563
 msgid "Unpinned"
@@ -6835,6 +6876,10 @@ msgstr "URL"
 msgid "errors.validation.hostScheme"
 msgstr "Use an http(s) instance address, e.g. example.com."
 
+#: src/components/EmojiPicker/EmojiPicker.tsx:322
+msgid "Use emoji as like"
+msgstr "Use emoji as like"
+
 #: src/components/Post/menuModel.ts:401
 msgid "User"
 msgstr "User"
@@ -6891,8 +6936,8 @@ msgstr "Verifying…"
 msgid "Version {0}"
 msgstr "Version {0}"
 
-#: src/components/Post/PostMediaGrid.tsx:356
-#: src/components/Post/PostMediaGrid.tsx:435
+#: src/components/Post/PostMediaGrid.tsx:370
+#: src/components/Post/PostMediaGrid.tsx:449
 msgid "Video unavailable"
 msgstr "Video unavailable"
 

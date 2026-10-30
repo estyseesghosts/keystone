@@ -43,62 +43,103 @@ export function pickedFromKey(key: string): PickedEmoji {
 const titleCase = (s: string) => s.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
 
 /**
- * Unicode groups with hidden categories removed and pinned categories
- * ordered first (Settings → Reactions). Unknown names are ignored —
- * pinning or hiding a group the build no longer ships is a no-op,
- * never a hole in the list. Pure.
+ * Section order (no query): favourites (when populated — always above
+ * pinned groups), recents (when populated), pinned groups in pin order
+ * (custom categories before unicode ones on a name clash), unpinned
+ * custom groups in server order, unpinned unicode groups in build order.
+ * Hidden categories (custom or unicode, by name) never appear; unknown
+ * pinned/hidden names are no-ops, never holes. Under a query, favourites
+ * and recents hide and only matching groups appear (in the same relative
+ * order). Pure.
  */
-export function orderedUnicodeGroups(pinned: string[], hidden: string[]): typeof UNICODE_EMOJI_GROUPS {
-  const hiddenSet = new Set(hidden)
-  const visible = UNICODE_EMOJI_GROUPS.filter(g => !hiddenSet.has(g.category))
-  if (pinned.length === 0) return visible
-  const pinnedSet = new Set(pinned)
-  const rank = new Map(pinned.map((c, i) => [c, i] as const))
-  const first = visible.filter(g => pinnedSet.has(g.category)).sort((a, b) => rank.get(a.category)! - rank.get(b.category)!)
-  return [...first, ...visible.filter(g => !pinnedSet.has(g.category))]
-}
 
 export function buildPickerSections(opts: {
   custom: CoreCustomEmoji[]
   recents: PickedEmoji[]
   query: string
   /** Favourite emoji (Settings → Reactions): their own section, first
-   * after recents, only without a query. Defaults to none. */
+   * (above recents and every pinned group), only without a query and only
+   * when populated. Defaults to none. */
   favourites?: PickedEmoji[]
-  /** Hidden unicode group categories (Settings → Reactions): filtered
-   * out of the unicode list. Defaults to none hidden. */
+  /** Hidden group categories (custom or unicode, by name — Settings →
+   * Reactions): filtered out everywhere. Defaults to none hidden. */
   hiddenGroups?: string[]
   /** Remote-host entries from the session store (`remoteEmojis()`):
    * searched only with a query (never dumped whole) — name or host
    * matching, capped. Keys stay `:name@host:` so picks re-resolve. */
   remote?: RemoteCustomEmoji[]
-  /** Pinned unicode group categories: ordered first among the unicode
-   * groups. Defaults to server order. */
+  /** Pinned group categories (custom or unicode, by name): ordered first
+   * as one block, in pin order. Defaults to server/build order. */
   pinnedGroups?: string[]
 }): PickerSection[] {
   const q = opts.query.trim().replace(/^:+|:+$/g, '').toLowerCase()
   const sections: PickerSection[] = []
   const toCustom = (e: CoreCustomEmoji): PickedEmoji => ({kind: 'custom', key: customKey(e.name), url: e.url})
 
-  if (q === '' && opts.recents.length > 0) {
-    sections.push({id: 'recents', title: i18n._(msg`Recently used`), items: opts.recents})
-  }
-
   const favourites = opts.favourites ?? []
   if (q === '' && favourites.length > 0) {
     sections.push({id: 'favourites', title: i18n._(msg`Favourites`), items: favourites})
   }
 
-  const customList = filterCustomEmojis(
-    opts.custom.map(e => ({name: e.name, url: e.url, category: e.category ?? null, aliases: []})),
-    q,
-  )
-  for (const group of groupCustomByCategory(customList)) {
-    sections.push({
-      id: `custom:${group.category}`,
-      title: group.category,
-      items: group.items.map(e => toCustom({name: e.name, url: e.url, category: e.category})),
-    })
+  if (q === '' && opts.recents.length > 0) {
+    sections.push({id: 'recents', title: i18n._(msg`Recently used`), items: opts.recents})
+  }
+
+  const hidden = new Set(opts.hiddenGroups ?? [])
+  const pinned = opts.pinnedGroups ?? []
+  const pinnedSet = new Set(pinned)
+  const customGroups = groupCustomByCategory(
+    filterCustomEmojis(
+      opts.custom.map(e => ({name: e.name, url: e.url, category: e.category ?? null, aliases: []})),
+      q,
+    ),
+  ).filter(g => !hidden.has(g.category))
+  const uniGroups = UNICODE_EMOJI_GROUPS.filter(g => !hidden.has(g.category))
+  const uniItems = (group: (typeof UNICODE_EMOJI_GROUPS)[number]): string[] => {
+    const label = titleCase(group.category)
+    const items =
+      q === ''
+        ? group.items
+        : label.toLowerCase().includes(q) || group.category.includes(q)
+          ? group.items
+          : group.items.filter(e => e.includes(q))
+    return items.filter(e => e.trim().length > 0)
+  }
+  const pushCustom = (category: string): void => {
+    const group = customGroups.find(g => g.category === category)
+    if (group) {
+      sections.push({
+        id: `custom:${group.category}`,
+        title: group.category,
+        items: group.items.map(e => toCustom({name: e.name, url: e.url, category: e.category})),
+      })
+    }
+  }
+  const pushUnicode = (category: string): void => {
+    const group = uniGroups.find(g => g.category === category)
+    if (!group) return
+    const clean = uniItems(group)
+    if (clean.length > 0) {
+      sections.push({
+        id: `unicode:${group.category}`,
+        title: titleCase(group.category),
+        items: clean.map(key => ({kind: 'unicode' as const, key})),
+      })
+    }
+  }
+
+  // Pinned block in pin order (custom categories before unicode ones on
+  // a name clash; unknown names are no-ops).
+  for (const name of pinned) {
+    pushCustom(name)
+    pushUnicode(name)
+  }
+  // Unpinned customs in server order, then unpinned unicodes in build order.
+  for (const group of customGroups) {
+    if (!pinnedSet.has(group.category)) pushCustom(group.category)
+  }
+  for (const group of uniGroups) {
+    if (!pinnedSet.has(group.category)) pushUnicode(group.category)
   }
 
   // Remote-host results (WS-C): only under a query, name-or-host
@@ -117,37 +158,27 @@ export function buildPickerSections(opts: {
     }
   }
 
-  for (const group of orderedUnicodeGroups(opts.pinnedGroups ?? [], opts.hiddenGroups ?? [])) {
-    const label = titleCase(group.category)
-    const items =
-      q === ''
-        ? group.items
-        : label.toLowerCase().includes(q) || group.category.includes(q)
-          ? group.items
-          : group.items.filter(e => e.includes(q))
-    const clean = items.filter(e => e.trim().length > 0)
-    if (clean.length > 0) {
-      sections.push({
-        id: `unicode:${group.category}`,
-        title: label,
-        items: clean.map(key => ({kind: 'unicode', key})),
-      })
-    }
-  }
   return sections
 }
 
 export type PickerRow =
-  | {type: 'header'; id: string; title: string}
+  | {type: 'header'; id: string; sectionId: string; title: string; count: number}
   | {type: 'items'; id: string; items: PickedEmoji[]}
 
-export function sectionsToRows(sections: PickerSection[], columns = PICKER_COLUMNS): PickerRow[] {
+export function sectionsToRows(
+  sections: PickerSection[],
+  columns = PICKER_COLUMNS,
+  collapsed: ReadonlySet<string> = EMPTY_SET,
+): PickerRow[] {
   const rows: PickerRow[] = []
   for (const s of sections) {
-    rows.push({type: 'header', id: `h:${s.id}`, title: s.title})
+    rows.push({type: 'header', id: `h:${s.id}`, sectionId: s.id, title: s.title, count: s.items.length})
+    if (collapsed.has(s.id)) continue
     for (let i = 0; i < s.items.length; i += columns) {
       rows.push({type: 'items', id: `r:${s.id}:${i}`, items: s.items.slice(i, i + columns)})
     }
   }
   return rows
 }
+
+const EMPTY_SET: ReadonlySet<string> = new Set()

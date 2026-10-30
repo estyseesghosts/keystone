@@ -3,10 +3,12 @@ import {useSyncExternalStore} from 'react'
 import {
   addFavourite as addFav,
   DEFAULT_LIKE_EMOJI,
+  isUnsupportedError,
   MAX_FAVOURITES,
   parseLikeEmoji,
   parseStoredList,
   removeFavourite as removeFav,
+  type Backend,
   type KeyValueStore,
 } from '@keystone/fedi'
 
@@ -30,6 +32,7 @@ const FAVOURITES_BASE = 'keystone.emojifavs'
 const LIKE_EMOJI_BASE = 'keystone.likeemoji'
 const PINNED_GROUPS_KEY = 'keystone.pinnedemojigroups'
 const HIDDEN_GROUPS_KEY = 'keystone.hiddenemojigroups'
+const COLLAPSED_GROUPS_KEY = 'keystone.collapsedemojigroups'
 
 export const ANON_SCOPE = 'anon'
 
@@ -162,10 +165,14 @@ export function useFavourites(scope: string, store: FavouritesStore = favourites
 export interface EmojiGroupPrefsStore {
   pinned(): string[]
   hidden(): string[]
+  /** Collapsed section ids (persisted — the picker restores them on every open). */
+  collapsed(): string[]
   pin(category: string): void
   unpin(category: string): void
   hide(category: string): void
   unhide(category: string): void
+  collapse(sectionId: string): void
+  expand(sectionId: string): void
   subscribe(fn: () => void): () => void
 }
 
@@ -194,6 +201,7 @@ export function createEmojiGroupPrefsStore(
   return {
     pinned: () => cached(PINNED_GROUPS_KEY),
     hidden: () => cached(HIDDEN_GROUPS_KEY),
+    collapsed: () => cached(COLLAPSED_GROUPS_KEY),
     pin(category) {
       const list = cached(PINNED_GROUPS_KEY)
       if (list.includes(category)) return
@@ -216,6 +224,17 @@ export function createEmojiGroupPrefsStore(
         cached(HIDDEN_GROUPS_KEY).filter(c => c !== category),
       )
     },
+    collapse(sectionId) {
+      const list = cached(COLLAPSED_GROUPS_KEY)
+      if (list.includes(sectionId)) return
+      write(COLLAPSED_GROUPS_KEY, [...list, sectionId])
+    },
+    expand(sectionId) {
+      write(
+        COLLAPSED_GROUPS_KEY,
+        cached(COLLAPSED_GROUPS_KEY).filter(c => c !== sectionId),
+      )
+    },
     subscribe(fn) {
       listeners.add(fn)
       return () => {
@@ -233,6 +252,31 @@ export function usePinnedGroups(store: EmojiGroupPrefsStore = emojiGroupPrefsSto
 
 export function useHiddenGroups(store: EmojiGroupPrefsStore = emojiGroupPrefsStore): string[] {
   return useSyncExternalStore(store.subscribe, store.hidden)
+}
+
+export function useCollapsedGroups(store: EmojiGroupPrefsStore = emojiGroupPrefsStore): string[] {
+  return useSyncExternalStore(store.subscribe, store.collapsed)
+}
+
+/**
+ * Best-effort server persist for the like emoji (`i/update
+ * { defaultReaction }`, v1 `tryPersistLikeEmoji` parity). Returns null on
+ * success, else the failure kind for the caller to report. The device
+ * store stays the source of truth either way — callers always
+ * `likeEmojiStore.set` first.
+ */
+export async function persistLikeEmojiServer(
+  backend: Backend | null,
+  emoji: string,
+): Promise<null | 'unsupported' | 'refused'> {
+  if (!backend) return 'unsupported'
+  if (backend.family !== 'misskey') return 'unsupported'
+  try {
+    await backend.updateProfile({ext: {defaultReaction: emoji}})
+    return null
+  } catch (err) {
+    return isUnsupportedError(err) ? 'unsupported' : 'refused'
+  }
 }
 
 export {DEFAULT_LIKE_EMOJI}

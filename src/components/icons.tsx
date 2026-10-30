@@ -142,6 +142,15 @@ export function CloseIcon(p: IconProps) {
   )
 }
 
+export function ChevronIcon(p: IconProps & {direction?: 'up' | 'down'}) {
+  const {direction = 'down', ...rest} = p
+  return (
+    <Base {...rest}>
+      {direction === 'up' ? <Path d="M6 15l6-6 6 6" /> : <Path d="M6 9l6 6 6-6" />}
+    </Base>
+  )
+}
+
 export function MoreIcon(p: IconProps) {
   const theme = useTheme()
   const {size = 24, color = theme.palette.text} = p

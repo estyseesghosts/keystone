@@ -21,6 +21,11 @@ import {useTheme} from '#/alf/index'
 export type PressableProps = Omit<RNPressableProps, 'style'> & {
   style?: StyleProp<ViewStyle>
   children?: React.ReactNode
+  /** Right-click handler. Web-only: react-native-web forwards
+   * `onContextMenu` to the DOM node (native builds never see it — the
+   * prop is dropped below unless `Platform.OS === 'web'`). Callers pass
+   * it unconditionally; gating lives here, once. */
+  onContextMenu?: (e: {preventDefault(): void}) => void
 }
 
 export function Pressable({
@@ -30,6 +35,7 @@ export function Pressable({
   onHoverOut,
   onFocus,
   onBlur,
+  onContextMenu,
   ...rest
 }: PressableProps) {
   const theme = useTheme()
@@ -54,6 +60,10 @@ export function Pressable({
         setFocused(false)
         onBlur?.(e)
       }}
+      // Web-only gate (see the prop doc): native trees never receive the
+      // unknown prop. The cast is type-only — RNW forwards `onContextMenu`
+      // to the DOM node on web.
+      {...(Platform.OS === 'web' && onContextMenu ? {onContextMenu} : {})}
       style={state => [
         state.pressed && {opacity: 0.7},
         hovered && !state.pressed && {opacity: 0.85},

@@ -1,7 +1,8 @@
-import {useEffect, useState} from 'react'
+import {useContext, useEffect, useMemo, useState} from 'react'
 import {View} from 'react-native'
 import {msg} from '@lingui/macro'
 import {useI18n} from '#/locale/i18n'
+import {QueryClientContext} from '@tanstack/react-query'
 
 import {isUnsupportedError, UNICODE_EMOJI_GROUPS} from '@keystone/fedi'
 
@@ -9,15 +10,18 @@ import {atoms} from '#/alf/atoms'
 import {Body, Caption} from '#/alf/typography'
 import {UnicodeEmoji} from '#/components/EmojiImage'
 import {Button} from '#/components/Button'
+import {useCustomEmojis} from '#/components/EmojiPicker/EmojiPicker'
 import {Pressable} from '#/components/Pressable'
 import {TextField} from '#/components/forms/TextField'
 import {useActiveBackend} from '#/screens/HomeFeed'
+import {NO_CUSTOM_EMOJIS, useCustomEmojiSelect, useCustomEmojiStore} from '#/state/customEmojiStores'
 import {
   ANON_SCOPE,
   DEFAULT_LIKE_EMOJI,
   emojiGroupPrefsStore,
   favouritesStore,
   likeEmojiStore,
+  persistLikeEmojiServer,
   useFavourites,
   useHiddenGroups,
   useLikeEmoji,
@@ -65,16 +69,11 @@ function LikeEmojiRow({
       setServerNote(i18n._(msg`Device only while signed out.`))
       return
     }
-    if (backend.family !== 'misskey') {
-      setServerNote(i18n._(msg`Device only: this server has no default-reaction field.`))
-      return
-    }
     setBusy(true)
     try {
-      await backend.updateProfile({ext: {defaultReaction: emoji}})
-      setServerNote(null)
-    } catch (err) {
-      if (isUnsupportedError(err)) {
+      const failure = await persistLikeEmojiServer(backend, emoji)
+      if (failure === null) setServerNote(null)
+      else if (failure === 'unsupported') {
         setServerNote(i18n._(msg`Device only: this server has no default-reaction field.`))
       } else {
         setServerNote(i18n._(msg`Device only: the server refused the value.`))
@@ -152,7 +151,7 @@ function FavouritesRow({scope, favs = favouritesStore}: {scope: string; favs?: F
   return (
     <SettingRow
       title={i18n._(msg`Favourite emoji`)}
-      hint={i18n._(msg`Pinned at the top of the emoji picker, after recents.`)}
+      hint={i18n._(msg`Pinned at the very top of the emoji picker.`)}
       testID="favourites-row">
       {list.length === 0 ? (
         <Caption color="faint">{i18n._(msg`No favourites yet. Add one below, or star emoji in the picker.`)}</Caption>
@@ -187,6 +186,60 @@ function FavouritesRow({scope, favs = favouritesStore}: {scope: string; favs?: F
   )
 }
 
+function GroupToggleRow({
+  category,
+  pinned,
+  hidden,
+  onPin,
+  onHide,
+  testPrefix,
+}: {
+  category: string
+  pinned: boolean
+  hidden: boolean
+  onPin: () => void
+  onHide: () => void
+  testPrefix: string
+}) {
+  const i18n = useI18n()
+  return (
+    <View style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
+      <Body>{category}</Body>
+      <Caption color="faint">
+        {pinned
+          ? i18n._(msg({message: 'pinned', context: 'emoji group status', comment: 'Status: the group is pinned'}))
+          : hidden
+            ? i18n._(msg({message: 'hidden', context: 'emoji group status', comment: 'Status: the group is hidden'}))
+            : ''}
+      </Caption>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{checked: pinned}}
+        accessibilityLabel={i18n._(msg`Pin ${category}`)}
+        onPress={onPin}
+        testID={`${testPrefix}-pin-${category}`}>
+        <Body>
+          {pinned
+            ? i18n._(msg({message: 'Unpin', context: 'emoji group toggle', comment: 'Unpin the emoji group'}))
+            : i18n._(msg({message: 'Pin', context: 'emoji group toggle', comment: 'Pin the emoji group'}))}
+        </Body>
+      </Pressable>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{checked: hidden}}
+        accessibilityLabel={i18n._(msg`Hide ${category}`)}
+        onPress={onHide}
+        testID={`${testPrefix}-hide-${category}`}>
+        <Body>
+          {hidden
+            ? i18n._(msg({message: 'Unhide', context: 'emoji group toggle', comment: 'Show the emoji group again'}))
+            : i18n._(msg({message: 'Hide', context: 'emoji group toggle', comment: 'Hide the emoji group'}))}
+        </Body>
+      </Pressable>
+    </View>
+  )
+}
+
 function UnicodeGroupsRow({groups = emojiGroupPrefsStore}: {groups?: EmojiGroupPrefsStore}) {
   const pinned = usePinnedGroups(groups)
   const hidden = useHiddenGroups(groups)
@@ -197,56 +250,101 @@ function UnicodeGroupsRow({groups = emojiGroupPrefsStore}: {groups?: EmojiGroupP
       hint={i18n._(msg`Pin groups to the top of the picker, or hide the ones you never use.`)}
       testID="unicode-groups-row">
       <View style={[atoms.gap_sm]}>
-        {UNICODE_EMOJI_GROUPS.map(group => {
-          const isPinned = pinned.includes(group.category)
-          const isHidden = hidden.includes(group.category)
-          return (
-            <View key={group.category} style={[atoms.row, atoms.itemsCenter, atoms.gap_sm]}>
-              <Body>{group.category}</Body>
-              <Caption color="faint">
-                {isPinned
-                  ? i18n._(msg({message: 'pinned', context: 'emoji group status', comment: 'Status: the group is pinned'}))
-                  : isHidden
-                    ? i18n._(msg({message: 'hidden', context: 'emoji group status', comment: 'Status: the group is hidden'}))
-                    : ''}
-              </Caption>
-              <Pressable
-                accessibilityRole="checkbox"
-                accessibilityState={{checked: isPinned}}
-                accessibilityLabel={i18n._(msg`Pin ${group.category}`)}
-                onPress={() => (isPinned ? groups.unpin(group.category) : groups.pin(group.category))}
-                testID={`group-pin-${group.category}`}>
-                <Body>
-                  {isPinned
-                    ? i18n._(msg({message: 'Unpin', context: 'emoji group toggle', comment: 'Unpin the emoji group'}))
-                    : i18n._(msg({message: 'Pin', context: 'emoji group toggle', comment: 'Pin the emoji group'}))}
-                </Body>
-              </Pressable>
-              <Pressable
-                accessibilityRole="checkbox"
-                accessibilityState={{checked: isHidden}}
-                accessibilityLabel={i18n._(msg`Hide ${group.category}`)}
-                onPress={() =>
-                  isHidden ? groups.unhide(group.category) : groups.hide(group.category)
-                }
-                testID={`group-hide-${group.category}`}>
-                <Body>
-                  {isHidden
-                    ? i18n._(msg({message: 'Unhide', context: 'emoji group toggle', comment: 'Show the emoji group again'}))
-                    : i18n._(msg({message: 'Hide', context: 'emoji group toggle', comment: 'Hide the emoji group'}))}
-                </Body>
-              </Pressable>
-            </View>
-          )
-        })}
+        {UNICODE_EMOJI_GROUPS.map(group => (
+          <GroupToggleRow
+            key={group.category}
+            category={group.category}
+            pinned={pinned.includes(group.category)}
+            hidden={hidden.includes(group.category)}
+            onPin={() =>
+              pinned.includes(group.category) ? groups.unpin(group.category) : groups.pin(group.category)
+            }
+            onHide={() =>
+              hidden.includes(group.category) ? groups.unhide(group.category) : groups.hide(group.category)
+            }
+            testPrefix="group"
+          />
+        ))}
       </View>
     </SettingRow>
   )
 }
 
-export function ReactionsSection() {
+/**
+ * Custom (server) emoji groups for the active session: pin/hide, plus
+ * the restore path for hidden ones. Hidden names with no live category
+ * still list (unhide restores them when the server has them again).
+ * Signed-out trees have no session listing — unicode groups only.
+ * Provider-less trees (tests, bare shells) render nothing: the custom
+ * listing is a react-query read, so it can only run inside the inner
+ * component (same guard as the shell notification host).
+ */
+function CustomGroupsRow({
+  sessionId,
+  groups = emojiGroupPrefsStore,
+}: {
+  sessionId: string
+  groups?: EmojiGroupPrefsStore
+}) {
+  const qc = useContext(QueryClientContext)
+  if (!qc) return null
+  return <CustomGroupsRowInner sessionId={sessionId} groups={groups} />
+}
+
+function CustomGroupsRowInner({
+  sessionId,
+  groups = emojiGroupPrefsStore,
+}: {
+  sessionId: string
+  groups?: EmojiGroupPrefsStore
+}) {
+  const pinned = usePinnedGroups(groups)
+  const hidden = useHiddenGroups(groups)
+  const i18n = useI18n()
+  const store = useCustomEmojiStore(sessionId)
+  const hosted = useCustomEmojiSelect(store, s =>
+    s != null && s.state() === 'ready' ? s.emojis() : NO_CUSTOM_EMOJIS,
+  )
+  const custom = useCustomEmojis(sessionId)
+  const known = useMemo(() => {
+    const seen: string[] = []
+    for (const e of [...(custom.data ?? []), ...hosted]) {
+      const category = e.category ?? null
+      if (category != null && !seen.includes(category)) seen.push(category)
+    }
+    return seen
+  }, [custom.data, hosted])
+  const categories = useMemo(
+    () => [...known, ...hidden.filter(h => !known.includes(h))],
+    [known, hidden],
+  )
+  if (categories.length === 0) return null
+  return (
+    <SettingRow
+      title={i18n._(msg`Custom emoji groups`)}
+      hint={i18n._(msg`Pin server groups to the top of the picker, or hide the ones you never use. Unhide restores a hidden group.`)}
+      testID="custom-groups-row">
+      <View style={[atoms.gap_sm]}>
+        {categories.map(category => (
+          <GroupToggleRow
+            key={category}
+            category={category}
+            pinned={pinned.includes(category)}
+            hidden={hidden.includes(category)}
+            onPin={() => (pinned.includes(category) ? groups.unpin(category) : groups.pin(category))}
+            onHide={() => (hidden.includes(category) ? groups.unhide(category) : groups.hide(category))}
+            testPrefix="group-custom"
+          />
+        ))}
+      </View>
+    </SettingRow>
+  )
+}
+
+export function ReactionsSection({groups = emojiGroupPrefsStore}: {groups?: EmojiGroupPrefsStore}) {
   const session = useOptionalActiveSession()
   const scope = scopeOf(session?.id ?? null)
+  const sessionIdForGroups = session?.id ?? null
   const i18n = useI18n()
   return (
     <View style={[atoms.gap_sm]} testID="settings-section-reactions">
@@ -257,7 +355,8 @@ export function ReactionsSection() {
       ) : null}
       <LikeEmojiRow scope={scope} />
       <FavouritesRow scope={scope} />
-      <UnicodeGroupsRow />
+      <UnicodeGroupsRow groups={groups} />
+      {sessionIdForGroups != null ? <CustomGroupsRow sessionId={sessionIdForGroups} groups={groups} /> : null}
       <PlaceholderRow
         title={i18n._(msg`Back up emoji prefs`)}
         hint={i18n._(msg`Export likes, pins, and hides to a file; import them back.`)}

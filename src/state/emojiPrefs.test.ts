@@ -1,10 +1,11 @@
-import {createMemoryStore} from '@keystone/fedi'
+import {createMemoryStore, ApiError} from '@keystone/fedi'
 
 import {
   createEmojiGroupPrefsStore,
   createFavouritesStore,
   createLikeEmojiStore,
   DEFAULT_LIKE_EMOJI,
+  persistLikeEmojiServer,
 } from './emojiPrefs'
 
 const S1 = 'https://a.example u1'
@@ -76,5 +77,50 @@ describe('emoji group prefs store', () => {
     store.hide('dogs')
     const fresh = createEmojiGroupPrefsStore(() => storage)
     expect(fresh.hidden()).toEqual(['dogs'])
+  })
+})
+
+describe('group prefs collapse set', () => {
+  it('collapses/expands per section, persisted, deduped', () => {
+    const storage = createMemoryStore()
+    const store = createEmojiGroupPrefsStore(() => storage)
+    expect(store.collapsed()).toEqual([])
+    store.collapse('custom:blobs')
+    store.collapse('custom:blobs')
+    store.collapse('unicode:face')
+    expect(store.collapsed()).toEqual(['custom:blobs', 'unicode:face'])
+    store.expand('custom:blobs')
+    expect(store.collapsed()).toEqual(['unicode:face'])
+    const fresh = createEmojiGroupPrefsStore(() => storage)
+    expect(fresh.collapsed()).toEqual(['unicode:face'])
+  })
+})
+
+describe('persistLikeEmojiServer', () => {
+  const backend = (over: Record<string, unknown> = {}) => ({
+    family: 'misskey',
+    updateProfile: jest.fn(async () => undefined),
+    ...over,
+  })
+  it('persists on misskey, reports unsupported/refused honestly', async () => {
+    const ok = backend()
+    await expect(persistLikeEmojiServer(ok as never, '👍')).resolves.toBeNull()
+    expect(ok.updateProfile).toHaveBeenCalledWith({ext: {defaultReaction: '👍'}})
+    await expect(persistLikeEmojiServer(null, '👍')).resolves.toBe('unsupported')
+    await expect(persistLikeEmojiServer(backend({family: 'mastodon'}) as never, '👍')).resolves.toBe(
+      'unsupported',
+    )
+    const notFound = backend({
+      updateProfile: jest.fn(async () => {
+        throw new ApiError('nope', 404)
+      }),
+    })
+    await expect(persistLikeEmojiServer(notFound as never, '👍')).resolves.toBe('unsupported')
+    const refused = backend({
+      updateProfile: jest.fn(async () => {
+        throw new ApiError('nope', 403)
+      }),
+    })
+    await expect(persistLikeEmojiServer(refused as never, '👍')).resolves.toBe('refused')
   })
 })
