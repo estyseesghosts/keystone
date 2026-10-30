@@ -217,6 +217,59 @@ describe('PageActions like', () => {
     }
   })
 
+  it('owner can pin and unpin (menu label flips, me refetch)', async () => {
+    const me = makeAccount({pinnedPageId: null, pinnedPage: null})
+    const backend = fakeBackend({
+      me: jest.fn(async () => me),
+      pages: {
+        show: jest.fn(async () => page()),
+        like: jest.fn(async () => undefined),
+        unlike: jest.fn(async () => undefined),
+        pin: jest.fn(async () => undefined),
+        delete: jest.fn(async () => undefined),
+        byUser: jest.fn(async () => ({items: [], cursor: null, end: true})),
+      },
+    })
+    const {store, sessionId} = await signedInStore()
+    mockBackends.set(sessionId, backend)
+    try {
+      const own = page({author: account(), id: 'p1'})
+      renderPage(<PageActions page={own} sessionId={sessionId} testID="pa" />, store)
+      fireEvent.press(screen.getByTestId('pa-menu'))
+      fireEvent.press(await screen.findByText('Pin'))
+      await waitFor(() => expect(backend.pages.pin).toHaveBeenCalledWith('p1'))
+      expect((backend as unknown as {me: jest.Mock}).me).toHaveBeenCalled()
+    } finally {
+      mockBackends.delete(sessionId)
+    }
+  })
+
+  it('owner sees Unpin when the page is already pinned', async () => {
+    const me = makeAccount({ext: {me: {pinnedPageId: 'p1'}}} as never)
+    const backend = fakeBackend({
+      me: jest.fn(async () => me),
+      pages: {
+        show: jest.fn(async () => page()),
+        like: jest.fn(async () => undefined),
+        unlike: jest.fn(async () => undefined),
+        pin: jest.fn(async () => undefined),
+        delete: jest.fn(async () => undefined),
+        byUser: jest.fn(async () => ({items: [], cursor: null, end: true})),
+      },
+    })
+    const {store, sessionId} = await signedInStore()
+    mockBackends.set(sessionId, backend)
+    try {
+      const own = page({author: account(), id: 'p1'})
+      renderPage(<PageActions page={own} sessionId={sessionId} testID="pa" />, store)
+      fireEvent.press(screen.getByTestId('pa-menu'))
+      fireEvent.press(await screen.findByText('Unpin'))
+      await waitFor(() => expect(backend.pages.pin).toHaveBeenCalledWith(null))
+    } finally {
+      mockBackends.delete(sessionId)
+    }
+  })
+
   it('non-owner can like optimistically and roll back on failure', async () => {
     const backend = fakeBackend({
       pages: {

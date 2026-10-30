@@ -1,11 +1,10 @@
-// P6.5 Pages read queries (slice 2) + like toggle queue.
-//
+// P6.5 Pages queries (slices 2–4): reads + like toggle queue + saves.
 // Session-scoped like every other query module: keys carry the sessionId
 // first, the backend resolves per session (injected in tests), and the
 // `pages` module gates availability — Mastodon-family backends leave it
 // undefined and the UI hides instead of erroring.
 
-import {useMemo, useSyncExternalStore} from 'react'
+import {useMemo, useState, useSyncExternalStore} from 'react'
 import {
   useInfiniteQuery,
   useQuery,
@@ -17,10 +16,14 @@ import {
 
 import {
   backendForSession,
+  copyName,
   type Backend,
   type Cursor,
+  type Media,
   type Page,
+  type PageDraft,
   type PageModel,
+  type PagePatch,
   type Post,
 } from '@keystone/fedi'
 
@@ -28,6 +31,7 @@ import {appStorage} from '#/storage'
 import {useSessionStore} from '#/state/session/SessionProvider'
 
 import {pageQueryKey, pagesQueryKey, postQueryKey, type AppQueryKey} from './keys'
+import {duplicatePageDraft} from '#/state/pageEditor'
 import {useToggleMutationQueue} from '#/lib/hooks/useToggleMutationQueue'
 import {GC_TIME, STALE} from './stale'
 import {retryPolicy, throwIfAborted} from './retry'
@@ -283,4 +287,135 @@ export function usePageLikeQueue(
     busy,
     toggle: () => queue.queueToggle(!liked),
   }
+}
+
+/** Drive file metadata by id (`drive/files/show`), keyed per session.
+ * Used by the editor thumbnail and the preview eye-catch (slice 6). */
+export function useDriveFile(
+  sessionId: string | null,
+  fileId: string | null,
+  options: PagesQueryOptions = {},
+): UseQueryResult<Media, Error> & {queryKey: AppQueryKey} {
+  const storeBackend = useSessionBackend(sessionId)
+  const backend = options.backend !== undefined ? options.backend : storeBackend
+  const queryKey = pagesQueryKey(sessionId ?? 'signed-out', `driveFile:${fileId ?? 'none'}`)
+  const query = useQuery<Media, Error, Media, AppQueryKey>({
+    queryKey,
+    queryFn: ({signal}) => {
+      if (!backend?.drive) throw new Error('useDriveFile: no drive backend for session')
+      throwIfAborted(signal)
+      return backend.drive.showFile(fileId as string)
+    },
+    enabled: sessionId != null && fileId != null && backend?.drive != null,
+    staleTime: STALE.POST,
+    gcTime: GC_TIME.POST,
+    retry: retryPolicy(options.retry),
+    refetchOnWindowFocus: false,
+  })
+  return {...query, queryKey}
+}
+
+/** True when the backend rejected with the page-name collision code. Pure. */
+export function isNameTakenError(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    (err as {code?: unknown}).code === 'errors.pages.nameTaken'
+  )
+}
+
+function invalidatePageLists(queryClient: ReturnType<typeof useQueryClient>, sessionId: string): void {
+  void queryClient.invalidateQueries({queryKey: [sessionId, 'pages']})
+  void queryClient.invalidateQueries({queryKey: [sessionId, 'page']})
+}
+
+export interface SavePageResult {
+  page: PageModel
+}
+
+/**
+ * Create a page (`pages/create`). On success the personal + featured
+ * lists refetch. `NAME_ALREADY_EXISTS` surfaces to the caller for the
+ * inline slug error (not a toast).
+ */
+export function useCreatePage(
+  sessionId: string | null,
+  options: PagesQueryOptions = {},
+): {
+  mutate: (draft: PageDraft) => Promise<SavePageResult>
+  isPending: boolean
+} {
+  const storeBackend = useSessionBackend(sessionId)
+  const backend = options.backend !== undefined ? options.backend : storeBackend
+  const queryClient = useQueryClient()
+  const [pending, setPending] = useState(false)
+  return {
+    isPending: pending,
+    mutate: async (draft: PageDraft) => {
+      if (sessionId == null) throw new Error('useCreatePage: no session')
+      if (!backend?.pages) throw new Error('useCreatePage: no pages backend for session')
+      setPending(true)
+      try {
+        const page = await backend.pages.create(draft)
+        invalidatePageLists(queryClient, sessionId)
+        return {page}
+      } finally {
+        setPending(false)
+      }
+    },
+  }
+}
+
+/**
+ * Update a page (`pages/update`, patch-only per PG-4). No-op patches
+ * never reach the server — the caller checks `pagePatch` first.
+ */
+export function useUpdatePage(
+  sessionId: string | null,
+  options: PagesQueryOptions = {},
+): {
+  mutate: (pageId: string, patch: PagePatch) => Promise<void>
+  isPending: boolean
+} {
+  const storeBackend = useSessionBackend(sessionId)
+  const backend = options.backend !== undefined ? options.backend : storeBackend
+  const queryClient = useQueryClient()
+  const [pending, setPending] = useState(false)
+  return {
+    isPending: pending,
+    mutate: async (pageId: string, patch: PagePatch) => {
+      if (sessionId == null) throw new Error('useUpdatePage: no session')
+      if (!backend?.pages) throw new Error('useUpdatePage: no pages backend for session')
+      if (Object.keys(patch).length === 0) return
+      setPending(true)
+      try {
+        await backend.pages.update(pageId, patch)
+        await queryClient.invalidateQueries({queryKey: pageQueryKey(sessionId, pageId)})
+        invalidatePageLists(queryClient, sessionId)
+      } finally {
+        setPending(false)
+      }
+    },
+  }
+}
+
+/**
+ * Duplicate a saved page: `create` with `"{title} (copy)"` and
+ * `copyName(name, n)` (`-copy`, `-copy-2`, …), retrying the slug up to 5
+ * times on `NAME_ALREADY_EXISTS`. Never mutates the source form.
+ */
+export async function duplicatePageOnBackend(
+  backend: NonNullable<Backend['pages']>,
+  saved: PageModel,
+): Promise<PageModel> {
+  let last: unknown = null
+  for (let n = 1; n <= 5; n++) {
+    try {
+      return await backend.create(duplicatePageDraft(saved, copyName(saved.name, n)))
+    } catch (err) {
+      if (!isNameTakenError(err)) throw err
+      last = err
+    }
+  }
+  throw last
 }

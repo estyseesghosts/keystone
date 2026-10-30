@@ -197,6 +197,11 @@ export interface Account {
   /** Pinned posts (the Featured tab ships absent, never faked). */
   pinnedPostIds: string[] | null;
   pinnedPosts: Post[] | null;
+  /** Pinned page id (Misskey family; null when none or unpacked). */
+  pinnedPageId: string | null;
+  /** Packed pinned page when the server sent it (else null — the UI
+   * fetches via `pages/show`; Pinetree never packs it). */
+  pinnedPage: PageModel | null;
 
   // --- Viewer state (auth-only; absent means unknown, never false) ---
   isFollowing?: boolean;

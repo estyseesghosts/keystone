@@ -64,6 +64,12 @@ export interface UserDetailed extends UserLite {
    * the Featured tab ships absent, never faked). */
   pinnedNoteIds?: string[] | null;
   pinnedNotes?: Note[] | null;
+  /** Pinned page id (Misskey-family; packed on `i`, sometimes on
+   * `users/show`; Pinetree never packs it — the profile fetches). */
+  pinnedPageId?: string | null;
+  /** Packed pinned page (newer Misskey-family; Pinetree never packs it).
+   * Loosely typed: the adapter tolerates anything non-object-shaped. */
+  pinnedPage?: Record<string, unknown> | null;
 }
 
 export interface MeDetailed extends UserDetailed {

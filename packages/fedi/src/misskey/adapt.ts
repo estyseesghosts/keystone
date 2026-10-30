@@ -72,6 +72,12 @@ import type {
   FollowRequest as WireFollowRequest,
 } from "./wire";
 import { isPureRenote as isPureRenoteNote } from "./wire";
+/* Pinned-page adaptation (P6.5 slice 7): adaptAccount reads the packed
+ * page through `adaptPage` (pages.ts). The import runs the other way
+ * too (pages.ts uses `adaptAccount`), but both uses are call-time inside
+ * function bodies — neither module executes the other at import time. */
+import { adaptPage } from "./pages";
+import type { WirePage } from "./pages";
 
 // --- Accounts --------------------------------------------------------------
 
@@ -119,6 +125,9 @@ export function adaptAccount(user: UserLite | UserDetailed): Account {
     pinnedPosts: detailed.pinnedNotes
       ? detailed.pinnedNotes.map(adaptNote)
       : null,
+    pinnedPageId:
+      typeof detailed.pinnedPageId === 'string' ? detailed.pinnedPageId : null,
+    pinnedPage: pinnedPageOf(detailed),
     isFollowing: detailed.isFollowing,
     isFollowed: detailed.isFollowed,
     hasPendingFollowRequestFromYou: detailed.hasPendingFollowRequestFromYou,
@@ -136,6 +145,19 @@ export function adaptMe(me: MeDetailed): Account {
       me: { ...(me as unknown as Record<string, unknown>) },
     },
   };
+}
+
+/** Packed pinned page, adapted tolerantly (never throws — a malformed
+ * pack reads as absent and the profile fetches via `pages/show`). */
+function pinnedPageOf(user: Partial<UserDetailed>): Account["pinnedPage"] {
+  const raw: unknown = (user as {pinnedPage?: unknown}).pinnedPage;
+  if (typeof raw !== "object" || raw === null) return null;
+  try {
+    const page = adaptPage(raw as WirePage, null);
+    return page.id !== "" ? page : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Migration target: the wire packs the destination account URI (a bare

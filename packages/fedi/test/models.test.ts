@@ -65,6 +65,8 @@ function account(id: string, over: Partial<Account> = {}): Account {
     ffVisibility: null,
     pinnedPostIds: null,
     pinnedPosts: null,
+    pinnedPageId: null,
+    pinnedPage: null,
     ext: {},
     ...over,
   };

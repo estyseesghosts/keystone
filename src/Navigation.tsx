@@ -47,7 +47,9 @@ import {AdminReportScreen} from '#/screens/AdminReportDetail'
 import {AdminReportsScreen} from '#/screens/AdminReportsList'
 import {ClipScreen} from '#/screens/Clip'
 import {ClipsScreen} from '#/screens/Clips'
+import {PageEditScreen} from '#/screens/PageEdit'
 import {PageScreen} from '#/screens/Page'
+import {PagesScreen} from '#/screens/Pages'
 import {ComposeScreen} from '#/screens/Compose'
 import {PostHandlersProvider} from '#/screens/PostHandlers'
 import {NotificationsBadgeHost} from '#/components/shell/NotificationsBadgeHost'
@@ -267,6 +269,8 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <Stack.Screen name="Clip" component={ClipScreen} />
               <Stack.Screen name="Clips" component={ClipsScreen} />
               <Stack.Screen name="Page" component={PageScreen} />
+              <Stack.Screen name="PageEdit" component={PageEditScreen} />
+              <Stack.Screen name="Pages" component={PagesScreen} />
               <Stack.Screen name="Channel" component={ChannelScreen} />
               <Stack.Screen name="Channels" component={ChannelsScreen} />
               <Stack.Screen name="Conversations" component={ConversationsScreen} />

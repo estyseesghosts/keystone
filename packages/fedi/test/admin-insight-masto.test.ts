@@ -133,6 +133,8 @@ function accountWith(extras: Record<string, unknown>): Account {
     ffVisibility: null,
     pinnedPostIds: null,
     pinnedPosts: null,
+    pinnedPageId: null,
+    pinnedPage: null,
     ext: { mastodon: extras },
   };
 }

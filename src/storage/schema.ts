@@ -53,6 +53,10 @@ const devicePrefsSchema = z.object({
   // OS task-switcher snapshot shows nothing. Android `FLAG_SECURE`
   // needs a native module and is out of scope.
   privacyShield: z.boolean().default(false),
+  // Page editor "show formatting" (P6.5 PG-2, default off): text blocks
+  // render Raw source vs RichText while editing (ADR 0016 option B).
+  // Device-local: no server field exists (sending one 400s on Sharkey).
+  pageShowFormatting: z.boolean().default(false),
 })
 
 export const deviceStateSchema = z.object({
@@ -66,7 +70,7 @@ export type DeviceState = z.infer<typeof deviceStateSchema>
 export const defaultDeviceState: DeviceState = {
   version: STORAGE_VERSION,
   activeSessionId: null,
-  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false, linkPreviews: 'tap', privacyShield: false},
+  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false, linkPreviews: 'tap', privacyShield: false, pageShowFormatting: false},
 }
 
 // v1 device shape (frozen for migration): v1 had no `contentMode` and
@@ -114,6 +118,7 @@ export function migrateDeviceState(raw: string | null): DeviceState {
         dataSaver: false,
         linkPreviews: 'tap',
         privacyShield: false,
+        pageShowFormatting: false,
       },
     }
   }

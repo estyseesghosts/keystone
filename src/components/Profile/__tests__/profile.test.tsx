@@ -104,6 +104,29 @@ describe('ProfileTabs (v1 underline tablist)', () => {
     fireEvent.press(screen.getByTestId('profile-tab-media'))
     expect(onChange).toHaveBeenCalledWith('media' satisfies ProfileFeedTab)
   })
+
+  it('shows the Pages tab after Media when showPages', () => {
+    const onChange = jest.fn()
+    renderWithProviders(
+      <ProfileTabs tab="posts" onChange={onChange} hasFeatured={false} showPages />,
+    )
+    expect(screen.getAllByRole('tab').map(t => t.props.testID)).toEqual([
+      'profile-tab-posts',
+      'profile-tab-all',
+      'profile-tab-replies',
+      'profile-tab-media',
+      'profile-tab-pages',
+    ])
+    fireEvent.press(screen.getByTestId('profile-tab-pages'))
+    expect(onChange).toHaveBeenCalledWith('pages')
+  })
+
+  it('hides the Pages tab by default', () => {
+    renderWithProviders(
+      <ProfileTabs tab="posts" onChange={() => {}} hasFeatured={false} />,
+    )
+    expect(screen.queryByTestId('profile-tab-pages')).toBeNull()
+  })
 })
 
 describe('ProfileHeader (v1 banner + avatar row + bio + stats)', () => {

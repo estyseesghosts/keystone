@@ -272,6 +272,9 @@ export function adaptAccount(account: WireAccount): Account {
     ffVisibility: null,
     pinnedPostIds: null,
     pinnedPosts: null,
+    // No Pages on this family: the profile tab and pinned section hide.
+    pinnedPageId: null,
+    pinnedPage: null,
     ext: {},
   };
 }

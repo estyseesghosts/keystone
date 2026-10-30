@@ -86,6 +86,7 @@ describe('privacy prefs (repair X2.5)', () => {
         dataSaver: false,
         linkPreviews: 'tap',
         privacyShield: false,
+        pageShowFormatting: false,
       },
     })
     expect(store.getLinkPreviewMode()).toBe('tap')

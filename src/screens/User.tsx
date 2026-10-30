@@ -12,11 +12,12 @@ import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {SkeletonList} from '#/components/Skeleton'
 import {ProfileActions} from '#/components/ProfileActions'
-import {ProfileHeader, ProfileTabs} from '#/components/Profile'
+import {ProfileHeader, ProfileTabs, ProfilePinnedPage, type ProfileTab} from '#/components/Profile'
+import {ProfilePages} from '#/components/Page/ProfilePages'
 import {SignInButton} from '#/components/SignInButton'
 import type {RootParamList} from '#/routes'
 import {useActiveBackend, FeedView} from '#/screens/HomeFeed'
-import {profileTabDescriptor, type ProfileFeedTab} from '#/state/queries'
+import {profileTabDescriptor} from '#/state/queries'
 
 // Profile (`/users/:id?`): v1-style header (banner, overlapping avatar
 // row, name/handle, bio, gated stats) plus an underline tablist over the
@@ -67,7 +68,7 @@ export function UserScreen() {
   // No id and no acct = the Profile tab = the viewer's own profile.
   const targetId = resolvedId ?? (routeAcct ? null : (session?.accountId ?? null))
   const resolving = routeId == null && routeAcct != null && resolvedId == null && !resolveError
-  const [tab, setTab] = useState<ProfileFeedTab>('posts')
+  const [tab, setTab] = useState<ProfileTab>('posts')
   // A new profile starts on its own posts tab — never the previous
   // profile's tab (which this profile may hide).
   useEffect(() => {
@@ -132,6 +133,7 @@ export function UserScreen() {
     (account?.pinnedPosts?.length ?? 0) > 0 || (account?.pinnedPostIds?.length ?? 0) > 0
   const isSelf = !!session && !!account && session.accountId === account.id
 
+  const showPages = backend?.pages != null
   return (
     <View style={atoms.flex1} testID="user-screen">
       {!session || !backend || (!targetId && !resolving && !resolveError) ? (
@@ -172,11 +174,9 @@ export function UserScreen() {
         </View>
       ) : (
         <View style={atoms.flex1} testID="profile-body">
-          <FeedView
-            sessionId={session.id}
-            descriptor={profileTabDescriptor(account.id, tab)}
-            testID="profile-feed"
-            scrollHeader={
+          <ProfilePinnedPage account={account} sessionId={session.id} testID="profile-pinned" />
+          {tab === 'pages' ? (
+            <View style={atoms.flex1}>
               <ProfileHeader
                 account={account}
                 isSelf={isSelf}
@@ -205,9 +205,49 @@ export function UserScreen() {
                   )
                 }
               />
-            }
-            stickyBar={<ProfileTabs tab={tab} onChange={setTab} hasFeatured={hasFeatured} />}
-          />
+              <ProfileTabs tab={tab} onChange={setTab} hasFeatured={hasFeatured} showPages={showPages} />
+              <View style={atoms.flex1}>
+                <ProfilePages userId={account.id} testID="profile-pages" />
+              </View>
+            </View>
+          ) : (
+            <FeedView
+              sessionId={session.id}
+              descriptor={profileTabDescriptor(account.id, tab)}
+              testID="profile-feed"
+              scrollHeader={
+                <ProfileHeader
+                  account={account}
+                  isSelf={isSelf}
+                  backend={backend}
+                  relationship={relationship}
+                  onPressFollowers={() => nav.navigate('Followers', {id: account.id})}
+                  onPressFollowing={() => nav.navigate('Following', {id: account.id})}
+                  actions={
+                    isSelf ? (
+                      <View style={[atoms.row, atoms.gap_sm]}>
+                        <Button
+                          label={i18n._(msg`Edit profile`)}
+                          variant="secondary"
+                          testID="profile-edit"
+                          onPress={() => nav.navigate('ProfileEdit')}
+                        />
+                        <Button
+                          label={i18n._(msg`Accounts & settings`)}
+                          variant="secondary"
+                          testID="profile-settings"
+                          onPress={() => nav.navigate('Settings')}
+                        />
+                      </View>
+                    ) : (
+                      <ProfileActions sessionId={session.id} account={account} />
+                    )
+                  }
+                />
+              }
+              stickyBar={<ProfileTabs tab={tab} onChange={setTab} hasFeatured={hasFeatured} showPages={showPages} />}
+            />
+          )}
         </View>
       )}
     </View>

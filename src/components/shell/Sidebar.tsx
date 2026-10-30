@@ -54,14 +54,16 @@ import {
 // the Favorites screen) + `Lists`; Misskey `Clips` + `Antennas`. Favourites
 // on Misskey live inside Clips (a pinned entry to Favorites); Misskey
 // lists live inside Antennas (a link to Lists) — see those screens.
-// `Pages` is a Misskey-only stub (disabled with a reason) until it ships.
+// Pages is Misskey-family only (capability + module gate in
+// collectionEntries, like Clips).
 // Footer quick actions: Settings + Messages + Notifications everywhere,
 // plus My Uploads (Drive) on Misskey only.
-type CollectionTarget = 'Channels' | 'Clips' | 'Antennas' | 'Lists' | 'Favorites'
+type CollectionTarget = 'Channels' | 'Clips' | 'Pages' | 'Antennas' | 'Lists' | 'Favorites'
 
 const COLLECTION_ICONS: Record<CollectionTarget, (p: {size?: number; color?: string}) => ReactNode> = {
   Channels: ChannelIcon,
   Clips: ClipIcon,
+  Pages: PageIcon,
   Antennas: AntennaIcon,
   Lists: ListIcon,
   Favorites: StarIcon,
@@ -73,7 +75,8 @@ function collectionEntries(
 ): CollectionTarget[] {
   if (!session) return []
   // Misskey: channels (capability + module gate), clips (capability +
-  // module gate), antennas (family gate, as before).
+  // module gate), pages (capability + module gate), antennas (family
+  // gate, as before).
   if (session.family === 'misskey') {
     const out: CollectionTarget[] = []
     if (backend?.capabilities.channels === 'supported' && backend.channels) {
@@ -81,6 +84,9 @@ function collectionEntries(
     }
     if (backend?.capabilities.clips === 'supported' && backend.clips) {
       out.push('Clips')
+    }
+    if (backend?.capabilities.pages === 'supported' && backend.pages) {
+      out.push('Pages')
     }
     out.push('Antennas')
     return out
@@ -101,6 +107,8 @@ function collectionEntryLabel(i18n: I18n, key: CollectionTarget): string {
       return i18n._(msg`Channels`)
     case 'Clips':
       return i18n._(msg`Clips`)
+    case 'Pages':
+      return i18n._(msg`Pages`)
     case 'Antennas':
       return i18n._(msg`Antennas`)
     case 'Lists':
@@ -149,11 +157,6 @@ function messageTarget(backend: Backend | null): 'Conversations' | 'ChatRooms' |
     return 'ChatRooms'
   }
   return null
-}
-
-/** Misskey Pages stub reason (sidebar reshuffle: Pages ship later). */
-function pagesStubReason(i18n: I18n): string {
-  return i18n._(msg`Pages ship in a later slice.`)
 }
 
 // --- Sidebar (rail + full): feeds, channels, collections, footer actions.
@@ -332,26 +335,7 @@ export function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) 
         )
       })}
       {isMisskey ? (
-        <View style={styles.sideGroup}>
-          {channelRows.map(renderCollectionRow)}
-          {(() => {
-            const pagesLabel = `${i18n._(msg`Pages`)}. ${pagesStubReason(i18n)}`
-            const pagesButton = (
-              <Pressable
-                disabled
-                accessibilityRole="button"
-                accessibilityState={{disabled: true}}
-                accessibilityLabel={pagesLabel}
-                testID="sidebar-pages"
-                style={[styles.navlink, rail && styles.navlinkRail, {opacity: 0.55}]}>
-                <PageIcon size={20} color={alf.palette.text} />
-                {rail ? null : <Body>{i18n._(msg`Pages`)}</Body>}
-              </Pressable>
-            )
-            if (!rail) return pagesButton
-            return <Tooltip label={pagesLabel}>{pagesButton}</Tooltip>
-          })()}
-        </View>
+        <View style={styles.sideGroup}>{channelRows.map(renderCollectionRow)}</View>
       ) : null}
       {collectionRows.length > 0 ? (
         <View style={styles.sideGroup}>{collectionRows.map(renderCollectionRow)}</View>

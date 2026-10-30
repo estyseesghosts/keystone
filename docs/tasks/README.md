@@ -143,6 +143,6 @@ Status values: `not started` | `in progress` | `blocked` | `done`.
 | Task | Plan ref | Status | Branch | Latest log |
 | [fix-feed-gapfill-jump](fix-feed-gapfill-jump.md) | ADR-0015 | done, merged | `main` | `state/logs/2026-10-30-merge-batch.md` |
 | [fix-like-button-state](fix-like-button-state.md) | Like pill = liked-only; custom-like art, never raw code | done, merged | `main` | `state/logs/2026-10-30-like-button-state.md` |
-| [p6.5-pages](p6.5-pages.md) | Misskey Pages (reader, index, editor, preview, pin) | in progress (slices 0–1 done) | `p6.5-pages` | `state/logs/2026-10-30-p6.5-pages-program.md` |
+| [p6.5-pages](p6.5-pages.md) | Misskey Pages (reader, index, editor, preview, pin) | in progress (slices 0–7 done; slice 8 owner checks open) | `p6.5-pages` | `state/logs/2026-10-30-p6.5-pages-slices-3-8.md` |
 | [feat-emoji-picker-groups](feat-emoji-picker-groups.md) | Picker groups v1 parity (collapse/pin/hide/favourites/right-click) | done, merged | `main` | `state/logs/2026-10-30-emoji-picker-groups.md` |
 | [visual-polish](visual-polish.md) | Visual polish + widgets (D1–D6 + feed-fill + media-caps) | done, merged | `main` | `state/logs/2026-10-29-polish-8-media-caps.md` |

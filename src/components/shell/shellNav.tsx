@@ -30,6 +30,7 @@ export type TabParamList = Pick<
 export type StackDestination =
   | 'Channels'
   | 'Clips'
+  | 'Pages'
   | 'Antennas'
   | 'Lists'
   | 'Favorites'

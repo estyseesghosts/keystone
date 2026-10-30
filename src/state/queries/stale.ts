@@ -34,7 +34,7 @@ export const QUERY_PERSIST_MAX_AGE = 24 * 60 * 60_000;
  * `MODEL_SHAPE_HASH`) bumps this, which invalidates every persisted blob
  * instead of hydrating stale shapes into new selectors.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /**
  * FNV-1a hash of the canonical adapter-output key lists (see
@@ -42,7 +42,7 @@ export const SCHEMA_VERSION = 1;
  * without a `SCHEMA_VERSION` bump fails the persist-policy test with
  * instructions to bump both together.
  */
-export const MODEL_SHAPE_HASH = "b1cb397b";
+export const MODEL_SHAPE_HASH = "2920f07b";
 
 /** Bump to invalidate every persisted query cache (schema/behavior change). */
 export const QUERY_BUSTER = `keystone-queries-v${SCHEMA_VERSION}`;

@@ -22,12 +22,12 @@ describe('device scope', () => {
     writeDeviceState(store, {
       version: 2,
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false, linkPreviews: 'tap', privacyShield: false},
+      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false, linkPreviews: 'tap', privacyShield: false, pageShowFormatting: false},
     })
     expect(readDeviceState(store)).toEqual({
       version: 2,
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false, linkPreviews: 'tap', privacyShield: false},
+      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false, linkPreviews: 'tap', privacyShield: false, pageShowFormatting: false},
     })
   })
 
@@ -44,7 +44,7 @@ describe('device scope', () => {
     expect(readDeviceState(store)).toEqual({
       version: 2,
       activeSessionId: 'https://a.example u1',
-      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 2, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false, linkPreviews: 'tap', privacyShield: false},
+      prefs: {theme: 'dark', emojiStyle: 'twemoji', textScale: 2, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false, linkPreviews: 'tap', privacyShield: false, pageShowFormatting: false},
     })
   })
 

@@ -90,6 +90,8 @@ function request(id: string, username: string): NotificationRequest {
       ffVisibility: null,
       pinnedPostIds: null,
       pinnedPosts: null,
+      pinnedPageId: null,
+      pinnedPage: null,
       ext: {},
     },
   }

@@ -37,6 +37,8 @@ export function makeAccount(overrides: Partial<Account> = {}): Account {
     ffVisibility: null,
     pinnedPostIds: null,
     pinnedPosts: null,
+    pinnedPageId: null,
+    pinnedPage: null,
     ext: {},
     ...overrides,
   }

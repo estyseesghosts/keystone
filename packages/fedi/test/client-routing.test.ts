@@ -121,6 +121,8 @@ function accountRow(userId: string, host: string): Session["user"] {
     ffVisibility: null,
     pinnedPostIds: null,
     pinnedPosts: null,
+    pinnedPageId: null,
+    pinnedPage: null,
     ext: {},
   };
 }

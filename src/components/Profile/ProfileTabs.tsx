@@ -12,9 +12,12 @@ import {Tabs} from '#/components/Tabs'
 import {i18n} from '#/locale/i18n'
 import type {ProfileFeedTab} from '#/state/queries'
 
+/** Profile content tabs: the post-feed tabs plus Pages (Misskey family). */
+export type ProfileTab = ProfileFeedTab | 'pages'
+
 // Profile tab labels, resolved at render time (a module constant would
 // freeze the boot locale — the locale switches at runtime).
-export function profileTabLabel(t: ProfileFeedTab): string {
+export function profileTabLabel(t: ProfileTab): string {
   switch (t) {
     case 'featured':
       return i18n._(msg`Featured`)
@@ -26,6 +29,8 @@ export function profileTabLabel(t: ProfileFeedTab): string {
       return i18n._(msg`Replies`)
     case 'media':
       return i18n._(msg`Media`)
+    case 'pages':
+      return i18n._(msg`Pages`)
   }
 }
 
@@ -35,15 +40,18 @@ export function ProfileTabs({
   tab,
   onChange,
   hasFeatured,
+  showPages,
 }: {
-  tab: ProfileFeedTab
-  onChange: (tab: ProfileFeedTab) => void
+  tab: ProfileTab
+  onChange: (tab: ProfileTab) => void
   hasFeatured: boolean
+  /** Show the Pages tab (Misskey family with the `pages` module). Defaults to hidden. */
+  showPages?: boolean
 }) {
-  const visible = useMemo(
-    () => ORDER.filter(t => t !== 'featured' || hasFeatured || tab === 'featured'),
-    [hasFeatured, tab],
-  )
+  const visible: ProfileTab[] = useMemo(() => {
+    const feed = ORDER.filter(t => t !== 'featured' || hasFeatured || tab === 'featured')
+    return showPages || tab === 'pages' ? [...feed, 'pages'] : feed
+  }, [hasFeatured, showPages, tab])
   return (
     <Tabs
       tabs={visible.map(t => ({key: t, label: profileTabLabel(t)}))}

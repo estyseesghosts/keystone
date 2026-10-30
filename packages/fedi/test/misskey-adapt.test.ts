@@ -237,12 +237,39 @@ describe("adaptAccount / adaptMe (all three flavors)", () => {
     const user = fixture<UserDetailed>("pinetree", "user.json");
     const account = adaptAccount(user);
     expect(account.ffVisibility).toBeNull();
-    expect(account.pinnedPostIds).toBeNull();
-    expect(account.pinnedPosts).toBeNull();
+    expect(account.pinnedPostIds).toBeNull();    expect(account.pinnedPosts).toBeNull();
     expect(account.isFollowing).toBeUndefined();
     expect(account.hasPendingFollowRequestFromYou).toBeUndefined();
     expect(account.birthday).toBeNull();
     expect(account.backgroundUrl).toBeNull();
+  });
+
+  it("adapts the packed pinned page; absent reads null (Pinetree fetch path)", () => {
+    const user = fixture<UserDetailed>("misskey", "user.json");
+    expect(adaptAccount(user).pinnedPageId).toBeNull();
+    expect(adaptAccount(user).pinnedPage).toBeNull();
+    const packed = adaptAccount({
+      ...user,
+      pinnedPageId: 'p9',
+      pinnedPage: {
+        id: 'p9',
+        createdAt: '2026-10-26T12:00:00.000Z',
+        updatedAt: '2026-10-26T12:00:00.000Z',
+        userId: 'u1',
+        user,
+        title: 'Pinned',
+        name: 'pinned',
+        content: [{id: 'b1', type: 'text', text: 'hi'}],
+        variables: [],
+      },
+    });
+    expect(packed.pinnedPageId).toBe('p9');
+    expect(packed.pinnedPage?.id).toBe('p9');
+    expect(packed.pinnedPage?.title).toBe('Pinned');
+    // Malformed pack reads as absent — never a crash.
+    const broken = adaptAccount({...user, pinnedPageId: 'p9', pinnedPage: {nope: true}});
+    expect(broken.pinnedPage).toBeNull();
+    expect(broken.pinnedPageId).toBe('p9');
   });
 
   it("adapts backgroundUrl, leaving the banner in headerUrl", () => {
@@ -258,8 +285,7 @@ describe("adaptAccount / adaptMe (all three flavors)", () => {
       ...user,
       backgroundUrl: undefined,
       background: {url: "https://example.test/bg2.png"},
-    });
-    expect(account.backgroundUrl).toBe("https://example.test/bg2.png");
+    });    expect(account.backgroundUrl).toBe("https://example.test/bg2.png");
     expect(account.headerUrl).toBe(user.bannerUrl);
   });
 

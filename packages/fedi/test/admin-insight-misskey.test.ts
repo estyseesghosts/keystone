@@ -93,6 +93,8 @@ function accountWithMe(me: Record<string, unknown> | undefined): Account {
     ffVisibility: null,
     pinnedPostIds: null,
     pinnedPosts: null,
+    pinnedPageId: null,
+    pinnedPage: null,
     ext: me === undefined ? {} : { me },
   };
 }

@@ -156,6 +156,60 @@ node scripts/fedi-capture.ts --family mastodon --origin https://mastodon.example
 - Expected: quote resolves through the shipped `resolveQuoteUri` + TTL path;
   Akkoma continuation replays without invented cursors.
 
+## Misskey / Sharkey — Pages (P6.5, slices 2–8)
+
+- Source: P6.5 (`state/logs/2026-10-30-p6.5-pages-slice-2.md` +
+  `state/logs/2026-10-30-p6.5-pages-slices-3-8.md`). All `owner` (rig
+  refused to agents): Misskey `http://127.0.0.1:3101`, Sharkey
+  `http://127.0.0.1:3102`, Pinetree index gating on web, Mastodon hides
+  Pages everywhere.
+- Fixtures: page fixtures are synthesised (`"_synthetic": true` in
+  `manifest.json`). Refresh with `scripts/fedi-capture.ts` (§0) against
+  `:3101` and replace the synthetic rows; filter the capture to page
+  endpoints first if the tool does not cover them yet.
+
+### 13. Pages CRUD round-trip (owner, `:3101` + `:3102`)
+- Steps: create a page (title, slug, one text/section/image/note block
+  each); edit the title; duplicate it (`(copy)` + `-copy` slug);
+  like it from a second account; delete the copy.
+- Expected: create → editor replaces to the saved page; 300/h update
+  budget respected; `NAME_ALREADY_EXISTS` surfaces inline under the slug
+  (retry the slug, no toast); rate-limit toasts name the retry wait;
+  like count +1 and rollback on a forced failure; delete asks for
+  confirm naming the title, then lands on the index.
+
+### 14. Legacy-block round-trip (owner, `:3101`)
+- Steps: via API, create a page containing a legacy `button` block plus a
+  non-empty `script`; open it in Keystone, edit only the title, save;
+  re-fetch the page via API.
+- Expected: the button block renders "Legacy block (button) — kept as
+  is" in editor and preview, "This block type is not supported" in the
+  reader; after save the block bytes and `script` are unchanged (PG-3,
+  PG-4 — Keystone never sends `script` on update).
+
+### 15. Formatting parity (owner, Misskey web UI vs Keystone reader)
+- Steps: format one text block with every toolbar control (bold, italic
+  CJK-safe `<i>`, strike, inline code, code block, quote, link, center,
+  small); open the Keystone-created page in Misskey's web UI next to
+  the Keystone reader.
+- Expected: identical rendering on both sides (toolbar emits only
+  `fromMfm`-renderable MFM). Screenshot both for
+  `state/logs/assets-p6.5-pages/`.
+
+### 16. Pinetree index gating + Mastodon hiding (owner)
+- Steps: open the index on Pinetree (web): Featured shows, My/Liked
+  tabs hide with the one-line reason; open any profile: Pages tab +
+  pinned section fetch via `pages/show`; open the app against Mastodon:
+  no sidebar Pages row, no profile Pages tab.
+- Expected: no inert controls anywhere; no `drive` calls on Pinetree
+  (capability `unsupported`).
+
+### 17. Scope-upgrade banner on an old token (owner)
+- Steps: sign in with a pre-Pages Misskey token (no `read:pages` /
+  `write:pages` / `read:page-likes` / `write:page-likes`); open the index.
+- Expected: the existing scope-upgrade banner path fires (same as other
+  scope additions); after re-auth the lists load.
+
 ---
 
 # Appendix — owner-only items (no agent action possible)

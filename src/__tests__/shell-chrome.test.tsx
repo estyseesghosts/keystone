@@ -316,7 +316,7 @@ describe('sidebar reshuffle (collections + footer actions)', () => {
     expect(screen.queryByTestId('sidebar-uploads')).toBeNull()
   })
 
-  it('misskey sidebar shows Channels + Clips + Antennas + Pages stub, footer grid of 4', async () => {
+  it('misskey sidebar shows Channels + Clips + Pages + Antennas, footer grid of 4', async () => {
     widthHolder.width = 1280
     await renderShell({signedIn: true, family: 'misskey'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
@@ -332,12 +332,14 @@ describe('sidebar reshuffle (collections + footer actions)', () => {
     expect(screen.getByTestId('sidebar-notifications')).toBeTruthy()
   })
 
-  it('misskey Pages stub is disabled, never an inert tap', async () => {
+  it('misskey Pages row is enabled and lands on the index', async () => {
     widthHolder.width = 1280
     await renderShell({signedIn: true, family: 'misskey'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
     const row = screen.getByTestId('sidebar-pages')
-    expect(row.props.accessibilityState.disabled).toBe(true)
+    expect(row.props.accessibilityState).toMatchObject({selected: false})
+    fireEvent.press(row)
+    expect(await screen.findByTestId('pages-screen')).toBeTruthy()
   })
 
   it('footer settings lands on Settings', async () => {
