@@ -968,6 +968,24 @@ export function createMisskeyBackend(
       await call<undefined>("notifications/mark-all-as-read", {});
     },
 
+    async notificationsUnreadCount(opts: SignalOpts = {}) {
+      // Server-authoritative unread count from the `i` bag
+      // (`unreadNotificationsCount`, Misskey 2023.11+ / Sharkey /
+      // Pinetree). Absent or non-finite → the typed unsupported state
+      // (the UI's presence-dot fallback) — never 0, never the
+      // `hasUnreadNotification` presence flag (an app-layer concern).
+      const me = await call<MeDetailed>("i", {}, { signal: opts.signal });
+      const count = me?.unreadNotificationsCount;
+      if (typeof count !== "number" || !Number.isFinite(count) || count < 0) {
+        throw new ApiError(
+          "Notification unread count is not on this server.",
+          404,
+          "errors.unsupported.notification_unread_count",
+        );
+      }
+      return Math.floor(count);
+    },
+
     async customEmojis() {
       const res = await call<{ emojis?: Array<{ name?: unknown; url?: unknown; category?: unknown }> }>(
         "emojis",

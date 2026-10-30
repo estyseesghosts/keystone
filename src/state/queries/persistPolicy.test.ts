@@ -131,6 +131,7 @@ describe('shouldPersistQueryKey (default deny)', () => {
       'post-reactions',
       'post-history',
       'notifications',
+      'notifications-count',
       'server-mutes',
       'server-blocks',
       'server-renote-mutes',

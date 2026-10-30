@@ -5,8 +5,8 @@
 //
 // One live counter, never two: this badge reports CONNECTION state only
 // (live/connecting/reconnecting/error). The unread-notifications count
-// stays W4's cache-derived badge (`NotificationsUnreadBadge`); this badge
-// never shows a number.
+// stays the server-authoritative badge (`NotificationsUnreadBadge`);
+// this badge never shows a number.
 //
 // The status arrives as a prop from the `useFeedLive` mount (which owns
 // the `onStatusChange` subscription); this component holds no store

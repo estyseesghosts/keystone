@@ -1,6 +1,7 @@
 import {useContext} from 'react'
 import {StyleSheet, View} from 'react-native'
 import {plural} from '@lingui/macro'
+import type {I18n} from '@lingui/core'
 import {useI18n} from '#/locale/i18n'
 import {QueryClientContext} from '@tanstack/react-query'
 
@@ -17,7 +18,7 @@ import {
 import {navigationRef} from '#/navigationRef'
 import type {RootParamList} from '#/routes'
 import {lastFeedTabName as lastFeedTab} from '#/state/feedMemory'
-import {useUnreadNotificationsCount} from '#/state/queries'
+import {useUnreadBadge} from '#/state/queries'
 
 export type TabParamList = Pick<
   RootParamList,
@@ -110,19 +111,32 @@ export function goStackScreen(key: StackDestination) {
   navigationRef.navigate(key as never)
 }
 
-// --- Unread-notifications badge (N18) --------------------------------------
-// Cache-derived count from `useUnreadNotificationsCount` (the
-// notifications query cache — never a second streaming-backed counter;
-// stream status UI stays with the streaming owner, S4). The guard keeps
-// provider-less trees (tests, bare shells) rendering: no QueryClient, no
-// badge, never a crash.
+// --- Unread-notifications badge (N18, P6.5) -----------------------------------
+// Server-authoritative count from `useUnreadBadge` (the count query —
+// never a second streaming-backed counter; stream status UI stays with
+// the streaming owner, S4). `count` renders the numeric pill (`99+`
+// cap; `compact` renders the same number in a smaller pill for the icon
+// rail); the `dot` fallback (unsupported endpoint + a real presence
+// signal) renders the 8px dot. Null renders nothing.
+//
+// The badge is accessibility-inert (`accessible={false}`) so the
+// parent `Pressable`'s label — which carries the count (see
+// `unreadCountLabel`) — wins on iOS. The guard keeps provider-less
+// trees (tests, bare shells) rendering: no QueryClient, no badge, never
+// a crash.
+/** Short count phrase for bell accessibility labels ("3 unread");
+ * parents compose it ("Notifications, 3 unread"). Pure. */
+export function unreadCountLabel(i18n: I18n, count: number): string {
+  return i18n._(plural(count, {one: '# unread', other: '# unread'}))
+}
+
 export function NotificationsUnreadBadge({
   sessionId,
   compact,
   testID = 'notifications-badge',
 }: {
   sessionId: string | null
-  /** Rail-width dot instead of the count pill. */
+  /** Rail-width small pill instead of the full count pill. */
   compact?: boolean
   testID?: string
 }) {
@@ -142,24 +156,32 @@ function NotificationsUnreadBadgeInner({
 }) {
   const alf = useAlfTheme()
   const i18n = useI18n()
-  const unread = useUnreadNotificationsCount(sessionId)
-  if (unread == null || unread <= 0) return null
-  const unreadLabel = i18n._(
-    plural(unread, {one: `${unread} unread notification`, other: `${unread} unread notifications`}),
-  )
-  if (compact) {
+  const badge = useUnreadBadge(sessionId)
+  if (badge == null) return null
+  if (badge.kind === 'dot') {
     return (
       <View
         testID={testID}
-        accessibilityLabel={unreadLabel}
+        accessible={false}
+        importantForAccessibility="no"
         style={[styles.badgeDot, {backgroundColor: alf.palette.text}]}
       />
     )
   }
+  const unreadLabel = i18n._(
+    plural(badge.count, {one: `${badge.count} unread notification`, other: `${badge.count} unread notifications`}),
+  )
   return (
-    <View testID={testID} accessibilityLabel={unreadLabel} style={[styles.badge, {backgroundColor: alf.palette.text}]}>
-      <Body style={[styles.badgeText, {color: alf.palette.bg}]} numberOfLines={1}>
-        {unread > 99 ? '99+' : String(unread)}
+    <View
+      testID={testID}
+      accessible={false}
+      importantForAccessibility="no"
+      accessibilityLabel={unreadLabel}
+      style={[styles.badge, compact && styles.badgeCompact, {backgroundColor: alf.palette.text}]}>
+      <Body
+        style={[styles.badgeText, compact && styles.badgeTextCompact, {color: alf.palette.bg}]}
+        numberOfLines={1}>
+        {badge.count > 99 ? '99+' : String(badge.count)}
       </Body>
     </View>
   )
@@ -173,10 +195,20 @@ const styles = StyleSheet.create({
     minWidth: 20,
     alignItems: 'center',
   },
+  badgeCompact: {
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+    minWidth: 16,
+  },
   badgeText: {
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '700',
+  },
+  badgeTextCompact: {
+    fontSize: 10,
+    lineHeight: 12,
   },
   badgeDot: {
     width: 8,

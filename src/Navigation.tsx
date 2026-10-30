@@ -15,12 +15,18 @@ import {msg} from '@lingui/macro'
 import {useTheme as useAlfTheme} from '#/alf'
 import {useShellLayout} from '#/alf/breakpoints'
 import {butterflyPx} from '#/alf/tokens'
+import {useViewportWidth} from '#/alf/useViewportWidth'
 import {ScopeUpgradeBanner} from '#/components/ScopeUpgradeBanner'
 import {navigationRef} from '#/navigationRef'
 import {
   effectiveSidebarLayout,
   useSidebarMode,
 } from '#/state/sideNav'
+import {
+  autoWidgetsPanelVisible,
+  shouldShowWidgetsPanel,
+  useWidgetsPanelMode,
+} from '#/state/widgetsPanel'
 import {linkingScreens} from '#/routes'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
 import {useHosting} from '#/state/hosting'
@@ -43,6 +49,7 @@ import {ClipScreen} from '#/screens/Clip'
 import {ClipsScreen} from '#/screens/Clips'
 import {ComposeScreen} from '#/screens/Compose'
 import {PostHandlersProvider} from '#/screens/PostHandlers'
+import {NotificationsBadgeHost} from '#/components/shell/NotificationsBadgeHost'
 import {DriveScreen} from '#/screens/Drive'
 import {ExploreScreen} from '#/screens/Explore'
 import {FavoritesScreen} from '#/screens/Favorites'
@@ -64,6 +71,7 @@ import {TagScreen} from '#/screens/Tag'
 import {UserScreen} from '#/screens/User'
 import {Sidebar} from '#/components/shell/Sidebar'
 import {ShellTabBar} from '#/components/shell/TabBar'
+import {WidgetsPanel, WidgetsPanelRestore} from '#/components/shell/WidgetsPanel'
 import {MobileStrip} from '#/components/shell/MobileStrip'
 import {
   getStateFromPathWithBase,
@@ -164,9 +172,22 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
     [shellBase],
   )
   const mobile = layout === 'mobile'
-  // rn-ui L6: no widgets column until widgets exist — the feed always takes
-  // the wide column instead of leaving a stub rail beside it.
-  const feedMaxWidth = butterflyPx.mainColMaxWide
+  // Polish/2-shell: independent widgets panel. Visibility follows pure
+  // width math (`shouldShowWidgetsPanel`) against its own mode — the left
+  // sidebar mode never feeds into it, and the panel mode never feeds back
+  // into the sidebar. Hidden means unmounted: zero layout width, no blank
+  // reserved column.
+  const viewportWidth = useViewportWidth()
+  const panelMode = useWidgetsPanelMode()
+  const widgetsVisible = shouldShowWidgetsPanel(viewportWidth, panelMode)
+  // Restore affordance only where the panel would show on its own: narrow
+  // windows stay panel-free (no squeeze) and mobile keeps its nav model.
+  const panelRestoreVisible =
+    !mobile && panelMode === 'hidden' && autoWidgetsPanelVisible(viewportWidth)
+  // Feed width is fluid: on desktop the column fills everything between
+  // the sidebar and the widgets panel (`flex: 1`, no max cap — a fixed cap
+  // left dead gutters on wide windows). Mobile keeps the 600 cap so the
+  // phone column stays centered.
   // The compose overlay takes over the whole viewport (v1): the mobile
   // strip stays out of its way while it is focused.
   const stripVisible = mobile && leaf.name !== 'Compose'
@@ -207,6 +228,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
         }
       }}>
       <PostHandlersProvider>
+        <NotificationsBadgeHost />
         <View
           style={[
             styles.shell,
@@ -214,9 +236,9 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
             mobile ? styles.shellColumn : styles.shellRow,
           ]}>
           {mobile ? null : <Sidebar layout={layout} leaf={leaf} />}
-          {/* Feed column: flexes with the window; the capped inner feed
-              centers, so leftover space becomes L/R padding on large
-              screens. */}
+          {/* Feed column: flexes with the window and fills everything
+              between the sidebar and the widgets panel (desktop has no max
+              cap — a fixed cap left dead L/R gutters on wide windows). */}
           <View style={[styles.maincol, mobile ? styles.maincolMobile : styles.maincolCenter]}>
             {stripVisible ? <MobileStrip leaf={leaf} /> : null}
             {/* 0.8 — global, per-session permission/scope prompt. Reads
@@ -226,9 +248,10 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               <ScopeUpgradeBanner />
             </View>
             <View
+              testID="feed-column"
               style={[
                 styles.feedcol,
-                {maxWidth: mobile ? butterflyPx.mainColMax : feedMaxWidth},
+                mobile ? {maxWidth: butterflyPx.mainColMax} : null,
                 mobile
                   ? null
                   : {borderEndColor: alf.palette.border, borderEndWidth: 1},
@@ -284,6 +307,8 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               </Stack.Navigator>
             </View>
           </View>
+          {widgetsVisible ? <WidgetsPanel /> : null}
+          {panelRestoreVisible ? <WidgetsPanelRestore /> : null}
           {mobile ? <ShellTabBar leaf={leaf} /> : null}
         </View>
       </PostHandlersProvider>

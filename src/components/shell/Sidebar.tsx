@@ -1,12 +1,14 @@
 import {useMemo, type ReactNode} from 'react'
-import {Platform, Pressable, StyleSheet, View, type ViewStyle} from 'react-native'
+import {Platform, StyleSheet, View, type ViewStyle} from 'react-native'
 import {useI18n} from '#/locale/i18n'
 import {msg, t} from '@lingui/macro'
 
 import {useTheme as useAlfTheme} from '#/alf'
 import type {ShellLayout} from '#/alf/breakpoints'
-import {butterflyPx} from '#/alf/tokens'
+import {butterflyPx, space} from '#/alf/tokens'
 import {Body, Caption, Heading} from '#/alf/typography'
+import {Pressable} from '#/components/Pressable'
+import {Tooltip} from '#/components/Tooltip'
 import {
   AntennaIcon,
   BellIcon,
@@ -224,7 +226,11 @@ export function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) 
     const target = collectionTarget(key)
     const active = leaf.name === target
     const fg = active ? alf.palette.bg : alf.palette.text
-    return (
+    // Shared Pressable (polish/5-nav-polish): hover dim + pressed feedback
+    // + the web keyboard-focus ring come free — raw RN Pressable had
+    // none. Rail rows are icon-only, so the Tooltip names them on hover
+    // (supplemental: the accessibility label stays the source of truth).
+    const button = (
       <Pressable
         key={key}
         onPress={() => goStackScreen(target)}
@@ -241,6 +247,28 @@ export function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) 
         {rail ? null : <Body style={{color: fg}}>{label}</Body>}
       </Pressable>
     )
+    if (!rail) return button
+    return (
+      <Tooltip key={key} label={label}>
+        {button}
+      </Tooltip>
+    )
+  }
+  // Footer quick actions carry an active state like the nav rows above:
+  // without it the icon-only rail variants give no "where am I" signal.
+  const isQuickActive = (key: string): boolean => {
+    switch (key) {
+      case 'notifications':
+        return isTabFocused(leaf, 'Notifications', session?.accountId ?? null)
+      case 'messages':
+        return msgTarget != null && leaf.name === msgTarget
+      case 'settings':
+        return leaf.name === 'Settings'
+      case 'uploads':
+        return leaf.name === 'Drive'
+      default:
+        return false
+    }
   }
   // Signed out, the sidebar footer carries Sign in (v1) — no Login entry up
   // top. (The Login *tab* still exists for the mobile layout.)
@@ -252,31 +280,35 @@ export function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) 
         {borderEndColor: alf.palette.border},
       ]}>
       {rail ? (
-        <Pressable
-          onPress={expandSidebar}
-          accessibilityRole="button"
-          accessibilityLabel={t`Expand sidebar`}
-          testID="sidebar-expand"
-          style={[styles.navlinkRail, styles.brandRail]}>
-          <ExpandIcon size={20} color={alf.palette.text} />
-        </Pressable>
+        <Tooltip label={t`Expand sidebar`}>
+          <Pressable
+            onPress={expandSidebar}
+            accessibilityRole="button"
+            accessibilityLabel={t`Expand sidebar`}
+            testID="sidebar-expand"
+            style={[styles.navlinkRail, styles.brandRail]}>
+            <ExpandIcon size={20} color={alf.palette.text} />
+          </Pressable>
+        </Tooltip>
       ) : (
         <View style={styles.brandRow}>
           <Heading style={styles.brand}>{t`Keystone`}</Heading>
-          <Pressable
-            onPress={collapseSidebar}
-            accessibilityRole="button"
-            accessibilityLabel={t`Collapse sidebar`}
-            testID="sidebar-collapse"
-            style={styles.brandToggle}>
-            <CollapseIcon size={20} color={alf.palette.text} />
-          </Pressable>
+          <Tooltip label={t`Collapse sidebar`}>
+            <Pressable
+              onPress={collapseSidebar}
+              accessibilityRole="button"
+              accessibilityLabel={t`Collapse sidebar`}
+              testID="sidebar-collapse"
+              style={styles.brandToggle}>
+              <CollapseIcon size={20} color={alf.palette.text} />
+            </Pressable>
+          </Tooltip>
         </View>
       )}
       {entries.map(e => {
         const active = isTabFocused(leaf, e.key, session?.accountId ?? null)
         const fg = active ? alf.palette.bg : alf.palette.text
-        return (
+        const button = (
           <Pressable
             key={e.key}
             onPress={() => goMainTab(e.key)}
@@ -292,20 +324,33 @@ export function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) 
             {rail ? null : <Body style={{color: fg}}>{e.label}</Body>}
           </Pressable>
         )
+        if (!rail) return button
+        return (
+          <Tooltip key={e.key} label={e.label}>
+            {button}
+          </Tooltip>
+        )
       })}
       {isMisskey ? (
         <View style={styles.sideGroup}>
           {channelRows.map(renderCollectionRow)}
-          <Pressable
-            disabled
-            accessibilityRole="button"
-            accessibilityState={{disabled: true}}
-            accessibilityLabel={`${i18n._(msg`Pages`)}. ${pagesStubReason(i18n)}`}
-            testID="sidebar-pages"
-            style={[styles.navlink, rail && styles.navlinkRail, {opacity: 0.55}]}>
-            <PageIcon size={20} color={alf.palette.text} />
-            {rail ? null : <Body>{i18n._(msg`Pages`)}</Body>}
-          </Pressable>
+          {(() => {
+            const pagesLabel = `${i18n._(msg`Pages`)}. ${pagesStubReason(i18n)}`
+            const pagesButton = (
+              <Pressable
+                disabled
+                accessibilityRole="button"
+                accessibilityState={{disabled: true}}
+                accessibilityLabel={pagesLabel}
+                testID="sidebar-pages"
+                style={[styles.navlink, rail && styles.navlinkRail, {opacity: 0.55}]}>
+                <PageIcon size={20} color={alf.palette.text} />
+                {rail ? null : <Body>{i18n._(msg`Pages`)}</Body>}
+              </Pressable>
+            )
+            if (!rail) return pagesButton
+            return <Tooltip label={pagesLabel}>{pagesButton}</Tooltip>
+          })()}
         </View>
       ) : null}
       {collectionRows.length > 0 ? (
@@ -335,72 +380,105 @@ export function Sidebar({layout, leaf}: {layout: ShellLayout; leaf: LeafState}) 
             {/* Post sits below the profile, above the quick actions — in
                 BOTH layouts, so the narrow sidebar never loses it. The
                 outline + pencil mark it apart from the category tabs. */}
-            <Pressable
-              onPress={() => navigationRef.navigate('Compose')}
-              accessibilityRole="button"
-              accessibilityLabel={t`Write a post`}
-              testID="sidebar-post"
-              style={[
-                styles.navlink,
-                rail && styles.navlinkRail,
-                styles.postButton,
-                {borderColor: alf.palette.edge},
-              ]}>
-              <PencilIcon size={20} color={alf.palette.text} />
-              {rail ? null : <Body>{t`Post`}</Body>}
-            </Pressable>
+            {(() => {
+              const postLabel = t`Write a post`
+              const postButton = (
+                <Pressable
+                  onPress={() => navigationRef.navigate('Compose')}
+                  accessibilityRole="button"
+                  accessibilityLabel={postLabel}
+                  testID="sidebar-post"
+                  style={[
+                    styles.navlink,
+                    rail && styles.navlinkRail,
+                    styles.postButton,
+                    {borderColor: alf.palette.edge},
+                  ]}>
+                  <PencilIcon size={20} color={alf.palette.text} />
+                  {rail ? null : <Body>{t`Post`}</Body>}
+                </Pressable>
+              )
+              if (!rail) return postButton
+              return <Tooltip label={postLabel}>{postButton}</Tooltip>
+            })()}
             {rail ? (
               <View style={styles.quickRail}>
                 {quickActions
                   .filter(a => a.key !== 'settings' && a.key !== 'uploads')
-                  .map(a => (
+                  .map(a => {
+                    const active = isQuickActive(a.key)
+                    const fg = active ? alf.palette.bg : alf.palette.text
+                    return (
+                      <Tooltip key={a.key} label={a.label}>
+                        <Pressable
+                          key={a.key}
+                          onPress={a.onPress}
+                          accessibilityRole="button"
+                          accessibilityState={{selected: active}}
+                          accessibilityLabel={a.label}
+                          testID={a.testID}
+                          style={[
+                            styles.navlinkRail,
+                            active && {backgroundColor: alf.palette.text},
+                          ]}>
+                          <a.Icon size={20} color={fg} />
+                          {a.badge ? (
+                            <NotificationsUnreadBadge sessionId={session.id} compact />
+                          ) : null}
+                        </Pressable>
+                      </Tooltip>
+                    )
+                  })}
+              </View>
+            ) : (
+              <View style={[styles.quickGrid, isMisskey && styles.quickGridWrap]}>
+                {quickActions.map(a => {
+                  const active = isQuickActive(a.key)
+                  const fg = active ? alf.palette.bg : alf.palette.text
+                  return (
                     <Pressable
                       key={a.key}
                       onPress={a.onPress}
                       accessibilityRole="button"
+                      accessibilityState={{selected: active}}
                       accessibilityLabel={a.label}
                       testID={a.testID}
-                      style={styles.navlinkRail}>
-                      <a.Icon size={20} color={alf.palette.text} />
-                      {a.badge ? (
-                        <NotificationsUnreadBadge sessionId={session.id} compact />
-                      ) : null}
+                      style={[
+                        styles.quickCell,
+                        isMisskey && styles.quickCellHalf,
+                        active && {backgroundColor: alf.palette.text},
+                      ]}>
+                      <View style={styles.quickIconRow}>
+                        <a.Icon size={20} color={fg} />
+                        {a.badge ? (
+                          <NotificationsUnreadBadge sessionId={session.id} />
+                        ) : null}
+                      </View>
+                      <Body style={[styles.tabLabel, {color: fg}]} numberOfLines={1}>
+                        {a.label}
+                      </Body>
                     </Pressable>
-                  ))}
-              </View>
-            ) : (
-              <View style={[styles.quickGrid, isMisskey && styles.quickGridWrap]}>
-                {quickActions.map(a => (
-                  <Pressable
-                    key={a.key}
-                    onPress={a.onPress}
-                    accessibilityRole="button"
-                    accessibilityLabel={a.label}
-                    testID={a.testID}
-                    style={[styles.quickCell, isMisskey && styles.quickCellHalf]}>
-                    <View style={styles.quickIconRow}>
-                      <a.Icon size={20} color={alf.palette.text} />
-                      {a.badge ? (
-                        <NotificationsUnreadBadge sessionId={session.id} compact />
-                      ) : null}
-                    </View>
-                    <Body style={[styles.tabLabel, {color: alf.palette.text}]} numberOfLines={1}>
-                      {a.label}
-                    </Body>
-                  </Pressable>
-                ))}
+                  )
+                })}
               </View>
             )}
           </>
         ) : (
-          <Pressable
-            onPress={() => goMainTab('Login')}
-            accessibilityRole="button"
-            accessibilityLabel={t`Sign in`}
-            style={[styles.navlink, rail && styles.navlinkRail]}>
-            <LoginIcon size={20} color={alf.palette.text} />
-            {rail ? null : <Body>{t`Sign in`}</Body>}
-          </Pressable>
+          (() => {
+            const signInLabel = t`Sign in`
+            const signInButton = (
+              <Pressable
+                onPress={() => goMainTab('Login')}
+                accessibilityRole="button"
+                accessibilityLabel={signInLabel}
+                style={[styles.navlink, rail && styles.navlinkRail]}>
+                <LoginIcon size={20} color={alf.palette.text} />
+                {rail ? null : <Body>{t`Sign in`}</Body>}
+              </Pressable>
+            )
+            if (!rail) return signInButton
+            return <Tooltip label={signInLabel}>{signInButton}</Tooltip>
+          })()
         )}
       </View>
     </View>
@@ -468,7 +546,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sideGroup: {
-    marginTop: 28,
+    // One token step above the 12/16 chrome rhythm: groups read as groups
+    // without divider lines (sidebar-reshuffle decision stands).
+    marginTop: space['2xl'],
   },
   quickGrid: {
     flexDirection: 'row',
@@ -498,6 +578,7 @@ const styles = StyleSheet.create({
   quickRail: {
     alignItems: 'center',
     marginTop: 8,
+    gap: space.xs,
   },
   tabLabel: {
     fontSize: 10,

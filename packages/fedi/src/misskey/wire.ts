@@ -67,6 +67,11 @@ export interface UserDetailed extends UserLite {
 }
 
 export interface MeDetailed extends UserDetailed {
+  /** Unread notification count (Misskey 2023.11+, Sharkey, Pinetree).
+   * Absent on older servers → "cannot count", never 0. */
+  unreadNotificationsCount?: number;
+  /** Backward-compat presence flag, same response. */
+  hasUnreadNotification?: boolean;
   [key: string]: unknown;
 }
 

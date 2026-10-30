@@ -28,11 +28,16 @@ import {
 } from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
+import {mediaPx} from '#/alf/tokens'
 import {Body, Caption} from '#/alf/typography'
 import {Pressable} from '#/components/Pressable'
 import {showToast} from '#/lib/toast'
 
 const styles = StyleSheet.create({
+  // Wide-column cap (polish/8-media-caps): link previews hug at most 520
+  // wide instead of stretching full-bleed; width 100% shrinks them on
+  // narrow viewports. PostCard mounts cards only outside quotes.
+  cardCap: {width: '100%', maxWidth: mediaPx.singleMaxW},
   card: {borderWidth: 1, borderRadius: 10, marginTop: 8, overflow: 'hidden', gap: 0},
   image: {width: '100%', aspectRatio: 16 / 9},
   body: {padding: 10, gap: 2},
@@ -68,7 +73,8 @@ export function LinkCard({card, testID}: {card: LinkCardModel; testID?: string})
       testID={testID}
       onPress={() => void Linking.openURL(url).catch(() => showToast(i18n._(msg`Could not open this link.`)))}
       accessibilityRole="link"
-      accessibilityLabel={i18n._(msg`Open link: ${card.title || url}`)}>
+      accessibilityLabel={i18n._(msg`Open link: ${card.title || url}`)}
+      style={styles.cardCap}>
       <View
         style={[styles.card, {borderColor: theme.palette.edge, backgroundColor: theme.palette.bg}]}
         testID={testID ? `${testID}-card` : undefined}>
@@ -235,7 +241,7 @@ export function UnfurledLinkCard({
 
   return (
     <View
-      style={[styles.card, {borderColor: theme.palette.edge, backgroundColor: theme.palette.bg}]}
+      style={[styles.cardCap, styles.card, {borderColor: theme.palette.edge, backgroundColor: theme.palette.bg}]}
       testID={testID}>
       <Pressable
         testID={testID ? `${testID}-open` : undefined}

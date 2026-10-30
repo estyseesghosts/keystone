@@ -135,18 +135,32 @@ internal-mode login first.
 6. Sessions isolated per (origin, account). Clear on explicit logout or
    confirmed 401. Never log tokens/secrets/codes.
 
-**Scope set (v1):** `read:accounts read:statuses read:notifications
-read:search read:follows write:statuses write:favourites write:follows
-write:media write:notifications`. Both backends accept granular scopes
+**Scope set (current `SCOPES_NOW`, `packages/fedi/src/mastodon/oauth.ts:118` —
+supersedes the v1 list below for new logins):** `read write follow`
+`read:accounts read:blocks read:bookmarks read:filters read:lists
+read:mutes read:statuses read:notifications read:search read:follows
+write:accounts write:blocks write:bookmarks write:filters write:follows
+write:lists write:media write:mutes write:notifications write:reports
+write:statuses write:favourites write:conversations admin:read
+admin:write`. Both backends accept granular scopes
 (Mastodon `doorkeeper.rb:72-119`; Akkoma scope parsing space/comma
 `scopes.ex:20-48`). Older servers may only understand `read`/`write` — the
 well-known discovery doc (`/.well-known/oauth-authorization-server`,
 Mastodon; absent on Akkoma) tells us which; fall back to `read write follow`
 only when discovery is absent AND granular registration fails.
 
-**Scopes not requested until the feature ships:** bookmarks, blocks/mutes
-granular (v1 uses `read`/`write` umbrella only if granular rejected),
-push.
+**Per-flavor request (ADR 0005, `scopesForFlavor`,
+`packages/fedi/src/mastodon/oauth.ts:219`):** Mastodon flavor requests
+only `read write follow` + `admin:read` + `admin:write` (Doorkeeper checks
+ANY-of, and long authorize URLs 502 on some servers); Akkoma/Pleroma get
+the full `SCOPES_NOW` set. `read:conversations` is not a real upstream
+scope and is never requested.
+
+**Scopes not requested until the feature ships (`SCOPES_LATER`,
+`packages/fedi/src/mastodon/oauth.ts:161`):** push, featured-tags
+granulars, `read:favourites` (a favourites timeline — favouriting itself
+is shipped), `read:conversations` (not a real scope — listed so no future
+slice requests it).
 
 **Per-flavor request strings (P6.2, ADR 0005 — supersedes the single
 `scopes` above for new logins):** Mastodon-family logins
@@ -268,7 +282,7 @@ Order: `GET /api/v2/instance` → on **404/405 only** fall back to
 | Account statuses | `GET /api/v1/accounts/:id/statuses` | read:statuses | Both. Params `only_media,exclude_replies,exclude_reblogs` (+A `pinned,tagged,with_muted`). |
 | Notifications | `GET /api/v1/notifications` | read:notifications | Both. Params `types[]/exclude_types[]` (A: `include_types[]` deprecated alias), `account_id`, pagination. M limit default 40, `supported_types[]` → `fallback` field. Type sets differ — see §6. |
 | Dismiss/clear notif. | `POST /api/v1/notifications/:id/dismiss`, `/clear` | write:notifications | Both → `{}`. A extra: `POST /api/v1/pleroma/notifications/read`. Repair 2026-10-25 (X4.1): grouped rows (Mastodon 4.3+ v2, `group_key` as row id, `most_recent_notification_id` kept in `ext`) dismiss via `DELETE /api/v2/notifications/:group_key`, capability-gated on v2 — tried only after a v1 404/405 absence; only absence falls through (auth/timeout/5xx rethrow). A 404 from both routes is "already gone" (row removed, never "unsupported"): support is never decided from errors. |
-| Read position | `GET/POST /api/v1/markers` | write:notifications | Both (A adds `pleroma.unread_count`). There is NO v1 mark-as-read endpoint on either. Repair 2026-10-25 (X4.4): `GET /api/v1/markers?timeline[]=notifications` derives `read` per row against `last_read_id` (v2 groups compare `ext.mostRecentNotificationId`, flat rows their own id); unorderable pairs stay unknown, never guessed. No markers on the server (404/405) is typed `errors.unsupported.markers` and hides "mark read" (capability), never an inert control. |
+| Read position | `GET/POST /api/v1/markers` | write:notifications | Both (A adds `pleroma.unread_count`). There is NO v1 mark-as-read endpoint on either. Repair 2026-10-25 (X4.4): `GET /api/v1/markers?timeline[]=notifications` derives `read` per row against `last_read_id` (v2 groups compare `ext.mostRecentNotificationId`, flat rows their own id); unorderable pairs stay unknown, never guessed. No markers on the server (404/405) is typed `errors.unsupported.markers` and hides "mark read" (capability), never an inert control. P6.5 2026-10-28: the bell badge does NOT count from markers — it reads `GET /api/v1/notifications/unread_count` → `{count}` (Mastodon 4.3+, scope `read:notifications`, capped by `limit` default 100; UI caps display at `99+`) via `Backend.notificationsUnreadCount()`; 404/405 is typed `errors.unsupported.notification_unread_count` (presence-dot fallback), malformed bodies are `errors.shape.notificationUnreadCount`, 401/abort/5xx propagate. |
 | Upload media | `POST /api/v2/media` | write:media | multipart `file, description, focus`. M: 202 async — poll `GET /api/v1/media/:id` (206 processing/200 done/422 failed), `url` null until done; limits 16 MB img / 99 MB video. A: 202 but SYNCHRONOUS (body final); `focus` ignored; no size cap server-side (client uses `upload_limit` from instance meta). `PUT /api/v1/media/:id` edits description (both). |
 | Search | `GET /api/v2/search` | read:search | Both. `{accounts, statuses, hashtags}` (+M `collections`). M: unauth `offset`/`resolve` → 401; status search needs Elasticsearch. A: may 403 if instance restricts; hashtags `{name,url}` no history. `GET /api/v1/search` absent on BOTH — never use. A extra: `/api/v1/accounts/search`. Repair 2026-10-25 (X4.2): `SearchV2Options.resolve` sends `resolve=true` when the query is a URL or handle-shaped (`@`-containing), authenticated sessions only; autocomplete `@` suggestions stay local (no resolve). |
 | Poll vote | `POST /api/v1/polls/:id/votes` | write:statuses | Both: body `choices` = int indices. Poll entity: `voted/own_votes` auth-only; A `voters_count` null for single-choice, no `locked`. |

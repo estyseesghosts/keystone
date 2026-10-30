@@ -202,6 +202,36 @@ describe("MastodonBackend feeds (contract §4 paths, §5 paging)", () => {
     expect(page.items.map((p) => p.id)).toEqual(["child"]);
     expect(page.end).toBe(true);
   });
+
+  it("threadReplies() preserves context order across siblings (the screen sorts)", async () => {
+    const root = { ...status, id: "root" };
+    const older = {
+      ...status,
+      id: "older",
+      in_reply_to_id: "root",
+      created_at: "2026-10-20T00:00:00.000Z",
+    };
+    const newer = {
+      ...status,
+      id: "newer",
+      in_reply_to_id: "root",
+      created_at: "2026-10-21T00:00:00.000Z",
+    };
+    const { client } = stubClient({
+      respond: (method, path) => {
+        void method;
+        if (/\/context$/.test(path)) {
+          return { data: { ancestors: [], descendants: [older, newer] } };
+        }
+        return { data: root };
+      },
+    });
+    // Passthrough, never a re-sort: the thread screen's read site owns
+    // oldest-first, so both family orders render identically there.
+    const page = await createMastodonBackend(client).threadReplies("root");
+    expect(page.items.map((p) => p.id)).toEqual(["older", "newer"]);
+    expect(page.end).toBe(true);
+  });
 });
 
 describe("MastodonBackend compose (contract §7 field map)", () => {

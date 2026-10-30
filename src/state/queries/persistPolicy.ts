@@ -69,6 +69,7 @@ export const PERSIST_POLICY: Record<string, PersistRule> = {
   'post-reactions': {persist: false},
   'post-history': {persist: false},
   notifications: {persist: false},
+  'notifications-count': {persist: false},
   'server-mutes': {persist: false},
   'server-blocks': {persist: false},
   'server-renote-mutes': {persist: false},

@@ -74,6 +74,13 @@ If the returned chain is incomplete because a parent is deleted, private, unknow
 
 A `ReplyBranch` should own the child-list state for its note. Do not hold a single global `replies[]` array for every branch: two parents can have independent cursors, loading states, and failures.
 
+> **Note (2026-10-29, polish/1-thread-order):** the "Preserve the server's
+> existing sibling ordering (newest-first)" bullet above is superseded by
+> `docs/visual-polish.md` Deliverable 1 — v2 threads render oldest-first
+> everywhere (chronological), pinned by regression tests
+> (`src/screens/Note.test.tsx`, `packages/fedi/test/*-backend.test.ts`).
+> The section is otherwise preserved as the v1 historical record.
+
 ### 3.3 Replying and note actions
 
 Keep the current reply workflow for the first slice: a reply card's note/reply-count link opens that note's detail route, where the composer uses that note's ID as `replyId`. This avoids introducing a second inline composer implementation.

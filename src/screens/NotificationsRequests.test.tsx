@@ -243,6 +243,8 @@ describe('NotificationsScreen filtered requests (Mastodon 4.3+)', () => {
     await renderScreen('misskey', {})
     expect(await screen.findByTestId('notifications-requests-unavailable')).toBeTruthy()
     expect(screen.queryByTestId('notifications-requests-entry')).toBeNull()
-    expect(screen.getByTestId('notification-n1')).toBeTruthy()
+    // The list resolves on its own tick (P6.5: the caption no longer
+    // re-renders the screen off cache writes) — await it, never assume.
+    expect(await screen.findByTestId('notification-n1')).toBeTruthy()
   })
 })

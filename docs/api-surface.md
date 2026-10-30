@@ -45,10 +45,16 @@ Keystone holds it in module memory only for the exchange and never persists
 it. A non-`finished` flow (2FA/passkey/captcha) is an explicit unsupported
 state — Keystone never sends users to instance pages.
 
-Scoped permissions: `read:account`, `write:notes`, `write:reactions`,
+Scoped permissions (current set in `packages/fedi/src/misskey/auth.ts:105`
+`KEYSTONE_PERMISSIONS`): `read:account`, `write:notes`, `write:reactions`,
 `write:following`, `read:following`, `read:notifications`,
 `write:notifications`, `read:drive`, `write:drive`, `write:account`,
-`write:votes`, `read:blocks`, `write:blocks`, `read:mutes`, `write:mutes`.
+`write:votes`, `read:blocks`, `write:blocks`, `read:mutes`, `write:mutes`,
+`write:favorites`, `read:favorites`, `write:report-abuse`, `read:clips`,
+`write:clips`, `read:channels`, `write:channels`, `read:chat`,
+`write:chat`, `read:admin:server-info`, `read:admin:meta`,
+`read:admin:queue`, `read:admin:abuse-user-reports`,
+`write:admin:resolve-abuse-user-report`.
 Sessions minted before a scope existed get 403
 `PERMISSION_DENIED` on its endpoints — the UI answers with a re-sign-in
 hint, never a bare error.
@@ -59,7 +65,7 @@ hint, never a bare error.
 |---|---|---|
 | Instance metadata | `meta` | Public; `maxNoteTextLength` (3000 on all three backends) drives the composer limit with a 3000 fallback |
 | Current account | `i` | Auth; session restore. Per-user note fields (`myReaction`, `poll`/`isVoted`) are only packed **with** a credential — anonymous `notes/show` strips them (Misskey) or 403s non-public notes (Sharkey) |
-| Notifications | `i/notifications` | Auth, `kind read:notifications`; `{limit, sinceId?, untilId?}`. **No `isRead` field** — render without read/unread state |
+| Notifications | `i/notifications` | Auth, `kind read:notifications`; `{limit, sinceId?, untilId?}`. **No `isRead` field** — render without read/unread state. The bell badge does NOT count these rows: it reads `i.unreadNotificationsCount` (number; Misskey 2023.11+, Sharkey, Pinetree) via `Backend.notificationsUnreadCount()` — absent means "cannot count" (presence-dot fallback), never 0; `hasUnreadNotification` (same bag) is the backward-compat presence flag |
 | Mark all read | `notifications/mark-all-as-read` | Auth, `kind write:notifications`; void. Pre-scope sessions get 403 → re-sign-in hint |
 | Home timeline | `notes/timeline` | Auth; `Note[]`; `{limit, sinceId?, untilId?}` only |
 | Local timeline | `notes/local-timeline` | Public; same cursor params |

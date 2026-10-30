@@ -1,4 +1,4 @@
-import {Platform, Pressable, StyleSheet, View, type ViewStyle} from 'react-native'
+import {Platform, StyleSheet, View, type ViewStyle} from 'react-native'
 import {msg} from '@lingui/macro'
 import {useI18n} from '#/locale/i18n'
 
@@ -6,6 +6,8 @@ import {useTheme as useAlfTheme} from '#/alf'
 import {useShellLayout} from '#/alf/breakpoints'
 import {Heading} from '#/alf/typography'
 import {BackIcon} from '#/components/icons'
+import {Pressable} from '#/components/Pressable'
+import {Tooltip} from '#/components/Tooltip'
 import {navigationRef} from '#/navigationRef'
 
 // Pagehead (Keystone v1 `.pagehead`): sticky section header — 17px title,
@@ -21,6 +23,9 @@ export function Pagehead({title, right}: {title: string; right?: React.ReactNode
   const alf = useAlfTheme()
   const i18n = useI18n()
   if (layout === 'mobile') return null
+  const backLabel = i18n._(
+    msg({message: 'Back', context: 'navigation', comment: 'Go back to the previous screen'}),
+  )
   return (
     <View
       style={[
@@ -30,23 +35,23 @@ export function Pagehead({title, right}: {title: string; right?: React.ReactNode
           borderBottomColor: alf.palette.border,
         },
       ]}>
-      <Pressable
-        onPress={() => {
-          if (!navigationRef.isReady()) return
-          if (navigationRef.canGoBack()) {
-            navigationRef.goBack()
-            return
-          }
-          navigationRef.navigate('Main', {screen: 'Home'} as never)
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={i18n._(
-          msg({message: 'Back', context: 'navigation', comment: 'Go back to the previous screen'}),
-        )}
-        hitSlop={12}
-        testID="pagehead-back">
-        <BackIcon size={20} color={alf.palette.text} />
-      </Pressable>
+      <Tooltip label={backLabel}>
+        <Pressable
+          onPress={() => {
+            if (!navigationRef.isReady()) return
+            if (navigationRef.canGoBack()) {
+              navigationRef.goBack()
+              return
+            }
+            navigationRef.navigate('Main', {screen: 'Home'} as never)
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={backLabel}
+          hitSlop={12}
+          testID="pagehead-back">
+          <BackIcon size={20} color={alf.palette.text} />
+        </Pressable>
+      </Tooltip>
       <Heading level={1} style={styles.title}>{title}</Heading>
       {right}
     </View>

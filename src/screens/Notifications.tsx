@@ -39,7 +39,6 @@ import {Tabs} from '#/components/Tabs'
 import {i18n} from '#/locale/i18n'
 import {useActiveBackend} from '#/screens/HomeFeed'
 import {Pagehead} from '#/components/Pagehead'
-import {useLiveNotifications} from '#/state/streaming'
 import {usePagedLoad, useRefreshFirstPage} from '#/state/queries/usePagedLoad'
 import {
   notificationsItems,
@@ -618,10 +617,9 @@ export function NotificationsScreen() {
     groupedPref,
     {backend: backend ?? null},
   )
-  // Live notification channel (WS-G S4): arrivals ingest into the
-  // session's caches, so the unread badge and the `all` listing update
-  // without a reload. Paging-only when streaming is unsupported.
-  useLiveNotifications(session?.id ?? null, backend ?? null)
+  // Live arrivals ingest through the shell-level `NotificationsBadgeHost`
+  // (mounted once in Navigation): the unread badge and the `all` listing
+  // update without a reload. Paging-only when streaming is unsupported.
   const items = useMemo(() => notificationsItems(query.data), [query.data])
   const unread = useUnreadNotificationsCount(session?.id ?? null)
   const markRead = useMarkNotificationsRead(session?.id ?? null, {backend: backend ?? null})

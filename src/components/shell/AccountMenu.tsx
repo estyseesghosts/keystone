@@ -1,11 +1,13 @@
 import {useMemo, useRef, useState} from 'react'
-import {Image, Pressable, View, type View as ViewType} from 'react-native'
+import {Image, View, type View as ViewType} from 'react-native'
 import {useLingui} from '@lingui/react'
 import {msg, t} from '@lingui/macro'
 
 import {useTheme as useAlfTheme} from '#/alf'
 import {Body, Caption} from '#/alf/typography'
 import {AnchoredPopup, PopupDesc, PopupHead, PopupRadioDot, PopupRow, PopupSep} from '#/components/Popup'
+import {Pressable} from '#/components/Pressable'
+import {Tooltip} from '#/components/Tooltip'
 import {errorText} from '#/lib/localeErrors'
 import {navigationRef} from '#/navigationRef'
 import {backendForSession} from '@keystone/fedi'
@@ -192,15 +194,17 @@ export function AccountButton({
   return (
     <>
       <View ref={anchor} collapsable={false}>
-        <Pressable
-          onPress={() => setOpen(v => !v)}
-          accessibilityRole="button"
-          accessibilityLabel={t`Account menu`}
-          accessibilityState={{expanded: open}}
-          hitSlop={8}
-          testID={testPrefix}>
-          <AccountAvatar />
-        </Pressable>
+        <Tooltip label={t`Account menu`}>
+          <Pressable
+            onPress={() => setOpen(v => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={t`Account menu`}
+            accessibilityState={{expanded: open}}
+            hitSlop={8}
+            testID={testPrefix}>
+            <AccountAvatar />
+          </Pressable>
+        </Tooltip>
       </View>
       {open ? (
         <AnchoredPopup

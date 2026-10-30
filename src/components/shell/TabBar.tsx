@@ -1,16 +1,22 @@
-import {Pressable, StyleSheet, View} from 'react-native'
+import {useContext} from 'react'
+import {StyleSheet, View} from 'react-native'
 import {t} from '@lingui/macro'
+import {QueryClientContext} from '@tanstack/react-query'
 
 import {useTheme as useAlfTheme} from '#/alf'
 import {useOptionalSafeAreaInsets} from '#/components/insets'
+import {Pressable} from '#/components/Pressable'
 import {Body} from '#/alf/typography'
+import {useI18n} from '#/locale/i18n'
 import {useOptionalActiveSession} from '#/state/session/SessionProvider'
+import {useUnreadNotificationsCount} from '#/state/queries'
 
 import {
   NotificationsUnreadBadge,
   TabIcon,
   goMainTab,
   isTabFocused,
+  unreadCountLabel,
   type LeafState,
   type TabParamList,
 } from './shellNav'
@@ -48,6 +54,7 @@ export function ShellTabBar({leaf}: {leaf: LeafState}) {
   const insets = useOptionalSafeAreaInsets()
   const tabs = session ? SIGNED_IN_TABS : SIGNED_OUT_TABS
   const ownAccountId = session?.accountId ?? null
+  const sessionId = session?.id ?? null
   return (
     <View
       style={[
@@ -64,6 +71,17 @@ export function ShellTabBar({leaf}: {leaf: LeafState}) {
         const label = MOBILE_LABELS[key]
         const isFocused = isTabFocused(leaf, key, ownAccountId)
         const fg = isFocused ? alf.palette.bg : alf.palette.text
+        if (key === 'Notifications') {
+          return (
+            <BellTab
+              key={key}
+              label={label}
+              isFocused={isFocused}
+              fg={fg}
+              sessionId={sessionId}
+            />
+          )
+        }
         return (
           <Pressable
             key={key}
@@ -77,13 +95,84 @@ export function ShellTabBar({leaf}: {leaf: LeafState}) {
             <Body style={[styles.tabLabel, {color: fg}]} numberOfLines={1}>
               {label}
             </Body>
-            {key === 'Notifications' ? (
-              <NotificationsUnreadBadge sessionId={session?.id ?? null} />
-            ) : null}
           </Pressable>
         )
       })}
     </View>
+  )
+}
+
+// Bell tab behind the QueryClient guard (same rule as
+// `NotificationsUnreadBadge`): provider-less trees (tests, bare shells)
+// render the plain tab, never crash on `useQueryClient`.
+function BellTab({
+  label,
+  isFocused,
+  fg,
+  sessionId,
+}: {
+  label: string
+  isFocused: boolean
+  fg: string
+  sessionId: string | null
+}) {
+  const qc = useContext(QueryClientContext)
+  const alf = useAlfTheme()
+  if (!qc) {
+    return (
+      <Pressable
+        onPress={() => goMainTab('Notifications')}
+        accessibilityRole="button"
+        accessibilityState={{selected: isFocused}}
+        accessibilityLabel={label}
+        style={[styles.tab, isFocused && {backgroundColor: alf.palette.text}]}
+        testID="tab-Notifications">
+        <TabIcon name="Notifications" color={fg} />
+        <Body style={[styles.tabLabel, {color: fg}]} numberOfLines={1}>
+          {label}
+        </Body>
+      </Pressable>
+    )
+  }
+  return <BellTabInner label={label} isFocused={isFocused} fg={fg} sessionId={sessionId} />
+}
+
+function BellTabInner({
+  label,
+  isFocused,
+  fg,
+  sessionId,
+}: {
+  label: string
+  isFocused: boolean
+  fg: string
+  sessionId: string | null
+}) {
+  const alf = useAlfTheme()
+  const i18n = useI18n()
+  // Server count for the a11y label (the badge itself is
+  // accessibility-inert — this label is what screen readers hear).
+  const unread = useUnreadNotificationsCount(sessionId)
+  const tabLabel =
+    unread != null && unread > 0 ? `${label}, ${unreadCountLabel(i18n, unread)}` : label
+  return (
+    <Pressable
+      onPress={() => goMainTab('Notifications')}
+      accessibilityRole="button"
+      accessibilityState={{selected: isFocused}}
+      accessibilityLabel={tabLabel}
+      style={[styles.tab, isFocused && {backgroundColor: alf.palette.text}]}
+      testID="tab-Notifications">
+      <View style={styles.iconWrap} testID="notifications-icon-wrap">
+        <TabIcon name="Notifications" color={fg} />
+        <View style={styles.badgeOverlay} pointerEvents="none" testID="notifications-badge-overlay">
+          <NotificationsUnreadBadge sessionId={sessionId} />
+        </View>
+      </View>
+      <Body style={[styles.tabLabel, {color: fg}]} numberOfLines={1}>
+        {label}
+      </Body>
+    </Pressable>
   )
 }
 
@@ -105,6 +194,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
     paddingVertical: 9,
     borderRadius: 8,
+  },
+  // Bell glyph anchor: the badge overlays this box (absolute, out of
+  // flow) so a visible badge never grows the tab — the bar stays exactly
+  // SHELL_TAB_BAR_HEIGHT.
+  iconWrap: {
+    position: 'relative',
+  },
+  badgeOverlay: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
   },
   tabLabel: {
     fontSize: 10,

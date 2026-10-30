@@ -3,9 +3,10 @@
 //
 // Drives fake AppState/network sources: sockets release 30 s after
 // background (never on foreground-with-healthy-socket), foreground nudges
-// only dead handles, `reconnecting -> connected` invalidates first pages
-// only, and a 20-event burst costs <= 2 requests with the final state
-// matching the last response.
+// only dead handles, gap-fill invalidates after any observed outage
+// (inactive queries trimmed to one page; mounted queries keep their pages
+// so a reconnect never collapses a scrolled list), and a 20-event burst
+// costs <= 2 requests with the final state matching the last response.
 
 import {QueryClient} from '@tanstack/react-query'
 
@@ -289,6 +290,51 @@ describe('gapFillSessionFirstPages', () => {
     ).toBe(true)
   })
 
+  it('leaves a mounted (active) query paged but still invalidates it', () => {
+    const client = clientWithPages()
+    gapFillSessionFirstPages(client, 's', {
+      isActiveKey: key =>
+        Array.isArray(key) && key[1] === 'post-feed' && key[2] === 'timeline|home',
+    })
+    const feed = client.getQueryData<{pages: Array<{items: Post[]}>; pageParams: unknown[]}>(
+      feedQueryKey('s', 'timeline|home'),
+    )!
+    // Mounted list: all three pages intact — no mid-scroll collapse — but
+    // invalidated, so the head refetches in place and the outage fills.
+    expect(feed.pages).toHaveLength(3)
+    expect(feed.pageParams).toHaveLength(3)
+    expect(client.getQueryState(feedQueryKey('s', 'timeline|home'))?.isInvalidated).toBe(true)
+    // Unmounted notifications still trim to one page.
+    const notifs = client.getQueryData<{pages: unknown[]}>(
+      notificationsQueryKey('s', notificationsFilterKey('all', true)),
+    )!
+    expect(notifs.pages).toHaveLength(1)
+  })
+
+  it('trims everything when nothing is mounted (default active set)', () => {
+    const client = clientWithPages()
+    gapFillSessionFirstPages(client, 's')
+    const feed = client.getQueryData<{pages: Array<{items: Post[]}>; pageParams: unknown[]}>(
+      feedQueryKey('s', 'timeline|home'),
+    )!
+    expect(feed.pages).toHaveLength(1)
+    expect(feed.pages[0].items.map(p => p.id)).toEqual(['p1'])
+  })
+
+  it('leaves the ranked recommendations feed entirely alone', () => {
+    const client = clientWithPages()
+    const recKey = feedQueryKey('s', 'recommendations|["en",false,true]')
+    client.setQueryData(recKey, pagesOf([['r1'], ['r2']]))
+    gapFillSessionFirstPages(client, 's')
+    // No trim AND no invalidate: a background fill here is a reroll, not
+    // a refresh — rows remount and the reader's offset lands elsewhere.
+    const rec = client.getQueryData<{pages: unknown[]}>(recKey)!
+    expect(rec.pages).toHaveLength(2)
+    expect(client.getQueryState(recKey)?.isInvalidated).not.toBe(true)
+    // Timelines still fill.
+    expect(client.getQueryState(feedQueryKey('s', 'timeline|home'))?.isInvalidated).toBe(true)
+  })
+
   it('never touches other kinds or other sessions', () => {
     const client = clientWithPages()
     gapFillSessionFirstPages(client, 's')
@@ -328,15 +374,42 @@ describe('watchStreamGapFill', () => {
     }
   }
 
-  it('gap-fills on reconnecting -> connected only', () => {
+  it('gap-fills on connected after an observed outage', () => {
     const client = new QueryClient()
     client.setQueryData(feedQueryKey('s', 'timeline|home'), pagesOf([['p1'], ['p2'], ['p3']]))
-    const {handle, emit} = statusHandle('reconnecting')
+    const {handle, emit} = statusHandle('connected')
     const off = watchStreamGapFill({client, sessionId: 's', handle})
+    emit('reconnecting')
     emit('connected')
     const feed = client.getQueryData<{pages: unknown[]}>(feedQueryKey('s', 'timeline|home'))!
     expect(feed.pages).toHaveLength(1)
     expect(client.getQueryState(feedQueryKey('s', 'timeline|home'))?.isInvalidated).toBe(true)
+    off()
+  })
+
+  it('gap-fills after the error-path redial (never via reconnecting)', () => {
+    const client = new QueryClient()
+    client.setQueryData(feedQueryKey('s', 'timeline|home'), pagesOf([['p1'], ['p2']]))
+    const {handle, emit} = statusHandle('connected')
+    const off = watchStreamGapFill({client, sessionId: 's', handle})
+    emit('error')
+    emit('connecting')
+    emit('connected')
+    expect(client.getQueryState(feedQueryKey('s', 'timeline|home'))?.isInvalidated).toBe(true)
+    off()
+  })
+
+  it('never fills the fresh-mount connecting -> connected', () => {
+    const client = new QueryClient()
+    client.setQueryData(feedQueryKey('s', 'timeline|home'), pagesOf([['p1'], ['p2']]))
+    const {handle, emit} = statusHandle('connecting')
+    const off = watchStreamGapFill({client, sessionId: 's', handle})
+    emit('connected')
+    const feed = client.getQueryData<{pages: unknown[]}>(feedQueryKey('s', 'timeline|home'))!
+    expect(feed.pages).toHaveLength(2)
+    expect(client.getQueryState(feedQueryKey('s', 'timeline|home'))?.isInvalidated).not.toBe(
+      true,
+    )
     off()
   })
 

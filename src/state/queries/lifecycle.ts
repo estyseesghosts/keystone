@@ -19,19 +19,24 @@ import {AppState, Platform} from 'react-native'
 import NetInfo from '@react-native-community/netinfo'
 import {focusManager, onlineManager, type Query, type QueryClient} from '@tanstack/react-query'
 
+import {isRecommendationsFeedKey} from './keys'
+
 /** Minimum gap between two foreground refetches of the same query. */
 export const FOREGROUND_REFETCH_MIN_GAP_MS = 60_000
 
 /** Query kinds (key[1]) eligible for the foreground refetch. */
-const FOREGROUND_REFETCH_KINDS: ReadonlySet<string> = new Set(['post-feed', 'notifications', 'me'])
+const FOREGROUND_REFETCH_KINDS: ReadonlySet<string> = new Set(['post-feed', 'notifications', 'notifications-count', 'me'])
 
 /**
  * True for feed / notification / `me` keys (sessionId-first). Pure.
  * Everything else (filters, drafts, chat, admin, search, ...) never
- * refetches on focus.
+ * refetches on focus. Ranked feeds are excluded too
+ * (`isRecommendationsFeedKey`): returning to the tab must not reroll the
+ * reader's list — only an explicit refresh (or fresh mount) does.
  */
 export function isForegroundRefetchKey(key: unknown): boolean {
   if (!Array.isArray(key) || key.length < 2) return false
+  if (isRecommendationsFeedKey(key)) return false
   const kind = key[1]
   return typeof kind === 'string' && FOREGROUND_REFETCH_KINDS.has(kind)
 }

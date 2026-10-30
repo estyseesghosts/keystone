@@ -22,6 +22,25 @@ export function feedQueryKey(sessionId: string, descriptor: string): AppQueryKey
   return createQueryKey(sessionId, "post-feed", descriptor);
 }
 
+/**
+ * True for the ranked recommendations feed (`recommendations`, with or
+ * without the `|rec-params` suffix the query key carries). Pure.
+ *
+ * Ranked feeds are exempt from every background refetch (gap-fill,
+ * foreground refetch): Sharkey's `notes/recommendations` re-scores on
+ * every request, so a background refetch is not a refresh but a reroll —
+ * rows remount and the pixel offset lands on different posts. Only an
+ * explicit user action (fresh mount, pull-to-refresh, tab re-press)
+ * rerolls. Timelines keep their background refetch: re-reading the same
+ * cursor window is stable there.
+ */
+export function isRecommendationsFeedKey(key: unknown): boolean {
+  if (!Array.isArray(key) || key.length < 3) return false
+  if (key[1] !== 'post-feed') return false
+  const descriptor = key[2]
+  return descriptor === 'recommendations' || (typeof descriptor === 'string' && descriptor.startsWith('recommendations|'))
+}
+
 /** Key for a single post. */
 export function postQueryKey(sessionId: string, postId: string): AppQueryKey {
   return createQueryKey(sessionId, "post", postId);
@@ -38,6 +57,11 @@ export function notificationsQueryKey(
   filter: string = "all",
 ): AppQueryKey {
   return createQueryKey(sessionId, "notifications", filter);
+}
+
+/** Key for the server-authoritative unread count (P6.5). */
+export function notificationsCountQueryKey(sessionId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'notifications-count');
 }
 
 /** Key for the viewer's own account (`Backend.me()`). */

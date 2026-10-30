@@ -20,7 +20,7 @@ import type {TokenVault} from '#/storage'
 
 import {makeFetchSpy, makeNotification, makePost, makeSession} from '#/__tests__/factories'
 import {postShadowStore} from '#/state/cache/post-shadow'
-import {feedQueryKey, meQueryKey, notificationsQueryKey} from '#/state/queries/keys'
+import {feedQueryKey, meQueryKey, notificationsCountQueryKey, notificationsQueryKey} from '#/state/queries/keys'
 import {getOpenDraftId, listDrafts, saveDraft, setOpenDraftId, type LocalDraft} from '#/storage/drafts'
 
 import {
@@ -199,6 +199,8 @@ describe('removing an account leaves the survivor fully intact', () => {
       client.setQueryData(feedQueryKey(b.id, 'timeline|home'), feedPage(['b-post']))
       client.setQueryData(notificationsQueryKey(a.id), notifPage(['a-notif']))
       client.setQueryData(notificationsQueryKey(b.id), notifPage(['b-notif']))
+      client.setQueryData(notificationsCountQueryKey(a.id), 2)
+      client.setQueryData(notificationsCountQueryKey(b.id), 7)
       saveDraft(storage, a.id, draft('alice-words'))
       setOpenDraftId(storage, a.id, 'd-alice-words')
       saveDraft(storage, b.id, draft('bob-words'))
@@ -218,12 +220,14 @@ describe('removing an account leaves the survivor fully intact', () => {
       // Every A surface is gone.
       expect(client.getQueryData(feedQueryKey(a.id, 'timeline|home'))).toBeUndefined()
       expect(client.getQueryData(notificationsQueryKey(a.id))).toBeUndefined()
+      expect(client.getQueryData(notificationsCountQueryKey(a.id))).toBeUndefined()
       expect(listDrafts(storage, a.id)).toEqual([])
       expect(getOpenDraftId(storage, a.id)).toBeNull()
       expect(postShadowStore.get(a.id, 'p1')).toBeUndefined()
       // Every B surface is intact.
       expect(client.getQueryData(feedQueryKey(b.id, 'timeline|home'))).toEqual(feedPage(['b-post']))
       expect(client.getQueryData(notificationsQueryKey(b.id))).toEqual(notifPage(['b-notif']))
+      expect(client.getQueryData(notificationsCountQueryKey(b.id))).toBe(7)
       expect(listDrafts(storage, b.id).map(d => d.text)).toEqual(['bob-words'])
       expect(postShadowStore.get(b.id, 'p1')).toEqual(expect.objectContaining({renoted: true}))
       stopSessionStreams(b.id)

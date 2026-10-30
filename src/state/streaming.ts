@@ -17,7 +17,7 @@ import {
 import type {Post} from '@keystone/fedi'
 
 import {patchPostInCaches} from '#/state/cache'
-import {feedQueryKey, serverFiltersQueryKey} from '#/state/queries/keys'
+import {feedQueryKey, isRecommendationsFeedKey, notificationsCountQueryKey, serverFiltersQueryKey} from '#/state/queries/keys'
 
 // Live-update glue (slice 3.10) between the ported stream handles
 // (`packages/fedi` 2.2 Misskey pool / 2.3 Mastodon socket — reused, not
@@ -392,11 +392,17 @@ export interface LiveNotificationIngest {
  * Ingest one live notification into the session's notification caches.
  * The `all` listing (no include/exclude filter, either grouping mode)
  * gets the row prepended with dedupe — the unread badge derives from the
- * cache, so it updates without a refetch. Every other filter view is
- * invalidated instead of guessed at: the SERVER is the filter authority
- * (filter type strings differ per family), and a verbatim-typed guess
- * could plant a row the server would never return. Inactive queries
- * refetch on their next mount; active ones refetch immediately.
+ * count query (patched +1 below), so it updates without a refetch. Every
+ * other filter view is invalidated instead of guessed at: the SERVER is
+ * the filter authority (filter type strings differ per family), and a
+ * verbatim-typed guess could plant a row the server would never return.
+ * Inactive queries refetch on their next mount; active ones refetch
+ * immediately.
+ *
+ * The count patch is +1 on exactly one real arrival: only when a row was
+ * actually prepended (dedupe by id — a duplicate delivery never
+ * increments), and only when a numeric count is cached (an unanswered or
+ * unsupported count is never fabricated into existence).
  */
 export function ingestLiveNotification(
   client: QueryClient,
@@ -427,6 +433,13 @@ export function ingestLiveNotification(
       pages: [{...first, items: [notification, ...first.items]}, ...rest],
     })
     prepended += 1
+  }
+  if (prepended > 0) {
+    const countKey = notificationsCountQueryKey(sessionId)
+    const current = client.getQueryData<number>(countKey)
+    if (typeof current === 'number' && Number.isFinite(current)) {
+      client.setQueryData<number>(countKey, Math.floor(current) + 1)
+    }
   }
   return {prepended, invalidated}
 }
@@ -860,22 +873,86 @@ function isGapFillKey(key: unknown): boolean {
 }
 
 /**
- * Gap fill after a stream outage (M7): trim this session's feed and
- * notification queries to their first page, then invalidate them. Trimming
- * first is what makes the refetch cost one request, not N — an infinite
- * query refetch re-reads every cached page (the same trim-then-refetch
- * shape as pull-to-refresh). Inactive queries refetch on their next mount.
+ * Gap-fill options.
+ */
+export interface GapFillOpts {
+  /**
+   * Override for "this key has a live observer" (tests inject a stub).
+   * Defaults to the cache's own active set
+   * (`findAll({type: 'active'})` — a mounted `FeedView` counts).
+   */
+  isActiveKey?: (key: unknown) => boolean
+}
+
+/**
+ * Gap fill after a stream outage (M7): invalidate this session's feed and
+ * notification queries so the outage window refetches — EXCEPT the ranked
+ * recommendations feed, which never background-refetches (see
+ * `isRecommendationsFeedKey`: a fill there is a reroll, not a refresh).
+ * INACTIVE queries are trimmed to their first page first — an infinite-query refetch
+ * re-reads every cached page, so trimming is what makes an unmounted
+ * feed's refetch cost one request, not N (the same trim-then-refetch
+ * shape as pull-to-refresh). ACTIVE (mounted) queries are never
+ * rewritten: trimming a list the user is scrolled inside collapses its
+ * data mid-scroll — the list clamps to the shortened content, rows
+ * remount (image blurhash cross-fades), and the pager fast-forwards
+ * pages back underneath. An active query's invalidate already refetches
+ * all of its pages in place, so the gap still fills with no jump.
+ * Inactive queries refetch their single kept page on their next mount.
  * Never throws; one bad query never blocks the rest.
  */
-export function gapFillSessionFirstPages(client: QueryClient, sessionId: string): void {
+export function gapFillSessionFirstPages(
+  client: QueryClient,
+  sessionId: string,
+  opts: GapFillOpts = {},
+): void {
   let entries: Array<readonly [unknown, unknown]>
   try {
     entries = client.getQueriesData({queryKey: [sessionId]})
   } catch {
     return
   }
+  // The mounted set, read once: a query that gains an observer mid-pass
+  // keeps its pages too (fail-open toward no jump, never toward trim).
+  let activeKeys: Set<string> | null = null
+  if (opts.isActiveKey == null) {
+    try {
+      activeKeys = new Set(
+        client
+          .getQueryCache()
+          .findAll({queryKey: [sessionId], type: 'active'})
+          .map(query => JSON.stringify(query.queryKey)),
+      )
+    } catch {
+      activeKeys = null
+    }
+  }
+  const isActive = (key: unknown): boolean => {
+    if (opts.isActiveKey) {
+      try {
+        return opts.isActiveKey(key)
+      } catch {
+        return true
+      }
+    }
+    // Unknown activeness (cache unreadable): keep pages — the invalidate
+    // below still refetches, so the gap fills either way.
+    if (activeKeys == null) return true
+    try {
+      return activeKeys.has(JSON.stringify(key))
+    } catch {
+      return true
+    }
+  }
   for (const [key, data] of entries) {
     if (!isGapFillKey(key)) continue
+    // Ranked feeds never background-refetch (ADR-0015): the recommender
+    // re-scores every request, so a fill here is a reroll — rows remount
+    // and the reader's offset lands on different posts. There is no live
+    // channel to stay in sync with, so nothing is lost by skipping:
+    // explicit refresh (or a fresh mount) owns rerolls.
+    if (isRecommendationsFeedKey(key)) continue
+    if (isActive(key)) continue
     if (data !== null && typeof data === 'object' && Array.isArray((data as {pages?: unknown}).pages)) {
       const record = data as {pages: Array<unknown>; pageParams?: Array<unknown>}
       if (record.pages.length > 1) {
@@ -891,8 +968,11 @@ export function gapFillSessionFirstPages(client: QueryClient, sessionId: string)
       }
     }
   }
+  // Prefix invalidates stay clear of the ranked feed (same rule as the
+  // loop above — the predicate ANDs with the key prefix).
+  const keepRanked = (query: {queryKey: unknown}): boolean => !isRecommendationsFeedKey(query.queryKey)
   try {
-    void client.invalidateQueries({queryKey: [sessionId, 'post-feed']})
+    void client.invalidateQueries({queryKey: [sessionId, 'post-feed'], predicate: keepRanked})
   } catch {
     // Best-effort.
   }
@@ -901,14 +981,26 @@ export function gapFillSessionFirstPages(client: QueryClient, sessionId: string)
   } catch {
     // Best-effort.
   }
+  try {
+    void client.invalidateQueries({queryKey: notificationsCountQueryKey(sessionId)})
+  } catch {
+    // Best-effort.
+  }
 }
 
 /**
- * Reconnect gap-fill wiring: on the `reconnecting -> connected` transition
- * of one session's handle, invalidate that session's feed + notification
- * queries (first pages only — see `gapFillSessionFirstPages`). Other
- * transitions need nothing (`connected` at mount already paged; error paths
- * surface through status badges). Returns an unsubscribe function.
+ * Reconnect gap-fill wiring: on the transition back to `connected` after
+ * an observed outage of one session's handle, invalidate that session's
+ * feed + notification queries (inactive ones trimmed to their first page
+ * — see `gapFillSessionFirstPages`). The outage is tracked as a
+ * was-away flag (any `connected -> non-connected` transition), not by
+ * matching one predecessor: Misskey error-path redials
+ * (`error -> connecting -> live`) and Mastodon dead-handle retries
+ * (`stopped -> connecting -> connected`) never pass through
+ * `reconnecting`, and matching only that shape silently drops their
+ * gaps. A fresh mount never fills (away starts false — the mount fetch
+ * already covers the head, so no boot-time double fetch). Returns an
+ * unsubscribe function.
  */
 export function watchStreamGapFill(opts: {
   client: QueryClient
@@ -918,6 +1010,10 @@ export function watchStreamGapFill(opts: {
   const {client, sessionId, handle} = opts
   if (!handle) return () => undefined
   let previous: StreamState
+  // True once a `connected -> non-connected` transition has been seen
+  // without a fill since. Starts false so a fresh mount's
+  // `connecting -> connected` never fills (the mount fetch owns the head).
+  let away = false
   try {
     previous = handle.status()
   } catch {
@@ -928,9 +1024,14 @@ export function watchStreamGapFill(opts: {
     off = handle.onStatusChange(next => {
       const was = previous
       previous = next
-      if (was === 'reconnecting' && next === 'connected') {
-        gapFillSessionFirstPages(client, sessionId)
+      if (next === 'connected') {
+        if (away) {
+          away = false
+          gapFillSessionFirstPages(client, sessionId)
+        }
+        return
       }
+      if (was === 'connected') away = true
     })
   } catch {
     return () => undefined

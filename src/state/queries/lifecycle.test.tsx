@@ -101,6 +101,13 @@ describe('isForegroundRefetchKey', () => {
     expect(isForegroundRefetchKey(['signed-out', 'me'])).toBe(true)
   })
 
+  it('excludes the ranked recommendations feed (reroll, not refresh)', () => {
+    expect(isForegroundRefetchKey(['s1', 'post-feed', 'recommendations'])).toBe(false)
+    expect(isForegroundRefetchKey(['s1', 'post-feed', 'recommendations|["en",false,true]'])).toBe(
+      false,
+    )
+  })
+
   it('rejects malformed keys', () => {
     expect(isForegroundRefetchKey(null)).toBe(false)
     expect(isForegroundRefetchKey('s1')).toBe(false)

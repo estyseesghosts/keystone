@@ -1,8 +1,10 @@
-import {Platform, Pressable, StyleSheet, View, type ViewStyle} from 'react-native'
+import {Platform, StyleSheet, View, type ViewStyle} from 'react-native'
 import {t} from '@lingui/macro'
 
 import {useTheme as useAlfTheme} from '#/alf'
 import {useOptionalSafeAreaInsets} from '#/components/insets'
+import {Pressable} from '#/components/Pressable'
+import {Tooltip} from '#/components/Tooltip'
 import {Body} from '#/alf/typography'
 import {BackIcon} from '#/components/icons'
 import {navigationRef} from '#/navigationRef'
@@ -32,14 +34,16 @@ export function MobileStrip({leaf}: {leaf: LeafState}) {
         },
       ]}>
       <View style={styles.stripSide}>
-        <Pressable
-          onPress={goBackOrFeed}
-          accessibilityRole="button"
-          accessibilityLabel={t`Back`}
-          hitSlop={12}
-          testID="strip-back">
-          <BackIcon size={20} color={alf.palette.text} />
-        </Pressable>
+        <Tooltip label={t`Back`}>
+          <Pressable
+            onPress={goBackOrFeed}
+            accessibilityRole="button"
+            accessibilityLabel={t`Back`}
+            hitSlop={12}
+            testID="strip-back">
+            <BackIcon size={20} color={alf.palette.text} />
+          </Pressable>
+        </Tooltip>
       </View>
       <Body style={styles.stripTitle} numberOfLines={1}>
         {titleForRoute(leaf.name, leaf.params)}

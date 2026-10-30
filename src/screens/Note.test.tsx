@@ -453,6 +453,44 @@ describe('NoteScreen ancestors (flat, no connectors)', () => {
     expect(focusedStyle.borderBottomWidth).toBe(1)
   }, 20000)
 
+  it('renders multi-level ancestors oldest-first above the focused post', async () => {
+    const a0 = makePost({id: 'a0', content: {mfm: 'root', plain: 'root'}})
+    const a1 = makePost({
+      id: 'a1',
+      replyToId: 'a0',
+      reply: a0,
+      content: {mfm: 'middle', plain: 'middle'},
+    })
+    const a2 = makePost({
+      id: 'a2',
+      replyToId: 'a1',
+      reply: a1,
+      content: {mfm: 'leaf ancestor', plain: 'leaf ancestor'},
+    })
+    const focused = makePost({
+      id: 'p1',
+      replyToId: 'a2',
+      reply: a2,
+      content: {mfm: 'focused post', plain: 'focused post'},
+    })
+    setup(
+      fakeBackend({
+        focused,
+        post: jest.fn(async () => focused),
+        thread: jest.fn(async () => ({ancestors: [a0, a1, a2], incomplete: false})),
+        threadReplies: jest.fn(async () => ({items: [], cursor: null, end: true})),
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('thread-body')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('ancestor-a2')).toBeTruthy())
+    // Oldest/root first at the top, direct parent just above the focus.
+    expect(screen.queryAllByTestId(/^ancestor-row-/).map(n => n.props.testID)).toEqual([
+      'ancestor-row-a0',
+      'ancestor-row-a1',
+      'ancestor-row-a2',
+    ])
+  })
+
   it('chained ancestors hide the redundant Replying to caption', async () => {
     const a0 = makePost({id: 'a0', content: {mfm: 'root', plain: 'root'}})
     const a1 = makePost({
@@ -730,6 +768,78 @@ describe('NoteScreen flat reply chains (spine)', () => {
     expect(isChainCapped(63)).toBe(false)
     expect(isChainCapped(64)).toBe(true)
     expect(isChainCapped(1000)).toBe(true)
+  })
+
+  it('renders A above B above C with the latest reply last in the visible chain', async () => {
+    const A = chainPost('oa', 'p1', day('20'), 'A post')
+    const B = chainPost('ob', 'oa', day('21'), 'B post')
+    const C = chainPost('oc', 'ob', day('22'), 'C post')
+    const D = chainPost('od', 'oc', day('23'), 'D post')
+    setup(chainBackend({p1: [A], oa: [B], ob: [C], oc: [D], od: []}))
+    await waitFor(() => expect(screen.getByTestId('reply-oc')).toBeTruthy())
+    const rows = () => screen.queryAllByTestId(/^reply-row-/).map(n => n.props.testID)
+    // Oldest/root first, newest last — the latest visible reply (C)
+    // sits at the bottom of the chain before the reveal.
+    expect(rows()).toEqual(['reply-row-oa', 'reply-row-ob', 'reply-row-oc'])
+    fireEvent.press(await screen.findByTestId('show-more-replies-oa'))
+    await waitFor(() => expect(screen.getByTestId('reply-od')).toBeTruthy())
+    expect(rows()).toEqual(['reply-row-oa', 'reply-row-ob', 'reply-row-oc', 'reply-row-od'])
+  })
+
+  it('renders the identical chain when the server answers oldest-first (Mastodon family)', async () => {
+    const A = chainPost('ma', 'p1', day('20'), 'A post')
+    const B = chainPost('mb', 'ma', day('21'), 'B post')
+    const B2 = chainPost('mb2', 'ma', day('22'), 'B2 post')
+    // Mastodon `context` descendants arrive oldest-first; the read site
+    // sorts anyway, so the render matches the newest-first fixture above.
+    setup(chainBackend({p1: [A], ma: [B, B2], mb: [], mb2: []}))
+    await waitFor(() => expect(screen.getByTestId('reply-mb')).toBeTruthy())
+    const rows = () => screen.queryAllByTestId(/^reply-row-/).map(n => n.props.testID)
+    expect(rows()).toEqual(['reply-row-ma', 'reply-row-mb'])
+    fireEvent.press(await screen.findByTestId('show-more-replies-ma'))
+    await waitFor(() => expect(screen.getByTestId('reply-mb2')).toBeTruthy())
+    // Siblings chronological: the older branch (B) stays above B2.
+    expect(rows()).toEqual(['reply-row-ma', 'reply-row-mb', 'reply-row-mb2'])
+  })
+
+  it('reveals three-level sibling branches depth-first, oldest-first', async () => {
+    const A = chainPost('ta', 'p1', day('20'), 'A post')
+    const B = chainPost('tb', 'ta', day('21'), 'B post')
+    const B2 = chainPost('tb2', 'ta', day('23'), 'B2 post')
+    const C = chainPost('tc', 'tb', day('22'), 'C post')
+    const C2 = chainPost('tc2', 'tb', day('24'), 'C2 post')
+    const D = chainPost('td', 'tc', day('25'), 'D post')
+    setup(
+      chainBackend({
+        // Newest-first at every fork (the Misskey family); the read site
+        // normalizes, so the lineal descent is still oldest-first.
+        p1: [A],
+        ta: [B2, B],
+        tb: [C2, C],
+        tc: [D],
+        td: [],
+        tc2: [],
+        tb2: [],
+      }),
+    )
+    await waitFor(() => expect(screen.getByTestId('reply-tc')).toBeTruthy())
+    const rows = () => screen.queryAllByTestId(/^reply-row-/).map(n => n.props.testID)
+    expect(rows()).toEqual(['reply-row-ta', 'reply-row-tb', 'reply-row-tc'])
+    fireEvent.press(await screen.findByTestId('show-more-replies-ta'))
+    await waitFor(() => expect(screen.getByTestId('reply-tb2')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('reply-tc2')).toBeTruthy())
+    // Depth-first pre-order, oldest-first at every fork: the lineal
+    // descent first, then C2's subtree, then B2's subtree — parentage
+    // intact, one tap, no second link.
+    expect(rows()).toEqual([
+      'reply-row-ta',
+      'reply-row-tb',
+      'reply-row-tc',
+      'reply-row-td',
+      'reply-row-tc2',
+      'reply-row-tb2',
+    ])
+    expect(screen.queryAllByTestId(/show-more-replies-/)).toHaveLength(0)
   })
 
   it('chain children hide the redundant caption; the root reply keeps it', async () => {

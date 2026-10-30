@@ -8,6 +8,7 @@ import {
   conversationsQueryKey,
   createQueryKey,
   feedQueryKey,
+  isRecommendationsFeedKey,
   notificationsQueryKey,
   postQueryKey,
   reportRulesQueryKey,
@@ -78,5 +79,24 @@ describe('createQueryKey', () => {
     expect(chatRoomMessagesQueryKey('sess-a', 'x')).not.toEqual(
       chatUserMessagesQueryKey('sess-a', 'x'),
     )
+  })
+})
+
+describe('isRecommendationsFeedKey', () => {
+  it('matches the ranked feed with and without rec params', () => {
+    expect(isRecommendationsFeedKey(feedQueryKey('s', 'recommendations'))).toBe(true)
+    expect(isRecommendationsFeedKey(feedQueryKey('s', 'recommendations|["en",false,true]'))).toBe(
+      true,
+    )
+  })
+
+  it('rejects timelines, searches, and non-feed keys', () => {
+    expect(isRecommendationsFeedKey(feedQueryKey('s', 'timeline|home'))).toBe(false)
+    expect(isRecommendationsFeedKey(feedQueryKey('s', 'search|recommendations'))).toBe(false)
+    expect(isRecommendationsFeedKey(feedQueryKey('s', 'tag|recommendations'))).toBe(false)
+    expect(isRecommendationsFeedKey(['s', 'recommendations', 'probe'])).toBe(false)
+    expect(isRecommendationsFeedKey(['s', 'post-feed'])).toBe(false)
+    expect(isRecommendationsFeedKey(null)).toBe(false)
+    expect(isRecommendationsFeedKey([])).toBe(false)
   })
 })

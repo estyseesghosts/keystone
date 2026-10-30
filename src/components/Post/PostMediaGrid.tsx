@@ -25,6 +25,7 @@ import {useI18n} from '#/locale/i18n'
 import {safeHttpUrl, type Media} from '@keystone/fedi'
 
 import {useTheme} from '#/alf/index'
+import {mediaPx} from '#/alf/tokens'
 import {overlayChrome} from '#/alf/themes'
 import {Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
@@ -63,6 +64,16 @@ export function displayAspect(ar: number): number {
   return Math.min(MAX_DISPLAY_AR, Math.max(MIN_DISPLAY_AR, ar))
 }
 
+/** Single-frame width: the height-cap-derived width, except still images
+ * outside quote-bleed hug at most `mediaPx.singleMaxW` on wide columns
+ * (polish/8-media-caps). `maxWidth: 100%` still shrinks narrow viewports,
+ * and the aspect ratio is untouched — the frame just gets shorter. Video,
+ * gifv, strips, and quote-bleed media keep their existing widths. Pure. */
+export function singleFrameWidth(kind: Media['kind'], aspect: number, bleed?: boolean): number {
+  const capped = MAX_DISPLAY_H * aspect
+  if (kind === 'image' && !bleed) return Math.min(capped, mediaPx.singleMaxW)
+  return capped
+}
 /** True when the natural ratio falls outside the display range — the
  * ONLY case that crops (to the clamped box). Everything else, including
  * height-capped portraits, scales to fit. Pure. */
@@ -206,6 +217,7 @@ function TileFrame({
       // horizontally and must keep their aspect widths.
       style={[{alignSelf: 'flex-start'}, single ? {maxWidth: '100%'} : null]}>
       <View
+        testID={`media-frame-${item.id}`}
         style={[
           single ? styles.single : styles.stripItem,
           {aspectRatio: aspect, borderColor: theme.palette.border},
@@ -213,7 +225,9 @@ function TileFrame({
           // forcing full width (no side bars inside the border).
           // Uncapped images hit maxWidth and stay full-width; capped ones
           // hug at 480 × aspect, left-justified like post content.
-          ...(single ? [{width: MAX_DISPLAY_H * aspect, maxWidth: '100%'} as const] : []),
+          // Single stills additionally hug the 520 cap on wide columns
+          // (`singleFrameWidth`); maxWidth still shrinks narrow viewports.
+          ...(single ? [{width: singleFrameWidth(item.kind, aspect, bleed), maxWidth: '100%'} as const] : []),
           bleed ? styles.bleedFrame : null,
         ]}>
         {children}

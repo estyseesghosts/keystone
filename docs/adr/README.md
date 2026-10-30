@@ -18,6 +18,8 @@ Load-bearing decisions. Numbered, append-only, never renumbered.
 | [0011](0011-token-storage.md) | Native secret-free envelope: SecureStore vault + in-memory token map, web unchanged dev-grade | 2026-10-25 | accepted |
 | [0012](0012-miauth-callback-risk.md) | MiAuth `keystone://` callback: accepted interception risk + mitigations | 2026-10-25 | accepted |
 | [0013](0013-poll-hidden-totals.md) | Poll hidden totals: PollOption.votesCount nullable | 2026-10-25 | accepted |
+| [0014](0014-notification-unread-source.md) | Notification unread count is server-authoritative (reverses W4 N18 cache-only) | 2026-10-28 | accepted |
+| [0015](0015-gapfill-keeps-mounted-pages.md) | Gap-fill never rewrites a mounted feed's pages (invalidate active, trim inactive) | 2026-10-29 | accepted |
 
 ## When to write one
 

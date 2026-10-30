@@ -392,4 +392,30 @@ describe('FeedView paging gate (X3.3)', () => {
     expect(timeline).toHaveBeenCalledTimes(3)
     expect(timeline).toHaveBeenLastCalledWith("home", expect.objectContaining({cursor: null}))
   })
+
+  it('keeps the main feed newest-first (thread chronology never leaks into it)', async () => {
+    const {store, sessionId} = await signedIn()
+    const older = makePost({
+      id: 'p-old',
+      createdAt: '2026-10-20T00:00:00.000Z',
+      content: {mfm: 'older post', plain: 'older post'},
+    })
+    const newer = makePost({
+      id: 'p-new',
+      createdAt: '2026-10-21T00:00:00.000Z',
+      content: {mfm: 'newer post', plain: 'newer post'},
+    })
+    const timeline = jest.fn(() => Promise.resolve({items: [newer, older], cursor: null, end: true}))
+    const backend = {timeline} as unknown as Backend
+    renderWithProviders(
+      <FeedView sessionId={sessionId} descriptor="timeline|home" backend={backend} retry={false} testID="feed" />,
+      store,
+    )
+    expect(await screen.findByText('newer post')).toBeTruthy()
+    expect(await screen.findByText('older post')).toBeTruthy()
+    // Server order passes straight through: newest at the top, no
+    // chronological re-sort like the thread screen applies to replies.
+    const list = screen.getByTestId('feed-list')
+    expect((list.props.data as {id: string}[]).map(p => p.id)).toEqual(['p-new', 'p-old'])
+  })
 })

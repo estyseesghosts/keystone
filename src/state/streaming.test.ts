@@ -15,7 +15,7 @@ import {
 } from '#/state/streaming'
 import {feedQueryKey} from '#/state/queries/keys'
 import {notificationsFilterKey} from '#/state/queries/notifications'
-import {notificationsQueryKey} from '#/state/queries/keys'
+import {notificationsCountQueryKey, notificationsQueryKey} from '#/state/queries/keys'
 
 function fakePost(id: string): Post {
   // author + content keep the row post-shaped for `patchPostInCaches`
@@ -464,5 +464,18 @@ describe('ingestLiveNotification (WS-G)', () => {
     })
     const res = ingestLiveNotification(client, 's', notif('n9'))
     expect(res).toEqual({prepended: 0, invalidated: 1})
+  })
+
+  it('patches the count +1 once per arrival, never per cache copy', () => {
+    const client = clientWithNotifications()
+    client.setQueryData(notificationsCountQueryKey('s'), 3)
+    // Two `all` copies (grouped + flat) each prepend…
+    const res = ingestLiveNotification(client, 's', notif('n2'))
+    expect(res.prepended).toBe(2)
+    // …but one arrival is one unread: the count moves once.
+    expect(client.getQueryData(notificationsCountQueryKey('s'))).toBe(4)
+    // A redelivery prepends nowhere and moves nothing.
+    ingestLiveNotification(client, 's', notif('n2'))
+    expect(client.getQueryData(notificationsCountQueryKey('s'))).toBe(4)
   })
 })

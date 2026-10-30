@@ -1287,6 +1287,31 @@ export async function fetchNotificationMarkers(
   return res.data;
 }
 
+/**
+ * `GET /api/v1/notifications/unread_count` (Mastodon 4.3+): the viewer's
+ * authoritative unread count (`{count}`). A 404/405 throws (the caller
+ * maps absence to the typed unsupported state); auth, abort and 5xx
+ * rethrow untouched through the guarded client. A malformed body is a
+ * shape error, never 0.
+ */
+export async function fetchNotificationsUnreadCount(
+  client: MastoClient,
+  opts: { signal?: AbortSignal } = {},
+): Promise<number> {
+  const res = await client.get<{ count?: unknown }>(
+    "/api/v1/notifications/unread_count",
+    undefined,
+    { signal: opts.signal },
+  );
+  const count = (res.data as { count?: unknown } | null | undefined)?.count;
+  if (typeof count !== "number" || !Number.isFinite(count) || count < 0) {
+    throw new FediError(
+      "Notifications unread count returned an unexpected response shape.",
+      "errors.shape.notificationUnreadCount",
+    );
+  }
+  return Math.floor(count);
+}
 /** `POST /api/v1/notifications/:id/dismiss` (Mastodon
  * `Api::V1::NotificationsController#dismiss`, route `member do post
  * :dismiss end`; Akkoma/Pleroma ship the same route — contract §4). The

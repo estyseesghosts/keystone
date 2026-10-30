@@ -15,7 +15,7 @@ import type {TokenVault} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {useLiveNotifications} from '#/state/streaming'
-import {notificationsQueryKey} from '#/state/queries/keys'
+import {notificationsCountQueryKey, notificationsQueryKey} from '#/state/queries/keys'
 import {notificationsFilterKey} from '#/state/queries/notifications'
 
 import {makePost} from '#/components/__tests__/fixtures'
@@ -432,5 +432,31 @@ describe('useLiveNotifications (WS-G S4)', () => {
     const backend = liveBackend(makeLiveHandle(), {capabilities: {streaming: 'unsupported'}, stream: null})
     renderHook(() => useLiveNotifications('s', backend), {wrapper: hookWrapper(client)})
     expect(client.getQueriesData({queryKey: ['s', 'notifications']})).toHaveLength(0)
+  })
+
+  it('one mount takes one handle and one live event bumps the count once', async () => {
+    const client = testClient()
+    client.setQueryData(notificationsQueryKey('s', notificationsFilterKey('all', true)), {
+      pages: [{items: [], cursor: null, end: true}],
+      pageParams: [null],
+    })
+    client.setQueryData(notificationsCountQueryKey('s'), 3)
+    const harness = makeLiveHandle()
+    const streamSpy = jest.fn(() => harness.handle)
+    const backend = liveBackend(harness, {stream: streamSpy})
+    const {unmount} = renderHook(() => useLiveNotifications('s', backend), {wrapper: hookWrapper(client)})
+    // One mount → one handle (the shell host mounts once; the screen
+    // mount is deleted — a double mount would double-increment below).
+    expect(streamSpy).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      harness.emitNotification({id: 'n2', read: false} as unknown as Notification)
+    })
+    expect(client.getQueryData(notificationsCountQueryKey('s'))).toBe(4)
+    // A redelivery of the same id moves nothing.
+    await act(async () => {
+      harness.emitNotification({id: 'n2', read: false} as unknown as Notification)
+    })
+    expect(client.getQueryData(notificationsCountQueryKey('s'))).toBe(4)
+    unmount()
   })
 })

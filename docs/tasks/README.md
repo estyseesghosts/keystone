@@ -69,6 +69,7 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p6.3-admin-insight-misskey](p6.3-admin-insight-misskey.md) | clickstone §3.1 (Misskey) | done | `p6.3-admin-insight-misskey` | `state/logs/2026-10-22-p6.3-admin-insight-misskey.md` |
 | [p6.3-reports-queue](p6.3-reports-queue.md) | clickstone §3.2 | done | `p6.3-reports-queue` | `state/logs/2026-10-22-p6.3-reports-queue.md` |
 | [p6.4-sidebar-reshuffle](p6.4-sidebar-reshuffle.md) | sidebar.jpg sketch (pre-W3) | in progress | `p6.4-sidebar-reshuffle` | `state/logs/2026-10-22-sidebar-reshuffle.md` |
+| [p6.5-unread-counter](p6.5-unread-counter.md) | P6.5 unread bell badge (server count + dot fallback) | in progress | `p6.5-unread-counter` | `state/logs/2026-10-28-p6.5-unread-counter.md` |
 
 ## Repair program 2026-10-25 (`docs/audit_20261025/repair.md`)
 
@@ -136,3 +137,8 @@ One row per repair slice (no per-slice task files — `repair.md` is the plan; t
 | repair25-x12.2-final | repair.md §X12.2 | not started | `repair25-x12.2-final` | — |
 
 Status values: `not started` | `in progress` | `blocked` | `done`.
+
+## Post-program fixes
+
+| Task | Plan ref | Status | Branch | Latest log |
+| [fix-feed-gapfill-jump](fix-feed-gapfill-jump.md) | ADR-0015 | in progress | `fix/feed-gapfill-jump` | `state/logs/2026-10-29-fix-feed-gapfill-jump.md` |

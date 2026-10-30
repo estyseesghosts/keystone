@@ -1,5 +1,15 @@
 # Keystone setup: running the client against Misskey, Sharkey, or Pinetree
 
+> Scope note (2026-10-26): §§1–7 describe the **v1 SolidJS/Vite
+> frontend** and its dev-proxy modes (`npm run dev -- --mode …`,
+> `KEYSTONE_BACKEND_ONLY`, `/root/…` paths). None of those commands or
+> paths exist in this repo — `package.json` has no `dev`/`build`
+> scripts and no Vite dependency. For the current Expo app, start at
+> `docs/operations/runbook.md` (run/verify) and
+> `docs/operations/backend-rig.md` (rig map, `pnpm smoke` /
+> `probe:*`, fixture capture). The live reference below is §8
+> (fixture capture) and §9 (probes).
+
 Keystone is one SolidJS/Vite SPA that talks to any of three backends through
 a dev-proxy. The backend is chosen at Vite start time (`--mode`), and the
 browser always calls same-origin `/api/*` — the proxy forwards to the real

@@ -134,6 +134,30 @@ describe("MisskeyBackend feeds", () => {
       params: { noteId: "root", limit: 20, untilId: "n1" },
     });
   });
+
+  it("thread() orders a multi-level conversation oldest-first", async () => {
+    const rootW = { ...note, id: "conv-root", replyId: null };
+    const midW = { ...note, id: "conv-mid", replyId: "conv-root" };
+    const { transport, calls } = stubTransport((endpoint) => {
+      // Server order is newest-first; the replyId-chain walk is
+      // order-independent, so ancestors still come out oldest-first.
+      if (endpoint === "notes/conversation") return [midW, rootW];
+      return note;
+    });
+    const backend = createMisskeyBackend(transport);
+    const post = {
+      ...(await backend.post("x")),
+      replyToId: "conv-mid",
+      reply: null,
+    };
+    const res = await backend.thread(post);
+    expect(res.ancestors.map((p) => p.id)).toEqual(["conv-root", "conv-mid"]);
+    expect(res.incomplete).toBe(false);
+    expect(calls[1]).toEqual({
+      endpoint: "notes/conversation",
+      params: { noteId: post.id, limit: 30, offset: 0 },
+    });
+  });
 });
 
 describe("MisskeyBackend compose", () => {

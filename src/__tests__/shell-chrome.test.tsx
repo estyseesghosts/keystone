@@ -1,13 +1,15 @@
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {act, fireEvent, render, screen} from '@testing-library/react-native'
-import {Platform} from 'react-native'
+import {act, fireEvent, render, screen, within} from '@testing-library/react-native'
+import {StyleSheet} from 'react-native'
 
 import {createMemoryStore} from '@keystone/fedi'
 
+import {butterflyPx} from '#/alf/tokens'
 import type {TokenVault} from '#/storage'
 import {createSessionStore} from '#/state/session/store'
 import {resetSidebarMode} from '#/state/sideNav'
+import {getWidgetsPanelMode, resetWidgetsPanelMode} from '#/state/widgetsPanel'
 import {SessionProvider} from '#/state/session/SessionProvider'
 import {
   getStateFromPathWithBase,
@@ -145,6 +147,7 @@ function renderShell(options?: {
 beforeEach(() => {
   widthHolder.width = 390
   resetSidebarMode()
+  resetWidgetsPanelMode()
   resetLastFeed()
   clearFeedScrolls()
 })
@@ -511,38 +514,99 @@ describe('sidebar collapse toggle (width-independent)', () => {
   })
 })
 
-describe('widgets column (removed until widgets exist, rn-ui L6)', () => {
-  // The RightNav stub is gone: no width earns it back, and the feed keeps
-  // the wide column. These pin the absence at the widths that used to
-  // mount it. (Still web-shell only; the native shell never had it.)
-  let restoreOs: {restore: () => void} | null = null
-  beforeEach(() => {
-    restoreOs = jest.replaceProperty(Platform, 'OS', 'web')
-  })
-  afterEach(() => {
-    restoreOs?.restore()
-    restoreOs = null
-  })
-  it('mounts no widgets stub on a wide window with the full sidebar', async () => {
+describe('widgets panel (polish/2-shell: host only, widgets land in slices 3-4)', () => {
+  function feedMaxWidth(): unknown {
+    return StyleSheet.flatten(screen.getByTestId('feed-column').props.style)?.maxWidth
+  }
+
+  it('mounts the panel beside the full sidebar on a wide window; feed fills the space between panels', async () => {
     widthHolder.width = 1280
     await renderShell({signedIn: true, family: 'mastodon'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.queryByTestId('right-nav')).toBeNull()
+    expect(screen.getByTestId('widgets-panel')).toBeTruthy()
+    expect(screen.getByTestId('widgets-panel-collapse')).toBeTruthy()
+    expect(screen.queryByTestId('widgets-panel-restore')).toBeNull()
+    expect(feedMaxWidth()).toBeUndefined()
   })
 
-  it('mounts no widgets stub when the feed + full sidebar fill the window', async () => {
-    widthHolder.width = 1050
+  it('keeps the panel mounted when the sidebar collapses to the rail', async () => {
+    widthHolder.width = 1280
     await renderShell({signedIn: true, family: 'mastodon'})
     expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.queryByTestId('right-nav')).toBeNull()
-  })
-
-  it('collapsing the sidebar still mounts no widgets stub', async () => {
-    widthHolder.width = 1050
-    await renderShell({signedIn: true, family: 'mastodon'})
-    expect(await screen.findByTestId('home-screen')).toBeTruthy()
-    expect(screen.queryByTestId('right-nav')).toBeNull()
     fireEvent.press(screen.getByTestId('sidebar-collapse'))
-    expect(screen.queryByTestId('right-nav')).toBeNull()
+    expect(screen.getByTestId('sidebar-expand')).toBeTruthy()
+    expect(screen.getByTestId('widgets-panel')).toBeTruthy()
+    expect(getWidgetsPanelMode()).toBe('auto')
+    expect(feedMaxWidth()).toBeUndefined()
+  })
+
+  it('stays hidden on intermediate widths with no restore affordance; feed fills the freed space', async () => {
+    widthHolder.width = 1050
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('widgets-panel')).toBeNull()
+    expect(screen.queryByTestId('widgets-panel-restore')).toBeNull()
+    expect(feedMaxWidth()).toBeUndefined()
+  })
+
+  it('stays hidden on the rail with no restore affordance', async () => {
+    widthHolder.width = 800
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('widgets-panel')).toBeNull()
+    expect(screen.queryByTestId('widgets-panel-restore')).toBeNull()
+    expect(feedMaxWidth()).toBeUndefined()
+  })
+
+  it('stays hidden on mobile, preserving the mobile nav model', async () => {
+    widthHolder.width = 390
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.queryByTestId('widgets-panel')).toBeNull()
+    expect(screen.queryByTestId('widgets-panel-restore')).toBeNull()
+  })
+
+  it('collapses to zero layout width with a restore path; feed widens and narrows back', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('widgets-panel-collapse'))
+    // Unmounted, not width-zero: no blank reserved column.
+    expect(screen.queryByTestId('widgets-panel')).toBeNull()
+    expect(screen.getByTestId('widgets-panel-restore')).toBeTruthy()
+    expect(feedMaxWidth()).toBeUndefined()
+    fireEvent.press(screen.getByTestId('widgets-panel-restore'))
+    expect(screen.getByTestId('widgets-panel')).toBeTruthy()
+    expect(screen.queryByTestId('widgets-panel-restore')).toBeNull()
+    expect(feedMaxWidth()).toBeUndefined()
+  })
+
+  it('keeps panel visibility independent of the sidebar toggle', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    // Hiding the panel leaves the full sidebar alone.
+    fireEvent.press(screen.getByTestId('widgets-panel-collapse'))
+    expect(screen.getByTestId('sidebar-collapse')).toBeTruthy()
+    expect(screen.queryByTestId('sidebar-expand')).toBeNull()
+    // Restoring the panel, then collapsing the sidebar, leaves the panel.
+    fireEvent.press(screen.getByTestId('widgets-panel-restore'))
+    fireEvent.press(screen.getByTestId('sidebar-collapse'))
+    expect(screen.getByTestId('widgets-panel')).toBeTruthy()
+    expect(getWidgetsPanelMode()).toBe('auto')
+  })
+
+  it('renders the default placements in order through the renderer (no hard-coded widgets)', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByText('Widgets')).toBeTruthy()
+    // First-run rail: exactly the two default placeholder instances, in
+    // placement order, resolved through the registry — the rail owns no
+    // widget components itself.
+    const body = within(screen.getByTestId('widgets-panel-body'))
+    const rendered = body.getAllByTestId(/^widget-widget-placeholder-/).map(el => el.props.testID)
+    expect(rendered).toEqual(['widget-widget-placeholder-1', 'widget-widget-placeholder-2'])
+    expect(screen.getAllByText('Nothing here yet.')).toHaveLength(2)
   })
 })

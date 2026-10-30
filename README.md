@@ -14,18 +14,23 @@ No Bluesky source is vendored ([`NOTICE.md`](NOTICE.md),
 
 ## Status
 
-Definitely unfinished. Might be annoying to use, especially on mobile. Looks kind of bad too. 
+Repair program **2026-10-25 complete** (59/59 slices done). Final gate baseline:
+**292 suites / 4123 tests**, typecheck (ios+android+web) + lint clean.
+Still pending: owner device checks, rig live checks, and the tracked follow-ups.
+No marketing polish claims — see [`state/STATE.md`](state/STATE.md) for what is
+actually next.
 
 ## Layout
 
 ```
 packages/fedi/   pure TypeScript data layer: core, misskey, mastodon, recorded fixtures
 src/             the app: alf (design system), components, screens, state, storage, locale, lib
-docs/            server specs, ADRs (docs/adr), decisions log, task files
+docs/            server specs, ADRs (docs/adr), decisions log, task files, wiki, api, operations
 state/           STATE.md pointer + append-only session logs
 lint-rules/      custom ESLint rules, one test per rule
 scripts/         fedi-smoke, probes, helpers
 plugins/         Expo config plugins
+android/ ios/    native projects (prebuilt by Expo prebuild)
 ```
 
 ## Architecture rules
@@ -67,27 +72,32 @@ pnpm typecheck && pnpm lint && pnpm test
 
 `typecheck` covers iOS, Android and web configs. Other useful scripts:
 
-| Script | Purpose |
-| --- | --- |
-| `pnpm test-watch` | Jest in watch mode |
-| `pnpm smoke` | Backend smoke test against the local server rig |
-| `pnpm probe:w4` / `w5` / `w8` / `wsc` | Targeted backend probes |
-| `pnpm intl:extract` / `intl:compile` | Lingui translation workflow |
-| `pnpm prettier` | Formatting check |
+| Script                                | Purpose                                         |
+| ------------------------------------- | ----------------------------------------------- |
+| `pnpm test-watch`                     | Jest in watch mode                              |
+| `pnpm smoke`                          | Backend smoke test against the local server rig |
+| `pnpm probe:w4` / `w5` / `w8` / `wsc` | Targeted backend probes                         |
+| `pnpm intl:extract` / `intl:compile`  | Lingui translation workflow                     |
+| `pnpm prettier`                       | Formatting check                                |
 
-Server rig setup (Misskey, Sharkey, Mastodon) is described in
+Server rig setup (Misskey-family, Mastodon-family) is described in
 [`docs/setup.md`](docs/setup.md).
 
 ## Working in this repo
 
-Work is organized by slice, with state kept on disk so any session can resume.
-Read [`AGENTS.md`](AGENTS.md) first: it defines the read order, the
-`state/` protocol, task files in `docs/tasks/`, and when a decision needs an ADR.
+Read [`AGENTS.md`](AGENTS.md) first, then [`state/STATE.md`](state/STATE.md):
+one slice per session, state on disk, decisions recorded as ADRs.
 
 ## Docs
 
 - [`rn-rebuild-plan.md`](rn-rebuild-plan.md): the rebuild plan
+- [`docs/`](docs/README.md): docs index (start here)
+- [`docs/architecture.md`](docs/architecture.md): system architecture
+- [`docs/wiki/`](docs/wiki/): guides and background reading
+- [`docs/api/`](docs/api/): API reference
+- [`docs/operations/`](docs/operations/): operations runbook
 - [`docs/adr/`](docs/adr/README.md): architecture decision records
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): small decisions log
-- [`docs/mastoapi-contract.md`](docs/mastoapi-contract.md), [`docs/api-surface.md`](docs/api-surface.md): backend contracts
+- [`docs/api-surface.md`](docs/api-surface.md), [`docs/mastoapi-contract.md`](docs/mastoapi-contract.md): backend contracts
 - [`docs/mfm.md`](docs/mfm.md), [`docs/i18n.md`](docs/i18n.md): content and localization
+- [`docs/setup.md`](docs/setup.md): server rig setup

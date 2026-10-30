@@ -9,23 +9,30 @@
 // - `useMarkNotificationsRead` calls the backend mutation and invalidates
 //   this session's notification queries (the read flags refetch — never
 //   locally faked).
-// - `useUnreadNotificationsCount` (N18) derives the badge count from the
-//   query cache: unread (`read === false`) rows on the newest page of every
-//   cached notifications query for the session, deduped by id. `null` means
-//   unknown (signed out, or nothing fetched yet) — never a second
-//   streaming-backed counter; streaming stays with its owner.
+// - `useUnreadNotificationsCount` (N18, P6.5) returns the SERVER's unread
+//   count (`useNotificationsCountQuery`); `null` means unknown (signed out,
+//   unsupported, or nothing answered yet) — never a second streaming-backed
+//   counter; streaming stays with its owner.
+// - `useUnreadBadge` resolves the bell state (`count` / presence `dot` /
+//   null) from the count query plus the presence signal (warm Misskey-family
+//   `me.ext.me.hasUnreadNotification`, or a cached `read === false` row).
 
-import {useCallback, useSyncExternalStore} from 'react'
+import {useCallback, useRef, useSyncExternalStore} from 'react'
 import {
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
   type InfiniteData,
+  type QueryClient,
 } from '@tanstack/react-query'
 
 import {
+  ApiError,
   backendForSession,
   findSession,
+  isUnsupportedError,
+  type Account,
   type Backend,
   type Cursor,
   type KeyValueStore,
@@ -35,7 +42,7 @@ import {
 
 import {appStorage} from '#/storage'
 
-import {notificationsQueryKey, type AppQueryKey} from './keys'
+import {meQueryKey, notificationsCountQueryKey, notificationsQueryKey, type AppQueryKey} from './keys'
 import {GC_TIME, STALE} from './stale'
 import {retryPolicy} from './retry'
 import {SIGNED_OUT_SCOPE} from './usePostFeedQuery'
@@ -140,6 +147,8 @@ export function useMarkNotificationsRead(
     onSuccess: () => {
       if (sessionId) {
         void queryClient.invalidateQueries({queryKey: [sessionId, 'notifications']})
+        void queryClient.invalidateQueries({queryKey: notificationsCountQueryKey(sessionId)})
+        void queryClient.invalidateQueries({queryKey: meQueryKey(sessionId)})
       }
     },
   })
@@ -176,6 +185,8 @@ export function useDismissNotification(
     onSuccess: () => {
       if (sessionId) {
         void queryClient.invalidateQueries({queryKey: [sessionId, 'notifications']})
+        void queryClient.invalidateQueries({queryKey: notificationsCountQueryKey(sessionId)})
+        void queryClient.invalidateQueries({queryKey: meQueryKey(sessionId)})
       }
     },
   })
@@ -208,54 +219,197 @@ export function useClearNotifications(
     onSuccess: () => {
       if (sessionId) {
         void queryClient.invalidateQueries({queryKey: [sessionId, 'notifications']})
+        void queryClient.invalidateQueries({queryKey: notificationsCountQueryKey(sessionId)})
+        void queryClient.invalidateQueries({queryKey: meQueryKey(sessionId)})
       }
     },
   })
 }
 
-/** Count unread rows across the newest cached page per query (deduped by id). */
-function countUnreadInCache(
-  queries: Array<readonly [unknown, InfiniteData<Page<Notification>> | undefined]>,
-): {count: number; any: boolean} {
-  const seen = new Set<string>()
-  let count = 0
-  let any = false
-  for (const [, data] of queries) {
-    // Only infinite-query data carries pages; anything else in the cache
-    // under this prefix is ignored (never counted, never crashed on).
-    const newest = Array.isArray(data?.pages) ? data.pages[0] : undefined
-    if (!newest) continue
-    any = true
-    for (const item of newest.items) {
-      if (seen.has(item.id)) continue
-      seen.add(item.id)
-      // `read: null` (Misskey/Sharkey omit isRead) is unknown — never
-      // counted as unread, never counted as read. Only `false` is unread.
-      if (item.read === false) count += 1
-    }
-  }
-  return {count, any}
+// --- Server-authoritative unread count (P6.5) ------------------------------
+
+export interface NotificationsCountQueryOptions {
+  /** Session seam (tests inject a memory store; defaults to the app MMKV). */
+  store?: KeyValueStore
+  /** Backend override (screens pass the active backend; defaults to the session's). */
+  backend?: Backend | null
+  /** Retry count (tests pass 0 to fail fast). Defaults to 2. */
+  retry?: number | false
+  /** Caller cancellation (overrides react-query's signal when given). */
+  signal?: AbortSignal
+}
+
+/** Finite non-negative count out of a warm Misskey-family `me` bag, else
+ * undefined (never 0 for unknown — absent means "cannot count"). Pure. */
+function placeholderCountFromMe(me: Account | null | undefined): number | undefined {
+  const raw = me?.ext.me as Record<string, unknown> | undefined
+  const value = raw?.unreadNotificationsCount
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return undefined
+  return Math.floor(value)
 }
 
 /**
- * Unread badge count (N18) derived from the notifications query cache.
- * `null` = unknown (signed out, or nothing fetched yet). Subscribes to the
- * cache so mark-all-read invalidation flows into the badge.
+ * Server-authoritative unread count (P6.5): `Backend.notificationsUnreadCount`
+ * under `notificationsCountQueryKey` (sessionId FIRST, like every key).
+ * "Unsupported" is query error state (read by `useUnreadBadge` as the dot
+ * fallback), never an error wall — the badge renders nothing or a dot.
+ * `placeholderData` (never `initialData`) seeds from the warm `me` cache so
+ * the number paints before the round trip; the real fetch still happens.
  */
-export function useUnreadNotificationsCount(sessionId: string | null): number | null {
+export function useNotificationsCountQuery(
+  sessionId: string | null,
+  options: NotificationsCountQueryOptions = {},
+) {
+  const backend =
+    options.backend !== undefined
+      ? options.backend
+      : sessionId != null
+        ? resolveSessionBackend(options.store ?? appStorage(), sessionId)
+        : null
   const queryClient = useQueryClient()
+  const queryKey =
+    sessionId != null
+      ? notificationsCountQueryKey(sessionId)
+      : ([SIGNED_OUT_SCOPE, 'notifications-count'] as AppQueryKey)
+  const placeholder =
+    sessionId != null
+      ? placeholderCountFromMe(queryClient.getQueryData<Account>(meQueryKey(sessionId)))
+      : undefined
+  const query = useQuery<number, Error, number, AppQueryKey>({
+    queryKey,
+    queryFn: ({signal}) => {
+      if (!backend) throw new Error('useNotificationsCountQuery: no backend for session')
+      if (typeof backend.notificationsUnreadCount !== 'function') {
+        throw new ApiError(
+          'Notification unread count is not on this server.',
+          404,
+          'errors.unsupported.notification_unread_count',
+        )
+      }
+      return backend.notificationsUnreadCount({signal: options.signal ?? signal})
+    },
+    staleTime: STALE.NOTIFICATIONS,
+    gcTime: GC_TIME.NOTIFICATIONS,
+    enabled: backend != null,
+    retry: retryPolicy(options.retry),
+    refetchOnWindowFocus: false,
+    ...(placeholder !== undefined ? {placeholderData: placeholder} : {}),
+  })
+  return {...query, queryKey}
+}
+
+/** Bell badge state (P6.5): an exact count, a presence dot (unread exists
+ * but the server cannot count), or null (nothing to show). The UI caps the
+ * display at `99+`; `count === 0` reads null. Pure type — resolved by
+ * `useUnreadBadge`. */
+export type UnreadBadgeState = {kind: 'count'; count: number} | {kind: 'dot'} | null
+
+/**
+ * Presence signal for the dot fallback (P6.5): true when the Misskey-family
+ * `me` bag says `hasUnreadNotification`, or any cached notification row is
+ * `read === false`. No signal → no dot, never a guess. Pure (unit-tested).
+ */
+export function unreadPresence(
+  notificationsData: Array<InfiniteData<Page<Notification>> | undefined>,
+  me: Account | null | undefined,
+): boolean {
+  const flag = (me?.ext.me as Record<string, unknown> | undefined)?.hasUnreadNotification
+  if (flag === true) return true
+  for (const data of notificationsData) {
+    if (!data || !Array.isArray(data.pages)) continue
+    for (const page of data.pages) {
+      if (!page || !Array.isArray(page.items)) continue
+      for (const item of page.items) {
+        if (item.read === false) return true
+      }
+    }
+  }
+  return false
+}
+
+function badgeFromCount(count: number | null | undefined): UnreadBadgeState {
+  if (typeof count !== 'number' || !Number.isFinite(count)) return null
+  const n = Math.floor(count)
+  return n > 0 ? {kind: 'count', count: n} : null
+}
+
+/** Structural equality for badge states (the snapshot memo below). */
+function sameBadgeState(a: UnreadBadgeState, b: UnreadBadgeState): boolean {
+  if (a === b) return true
+  if (a == null || b == null) return false
+  if (a.kind !== b.kind) return false
+  if (a.kind === 'count' && b.kind === 'count') return a.count === b.count
+  return true
+}
+
+/** Pure §4 resolution over one client's cache (unit-testable shape; the
+ * hook memoizes its result so `useSyncExternalStore` sees a stable
+ * snapshot — a fresh object identity per read would loop forever). */
+function resolveBadgeState(queryClient: QueryClient, sessionId: string): UnreadBadgeState {
+  const countKey = notificationsCountQueryKey(sessionId)
+  const rawCount = queryClient.getQueryData<number>(countKey)
+  // An answered count is final — including 0 (→ null). Only the
+  // unanswered case falls through to the seed / dot paths below.
+  if (typeof rawCount === 'number' && Number.isFinite(rawCount)) {
+    return badgeFromCount(rawCount)
+  }
+  const state = queryClient.getQueryState<number>(countKey)
+  const me = queryClient.getQueryData<Account>(meQueryKey(sessionId))
+  if (state?.error == null) {
+    // No answer yet and no failure (pending, or disabled with no
+    // backend): a warm `me` seeds the number within one frame,
+    // mirroring the query's placeholderData (which lives on the
+    // observer, not in the cache). A failed count never shows stale
+    // seed — silence on the shell, never an error wall.
+    const seeded = placeholderCountFromMe(me)
+    if (seeded !== undefined) return badgeFromCount(seeded)
+  }
+  if (state?.error != null && isUnsupportedError(state.error)) {
+    const caches = queryClient
+      .getQueriesData<InfiniteData<Page<Notification>>>({queryKey: [sessionId, 'notifications']})
+      .filter(([key]) => Array.isArray(key) && key[1] === 'notifications')
+      .map(([, data]) => data)
+    return unreadPresence(caches, me) ? {kind: 'dot'} : null
+  }
+  return null
+}
+
+/**
+ * Bell badge state (P6.5) implementing the plan §4 resolution order:
+ * a numeric count answers → count (0 → null); "unsupported" → dot only
+ * with a real presence signal, else null; anything else (signed out, no
+ * backend, pending, auth/net failure) → null. Mounts the count query so
+ * the number arrives and stays live; subscribes to the cache so live
+ * arrivals and mark-read invalidation flow into the badge.
+ */
+export function useUnreadBadge(sessionId: string | null): UnreadBadgeState {
+  useNotificationsCountQuery(sessionId)
+  const queryClient = useQueryClient()
+  const lastRef = useRef<UnreadBadgeState>(null)
   const subscribe = useCallback(
     (onStoreChange: () => void) => queryClient.getQueryCache().subscribe(onStoreChange),
     [queryClient],
   )
-  const getSnapshot = useCallback((): number | null => {
-    if (!sessionId) return null
-    const queries = queryClient.getQueriesData<InfiniteData<Page<Notification>>>({
-      queryKey: [sessionId, 'notifications'],
-    })
-    if (queries.length === 0) return null
-    const {count, any} = countUnreadInCache(queries)
-    return any ? count : null
+  const getSnapshot = useCallback((): UnreadBadgeState => {
+    if (!sessionId) {
+      lastRef.current = null
+      return null
+    }
+    const next = resolveBadgeState(queryClient, sessionId)
+    // Stable identity across reads: `useSyncExternalStore` re-renders on
+    // every snapshot change, and a fresh object per read would loop.
+    if (!sameBadgeState(lastRef.current, next)) lastRef.current = next
+    return lastRef.current
   }, [queryClient, sessionId])
   return useSyncExternalStore(subscribe, getSnapshot)
+}
+
+/**
+ * Unread badge count (P6.5): the server count, `null` when unknown or
+ * unsupported. Keeps its name and `number | null` signature (the
+ * Notifications screen caption and the shell badge consume it).
+ */
+export function useUnreadNotificationsCount(sessionId: string | null): number | null {
+  const badge = useUnreadBadge(sessionId)
+  return badge != null && badge.kind === 'count' ? badge.count : null
 }

@@ -125,6 +125,7 @@ import {
   fetchFollowRequestsPage,
   fetchNotificationsPage,
   fetchNotificationMarkers,
+  fetchNotificationsUnreadCount,
   fetchInstanceRules,
   fetchScheduledStatusesPage,
   fetchStatusAccountPage,
@@ -1288,6 +1289,27 @@ export function createMastodonBackend(
             "Marking notifications read is not on this server.",
             404,
             "errors.unsupported.markers",
+          );
+        }
+        throw err;
+      }
+    },
+
+    async notificationsUnreadCount(opts: SignalOpts = {}): Promise<number> {
+      // Server-authoritative unread count (Mastodon 4.3+,
+      // `GET /api/v1/notifications/unread_count` → `{count}`). Only
+      // absence (404/405) becomes the typed unsupported state — the UI's
+      // presence-dot fallback. Auth, abort and 5xx propagate untouched
+      // (same discipline as `notificationReadPosition`); a malformed body
+      // is a shape error from the endpoint, never 0.
+      try {
+        return await fetchNotificationsUnreadCount(client, { signal: opts.signal });
+      } catch (err) {
+        if (isAbsentError(err)) {
+          throw new ApiError(
+            "Notification unread count is not on this server.",
+            404,
+            "errors.unsupported.notification_unread_count",
           );
         }
         throw err;

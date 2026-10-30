@@ -1498,6 +1498,10 @@ export interface Backend {
   // --- Notifications (plan §2.2) ---
   notifications(opts?: NotificationsOpts): Promise<Page<Notification>>;
   markNotificationsRead(): Promise<void>;
+  /** Authoritative unread count. Optional: servers without a count source
+   * leave it off and the UI falls back to a presence dot. Throws a typed
+   * unsupported `ApiError` when the endpoint is absent on this server. */
+  notificationsUnreadCount?(opts?: SignalOpts): Promise<number>;
   /** Dismiss ONE notification (`POST /api/v1/notifications/:id/dismiss` on
    * the Mastodon family; clickstone §1.11). Optional: absent where the
    * family has no per-row dismiss (Misskey), and a 404/405 from a fork
