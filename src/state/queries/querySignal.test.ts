@@ -27,6 +27,7 @@ const QUERY_FILES = [
   'me.ts',
   'moderation.ts',
   'notifications.ts',
+  'pages.ts',
   'recommendations.ts',
   'reports.ts',
   'usePostFeedQuery.ts',

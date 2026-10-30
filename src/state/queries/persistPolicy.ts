@@ -89,6 +89,10 @@ export const PERSIST_POLICY: Record<string, PersistRule> = {
   'admin-insight': {persist: false},
   'admin-reports': {persist: false},
   'admin-report': {persist: false},
+  // P6.5 Pages: public docs, but single-page views and listings refetch
+  // like single-post/thread views (never in the persisted blob).
+  page: {persist: false},
+  pages: {persist: false},
 }
 
 /**

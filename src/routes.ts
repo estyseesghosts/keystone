@@ -108,6 +108,11 @@ export type RootParamList = {
   Lists: undefined
   Clip: {id: string}
   Clips: {addNoteId?: string} | undefined
+  /** Misskey-family Pages (P6.5): the index, one published page, and the
+   * single-screen editor (no id = new page). */
+  Pages: undefined
+  Page: {id: string}
+  PageEdit: {id?: string} | undefined
   Antenna: {id: string}
   Antennas: undefined
   Channel: {id: string}
@@ -176,6 +181,9 @@ export const paths: Record<keyof RootParamList, string> = {
   Lists: '/lists',
   Clip: '/clips/:id',
   Clips: '/clips',
+  Pages: '/pages',
+  Page: '/pages/view/:id',
+  PageEdit: '/pages/edit/:id?',
   Antenna: '/antennas/:id',
   Antennas: '/antennas',
   Channel: '/channels/:id',
@@ -314,6 +322,9 @@ export function linkingScreens(): LinkingScreens {
     Lists: leaf('Lists'),
     Clip: leaf('Clip'),
     Clips: leaf('Clips'),
+    Pages: leaf('Pages'),
+    Page: leaf('Page'),
+    PageEdit: leaf('PageEdit'),
     Antenna: leaf('Antenna'),
     Antennas: leaf('Antennas'),
     Channel: leaf('Channel'),
@@ -355,7 +366,7 @@ export function linkingScreens(): LinkingScreens {
 // English-identical under the `en` catalog (nav tests pin the strings).
 export function titleForRoute(
   name: string | undefined,
-  params?: {tag?: unknown; section?: unknown} | null,
+  params?: {tag?: unknown; section?: unknown; id?: unknown} | null,
 ): string {
   switch (name) {
     case 'Home':
@@ -382,6 +393,12 @@ export function titleForRoute(
       return t`Clip`
     case 'Clips':
       return t`Clips`
+    case 'Pages':
+      return t`Pages`
+    case 'Page':
+      return t`Page`
+    case 'PageEdit':
+      return typeof params?.id === 'string' ? t`Edit page` : t`New page`
     case 'Antenna':
       return t`Antenna`
     case 'Antennas':

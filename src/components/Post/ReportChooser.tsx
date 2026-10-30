@@ -54,6 +54,7 @@ export function ReportChooser({
   family,
   remoteHost,
   sessionId,
+  initialComment,
   onSubmit,
   onCancel,
 }: {
@@ -62,6 +63,8 @@ export function ReportChooser({
   family: ServerFamily
   remoteHost: string | null
   sessionId: string | null
+  /** Prefilled comment (page reports seed `Page: {url}`). Defaults to empty. */
+  initialComment?: string
   onSubmit: (values: ReportChooserValues) => void
   onCancel: () => void
 }) {
@@ -71,7 +74,7 @@ export function ReportChooser({
   const [category, setCategory] = useState<ReportCategory>(lastCategory ?? 'other')
   const [ruleIds, setRuleIds] = useState<string[]>([])
   const [forward, setForward] = useState(false)
-  const [comment, setComment] = useState('')
+  const [comment, setComment] = useState(initialComment ?? '')
   const rules = useReportRules(family === 'mastodon' ? sessionId : null)
   // Category/rules/forward are Mastodon-family fields. Misskey's report is
   // one message; showing the controls would pretend otherwise.

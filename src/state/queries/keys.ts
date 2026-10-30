@@ -138,3 +138,14 @@ export function recommendationsProbeQueryKey(sessionId: string): AppQueryKey {
 export function recommendationInterestsQueryKey(sessionId: string): AppQueryKey {
   return createQueryKey(sessionId, 'recommendations', 'interests');
 }
+
+/** Key for one packed Misskey page (`pages/show`). */
+export function pageQueryKey(sessionId: string, pageId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'page', pageId);
+}
+
+/** Key for a page listing (P6.5): `featured`, `by-user:${userId}`,
+ * `mine`, or `liked`. Session first like every other key. */
+export function pagesQueryKey(sessionId: string, scope: string): AppQueryKey {
+  return createQueryKey(sessionId, 'pages', scope);
+}
