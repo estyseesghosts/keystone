@@ -142,4 +142,6 @@ Status values: `not started` | `in progress` | `blocked` | `done`.
 
 | Task | Plan ref | Status | Branch | Latest log |
 | [fix-feed-gapfill-jump](fix-feed-gapfill-jump.md) | ADR-0015 | done, merged | `main` | `state/logs/2026-10-30-merge-batch.md` |
+| [fix-like-button-state](fix-like-button-state.md) | Like pill = liked-only; custom-like art, never raw code | done, merged | `main` | `state/logs/2026-10-30-like-button-state.md` |
+| [feat-emoji-picker-groups](feat-emoji-picker-groups.md) | Picker groups v1 parity (collapse/pin/hide/favourites/right-click) | done, merged | `main` | `state/logs/2026-10-30-emoji-picker-groups.md` |
 | [visual-polish](visual-polish.md) | Visual polish + widgets (D1–D6 + feed-fill + media-caps) | done, merged | `main` | `state/logs/2026-10-29-polish-8-media-caps.md` |

@@ -1,8 +1,8 @@
 # Fix like-button liked state
 
 Plan ref: owner report 2026-10-30 (screenshot: raw `:meowBigSob@.:` in lit like pill)
-Status: in progress
-Branch: `fix/like-button-liked-state` (from `main`, uncommitted; do NOT merge without owner approval; never `git push`)
+Status: done, merged to `main` 2026-10-30 (`2264634`; owner visual check open)
+Branch: `main` (was `fix/like-button-liked-state`, pruned)
 
 ## Goal
 
@@ -20,8 +20,8 @@ The like pill means liked-only (`mine` IS the configured like). Custom likes ren
 - [x] 2. `LikeGlyph`: unlit → outline heart; lit heart-like → filled heart; lit custom-like → entry/packed/session art by wire key, filled-heart fallback. Removed `UnicodeEmoji`-fallback + RN `Image` paths.
 - [x] 3. Tests: fedi `api-emoji-like` (3) + postactions +4 (unlit-other, custom-art-not-code, bare≡`@.`, remote-unlit; all-kinds total pin).
 - [x] 4. Gate: typecheck + lint clean; 47/47 + 29/29 neighbors green.
-- [ ] 5. Owner visual check on web.
-- [ ] 6. Full `pnpm test` flat at pre-existing 90, then merge.
+- [ ] 5. Owner visual check on web (open).
+- [x] 6. Full `pnpm test` flat at pre-existing 90 (verified pre-merge 2026-10-30: 305/4278, 90 fail = known set), then merged.
 
 ## Acceptance
 
@@ -29,8 +29,8 @@ The like pill means liked-only (`mine` IS the configured like). Custom likes ren
 - [x] Custom like reacted shows art in the lit pill, never raw `:code:`
 - [x] Canonical equality (bare ≡ `@.`), remote lookalikes unlit
 - [x] Count totals every reaction kind (verified already-total, pinned)
-- [ ] Owner visual check passes
-- [ ] Full suite: no NEW failures
+- [ ] Owner visual check passes (open)
+- [x] Full suite: no NEW failures (verified pre-merge)
 
 ## Out of scope
 

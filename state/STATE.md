@@ -1,25 +1,23 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase: **batch merged to `main` 2026-10-30** (`6f49197`: P6.5 unread
-badge + visual-polish 1–8 + feed gap-fill fix, two rounds). Only branch
-left is `main`; all ten program branches pruned. Tree clean.
+Phase: **like-button + picker groups merged to `main` 2026-10-30**
+(`2264634` + `ae638e4` + bookkeeping; fast-forward, both branches
+pruned, pushed to github). Only branch left is `main`. Tree clean.
+Gate (merge): typecheck (ios+android+web) + lint clean; `pnpm test`
+→ 305 suites / 4278 tests: 4188 pass, 90 fail — all 90 the pre-existing
+content/linkpreview/richtext/post set (13 suites). Zero attributable
+failures (one self-caught pre-merge regression fixed: provider-less
+`CustomGroupsRow` crash — see merge log).
+Web/device inspection `not verified` (owner checks open).
 Gate (merge commit): typecheck (ios+android+web) + lint clean; `pnpm test`
 → 303 suites / 4260 tests: 4170 pass, 90 fail — all 90 the pre-existing
 content/linkpreview/richtext/post set (13 suites), unchanged from the
 2026-10-28 clean-tree baseline. Zero attributable failures.
-`pnpm build-web` exports; visual/device inspection `not verified`
-(owner repros still open: Home deep-scroll + socket-kill; rec feed
-hands-off through a reconnect).
-Prior polish baseline (merged to `main` 2026-10-30 as `6f49197` — chain
-`p6.5-unread-counter` → `polish/1-thread-order` → `2-shell` →
-`3-widget-core` → `4-rail-editor` → `5-nav-polish` →
-`polish/6-regression` → `7-feed-fill` → `8-media-caps` →
-`fix/feed-gapfill-jump`, all pruned): typecheck + lint
-clean; `pnpm test` → 303 suites / 4260 tests: 4170 pass, 90 fail — all 90
-pre-existing content/link/richtext/post failures, unchanged since the
-2026-10-28 clean-tree verification. Zero program-attributable failures.
 `pnpm build-web` exports; visual/device inspection `not verified`.
-Prior baseline line below is stale (tree is red independent of this program).
+Prior polish baseline (merged to `main` 2026-10-30 as `6f49197`): typecheck + lint
+clean; `pnpm test` → 303 suites / 4260 tests: 4170 pass, 90 fail — all 90
+pre-existing content/link/richtext/post failures (13 suites), unchanged
+since the 2026-10-28 clean-tree verification. Zero attributable failures.
 Gate baseline (final green): **292 suites / 4123 tests**, typecheck
 (ios+android+web) + lint (0 errors, 0 warnings) clean. `--forceExit` kept
 (`test:handles` never clean on this tree — X11.2 evidence in its log).
@@ -41,10 +39,11 @@ Links:
 - P6.5 ADR: `docs/adr/0014-notification-unread-source.md` (accepted)
 - Fix ADR: `docs/adr/0015-gapfill-keeps-mounted-pages.md` (accepted)
 - Fix task: `docs/tasks/fix-feed-gapfill-jump.md` (merged; owner repros open)
-- Latest logs: `state/logs/2026-10-30-merge-batch.md` (this merge),
-  `state/logs/2026-10-29-fix-feed-gapfill-jump.md` (round 1: active-trim fix),
-  `state/logs/2026-10-29-polish-7-feed-fill.md` (feed fill),
-  `state/logs/2026-10-29-polish-*.md` (1–6, one per slice)
+- Latest logs: `state/logs/2026-10-30-emoji-picker-groups.md` (this slice),
+  `state/logs/2026-10-30-like-button-state.md` (carried slice),
+  `state/logs/2026-10-30-merge-batch.md` (the merge),
+  `state/logs/2026-10-29-fix-feed-gapfill-jump*.md` (gap-fill rounds 1–2),
+  `state/logs/2026-10-29-polish-*.md` (polish 1–8, one per slice)
 - Repair program: `docs/audit_20261025/repair.md` + `report.md` (COMPLETE, unchanged)
 - Report: `docs/audit_20261025/report.md` ("Status after repair" table)
 - Latest logs: `state/logs/2026-10-25-repair25-x12.*.md`

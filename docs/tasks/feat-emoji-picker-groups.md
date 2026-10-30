@@ -1,8 +1,8 @@
 # Emoji picker groups (v1 parity)
 
 Plan ref: owner request 2026-10-30 (v1/v2 screenshots in `docs/`)
-Status: in progress
-Branch: `feat/emoji-picker-groups` (from `main` + carried like-button tree; do NOT merge without owner approval; never `git push`)
+Status: done, merged to `main` 2026-10-30 (`ae638e4`; owner visual checks open)
+Branch: `main` (was `feat/emoji-picker-groups`, pruned)
 
 ## Goal
 
@@ -23,8 +23,8 @@ Picker groups catch up to v1: independently collapsible (persisted), pinnable/hi
 - [x] 4. Settings: `GroupToggleRow` shared by unicode row; new custom-groups row (pin/hide; hidden-without-known lists for restore); favourites hint updated; like persist refactored to the shared helper.
 - [x] 5. Tests: store (collapse set, persist helper), model (order/hide/counts/collapse), picker (toggle + persist across remount, search expansion, menu actions), settings (custom rows, restore path).
 - [x] 6. `intl:extract` + compile for the new strings.
-- [ ] 7. Gate: typecheck + lint clean; targeted suites green; full `pnpm test` flat at pre-existing 90.
-- [ ] 8. Owner visual checks on web (collapse/pin/hide/right-click).
+- [x] 7. Gate: typecheck + lint clean; targeted suites green; full `pnpm test` flat at pre-existing 90 (verified pre-merge 2026-10-30: 305/4278, 90 fail = known set).
+- [ ] 8. Owner visual checks on web (collapse/pin/hide/right-click) (open).
 
 ## Acceptance
 
@@ -32,8 +32,8 @@ Picker groups catch up to v1: independently collapsible (persisted), pinnable/hi
 - [x] Custom groups pinnable to top, hideable, restorable in settings
 - [x] Favourites quick-access on top (above pinned), only when populated
 - [x] Web right-click menu: pin to favourites / use as like
-- [ ] Full suite: no NEW failures vs 90 pre-existing
-- [ ] Owner visual checks pass
+- [x] Full suite: no NEW failures (verified pre-merge) vs 90 pre-existing
+- [ ] Owner visual checks pass (open)
 
 ## Out of scope
 
