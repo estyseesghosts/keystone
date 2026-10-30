@@ -8,7 +8,7 @@ import {StyleSheet, View} from 'react-native'
 import {useRef, useState} from 'react'
 
 import type {Capabilities, Post, ReactionSummary, ServerFamily} from '@keystone/fedi'
-import {HEART_REACTION} from '@keystone/fedi'
+import {HEART_REACTION, isHeartReaction, isLikeActive, parseEmojiCode} from '@keystone/fedi'
 
 import {msg} from '@lingui/macro'
 import {useLingui} from '@lingui/react'
@@ -20,10 +20,10 @@ import {AnchoredPopup} from '#/components/Popup'
 import {EmojiPicker} from '#/components/EmojiPicker'
 import {HeartIcon, MoreIcon, ReplyIcon, RepostIcon, SmileIcon} from '#/components/icons'
 import {Pressable} from '#/components/Pressable'
-import {UnicodeEmoji} from '#/components/EmojiImage'
+import {CustomEmojiGlyph} from '#/components/EmojiImage'
 import {formatCount, i18n as lingui, useLocale} from '#/locale/i18n'
 import {formatFediError, toCodedError} from '#/lib/localeErrors'
-import {Image, Pressable as RNPressable, type View as ViewType} from 'react-native'
+import {Pressable as RNPressable, type View as ViewType} from 'react-native'
 import {likeKind, type PostActions} from '#/state/cache'
 import {showToast} from '#/lib/toast'
 
@@ -116,24 +116,55 @@ function artFor(key: string, reactions: ReactionSummary | null): string | null {
   return reactions.entries.find(e => e.key === key)?.url ?? null
 }
 
-function LikeGlyph({glyphKey, url, mine, likeEmoji}: {glyphKey: string | null; url: string | null; mine: boolean; likeEmoji: string}) {
+function LikeGlyph({
+  liked,
+  likeEmoji,
+  artKey,
+  url,
+  packed,
+  sessionId,
+  authorHost,
+}: {
+  /** White-pill state: my reaction IS my configured like (never just "any reaction"). */
+  liked: boolean
+  /** Configured like key (F18): ❤/❤️ or a custom `:code:`. Decides heart-vs-custom only. */
+  likeEmoji: string
+  /** Reaction key to render (the wire entry key — packed/entries are keyed by it). Null when unliked. */
+  artKey: string | null
+  /** Entry art for the reaction key (exact match; may be null — packed/session cover the rest). */
+  url: string | null
+  /** Packed per-object emoji map for tolerant lookup. */
+  packed: Record<string, string> | null
+  /** Owning session for the session-listing fallback. */
+  sessionId: string
+  /** Origin host hint for host-less codes in remote-authored content. */
+  authorHost: string | null
+}) {
   const theme = useTheme()
-  if (glyphKey && glyphKey !== likeEmoji) {
-    if (url) {
+  // A custom like renders its art inside the pill through the same chain
+  // as the chips (entry URL → packed map → session listing) — never raw
+  // `:code:` text (the old UnicodeEmoji fallback printed custom keys
+  // verbatim). Anything unresolvable falls through to the filled heart,
+  // which still marks the liked state honestly.
+  if (liked && artKey !== null && !isHeartReaction(likeEmoji)) {
+    const parsed = parseEmojiCode(artKey)
+    const bareCustom = parsed === null && url !== null && /^[A-Za-z0-9_+-]+$/.test(artKey)
+    if (parsed !== null || bareCustom) {
       return (
-        <Image
-          source={{uri: url}}
-          style={{width: ICON, height: ICON, resizeMode: 'contain'}}
-          accessibilityIgnoresInvertColors
+        <CustomEmojiGlyph
+          name={parsed ? parsed.name : artKey}
+          host={parsed ? parsed.host : null}
+          src={url}
+          packed={packed}
+          sessionId={sessionId}
+          authorHost={authorHost}
+          size={ICON}
+          textStyle={{color: theme.palette.bg}}
         />
       )
     }
-    // On an active (mine) button the background is `text`, so a system-font
-    // fallback must draw in `bg` — the unthemed default is invisible in
-    // dark mode.
-    return <UnicodeEmoji sequence={glyphKey} size={ICON} textStyle={{color: mine ? theme.palette.bg : theme.palette.text}} />
   }
-  return <HeartIcon size={ICON} color={mine ? theme.palette.bg : theme.palette.muted} filled={mine} />
+  return <HeartIcon size={ICON} color={liked ? theme.palette.bg : theme.palette.muted} filled={liked} />
 }
 
 export function ActionBar({
@@ -216,21 +247,41 @@ export function ActionBar({
     const mine = actions.reaction.value
     const gate = actions.reaction.gate
     const total = formatCount(locale, post.reactions?.total ?? 0)
+    // The white pill means liked: my reaction IS my configured like
+    // (`isLikeActive` — bare `:name:` and `:name@.:` compare equal, either
+    // heart form counts when the like is a heart). Any other emoji
+    // reaction lives in the chip row above; the like button stays unlit.
+    // `total` already counts every reaction kind (server `reactionCount`,
+    // entries-sum fallback) — pinned by test, never just likes.
+    const liked = isLikeActive(likeEmoji, mine)
     like = (
       <ActionButton
         testID={`action-react-${id}`}
         label={
-          mine
+          liked && mine
             ? i18n._(msg`Liked with ${mine} — remove reaction`)
             : i18n._(msg`Like, ${total} reactions`)
         }
-        icon={<LikeGlyph glyphKey={mine} url={mine ? artFor(mine, post.reactions) : null} mine={!!mine} likeEmoji={likeEmoji} />}
+        icon={
+          <LikeGlyph
+            liked={liked}
+            likeEmoji={likeEmoji}
+            artKey={liked ? mine : null}
+            url={liked && mine ? artFor(mine, post.reactions) : null}
+            packed={post.reactions?.urls ?? null}
+            sessionId={sessionId}
+            authorHost={post.author.host ?? null}
+          />
+        }
         text={String(total)}
-        active={!!mine}
+        active={liked}
         disabled={!gate.enabled}
         reason={gate.enabled ? undefined : gate.reason}
         onPress={() => {
-          if (mine) void actions.reaction.set(null).catch(toastError)
+          // Lit: toggle the like off. Unlit: become the like — on
+          // single-reaction servers this replaces a different existing
+          // reaction via the usual delete-then-create path.
+          if (liked) void actions.reaction.set(null).catch(toastError)
           else void actions.reaction.set(likeEmoji).catch(toastError)
         }}
       />

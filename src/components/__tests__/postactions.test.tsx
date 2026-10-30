@@ -665,4 +665,107 @@ describe('like-key wiring (F18)', () => {
       likeEmojiStore.reset(SESSION.id)
     }
   })
+
+  it('a different reaction leaves the like button unlit and the count totals every kind', async () => {
+    const {likeEmojiStore} = await import('#/state/emojiPrefs')
+    likeEmojiStore.reset(SESSION.id)
+    try {
+      const post = makePost()
+      post.reactions = {
+        total: 8,
+        entries: [
+          {key: '👍', count: 3, mine: false, url: null},
+          {key: '❤', count: 5, mine: false, url: null},
+        ],
+        mine: '👍',
+        myReactions: ['👍'],
+        urls: {},
+      }
+      const b = live(post, fakeBackend())
+      // Unlit: plain like affordance with the all-kinds total — never
+      // "liked with 👍", never selected.
+      expect(screen.getByLabelText('Like, 8 reactions')).toBeTruthy()
+      expect(screen.getByTestId('action-react-p1').props.accessibilityState).toMatchObject({
+        selected: false,
+      })
+      // Tapping becomes the like (replaces the other reaction via the
+      // usual delete-then-create path — unreact fires for the old key)…
+      fireEvent.press(screen.getByTestId('action-react-p1'))
+      await waitFor(() => expect(b.react).toHaveBeenCalledWith('p1', '❤'))
+      // …instead of the old behavior, which silently cleared the reaction.
+      expect(b.react).toHaveBeenCalledTimes(1)
+    } finally {
+      likeEmojiStore.reset(SESSION.id)
+    }
+  })
+
+  it('custom like reacted renders art in the lit pill, never raw code', async () => {
+    const {likeEmojiStore} = await import('#/state/emojiPrefs')
+    likeEmojiStore.set(SESSION.id, ':wow@.:')
+    try {
+      const post = makePost()
+      post.reactions = {
+        total: 1,
+        entries: [{key: ':wow@.:', count: 1, mine: false, url: null}],
+        mine: ':wow@.:',
+        myReactions: [':wow@.:'],
+        // Entry art missing; the packed map carries it (the screenshot case).
+        urls: {':wow@.:': 'https://img.example/wow.png'},
+      }
+      live(post, fakeBackend())
+      const btn = screen.getByTestId('action-react-p1')
+      expect(btn.props.accessibilityState).toMatchObject({selected: true})
+      expect(btn.props.accessibilityLabel).toMatch(/Liked with :wow@\.: — remove reaction/)
+      // No literal `:code:` text node anywhere in the row…
+      expect(screen.queryByText(':wow@.:')).toBeNull()
+      // …and the pill carries the resolved image (role=image, labelled by code).
+      expect(screen.getAllByLabelText(':wow@.:').length).toBeGreaterThan(0)
+    } finally {
+      likeEmojiStore.reset(SESSION.id)
+    }
+  })
+
+  it('bare like setting matches a host-suffixed reaction', async () => {
+    const {likeEmojiStore} = await import('#/state/emojiPrefs')
+    likeEmojiStore.set(SESSION.id, ':wow:')
+    try {
+      const post = makePost()
+      post.reactions = {
+        total: 1,
+        entries: [{key: ':wow@.:', count: 1, mine: false, url: null}],
+        mine: ':wow@.:',
+        myReactions: [':wow@.:'],
+        urls: {':wow@.:': 'https://img.example/wow.png'},
+      }
+      live(post, fakeBackend())
+      expect(screen.getByTestId('action-react-p1').props.accessibilityState).toMatchObject({
+        selected: true,
+      })
+      expect(screen.queryByText(':wow@.:')).toBeNull()
+    } finally {
+      likeEmojiStore.reset(SESSION.id)
+    }
+  })
+
+  it('same name on another host is another emoji: stays unlit', async () => {
+    const {likeEmojiStore} = await import('#/state/emojiPrefs')
+    likeEmojiStore.set(SESSION.id, ':wow@.:')
+    try {
+      const remote = makePost()
+      remote.reactions = {
+        total: 1,
+        entries: [{key: ':wow@other.social:', count: 1, mine: false, url: null}],
+        mine: ':wow@other.social:',
+        myReactions: [':wow@other.social:'],
+        urls: {},
+      }
+      live(remote, fakeBackend())
+      expect(screen.getByTestId('action-react-p1').props.accessibilityState).toMatchObject({
+        selected: false,
+      })
+      expect(screen.getByLabelText('Like, 1 reactions')).toBeTruthy()
+    } finally {
+      likeEmojiStore.reset(SESSION.id)
+    }
+  })
 })
