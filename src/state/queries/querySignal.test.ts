@@ -21,6 +21,7 @@ const QUERY_FILES = [
   'adminInsight.ts',
   'adminReports.ts',
   'chat.ts',
+  'clips.ts',
   'composer.ts',
   'conversations.ts',
   'graph.ts',

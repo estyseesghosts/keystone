@@ -20,6 +20,14 @@ export interface CollectionBodyProps {
   menu?: (item: CollectionItem) => React.ReactNode;
   dataSaver?: boolean;
   testID?: string;
+  /** Full override for one row/tile (mosaic tiles resolve their own data). */
+  renderItem?: (item: CollectionItem, helpers: {
+    selected: boolean;
+    selectionMode: boolean;
+    onOpen: () => void;
+    onToggle: () => void;
+    testID?: string;
+  }) => React.ReactNode;
   onEndReached?: () => void;
   refreshing?: boolean;
   onRefresh?: () => void;
@@ -40,6 +48,7 @@ export function CollectionGrid({
   onOpen,
   onToggle,
   dataSaver,
+  renderItem: renderItemOverride,
   testID,
   onEndReached,
   refreshing,
@@ -49,17 +58,32 @@ export function CollectionGrid({
 }: CollectionBodyProps) {
   const width = useWindowDimensions().width;
   const columns = useMemo(() => gridColumns(width), [width]);
-  const renderItem = ({item}: ListRenderItemInfo<CollectionItem>) => (
-    <Tile
-      item={item}
-      selected={selected(item.key)}
-      selectionMode={selectionMode}
-      onOpen={() => onOpen(item.key)}
-      onToggle={() => onToggle(item.key)}
-      dataSaver={dataSaver}
-      testID={testID ? `${testID}-${item.key}` : undefined}
-    />
-  );
+  const renderItem = ({item}: ListRenderItemInfo<CollectionItem>) => {
+    if (renderItemOverride) {
+      return (
+        <>
+          {renderItemOverride(item, {
+            selected: selected(item.key),
+            selectionMode,
+            onOpen: () => onOpen(item.key),
+            onToggle: () => onToggle(item.key),
+            testID: testID ? `${testID}-${item.key}` : undefined,
+          })}
+        </>
+      );
+    }
+    return (
+      <Tile
+        item={item}
+        selected={selected(item.key)}
+        selectionMode={selectionMode}
+        onOpen={() => onOpen(item.key)}
+        onToggle={() => onToggle(item.key)}
+        dataSaver={dataSaver}
+        testID={testID ? `${testID}-${item.key}` : undefined}
+      />
+    );
+  };
   return (
     <FlatList
       data={items}
@@ -88,6 +112,7 @@ export function CollectionList({
   onToggle,
   menu,
   dataSaver,
+  renderItem: renderItemOverride,
   testID,
   onEndReached,
   refreshing,
@@ -95,18 +120,33 @@ export function CollectionList({
   ListEmptyComponent,
   ListFooterComponent,
 }: CollectionBodyProps) {
-  const renderItem = ({item}: ListRenderItemInfo<CollectionItem>) => (
-    <Row
-      item={item}
-      selected={selected(item.key)}
-      selectionMode={selectionMode}
-      onOpen={() => onOpen(item.key)}
-      onToggle={() => onToggle(item.key)}
-      menu={menu?.(item)}
-      dataSaver={dataSaver}
-      testID={testID ? `${testID}-${item.key}` : undefined}
-    />
-  );
+  const renderItem = ({item}: ListRenderItemInfo<CollectionItem>) => {
+    if (renderItemOverride) {
+      return (
+        <>
+          {renderItemOverride(item, {
+            selected: selected(item.key),
+            selectionMode,
+            onOpen: () => onOpen(item.key),
+            onToggle: () => onToggle(item.key),
+            testID: testID ? `${testID}-${item.key}` : undefined,
+          })}
+        </>
+      );
+    }
+    return (
+      <Row
+        item={item}
+        selected={selected(item.key)}
+        selectionMode={selectionMode}
+        onOpen={() => onOpen(item.key)}
+        onToggle={() => onToggle(item.key)}
+        menu={menu?.(item)}
+        dataSaver={dataSaver}
+        testID={testID ? `${testID}-${item.key}` : undefined}
+      />
+    );
+  };
   return (
     <FlatList
       data={items}

@@ -29,6 +29,7 @@ export function Tile({
   onToggle,
   dataSaver,
   blurhash,
+  corner,
   testID,
 }: {
   item: CollectionItem;
@@ -38,6 +39,8 @@ export function Tile({
   onToggle: () => void;
   dataSaver?: boolean;
   blurhash?: string | null;
+  /** Top-right overlay (grid overflow menu). Hidden in selection mode. */
+  corner?: React.ReactNode;
   testID?: string;
 }) {
   const label = item.a11yHint ? `${item.title}, ${item.a11yHint}` : item.title;
@@ -62,7 +65,9 @@ export function Tile({
           <View style={styles.check} testID={testID ? `${testID}-check` : undefined}>
             {selected ? <CheckIcon size={14} /> : null}
           </View>
-        ) : null}
+        ) : (
+          corner
+        )}
       </View>
     </Pressable>
   );

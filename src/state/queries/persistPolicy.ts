@@ -89,6 +89,9 @@ export const PERSIST_POLICY: Record<string, PersistRule> = {
   'admin-insight': {persist: false},
   'admin-reports': {persist: false},
   'admin-report': {persist: false},
+  // P6.6 Clips: personal lists + mosaics always refetch (never persisted).
+  clips: {persist: false},
+  'clip-mosaic': {persist: false},
 }
 
 /**

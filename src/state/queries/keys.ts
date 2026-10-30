@@ -46,6 +46,16 @@ export function postQueryKey(sessionId: string, postId: string): AppQueryKey {
   return createQueryKey(sessionId, "post", postId);
 }
 
+/** Key for the own-clips listing (`mine`) or one clip (`clip:${id}`). */
+export function clipsQueryKey(sessionId: string, scope: string): AppQueryKey {
+  return createQueryKey(sessionId, "clips", scope);
+}
+
+/** Key for one clip's mosaic images (DC-5: cached 10 min). */
+export function clipMosaicQueryKey(sessionId: string, clipId: string): AppQueryKey {
+  return createQueryKey(sessionId, "clip-mosaic", clipId);
+}
+
 /** Key for a single account. */
 export function accountQueryKey(sessionId: string, accountId: string): AppQueryKey {
   return createQueryKey(sessionId, "account", accountId);

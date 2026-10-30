@@ -110,9 +110,7 @@ msgid "{0, plural, one {# member} other {# members}}"
 msgstr "{0, plural, one {# member} other {# members}}"
 
 #. placeholder {0}: channel.notesCount
-#. placeholder {0}: clip.notesCount
 #: src/screens/Channels.tsx:58
-#: src/screens/Clips.tsx:133
 msgid "{0, plural, one {# note} other {# notes}}"
 msgstr "{0, plural, one {# note} other {# notes}}"
 
@@ -177,6 +175,11 @@ msgstr "{0} · Open attachment"
 msgid "{0} (was {1})"
 msgstr "{0} (was {1})"
 
+#. placeholder {0}: items.length
+#: src/screens/Clips.tsx:219
+msgid "{0} / {clipLimit}"
+msgstr "{0} / {clipLimit}"
+
 #. placeholder {0}: queueCountDisplay(counts.active)
 #. placeholder {1}: queueCountDisplay(counts.waiting)
 #. placeholder {2}: queueCountDisplay(counts.delayed)
@@ -237,11 +240,6 @@ msgstr "{0}. Open channel."
 #: src/screens/ChatRooms.tsx:73
 msgid "{0}. Open chat room."
 msgstr "{0}. Open chat room."
-
-#. placeholder {0}: clip.name
-#: src/screens/Clips.tsx:126
-msgid "{0}. Open clip."
-msgstr "{0}. Open clip."
 
 #. placeholder {0}: conversationTitle(conversation)
 #: src/screens/Conversations.tsx:69
@@ -531,10 +529,6 @@ msgstr "Add field"
 msgid "Add filter"
 msgstr "Add filter"
 
-#: src/screens/Clips.tsx:143
-msgid "Add here"
-msgstr "Add here"
-
 #: src/components/Composer/ComposerSections.tsx:583
 msgid "Add recipient"
 msgstr "Add recipient"
@@ -570,10 +564,14 @@ msgstr "Add to list…"
 msgid "Add widgets"
 msgstr "Add widgets"
 
-#. placeholder {0}: item.name
-#: src/screens/Clips.tsx:401
+#. placeholder {0}: clip.name
+#: src/screens/Clips.tsx:77
 msgid "Added to {0}"
 msgstr "Added to {0}"
+
+#: src/screens/Clips.tsx:77
+msgid "Added to Favourites"
+msgstr "Added to Favourites"
 
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:77
 msgid "Adding a post to favorites."
@@ -1008,6 +1006,7 @@ msgstr "Browser sign-in — approve on {0}."
 msgid "by {shown}"
 msgstr "by {shown}"
 
+#: src/components/Clips/ClipDialog.tsx:101
 #: src/components/Composer/CompactComposer.tsx:207
 #: src/components/Composer/Composer.tsx:1243
 #: src/components/Composer/ComposerSections.tsx:665
@@ -1018,7 +1017,6 @@ msgstr "by {shown}"
 #: src/screens/Antennas.tsx:201
 #: src/screens/ChatRooms.tsx:197
 #: src/screens/ChatThread.tsx:120
-#: src/screens/Clips.tsx:175
 #: src/screens/Conversation.tsx:219
 #: src/screens/Conversations.tsx:89
 #: src/screens/Login.tsx:654
@@ -1144,7 +1142,7 @@ msgstr "Checking…"
 msgid "Choice {0}"
 msgstr "Choice {0}"
 
-#: src/screens/Clips.tsx:312
+#: src/screens/Clips.tsx:212
 msgid "Choose a clip for this post."
 msgstr "Choose a clip for this post."
 
@@ -1225,11 +1223,17 @@ msgstr "Clearing…"
 msgid "Clip"
 msgstr "Clip"
 
-#: src/screens/Clips.tsx:57
-#: src/screens/Clips.tsx:152
-#: src/screens/Clips.tsx:155
+#: src/screens/Clips.tsx:227
+msgid "Clip limit reached ({clipLimit})."
+msgstr "Clip limit reached ({clipLimit})."
+
+#: src/components/Clips/ClipDialog.tsx:69
 msgid "Clip name"
 msgstr "Clip name"
+
+#: src/screens/Clips.tsx:281
+msgid "Clip options"
+msgstr "Clip options"
 
 #: src/components/Post/menuModel.ts:151
 #: src/components/richtext/MatrixHover.tsx:32
@@ -1243,9 +1247,9 @@ msgstr "clips"
 
 #: src/components/shell/Sidebar.tsx:103
 #: src/routes.ts:388
-#: src/screens/Clips.tsx:292
-#: src/screens/Clips.tsx:303
-#: src/screens/Clips.tsx:311
+#: src/screens/Clips.tsx:167
+#: src/screens/Clips.tsx:189
+#: src/screens/Clips.tsx:209
 msgid "Clips"
 msgstr "Clips"
 
@@ -1255,7 +1259,7 @@ msgid "Clips"
 msgstr "Clips"
 
 #: src/screens/Clip.tsx:79
-#: src/screens/Clips.tsx:304
+#: src/screens/Clips.tsx:198
 msgid "Clips are not available on this server."
 msgstr "Clips are not available on this server."
 
@@ -1265,7 +1269,6 @@ msgid "errors.unsupported.clips"
 msgstr "Clips are not available on this server."
 
 #: src/screens/Clip.tsx:69
-#: src/screens/Clips.tsx:294
 msgid "Clips never show sample data when signed out."
 msgstr "Clips never show sample data when signed out."
 
@@ -1357,7 +1360,7 @@ msgid "Confirm"
 msgstr "Confirm"
 
 #: src/screens/Antennas.tsx:230
-#: src/screens/Clips.tsx:206
+#: src/screens/Clips.tsx:324
 msgid "Confirm delete"
 msgstr "Confirm delete"
 
@@ -1431,9 +1434,10 @@ msgstr "Could not accept that request."
 msgid "Could not add the filter."
 msgstr "Could not add the filter."
 
-#: src/screens/Clips.tsx:404
-msgid "Could not add to the clip."
-msgstr "Could not add to the clip."
+#. placeholder {0}: clip === null ? 'Favourites' : 'the clip'
+#: src/screens/Clips.tsx:82
+msgid "Could not add to {0}."
+msgstr "Could not add to {0}."
 
 #: src/screens/FollowRequests.tsx:56
 msgid "Could not answer the request."
@@ -1455,10 +1459,6 @@ msgstr "Could not complete this action."
 msgid "Could not create the antenna."
 msgstr "Could not create the antenna."
 
-#: src/screens/Clips.tsx:46
-msgid "Could not create the clip."
-msgstr "Could not create the clip."
-
 #: src/screens/Drive.tsx:422
 msgid "Could not create the folder."
 msgstr "Could not create the folder."
@@ -1471,7 +1471,7 @@ msgstr "Could not create the list."
 msgid "Could not delete the antenna."
 msgstr "Could not delete the antenna."
 
-#: src/screens/Clips.tsx:386
+#: src/screens/Clips.tsx:116
 msgid "Could not delete the clip."
 msgstr "Could not delete the clip."
 
@@ -1537,7 +1537,7 @@ msgstr "Could not load channels."
 msgid "Could not load chats."
 msgstr "Could not load chats."
 
-#: src/screens/Clips.tsx:347
+#: src/screens/Clips.tsx:298
 msgid "Could not load clips."
 msgstr "Could not load clips."
 
@@ -1836,11 +1836,6 @@ msgstr "Could not remove the filter."
 msgid "Could not rename the antenna."
 msgstr "Could not rename the antenna."
 
-#: src/screens/Clips.tsx:115
-#: src/screens/Clips.tsx:374
-msgid "Could not rename the clip."
-msgstr "Could not rename the clip."
-
 #: src/screens/Drive/rows.tsx:233
 msgid "Could not rename the file."
 msgstr "Could not rename the file."
@@ -1867,6 +1862,10 @@ msgstr "Could not save notification settings."
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:271
 msgid "Could not save recommendations settings."
 msgstr "Could not save recommendations settings."
+
+#: src/components/Clips/ClipDialog.tsx:53
+msgid "Could not save the clip."
+msgstr "Could not save the clip."
 
 #: src/components/Composer/Composer.tsx:513
 msgid "Could not save the draft on this device."
@@ -1960,10 +1959,6 @@ msgstr "CPU {0} × {1}"
 msgid "Create antenna"
 msgstr "Create antenna"
 
-#: src/screens/Clips.tsx:69
-msgid "Create clip"
-msgstr "Create clip"
-
 #: src/screens/Drive.tsx:404
 msgctxt "button"
 msgid "Create folder"
@@ -1984,7 +1979,6 @@ msgid "created an access token"
 msgstr "created an access token"
 
 #: src/screens/Antennas.tsx:125
-#: src/screens/Clips.tsx:69
 msgid "Creating…"
 msgstr "Creating…"
 
@@ -2075,7 +2069,7 @@ msgstr "Default. Colourful open-source set."
 #: src/components/Post/menuModel.ts:461
 #: src/screens/Antennas.tsx:248
 #: src/screens/ChatThread.tsx:129
-#: src/screens/Clips.tsx:224
+#: src/screens/Clips.tsx:284
 #: src/screens/Conversation.tsx:228
 #: src/screens/Conversations.tsx:98
 msgid "Delete"
@@ -2089,10 +2083,10 @@ msgid "Delete"
 msgstr "Delete"
 
 #. placeholder {0}: antenna.name
-#. placeholder {0}: clip.name
+#. placeholder {0}: deleteTarget.name
 #. placeholder {0}: file.name
 #: src/screens/Antennas.tsx:226
-#: src/screens/Clips.tsx:203
+#: src/screens/Clips.tsx:321
 #: src/screens/Drive/rows.tsx:119
 #: src/screens/Drive/rows.tsx:320
 #: src/screens/Lists.tsx:326
@@ -2128,6 +2122,7 @@ msgid "Delete this post?"
 msgstr "Delete this post?"
 
 #: src/screens/ChatThread.tsx:113
+#: src/screens/Clips.tsx:324
 #: src/screens/Conversation.tsx:212
 #: src/screens/Conversations.tsx:82
 msgid "Deleting…"
@@ -2155,6 +2150,10 @@ msgstr "Demote very short text."
 msgid "Describe the media"
 msgstr "Describe the media"
 
+#: src/components/Clips/ClipDialog.tsx:74
+msgid "Description"
+msgstr "Description"
+
 #: src/components/Composer/ComposerSections.tsx:288
 #: src/components/Composer/ComposerSections.tsx:415
 msgid "Description (alt text)"
@@ -2164,6 +2163,10 @@ msgstr "Description (alt text)"
 msgctxt "drive upload comment input"
 msgid "Description (optional)"
 msgstr "Description (optional)"
+
+#: src/components/Clips/ClipDialog.tsx:43
+msgid "Description must be 2048 characters or fewer."
+msgstr "Description must be 2048 characters or fewer."
 
 #. Open file details
 #: src/screens/Drive/rows.tsx:283
@@ -2310,7 +2313,7 @@ msgstr "Drive is not available on this server."
 msgid "Drive never shows sample data when signed out."
 msgstr "Drive never shows sample data when signed out."
 
-#: src/components/Collection/DropZone.web.tsx:102
+#: src/components/Collection/DropZone.web.tsx:101
 msgid "Drop to upload to {targetName}"
 msgstr "Drop to upload to {targetName}"
 
@@ -2334,8 +2337,13 @@ msgstr "earned an achievement"
 #: src/components/Post/menuModel.ts:396
 #: src/components/Post/menuModel.ts:397
 #: src/components/Settings/FiltersSection.tsx:178
+#: src/screens/Clips.tsx:283
 msgid "Edit"
 msgstr "Edit"
+
+#: src/components/Clips/ClipDialog.tsx:63
+msgid "Edit clip"
+msgstr "Edit clip"
 
 #: src/routes.ts:378
 #: src/screens/NoteHistory.tsx:100
@@ -2514,7 +2522,6 @@ msgid "Favourite emoji"
 msgstr "Favourite emoji"
 
 #: src/components/EmojiPicker/model.ts:81
-#: src/screens/Clips.tsx:318
 msgid "Favourites"
 msgstr "Favourites"
 
@@ -3027,7 +3034,7 @@ msgid "It may be deleted, suspended, or unreachable."
 msgstr "It may be deleted, suspended, or unreachable."
 
 #: src/screens/Antennas.tsx:237
-#: src/screens/Clips.tsx:213
+#: src/screens/Clips.tsx:331
 msgid "Keep"
 msgstr "Keep"
 
@@ -3645,6 +3652,7 @@ msgstr "My Network"
 msgid "My Uploads"
 msgstr "My Uploads"
 
+#: src/components/Clips/ClipDialog.tsx:66
 #: src/screens/CollectionDebug.tsx:84
 msgid "Name"
 msgstr "Name"
@@ -3653,6 +3661,14 @@ msgstr "Name"
 msgctxt "drive file detail field"
 msgid "Name"
 msgstr "Name"
+
+#: src/components/Clips/ClipDialog.tsx:38
+msgid "Name is required."
+msgstr "Name is required."
+
+#: src/components/Clips/ClipDialog.tsx:40
+msgid "Name must be 100 characters or fewer."
+msgstr "Name must be 100 characters or fewer."
 
 #: src/components/Settings/DomainBlocks.tsx:41
 msgid "Needs a Mastodon-family server."
@@ -3708,7 +3724,8 @@ msgstr "New"
 msgid "New antenna"
 msgstr "New antenna"
 
-#: src/screens/Clips.tsx:54
+#: src/components/Clips/ClipDialog.tsx:63
+#: src/screens/Clips.tsx:223
 msgid "New clip"
 msgstr "New clip"
 
@@ -4099,6 +4116,7 @@ msgstr "Notifications never show sample data when signed out."
 msgid "Notify about new posts"
 msgstr "Notify about new posts"
 
+#: src/components/Clips/ClipDialog.tsx:84
 #: src/components/Settings/DisplaySection.tsx:197
 #: src/components/Settings/DisplaySection.tsx:219
 #: src/components/Settings/PrivacySection.tsx:103
@@ -4115,6 +4133,7 @@ msgstr "off"
 msgid "Off"
 msgstr "Off"
 
+#: src/components/Clips/ClipDialog.tsx:84
 #: src/components/Settings/DisplaySection.tsx:197
 #: src/components/Settings/DisplaySection.tsx:219
 #: src/components/Settings/PrivacySection.tsx:103
@@ -4299,6 +4318,10 @@ msgstr "Opening the approval page."
 #: src/screens/Login.tsx:739
 msgid "Opening…"
 msgstr "Opening…"
+
+#: src/components/Clips/ClipDialog.tsx:77
+msgid "Optional description"
+msgstr "Optional description"
 
 #. placeholder {0}: formatRelativeTime(revision.createdAt, nowMs)
 #: src/screens/NoteHistory.tsx:60
@@ -4611,17 +4634,15 @@ msgstr "Profiles never show sample data when signed out."
 msgid "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 msgstr "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 
-#: src/screens/Clips.tsx:140
+#: src/components/Clips/ClipDialog.tsx:84
 msgid "Public"
 msgstr "Public"
 
-#: src/screens/Clips.tsx:62
-#: src/screens/Clips.tsx:160
+#: src/components/Clips/ClipDialog.tsx:88
 msgid "Public: off"
 msgstr "Public: off"
 
-#: src/screens/Clips.tsx:62
-#: src/screens/Clips.tsx:160
+#: src/components/Clips/ClipDialog.tsx:88
 msgid "Public: on"
 msgstr "Public: on"
 
@@ -4896,7 +4917,6 @@ msgid "Remove last"
 msgstr "Remove last"
 
 #: src/screens/Antennas.tsx:215
-#: src/screens/Clips.tsx:189
 msgid "Rename"
 msgstr "Rename"
 
@@ -5145,8 +5165,6 @@ msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach i
 #: src/screens/ChatThread.tsx:229
 #: src/screens/ChatThread.tsx:279
 #: src/screens/Clip.tsx:100
-#: src/screens/Clips.tsx:339
-#: src/screens/Clips.tsx:349
 #: src/screens/Conversation.tsx:158
 #: src/screens/Conversations.tsx:192
 #: src/screens/Conversations.tsx:242
@@ -5220,6 +5238,7 @@ msgstr "Rule ids"
 msgid "Rule violation"
 msgstr "Rule violation"
 
+#: src/components/Clips/ClipDialog.tsx:94
 #: src/components/Composer/CompactComposer.tsx:186
 #: src/components/Composer/Composer.tsx:1246
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:383
@@ -5227,7 +5246,6 @@ msgstr "Rule violation"
 #: src/components/Settings/FiltersSection.tsx:151
 #: src/components/Settings/WordFields.tsx:128
 #: src/screens/Antennas.tsx:194
-#: src/screens/Clips.tsx:168
 #: src/screens/Notifications.tsx:229
 #: src/screens/Notifications.tsx:521
 #: src/screens/ProfileEditor.tsx:505
@@ -5291,6 +5309,7 @@ msgstr "Saving notification settings."
 msgid "Saving the filter policy."
 msgstr "Saving the filter policy."
 
+#: src/components/Clips/ClipDialog.tsx:94
 #: src/components/Composer/Composer.tsx:1227
 #: src/components/Composer/ComposerSections.tsx:66
 #: src/components/Composer/ComposerSections.tsx:176
@@ -5303,7 +5322,6 @@ msgstr "Saving the filter policy."
 #: src/components/Settings/DomainBlocks.tsx:165
 #: src/components/Settings/WordFields.tsx:128
 #: src/screens/Antennas.tsx:194
-#: src/screens/Clips.tsx:168
 #: src/screens/Notifications.tsx:229
 #: src/screens/Notifications.tsx:521
 msgid "Saving…"
@@ -5806,7 +5824,7 @@ msgstr "Sign in to see this thread."
 msgid "Sign in to see your antennas."
 msgstr "Sign in to see your antennas."
 
-#: src/screens/Clips.tsx:293
+#: src/screens/Clips.tsx:177
 msgid "Sign in to see your clips."
 msgstr "Sign in to see your clips."
 
@@ -7277,7 +7295,7 @@ msgstr "You follow this account."
 msgid "You have no antennas yet."
 msgstr "You have no antennas yet."
 
-#: src/screens/Clips.tsx:423
+#: src/screens/Clips.tsx:300
 msgid "You have no clips yet."
 msgstr "You have no clips yet."
 
@@ -7321,10 +7339,6 @@ msgstr "Your account cannot do that here."
 #: src/screens/Antennas.tsx:358
 msgid "Your account cannot view antennas here."
 msgstr "Your account cannot view antennas here."
-
-#: src/screens/Clips.tsx:337
-msgid "Your account cannot view clips here."
-msgstr "Your account cannot view clips here."
 
 #: src/screens/Drive.tsx:257
 msgid "Your account cannot view drive here."
