@@ -48,6 +48,7 @@ import {useQueryClient} from '@tanstack/react-query'
 import {appStorage} from '#/storage'
 import {clearPageDraft, loadPageDraft, savePageDraft} from '#/storage/pageDrafts'
 import {
+  firstTextBlockId,
   initPageEditor,
   isPageDirty,
   pageDraft,
@@ -262,7 +263,13 @@ export function PageEditScreen() {
   const [state, dispatch] = useReducer(pageEditorReducer, undefined, () => initPageEditor(null))
   const [ready, setReady] = useState(false)
   const [previewTab, setPreviewTab] = useState<'edit' | 'preview'>('edit')
-  const [settingsOpen, setSettingsOpen] = useState(isNew)
+  // Collapsed by default for every page (owner 2026-10-31): the settings
+  // card opens on tap.
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  // New pages seed one section + two text blocks; the first text field
+  // opens once so its formatting row is visible (one-shot, cleared on
+  // mount by the block itself).
+  const [autoFocusBlockId, setAutoFocusBlockId] = useState<string | null>(null)
   const [mediaById, setMediaById] = useState<Map<string, Media>>(new Map())
   const [pickerFor, setPickerFor] = useState<string | 'eyecatch' | null>(null)
   const [restoreOffer, setRestoreOffer] = useState(false)
@@ -302,6 +309,14 @@ export function PageEditScreen() {
     setReady(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, pageId, savedQuery.isPending])
+
+  // New page: open the first seeded text block once (its formatting row).
+  useEffect(() => {
+    if (!ready || !isNew) return
+    const first = firstTextBlockId(state.form.blocks)
+    if (first) setAutoFocusBlockId(first)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, isNew])
 
   // Autosave (debounced 1 s) while dirty.
   const form = state.form
@@ -420,6 +435,9 @@ export function PageEditScreen() {
       backend,
       sessionId,
       mediaById,
+      autoFocusBlockId,
+      onAutoFocused: (blockId: string) =>
+        setAutoFocusBlockId(current => (current === blockId ? null : current)),
       onPickMedia: (blockId: string, file: Media) => {
         setMediaById(prev => new Map(prev).set(file.id, file))
         dispatch({type: 'updateBlock', id: blockId, patch: {fileId: file.id}})
@@ -428,7 +446,7 @@ export function PageEditScreen() {
       onOpenDrivePicker: (blockId: string) => setPickerFor(blockId),
       testID: 'page-edit',
     }),
-    [backend, sessionId, mediaById],
+    [backend, sessionId, mediaById, autoFocusBlockId],
   )
 
   const eyeCatchMedia = state.form.eyeCatchingImageId

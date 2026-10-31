@@ -51,14 +51,23 @@ export function TextBlockEditor({
   testID?: string
 }) {
   const theme = useTheme()
+  const autoFocus = ctx.autoFocusBlockId === block.id
   const [caret, setCaret] = useState(block.text.length)
   const [selection, setSelection] = useState<{start: number; end: number}>({start: block.text.length, end: block.text.length})
-  const [focused, setFocused] = useState(false)
+  const [focused, setFocused] = useState(autoFocus)
   const selectionRef = useRef(selection)
   selectionRef.current = selection
   const showFormatting = usePageShowFormatting()
   const grow = useAutogrowInput(72, 320, block.text)
   const {suggestions} = useSuggestions(block.text, caret, ctx.backend, undefined)
+
+  // New-page starter: open the first text field once (formatting row shown).
+  useEffect(() => {
+    if (!autoFocus) return
+    grow.inputRef.current?.focus()
+    ctx.onAutoFocused?.(block.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFocus])
   const styles = StyleSheet.create({
     input: {
       // Chrome-free prose inside the block card (composer pattern); the

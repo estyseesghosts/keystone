@@ -149,6 +149,8 @@ describe('PageEditScreen', () => {
     mockBackends.set(sessionId, fakeBackend(pagesMod()))
     try {
       renderEditor(store)
+      // Settings start collapsed on a new page; open the card to edit.
+      fireEvent.press(await screen.findByTestId('page-edit-settings-toggle'))
       expect(await screen.findByTestId('page-edit-settings-title')).toBeTruthy()
       // Save disabled while clean.
       expect(screen.getByTestId('page-edit-save').props.accessibilityState.disabled).toBe(true)
@@ -168,6 +170,7 @@ describe('PageEditScreen', () => {
     mockBackends.set(sessionId, fakeBackend(pages))
     try {
       renderEditor(store)
+      fireEvent.press(await screen.findByTestId('page-edit-settings-toggle'))
       const input = await screen.findByTestId('page-edit-settings-title')
       fireEvent.changeText(input, 'Hi')
       const save = screen.getByTestId('page-edit-save')
@@ -191,6 +194,7 @@ describe('PageEditScreen', () => {
     mockBackends.set(sessionId, fakeBackend(pages))
     try {
       renderEditor(store)
+      fireEvent.press(await screen.findByTestId('page-edit-settings-toggle'))
       fireEvent.changeText(await screen.findByTestId('page-edit-settings-title'), 'Hi')
       fireEvent.press(screen.getByTestId('page-edit-save'))
       expect(await screen.findByText('That URL is already taken.')).toBeTruthy()
@@ -294,7 +298,7 @@ describe('PageEditScreen', () => {
     })
     try {
       renderEditor(store)
-      expect(await screen.findByTestId('page-edit-settings-title')).toBeTruthy()
+      expect(await screen.findByTestId('page-edit-add')).toBeTruthy()
       // Add an image block via the Add menu, then choose.
       fireEvent.press(screen.getByTestId('page-edit-add'))
       fireEvent.press(await screen.findByText('Image'))
@@ -355,6 +359,7 @@ describe('preview tab', () => {
     mockBackends.set(sessionId, fakeBackend(pagesMod()))
     try {
       renderEditor(store)
+      fireEvent.press(await screen.findByTestId('page-edit-settings-toggle'))
       fireEvent.changeText(await screen.findByTestId('page-edit-settings-title'), 'Draft title')
       fireEvent.press(screen.getByTestId('page-edit-tab-preview'))
       expect(await screen.findByText('Preview — not published (unsaved changes)')).toBeTruthy()
@@ -374,14 +379,15 @@ describe('preview tab', () => {
     mockBackends.set(sessionId, fakeBackend(pagesMod()))
     try {
       renderEditor(store)
+      fireEvent.press(await screen.findByTestId('page-edit-settings-toggle'))
       expect(await screen.findByTestId('page-edit-settings-title')).toBeTruthy()
-      // Add a text block and type into it.
-      fireEvent.press(screen.getByTestId('page-edit-add'))
-      fireEvent.press(await screen.findByText('Text'))
-      const input = screen.getByTestId(/-text$/)
+      // The new page is seeded with a section + two text blocks; use the
+      // first one (auto-focused on open, so blur before toggling).
+      const input = screen.getAllByTestId(/-text$/)[0]!
       const inputId = input.props.testID as string
       fireEvent.changeText(input, '**bold**')
-      // Toggle on (settings panel is open for new pages).
+      fireEvent(input, 'blur')
+      // Toggle on (the settings card is open).
       fireEvent(screen.getByTestId('page-edit-settings-show-formatting'), 'valueChange', true)
       expect(pageFormatPrefStore.get()).toBe(true)
       await waitFor(() => expect(screen.queryByTestId(inputId)).toBeNull())

@@ -31,6 +31,9 @@ export interface BlockEditorContext {
   mediaById: Map<string, Media>
   onPickMedia: (blockId: string, file: Media) => void
   onOpenDrivePicker: (blockId: string) => void
+  /** One-shot: the text block to focus on mount (new-page starter). */
+  autoFocusBlockId?: string | null
+  onAutoFocused?: (blockId: string) => void
   testID?: string
 }
 

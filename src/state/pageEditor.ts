@@ -30,6 +30,9 @@ export interface PageEditorState {
   /** Server version (null = new page). */
   saved: PageModel | null
   form: PageForm
+  /** New pages only: the seeded starter form. A pristine new page is not
+   * dirty (it differs from nothing the user wrote). Null for saved pages. */
+  baseline: PageForm | null
   /** Last removed block for the 5-second Undo toast (null when consumed). */
   lastRemoved: {block: PageBlock; parentId: string | null; index: number} | null
 }
@@ -57,8 +60,36 @@ function blankForm(now: number): PageForm {
     alignCenter: false,
     hideTitleWhenPinned: false,
     eyeCatchingImageId: null,
-    blocks: [],
+    blocks: starterBlocks(),
   }
+}
+
+/** New-page starter content (owner 2026-10-31): one untitled section with
+ * two empty text blocks — the first one is auto-focused by the editor. */
+function starterBlocks(): PageBlock[] {
+  return [
+    {
+      kind: 'section',
+      id: blockId(),
+      title: '',
+      children: [
+        {kind: 'text', id: blockId(), text: ''},
+        {kind: 'text', id: blockId(), text: ''},
+      ],
+    },
+  ]
+}
+
+/** First text block id, depth-first (the new-page starter focus target). Pure. */
+export function firstTextBlockId(blocks: PageBlock[]): string | null {
+  for (const block of blocks) {
+    if (block.kind === 'text') return block.id
+    if (block.kind === 'section') {
+      const found = firstTextBlockId(block.children)
+      if (found) return found
+    }
+  }
+  return null
 }
 
 function formOf(saved: PageModel): PageForm {
@@ -75,7 +106,9 @@ function formOf(saved: PageModel): PageForm {
 }
 
 export function initPageEditor(saved: PageModel | null, now: number = Date.now()): PageEditorState {
-  return {saved, form: saved ? formOf(saved) : blankForm(now), lastRemoved: null}
+  if (saved) return {saved, form: formOf(saved), baseline: null, lastRemoved: null}
+  const form = blankForm(now)
+  return {saved: null, form, baseline: form, lastRemoved: null}
 }
 
 /** Fresh block skeleton for the Add menu (ids assigned by the caller in
@@ -286,10 +319,12 @@ function blocksEqual(a: PageBlock[], b: PageBlock[]): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
-/** True when the form differs from blank (new) or from `saved`. */
+/** True when the form differs from `saved` (edit) or from the seeded
+ * starter baseline (new page — a pristine starter is never dirty). */
 export function isPageDirty(state: PageEditorState): boolean {
-  const {form, saved} = state
+  const {form, saved, baseline} = state
   if (!saved) {
+    if (baseline) return JSON.stringify(form) !== JSON.stringify(baseline)
     return (
       form.title !== '' ||
       (form.summary != null && form.summary !== '') ||

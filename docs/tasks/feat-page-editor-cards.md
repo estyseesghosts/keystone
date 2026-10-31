@@ -51,6 +51,11 @@ defaults to on.
 - [x] 8. Page-writer settings panel (owner follow-up 2026-10-31) uses the
       same card chrome: `SettingsIcon` + "Page settings" header row with
       a collapse chevron, fields in the padded body. TestIDs unchanged.
+- [x] 9. New-page starter (owner follow-up 2026-10-31): new pages seed one
+      untitled section with two text blocks, settings start collapsed,
+      and the first text block is auto-focused once (formatting row
+      visible). Dirty baseline = seeded form, so a pristine start is not
+      dirty; the starter saves as real content.
 
 ## Acceptance
 

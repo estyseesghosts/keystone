@@ -3,6 +3,7 @@
 
 import {
   duplicatePageDraft,
+  firstTextBlockId,
   initPageEditor,
   isPageDirty,
   newPageBlock,
@@ -187,7 +188,45 @@ describe('pageDraft', () => {
     let st: PageEditorState = initPageEditor(null, 1)
     st = pageEditorReducer(st, {type: 'setSettings', patch: {title: 'Hi'}})
     const d = pageDraft(st)
-    expect(d).toMatchObject({title: 'Hi', name: '1', content: []})
+    expect(d).toMatchObject({title: 'Hi', name: '1'})
     expect(d?.variables).toEqual([])
+    // The seeded starter (one section + two text blocks) is the content.
+    expect(d?.content).toHaveLength(1)
+    expect(d?.content[0]).toMatchObject({kind: 'section'})
+    const seeded = d?.content[0]
+    if (seeded?.kind === 'section') {
+      expect(seeded.children).toHaveLength(2)
+      expect(seeded.children.every(b => b.kind === 'text')).toBe(true)
+    }
+  })
+})
+
+describe('new-page starter', () => {
+  it('seeds one untitled section with two text blocks, staying clean', () => {
+    const st = initPageEditor(null, 1)
+    expect(st.form.blocks).toHaveLength(1)
+    const only = st.form.blocks[0]!
+    expect(only.kind).toBe('section')
+    if (only.kind === 'section') {
+      expect(only.title).toBe('')
+      expect(only.children).toHaveLength(2)
+      expect(only.children.map(c => c.kind)).toEqual(['text', 'text'])
+    }
+    expect(isPageDirty(st)).toBe(false)
+    expect(pageDraft(st)).toBeNull()
+  })
+
+  it('becomes dirty once a seeded block is edited', () => {
+    let st = initPageEditor(null, 1)
+    const first = firstTextBlockId(st.form.blocks)
+    expect(first).not.toBeNull()
+    st = pageEditorReducer(st, {type: 'updateBlock', id: first!, patch: {text: 'hi'}})
+    expect(isPageDirty(st)).toBe(true)
+  })
+
+  it('a saved page has no starter baseline', () => {
+    const st = initPageEditor(saved())
+    expect(st.baseline).toBeNull()
+    expect(st.form.blocks).toEqual(saved().blocks)
   })
 })
