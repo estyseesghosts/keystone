@@ -38,7 +38,7 @@ import {
   type AppQueryKey,
 } from './keys';
 import {GC_TIME, STALE} from './stale';
-import {retryPolicy, throwIfAborted} from './retry';
+import {guardRepeatedCursor, retryPolicy, throwIfAborted} from './retry';
 
 function useSessionBackend(sessionId: string | null): Backend | null {
   const store = useSessionStore();
@@ -80,7 +80,7 @@ export function useDriveFolders(
       return backend.drive.folders.list({parentId, cursor: pageParam ?? undefined, limit});
     },
     initialPageParam: null,
-    getNextPageParam: last => (last.end ? undefined : (last.cursor ?? undefined)),
+    getNextPageParam: guardRepeatedCursor,
     enabled: sessionId != null && backend?.drive?.folders != null,
     staleTime: STALE.FEED,
     gcTime: GC_TIME.FEED,
@@ -149,7 +149,7 @@ export function useDriveFiles(
       });
     },
     initialPageParam: null,
-    getNextPageParam: last => (last.end ? undefined : (last.cursor ?? undefined)),
+    getNextPageParam: guardRepeatedCursor,
     enabled: sessionId != null && backend?.drive != null,
     staleTime: STALE.FEED,
     gcTime: GC_TIME.FEED,

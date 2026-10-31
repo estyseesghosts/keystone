@@ -93,6 +93,24 @@ describe('useClips', () => {
   });
 });
 
+  it('stops instead of looping when the server ignores paging (same cursor twice)', async () => {
+    const {store, ids} = await signedInStore();
+    // Fresh objects per call (like a real transport parsing JSON twice):
+    // same items + same cursor, never `end`. Without the repeat guard the
+    // screen would fetch forever on a one-clip account.
+    const list = jest.fn(async () => ({items: [clip({id: 'only'})], cursor: 'c1', end: false}));
+    const b = backend({list});
+    const {result} = renderHook(() => useClips(ids[0]!, {backend: b}), {wrapper: wrapper(store)});
+    await waitFor(() => expect(result.current.data?.pages).toHaveLength(1));
+    const fetched = await result.current.fetchNextPage();
+    expect(list).toHaveBeenCalledTimes(2);
+    // The second page repeats cursor c1: no next page, settled, no loop.
+    expect(fetched.hasNextPage).toBe(false);
+    await waitFor(() => expect(result.current.hasNextPage).toBe(false), {timeout: 5000});
+    await waitFor(() => expect(result.current.isFetching).toBe(false), {timeout: 5000});
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
 describe('useClipMosaic', () => {
   beforeEach(() => resetMosaicGate());
 
@@ -138,4 +156,5 @@ describe('useClipMosaic', () => {
     expect(peak).toBeLessThanOrEqual(3);
     expect(notes).toHaveBeenCalledTimes(5);
   });
+
 });

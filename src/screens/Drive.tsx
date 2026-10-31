@@ -29,13 +29,16 @@ import {MoreIcon} from '#/components/icons';
 import {useBreakpoints} from '#/alf/breakpoints';
 import {useDataSaver} from '#/state/appearance';
 import {pickMedia} from '#/components/Composer/pickMedia';
-import type {UploadableFile} from '#/state/queries/composer';
-import {formatByteLimit} from '#/state/queries/composer';
+import {pickTransferFiles} from '#/lib/documentPicker';
+import {useUploadQueue, type UploadSource} from '#/state/uploadQueue';
+import {UploadQueuePanel} from '#/components/Drive/UploadQueue';
 import {errorText} from '#/lib/localeErrors';
 import {showToast} from '#/lib/toast';
 import {i18n} from '#/locale/i18n';
 import type {RootParamList} from '#/routes';
 import {useActiveBackend} from '#/screens/HomeFeed';
+import {useQueryClient} from '@tanstack/react-query';
+import {driveFilesQueryKey, driveUsageQueryKey} from '#/state/queries/keys';
 
 import {CollectionScreen} from '#/components/Collection/CollectionScreen';
 import {Toolbar} from '#/components/Collection/Toolbar';
@@ -58,7 +61,6 @@ import {
 } from '#/state/queries/drive';
 import type {CollectionItem} from '#/components/Collection/types';
 
-import {UploadPanel} from './Drive/upload';
 
 type SortKey = 'name-asc' | 'name-desc' | 'date-desc' | 'date-asc' | 'size-desc' | 'size-asc';
 
@@ -160,6 +162,7 @@ export function DriveScreen() {
   const detail = useDriveFolder(sessionId, folderId, backend ? {backend} : {});
   const usage = useDriveUsage(sessionId, backend ? {backend} : {});
   const invalidate = useInvalidateDrive();
+  const queryClient = useQueryClient();
   const folderMutations = useDriveFolderMutations(sessionId, backend ? {backend} : {});
   const fileMutations = useDriveFileMutations(sessionId, backend ? {backend} : {});
   const [detailFile, setDetailFile] = useState<Media | null>(null);
@@ -175,13 +178,25 @@ export function DriveScreen() {
   const [deleteFile, setDeleteFile] = useState<Media | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [showUpload, setShowUpload] = useState(false);
-  // Single-file upload (slice 7 owns the queue; this keeps today's flow).
-  const [staged, setStaged] = useState<UploadableFile | null>(null);
-  const [uploadComment, setUploadComment] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [refused, setRefused] = useState<Array<{name: string; reason: string}> | null>(null);
+  const queue = useUploadQueue(backend, {
+    onDone: (item, media) => {
+      // Insert into the current folder's cache when it matches; usage
+      // always refetches (cheap, and the bar must move immediately).
+      if (sessionId && item.folderId === folderId) {
+        const key = driveFilesQueryKey(sessionId, folderId ?? 'root', sort ?? 'newest');
+        queryClient.setQueryData(key, (old: unknown) => {
+          if (typeof old !== 'object' || old === null) return old;
+          const bag = old as {pages?: Array<{items: unknown[]}>; pageParams?: unknown[]};
+          if (!Array.isArray(bag.pages) || bag.pages.length === 0) return old;
+          const first = bag.pages[0]!;
+          return {...bag, pages: [{...first, items: [media, ...first.items]}, ...bag.pages.slice(1)]};
+        });
+      }
+      if (sessionId) void queryClient.invalidateQueries({queryKey: driveUsageQueryKey(sessionId)});
+    },
+    onError: item => errorText(i18n, new Error('upload failed'), i18n._(msg`Could not upload “${item.source.name}”.`)),
+  });
 
   const sortSupported = backend?.drive?.isSortSupported?.() !== false;
   const canUseDrive = backend?.drive != null;
@@ -381,54 +396,51 @@ export function DriveScreen() {
     ...visibleFiles.map(f => fileItem(f, f.createdAt)),
   ];
 
-  const chooseFile = async () => {
-    setUploadError(null);
-    setUploadSuccess(null);
+  const enqueuePicked = async (sources: UploadSource[]) => {
+    if (sources.length === 0 || !sessionId) return;
+    const free = usage.data ? Math.max(0, usage.data.capacity - usage.data.usage) : null;
+    const {accepted, refused: rejected} = queue.enqueue(sources, folderId, {freeBytes: free});
+    if (rejected.length > 0) setRefused(rejected);
+    if (accepted === 0 && rejected.length === sources.length) return;
+    showToast(
+      rejected.length > 0
+        ? i18n._(msg`Uploading ${accepted} of ${sources.length}…`)
+        : i18n._(msg`Uploading ${accepted}…`),
+    );
+  };
+
+  const choosePhotos = async () => {
     try {
-      const result = await pickMedia({limit: 1});
+      const result = await pickMedia({limit: 10});
       if (result.kind === 'denied') {
-        setUploadError(
+        setActionError(
           result.canAskAgain
-            ? i18n._(msg`Media library access was denied. Allow access to pick a file.`)
-            : i18n._(msg`Media library access was denied. Enable it in the system settings to pick a file.`),
+            ? i18n._(msg`Media library access was denied. Allow access to pick files.`)
+            : i18n._(msg`Media library access was denied. Enable it in the system settings to pick files.`),
         );
         return;
       }
       if (result.kind === 'cancelled') return;
-      if (result.rejected.length > 0 || result.files.length === 0) {
-        const rejected = result.rejected[0];
-        setUploadError(
-          rejected
-            ? i18n._(msg`"${rejected.name}" is too large to upload (limit ${formatByteLimit(rejected.limit)}).`)
-            : i18n._(msg`That file could not be read.`),
-        );
-        return;
-      }
-      setStaged(result.files[0]!);
+      const sources: UploadSource[] = result.files.map(f => ({
+        file: f.file as never,
+        name: f.name,
+        size: null,
+        mimeType: (f as {mimeType?: string}).mimeType ?? 'application/octet-stream',
+      }));
+      await enqueuePicked(sources);
     } catch (err) {
-      setUploadError(errorText(i18n, err as Error, i18n._(msg`Could not open the file picker.`)));
+      setActionError(errorText(i18n, err as Error, i18n._(msg`Could not open the media library.`)));
     }
   };
 
-  const uploadStaged = async () => {
-    if (!backend || !staged || uploading) return;
-    setUploading(true);
-    setUploadError(null);
-    setUploadSuccess(null);
+  const chooseFiles = async () => {
     try {
-      const comment = uploadComment.trim();
-      const media = await backend.uploadMedia(staged.file, {
-        ...(folderId ? {folderId} : {}),
-        ...(comment ? {comment} : {}),
-      });
-      setUploadSuccess(i18n._(msg`Uploaded “${media.name}”.`));
-      setStaged(null);
-      setUploadComment('');
-      invalidate.folder(sessionId, folderId);
+      const picked = await pickTransferFiles();
+      await enqueuePicked(
+        picked.map(p => ({file: p.file as UploadSource['file'], name: p.name, size: p.size, mimeType: p.mimeType})),
+      );
     } catch (err) {
-      setUploadError(errorText(i18n, err as Error, i18n._(msg`Could not upload the file.`)));
-    } finally {
-      setUploading(false);
+      setActionError(errorText(i18n, err as Error, i18n._(msg`Could not open the file picker.`)));
     }
   };
 
@@ -730,35 +742,18 @@ export function DriveScreen() {
                     onPress={() => setFolderDialog({folder: null})}
                     testID="drive-new-folder"
                   />
-                  <Button
-                    label={showUpload ? i18n._(msg`Hide upload`) : i18n._(msg`Upload`)}
-                    variant="primary"
-                    compact
-                    onPress={() => setShowUpload(v => !v)}
-                    testID="drive-upload-toggle"
+                  <Menu
+                    label={i18n._(msg`Upload`)}
+                    items={[
+                      {key: 'photos', label: i18n._(msg`Photos & videos`), onSelect: () => void choosePhotos()},
+                      {key: 'files', label: i18n._(msg`Files`), onSelect: () => void chooseFiles()},
+                    ]}
+                    testID="drive-upload-menu"
                   />
                 </>
               }
               testID="drive-toolbar"
             />
-            {showUpload ? (
-              <UploadPanel
-                targetLabel={i18n._(msg`Uploads go to this folder.`)}
-                staged={staged}
-                comment={uploadComment}
-                uploading={uploading}
-                error={uploadError}
-                success={uploadSuccess}
-                onChoose={() => void chooseFile()}
-                onCommentChange={setUploadComment}
-                onUpload={() => void uploadStaged()}
-                onCancel={() => {
-                  setStaged(null);
-                  setUploadComment('');
-                  setUploadError(null);
-                }}
-              />
-            ) : null}
           </View>
         }
         selectionBar={
@@ -927,6 +922,33 @@ export function DriveScreen() {
             />
           </Dialog>
         )
+      ) : null}
+      <UploadQueuePanel
+        items={queue.items}
+        onCancel={id => queue.cancel(id)}
+        onRetry={id => queue.retry(id)}
+        onRemove={id => queue.remove(id)}
+        onClearFinished={() => queue.clearFinished()}
+        testID="drive-upload-queue"
+      />
+      {refused ? (
+        <Dialog
+          open
+          onClose={() => setRefused(null)}
+          title={i18n._(msg`Some files were not queued.`)}
+          testID="drive-upload-refused">
+          {refused.map(r => (
+            <Caption color="faint" key={r.name}>
+              {r.reason}
+            </Caption>
+          ))}
+          <Button
+            label={i18n._(msg`OK`)}
+            variant="secondary"
+            onPress={() => setRefused(null)}
+            testID="drive-upload-refused-ok"
+          />
+        </Dialog>
       ) : null}
       {folderDialog ? (
         <FolderDialog

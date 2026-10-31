@@ -20,10 +20,15 @@ import {makeMedia} from '#/components/__tests__/fixtures'
 import {DriveScreen, walkFolderTree} from './Drive'
 
 const mockPickMedia = jest.fn(async (_opts: {limit: number}): Promise<any> => ({kind: 'cancelled'}))
+const mockPickFiles = jest.fn(async (): Promise<any[]> => [])
 const mockRouteParams: {current: {folderId?: string} | undefined} = {current: undefined}
 
 jest.mock('#/components/Composer/pickMedia', () => ({
   pickMedia: (opts: {limit: number}) => mockPickMedia(opts),
+}))
+
+jest.mock('#/lib/documentPicker', () => ({
+  pickTransferFiles: () => mockPickFiles(),
 }))
 
 jest.mock('@react-navigation/native', () => ({
@@ -378,6 +383,85 @@ describe('Drive screen', () => {
       fireEvent.press(screen.getByTestId('drive-bulk-retry'))
       await waitFor(() => expect(backend.drive.updateFile).toHaveBeenCalledTimes(2))
       expect(screen.queryByTestId('drive-bulk-failed')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+})
+
+describe('Drive upload queue (slice 7)', () => {
+  it('upload menu offers photos and files; cancel picks nothing', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      fireEvent.press(await screen.findByTestId('drive-collection-grid-f1'))
+      fireEvent.press(screen.getByTestId('drive-upload-menu'))
+      expect(await screen.findByText('Photos & videos')).toBeTruthy()
+      expect(screen.getByText('Files')).toBeTruthy()
+      fireEvent.press(screen.getByText('Photos & videos'))
+      await waitFor(() => expect(mockPickMedia).toHaveBeenCalledWith({limit: 10}))
+      expect(screen.queryByTestId('drive-upload-queue')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('photos enqueue, upload, and land in the current folder', async () => {
+    const backend = fullBackend()
+    mockPickMedia.mockResolvedValue({
+      kind: 'picked',
+      files: [
+        {file: {uri: 'file:///n.png', name: 'n.png', type: 'image/png'}, name: 'n.png', mimeType: 'image/png'},
+      ],
+      rejected: [],
+    })
+    const {done} = await setup({backend})
+    try {
+      await screen.findByTestId('drive-collection-grid-f1')
+      fireEvent.press(screen.getByTestId('drive-upload-menu'))
+      fireEvent.press(await screen.findByText('Photos & videos'))
+      expect(await screen.findByTestId('drive-upload-queue')).toBeTruthy()
+      expect(await screen.findByTestId('drive-collection-grid-f9')).toBeTruthy()
+      await waitFor(() => expect(backend.uploadMedia).toHaveBeenCalledTimes(1))
+      const call = backend.uploadMedia.mock.calls[0]![0] as {name: string}
+      expect(call.name).toBe('n.png')
+    } finally {
+      done()
+    }
+  })
+
+  it('oversize picks are refused before upload with a reason', async () => {
+    const backend = fullBackend()
+    mockPickFiles.mockResolvedValue([
+      {file: {uri: 'file:///big.bin', name: 'big.bin'}, name: 'big.bin', size: 500 * 1024 * 1024, mimeType: 'application/octet-stream'},
+    ])
+    const {done} = await setup({backend})
+    try {
+      await screen.findByTestId('drive-collection-grid-f1')
+      fireEvent.press(screen.getByTestId('drive-upload-menu'))
+      fireEvent.press(await screen.findByText('Files'))
+      expect(await screen.findByTestId('drive-upload-refused')).toBeTruthy()
+      expect(backend.uploadMedia).not.toHaveBeenCalled()
+      fireEvent.press(screen.getByTestId('drive-upload-refused-ok'))
+      expect(screen.queryByTestId('drive-upload-refused')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('no free space refuses the whole batch', async () => {
+    const backend = fullBackend()
+    backend.drive.usage.mockResolvedValue({capacity: 100, usage: 95})
+    mockPickFiles.mockResolvedValue([
+      {file: {uri: 'file:///a.bin', name: 'a.bin'}, name: 'a.bin', size: 10, mimeType: 'application/octet-stream'},
+    ])
+    const {done} = await setup({backend})
+    try {
+      await screen.findByTestId('drive-collection-grid-f1')
+      fireEvent.press(screen.getByTestId('drive-upload-menu'))
+      fireEvent.press(await screen.findByText('Files'))
+      expect(await screen.findByTestId('drive-upload-refused')).toBeTruthy()
+      expect(backend.uploadMedia).not.toHaveBeenCalled()
     } finally {
       done()
     }

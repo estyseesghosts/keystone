@@ -28,7 +28,7 @@ import {useSessionStore} from '#/state/session/SessionProvider';
 
 import {clipMosaicQueryKey, clipsQueryKey, type AppQueryKey} from './keys';
 import {GC_TIME, STALE} from './stale';
-import {retryPolicy, throwIfAborted} from './retry';
+import {guardRepeatedCursor, retryPolicy, throwIfAborted} from './retry';
 
 function useSessionBackend(sessionId: string | null): Backend | null {
   const store = useSessionStore();
@@ -69,7 +69,7 @@ export function useClips(
       return backend.clips.list({cursor: pageParam ?? undefined, limit});
     },
     initialPageParam: null,
-    getNextPageParam: last => (last.end ? undefined : (last.cursor ?? undefined)),
+    getNextPageParam: guardRepeatedCursor,
     enabled: sessionId != null && backend?.clips != null,
     staleTime: STALE.FEED,
     gcTime: GC_TIME.FEED,

@@ -88,6 +88,19 @@ await waitFor(() => expect(result.current.data?.pages).toHaveLength(1));
     const {result} = renderHook(() => useDriveUsage(ids[0]!, {backend: b}), {wrapper: wrapper(store)});
     await waitFor(() => expect(result.current.data).toEqual({capacity: 100, usage: 40}));
   });
+
+  it('stops instead of looping when the server ignores paging (same cursor twice)', async () => {
+    const {store, ids} = await signedInStore();
+    const files = jest.fn(async () => ({items: [{id: 'f1'}], cursor: 'c1', end: false}));
+    const b = backend({files});
+    const {result} = renderHook(() => useDriveFiles(ids[0]!, null, {backend: b}), {wrapper: wrapper(store)});
+    await waitFor(() => expect(result.current.data?.pages).toHaveLength(1));
+    const fetched = await result.current.fetchNextPage();
+    expect(files).toHaveBeenCalledTimes(2);
+    expect(fetched.hasNextPage).toBe(false);
+    await waitFor(() => expect(result.current.hasNextPage).toBe(false), {timeout: 5000});
+    expect(files).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('useDriveFolderMutations', () => {

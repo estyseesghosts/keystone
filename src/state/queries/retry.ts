@@ -31,6 +31,24 @@ export function throwIfAborted(signal: AbortSignal | null | undefined): void {
   if (signal?.aborted) throw abortedError()
 }
 
+/** Repeat-cursor guard for infinite queries (P6.6 slice 3 fix): servers
+ * that ignore paging params return the same page (and cursor) forever,
+ * so `pageOf`'s short pages never end (M15) and the screen would fetch
+ * in a loop. When the next cursor already appeared on an earlier page,
+ * there is no next page. Pure — pass as `getNextPageParam`. */
+export function guardRepeatedCursor<C>(
+  last: {cursor: C | null | undefined; end: boolean},
+  all: Array<{cursor: C | null | undefined; end: boolean}>,
+): C | null | undefined {
+  if (last.end) return undefined
+  const next = last.cursor ?? undefined
+  if (next == null) return undefined
+  for (const page of all.slice(0, -1)) {
+    if (page.cursor === next) return undefined
+  }
+  return next
+}
+
 export function retryPolicy(
   attempts?: number | false,
 ): number | false | ((failureCount: number, error: Error) => boolean) {
