@@ -15,7 +15,8 @@ content/linkpreview/richtext/post set (13 suites), flat vs baseline.
 Follow-up (same branch, 2026-10-31): Antennas screen reuses the same card
 chrome — create form + one card per antenna, rename/delete as inline
 vector icon buttons in the card header, two-tap delete confirm in the
-body (PEC-3).
+body (PEC-3). Page-writer settings panel is a card too (header row with
+settings icon + collapse chevron, fields in the body).
 Device/web visual inspection `not verified` (owner item).
 
 Prior: **P6.5 Pages + P6.6 Drive/Clips merged to `main` 2026-10-31**.
@@ -36,8 +37,9 @@ Owner actions (all collected in `docs/audit_20261025/device-checks.md` +
 Links:
 - Task: `docs/tasks/feat-page-editor-cards.md` (done, merge pending)
 - DECISIONS: `docs/DECISIONS.md` PEC-1/PEC-2 (PEC-2 reverses PG-2 default)
-- Latest logs: `state/logs/2026-10-31-antennas-cards.md` (antennas
-  follow-up), `state/logs/2026-10-31-page-editor-cards.md` (editor slice),
+- Latest logs: `state/logs/2026-10-31-page-settings-card.md` (settings
+  card), `state/logs/2026-10-31-antennas-cards.md` (antennas follow-up),
+  `state/logs/2026-10-31-page-editor-cards.md` (editor slice),
   `state/logs/2026-10-31-merge-pages-drive-clips.md`,
   `state/logs/2026-10-30-p6.6-9-integration.md`,
   `state/logs/2026-10-30-p6.5-pages-slices-3-8.md`

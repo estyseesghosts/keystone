@@ -48,6 +48,9 @@ defaults to on.
       antenna row reuse the card chrome; rename/delete are inline vector
       icon buttons in the card header (pencil/trash), two-tap delete
       confirm kept in the body; testID contract unchanged.
+- [x] 8. Page-writer settings panel (owner follow-up 2026-10-31) uses the
+      same card chrome: `SettingsIcon` + "Page settings" header row with
+      a collapse chevron, fields in the padded body. TestIDs unchanged.
 
 ## Acceptance
 

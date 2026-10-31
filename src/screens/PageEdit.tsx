@@ -12,11 +12,14 @@ import {msg} from '@lingui/macro'
 import type {Media, PageModel} from '@keystone/fedi'
 
 import {atoms} from '#/alf/atoms'
+import {useTheme} from '#/alf/index'
+import {radius, space} from '#/alf/tokens'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
 import {Dialog} from '#/components/Dialog'
 import {DrivePicker} from '#/components/DrivePicker'
 import {TextField} from '#/components/forms/TextField'
+import {ChevronIcon, SettingsIcon} from '#/components/icons'
 import {AppImage} from '#/components/Image'
 import {Menu} from '#/components/Menu'
 import {Pressable} from '#/components/Pressable'
@@ -96,18 +99,42 @@ function SettingsPanel({
   onToggleCollapse: () => void
   testID: string
 }) {
+  const theme = useTheme()
   return (
-    <View style={[atoms.gap_sm]} testID={testID}>
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: theme.palette.edge,
+        borderRadius: radius.md,
+        backgroundColor: theme.palette.bg,
+        overflow: 'hidden',
+      }}
+      testID={testID}>
       <Pressable
         onPress={onToggleCollapse}
         accessibilityRole="button"
         accessibilityState={{expanded: !collapsed}}
         accessibilityLabel={collapsed ? i18n._(msg`Show settings`) : i18n._(msg`Hide settings`)}
-        testID={`${testID}-toggle`}>
+        testID={`${testID}-toggle`}
+        style={[
+          atoms.row,
+          {
+            alignItems: 'center',
+            gap: space.sm,
+            paddingHorizontal: space.md,
+            paddingVertical: space.sm,
+            backgroundColor: theme.palette.bgSoft,
+            borderBottomWidth: collapsed ? 0 : 1,
+            borderBottomColor: theme.palette.edge,
+          },
+        ]}>
+        <SettingsIcon size={16} />
         <Body>{i18n._(msg`Page settings`)}</Body>
+        <View style={atoms.flex1} />
+        <ChevronIcon size={16} direction={collapsed ? 'down' : 'up'} />
       </Pressable>
       {collapsed ? null : (
-        <View style={[atoms.gap_sm]}>
+        <View style={{padding: space.md, gap: space.sm}}>
           <TextField
             label={i18n._(msg`Title`)}
             value={form.title}
