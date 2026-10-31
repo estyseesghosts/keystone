@@ -5,16 +5,27 @@
 // stored selection). Link prompts for an http(s) URL (`safeHttpUrl`).
 
 import {useState} from 'react'
-import {Platform, View} from 'react-native'
+import {Platform, ScrollView, View} from 'react-native'
 import {msg} from '@lingui/macro'
 
 import {activeFormats, applyFormat, safeHttpUrl, type FormatControl, type TextSelection} from '@keystone/fedi'
 
-import {atoms} from '#/alf/atoms'
-import {Caption} from '#/alf/typography'
+import {useTheme} from '#/alf/index'
 import {Button} from '#/components/Button'
 import {TextField} from '#/components/forms/TextField'
 import {Dialog} from '#/components/Dialog'
+import {
+  BoldIcon,
+  CenterIcon,
+  CodeBlockIcon,
+  CodeIcon,
+  ItalicIcon,
+  LinkIcon,
+  QuoteIcon,
+  SmallIcon,
+  StrikeIcon,
+  type IconProps,
+} from '#/components/icons'
 import {Pressable} from '#/components/Pressable'
 import {i18n} from '#/locale/i18n'
 
@@ -29,6 +40,18 @@ export const FORMAT_CONTROLS: FormatControl[] = [
   'center',
   'small',
 ]
+
+const FORMAT_ICON: Record<FormatControl, (p: IconProps) => React.ReactElement> = {
+  bold: BoldIcon,
+  italic: ItalicIcon,
+  strike: StrikeIcon,
+  code: CodeIcon,
+  codeblock: CodeBlockIcon,
+  quote: QuoteIcon,
+  link: LinkIcon,
+  center: CenterIcon,
+  small: SmallIcon,
+}
 
 export function formatControlLabel(control: FormatControl): string {
   switch (control) {
@@ -80,6 +103,7 @@ export function FormatToolbar({
   const [linkUrl, setLinkUrl] = useState('')
   const [linkError, setLinkError] = useState<string | null>(null)
   const active = activeFormats(text, selection)
+  const theme = useTheme()
 
   const press = (control: FormatControl) => {
     if (control === 'link') {
@@ -103,24 +127,33 @@ export function FormatToolbar({
   }
 
   return (
-    <View style={[atoms.row, atoms.gap_sm]} testID={testID}>
-      {FORMAT_CONTROLS.map(control => (
-        <Pressable
-          key={control}
-          onPress={() => press(control)}
-          // Web: keep the input's selection (the button must not focus).
-          {...(Platform.OS === 'web'
-            ? {onMouseDown: (e: {preventDefault: () => void}) => e.preventDefault()}
-            : {})}
-          accessibilityRole="button"
-          accessibilityState={{selected: active.includes(control)}}
-          accessibilityLabel={formatControlLabel(control)}
-          testID={testID ? `${testID}-${control}` : undefined}>
-          <Caption color={active.includes(control) ? undefined : 'faint'}>
-            {formatControlLabel(control)}
-          </Caption>
-        </Pressable>
-      ))}
+    <View testID={testID}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{flexDirection: 'row', alignItems: 'center', gap: 2}}>
+        {FORMAT_CONTROLS.map(control => {
+          const Icon = FORMAT_ICON[control]
+          const on = active.includes(control)
+          return (
+            <Pressable
+              key={control}
+              onPress={() => press(control)}
+              // Web: keep the input's selection (the button must not focus).
+              {...(Platform.OS === 'web'
+                ? {onMouseDown: (e: {preventDefault: () => void}) => e.preventDefault()}
+                : {})}
+              accessibilityRole="button"
+              accessibilityState={{selected: on}}
+              accessibilityLabel={formatControlLabel(control)}
+              hitSlop={6}
+              style={{width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center'}}
+              testID={testID ? `${testID}-${control}` : undefined}>
+              <Icon size={18} color={on ? theme.palette.text : theme.palette.muted} />
+            </Pressable>
+          )
+        })}
+      </ScrollView>
       {linkOpen ? (
         <Dialog open onClose={() => setLinkOpen(false)} title={i18n._(msg`Link URL`)} testID={testID ? `${testID}-link` : undefined}>
           <TextField

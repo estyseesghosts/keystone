@@ -2,7 +2,7 @@
 // update patch, name collision inline, duplicate retry, delete confirm,
 // dirty guard, draft restore.
 
-import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 
@@ -392,7 +392,7 @@ describe('preview tab', () => {
       expect(await screen.findByTestId(inputId)).toBeTruthy()
     } finally {
       mockBackends.clear()
-      pageFormatPrefStore.set(false)
+      act(() => pageFormatPrefStore.set(false))
     }
   })
 })

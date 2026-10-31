@@ -1,7 +1,8 @@
 // Page editor "show formatting" device preference (P6.5 PG-2, default
-// off). Device-local MMKV via the device state (no server field exists).
-// Slice 6 consumes it for render-on-blur; the Settings panel owns the
-// switch. Pattern mirrors `privacyStore` (read/write/emit/subscribe).
+// on per owner 2026-10-31). Device-local MMKV via the device state (no
+// server field exists). The Settings panel owns the switch; text blocks
+// consume it for render-on-blur. Pattern mirrors `privacyStore`
+// (read/write/emit/subscribe).
 
 import {useSyncExternalStore} from 'react'
 
@@ -24,12 +25,12 @@ export function createPageFormatPrefStore(
   }
   return {
     get(): boolean {
-      return readDeviceState(storage()).prefs.pageShowFormatting ?? false
+      return readDeviceState(storage()).prefs.pageShowFormatting ?? true
     },
     set(value: boolean): void {
       const next = value === true
       const state = readDeviceState(storage())
-      if ((state.prefs.pageShowFormatting ?? false) === next) return
+      if ((state.prefs.pageShowFormatting ?? true) === next) return
       writeDeviceState(storage(), {
         ...state,
         prefs: {...state.prefs, pageShowFormatting: next},

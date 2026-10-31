@@ -146,4 +146,5 @@ Status values: `not started` | `in progress` | `blocked` | `done`.
 | [fix-like-button-state](fix-like-button-state.md) | Like pill = liked-only; custom-like art, never raw code | done, merged | `main` | `state/logs/2026-10-30-like-button-state.md` |
 | [p6.5-pages](p6.5-pages.md) | Misskey Pages (reader, index, editor, preview, pin) | done, merged | `main` | `state/logs/2026-10-31-merge-pages-drive-clips.md` |
 | [feat-emoji-picker-groups](feat-emoji-picker-groups.md) | Picker groups v1 parity (collapse/pin/hide/favourites/right-click) | done, merged | `main` | `state/logs/2026-10-30-emoji-picker-groups.md` |
+| [feat-page-editor-cards](feat-page-editor-cards.md) | Page writer blocks as cards + formatting icon toolbar | done, merge pending | `feat/page-editor-cards` | `state/logs/2026-10-31-page-editor-cards.md` |
 | [visual-polish](visual-polish.md) | Visual polish + widgets (D1–D6 + feed-fill + media-caps) | done, merged | `main` | `state/logs/2026-10-29-polish-8-media-caps.md` |

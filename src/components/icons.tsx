@@ -387,3 +387,91 @@ export function PageIcon(p: IconProps) {
     </Base>
   )
 }
+
+// --- Page editor formatting glyphs (letterform marks on the same grid) -------
+
+export function BoldIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M8 4h5.5a3.5 3.5 0 0 1 0 7H8z" />
+      <Path d="M8 11h6.5a3.5 3.5 0 0 1 0 7H8z" />
+    </Base>
+  )
+}
+
+export function ItalicIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Line x1={10} y1={4} x2={18} y2={4} />
+      <Line x1={6} y1={20} x2={14} y2={20} />
+      <Line x1={14} y1={4} x2={10} y2={20} />
+    </Base>
+  )
+}
+
+export function StrikeIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M15.5 7.2c-.6-1.6-2-2.7-3.7-2.7-2 0-3.6 1.1-3.6 2.8 0 3.6 7.3 1.6 7.3 5.2 0 1.9-1.8 3.1-3.7 3.1-1.9 0-3.4-1-3.8-2.6" />
+      <Line x1={4} y1={12} x2={20} y2={12} />
+    </Base>
+  )
+}
+
+export function CodeIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M9 7l-5 5 5 5" />
+      <Path d="M15 7l5 5-5 5" />
+    </Base>
+  )
+}
+
+export function CodeBlockIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M9.5 4H8.5A2.5 2.5 0 0 0 6 6.5v3A2.5 2.5 0 0 1 3.5 12 2.5 2.5 0 0 1 6 14.5v3A2.5 2.5 0 0 0 8.5 20h1" />
+      <Path d="M14.5 4h1A2.5 2.5 0 0 1 18 6.5v3a2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0-2.5 2.5v3A2.5 2.5 0 0 1 15.5 20h-1" />
+    </Base>
+  )
+}
+
+export function QuoteIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M9 7C7 7 5.5 8.7 5.5 10.5S7 14 9 14c0 2.2-1.1 3.7-3 4.5" />
+      <Path d="M17 7c-2 0-3.5 1.7-3.5 3.5S15 14 17 14c0 2.2-1.1 3.7-3 4.5" />
+    </Base>
+  )
+}
+
+export function LinkIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Path d="M10.5 13.5l3-3" />
+      <Path d="M9 11.5l-1.5 1.5a3.5 3.5 0 0 0 5 5l1.5-1.5" />
+      <Path d="M15 12.5l1.5-1.5a3.5 3.5 0 0 0-5-5L10 7.5" />
+    </Base>
+  )
+}
+
+export function CenterIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Line x1={6} y1={7} x2={18} y2={7} />
+      <Line x1={9} y1={12} x2={15} y2={12} />
+      <Line x1={7} y1={17} x2={17} y2={17} />
+    </Base>
+  )
+}
+
+export function SmallIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Line x1={4} y1={5} x2={11} y2={5} />
+      <Line x1={7.5} y1={5} x2={7.5} y2={18} />
+      <Line x1={14} y1={10} x2={20} y2={10} />
+      <Line x1={17} y1={10} x2={17} y2={18} />
+    </Base>
+  )
+}

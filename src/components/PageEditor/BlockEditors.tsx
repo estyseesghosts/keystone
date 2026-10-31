@@ -1,7 +1,8 @@
 // Page editor block editors (P6.5 Pages, slice 4): per-kind editing UI
-// plus the chrome-wrapped recursive node renderer. The formatting
-// toolbar lands on the text block in slice 5; render-on-blur preview in
-// slice 6.
+// plus the chrome-wrapped recursive node renderer. Each block renders
+// as a self-contained card (BlockChrome). The text card's formatting
+// toolbar is an icon row above the input, shown only while that text
+// field is focused (owner page-editor-cards 2026-10-31).
 
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {Platform, StyleSheet, TextInput, View} from 'react-native'
@@ -20,7 +21,7 @@ import {PostCard} from '#/components/Post/index'
 import {SuggestionList, useSuggestions} from '#/components/Composer/Autocomplete'
 import {autogrowStyle, useAutogrowInput} from '#/components/Composer/useAutogrowInput'
 import {useTheme} from '#/alf/index'
-import {radius, space, typeSize} from '#/alf/tokens'
+import {space, typeSize} from '#/alf/tokens'
 import {i18n} from '#/locale/i18n'
 
 import {useDriveFile, usePageNote} from '#/state/queries/pages'
@@ -60,13 +61,13 @@ export function TextBlockEditor({
   const {suggestions} = useSuggestions(block.text, caret, ctx.backend, undefined)
   const styles = StyleSheet.create({
     input: {
-      borderWidth: 1,
-      borderColor: theme.palette.edge,
-      borderRadius: radius.md,
+      // Chrome-free prose inside the block card (composer pattern); the
+      // card's border is the container, so no inner border here.
+      borderWidth: 0,
       backgroundColor: theme.palette.bg,
       color: theme.palette.text,
       fontSize: typeSize.body,
-      paddingHorizontal: space.md,
+      paddingHorizontal: space.sm,
       paddingVertical: space.sm,
       textAlignVertical: 'top',
     },
@@ -138,12 +139,15 @@ export function TextBlockEditor({
   return (
     <View style={[atoms.gap_sm]}>
       {focused ? (
-        <FormatToolbar
-          text={block.text}
-          selection={selection}
-          onApply={(control, url) => apply(control, url)}
-          testID={testID ? `${testID}-toolbar` : undefined}
-        />
+        <View>
+          <FormatToolbar
+            text={block.text}
+            selection={selection}
+            onApply={(control, url) => apply(control, url)}
+            testID={testID ? `${testID}-toolbar` : undefined}
+          />
+          <View style={{height: 1, backgroundColor: theme.palette.border}} />
+        </View>
       ) : null}
       <TextInput
         ref={grow.inputRef}

@@ -1,11 +1,14 @@
 // P6.5 Pages slice 5: toolbar — apply per control, link dialog,
-// active state, focus-gated visibility.
+// active state, focus-gated visibility. Icon row (owner 2026-10-31
+// page-editor-cards): the nine controls render as vector icons; labels
+// live in accessibilityLabel, testIDs are unchanged.
 
-import {fireEvent, render, screen} from '@testing-library/react-native'
+import {act, fireEvent, render, screen} from '@testing-library/react-native'
 import {I18nProvider} from '@lingui/react'
 
 import {i18n} from '#/locale/i18n'
 import {ThemeProvider} from '#/alf/index'
+import {pageFormatPrefStore} from '#/state/pageFormatPref'
 
 import {FormatToolbar, applyFormatControl} from './FormatToolbar'
 import {TextBlockEditor} from './BlockEditors'
@@ -113,7 +116,31 @@ describe('FormatToolbar', () => {
 })
 
 describe('TextBlockEditor toolbar visibility', () => {
-  it('hides the toolbar until focused, applies on press', () => {
+  afterEach(() => {
+    act(() => pageFormatPrefStore.set(true))
+  })
+
+  it('rendered mode (default on): toolbar appears on tap, applies on press', () => {
+    pageFormatPrefStore.set(true)
+    const dispatch = jest.fn()
+    renderUi(
+      <TextBlockEditor block={{kind: 'text', id: 'b1', text: 'hello'}} ctx={ctx({dispatch})} testID="ed-block-b1" />,
+    )
+    // Unfocused: rendered RichText instead of the raw input; no toolbar.
+    expect(screen.queryByTestId('ed-block-b1-toolbar')).toBeNull()
+    expect(screen.getByTestId('ed-block-b1-rendered')).toBeTruthy()
+    fireEvent.press(screen.getByTestId('ed-block-b1-rendered'))
+    const input = screen.getByTestId('ed-block-b1')
+    expect(screen.getByTestId('ed-block-b1-toolbar')).toBeTruthy()
+    fireEvent(input, 'selectionChange', {nativeEvent: {selection: {start: 1, end: 4}}})
+    fireEvent.press(screen.getByTestId('ed-block-b1-toolbar-bold'))
+    expect(dispatch).toHaveBeenCalledWith({type: 'updateBlock', id: 'b1', patch: {text: 'h**ell**o'}})
+    fireEvent(input, 'blur')
+    expect(screen.queryByTestId('ed-block-b1-toolbar')).toBeNull()
+  })
+
+  it('raw mode (pref off): hides the toolbar until focused, applies on press', () => {
+    pageFormatPrefStore.set(false)
     const dispatch = jest.fn()
     renderUi(
       <TextBlockEditor block={{kind: 'text', id: 'b1', text: 'hello'}} ctx={ctx({dispatch})} testID="ed-block-b1" />,

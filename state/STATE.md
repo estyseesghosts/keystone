@@ -1,64 +1,46 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
+Phase: **feat/page-editor-cards — page writer cards + formatting icon
+toolbar (2026-10-31)** — implemented + gates green, merge pending owner
+approval + owner visual check.
+Every block in the page writer is now a self-contained card (Misskey
+container pattern: bordered panel, header row = kind icon + label +
+collapse + block menu, padded body; sections nest cards). Text cards are
+composer-style: borderless input with the formatting options as a
+vector-icon row above it, shown only while that text field is focused.
+"Show formatting in editor" now defaults ON (render-on-blur RichText;
+explicit stored values still win — PEC-2 in DECISIONS.md).
+Gate: typecheck (ios+android+web) + lint clean; `pnpm test` → 332
+suites / 4518 tests: 4428 pass, 90 fail — exactly the pre-existing
+content/linkpreview/richtext/post set (13 suites), flat vs baseline.
+Device/web visual inspection `not verified` (owner item).
 
-Phase: **P6.5 Pages + P6.6 Drive/Clips merged to `main` 2026-10-31**
-(P6.5 slices 0–8: reader/index/editor/toolbar/preview/pin/live-checks;
-P6.6 slices 1–9: collection kit, Clips, Drive, bulk, uploads, DnD,
-integration. Owner-reported regressions fixed: infinite Clips loading,
-duplicate clip tile, `2 2 notes` subtitle.)
-Gate (merge): typecheck + lint clean; full suite flat at pre-existing 90
-required; live-checks + device screenshots are owner items (rig refused
-to agents). Web/device inspection `not verified`.
-Prior: **like-button + picker groups merged to `main` 2026-10-30**
-(`2264634` + `ae638e4` + bookkeeping; fast-forward, both branches
-pruned, pushed to github). Only branch left is `main`. Tree clean.
-Gate (merge): typecheck (ios+android+web) + lint clean; `pnpm test`
-→ 305 suites / 4278 tests: 4188 pass, 90 fail — all 90 the pre-existing
-content/linkpreview/richtext/post set (13 suites). Zero attributable
-failures (one self-caught pre-merge regression fixed: provider-less
-`CustomGroupsRow` crash — see merge log).
-Web/device inspection `not verified` (owner checks open).
-Gate (merge commit): typecheck (ios+android+web) + lint clean; `pnpm test`
-→ 303 suites / 4260 tests: 4170 pass, 90 fail — all 90 the pre-existing
-content/linkpreview/richtext/post set (13 suites), unchanged from the
-2026-10-28 clean-tree baseline. Zero attributable failures.
-`pnpm build-web` exports; visual/device inspection `not verified`.
-Prior polish baseline (merged to `main` 2026-10-30 as `6f49197`): typecheck + lint
-clean; `pnpm test` → 303 suites / 4260 tests: 4170 pass, 90 fail — all 90
-pre-existing content/link/richtext/post failures (13 suites), unchanged
-since the 2026-10-28 clean-tree verification. Zero attributable failures.
-Gate baseline (final green): **292 suites / 4123 tests**, typecheck
-(ios+android+web) + lint (0 errors, 0 warnings) clean. `--forceExit` kept
-(`test:handles` never clean on this tree — X11.2 evidence in its log).
+Prior: **P6.5 Pages + P6.6 Drive/Clips merged to `main` 2026-10-31**.
+Prior: like-button + picker groups merged 2026-10-30. `main` is the only
+merged branch; `feat/page-editor-cards` is the only open branch.
 
-Owner actions (all collected in `docs/audit_20261025/device-checks.md`
-+ `live-checks.md`, appendix with D1–D10/audit/app-config):
-1. Run the 25 device checks + 12 rig live-checks (`:3101`/`:3102`/Mastodon
-   refused to agents; `scripts/fedi-capture.ts` command in live-checks §0).
-2. Decide the tracked follow-ups: X4.4-s7 revocation creds, X6.2-s6
+Owner actions (all collected in `docs/audit_20261025/device-checks.md` +
+`live-checks.md`, appendix with D1–D10/audit/app-config):
+1. Visual check of the page editor cards + toolbar (this branch).
+2. Run the 25 device checks + 12 rig live-checks (`:3101`/`:3102`/
+   Mastodon refused to agents; `scripts/fedi-capture.ts` in live-checks §0).
+3. Decide the tracked follow-ups: X4.4-s7 revocation creds, X6.2-s6
    attemptKey, iOS MMKV backup exclusion, X9.2 `context:` sweep, X9.7 fedi
    reason-codes, X8.1 Stack mounting + fedi `log:` pass-through.
-3. Release track (out of scope): signing identity, App Links/domain +
+4. Release track (out of scope): signing identity, App Links/domain +
    `assetlinks.json`, `app.config.js` name/bundle identifiers.
 
 Links:
-- Plan: `docs/visual-polish.md` (all 6 deliverables implemented, merged)
-- Task: `docs/tasks/visual-polish.md` (merged; owner visual checks open)
-- P6.5 task: `docs/tasks/p6.5-unread-counter.md` (merged; owner visual checks open)
-- P6.5 ADR: `docs/adr/0014-notification-unread-source.md` (accepted)
-- Fix ADR: `docs/adr/0015-gapfill-keeps-mounted-pages.md` (accepted)
-- Fix task: `docs/tasks/fix-feed-gapfill-jump.md` (merged; owner repros open)
-- Latest logs: `state/logs/2026-10-31-merge-pages-drive-clips.md` (this merge),
-  `state/logs/2026-10-30-p6.6-9-integration.md` (P6.6 close),
-  `state/logs/2026-10-30-p6.5-pages-slices-3-8.md` (P6.5 slices 3–8),
-  `state/logs/2026-10-30-p6.5-pages-slice-2.md` (P6.5 reader),
-  `state/logs/2026-10-30-merge-like-picker.md` (last merge),
-  `state/logs/2026-10-29-fix-feed-gapfill-jump*.md` (gap-fill rounds 1–2),
-  `state/logs/2026-10-29-polish-*.md` (polish 1–8, one per slice)
-- Repair program: `docs/audit_20261025/repair.md` + `report.md` (COMPLETE, unchanged)
-- Report: `docs/audit_20261025/report.md` ("Status after repair" table)
-- Latest logs: `state/logs/2026-10-25-repair25-x12.*.md`
-- ADRs: `docs/adr/` (0011–0015 in program); decisions: `docs/DECISIONS.md`
+- Task: `docs/tasks/feat-page-editor-cards.md` (done, merge pending)
+- DECISIONS: `docs/DECISIONS.md` PEC-1/PEC-2 (PEC-2 reverses PG-2 default)
+- Latest logs: `state/logs/2026-10-31-page-editor-cards.md` (this session),
+  `state/logs/2026-10-31-merge-pages-drive-clips.md`,
+  `state/logs/2026-10-30-p6.6-9-integration.md`,
+  `state/logs/2026-10-30-p6.5-pages-slices-3-8.md`
+- P6.5 ADRs: 0014, 0015, 0016; tasks index: `docs/tasks/README.md`
+- Repair program: `docs/audit_20261025/repair.md` + `report.md` (COMPLETE)
+- Baseline: **292 suites / 4123 tests** green history in older logs;
+  current expected red set = 90 (13 suites), unchanged since 2026-10-28.
 
 Parked work: P6 Wave 3.3 user moderation (pre-program pointer; untouched).
 

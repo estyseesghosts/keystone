@@ -53,10 +53,12 @@ const devicePrefsSchema = z.object({
   // OS task-switcher snapshot shows nothing. Android `FLAG_SECURE`
   // needs a native module and is out of scope.
   privacyShield: z.boolean().default(false),
-  // Page editor "show formatting" (P6.5 PG-2, default off): text blocks
-  // render Raw source vs RichText while editing (ADR 0016 option B).
+  // Page editor "show formatting" (P6.5 PG-2, default on per owner
+  // 2026-10-31): text blocks render RichText while unfocused vs raw
+  // source (ADR 0016 option B). Explicitly stored values always win —
+  // the default only fills a missing key.
   // Device-local: no server field exists (sending one 400s on Sharkey).
-  pageShowFormatting: z.boolean().default(false),
+  pageShowFormatting: z.boolean().default(true),
 })
 
 export const deviceStateSchema = z.object({
@@ -70,7 +72,7 @@ export type DeviceState = z.infer<typeof deviceStateSchema>
 export const defaultDeviceState: DeviceState = {
   version: STORAGE_VERSION,
   activeSessionId: null,
-  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false, linkPreviews: 'tap', privacyShield: false, pageShowFormatting: false},
+  prefs: {theme: 'system', emojiStyle: 'openmoji', textScale: 1, contentMode: 'auto', onlyAuthorizedQuotes: false, dataSaver: false, linkPreviews: 'tap', privacyShield: false, pageShowFormatting: true},
 }
 
 // v1 device shape (frozen for migration): v1 had no `contentMode` and
@@ -118,7 +120,7 @@ export function migrateDeviceState(raw: string | null): DeviceState {
         dataSaver: false,
         linkPreviews: 'tap',
         privacyShield: false,
-        pageShowFormatting: false,
+        pageShowFormatting: true,
       },
     }
   }

@@ -10,7 +10,9 @@ import {msg} from '@lingui/macro'
 
 import type {Backend, Media, PageBlock} from '@keystone/fedi'
 
+import {useTheme} from '#/alf/index'
 import {atoms} from '#/alf/atoms'
+import {radius, space} from '#/alf/tokens'
 import {Body, Caption} from '#/alf/typography'
 import {ChevronIcon, MediaIcon, MessageIcon, MoreIcon, PencilIcon} from '#/components/icons'
 import {Menu, type MenuItem} from '#/components/Menu'
@@ -94,6 +96,7 @@ export function BlockChrome({
   children: ReactNode
   testID?: string
 }) {
+  const theme = useTheme()
   const items: MenuItem[] = [
     {key: 'up', label: i18n._(msg`Move up`), onSelect: () => onMove('up'), disabled: !move.canUp, reason: move.canUp ? undefined : i18n._(msg`Already at the top`)},
     {key: 'down', label: i18n._(msg`Move down`), onSelect: () => onMove('down'), disabled: !move.canDown, reason: move.canDown ? undefined : i18n._(msg`Already at the bottom`)},
@@ -102,8 +105,28 @@ export function BlockChrome({
     {key: 'delete', label: i18n._(msg`Delete`), onSelect: onDelete},
   ]
   return (
-    <View style={[atoms.gap_sm]} testID={testID}>
-      <View style={[atoms.row, atoms.gap_sm]}>
+    <View
+      style={{
+        borderWidth: 1,
+        borderColor: theme.palette.edge,
+        borderRadius: radius.md,
+        backgroundColor: theme.palette.bg,
+        overflow: 'hidden',
+      }}
+      testID={testID}>
+      <View
+        style={[
+          atoms.row,
+          {
+            alignItems: 'center',
+            gap: space.sm,
+            paddingHorizontal: space.md,
+            paddingVertical: space.sm,
+            backgroundColor: theme.palette.bgSoft,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.palette.edge,
+          },
+        ]}>
         <BlockKindIcon kind={kind} />
         <Body>{blockKindLabel(kind)}</Body>
         <View style={atoms.flex1} />
@@ -119,15 +142,21 @@ export function BlockChrome({
         <Menu
           label={i18n._(msg`Block options`)}
           items={items}
+          trigger={<MoreIcon size={16} />}
           testID={testID ? `${testID}-menu` : undefined}
         />
       </View>
       {warning ? (
-        <Caption color="faint" testID={testID ? `${testID}-warning` : undefined}>
+        <Caption
+          color="faint"
+          testID={testID ? `${testID}-warning` : undefined}
+          style={{paddingHorizontal: space.md, paddingTop: space.sm}}>
           {warning}
         </Caption>
       ) : null}
-      {collapsible && collapsed ? null : children}
+      {collapsible && collapsed ? null : (
+        <View style={{padding: space.md, gap: space.sm}}>{children}</View>
+      )}
     </View>
   )
 }
