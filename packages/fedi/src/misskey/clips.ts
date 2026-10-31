@@ -11,7 +11,6 @@ import type { WireCall } from "./client";
 import type { ClipSummary, PageOpts } from "../core/backend";
 import type { Account, Page, Post } from "../core/models";
 import { adaptAccount, adaptNote, decodeCursor, pageOf } from "./adapt";
-import { isUnsupportedError } from "./client";
 import type { Note, UserLite } from "./wire";
 import { ApiError } from "../core/errors";
 
@@ -93,14 +92,16 @@ export async function listClips(
   return pageOf(items ?? [], (params.limit as number) ?? DEFAULT_LIMIT, adaptClipSummary);
 }
 
-/** One clip (`clips/show`); null on 404 (the screen renders not-found). */
+/** One clip (`clips/show`): the adapted clip, or null when the server
+ * has no such clip (`NO_SUCH_CLIP`). Unsupported endpoints rethrow so
+ * callers render "not available" instead of "not found". */
 export async function showClip(call: WireCall, clipId: string): Promise<ClipSummary | null> {
   try {
     const raw = await call<PackedClip>("clips/show", {clipId});
     if (!raw || typeof raw !== "object") return null;
     return adaptClipSummary(raw);
   } catch (err) {
-    if (isUnsupportedError(err)) return null;
+    if (err instanceof ApiError && err.code === "NO_SUCH_CLIP") return null;
     throw err;
   }
 }

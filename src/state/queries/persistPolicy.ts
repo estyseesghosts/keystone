@@ -92,6 +92,11 @@ export const PERSIST_POLICY: Record<string, PersistRule> = {
   // P6.6 Clips: personal lists + mosaics always refetch (never persisted).
   clips: {persist: false},
   'clip-mosaic': {persist: false},
+  // P6.6 Drive: folder trees, listings, usage always refetch.
+  'drive-folders': {persist: false},
+  'drive-folder': {persist: false},
+  'drive-files': {persist: false},
+  'drive-usage': {persist: false},
 }
 
 /**

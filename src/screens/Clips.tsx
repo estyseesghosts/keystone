@@ -7,7 +7,7 @@
 // tile — Favourites tile calls `bookmarks.add`, clips call
 // `clips.addNote` — then closes.
 
-import {useReducer, useState} from 'react';
+import {useState} from 'react';
 import {View} from 'react-native';
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native';
 import {msg} from '@lingui/macro';
@@ -21,8 +21,8 @@ import {Loader} from '#/components/Loader';
 import {Menu} from '#/components/Menu';
 import {CollectionScreen} from '#/components/Collection/CollectionScreen';
 import {Toolbar} from '#/components/Collection/Toolbar';
-import {SelectionBar} from '#/components/Collection/SelectionBar';
-import {initSelection, isSelected, selectionReducer} from '#/components/Collection/useSelection';
+import {MoreIcon} from '#/components/icons';
+import {useCollectionView} from '#/state/collectionPrefs';
 import type {CollectionItem} from '#/components/Collection/types';
 import {ClipDialog} from '#/components/Clips/ClipDialog';
 import {ClipTile, FavouritesTile} from '#/components/Clips/ClipTile';
@@ -43,13 +43,13 @@ export function ClipsScreen() {
   const addNoteId = route.params?.addNoteId ?? null;
   const sessionId = session?.id ?? null;
   const clips = useClips(sessionId, backend ? {backend} : {});
+  const view = useCollectionView('clips');
   const invalidateClips = useInvalidateClips();
   const invalidateMosaic = useInvalidateClipMosaic();
   const invalidateClip = useInvalidateClip();
   const {me} = useMe(sessionId);
   const dataSaver = useDataSaver();
   const items = (clips.data?.pages ?? []).flatMap(p => p.items);
-  const [sel, dispatchSel] = useReducer(selectionReducer, undefined, () => initSelection([]));
   const [dialog, setDialog] = useState<{clip: ClipSummary | null} | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClipSummary | null>(null);
   const [busy, setBusy] = useState(false);
@@ -111,6 +111,8 @@ export function ClipsScreen() {
     try {
       await backend.clips.delete(deleteTarget.id);
       invalidateClips(sessionId);
+      invalidateClip(sessionId, deleteTarget.id);
+      invalidateMosaic(sessionId, deleteTarget.id);
       setDeleteTarget(null);
     } catch (err) {
       setActionError(errorText(i18n, err, i18n._(msg`Could not delete the clip.`)));
@@ -214,7 +216,7 @@ export function ClipsScreen() {
               screen="clips"
               actions={
                 <>
-                  {clipLimit !== undefined ? (
+                  {clipLimit !== undefined && !clips.hasNextPage ? (
                     <Caption color="faint" testID="clips-count">
                       {i18n._(msg`${items.length} / ${clipLimit}`)}
                     </Caption>
@@ -234,15 +236,10 @@ export function ClipsScreen() {
             />
           </View>
         }
-        selectionBar={
-          sel.selected.length > 0 ? (
-            <SelectionBar count={sel.selected.length} onClear={() => dispatchSel({type: 'clear'})} testID="clips-selection" />
-          ) : undefined
-        }
         items={collectionItems}
         render={{
-          selected: key => isSelected(sel, key),
-          selectionMode: sel.mode,
+          selected: () => false,
+          selectionMode: false,
           onOpen: key => {
             if (key === 'favourites') {
               openFavourites();
@@ -251,11 +248,10 @@ export function ClipsScreen() {
             const clip = byId.get(key);
             if (clip) openClip(clip);
           },
-          onToggle: key => dispatchSel({type: 'toggle', key}),
-          menu: undefined,
+          onToggle: () => {},
           dataSaver,
           testID: 'clips-item',
-          renderItem: (item, helpers) => {
+          renderItem: item => {
             const tileId = item.key === 'favourites' ? 'clips-fav' : `clips-clip-${item.key}`;
             if (item.key === 'favourites') {
               return (
@@ -273,10 +269,10 @@ export function ClipsScreen() {
               <ClipTile
                 clip={clip}
                 sessionId={sessionId}
-                selected={helpers.selected}
-                selectionMode={helpers.selectionMode}
+                selected={false}
+                selectionMode={false}
                 onOpen={() => openClip(clip)}
-                onToggle={helpers.onToggle}
+                onToggle={() => {}}
                 menu={
                   <Menu
                     label={i18n._(msg`Clip options`)}
@@ -284,11 +280,13 @@ export function ClipsScreen() {
                       {key: 'edit', label: i18n._(msg`Edit`), onSelect: () => setDialog({clip})},
                       {key: 'delete', label: i18n._(msg`Delete`), onSelect: () => setDeleteTarget(clip)},
                     ]}
+                    trigger={<MoreIcon size={16} />}
                     testID={`clips-menu-${clip.id}`}
                   />
                 }
                 dataSaver={dataSaver}
                 testID={tileId}
+                variant={view === 'list' ? 'row' : 'tile'}
               />
             );
           },

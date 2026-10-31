@@ -2,8 +2,8 @@
 // shared item model. Grid: responsive columns (min tile 160 web, 3 per
 // row on phones). List: full-width rows. Screens own data + menus.
 
-import {FlatList, type ListRenderItemInfo} from 'react-native';
-import {useMemo} from 'react';
+import {FlatList, View, type ListRenderItemInfo} from 'react-native';
+import {useMemo, useState} from 'react';
 import {Platform, useWindowDimensions} from 'react-native';
 
 import {atoms} from '#/alf/atoms';
@@ -47,6 +47,7 @@ export function CollectionGrid({
   selectionMode,
   onOpen,
   onToggle,
+  menu,
   dataSaver,
   renderItem: renderItemOverride,
   testID,
@@ -56,8 +57,12 @@ export function CollectionGrid({
   ListEmptyComponent,
   ListFooterComponent,
 }: CollectionBodyProps) {
-  const width = useWindowDimensions().width;
-  const columns = useMemo(() => gridColumns(width), [width]);
+  // Columns from the *container* width, not the window: the grid lives in
+  // the narrow center column on wide layouts (sidebar + widgets eat the
+  // rest). Falls back to the window width before the first layout.
+  const windowWidth = useWindowDimensions().width;
+  const [listWidth, setListWidth] = useState<number | null>(null);
+  const columns = useMemo(() => gridColumns(listWidth ?? windowWidth), [listWidth, windowWidth]);
   const renderItem = ({item}: ListRenderItemInfo<CollectionItem>) => {
     if (renderItemOverride) {
       return (
@@ -80,27 +85,35 @@ export function CollectionGrid({
         onOpen={() => onOpen(item.key)}
         onToggle={() => onToggle(item.key)}
         dataSaver={dataSaver}
+        corner={menu?.(item)}
         testID={testID ? `${testID}-${item.key}` : undefined}
       />
     );
   };
   return (
-    <FlatList
-      data={items}
-      renderItem={renderItem}
-      keyExtractor={item => item.key}
-      numColumns={columns}
-      key={`grid-${columns}`}
-      columnWrapperStyle={columns > 1 ? atoms.gap_sm : undefined}
-      contentContainerStyle={atoms.gap_sm}
-      onEndReached={onEndReached}
-      onEndReachedThreshold={0.5}
-      refreshing={refreshing}
-      onRefresh={onRefresh}
-      ListEmptyComponent={ListEmptyComponent}
-      ListFooterComponent={ListFooterComponent}
-      testID={testID}
-    />
+    <View
+      style={atoms.flex1}
+      onLayout={e => {
+        const w = e.nativeEvent.layout.width;
+        if (w > 0) setListWidth(prev => (prev === w ? prev : w));
+      }}>
+      <FlatList
+        data={items}
+        renderItem={renderItem}
+        keyExtractor={item => item.key}
+        numColumns={columns}
+        key={`grid-${columns}`}
+        columnWrapperStyle={columns > 1 ? atoms.gap_sm : undefined}
+        contentContainerStyle={atoms.gap_sm}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.5}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        ListEmptyComponent={ListEmptyComponent}
+        ListFooterComponent={ListFooterComponent}
+        testID={testID}
+      />
+    </View>
   );
 }
 

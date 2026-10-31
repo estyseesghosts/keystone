@@ -24,6 +24,7 @@ const QUERY_FILES = [
   'clips.ts',
   'composer.ts',
   'conversations.ts',
+  'drive.ts',
   'graph.ts',
   'me.ts',
   'moderation.ts',

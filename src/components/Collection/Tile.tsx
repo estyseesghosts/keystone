@@ -13,12 +13,17 @@ import {Thumb} from './Thumb';
 import type {CollectionItem} from './types';
 
 const styles = StyleSheet.create({
-  tile: {flex: 1, gap: 4},
+  pressable: {flex: 1, minWidth: 0},
+  tile: {flex: 1, gap: 4, minWidth: 0},
   title: {flexShrink: 1},
+  thumbWrap: {position: 'relative'},
   check: {position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center'},
+  corner: {position: 'absolute', top: 4, right: 4},
   row: {flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8},
   rowThumb: {width: 48, height: 48},
-  rowBody: {flex: 1, gap: 2},
+  rowBody: {flex: 1, gap: 2, minWidth: 0},
+  badges: {flexDirection: 'row', gap: 4, flexWrap: 'wrap'},
+  badge: {paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4},
 });
 
 export function Tile({
@@ -50,24 +55,36 @@ export function Tile({
       accessibilityRole="button"
       accessibilityState={{selected}}
       accessibilityLabel={label}
+      style={styles.pressable}
       testID={testID}>
       <View style={styles.tile}>
-        <Thumb thumb={item.thumb} blurhash={blurhash} dataSaver={dataSaver} />
-        <Body numberOfLines={2} style={styles.title}>
+        <View style={styles.thumbWrap}>
+          <Thumb thumb={item.thumb} blurhash={blurhash} dataSaver={dataSaver} />
+          {selectionMode ? (
+            <View style={styles.check} testID={testID ? `${testID}-check` : undefined}>
+              {selected ? <CheckIcon size={14} /> : null}
+            </View>
+          ) : corner ? (
+            <View style={styles.corner}>{corner}</View>
+          ) : null}
+        </View>
+        <Body numberOfLines={2} ellipsizeMode="middle" style={styles.title}>
           {item.title}
         </Body>
         {item.subtitle ? (
-          <Caption color="faint" numberOfLines={1}>
+          <Caption color="faint" numberOfLines={1} ellipsizeMode="middle">
             {item.subtitle}
           </Caption>
         ) : null}
-        {selectionMode ? (
-          <View style={styles.check} testID={testID ? `${testID}-check` : undefined}>
-            {selected ? <CheckIcon size={14} /> : null}
+        {item.badges && item.badges.length > 0 ? (
+          <View style={styles.badges} testID={testID ? `${testID}-badges` : undefined}>
+            {item.badges.map(b => (
+              <View key={b.key} style={styles.badge}>
+                <Caption color="faint">{b.label}</Caption>
+              </View>
+            ))}
           </View>
-        ) : (
-          corner
-        )}
+        ) : null}
       </View>
     </Pressable>
   );
@@ -102,17 +119,29 @@ export function Row({
       accessibilityRole="button"
       accessibilityState={{selected}}
       accessibilityLabel={label}
+      style={styles.pressable}
       testID={testID}>
       <View style={styles.row}>
         <View style={styles.rowThumb}>
           <Thumb thumb={item.thumb} blurhash={blurhash} dataSaver={dataSaver} />
         </View>
         <View style={styles.rowBody}>
-          <Body numberOfLines={1}>{item.title}</Body>
+          <Body numberOfLines={1} ellipsizeMode="middle">
+            {item.title}
+          </Body>
           {item.subtitle ? (
-            <Caption color="faint" numberOfLines={1}>
+            <Caption color="faint" numberOfLines={1} ellipsizeMode="middle">
               {item.subtitle}
             </Caption>
+          ) : null}
+          {item.badges && item.badges.length > 0 ? (
+            <View style={styles.badges} testID={testID ? `${testID}-badges` : undefined}>
+              {item.badges.map(b => (
+                <View key={b.key} style={styles.badge}>
+                  <Caption color="faint">{b.label}</Caption>
+                </View>
+              ))}
+            </View>
           ) : null}
           {item.detail}
         </View>

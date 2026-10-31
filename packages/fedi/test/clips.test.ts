@@ -69,16 +69,24 @@ describe("ClipsApi.list (B3: paged, not capped at 100)", () => {
 });
 
 describe("ClipsApi.show", () => {
-  it("returns the clip; null on 404 (never throws for missing)", async () => {
+  it("returns the clip; null on NO_SUCH_CLIP", async () => {
     const { transport } = stubTransport(() => packed());
     const backend = createMisskeyBackend(transport);
     expect((await backend.clips!.show("c1"))?.name).toBe("Reading list");
 
     const gone = stubTransport(() => {
-      throw new ApiError("nope", 404);
+      throw new ApiError("nope", 404, "NO_SUCH_CLIP");
     });
     const backend2 = createMisskeyBackend(gone.transport);
     expect(await backend2.clips!.show("gone")).toBeNull();
+  });
+
+  it("rethrows unsupported so callers do not report not-found", async () => {
+    const gone = stubTransport(() => {
+      throw new ApiError("nope", 404);
+    });
+    const backend = createMisskeyBackend(gone.transport);
+    await expect(backend.clips!.show("c1")).rejects.toMatchObject({status: 404});
   });
 });
 

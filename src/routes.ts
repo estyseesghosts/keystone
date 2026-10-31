@@ -135,7 +135,8 @@ export type RootParamList = {
    * mutations. Mastodon fetches the row fresh; Misskey renders the shared
    * list row (no show endpoint upstream). */
   AdminReport: {id: string}
-  Drive: undefined
+  /** Drive folder (`/drive/:folderId?`, DC-13): absent = root. */
+  Drive: {folderId?: string} | undefined
   Favorites: undefined
   Followers: {id: string}
   Following: {id: string}
@@ -191,7 +192,7 @@ export const paths: Record<keyof RootParamList, string> = {
   AdminInsight: '/admin/insight',
   AdminReports: '/admin/reports',
   AdminReport: '/admin/reports/:id',
-  Drive: '/drive',
+  Drive: '/drive/:folderId?',
   Favorites: '/favorites',
   Followers: '/users/:id/followers',
   Following: '/users/:id/following',

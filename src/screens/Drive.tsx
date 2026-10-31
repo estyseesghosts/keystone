@@ -1,336 +1,433 @@
-// Drive as a library (`/drive`, clickstone §1.10): folders, folder-scoped
-// files, upload from the screen itself, and file detail (`drive/files/show`
-// + `drive/files/attached-notes`).
-//
-// Split (D3.7): rows + scope picker in `./Drive/rows`, the upload panel in
-// `./Drive/upload`, and the detail dialog in `./Drive/detail`. This file
-// keeps the `DriveScreen` composer: loading, listing, pagination, folder
-// CRUD, upload flow, and dialog state.
-//
-// Capability gating: the whole screen is honest "not available" without a
-// `backend.drive` module (Pinetree/Mastodon). The folder section only
-// renders when `drive.folders` exists. A detail endpoint that 404s at
-// runtime keeps its section visible with the reason — never hidden, never
-// an inert control, never a fake note count.
-//
-// Uploads use the composer's existing picker seam (expo-image-picker via
-// `pickMedia`) and the required `Backend.uploadMedia`; neither transport
-// reports bytes, so progress is per-file state ("Uploading…").
+// My Uploads on the collection kit (P6.6 slice 5): folders, files,
+// breadcrumbs (`/drive/:folderId?`, DC-13), usage, sort, filter,
+// detail panel, single-item actions. Multi-select, upload queue and DnD
+// land in slices 6–8.
 
-import {useCallback, useEffect, useRef, useState} from 'react'
-import {FlatList, RefreshControl, View} from 'react-native'
-
-import {msg} from '@lingui/macro'
+import {useEffect, useMemo, useState} from 'react';
+import {Platform, ScrollView, StyleSheet, View} from 'react-native';
+import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native';
+import {msg} from '@lingui/macro';
 
 import {
-  formatByteLimit,
-  isPermissionError,
-  isUnsupportedError,
+  runPool,
+  type Backend,
   type Cursor,
   type DriveFolder,
+  type DriveSort,
   type Media,
-} from '@keystone/fedi'
+  type Page,
+} from '@keystone/fedi';
 
-import {useTheme} from '#/alf'
-import {atoms} from '#/alf/atoms'
-import {Body, Caption} from '#/alf/typography'
-import {Button} from '#/components/Button'
-import {pickMedia} from '#/components/Composer/pickMedia'
-import {TextField} from '#/components/forms/TextField'
-import {SkeletonList} from '#/components/Skeleton'
-import {Pagehead} from '#/components/Pagehead'
-import {SignInButton} from '#/components/SignInButton'
-import type {UploadableFile} from '#/state/queries/composer'
-import {useActiveBackend} from '#/screens/HomeFeed'
-import {errorText} from '#/lib/localeErrors'
-import {i18n} from '#/locale/i18n'
+import {atoms} from '#/alf/atoms';
+import {useTheme} from '#/alf/index';
+import {Body, Caption} from '#/alf/typography';
+import {Button} from '#/components/Button';
+import {Dialog} from '#/components/Dialog';
+import {Loader} from '#/components/Loader';
+import {Menu} from '#/components/Menu';
+import {MoreIcon} from '#/components/icons';
+import {useBreakpoints} from '#/alf/breakpoints';
+import {useDataSaver} from '#/state/appearance';
+import {pickMedia} from '#/components/Composer/pickMedia';
+import type {UploadableFile} from '#/state/queries/composer';
+import {formatByteLimit} from '#/state/queries/composer';
+import {errorText} from '#/lib/localeErrors';
+import {showToast} from '#/lib/toast';
+import {i18n} from '#/locale/i18n';
+import type {RootParamList} from '#/routes';
+import {useActiveBackend} from '#/screens/HomeFeed';
 
-import {FileRow, FolderRow, FolderScope} from './Drive/rows'
-import {UploadPanel} from './Drive/upload'
-import {FileDetailDialog} from './Drive/detail'
+import {CollectionScreen} from '#/components/Collection/CollectionScreen';
+import {Toolbar} from '#/components/Collection/Toolbar';
+import {fileItem, folderItem} from '#/components/Drive/tiles';
+import {Breadcrumbs} from '#/components/Drive/Breadcrumbs';
+import {UsageBar} from '#/components/Drive/UsageBar';
+import {FileDetailPanel} from '#/components/Drive/FileDetailPanel';
+import {FolderDialog} from '#/components/Drive/FolderDialog';
+import {MoveToDialog} from '#/components/Drive/MoveToDialog';
+import {
+  useDriveFileMutations,
+  useDriveFiles,
+  useDriveFolder,
+  useDriveFolderMutations,
+  useDriveFolders,
+  useDriveUsage,
+  useInvalidateDrive,
+} from '#/state/queries/drive';
+import type {CollectionItem} from '#/components/Collection/types';
 
-const FILES_PAGE = 20
+import {UploadPanel} from './Drive/upload';
+
+type SortKey = 'name-asc' | 'name-desc' | 'date-desc' | 'date-asc' | 'size-desc' | 'size-asc';
+
+const SORT_OPTIONS: Array<{key: SortKey; sort: DriveSort; label: string}> = [
+  {key: 'name-asc', sort: '+name', label: 'Name ↑'},
+  {key: 'name-desc', sort: '-name', label: 'Name ↓'},
+  {key: 'date-desc', sort: '-createdAt', label: 'Date ↓'},
+  {key: 'date-asc', sort: '+createdAt', label: 'Date ↑'},
+  {key: 'size-desc', sort: '-size', label: 'Size ↓'},
+  {key: 'size-asc', sort: '+size', label: 'Size ↑'},
+];
+
+interface WalkTree {
+  folderId: string | null;
+  folders: DriveFolder[];
+  files: Media[];
+  truncated: boolean;
+}
+
+/** Depth-first walk of a folder subtree (DC-9): every listing paged to
+ * the end (single pages lie about emptiness), aborting past `budget`. */
+export async function walkFolderTree(
+  backend: NonNullable<Backend['drive']>,
+  rootId: string | null,
+  budget = 1000,
+): Promise<WalkTree> {
+  const folders: DriveFolder[] = [];
+  const files: Media[] = [];
+  let truncated = false;
+  let count = 0;
+
+  async function listAllFolders(parentId: string | null): Promise<DriveFolder[]> {
+    const out: DriveFolder[] = [];
+    let cursor: Cursor | null = null;
+    for (;;) {
+      const page: Page<DriveFolder> | null = backend.folders
+        ? await backend.folders.list({parentId, limit: 100, ...(cursor ? {cursor} : {})})
+        : null;
+      if (!page) break;
+      out.push(...page.items);
+      if (page.end || page.cursor == null || out.length > budget) break;
+      cursor = page.cursor;
+    }
+    return out;
+  }
+
+  async function listAllFiles(folderId: string | null): Promise<Media[]> {
+    const out: Media[] = [];
+    let cursor: Cursor | null = null;
+    for (;;) {
+      const page = await backend.files({folderId: folderId ?? undefined, limit: 100, ...(cursor ? {cursor} : {})});
+      out.push(...page.items);
+      if (page.end || page.cursor == null || out.length > budget) break;
+      cursor = page.cursor;
+    }
+    return out;
+  }
+
+  const queue: Array<{id: string | null}> = [{id: rootId}];
+  const seen = new Set<string | null>([rootId]);
+  while (queue.length > 0) {
+    const {id} = queue.shift()!;
+    const [kids, docs] = await Promise.all([listAllFolders(id), listAllFiles(id)]);
+    for (const doc of docs) {
+      if (count++ >= budget) {
+        truncated = true;
+        return {folderId: rootId, folders, files, truncated};
+      }
+      files.push(doc);
+    }
+    for (const kid of kids) {
+      if (count++ >= budget) {
+        truncated = true;
+        return {folderId: rootId, folders, files, truncated};
+      }
+      if (seen.has(kid.id)) continue;
+      seen.add(kid.id);
+      folders.push(kid);
+      queue.push({id: kid.id});
+    }
+  }
+  return {folderId: rootId, folders, files, truncated};
+}
 
 export function DriveScreen() {
-  const theme = useTheme()
-  const {session, backend} = useActiveBackend()
-  const [folders, setFolders] = useState<DriveFolder[] | null>(null)
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
-  const [files, setFiles] = useState<Media[]>([])
-  const [cursor, setCursor] = useState<Cursor | null>(null)
-  const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [fetching, setFetching] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState<unknown>(null)
-  const [unsupported, setUnsupported] = useState(false)
-  const [denied, setDenied] = useState(false)
-  const [folderName, setFolderName] = useState('')
-  const [folderBusy, setFolderBusy] = useState(false)
-  const [folderError, setFolderError] = useState<string | null>(null)
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
-  const [pendingFolderDeleteId, setPendingFolderDeleteId] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [staged, setStaged] = useState<UploadableFile | null>(null)
-  const [uploadComment, setUploadComment] = useState('')
-  const [uploading, setUploading] = useState(false)
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null)
-  const [detailFile, setDetailFile] = useState<Media | null>(null)
+  const theme = useTheme();
+  const {session, backend} = useActiveBackend();
+  const navigation = useNavigation<NavigationProp<RootParamList>>();
+  const route = useRoute<RouteProp<RootParamList, 'Drive'>>();
+  const folderId = route.params?.folderId ?? null;
+  const sessionId = session?.id ?? null;
+  const {gtTablet} = useBreakpoints();
+  const dataSaver = useDataSaver();
+  const [filter, setFilter] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('date-desc');
+  const sort = SORT_OPTIONS.find(o => o.key === sortKey)?.sort;
+  const folders = useDriveFolders(sessionId, folderId, backend ? {backend} : {});
+  const files = useDriveFiles(sessionId, folderId, backend ? {backend, ...(sort ? {sort} : {})} : {});
+  const detail = useDriveFolder(sessionId, folderId, backend ? {backend} : {});
+  const usage = useDriveUsage(sessionId, backend ? {backend} : {});
+  const invalidate = useInvalidateDrive();
+  const folderMutations = useDriveFolderMutations(sessionId, backend ? {backend} : {});
+  const fileMutations = useDriveFileMutations(sessionId, backend ? {backend} : {});
+  const [detailFile, setDetailFile] = useState<Media | null>(null);
+  const [folderDialog, setFolderDialog] = useState<{folder: DriveFolder | null} | null>(null);
+  const [moveTarget, setMoveTarget] = useState<{file: Media} | {folder: DriveFolder} | null>(null);
+  const [moveDescendants, setMoveDescendants] = useState<string[]>([]);
+  const [deleteFolder, setDeleteFolder] = useState<{folder: DriveFolder; walk: WalkTree} | null>(null);
+  const [deleteFile, setDeleteFile] = useState<Media | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
+  // Single-file upload (slice 7 owns the queue; this keeps today's flow).
+  const [staged, setStaged] = useState<UploadableFile | null>(null);
+  const [uploadComment, setUploadComment] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
 
-  // Repair X7.4 step 1: the in-flight Drive upload is cancellable — the
-  // request aborts on unmount (leaving the screen never leaks it). The
-  // panel keeps its staged/failed states; only the network work stops.
-  const uploadCtrl = useRef<AbortController | null>(null)
-  useEffect(
-    () => () => {
-      try {
-        uploadCtrl.current?.abort()
-      } catch {
-        // Already settled.
-      }
-      uploadCtrl.current = null
-    },
-    [],
-  )
+  const sortSupported = backend?.drive?.isSortSupported?.() !== false;
+  const canUseDrive = backend?.drive != null;
 
-  const foldersSupported = backend?.drive?.folders != null
-  const selectedFolder = (folders ?? []).find(folder => folder.id === selectedFolderId) ?? null
+  const folderItems = (folders.data?.pages ?? []).flatMap(p => p.items);
+  const fileItems = (files.data?.pages ?? []).flatMap(p => p.items);
+  const q = filter.trim().toLowerCase();
+  const visibleFolders = q ? folderItems.filter(f => f.name.toLowerCase().includes(q)) : folderItems;
+  const visibleFiles = q ? fileItems.filter(f => f.name.toLowerCase().includes(q)) : fileItems;
 
-  const load = useCallback(async () => {
-    if (!session || !backend) {
-      setLoading(false)
-      return
-    }
-    if (!backend.drive || backend.capabilities.drive === 'unsupported') {
-      setUnsupported(true)
-      setLoading(false)
-      return
-    }
-    setFetching(true)
-    setError(null)
-    try {
-      const [folderPage, filePage] = await Promise.all([
-        backend.drive.folders
-          ? backend.drive.folders.list({parentId: selectedFolderId, limit: FILES_PAGE})
-          : Promise.resolve(null),
-        backend.drive.files({limit: FILES_PAGE, folderId: selectedFolderId}),
-      ])
-      setFolders(folderPage?.items ?? null)
-      setFiles(filePage.items)
-      setCursor(filePage.cursor)
-      setHasMore(!filePage.end)
-      setUnsupported(false)
-      setDenied(false)
-    } catch (err) {
-      if (isUnsupportedError(err)) setUnsupported(true)
-      else if (isPermissionError(err)) setDenied(true)
-      else setError(err)
-    } finally {
-      setLoading(false)
-      setFetching(false)
-    }
-  }, [session, backend, selectedFolderId])
+  const crumbs = useMemo(() => {
+    const trail: Array<{key: string | null; label: string}> = [
+      {key: null, label: i18n._(msg`My Uploads`)},
+    ];
+    for (const f of detail.data?.path ?? []) trail.push({key: f.id, label: f.name});
+    return trail;
+  }, [detail.data]);
 
-  // The upload flow refreshes whatever folder is on screen when it finishes,
-  // even if the selection changed while the request was in flight.
-  const loadRef = useRef(load)
-  loadRef.current = load
+  const openFolder = (id: string | null) => {
+    navigation.navigate('Drive', id == null ? {} : {folderId: id});
+  };
 
   useEffect(() => {
-    setFolders(null)
-    setFiles([])
-    setCursor(null)
-    setHasMore(false)
-    setUnsupported(false)
-    setDenied(false)
-    setError(null)
-    setLoading(true)
-    void load()
-  }, [load])
+    setDetailFile(null);
+    setFilter('');
+  }, [folderId]);
 
-  const loadMore = useCallback(async () => {
-    if (!backend?.drive || !cursor || loadingMore) return
-    setLoadingMore(true)
-    try {
-      const page = await backend.drive.files({
-        limit: FILES_PAGE,
-        cursor,
-        folderId: selectedFolderId,
-      })
-      setFiles(prev => [...prev, ...page.items.filter(p => !prev.some(f => f.id === p.id))])
-      setCursor(page.cursor)
-      setHasMore(!page.end)
-    } catch (err) {
-      setActionError(errorText(i18n, err, i18n._(msg`Could not load more files.`)))
-    } finally {
-      setLoadingMore(false)
-    }
-  }, [backend, cursor, loadingMore, selectedFolderId])
+  if (!sessionId || !backend) {
+    return (
+      <View style={atoms.flex1} testID="drive-screen">
+        <CollectionScreen
+          screen="drive"
+          title={i18n._(msg`My Uploads`)}
+          items={[]}
+          render={{selected: () => false, selectionMode: false, onOpen: () => {}, onToggle: () => {}}}
+          signedOut
+          signedOutMessage={i18n._(msg`Sign in to see your drive.`)}
+          testID="drive-collection"
+        />
+      </View>
+    );
+  }
 
-  const chooseFile = useCallback(async () => {
-    setUploadError(null)
-    setUploadSuccess(null)
+  if (!canUseDrive) {
+    return (
+      <View style={atoms.flex1} testID="drive-screen">
+        <CollectionScreen
+          screen="drive"
+          title={i18n._(msg`My Uploads`)}
+          items={[]}
+          render={{selected: () => false, selectionMode: false, onOpen: () => {}, onToggle: () => {}}}
+          session={session}
+          unsupportedMessage={i18n._(msg`Drive is not available on this server.`)}
+          testID="drive-collection"
+        />
+      </View>
+    );
+  }
+
+  const items: CollectionItem[] = [
+    ...visibleFolders.map(f => ({...folderItem(f), detail: undefined})),
+    ...visibleFiles.map(f => fileItem(f, f.createdAt)),
+  ];
+
+  const chooseFile = async () => {
+    setUploadError(null);
+    setUploadSuccess(null);
     try {
-      const result = await pickMedia({limit: 1})
-      // Typed outcome (R2.3): denied is shown, never a silent cancel.
+      const result = await pickMedia({limit: 1});
       if (result.kind === 'denied') {
         setUploadError(
           result.canAskAgain
             ? i18n._(msg`Media library access was denied. Allow access to pick a file.`)
             : i18n._(msg`Media library access was denied. Enable it in the system settings to pick a file.`),
-        )
-        return
+        );
+        return;
       }
-      if (result.kind === 'cancelled') return
-      if (result.rejected.length > 0) {
-        // Per-kind server cap, else the client heap bound (repair X6.2 step
-        // 2) — never a literal.
-        const rejected = result.rejected[0]
+      if (result.kind === 'cancelled') return;
+      if (result.rejected.length > 0 || result.files.length === 0) {
+        const rejected = result.rejected[0];
         setUploadError(
-          i18n._(msg`"${rejected.name}" is too large to upload (limit ${formatByteLimit(rejected.limit)}).`),
-        )
-        return
+          rejected
+            ? i18n._(msg`"${rejected.name}" is too large to upload (limit ${formatByteLimit(rejected.limit)}).`)
+            : i18n._(msg`That file could not be read.`),
+        );
+        return;
       }
-      if (result.files.length > 0) setStaged(result.files[0])
+      setStaged(result.files[0]!);
     } catch (err) {
-      setUploadError(errorText(i18n, err, i18n._(msg`Could not open the file picker.`)))
+      setUploadError(errorText(i18n, err as Error, i18n._(msg`Could not open the file picker.`)));
     }
-  }, [])
+  };
 
-  const uploadStaged = useCallback(async () => {
-    if (!backend || !staged || uploading) return
-    setUploading(true)
-    setUploadError(null)
-    setUploadSuccess(null)
-    const ctrl = new AbortController()
-    uploadCtrl.current = ctrl
+  const uploadStaged = async () => {
+    if (!backend || !staged || uploading) return;
+    setUploading(true);
+    setUploadError(null);
+    setUploadSuccess(null);
     try {
-      const comment = uploadComment.trim()
+      const comment = uploadComment.trim();
       const media = await backend.uploadMedia(staged.file, {
-        ...(selectedFolderId ? {folderId: selectedFolderId} : {}),
+        ...(folderId ? {folderId} : {}),
         ...(comment ? {comment} : {}),
-        signal: ctrl.signal,
-      })
-      setUploadSuccess(i18n._(msg`Uploaded “${media.name}”.`))
-      setStaged(null)
-      setUploadComment('')
-      await loadRef.current()
+      });
+      setUploadSuccess(i18n._(msg`Uploaded “${media.name}”.`));
+      setStaged(null);
+      setUploadComment('');
+      invalidate.folder(sessionId, folderId);
     } catch (err) {
-      setUploadError(errorText(i18n, err, i18n._(msg`Could not upload the file.`)))
+      setUploadError(errorText(i18n, err as Error, i18n._(msg`Could not upload the file.`)));
     } finally {
-      if (uploadCtrl.current === ctrl) uploadCtrl.current = null
-      setUploading(false)
+      setUploading(false);
     }
-  }, [backend, staged, uploading, uploadComment, selectedFolderId])
+  };
 
-  if (!session || !backend) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="drive-screen">
-        <Pagehead title={i18n._(msg({id: 'drive.title', message: 'Drive', context: 'file storage screen title'}))} />
-        <Body>{i18n._(msg({id: 'drive.signedOut', message: 'Sign in to see your drive.'}))}</Body>
-        <Caption color="faint">
-          {i18n._(msg`Drive never shows sample data when signed out.`)}
-        </Caption>
-        <SignInButton />
-      </View>
-    )
-  }
+  const askDeleteFolder = async (folder: DriveFolder) => {
+    if (!backend?.drive || !sessionId) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const walk = await walkFolderTree(backend.drive, folder.id);
+      if (walk.truncated) {
+        setActionError(i18n._(msg`That folder is too large to delete here (over 1000 items).`));
+        return;
+      }
+      setDeleteFolder({folder, walk});
+    } catch (err) {
+      setActionError(errorText(i18n, err, i18n._(msg`Could not inspect the folder.`)));
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  if (unsupported || (!backend.drive && !loading)) {
-    return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="drive-screen">
-        <Pagehead title={i18n._(msg({id: 'drive.title', message: 'Drive', context: 'file storage screen title'}))} />
-        <Body>{i18n._(msg`Drive is not available on this server.`)}</Body>
-      </View>
-    )
-  }
+  const confirmDeleteFolder = async () => {
+    if (!backend?.drive || !deleteFolder || !sessionId) return;
+    setBusy(true);
+    try {
+      // Files first, pooled with a per-item report (DC-8): a failed file
+      // aborts the delete instead of leaving a half-deleted folder.
+      const results = await runPool(deleteFolder.walk.files, item => backend.drive!.deleteFile(item.id), {
+        concurrency: 4,
+      });
+      const failed = results.filter(r => !r.ok);
+      if (failed.length > 0) {
+        const names = failed
+          .slice(0, 5)
+          .map(r => deleteFolder.walk.files.find(f => f.id === r.item.id)?.name ?? r.item.id)
+          .join(', ');
+        throw new Error(i18n._(msg`Could not delete ${failed.length} file(s): ${names}`));
+      }
+      for (const sub of [...deleteFolder.walk.folders].reverse()) {
+        await backend.drive.folders!.delete(sub.id);
+      }
+      await backend.drive.folders!.delete(deleteFolder.folder.id);
+      setDeleteFolder(null);
+      invalidate.folder(sessionId, folderId);
+    } catch (err) {
+      setActionError(errorText(i18n, err, i18n._(msg`Could not delete the folder.`)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openMoveTarget = async (target: {file: Media} | {folder: DriveFolder}) => {
+    setMoveTarget(target);
+    if ('folder' in target && backend?.drive) {
+      try {
+        const walk = await walkFolderTree(backend.drive, target.folder.id);
+        setMoveDescendants([target.folder.id, ...walk.folders.map(f => f.id)]);
+      } catch {
+        setMoveDescendants([target.folder.id]);
+      }
+    } else {
+      setMoveDescendants([]);
+    }
+  };
+
+  const doMove = async (targetId: string | null) => {
+    if (!sessionId) return;
+    if (moveTarget && 'folder' in moveTarget) {
+      await folderMutations.move.mutateAsync({id: moveTarget.folder.id, parentId: targetId});
+      invalidate.folder(sessionId, folderId);
+      invalidate.folder(sessionId, targetId);
+    } else if (moveTarget && 'file' in moveTarget) {
+      await fileMutations.patch.mutateAsync({
+        id: moveTarget.file.id,
+        folderId,
+        patch: {folderId: targetId},
+      });
+    }
+    setMoveTarget(null);
+  };
+
+  const emptyMessage = Platform.OS === 'web'
+    ? folderId
+      ? i18n._(msg`This folder is empty. Drop files here or use Upload.`)
+      : i18n._(msg`You have no files yet. Drop files here or use Upload.`)
+    : folderId
+      ? i18n._(msg`This folder is empty.`)
+      : i18n._(msg`You have no files yet.`);
+
+  const error = folders.isError ? folders.error : files.isError ? files.error : undefined;
 
   return (
     <View style={atoms.flex1} testID="drive-screen">
-      <Pagehead title={i18n._(msg({id: 'drive.title', message: 'Drive', context: 'file storage screen title'}))} />
-      {actionError ? <Caption color="faint">{actionError}</Caption> : null}
-      {loading ? (
-        <SkeletonList variant="row" testID="drive-loading" />
-      ) : denied ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>{i18n._(msg`Your account cannot view drive here.`)}</Body>
-          <Button
-            label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading the drive'}))}
-            variant="secondary"
-            onPress={() => void load()}
-            testID="drive-retry"
-          />
-        </View>
-      ) : error ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>{i18n._(msg`Could not load drive.`)}</Body>
-          <Button
-            label={i18n._(msg({message: 'Retry', context: 'button', comment: 'Retry loading the drive'}))}
-            variant="secondary"
-            onPress={() => void load()}
-            testID="drive-retry"
-          />
-        </View>
-      ) : (
-        <FlatList
-          data={files}
-          keyExtractor={item => item.id}
-          renderItem={({item}) => (
-            <FileRow
-              file={item}
-              onOpenDetails={() => setDetailFile(item)}
-              onRename={async name => {
-                if (!backend.drive) return
-                setActionError(null)
-                const updated = await backend.drive.updateFile(item.id, {name})
-                setFiles(prev => prev.map(f => (f.id === item.id ? updated : f)))
-                setDetailFile(prev => (prev?.id === item.id ? updated : prev))
-              }}
-              onToggleSensitive={async () => {
-                if (!backend.drive) return
-                setActionError(null)
-                const updated = await backend.drive.updateFile(item.id, {
-                  isSensitive: !item.isSensitive,
-                })
-                setFiles(prev => prev.map(f => (f.id === item.id ? updated : f)))
-                setDetailFile(prev => (prev?.id === item.id ? updated : prev))
-              }}
-              onDelete={async () => {
-                if (!backend.drive) return
-                setActionError(null)
-                try {
-                  await backend.drive.deleteFile(item.id)
-                  setFiles(prev => prev.filter(f => f.id !== item.id))
-                  setPendingDeleteId(null)
-                  setDetailFile(prev => (prev?.id === item.id ? null : prev))
-                } catch (err) {
-                  setActionError(errorText(i18n, err, i18n._(msg`Could not delete the file.`)))
-                }
-              }}
-              pendingDelete={pendingDeleteId === item.id}
-              onArmDelete={() => setPendingDeleteId(item.id)}
-              onCancelDelete={() => setPendingDeleteId(null)}
+      <CollectionScreen
+        screen="drive"
+        title={i18n._(msg`My Uploads`)}
+        header={
+          <View style={[atoms.gap_sm, atoms.px_md, {paddingTop: 8}]}>
+            <Breadcrumbs trail={crumbs} onNavigate={openFolder} testID="drive-crumbs" />
+            <UsageBar
+              used={usage.data?.usage ?? null}
+              capacity={usage.data?.capacity ?? null}
+              testID="drive-usage"
             />
-          )}
-          refreshControl={
-            <RefreshControl
-              refreshing={fetching}
-              onRefresh={() => void load()}
-              testID="drive-refresh"
-              tintColor={theme.palette.muted}
-              colors={[theme.palette.muted]}
-              progressBackgroundColor={theme.palette.bg}
+          </View>
+        }
+        toolbar={
+          <View style={[atoms.px_md, atoms.py_sm]}>
+            <Toolbar
+              screen="drive"
+              sortOptions={
+                sortSupported
+                  ? SORT_OPTIONS.map(o => ({key: o.key, label: o.label}))
+                  : undefined
+              }
+              onSortChange={key => setSortKey(key as typeof sortKey)}
+              filter={filter}
+              onFilterChange={setFilter}
+              actions={
+                <>
+                  <Button
+                    label={i18n._(msg`New folder`)}
+                    variant="secondary"
+                    compact
+                    onPress={() => setFolderDialog({folder: null})}
+                    testID="drive-new-folder"
+                  />
+                  <Button
+                    label={showUpload ? i18n._(msg`Hide upload`) : i18n._(msg`Upload`)}
+                    variant="primary"
+                    compact
+                    onPress={() => setShowUpload(v => !v)}
+                    testID="drive-upload-toggle"
+                  />
+                </>
+              }
+              testID="drive-toolbar"
             />
-          }
-          ListHeaderComponent={
-            <View style={[atoms.gap_sm, atoms.py_sm]} testID="drive-header">
+            {showUpload ? (
               <UploadPanel
-                targetLabel={
-                  selectedFolder
-                    ? i18n._(msg`Uploads go to “${selectedFolder.name}”.`)
-                    : i18n._(msg`Uploads go to Root.`)
-                }
+                targetLabel={i18n._(msg`Uploads go to this folder.`)}
                 staged={staged}
                 comment={uploadComment}
                 uploading={uploading}
@@ -340,133 +437,241 @@ export function DriveScreen() {
                 onCommentChange={setUploadComment}
                 onUpload={() => void uploadStaged()}
                 onCancel={() => {
-                  setStaged(null)
-                  setUploadComment('')
-                  setUploadError(null)
+                  setStaged(null);
+                  setUploadComment('');
+                  setUploadError(null);
                 }}
               />
-              {foldersSupported ? (
-                <View style={[atoms.gap_sm]} testID="drive-folders">
-                  <View style={[atoms.px_md]}>
-                    <Caption color="faint">
-                      {i18n._(msg({message: 'Folders', context: 'drive section header'}))}
-                    </Caption>
-                  </View>
-                  <FolderScope
-                    folders={folders ?? []}
-                    selectedId={selectedFolderId}
-                    onSelect={setSelectedFolderId}
-                  />
-                  {(folders ?? []).map(folder => (
-                    <FolderRow
-                      key={folder.id}
-                      folder={folder}
-                      onRename={async name => {
-                        if (!backend.drive?.folders) return
-                        setActionError(null)
-                        const updated = await backend.drive.folders.update(folder.id, {name})
-                        setFolders(prev =>
-                          (prev ?? []).map(f => (f.id === folder.id ? updated : f)),
-                        )
-                      }}
-                      onDelete={async () => {
-                        if (!backend.drive?.folders) return
-                        setActionError(null)
-                        try {
-                          await backend.drive.folders.delete(folder.id)
-                          setFolders(prev => (prev ?? []).filter(f => f.id !== folder.id))
-                          setPendingFolderDeleteId(null)
-                          if (selectedFolderId === folder.id) setSelectedFolderId(null)
-                        } catch (err) {
-                          setActionError(
-                            errorText(i18n, err, i18n._(msg`Could not delete the folder.`))
-                          )
-                        }
-                      }}
-                      pendingDelete={pendingFolderDeleteId === folder.id}
-                      onArmDelete={() => setPendingFolderDeleteId(folder.id)}
-                      onCancelDelete={() => setPendingFolderDeleteId(null)}
-                    />
-                  ))}
-                  <View style={[atoms.gap_sm, atoms.px_md]}>
-                    <TextField
-                      label={i18n._(msg({message: 'New folder', context: 'drive folder creation'}))}
-                      value={folderName}
-                      onChangeText={setFolderName}
-                      placeholder={i18n._(msg({message: 'Folder name', context: 'drive folder name input'}))}
-                      error={folderError ?? undefined}
-                      testID="drive-folder-create-input"
-                    />
-                    <Button
-                      label={
-                        folderBusy
-                          ? i18n._(msg({message: 'Creating…', context: 'button'}))
-                          : i18n._(msg({message: 'Create folder', context: 'button'}))
-                      }
-                      variant="primary"
-                      disabled={folderBusy || folderName.trim().length === 0}
-                      onPress={() => {
-                        if (!backend.drive?.folders || folderBusy) return
-                        const trimmed = folderName.trim()
-                        if (trimmed.length === 0) return
-                        setFolderBusy(true)
-                        setFolderError(null)
-                        void backend.drive.folders
-                          .create(trimmed)
-                          .then(created => {
-                            setFolders(prev => (prev ? [...prev, created] : [created]))
-                            setFolderName('')
-                          })
-                          .catch((err: unknown) => {
-                            setFolderError(
-                              errorText(i18n, err, i18n._(msg`Could not create the folder.`))
-                            )
-                          })
-                          .finally(() => setFolderBusy(false))
-                      }}
-                      testID="drive-folder-create-submit"
-                    />
-                  </View>
-                </View>
-              ) : null}
-            </View>
-          }
-          ListEmptyComponent={
-            <View style={[atoms.centered, atoms.p_md]}>
-              <Body>
-                {selectedFolderId
-                  ? i18n._(msg`This folder has no files yet.`)
-                  : i18n._(msg`You have no files yet.`)}
-              </Body>
-            </View>
-          }
-          ListFooterComponent={
-            hasMore ? (
-              <View style={[atoms.centered, atoms.py_sm]}>
-                <Button
-                  label={
-                    loadingMore
-                      ? i18n._(msg({message: 'Loading…', context: 'button'}))
-                      : i18n._(msg({message: 'Load more', context: 'button'}))
-                  }
-                  variant="secondary"
-                  disabled={loadingMore}
-                  onPress={() => void loadMore()}
-                  testID="drive-load-more"
+            ) : null}
+          </View>
+        }
+        items={items}
+        render={{
+          selected: () => false,
+          selectionMode: false,
+          onOpen: key => {
+            const folder = visibleFolders.find(f => f.id === key);
+            if (folder) {
+              openFolder(folder.id);
+              return;
+            }
+            const file = visibleFiles.find(f => f.id === key);
+            if (file) setDetailFile(file);
+          },
+          onToggle: () => {},
+          menu: item => {
+            const folder = visibleFolders.find(f => f.id === item.key);
+            if (folder) {
+              return (
+                <Menu
+                  label={i18n._(msg`Folder options`)}
+                  trigger={<MoreIcon size={16} />}
+                  items={[
+                    {key: 'rename', label: i18n._(msg`Rename`), onSelect: () => setFolderDialog({folder})},
+                    {key: 'move', label: i18n._(msg`Move to…`), onSelect: () => void openMoveTarget({folder})},
+                    {key: 'delete', label: i18n._(msg`Delete`), onSelect: () => void askDeleteFolder(folder)},
+                  ]}
+                  testID={`drive-folder-menu-${folder.id}`}
                 />
-              </View>
-            ) : null
-          }
-        />
-      )}
+              );
+            }
+            const file = visibleFiles.find(f => f.id === item.key);
+            if (!file) return undefined;
+            return (
+              <Menu
+                label={i18n._(msg`File options`)}
+                trigger={<MoreIcon size={16} />}
+                items={[
+                  {key: 'details', label: i18n._(msg`Details`), onSelect: () => setDetailFile(file)},
+                  {key: 'move', label: i18n._(msg`Move to…`), onSelect: () => void openMoveTarget({file})},
+                  {
+                    key: 'delete',
+                    label: i18n._(msg`Delete`),
+                    onSelect: () => setDeleteFile(file),
+                  },
+                ]}
+                testID={`drive-file-menu-${file.id}`}
+              />
+            );
+          },
+          dataSaver,
+          testID: 'drive-item',
+        }}
+        session={session}
+        loading={folders.isPending || files.isPending}
+        error={error}
+        errorMessage={i18n._(msg`Could not load drive.`)}
+        onRetry={() => {
+          void folders.refetch();
+          void files.refetch();
+        }}
+        emptyMessage={emptyMessage}
+        onEndReached={() => {
+          if (files.hasNextPage && !files.isFetchingNextPage) void files.fetchNextPage();
+        }}
+        refreshing={folders.isRefetching || files.isRefetching}
+        onRefresh={() => {
+          void folders.refetch();
+          void files.refetch();
+        }}
+        footer={files.isFetchingNextPage ? <Loader testID="drive-collection-more" /> : undefined}
+        testID="drive-collection"
+      />
+      {actionError ? (
+        <Caption color="faint" testID="drive-action-error">
+          {actionError}
+        </Caption>
+      ) : null}
       {detailFile && backend.drive ? (
-        <FileDetailDialog
-          file={detailFile}
-          backend={backend}
-          sessionId={session.id}
-          onClose={() => setDetailFile(null)}
+        gtTablet ? (
+          <View
+            style={[styles.dock, {backgroundColor: theme.palette.bg, borderColor: theme.palette.border}]}
+            testID="drive-detail-dock">
+            <ScrollView style={atoms.flex1}>
+              <FileDetailPanel
+                file={detailFile}
+                backend={backend}
+                sessionId={sessionId}
+                onMove={file => void openMoveTarget({file})}
+                onChanged={() => {
+                  invalidate.folder(sessionId, folderId);
+                  setDetailFile(null);
+                }}
+                onDeleted={() => {
+                  invalidate.folder(sessionId, folderId);
+                  setDetailFile(null);
+                }}
+                testID="drive-detail"
+              />
+            </ScrollView>
+            <View style={[atoms.px_md, atoms.py_sm]}>
+              <Button
+                label={i18n._(msg`Close`)}
+                variant="secondary"
+                onPress={() => setDetailFile(null)}
+                testID="drive-detail-close"
+              />
+            </View>
+          </View>
+        ) : (
+          <Dialog open onClose={() => setDetailFile(null)} title={detailFile.name} testID="drive-detail-dialog">
+            <FileDetailPanel
+              file={detailFile}
+              backend={backend}
+              sessionId={sessionId}
+              onMove={file => void openMoveTarget({file})}
+              onChanged={() => {
+                invalidate.folder(sessionId, folderId);
+              }}
+              onDeleted={() => {
+                invalidate.folder(sessionId, folderId);
+                setDetailFile(null);
+              }}
+              testID="drive-detail"
+            />
+          </Dialog>
+        )
+      ) : null}
+      {folderDialog ? (
+        <FolderDialog
+          initialName={folderDialog.folder?.name ?? ''}
+          title={folderDialog.folder ? i18n._(msg`Rename folder`) : i18n._(msg`New folder`)}
+          onSave={async name => {
+            if (!sessionId) return;
+            if (folderDialog.folder) {
+              await folderMutations.rename.mutateAsync({id: folderDialog.folder.id, name});
+            } else {
+              await folderMutations.create.mutateAsync({name, parentId: folderId});
+            }
+            invalidate.folder(sessionId, folderId);
+            setFolderDialog(null);
+          }}
+          onClose={() => setFolderDialog(null)}
+          testID="drive-folder-dialog"
         />
       ) : null}
+      {moveTarget ? (
+        <MoveToDialog
+          sessionId={sessionId}
+          currentParentId={'folder' in moveTarget ? moveTarget.folder.parentId : folderId}
+          descendantIds={moveDescendants}
+          onMove={targetId => doMove(targetId)}
+          onClose={() => setMoveTarget(null)}
+          testID="drive-move"
+        />
+      ) : null}
+      {deleteFolder ? (
+        <Dialog
+          open
+          onClose={() => setDeleteFolder(null)}
+          title={i18n._(msg`Delete “${deleteFolder.folder.name}” with ${deleteFolder.walk.files.length} files and ${deleteFolder.walk.folders.length} subfolders? This is permanent.`)}
+          testID="drive-folder-delete">
+          {deleteFolder.walk.files.length > 0 ? (
+            <Caption color="faint" testID="drive-folder-delete-names">
+              {deleteFolder.walk.files.slice(0, 5).map(f => f.name).join(', ')}
+            </Caption>
+          ) : null}
+          <Button
+            label={busy ? i18n._(msg`Deleting…`) : i18n._(msg`Confirm delete`)}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => void confirmDeleteFolder()}
+            testID="drive-folder-delete-confirm"
+          />
+          <Button
+            label={i18n._(msg`Keep`)}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => setDeleteFolder(null)}
+            testID="drive-folder-delete-cancel"
+          />
+        </Dialog>
+      ) : null}
+      {deleteFile ? (
+        <Dialog
+          open
+          onClose={() => setDeleteFile(null)}
+          title={i18n._(msg`Delete “${deleteFile.name}”? This is permanent.`)}
+          testID="drive-file-delete">
+          <Button
+            label={busy ? i18n._(msg`Deleting…`) : i18n._(msg`Confirm delete`)}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => {
+              if (!sessionId) return;
+              setBusy(true);
+              fileMutations.remove.mutate(
+                {id: deleteFile.id, folderId},
+                {
+                  onSuccess: () => setDeleteFile(null),
+                  onError: err => setActionError(errorText(i18n, err, i18n._(msg`Could not delete the file.`))),
+                  onSettled: () => setBusy(false),
+                },
+              );
+            }}
+            testID="drive-file-delete-confirm"
+          />
+          <Button
+            label={i18n._(msg`Keep`)}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => setDeleteFile(null)}
+            testID="drive-file-delete-cancel"
+          />
+        </Dialog>
+      ) : null}
     </View>
-  )
+  );
 }
+
+const styles = StyleSheet.create({
+  /** Tablet detail dock: absolute right panel over the list. */
+  dock: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: 380,
+    borderStartWidth: 1,
+  },
+});

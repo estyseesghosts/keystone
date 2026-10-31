@@ -166,7 +166,7 @@ function ClipLoaded({
   testID?: string;
 }) {
   const navigation = useNavigation<NavigationProp<RootParamList>>();
-  const {backend} = useActiveBackend();
+  const {session, backend} = useActiveBackend();
   const queryClient = useQueryClient();
   const baseHandlers = usePostCardHandlers();
   const [editing, setEditing] = useState(false);
@@ -180,7 +180,8 @@ function ClipLoaded({
 
   const copyLink = async () => {
     try {
-      await copyText(`clip:${clip.id}`);
+      // Misskey clip URL (public when the clip is public; auth-walled otherwise).
+      await copyText(`${session?.origin ?? ''}/clips/${clip.id}`);
       showToast(i18n._(msg`Copied`));
     } catch (err) {
       showToast(errorText(i18n, err, i18n._(msg`Could not copy the link.`)));

@@ -148,3 +148,23 @@ export function recommendationsProbeQueryKey(sessionId: string): AppQueryKey {
 export function recommendationInterestsQueryKey(sessionId: string): AppQueryKey {
   return createQueryKey(sessionId, 'recommendations', 'interests');
 }
+
+/** Key for a drive usage row. */
+export function driveUsageQueryKey(sessionId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'drive-usage');
+}
+
+/** Key for one folder level (`root` = drive root). */
+export function driveFoldersQueryKey(sessionId: string, scope: string): AppQueryKey {
+  return createQueryKey(sessionId, 'drive-folders', scope);
+}
+
+/** Key for one folder's detail (breadcrumbs). */
+export function driveFolderQueryKey(sessionId: string, folderId: string): AppQueryKey {
+  return createQueryKey(sessionId, 'drive-folder', folderId);
+}
+
+/** Key for one folder's file listing (`sort` pins the ordering). */
+export function driveFilesQueryKey(sessionId: string, scope: string, sort: string): AppQueryKey {
+  return createQueryKey(sessionId, 'drive-files', scope, sort);
+}

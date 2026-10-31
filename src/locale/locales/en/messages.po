@@ -34,6 +34,12 @@ msgstr " (showing {0})"
 msgid ", selected"
 msgstr ", selected"
 
+#: src/components/Drive/Breadcrumbs.tsx:34
+#: src/components/Drive/Breadcrumbs.tsx:59
+#: src/components/Drive/Breadcrumbs.tsx:65
+msgid "›"
+msgstr "›"
+
 #. placeholder {0}: item.name
 #. placeholder {0}: overCap[0].name
 #. placeholder {0}: tooLarge[0].name
@@ -48,7 +54,7 @@ msgstr "\"{0}\" is too large to attach (limit {1})."
 
 #. placeholder {0}: rejected.name
 #. placeholder {1}: formatByteLimit(rejected.limit)
-#: src/screens/Drive.tsx:191
+#: src/screens/Drive.tsx:257
 msgid "\"{0}\" is too large to upload (limit {1})."
 msgstr "\"{0}\" is too large to upload (limit {1})."
 
@@ -110,6 +116,8 @@ msgid "{0, plural, one {# member} other {# members}}"
 msgstr "{0, plural, one {# member} other {# members}}"
 
 #. placeholder {0}: channel.notesCount
+#. placeholder {0}: notes ?? 0
+#: src/components/Clips/ClipTile.tsx:45
 #: src/screens/Channels.tsx:58
 msgid "{0, plural, one {# note} other {# notes}}"
 msgstr "{0, plural, one {# note} other {# notes}}"
@@ -181,7 +189,7 @@ msgid "{0} / {clipLimit}"
 msgstr "{0} / {clipLimit}"
 
 #. placeholder {0}: clip.notesCount
-#: src/screens/Clip.tsx:223
+#: src/screens/Clip.tsx:224
 msgid "{0} / {noteLimit} notes"
 msgstr "{0} / {noteLimit} notes"
 
@@ -209,9 +217,21 @@ msgid "{0} logins"
 msgstr "{0} logins"
 
 #. placeholder {0}: clip.notesCount
-#: src/screens/Clip.tsx:225
+#: src/screens/Clip.tsx:226
 msgid "{0} notes"
 msgstr "{0} notes"
+
+#. placeholder {0}: formatBytes(used)
+#. placeholder {1}: formatBytes(capacity)
+#: src/components/Drive/UsageBar.tsx:35
+msgid "{0} of {1}"
+msgstr "{0} of {1}"
+
+#. placeholder {0}: formatBytes(used)
+#. placeholder {1}: formatBytes(capacity)
+#: src/components/Drive/UsageBar.tsx:34
+msgid "{0} of {1} — almost full"
+msgstr "{0} of {1} — almost full"
 
 #. placeholder {0}: w.statuses ?? '—'
 #: src/screens/AdminInsight.tsx:194
@@ -356,6 +376,10 @@ msgstr "@user or @user@host"
 msgid "errors.chat.messageRequired"
 msgstr "A chat message needs text or a file."
 
+#: src/components/Drive/MoveToDialog.tsx:45
+msgid "A folder cannot go inside itself or its subfolders."
+msgstr "A folder cannot go inside itself or its subfolders."
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:87
 msgid "errors.drive.recursiveNesting"
@@ -418,7 +442,7 @@ msgstr "accepted your follow request"
 msgid "Accepting…"
 msgstr "Accepting…"
 
-#: src/routes.ts:435
+#: src/routes.ts:436
 #: src/screens/settings/meta.ts:17
 msgid "Accessibility and display"
 msgstr "Accessibility and display"
@@ -644,6 +668,10 @@ msgstr "Already at the smallest size."
 msgid "Already forwarded."
 msgstr "Already forwarded."
 
+#: src/components/Drive/MoveToDialog.tsx:48
+msgid "Already here."
+msgstr "Already here."
+
 #: src/components/Settings/ReactionsSection.tsx:126
 msgid "Already the default heart."
 msgstr "Already the default heart."
@@ -671,7 +699,7 @@ msgid "An empty placeholder. Real widgets will plug in here later."
 msgstr "An empty placeholder. Real widgets will plug in here later."
 
 #: src/components/shell/AccountMenu.tsx:151
-#: src/routes.ts:410
+#: src/routes.ts:411
 #: src/screens/Announcements.tsx:225
 #: src/screens/Announcements.tsx:240
 #: src/screens/Announcements.tsx:251
@@ -690,7 +718,7 @@ msgstr "Announcements never show sample data when signed out."
 msgid "Another server"
 msgstr "Another server"
 
-#: src/routes.ts:390
+#: src/routes.ts:391
 #: src/screens/Antenna.tsx:81
 #: src/screens/Antenna.tsx:98
 #: src/screens/Antenna.tsx:107
@@ -710,7 +738,7 @@ msgid "antennas"
 msgstr "antennas"
 
 #: src/components/shell/Sidebar.tsx:105
-#: src/routes.ts:392
+#: src/routes.ts:393
 #: src/screens/Antennas.tsx:312
 #: src/screens/Antennas.tsx:325
 #: src/screens/Antennas.tsx:333
@@ -1020,6 +1048,7 @@ msgstr "by {shown}"
 #: src/components/Composer/CompactComposer.tsx:207
 #: src/components/Composer/Composer.tsx:1243
 #: src/components/Composer/ComposerSections.tsx:665
+#: src/components/Drive/FolderDialog.tsx:71
 #: src/components/Post/ReportChooser.tsx:201
 #: src/components/RichText.tsx:406
 #: src/components/Settings/FiltersSection.tsx:158
@@ -1037,8 +1066,6 @@ msgstr "by {shown}"
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/screens/Drive/rows.tsx:103
-#: src/screens/Drive/rows.tsx:269
 #: src/screens/Drive/upload.tsx:64
 #: src/screens/Lists.tsx:297
 msgctxt "button"
@@ -1055,6 +1082,11 @@ msgstr "Cancel"
 msgid "Cancel upload"
 msgstr "Cancel upload"
 
+#: src/components/Drive/FileDetailPanel.tsx:256
+#: src/components/Drive/FileDetailPanel.tsx:298
+msgid "Caption"
+msgstr "Caption"
+
 #: src/screens/Antenna.tsx:32
 msgid "case-sensitive"
 msgstr "case-sensitive"
@@ -1067,7 +1099,7 @@ msgstr "Change category"
 msgid "Change the category?"
 msgstr "Change the category?"
 
-#: src/routes.ts:394
+#: src/routes.ts:395
 #: src/screens/Channel.tsx:107
 #: src/screens/Channel.tsx:120
 #: src/screens/Channel.tsx:129
@@ -1077,7 +1109,7 @@ msgid "Channel"
 msgstr "Channel"
 
 #: src/components/shell/Sidebar.tsx:101
-#: src/routes.ts:396
+#: src/routes.ts:397
 #: src/screens/Channels.tsx:203
 #: src/screens/Channels.tsx:218
 #: src/screens/Channels.tsx:226
@@ -1100,7 +1132,7 @@ msgstr "Channels are not available on this server."
 msgid "Channels never show sample data when signed out."
 msgstr "Channels never show sample data when signed out."
 
-#: src/routes.ts:404
+#: src/routes.ts:405
 #: src/screens/ChatRooms.tsx:116
 #: src/screens/ChatRooms.tsx:133
 #: src/screens/ChatRooms.tsx:146
@@ -1113,7 +1145,7 @@ msgstr "Chat"
 msgid "Chat is not available on this server."
 msgstr "Chat is not available on this server."
 
-#: src/routes.ts:406
+#: src/routes.ts:407
 #: src/screens/ChatRoom.tsx:93
 #: src/screens/ChatRoom.tsx:106
 #: src/screens/ChatRoom.tsx:126
@@ -1222,7 +1254,7 @@ msgstr "Clearing notifications."
 msgid "Clearing…"
 msgstr "Clearing…"
 
-#: src/routes.ts:386
+#: src/routes.ts:387
 #: src/screens/Clip.tsx:78
 #: src/screens/Clip.tsx:89
 #: src/screens/Clip.tsx:98
@@ -1238,10 +1270,14 @@ msgstr "Clip limit reached ({clipLimit})."
 msgid "Clip name"
 msgstr "Clip name"
 
-#: src/screens/Clip.tsx:240
-#: src/screens/Clips.tsx:282
+#: src/screens/Clip.tsx:241
+#: src/screens/Clips.tsx:276
 msgid "Clip options"
 msgstr "Clip options"
+
+#: src/components/Clips/ClipTile.tsx:56
+msgid "clip, {notesPart} notes"
+msgstr "clip, {notesPart} notes"
 
 #: src/components/Post/menuModel.ts:154
 #: src/components/richtext/MatrixHover.tsx:32
@@ -1254,7 +1290,7 @@ msgid "clips"
 msgstr "clips"
 
 #: src/components/shell/Sidebar.tsx:103
-#: src/routes.ts:388
+#: src/routes.ts:389
 #: src/screens/Clips.tsx:167
 #: src/screens/Clips.tsx:189
 #: src/screens/Clips.tsx:209
@@ -1281,6 +1317,7 @@ msgstr "Clips never show sample data when signed out."
 #: src/screens/Compose.tsx:212
 #: src/screens/Compose.tsx:220
 #: src/screens/Compose.tsx:228
+#: src/screens/Drive.tsx:546
 msgid "Close"
 msgstr "Close"
 
@@ -1333,7 +1370,7 @@ msgstr "Collapse sidebar"
 msgid "Collapse widgets panel"
 msgstr "Collapse widgets panel"
 
-#: src/routes.ts:461
+#: src/routes.ts:462
 #: src/screens/CollectionDebug.tsx:79
 msgid "Collection debug"
 msgstr "Collection debug"
@@ -1347,8 +1384,7 @@ msgstr "Colour mode"
 msgid "Colour mode, text size, emoji art."
 msgstr "Colour mode, text size, emoji art."
 
-#: src/screens/Drive/detail.tsx:152
-msgctxt "drive file detail field"
+#: src/components/Drive/FileDetailPanel.tsx:225
 msgid "Comment"
 msgstr "Comment"
 
@@ -1365,13 +1401,13 @@ msgid "Confirm"
 msgstr "Confirm"
 
 #: src/screens/Antennas.tsx:230
-#: src/screens/Clip.tsx:267
-#: src/screens/Clips.tsx:325
+#: src/screens/Clip.tsx:268
+#: src/screens/Clips.tsx:321
+#: src/screens/Drive.tsx:612
+#: src/screens/Drive.tsx:634
 msgid "Confirm delete"
 msgstr "Confirm delete"
 
-#: src/screens/Drive/rows.tsx:123
-#: src/screens/Drive/rows.tsx:327
 #: src/screens/Lists.tsx:330
 msgctxt "button"
 msgid "Confirm delete"
@@ -1391,16 +1427,17 @@ msgstr "Content warning"
 msgid "Continue"
 msgstr "Continue"
 
-#: src/routes.ts:400
+#: src/routes.ts:401
 #: src/screens/Conversation.tsx:117
 #: src/screens/Conversation.tsx:128
 #: src/screens/Conversation.tsx:150
 msgid "Conversation"
 msgstr "Conversation"
 
+#: src/components/Drive/FileDetailPanel.tsx:195
 #: src/components/Post/PostCard.tsx:497
 #: src/components/richtext/MatrixHover.tsx:30
-#: src/screens/Clip.tsx:184
+#: src/screens/Clip.tsx:185
 msgid "Copied"
 msgstr "Copied"
 
@@ -1412,9 +1449,10 @@ msgstr "Copy contents"
 msgid "Copy handle"
 msgstr "Copy handle"
 
+#: src/components/Drive/FileDetailPanel.tsx:324
 #: src/components/Post/menuModel.ts:330
 #: src/components/Post/menuModel.ts:331
-#: src/screens/Clip.tsx:231
+#: src/screens/Clip.tsx:232
 msgid "Copy link"
 msgstr "Copy link"
 
@@ -1463,7 +1501,8 @@ msgstr "Could not clear notifications."
 msgid "Could not complete this action."
 msgstr "Could not complete this action."
 
-#: src/screens/Clip.tsx:186
+#: src/components/Drive/FileDetailPanel.tsx:197
+#: src/screens/Clip.tsx:187
 msgid "Could not copy the link."
 msgstr "Could not copy the link."
 
@@ -1471,19 +1510,20 @@ msgstr "Could not copy the link."
 msgid "Could not create the antenna."
 msgstr "Could not create the antenna."
 
-#: src/screens/Drive.tsx:422
-msgid "Could not create the folder."
-msgstr "Could not create the folder."
-
 #: src/screens/Lists.tsx:159
 msgid "Could not create the list."
 msgstr "Could not create the list."
+
+#. placeholder {0}: failed.length
+#: src/screens/Drive.tsx:323
+msgid "Could not delete {0} file(s): {names}"
+msgstr "Could not delete {0} file(s): {names}"
 
 #: src/screens/Antennas.tsx:405
 msgid "Could not delete the antenna."
 msgstr "Could not delete the antenna."
 
-#: src/screens/Clip.tsx:198
+#: src/screens/Clip.tsx:199
 #: src/screens/Clips.tsx:116
 msgid "Could not delete the clip."
 msgstr "Could not delete the clip."
@@ -1493,11 +1533,12 @@ msgstr "Could not delete the clip."
 msgid "Could not delete the conversation."
 msgstr "Could not delete the conversation."
 
-#: src/screens/Drive.tsx:308
+#: src/components/Drive/FileDetailPanel.tsx:185
+#: src/screens/Drive.tsx:644
 msgid "Could not delete the file."
 msgstr "Could not delete the file."
 
-#: src/screens/Drive.tsx:382
+#: src/screens/Drive.tsx:332
 msgid "Could not delete the folder."
 msgstr "Could not delete the folder."
 
@@ -1530,6 +1571,10 @@ msgstr "Could not dismiss that request."
 msgid "Could not import."
 msgstr "Could not import."
 
+#: src/screens/Drive.tsx:302
+msgid "Could not inspect the folder."
+msgstr "Could not inspect the folder."
+
 #: src/screens/Note.tsx:253
 msgid "Could not load {kindName}."
 msgstr "Could not load {kindName}."
@@ -1550,7 +1595,7 @@ msgstr "Could not load channels."
 msgid "Could not load chats."
 msgstr "Could not load chats."
 
-#: src/screens/Clips.tsx:299
+#: src/screens/Clips.tsx:295
 msgid "Could not load clips."
 msgstr "Could not load clips."
 
@@ -1558,11 +1603,11 @@ msgstr "Could not load clips."
 msgid "Could not load custom emoji."
 msgstr "Could not load custom emoji."
 
-#: src/screens/Drive.tsx:267
+#: src/screens/Drive.tsx:500
 msgid "Could not load drive."
 msgstr "Could not load drive."
 
-#: src/screens/Drive/detail.tsx:67
+#: src/components/Drive/FileDetailPanel.tsx:108
 msgid "Could not load file details."
 msgstr "Could not load file details."
 
@@ -1599,10 +1644,6 @@ msgstr "Could not load messages."
 msgid "Could not load more channels."
 msgstr "Could not load more channels."
 
-#: src/screens/Drive.tsx:165
-msgid "Could not load more files."
-msgstr "Could not load more files."
-
 #: src/screens/Followers.tsx:286
 msgid "Could not load more followers."
 msgstr "Could not load more followers."
@@ -1616,7 +1657,7 @@ msgstr "Could not load more messages."
 msgid "Could not load more news."
 msgstr "Could not load more news."
 
-#: src/screens/Drive/detail.tsx:113
+#: src/components/Drive/FileDetailPanel.tsx:156
 msgid "Could not load more notes."
 msgstr "Could not load more notes."
 
@@ -1635,8 +1676,8 @@ msgstr "Could not load more."
 msgid "Could not load news."
 msgstr "Could not load news."
 
-#: src/screens/Drive/detail.tsx:89
-#: src/screens/Drive/detail.tsx:198
+#: src/components/Drive/FileDetailPanel.tsx:130
+#: src/components/Drive/FileDetailPanel.tsx:359
 msgid "Could not load notes for this file."
 msgstr "Could not load notes for this file."
 
@@ -1773,7 +1814,11 @@ msgstr "Could not mark notifications read."
 msgid "Could not mark the announcement as read."
 msgstr "Could not mark the announcement as read."
 
-#: src/screens/Drive.tsx:197
+#: src/components/Drive/MoveToDialog.tsx:61
+msgid "Could not move."
+msgstr "Could not move."
+
+#: src/screens/Drive.tsx:264
 msgid "Could not open the file picker."
 msgstr "Could not open the file picker."
 
@@ -1849,14 +1894,6 @@ msgstr "Could not remove the filter."
 msgid "Could not rename the antenna."
 msgstr "Could not rename the antenna."
 
-#: src/screens/Drive/rows.tsx:233
-msgid "Could not rename the file."
-msgstr "Could not rename the file."
-
-#: src/screens/Drive/rows.tsx:71
-msgid "Could not rename the folder."
-msgstr "Could not rename the folder."
-
 #: src/screens/Lists.tsx:251
 #: src/screens/Lists.tsx:482
 msgid "Could not rename the list."
@@ -1901,6 +1938,10 @@ msgstr "Could not save the filter policy."
 msgid "Could not save the filter."
 msgstr "Could not save the filter."
 
+#: src/components/Drive/FolderDialog.tsx:46
+msgid "Could not save the folder."
+msgstr "Could not save the folder."
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:46
 msgid "errors.auth.savePending"
@@ -1934,7 +1975,7 @@ msgstr "Could not start the export."
 msgid "Could not update the channel follow."
 msgstr "Could not update the channel follow."
 
-#: src/screens/Drive/rows.tsx:309
+#: src/components/Drive/FileDetailPanel.tsx:171
 msgid "Could not update the file."
 msgstr "Could not update the file."
 
@@ -1942,7 +1983,7 @@ msgstr "Could not update the file."
 msgid "Could not upload that picture."
 msgstr "Could not upload that picture."
 
-#: src/screens/Drive.tsx:220
+#: src/screens/Drive.tsx:284
 msgid "Could not upload the file."
 msgstr "Could not upload the file."
 
@@ -1972,20 +2013,10 @@ msgstr "CPU {0} × {1}"
 msgid "Create antenna"
 msgstr "Create antenna"
 
-#: src/screens/Drive.tsx:404
-msgctxt "button"
-msgid "Create folder"
-msgstr "Create folder"
-
 #: src/screens/Lists.tsx:186
 msgctxt "button"
 msgid "Create list"
 msgstr "Create list"
-
-#: src/screens/Drive/detail.tsx:138
-msgctxt "drive file detail field"
-msgid "Created"
-msgstr "Created"
 
 #: src/components/Notification/NotificationRow.tsx:97
 msgid "created an access token"
@@ -1995,7 +2026,6 @@ msgstr "created an access token"
 msgid "Creating…"
 msgstr "Creating…"
 
-#: src/screens/Drive.tsx:403
 #: src/screens/Lists.tsx:185
 msgctxt "button"
 msgid "Creating…"
@@ -2058,7 +2088,7 @@ msgstr "Data saver"
 msgid "Date"
 msgstr "Date"
 
-#: src/routes.ts:459
+#: src/routes.ts:460
 msgid "Debug"
 msgstr "Debug"
 
@@ -2077,36 +2107,50 @@ msgid "Default. Colourful open-source set."
 msgstr "Default. Colourful open-source set."
 
 #: src/components/Composer/ComposerSections.tsx:736
+#: src/components/Drive/FileDetailPanel.tsx:342
+#: src/components/Drive/FileDetailPanel.tsx:393
 #: src/components/Post/menuModel.ts:463
 #: src/components/Post/menuModel.ts:465
 #: src/components/Post/menuModel.ts:468
 #: src/screens/Antennas.tsx:248
 #: src/screens/ChatThread.tsx:129
-#: src/screens/Clip.tsx:243
-#: src/screens/Clips.tsx:285
+#: src/screens/Clip.tsx:244
+#: src/screens/Clips.tsx:279
 #: src/screens/Conversation.tsx:228
 #: src/screens/Conversations.tsx:98
+#: src/screens/Drive.tsx:469
+#: src/screens/Drive.tsx:486
 msgid "Delete"
 msgstr "Delete"
 
-#: src/screens/Drive/rows.tsx:151
-#: src/screens/Drive/rows.tsx:350
 #: src/screens/Lists.tsx:348
 msgctxt "button"
 msgid "Delete"
 msgstr "Delete"
 
+#. placeholder {0}: deleteFolder.folder.name
+#. placeholder {1}: deleteFolder.walk.files.length
+#. placeholder {2}: deleteFolder.walk.folders.length
+#: src/screens/Drive.tsx:604
+msgid "Delete “{0}” with {1} files and {2} subfolders? This is permanent."
+msgstr "Delete “{0}” with {1} files and {2} subfolders? This is permanent."
+
 #. placeholder {0}: antenna.name
 #. placeholder {0}: clip.name
 #. placeholder {0}: deleteTarget.name
 #: src/screens/Antennas.tsx:226
-#: src/screens/Clip.tsx:264
-#: src/screens/Clips.tsx:322
-#: src/screens/Drive/rows.tsx:119
-#: src/screens/Drive/rows.tsx:320
+#: src/screens/Clip.tsx:265
+#: src/screens/Clips.tsx:318
 #: src/screens/Lists.tsx:326
 msgid "Delete “{0}”? This cannot be undone."
 msgstr "Delete “{0}”? This cannot be undone."
+
+#. placeholder {0}: deleteFile.name
+#. placeholder {0}: media.name
+#: src/components/Drive/FileDetailPanel.tsx:390
+#: src/screens/Drive.tsx:631
+msgid "Delete “{0}”? This is permanent."
+msgstr "Delete “{0}”? This is permanent."
 
 #: src/components/Post/menuModel.ts:442
 #: src/components/Post/menuModel.ts:446
@@ -2136,16 +2180,14 @@ msgstr "Delete this draft"
 msgid "Delete this post?"
 msgstr "Delete this post?"
 
+#: src/components/Drive/FileDetailPanel.tsx:393
 #: src/screens/ChatThread.tsx:113
-#: src/screens/Clip.tsx:267
-#: src/screens/Clips.tsx:325
+#: src/screens/Clip.tsx:268
+#: src/screens/Clips.tsx:321
 #: src/screens/Conversation.tsx:212
 #: src/screens/Conversations.tsx:82
-msgid "Deleting…"
-msgstr "Deleting…"
-
-#: src/screens/Drive/rows.tsx:326
-msgctxt "button"
+#: src/screens/Drive.tsx:612
+#: src/screens/Drive.tsx:634
 msgid "Deleting…"
 msgstr "Deleting…"
 
@@ -2184,9 +2226,7 @@ msgstr "Description (optional)"
 msgid "Description must be 2048 characters or fewer."
 msgstr "Description must be 2048 characters or fewer."
 
-#. Open file details
-#: src/screens/Drive/rows.tsx:283
-msgctxt "button"
+#: src/screens/Drive.tsx:482
 msgid "Details"
 msgstr "Details"
 
@@ -2206,7 +2246,7 @@ msgstr "Device only: this server has no default-reaction field."
 msgid "Direct and specified posts aren't autosaved on this device. Use Save to keep a copy."
 msgstr "Direct and specified posts aren't autosaved on this device. Use Save to keep a copy."
 
-#: src/routes.ts:408
+#: src/routes.ts:409
 #: src/screens/ChatUser.tsx:74
 #: src/screens/ChatUser.tsx:115
 #: src/screens/ChatUser.tsx:128
@@ -2227,7 +2267,7 @@ msgstr "Discard changes"
 msgid "Discard changes?"
 msgstr "Discard changes?"
 
-#: src/routes.ts:402
+#: src/routes.ts:403
 #: src/screens/explore/NewsTab.tsx:80
 #: src/screens/NewsDiscussions.tsx:32
 #: src/screens/NewsDiscussions.tsx:43
@@ -2309,25 +2349,13 @@ msgstr "Drafts ({0})"
 msgid "Draw an opaque cover over the app when it goes to the background, so the task switcher shows nothing. Always on while a chat is open."
 msgstr "Draw an opaque cover over the app when it goes to the background, so the task switcher shows nothing. Always on while a chat is open."
 
-#: src/routes.ts:418
+#: src/routes.ts:419
 msgid "Drive"
 msgstr "Drive"
 
-#. js-lingui-explicit-id
-#: src/screens/Drive.tsx:230
-#: src/screens/Drive.tsx:243
-#: src/screens/Drive.tsx:251
-msgctxt "file storage screen title"
-msgid "drive.title"
-msgstr "Drive"
-
-#: src/screens/Drive.tsx:244
+#: src/screens/Drive.tsx:227
 msgid "Drive is not available on this server."
 msgstr "Drive is not available on this server."
-
-#: src/screens/Drive.tsx:233
-msgid "Drive never shows sample data when signed out."
-msgstr "Drive never shows sample data when signed out."
 
 #: src/components/Collection/DropZone.web.tsx:101
 msgid "Drop to upload to {targetName}"
@@ -2353,8 +2381,8 @@ msgstr "earned an achievement"
 #: src/components/Post/menuModel.ts:403
 #: src/components/Post/menuModel.ts:404
 #: src/components/Settings/FiltersSection.tsx:178
-#: src/screens/Clip.tsx:242
-#: src/screens/Clips.tsx:284
+#: src/screens/Clip.tsx:243
+#: src/screens/Clips.tsx:278
 msgid "Edit"
 msgstr "Edit"
 
@@ -2362,7 +2390,7 @@ msgstr "Edit"
 msgid "Edit clip"
 msgstr "Edit clip"
 
-#: src/routes.ts:378
+#: src/routes.ts:379
 #: src/screens/NoteHistory.tsx:100
 msgid "Edit history"
 msgstr "Edit history"
@@ -2371,7 +2399,7 @@ msgstr "Edit history"
 msgid "Edit memo"
 msgstr "Edit memo"
 
-#: src/routes.ts:428
+#: src/routes.ts:429
 #: src/screens/ProfileEditor.tsx:342
 #: src/screens/User.tsx:191
 msgid "Edit profile"
@@ -2486,7 +2514,7 @@ msgid "Explore never shows sample data when signed out."
 msgstr "Explore never shows sample data when signed out."
 
 #: src/components/Settings/TransferSections.tsx:310
-#: src/routes.ts:445
+#: src/routes.ts:446
 #: src/screens/settings/meta.ts:27
 msgid "Export"
 msgstr "Export"
@@ -2516,7 +2544,7 @@ msgid "favorites"
 msgstr "favorites"
 
 #: src/components/Post/menuModel.ts:381
-#: src/routes.ts:420
+#: src/routes.ts:421
 msgid "Favorites"
 msgstr "Favorites"
 
@@ -2538,6 +2566,7 @@ msgstr "Favorites never show sample data when signed out."
 msgid "Favourite emoji"
 msgstr "Favourite emoji"
 
+#: src/components/Clips/ClipTile.tsx:30
 #: src/components/EmojiPicker/model.ts:81
 msgid "Favourites"
 msgstr "Favourites"
@@ -2568,7 +2597,7 @@ msgstr "Featured hashtags are not available on this server."
 msgid "Federated"
 msgstr "Federated"
 
-#: src/routes.ts:439
+#: src/routes.ts:440
 #: src/screens/settings/meta.ts:21
 msgid "Feeds"
 msgstr "Feeds"
@@ -2592,11 +2621,13 @@ msgstr "Field {0} value"
 msgid "errors.compose.fileTooLarge"
 msgstr "File is too large ({kb} KB — limit is 10 MB)."
 
-#: src/screens/Drive/rows.tsx:249
-#: src/screens/Drive/rows.tsx:252
-msgctxt "drive file name input"
+#: src/components/Drive/FileDetailPanel.tsx:278
 msgid "File name"
 msgstr "File name"
+
+#: src/screens/Drive.tsx:479
+msgid "File options"
+msgstr "File options"
 
 #: src/components/Collection/Toolbar.tsx:50
 msgid "Filter"
@@ -2647,17 +2678,18 @@ msgstr "Finishing sign-in"
 msgid "Flat"
 msgstr "Flat"
 
-#: src/screens/Drive.tsx:396
-#: src/screens/Drive/rows.tsx:83
-#: src/screens/Drive/rows.tsx:86
-msgctxt "drive folder name input"
+#: src/components/Clips/ClipTile.tsx:37
+msgid "folder"
+msgstr "folder"
+
+#: src/components/Drive/FolderDialog.tsx:55
+#: src/components/Drive/FolderDialog.tsx:58
 msgid "Folder name"
 msgstr "Folder name"
 
-#: src/screens/Drive.tsx:352
-msgctxt "drive section header"
-msgid "Folders"
-msgstr "Folders"
+#: src/screens/Drive.tsx:464
+msgid "Folder options"
+msgstr "Folder options"
 
 #: src/components/Profile/UserHoverCard.tsx:190
 #: src/components/ProfileActions/ProfileActions.tsx:30
@@ -2718,7 +2750,7 @@ msgstr "Follower"
 msgid "followers"
 msgstr "followers"
 
-#: src/routes.ts:422
+#: src/routes.ts:423
 msgid "Followers"
 msgstr "Followers"
 
@@ -2744,7 +2776,7 @@ msgid "following"
 msgstr "following"
 
 #: src/components/ProfileActions/ProfileActions.tsx:32
-#: src/routes.ts:424
+#: src/routes.ts:425
 #: src/screens/Notifications.tsx:72
 msgid "Following"
 msgstr "Following"
@@ -2773,7 +2805,7 @@ msgstr "Following and followers are visible to followers."
 msgid "Following is not available on this server."
 msgstr "Following is not available on this server."
 
-#: src/routes.ts:426
+#: src/routes.ts:427
 #: src/screens/Notifications.tsx:111
 msgid "Follows"
 msgstr "Follows"
@@ -2919,6 +2951,10 @@ msgstr "Hide sensitive media"
 msgid "Hide totals"
 msgstr "Hide totals"
 
+#: src/screens/Drive.tsx:415
+msgid "Hide upload"
+msgstr "Hide upload"
+
 #: src/screens/Antennas.tsx:40
 msgid "home"
 msgstr "home"
@@ -2926,7 +2962,7 @@ msgstr "home"
 #: src/components/shell/Sidebar.tsx:172
 #: src/components/shell/TabBar.tsx:32
 #: src/Navigation.tsx:115
-#: src/routes.ts:366
+#: src/routes.ts:367
 msgid "Home"
 msgstr "Home"
 
@@ -2973,7 +3009,7 @@ msgstr "Illegal content"
 msgid "Image unavailable"
 msgstr "Image unavailable"
 
-#: src/routes.ts:443
+#: src/routes.ts:444
 #: src/screens/settings/meta.ts:25
 msgid "Import"
 msgstr "Import"
@@ -3050,17 +3086,16 @@ msgstr "It may be deleted, private, or on an unreachable server."
 msgid "It may be deleted, suspended, or unreachable."
 msgstr "It may be deleted, suspended, or unreachable."
 
+#: src/components/Drive/FileDetailPanel.tsx:400
 #: src/screens/Antennas.tsx:237
-#: src/screens/Clip.tsx:274
-#: src/screens/Clips.tsx:332
+#: src/screens/Clip.tsx:275
+#: src/screens/Clips.tsx:328
+#: src/screens/Drive.tsx:619
+#: src/screens/Drive.tsx:652
 msgid "Keep"
 msgstr "Keep"
 
-#. Keep the file; cancel deletion
-#. Keep the folder; cancel deletion
 #. Keep the list; cancel deletion
-#: src/screens/Drive/rows.tsx:133
-#: src/screens/Drive/rows.tsx:339
 #: src/screens/Lists.tsx:337
 msgctxt "button"
 msgid "Keep"
@@ -3084,7 +3119,7 @@ msgid "Keep writing"
 msgstr "Keep writing"
 
 #: src/components/shell/Sidebar.tsx:295
-#: src/routes.ts:465
+#: src/routes.ts:466
 #: src/state/PrivacyShieldHost.tsx:50
 msgid "Keystone"
 msgstr "Keystone"
@@ -3116,7 +3151,7 @@ msgstr "Keywords (space-separated, all must match)"
 
 #: src/components/Composer/Composer.tsx:1403
 #: src/components/Settings/LanguageSection.tsx:31
-#: src/routes.ts:449
+#: src/routes.ts:450
 #: src/screens/ProfileEditor.tsx:409
 #: src/screens/settings/meta.ts:31
 msgid "Language"
@@ -3191,7 +3226,7 @@ msgid "Link previews"
 msgstr "Link previews"
 
 #: src/components/Collection/ViewToggle.tsx:30
-#: src/routes.ts:382
+#: src/routes.ts:383
 #: src/screens/Notifications.tsx:80
 msgid "List"
 msgstr "List"
@@ -3219,7 +3254,7 @@ msgid "lists"
 msgstr "lists"
 
 #: src/components/shell/Sidebar.tsx:107
-#: src/routes.ts:384
+#: src/routes.ts:385
 #: src/screens/Antennas.tsx:339
 msgid "Lists"
 msgstr "Lists"
@@ -3262,7 +3297,6 @@ msgstr "Live updates unavailable"
 msgid "Load image"
 msgstr "Load image"
 
-#: src/screens/Drive.tsx:450
 #: src/screens/Followers.tsx:301
 #: src/screens/Following.tsx:301
 msgctxt "button"
@@ -3274,8 +3308,7 @@ msgstr "Load more"
 msgid "Load more {0}"
 msgstr "Load more {0}"
 
-#: src/screens/Drive/detail.tsx:226
-msgctxt "button"
+#: src/components/Drive/FileDetailPanel.tsx:376
 msgid "Load more notes"
 msgstr "Load more notes"
 
@@ -3296,6 +3329,10 @@ msgstr "Loading"
 msgid "Loading account…"
 msgstr "Loading account…"
 
+#: src/components/Drive/MoveToDialog.tsx:109
+msgid "Loading folders…"
+msgstr "Loading folders…"
+
 #: src/screens/Tag.tsx:139
 msgid "Loading hashtag state…"
 msgstr "Loading hashtag state…"
@@ -3308,10 +3345,6 @@ msgstr "Loading Keystone"
 #: src/screens/Conversations.tsx:231
 msgid "Loading more messages…"
 msgstr "Loading more messages…"
-
-#: src/screens/Drive/detail.tsx:185
-msgid "Loading notes…"
-msgstr "Loading notes…"
 
 #: src/screens/Notifications.tsx:201
 msgid "Loading notification settings."
@@ -3337,6 +3370,7 @@ msgstr "Loading the filter policy."
 msgid "Loading this server's rules…"
 msgstr "Loading this server's rules…"
 
+#: src/components/Drive/FileDetailPanel.tsx:376
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:356
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:358
 #: src/components/Settings/AccountLists.tsx:104
@@ -3349,8 +3383,6 @@ msgstr "Loading this server's rules…"
 msgid "Loading…"
 msgstr "Loading…"
 
-#: src/screens/Drive.tsx:449
-#: src/screens/Drive/detail.tsx:225
 #: src/screens/Followers.tsx:300
 #: src/screens/Following.tsx:300
 msgctxt "button"
@@ -3427,14 +3459,6 @@ msgstr "Mark as read"
 msgid "Mark media sensitive"
 msgstr "Mark media sensitive"
 
-#: src/screens/Drive/rows.tsx:299
-msgid "Mark not sensitive"
-msgstr "Mark not sensitive"
-
-#: src/screens/Drive/rows.tsx:300
-msgid "Mark sensitive"
-msgstr "Mark sensitive"
-
 #: src/screens/ProfileEditor.tsx:372
 msgid "Mark this account as a bot."
 msgstr "Mark this account as a bot."
@@ -3498,7 +3522,7 @@ msgstr "Media"
 msgid "Media library access was denied. Allow access to attach photos or videos."
 msgstr "Media library access was denied. Allow access to attach photos or videos."
 
-#: src/screens/Drive.tsx:180
+#: src/screens/Drive.tsx:247
 msgid "Media library access was denied. Allow access to pick a file."
 msgstr "Media library access was denied. Allow access to pick a file."
 
@@ -3507,7 +3531,7 @@ msgstr "Media library access was denied. Allow access to pick a file."
 msgid "Media library access was denied. Enable it in the system settings to attach photos or videos."
 msgstr "Media library access was denied. Enable it in the system settings to attach photos or videos."
 
-#: src/screens/Drive.tsx:181
+#: src/screens/Drive.tsx:248
 msgid "Media library access was denied. Enable it in the system settings to pick a file."
 msgstr "Media library access was denied. Enable it in the system settings to pick a file."
 
@@ -3534,7 +3558,7 @@ msgid "Mentions"
 msgstr "Mentions"
 
 #: src/components/shell/Sidebar.tsx:199
-#: src/routes.ts:398
+#: src/routes.ts:399
 #: src/screens/Conversations.tsx:148
 #: src/screens/Conversations.tsx:164
 #: src/screens/Conversations.tsx:184
@@ -3562,6 +3586,10 @@ msgstr "Messaging is not implemented in Keystone yet for this server — chat su
 #: src/screens/AdminInsight.tsx:604
 msgid "Metrics"
 msgstr "Metrics"
+
+#: src/components/Drive/Breadcrumbs.tsx:61
+msgid "Middle folders"
+msgstr "Middle folders"
 
 #. placeholder {0}: me.acct
 #: src/screens/ProfileEditor.tsx:346
@@ -3593,6 +3621,17 @@ msgstr "More options"
 #: src/components/shell/WidgetsEditor.tsx:78
 msgid "Move down"
 msgstr "Move down"
+
+#: src/components/Drive/MoveToDialog.tsx:99
+msgid "Move here"
+msgstr "Move here"
+
+#: src/components/Drive/FileDetailPanel.tsx:317
+#: src/components/Drive/MoveToDialog.tsx:68
+#: src/screens/Drive.tsx:468
+#: src/screens/Drive.tsx:483
+msgid "Move to…"
+msgstr "Move to…"
 
 #: src/components/shell/WidgetsEditor.tsx:70
 msgid "Move up"
@@ -3646,7 +3685,7 @@ msgstr "Muted servers"
 msgid "mutes"
 msgstr "mutes"
 
-#: src/routes.ts:441
+#: src/routes.ts:442
 #: src/screens/settings/meta.ts:23
 msgid "Mutes and blocks"
 msgstr "Mutes and blocks"
@@ -3661,32 +3700,41 @@ msgstr "My channels"
 
 #: src/components/shell/Sidebar.tsx:173
 #: src/components/shell/TabBar.tsx:33
-#: src/routes.ts:368
+#: src/routes.ts:369
 msgid "My Network"
 msgstr "My Network"
 
 #: src/components/shell/AccountMenu.tsx:172
 #: src/components/shell/Sidebar.tsx:208
+#: src/screens/Drive.tsx:187
+#: src/screens/Drive.tsx:207
+#: src/screens/Drive.tsx:223
+#: src/screens/Drive.tsx:382
 msgid "My Uploads"
 msgstr "My Uploads"
 
+#: src/components/Drive/MoveToDialog.tsx:79
+msgid "My Uploads (root)"
+msgstr "My Uploads (root)"
+
 #: src/components/Clips/ClipDialog.tsx:66
+#: src/components/Drive/FileDetailPanel.tsx:212
 #: src/screens/CollectionDebug.tsx:84
 msgid "Name"
 msgstr "Name"
 
-#: src/screens/Drive/detail.tsx:123
-msgctxt "drive file detail field"
-msgid "Name"
-msgstr "Name"
-
 #: src/components/Clips/ClipDialog.tsx:38
+#: src/components/Drive/FolderDialog.tsx:33
 msgid "Name is required."
 msgstr "Name is required."
 
 #: src/components/Clips/ClipDialog.tsx:40
 msgid "Name must be 100 characters or fewer."
 msgstr "Name must be 100 characters or fewer."
+
+#: src/components/Drive/FolderDialog.tsx:35
+msgid "Name must be 200 characters or fewer."
+msgstr "Name must be 200 characters or fewer."
 
 #: src/components/Settings/DomainBlocks.tsx:41
 msgid "Needs a Mastodon-family server."
@@ -3747,8 +3795,8 @@ msgstr "New antenna"
 msgid "New clip"
 msgstr "New clip"
 
-#: src/screens/Drive.tsx:393
-msgctxt "drive folder creation"
+#: src/screens/Drive.tsx:408
+#: src/screens/Drive.tsx:575
 msgid "New folder"
 msgstr "New folder"
 
@@ -3757,7 +3805,7 @@ msgctxt "list creation"
 msgid "New list"
 msgstr "New list"
 
-#: src/routes.ts:463
+#: src/routes.ts:464
 msgid "New post"
 msgstr "New post"
 
@@ -3781,8 +3829,7 @@ msgstr "Next"
 msgid "Next week 9:00"
 msgstr "Next week 9:00"
 
-#: src/screens/Drive/detail.tsx:147
-msgctxt "drive file detail value"
+#: src/components/Drive/FileDetailPanel.tsx:221
 msgid "No"
 msgstr "No"
 
@@ -3852,8 +3899,7 @@ msgstr "No conversation found for {id}."
 msgid "No conversations yet."
 msgstr "No conversations yet."
 
-#: src/screens/Drive/detail.tsx:153
-msgctxt "drive file detail value"
+#: src/components/Drive/FileDetailPanel.tsx:226
 msgid "No description"
 msgstr "No description"
 
@@ -3922,9 +3968,8 @@ msgstr "No messages yet."
 msgid "No news right now."
 msgstr "No news right now."
 
-#. js-lingui-explicit-id
-#: src/screens/Drive/detail.tsx:209
-msgid "drive.detail.notesEmpty"
+#: src/components/Drive/FileDetailPanel.tsx:368
+msgid "No notes use this file."
 msgstr "No notes use this file."
 
 #: src/screens/Notifications.tsx:850
@@ -4034,11 +4079,6 @@ msgstr "Not offered yet."
 msgid "Not on this server."
 msgstr "Not on this server."
 
-#: src/screens/Drive/detail.tsx:158
-msgctxt "drive file detail value"
-msgid "Not processed yet"
-msgstr "Not processed yet"
-
 #: src/screens/Notifications.tsx:503
 msgid "Not reported by this server."
 msgstr "Not reported by this server."
@@ -4056,7 +4096,7 @@ msgstr "Not wired yet — no custom-font loading on native."
 msgid "Not wired yet — the app ships one light/dark pair."
 msgstr "Not wired yet — the app ships one light/dark pair."
 
-#: src/routes.ts:376
+#: src/routes.ts:377
 #: src/screens/Note.tsx:1196
 msgid "Note"
 msgstr "Note"
@@ -4069,7 +4109,7 @@ msgstr "notes"
 msgid "Notes"
 msgstr "Notes"
 
-#: src/screens/Drive/detail.tsx:181
+#: src/components/Drive/FileDetailPanel.tsx:350
 msgid "Notes using this file"
 msgstr "Notes using this file"
 
@@ -4121,7 +4161,7 @@ msgstr "Notification unread count is not on this server."
 #: src/components/shell/Sidebar.tsx:216
 #: src/components/shell/TabBar.tsx:35
 #: src/Navigation.tsx:135
-#: src/routes.ts:372
+#: src/routes.ts:373
 #: src/screens/Notifications.tsx:723
 msgid "Notifications"
 msgstr "Notifications"
@@ -4210,6 +4250,7 @@ msgstr "Only this post refuses quotes. The account-wide setting is in Settings �
 msgid "Only your followers"
 msgstr "Only your followers"
 
+#: src/components/Drive/FileDetailPanel.tsx:332
 #: src/components/Post/PostMediaGrid.tsx:632
 msgid "Open"
 msgstr "Open"
@@ -4616,7 +4657,9 @@ msgstr "Previous"
 msgid "Privacy shield"
 msgstr "Privacy shield"
 
-#: src/screens/Clip.tsx:218
+#: src/components/Clips/ClipTile.tsx:50
+#: src/components/Clips/ClipTile.tsx:55
+#: src/screens/Clip.tsx:219
 msgid "Private"
 msgstr "Private"
 
@@ -4627,7 +4670,7 @@ msgstr "Private mentions"
 #: src/components/shell/AccountMenu.tsx:143
 #: src/components/shell/TabBar.tsx:36
 #: src/Navigation.tsx:140
-#: src/routes.ts:374
+#: src/routes.ts:375
 msgid "Profile"
 msgstr "Profile"
 
@@ -4657,7 +4700,8 @@ msgid "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 msgstr "Prose text (posts, bios, composer) at {percent}%. Chrome stays fixed."
 
 #: src/components/Clips/ClipDialog.tsx:84
-#: src/screens/Clip.tsx:218
+#: src/components/Clips/ClipTile.tsx:50
+#: src/screens/Clip.tsx:219
 msgid "Public"
 msgstr "Public"
 
@@ -4749,7 +4793,7 @@ msgstr "reactions"
 msgid "Reactions"
 msgstr "Reactions"
 
-#: src/routes.ts:437
+#: src/routes.ts:438
 #: src/screens/settings/meta.ts:19
 msgid "Reactions and emoji"
 msgstr "Reactions and emoji"
@@ -4951,16 +4995,20 @@ msgstr "Remove from this clip"
 msgid "Remove last"
 msgstr "Remove last"
 
+#: src/components/Drive/FileDetailPanel.tsx:246
 #: src/screens/Antennas.tsx:215
+#: src/screens/Drive.tsx:467
 msgid "Rename"
 msgstr "Rename"
 
-#: src/screens/Drive/rows.tsx:144
-#: src/screens/Drive/rows.tsx:290
 #: src/screens/Lists.tsx:311
 msgctxt "button"
 msgid "Rename"
 msgstr "Rename"
+
+#: src/screens/Drive.tsx:575
+msgid "Rename folder"
+msgstr "Rename folder"
 
 #. Label for the repost ranking factor
 #: src/components/Recommendations/RecommendationReasonDialog.tsx:27
@@ -5028,7 +5076,7 @@ msgstr "Replying to a post."
 #: src/components/Post/menuModel.ts:272
 #: src/components/Post/menuModel.ts:278
 #: src/components/Post/menuModel.ts:288
-#: src/routes.ts:416
+#: src/routes.ts:417
 #: src/screens/AdminReportDetail.tsx:154
 #: src/screens/AdminReportDetail.tsx:165
 #: src/screens/AdminReportDetail.tsx:219
@@ -5044,7 +5092,7 @@ msgid "Report sent"
 msgstr "Report sent"
 
 #: src/components/Settings/AccountSection.tsx:260
-#: src/routes.ts:414
+#: src/routes.ts:415
 #: src/screens/AdminReportsList.tsx:156
 #: src/screens/AdminReportsList.tsx:169
 #: src/screens/AdminReportsList.tsx:192
@@ -5180,6 +5228,8 @@ msgid "Restored your in-progress draft. Attachments aren't kept — re-attach if
 msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach if needed."
 
 #: src/components/Collection/CollectionScreen.tsx:103
+#: src/components/Drive/FileDetailPanel.tsx:236
+#: src/components/Drive/FileDetailPanel.tsx:361
 #: src/components/EmojiPicker/EmojiPicker.tsx:290
 #: src/components/PostFeed/PostFeed.tsx:207
 #: src/components/PostFeed/PostFeed.tsx:230
@@ -5223,8 +5273,6 @@ msgstr "Restored your in-progress draft. Attachments aren't kept — re-attach i
 msgid "Retry"
 msgstr "Retry"
 
-#. Retry loading file details
-#. Retry loading file notes
 #. Retry loading follow requests
 #. Retry loading followers
 #. Retry loading followers
@@ -5232,13 +5280,7 @@ msgstr "Retry"
 #. Retry loading following
 #. Retry loading lists
 #. Retry loading lists
-#. Retry loading the drive
-#. Retry loading the drive
 #. Retry loading the list
-#: src/screens/Drive.tsx:259
-#: src/screens/Drive.tsx:269
-#: src/screens/Drive/detail.tsx:172
-#: src/screens/Drive/detail.tsx:201
 #: src/screens/Followers.tsx:240
 #: src/screens/Followers.tsx:288
 #: src/screens/Following.tsx:240
@@ -5260,11 +5302,6 @@ msgstr "Retry loading replies"
 msgid "Review accounts waiting for your approval."
 msgstr "Review accounts waiting for your approval."
 
-#: src/screens/Drive/rows.tsx:177
-msgctxt "drive root folder"
-msgid "Root"
-msgstr "Root"
-
 #: src/screens/AdminReportDetail.tsx:288
 msgid "Rule ids"
 msgstr "Rule ids"
@@ -5276,6 +5313,9 @@ msgstr "Rule violation"
 #: src/components/Clips/ClipDialog.tsx:94
 #: src/components/Composer/CompactComposer.tsx:186
 #: src/components/Composer/Composer.tsx:1246
+#: src/components/Drive/FileDetailPanel.tsx:284
+#: src/components/Drive/FileDetailPanel.tsx:304
+#: src/components/Drive/FolderDialog.tsx:64
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:383
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:542
 #: src/components/Settings/FiltersSection.tsx:151
@@ -5287,8 +5327,6 @@ msgstr "Rule violation"
 msgid "Save"
 msgstr "Save"
 
-#: src/screens/Drive/rows.tsx:95
-#: src/screens/Drive/rows.tsx:261
 #: src/screens/Lists.tsx:289
 msgctxt "button"
 msgid "Save"
@@ -5328,6 +5366,7 @@ msgstr "Save this moderator note?"
 msgid "Save this moderator note? (Empty clears the note.)"
 msgstr "Save this moderator note? (Empty clears the note.)"
 
+#: src/components/Clips/ClipTile.tsx:31
 #: src/screens/Favorites.tsx:109
 msgid "Saved posts"
 msgstr "Saved posts"
@@ -5355,6 +5394,9 @@ msgstr "Saving the filter policy."
 #: src/components/Composer/ComposerSections.tsx:252
 #: src/components/Composer/ComposerSections.tsx:402
 #: src/components/Composer/ComposerSections.tsx:754
+#: src/components/Drive/FileDetailPanel.tsx:284
+#: src/components/Drive/FileDetailPanel.tsx:304
+#: src/components/Drive/FolderDialog.tsx:64
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:332
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:383
 #: src/components/Recommendations/RecommendationsSettingsOverlay.tsx:542
@@ -5366,8 +5408,6 @@ msgstr "Saving the filter policy."
 msgid "Saving…"
 msgstr "Saving…"
 
-#: src/screens/Drive/rows.tsx:94
-#: src/screens/Drive/rows.tsx:260
 #: src/screens/Lists.tsx:288
 msgctxt "button"
 msgid "Saving…"
@@ -5398,7 +5438,7 @@ msgstr "Scheduled time must be in the future."
 #: src/components/Explore/ExploreSearchBar.tsx:69
 #: src/components/Settings/MuteBlockSearch.tsx:135
 #: src/components/shell/TabBar.tsx:34
-#: src/routes.ts:370
+#: src/routes.ts:371
 #: src/screens/Explore.tsx:361
 #: src/screens/Explore.tsx:372
 msgid "Search"
@@ -5468,16 +5508,8 @@ msgstr "Sending…"
 #: src/components/Collection/Thumb.tsx:78
 #: src/components/Collection/Thumb.tsx:112
 #: src/components/Composer/ComposerSections.tsx:320
-msgid "Sensitive"
-msgstr "Sensitive"
-
-#: src/screens/Drive/detail.tsx:143
-msgctxt "drive file detail field"
-msgid "Sensitive"
-msgstr "Sensitive"
-
-#: src/screens/Drive/rows.tsx:244
-msgctxt "drive file flag"
+#: src/components/Drive/FileDetailPanel.tsx:220
+#: src/components/Drive/FileDetailPanel.tsx:269
 msgid "Sensitive"
 msgstr "Sensitive"
 
@@ -5489,6 +5521,14 @@ msgstr "Sensitive media hidden — tap to show"
 #: src/components/Post/PostMediaGrid.tsx:665
 msgid "Sensitive media hidden. The author marked this media sensitive."
 msgstr "Sensitive media hidden. The author marked this media sensitive."
+
+#: src/components/Drive/FileDetailPanel.tsx:272
+msgid "Sensitive: off"
+msgstr "Sensitive: off"
+
+#: src/components/Drive/FileDetailPanel.tsx:272
+msgid "Sensitive: on"
+msgstr "Sensitive: on"
 
 #: src/components/Notification/NotificationRow.tsx:107
 msgid "sent a notification"
@@ -5520,7 +5560,7 @@ msgid "Server info"
 msgstr "Server info"
 
 #: src/components/Settings/AccountSection.tsx:230
-#: src/routes.ts:412
+#: src/routes.ts:413
 #: src/screens/AdminInsight.tsx:514
 #: src/screens/AdminInsight.tsx:527
 #: src/screens/AdminInsight.tsx:581
@@ -5572,7 +5612,7 @@ msgstr "Session info and sign out."
 
 #: src/components/shell/AccountMenu.tsx:162
 #: src/components/shell/Sidebar.tsx:191
-#: src/routes.ts:451
+#: src/routes.ts:452
 #: src/screens/Settings.tsx:49
 msgid "Settings"
 msgstr "Settings"
@@ -5703,7 +5743,7 @@ msgstr "Shown everywhere"
 #: src/components/shell/TabBar.tsx:37
 #: src/components/SignInButton.tsx:21
 #: src/Navigation.tsx:146
-#: src/routes.ts:457
+#: src/routes.ts:458
 #: src/screens/Login.tsx:573
 #: src/screens/Login.tsx:664
 #: src/screens/Login.tsx:770
@@ -5867,9 +5907,8 @@ msgstr "Sign in to see your antennas."
 msgid "Sign in to see your clips."
 msgstr "Sign in to see your clips."
 
-#. js-lingui-explicit-id
-#: src/screens/Drive.tsx:231
-msgid "drive.signedOut"
+#: src/screens/Drive.tsx:211
+msgid "Sign in to see your drive."
 msgstr "Sign in to see your drive."
 
 #. js-lingui-explicit-id
@@ -5966,8 +6005,7 @@ msgstr "Signing in."
 msgid "Signing in…"
 msgstr "Signing in…"
 
-#: src/screens/Drive/detail.tsx:133
-msgctxt "drive file detail field"
+#: src/components/Drive/FileDetailPanel.tsx:215
 msgid "Size"
 msgstr "Size"
 
@@ -6042,6 +6080,10 @@ msgstr ""
 "spoiler\n"
 "/^advertisement/i"
 
+#: src/components/Clips/ClipTile.tsx:36
+msgid "Star"
+msgstr "Star"
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:68
 msgid "errors.shape.status"
@@ -6107,7 +6149,7 @@ msgstr "Switch to {name}"
 msgid "System"
 msgstr "System"
 
-#: src/routes.ts:380
+#: src/routes.ts:381
 msgid "Tag"
 msgstr "Tag"
 
@@ -6151,6 +6193,10 @@ msgstr "That clip no longer exists."
 msgid "That did not work."
 msgstr "That did not work."
 
+#: src/screens/Drive.tsx:258
+msgid "That file could not be read."
+msgstr "That file could not be read."
+
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:81
 msgid "errors.drive.fileTooLarge"
@@ -6170,6 +6216,10 @@ msgstr "That file type is not allowed."
 #: src/lib/localeErrors.ts:82
 msgid "errors.drive.folderNotEmpty"
 msgstr "That folder is not empty."
+
+#: src/screens/Drive.tsx:297
+msgid "That folder is too large to delete here (over 1000 items)."
+msgstr "That folder is too large to delete here (over 1000 items)."
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:85
@@ -6405,9 +6455,13 @@ msgstr "This clip does not exist."
 msgid "This device"
 msgstr "This device"
 
-#: src/screens/Drive.tsx:438
-msgid "This folder has no files yet."
-msgstr "This folder has no files yet."
+#: src/screens/Drive.tsx:373
+msgid "This folder is empty."
+msgstr "This folder is empty."
+
+#: src/screens/Drive.tsx:370
+msgid "This folder is empty. Drop files here or use Upload."
+msgstr "This folder is empty. Drop files here or use Upload."
 
 #: src/screens/AuthCallback.tsx:188
 msgid "This link has no sign-in response. Start again from Sign in."
@@ -6557,9 +6611,9 @@ msgstr "This server does not report whether you follow this channel."
 msgid "This server does not support editing posts."
 msgstr "This server does not support editing posts."
 
-#: src/screens/Drive/detail.tsx:163
-msgid "This server does not support file details. Showing the values from the file list."
-msgstr "This server does not support file details. Showing the values from the file list."
+#: src/components/Drive/FileDetailPanel.tsx:230
+msgid "This server does not support file details."
+msgstr "This server does not support file details."
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:74
@@ -6574,7 +6628,7 @@ msgstr "This server does not support marking announcements as read."
 msgid "This server does not support quote posts."
 msgstr "This server does not support quote posts."
 
-#: src/screens/Drive/detail.tsx:189
+#: src/components/Drive/FileDetailPanel.tsx:354
 msgid "This server does not support showing notes that use a file."
 msgstr "This server does not support showing notes that use a file."
 
@@ -6805,8 +6859,7 @@ msgstr "Two-factor code ({0})"
 msgid "errors.auth.mfaFailed"
 msgstr "Two-factor sign-in failed."
 
-#: src/screens/Drive/detail.tsx:128
-msgctxt "drive file detail field"
+#: src/components/Drive/FileDetailPanel.tsx:213
 msgid "Type"
 msgstr "Type"
 
@@ -6883,9 +6936,7 @@ msgstr "Unhide"
 msgid "Unicode groups"
 msgstr "Unicode groups"
 
-#: src/screens/Drive/detail.tsx:139
-#: src/screens/Drive/rows.tsx:38
-msgctxt "drive file detail value"
+#: src/components/Drive/UsageBar.tsx:14
 msgid "Unknown"
 msgstr "Unknown"
 
@@ -6971,10 +7022,18 @@ msgstr "Until {0}"
 msgid "Until {0} (all day)"
 msgstr "Until {0} (all day)"
 
+#: src/components/Drive/MoveToDialog.tsx:71
+msgid "Up"
+msgstr "Up"
+
 #. placeholder {0}: section.data.updatedAt
 #: src/screens/AdminInsight.tsx:321
 msgid "Updated {0}"
 msgstr "Updated {0}"
+
+#: src/screens/Drive.tsx:415
+msgid "Upload"
+msgstr "Upload"
 
 #: src/screens/Drive/upload.tsx:56
 msgctxt "button"
@@ -6996,7 +7055,7 @@ msgid "uploaded"
 msgstr "uploaded"
 
 #. placeholder {0}: media.name
-#: src/screens/Drive.tsx:215
+#: src/screens/Drive.tsx:279
 msgid "Uploaded “{0}”."
 msgstr "Uploaded “{0}”."
 
@@ -7028,19 +7087,9 @@ msgctxt "button"
 msgid "Uploading…"
 msgstr "Uploading…"
 
-#. placeholder {0}: selectedFolder.name
-#: src/screens/Drive.tsx:331
-msgid "Uploads go to “{0}”."
-msgstr "Uploads go to “{0}”."
-
-#: src/screens/Drive.tsx:332
-msgid "Uploads go to Root."
-msgstr "Uploads go to Root."
-
-#: src/screens/Drive/detail.tsx:157
-msgctxt "drive file detail field"
-msgid "URL"
-msgstr "URL"
+#: src/screens/Drive.tsx:427
+msgid "Uploads go to this folder."
+msgstr "Uploads go to this folder."
 
 #. js-lingui-explicit-id
 #: src/lib/localeErrors.ts:22
@@ -7243,7 +7292,7 @@ msgid "Word and server mutes"
 msgstr "Word and server mutes"
 
 #: src/components/Settings/FiltersSection.tsx:216
-#: src/routes.ts:447
+#: src/routes.ts:448
 #: src/screens/settings/meta.ts:29
 msgid "Word filters"
 msgstr "Word filters"
@@ -7296,8 +7345,7 @@ msgstr "Write something first."
 msgid "Write your reply"
 msgstr "Write your reply"
 
-#: src/screens/Drive/detail.tsx:146
-msgctxt "drive file detail value"
+#: src/components/Drive/FileDetailPanel.tsx:221
 msgid "Yes"
 msgstr "Yes"
 
@@ -7334,13 +7382,17 @@ msgstr "You follow this account."
 msgid "You have no antennas yet."
 msgstr "You have no antennas yet."
 
-#: src/screens/Clips.tsx:301
+#: src/screens/Clips.tsx:297
 msgid "You have no clips yet."
 msgstr "You have no clips yet."
 
-#: src/screens/Drive.tsx:439
+#: src/screens/Drive.tsx:374
 msgid "You have no files yet."
 msgstr "You have no files yet."
+
+#: src/screens/Drive.tsx:371
+msgid "You have no files yet. Drop files here or use Upload."
+msgstr "You have no files yet. Drop files here or use Upload."
 
 #. js-lingui-explicit-id
 #: src/screens/Lists.tsx:517
@@ -7355,7 +7407,7 @@ msgstr "You have no lists yet."
 msgid "You have unsaved changes. Save them or discard?"
 msgstr "You have unsaved changes. Save them or discard?"
 
-#: src/routes.ts:433
+#: src/routes.ts:434
 #: src/screens/settings/meta.ts:15
 msgid "Your account"
 msgstr "Your account"
@@ -7379,19 +7431,15 @@ msgstr "Your account cannot do that here."
 msgid "Your account cannot view antennas here."
 msgstr "Your account cannot view antennas here."
 
-#: src/screens/Drive.tsx:257
-msgid "Your account cannot view drive here."
-msgstr "Your account cannot view drive here."
-
 #: src/screens/Lists.tsx:460
 msgid "Your account cannot view lists here."
 msgstr "Your account cannot view lists here."
 
-#: src/screens/Drive/detail.tsx:193
+#: src/components/Drive/FileDetailPanel.tsx:356
 msgid "Your account cannot view the notes for this file."
 msgstr "Your account cannot view the notes for this file."
 
-#: src/screens/Drive/detail.tsx:66
+#: src/components/Drive/FileDetailPanel.tsx:107
 msgid "Your account cannot view this file."
 msgstr "Your account cannot view this file."
 
