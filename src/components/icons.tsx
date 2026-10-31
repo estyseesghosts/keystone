@@ -388,8 +388,7 @@ export function PageIcon(p: IconProps) {
   )
 }
 
-// --- Page editor formatting glyphs (letterform marks on the same grid) -------
-
+// --- Page editor formatting glyphs (letterform marks on the same grid) ------
 export function BoldIcon(p: IconProps) {
   return (
     <Base {...p}>
@@ -472,6 +471,18 @@ export function SmallIcon(p: IconProps) {
       <Line x1={7.5} y1={5} x2={7.5} y2={18} />
       <Line x1={14} y1={10} x2={20} y2={10} />
       <Line x1={17} y1={10} x2={17} y2={18} />
+    </Base>
+  )
+}
+
+export function TrashIcon(p: IconProps) {
+  return (
+    <Base {...p}>
+      <Line x1={4} y1={7} x2={20} y2={7} />
+      <Path d="M9 7V5h6v2" />
+      <Path d="M6 7l1 13h10l1-13" />
+      <Line x1={10} y1={11} x2={10} y2={16} />
+      <Line x1={14} y1={11} x2={14} y2={16} />
     </Base>
   )
 }

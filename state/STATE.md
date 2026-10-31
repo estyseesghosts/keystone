@@ -2,8 +2,7 @@
 
 Phase: **feat/page-editor-cards — page writer cards + formatting icon
 toolbar (2026-10-31)** — implemented + gates green, merge pending owner
-approval + owner visual check.
-Every block in the page writer is now a self-contained card (Misskey
+approval + owner visual check.Every block in the page writer is now a self-contained card (Misskey
 container pattern: bordered panel, header row = kind icon + label +
 collapse + block menu, padded body; sections nest cards). Text cards are
 composer-style: borderless input with the formatting options as a
@@ -13,6 +12,10 @@ explicit stored values still win — PEC-2 in DECISIONS.md).
 Gate: typecheck (ios+android+web) + lint clean; `pnpm test` → 332
 suites / 4518 tests: 4428 pass, 90 fail — exactly the pre-existing
 content/linkpreview/richtext/post set (13 suites), flat vs baseline.
+Follow-up (same branch, 2026-10-31): Antennas screen reuses the same card
+chrome — create form + one card per antenna, rename/delete as inline
+vector icon buttons in the card header, two-tap delete confirm in the
+body (PEC-3).
 Device/web visual inspection `not verified` (owner item).
 
 Prior: **P6.5 Pages + P6.6 Drive/Clips merged to `main` 2026-10-31**.
@@ -33,7 +36,8 @@ Owner actions (all collected in `docs/audit_20261025/device-checks.md` +
 Links:
 - Task: `docs/tasks/feat-page-editor-cards.md` (done, merge pending)
 - DECISIONS: `docs/DECISIONS.md` PEC-1/PEC-2 (PEC-2 reverses PG-2 default)
-- Latest logs: `state/logs/2026-10-31-page-editor-cards.md` (this session),
+- Latest logs: `state/logs/2026-10-31-antennas-cards.md` (antennas
+  follow-up), `state/logs/2026-10-31-page-editor-cards.md` (editor slice),
   `state/logs/2026-10-31-merge-pages-drive-clips.md`,
   `state/logs/2026-10-30-p6.6-9-integration.md`,
   `state/logs/2026-10-30-p6.5-pages-slices-3-8.md`

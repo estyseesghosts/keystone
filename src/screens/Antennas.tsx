@@ -16,8 +16,10 @@ import {isPermissionError, isUnsupportedError, type Antenna, type AntennaSrc} fr
 
 import {useTheme} from '#/alf'
 import {atoms} from '#/alf/atoms'
+import {radius, space} from '#/alf/tokens'
 import {Body, Caption} from '#/alf/typography'
 import {Button} from '#/components/Button'
+import {AntennaIcon, PencilIcon, TrashIcon} from '#/components/icons'
 import {TextField} from '#/components/forms/TextField'
 import {SkeletonList} from '#/components/Skeleton'
 import {Pagehead} from '#/components/Pagehead'
@@ -58,6 +60,7 @@ export function antennaSummaryLine(antenna: Antenna): string {
 }
 
 function CreateRow({onCreate}: {onCreate: (body: Omit<Antenna, 'id'>) => Promise<void>}) {
+  const theme = useTheme()
   const [name, setName] = useState('')
   const [src, setSrc] = useState<AntennaSrc>('all')
   const [keywords, setKeywords] = useState('')
@@ -93,41 +96,68 @@ function CreateRow({onCreate}: {onCreate: (body: Omit<Antenna, 'id'>) => Promise
     }
   }
   return (
-    <View style={[atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="antennas-create">
-      <TextField
-        label={i18n._(msg`New antenna`)}
-        value={name}
-        onChangeText={setName}
-        placeholder={i18n._(msg`Antenna name`)}
-        error={error ?? undefined}
-        testID="antennas-create-input"
-      />
-      <View style={[atoms.row, atoms.gap_sm]} testID="antennas-create-src">
-        {SOURCES.map(option => (
-          <Button
-            key={option}
-            label={antennaSrcLabel(option)}
-            variant={src === option ? 'primary' : 'secondary'}
-            disabled={busy}
-            onPress={() => setSrc(option)}
-            testID={`antennas-src-${option}`}
+    <View style={[atoms.px_md, atoms.py_sm]} testID="antennas-create">
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.palette.edge,
+          borderRadius: radius.md,
+          backgroundColor: theme.palette.bg,
+          overflow: 'hidden',
+        }}>
+        <View
+          style={[
+            atoms.row,
+            {
+              alignItems: 'center',
+              gap: space.sm,
+              paddingHorizontal: space.md,
+              paddingVertical: space.sm,
+              backgroundColor: theme.palette.bgSoft,
+              borderBottomWidth: 1,
+              borderBottomColor: theme.palette.edge,
+            },
+          ]}>
+          <AntennaIcon size={16} />
+          <Body>{i18n._(msg`New antenna`)}</Body>
+        </View>
+        <View style={{padding: space.md, gap: space.sm}}>
+          <TextField
+            label={i18n._(msg`Antenna name`)}
+            value={name}
+            onChangeText={setName}
+            placeholder={i18n._(msg`Antenna name`)}
+            error={error ?? undefined}
+            testID="antennas-create-input"
           />
-        ))}
+          <View style={[atoms.row, atoms.gap_sm]} testID="antennas-create-src">
+            {SOURCES.map(option => (
+              <Button
+                key={option}
+                label={antennaSrcLabel(option)}
+                variant={src === option ? 'primary' : 'secondary'}
+                disabled={busy}
+                onPress={() => setSrc(option)}
+                testID={`antennas-src-${option}`}
+              />
+            ))}
+          </View>
+          <TextField
+            label={i18n._(msg`Keywords (space-separated, all must match)`)}
+            value={keywords}
+            onChangeText={setKeywords}
+            placeholder={i18n._(msg`keyword1 keyword2`)}
+            testID="antennas-create-keywords"
+          />
+          <Button
+            label={busy ? i18n._(msg`Creating…`) : i18n._(msg`Create antenna`)}
+            variant="primary"
+            disabled={busy || !valid}
+            onPress={() => void submit()}
+            testID="antennas-create-submit"
+          />
+        </View>
       </View>
-      <TextField
-        label={i18n._(msg`Keywords (space-separated, all must match)`)}
-        value={keywords}
-        onChangeText={setKeywords}
-        placeholder={i18n._(msg`keyword1 keyword2`)}
-        testID="antennas-create-keywords"
-      />
-      <Button
-        label={busy ? i18n._(msg`Creating…`) : i18n._(msg`Create antenna`)}
-        variant="primary"
-        disabled={busy || !valid}
-        onPress={() => void submit()}
-        testID="antennas-create-submit"
-      />
     </View>
   )
 }
@@ -149,6 +179,7 @@ function AntennaRow({
   onCancelDelete: () => void
   onOpen: () => void
 }) {
+  const theme = useTheme()
   const [draft, setDraft] = useState(antenna.name)
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -169,91 +200,132 @@ function AntennaRow({
     }
   }
 
+  const iconButton = {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  }
+
   return (
-    <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]} testID={`antennas-row-${antenna.id}`}>
-      <Pressable
-        onPress={onOpen}
-        accessibilityRole="link"
-        accessibilityLabel={i18n._(msg`${antenna.name}. Open antenna.`)}
-        testID={`antennas-open-${antenna.id}`}>
-        <Body>{antenna.name}</Body>
-      </Pressable>
-      <Caption color="faint">{antennaSummaryLine(antenna)}</Caption>
-      {editing ? (
-        <View style={[atoms.gap_sm]}>
-          <TextField
-            label={i18n._(msg`Antenna name`)}
-            value={draft}
-            onChangeText={setDraft}
-            placeholder={i18n._(msg`Antenna name`)}
-            error={error ?? undefined}
-            testID={`antennas-rename-input-${antenna.id}`}
-          />
-          <View style={[atoms.row, atoms.gap_sm]}>
-            <Button
-              label={busy ? i18n._(msg`Saving…`) : i18n._(msg`Save`)}
-              variant="primary"
-              disabled={busy || draft.trim().length === 0}
-              onPress={() => void save()}
-              testID={`antennas-rename-save-${antenna.id}`}
-            />
-            <Button
-              label={i18n._(msg`Cancel`)}
-              variant="secondary"
-              disabled={busy}
-              onPress={() => {
-                setEditing(false)
-                setDraft(antenna.name)
-              }}
-              testID={`antennas-rename-cancel-${antenna.id}`}
-            />
-          </View>
-        </View>
-      ) : (
-        <View style={[atoms.row, atoms.gap_sm]}>
-          <Button
-            label={i18n._(msg`Rename`)}
-            variant="secondary"
-            disabled={busy}
-            onPress={() => setEditing(true)}
-            testID={`antennas-rename-${antenna.id}`}
-          />
-        </View>
-      )}
-      {pendingDelete ? (
-        <View style={[atoms.gap_sm]}>
-          <Caption color="faint">
-            {i18n._(msg`Delete “${antenna.name}”? This cannot be undone.`)}
-          </Caption>
-          <View style={[atoms.row, atoms.gap_sm]}>
-            <Button
-              label={i18n._(msg`Confirm delete`)}
-              variant="secondary"
-              disabled={busy}
-              onPress={() => void onDelete()}
-              testID={`antennas-delete-confirm-${antenna.id}`}
-            />
-            <Button
-              label={i18n._(msg`Keep`)}
-              variant="secondary"
-              disabled={busy}
-              onPress={onCancelDelete}
-              testID={`antennas-delete-cancel-${antenna.id}`}
-            />
-          </View>
-        </View>
-      ) : (
-        <View style={[atoms.row, atoms.gap_sm]}>
-          <Button
-            label={i18n._(msg`Delete`)}
-            variant="secondary"
-            disabled={busy}
+    <View style={[atoms.px_md, atoms.py_sm]}>
+      <View
+        style={{
+          borderWidth: 1,
+          borderColor: theme.palette.edge,
+          borderRadius: radius.md,
+          backgroundColor: theme.palette.bg,
+          overflow: 'hidden',
+        }}
+        testID={`antennas-row-${antenna.id}`}>
+        <View
+          style={[
+            atoms.row,
+            {
+              alignItems: 'center',
+              gap: space.sm,
+              paddingHorizontal: space.md,
+              paddingVertical: space.sm,
+              backgroundColor: theme.palette.bgSoft,
+              borderBottomWidth: 1,
+              borderBottomColor: theme.palette.edge,
+            },
+          ]}>
+          <AntennaIcon size={16} />
+          <Pressable
+            onPress={onOpen}
+            accessibilityRole="link"
+            accessibilityLabel={i18n._(msg`${antenna.name}. Open antenna.`)}
+            style={atoms.flex1}
+            testID={`antennas-open-${antenna.id}`}>
+            <Body numberOfLines={1}>{antenna.name}</Body>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setDraft(antenna.name)
+              setEditing(true)
+            }}
+            disabled={busy || editing}
+            accessibilityRole="button"
+            accessibilityState={{disabled: busy || editing}}
+            accessibilityLabel={i18n._(msg`Rename`)}
+            hitSlop={6}
+            style={iconButton}
+            testID={`antennas-rename-${antenna.id}`}>
+            <PencilIcon size={16} color={editing ? theme.palette.faint : theme.palette.muted} />
+          </Pressable>
+          <Pressable
             onPress={onArmDelete}
-            testID={`antennas-delete-${antenna.id}`}
-          />
+            disabled={busy || pendingDelete}
+            accessibilityRole="button"
+            accessibilityState={{disabled: busy || pendingDelete}}
+            accessibilityLabel={i18n._(msg`Delete`)}
+            hitSlop={6}
+            style={iconButton}
+            testID={`antennas-delete-${antenna.id}`}>
+            <TrashIcon size={16} color={pendingDelete ? theme.palette.faint : theme.palette.muted} />
+          </Pressable>
         </View>
-      )}
-      {error && !editing ? <Caption color="faint">{error}</Caption> : null}
+        <View style={{padding: space.md, gap: space.sm}}>
+          <Caption color="faint">{antennaSummaryLine(antenna)}</Caption>
+          {editing ? (
+            <View style={[atoms.gap_sm]}>
+              <TextField
+                label={i18n._(msg`Antenna name`)}
+                value={draft}
+                onChangeText={setDraft}
+                placeholder={i18n._(msg`Antenna name`)}
+                error={error ?? undefined}
+                testID={`antennas-rename-input-${antenna.id}`}
+              />
+              <View style={[atoms.row, atoms.gap_sm]}>
+                <Button
+                  label={busy ? i18n._(msg`Saving…`) : i18n._(msg`Save`)}
+                  variant="primary"
+                  disabled={busy || draft.trim().length === 0}
+                  onPress={() => void save()}
+                  testID={`antennas-rename-save-${antenna.id}`}
+                />
+                <Button
+                  label={i18n._(msg`Cancel`)}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={() => {
+                    setEditing(false)
+                    setDraft(antenna.name)
+                  }}
+                  testID={`antennas-rename-cancel-${antenna.id}`}
+                />
+              </View>
+            </View>
+          ) : null}
+          {pendingDelete ? (
+            <View style={[atoms.gap_sm]}>
+              <Caption color="faint">
+                {i18n._(msg`Delete “${antenna.name}”? This cannot be undone.`)}
+              </Caption>
+              <View style={[atoms.row, atoms.gap_sm]}>
+                <Button
+                  label={i18n._(msg`Confirm delete`)}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={() => void onDelete()}
+                  testID={`antennas-delete-confirm-${antenna.id}`}
+                />
+                <Button
+                  label={i18n._(msg`Keep`)}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={onCancelDelete}
+                  testID={`antennas-delete-cancel-${antenna.id}`}
+                />
+              </View>
+            </View>
+          ) : null}
+          {error && !editing ? <Caption color="faint">{error}</Caption> : null}
+        </View>
+      </View>
     </View>
   )
 }

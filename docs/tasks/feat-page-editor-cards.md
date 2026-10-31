@@ -44,6 +44,10 @@ defaults to on.
       edit) + raw-mode cases, pref reset wrapped in `act`; storage schema
       fixtures updated for the new default (explicit `false` round-trips
       untouched).
+- [x] 7. Antennas screen (owner follow-up 2026-10-31): create form and each
+      antenna row reuse the card chrome; rename/delete are inline vector
+      icon buttons in the card header (pencil/trash), two-tap delete
+      confirm kept in the body; testID contract unchanged.
 
 ## Acceptance
 
