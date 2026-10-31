@@ -266,8 +266,7 @@ describe('Drive screen', () => {
     }
   })
 
-  it('aborts the delete walk over 1000 items', async () => {
-    const units = Array.from({length: 120}, (_, i) => ({...file({id: `f${i}`})}))
+  it('aborts the delete walk over 1000 items', async () => {    const units = Array.from({length: 120}, (_, i) => ({...file({id: `f${i}`})}))
     const calls: unknown[] = []
     const backend = {
       family: 'misskey',
@@ -294,5 +293,93 @@ describe('Drive screen', () => {
       1000,
     )
     expect(big.truncated).toBe(true)
+  })
+
+  it('long-press enters selection mode; tap toggles; Clear exits', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      const tile = await screen.findByTestId('drive-collection-grid-f1')
+      fireEvent(tile, 'longPress')
+      expect(await screen.findByTestId('drive-selection')).toBeTruthy()
+      expect(screen.getByTestId('drive-collection-grid-f1-check')).toBeTruthy()
+      // Tapping the second tile toggles it on while in selection mode.
+      fireEvent.press(screen.getByTestId('drive-collection-grid-d1'))
+      expect(screen.getByText('2 selected')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('drive-bulk-delete'))
+      expect(await screen.findByTestId('drive-bulk-delete-dialog')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('drive-bulk-delete-cancel'))
+      expect(await screen.findByTestId('drive-selection-clear')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('drive-selection-clear'))
+      expect(screen.queryByTestId('drive-selection')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('bulk delete removes files and folders with a confirm', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      fireEvent(await screen.findByTestId('drive-collection-grid-f1'), 'longPress')
+      fireEvent.press(screen.getByTestId('drive-collection-grid-d1'))
+      fireEvent.press(screen.getByTestId('drive-bulk-delete'))
+      const dialog = await screen.findByTestId('drive-bulk-delete-dialog')
+      expect(dialog).toBeTruthy()
+      fireEvent.press(screen.getByTestId('drive-bulk-delete-confirm'))
+      await waitFor(() => expect(backend.drive.deleteFile).toHaveBeenCalledWith('f1'))
+      await waitFor(() => expect(backend.drive.folders.delete).toHaveBeenCalledWith('d1'))
+      expect(screen.queryByTestId('drive-selection')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('bulk move uses moveMany and toasts the count', async () => {
+    const backend = fullBackend()
+    backend.drive.folders.list.mockImplementation(async (opts: unknown) => {
+      if ((opts as {parentId?: string | null}).parentId) return {items: [], cursor: null, end: true}
+      return {items: [folder({id: 'd1'}), folder({id: 'd2', name: 'Two'})], cursor: null, end: true}
+    })
+    const {done} = await setup({backend})
+    try {
+      fireEvent(await screen.findByTestId('drive-collection-grid-f1'), 'longPress')
+      fireEvent.press(screen.getByTestId('drive-bulk-move'))
+      expect(await screen.findByTestId('drive-move')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('drive-move-move-d2'))
+      await waitFor(() => expect(backend.drive.moveMany).toHaveBeenCalledWith(['f1'], 'd2'))
+    } finally {
+      done()
+    }
+  })
+
+  it('bulk sensitive toggle flips only files', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      fireEvent(await screen.findByTestId('drive-collection-grid-f1'), 'longPress')
+      fireEvent.press(screen.getByTestId('drive-bulk-sensitive'))
+      await waitFor(() => expect(backend.drive.updateFile).toHaveBeenCalledWith('f1', {isSensitive: true}))
+    } finally {
+      done()
+    }
+  })
+
+  it('partial failure opens the retry dialog and retry only retries failed', async () => {
+    const backend = fullBackend()
+    backend.drive.updateFile.mockRejectedValueOnce(new Error('locked'))
+    const {done} = await setup({backend})
+    try {
+      fireEvent(await screen.findByTestId('drive-collection-grid-f1'), 'longPress')
+      fireEvent.press(screen.getByTestId('drive-bulk-sensitive'))
+      expect(await screen.findByTestId('drive-bulk-failed')).toBeTruthy()
+      expect(screen.getByTestId('drive-bulk-failed-names')).toBeTruthy()
+      backend.drive.updateFile.mockResolvedValueOnce(file({id: 'f1', isSensitive: true}))
+      fireEvent.press(screen.getByTestId('drive-bulk-retry'))
+      await waitFor(() => expect(backend.drive.updateFile).toHaveBeenCalledTimes(2))
+      expect(screen.queryByTestId('drive-bulk-failed')).toBeNull()
+    } finally {
+      done()
+    }
   })
 })

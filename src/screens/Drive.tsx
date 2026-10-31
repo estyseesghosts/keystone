@@ -3,7 +3,7 @@
 // detail panel, single-item actions. Multi-select, upload queue and DnD
 // land in slices 6–8.
 
-import {useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useReducer, useRef, useState} from 'react';
 import {Platform, ScrollView, StyleSheet, View} from 'react-native';
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native';
 import {msg} from '@lingui/macro';
@@ -39,6 +39,8 @@ import {useActiveBackend} from '#/screens/HomeFeed';
 
 import {CollectionScreen} from '#/components/Collection/CollectionScreen';
 import {Toolbar} from '#/components/Collection/Toolbar';
+import {SelectionBar} from '#/components/Collection/SelectionBar';
+import {initSelection, isSelected, selectionReducer} from '#/components/Collection/useSelection';
 import {fileItem, folderItem} from '#/components/Drive/tiles';
 import {Breadcrumbs} from '#/components/Drive/Breadcrumbs';
 import {UsageBar} from '#/components/Drive/UsageBar';
@@ -162,8 +164,13 @@ export function DriveScreen() {
   const fileMutations = useDriveFileMutations(sessionId, backend ? {backend} : {});
   const [detailFile, setDetailFile] = useState<Media | null>(null);
   const [folderDialog, setFolderDialog] = useState<{folder: DriveFolder | null} | null>(null);
-  const [moveTarget, setMoveTarget] = useState<{file: Media} | {folder: DriveFolder} | null>(null);
+  const [moveTarget, setMoveTarget] = useState<
+    {file: Media} | {folder: DriveFolder} | {bulk: {files: Media[]; folders: DriveFolder[]}}
+  | null
+  >(null);
   const [moveDescendants, setMoveDescendants] = useState<string[]>([]);
+  const modRef = useRef({ctrl: false, meta: false, shift: false});
+  const lastTap = useRef<{key: string; at: number} | null>(null);
   const [deleteFolder, setDeleteFolder] = useState<{folder: DriveFolder; walk: WalkTree} | null>(null);
   const [deleteFile, setDeleteFile] = useState<Media | null>(null);
   const [busy, setBusy] = useState(false);
@@ -181,9 +188,92 @@ export function DriveScreen() {
 
   const folderItems = (folders.data?.pages ?? []).flatMap(p => p.items);
   const fileItems = (files.data?.pages ?? []).flatMap(p => p.items);
+  const [sel, dispatchSel] = useReducer(selectionReducer, undefined, () => initSelection([]));
+  const [deleteBulk, setDeleteBulk] = useState<{files: Media[]; folders: DriveFolder[]; walks: Map<string, WalkTree>} | null>(null);
+  const [failedOps, setFailedOps] = useState<Array<{kind: 'file' | 'folder'; id: string; name: string; error: unknown}> | null>(null);
+  const [lastBulk, setLastBulk] = useState<{
+    kind: 'move' | 'delete' | 'sensitive';
+    files: Media[];
+    folders: DriveFolder[];
+    targetId?: string | null;
+    value?: boolean;
+  } | null>(null);
+  const selectedFiles = useMemo(
+    () => fileItems.filter(f => sel.selected.includes(f.id)),
+    [fileItems, sel.selected],
+  );
+  const selectedFolders = useMemo(
+    () => folderItems.filter(f => sel.selected.includes(f.id)),
+    [folderItems, sel.selected],
+  );
+  const selRef = useRef(sel);
+  selRef.current = sel;
   const q = filter.trim().toLowerCase();
   const visibleFolders = q ? folderItems.filter(f => f.name.toLowerCase().includes(q)) : folderItems;
   const visibleFiles = q ? fileItems.filter(f => f.name.toLowerCase().includes(q)) : fileItems;
+
+  const openBulkDelete = useCallback(() => {
+    if (selRef.current.selected.length === 0) return;
+    void (async () => {
+      if (!backend?.drive || !sessionId) return;
+      setBusy(true);
+      try {
+        const ids = new Set(selRef.current.selected);
+        const bfiles = fileItems.filter(f => ids.has(f.id));
+        const bfolders = folderItems.filter(f => ids.has(f.id));
+        let budget = 1000;
+        const walks = new Map<string, WalkTree>();
+        for (const folder of bfolders) {
+          const walk = await walkFolderTree(backend.drive, folder.id, budget);
+          budget -= walk.files.length + walk.folders.length;
+          if (walk.truncated || budget < 0) {
+            setActionError(i18n._(msg`That selection is too large to delete (over 1000 items).`));
+            return;
+          }
+          walks.set(folder.id, walk);
+        }
+        setDeleteBulk({files: bfiles, folders: bfolders, walks});
+      } catch (err) {
+        setActionError(errorText(i18n, err, i18n._(msg`Could not inspect the selection.`)));
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }, [backend, sessionId, fileItems, folderItems]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'Control') modRef.current.ctrl = true;
+      if (e.key === 'Meta') modRef.current.meta = true;
+      if (e.key === 'Shift') modRef.current.shift = true;
+      const t = e.target as HTMLElement | null;
+      const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable === true);
+      if (e.key === 'Escape') {
+        dispatchSel({type: 'clear'});
+        return;
+      }
+      if (typing) return;
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        dispatchSel({type: 'all'});
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selRef.current.selected.length > 0) {
+        e.preventDefault();
+        openBulkDelete();
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.key === 'Control') modRef.current.ctrl = false;
+      if (e.key === 'Meta') modRef.current.meta = false;
+      if (e.key === 'Shift') modRef.current.shift = false;
+    };
+    document.addEventListener('keydown', down);
+    document.addEventListener('keyup', up);
+    return () => {
+      document.removeEventListener('keydown', down);
+      document.removeEventListener('keyup', up);
+    };
+  }, [openBulkDelete]);
 
   const crumbs = useMemo(() => {
     const trail: Array<{key: string | null; label: string}> = [
@@ -197,10 +287,62 @@ export function DriveScreen() {
     navigation.navigate('Drive', id == null ? {} : {folderId: id});
   };
 
+  const isWeb = Platform.OS === 'web';
+  // Shown checkboxes: native selection mode, or anything selected on web.
+  const selectMode = sel.mode || (isWeb && sel.selected.length > 0);
+
+  const openItem = (key: string) => {
+    const folder = folderItems.find(f => f.id === key);
+    if (folder) {
+      openFolder(folder.id);
+      return;
+    }
+    const file = fileItems.find(f => f.id === key);
+    if (file) setDetailFile(file);
+  };
+
+  /** Tap routing: native mode toggles (the tile handles it); web
+   * single-click selects, ctrl/cmd toggles, shift ranges, double-click
+   * opens. */
+  const handlePress = (key: string) => {
+    if (!isWeb) {
+      openItem(key);
+      return;
+    }
+    const mods = modRef.current;
+    if (mods.ctrl || mods.meta) {
+      dispatchSel({type: 'toggle', key});
+      return;
+    }
+    if (mods.shift) {
+      dispatchSel({type: 'range', key});
+      return;
+    }
+    const now = Date.now();
+    const last = lastTap.current;
+    if (last && last.key === key && now - last.at < 400) {
+      lastTap.current = null;
+      openItem(key);
+      return;
+    }
+    lastTap.current = {key, at: now};
+    dispatchSel({type: 'click', key});
+  };
+
   useEffect(() => {
     setDetailFile(null);
     setFilter('');
+    dispatchSel({type: 'clear'});
   }, [folderId]);
+
+  const allKeys = useMemo(
+    () => [...folderItems.map(f => f.id), ...fileItems.map(f => f.id)],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [folders.data, files.data],
+  );
+  useEffect(() => {
+    dispatchSel({type: 'setOrder', order: allKeys});
+  }, [allKeys]);
 
   if (!sessionId || !backend) {
     return (
@@ -338,14 +480,20 @@ export function DriveScreen() {
     }
   };
 
-  const openMoveTarget = async (target: {file: Media} | {folder: DriveFolder}) => {
+  const openMoveTarget = async (target: {file: Media} | {folder: DriveFolder} | {bulk: {files: Media[]; folders: DriveFolder[]}}) => {
     setMoveTarget(target);
-    if ('folder' in target && backend?.drive) {
+    if (backend?.drive && ('folder' in target || 'bulk' in target)) {
       try {
-        const walk = await walkFolderTree(backend.drive, target.folder.id);
-        setMoveDescendants([target.folder.id, ...walk.folders.map(f => f.id)]);
+        const roots = 'folder' in target ? [target.folder] : target.bulk.folders;
+        const ids = new Set<string>();
+        for (const root of roots) {
+          ids.add(root.id);
+          const walk = await walkFolderTree(backend.drive, root.id);
+          for (const sub of walk.folders) ids.add(sub.id);
+        }
+        setMoveDescendants([...ids]);
       } catch {
-        setMoveDescendants([target.folder.id]);
+        setMoveDescendants('folder' in target ? [target.folder.id] : target.bulk.folders.map(f => f.id));
       }
     } else {
       setMoveDescendants([]);
@@ -364,8 +512,176 @@ export function DriveScreen() {
         folderId,
         patch: {folderId: targetId},
       });
+    } else if (moveTarget && 'bulk' in moveTarget) {
+      await doBulkMove(targetId, moveTarget.bulk.files, moveTarget.bulk.folders);
     }
     setMoveTarget(null);
+  };
+
+  /** Bulk move: `moveMany` in chunks of 100 where supported, else a
+   * per-file update pool; folders move one by one (no-op targets
+   * skipped). Partial failures open the retry dialog (never silent). */
+  const doBulkMove = async (targetId: string | null, files: Media[], folders: DriveFolder[]) => {
+    if (!backend?.drive || !sessionId) return;
+    setBusy(true);
+    const failed: Array<{kind: 'file' | 'folder'; id: string; name: string; error: unknown}> = [];
+    try {
+      const movableFiles = files.filter(f => (f.folderId ?? null) !== targetId);
+      if (movableFiles.length > 0) {
+        if (backend.drive.isMoveBulkSupported?.() !== false) {
+          for (let i = 0; i < movableFiles.length; i += 100) {
+            const chunk = movableFiles.slice(i, i + 100);
+            try {
+              await backend.drive.moveMany(
+                chunk.map(f => f.id),
+                targetId,
+              );
+            } catch (err) {
+              for (const f of chunk) failed.push({kind: 'file', id: f.id, name: f.name, error: err});
+            }
+          }
+        } else {
+          const results = await runPool(movableFiles, f => backend.drive!.updateFile(f.id, {folderId: targetId}), {
+            concurrency: 4,
+          });
+          results.forEach((r, i) => {
+            if (!r.ok) failed.push({kind: 'file', id: movableFiles[i]!.id, name: movableFiles[i]!.name, error: r.error});
+          });
+        }
+      }
+      for (const folder of folders) {
+        // The Move-to dialog disables self/descendant targets; a no-op
+        // parent is skipped here (the server would accept it harmlessly).
+        if ((folder.parentId ?? null) === targetId) continue;
+        try {
+          await backend.drive.folders!.update(folder.id, {parentId: targetId});
+        } catch (err) {
+          failed.push({kind: 'folder', id: folder.id, name: folder.name, error: err});
+        }
+      }
+      invalidate.folder(sessionId, folderId);
+      invalidate.folder(sessionId, targetId);
+      finishBulk('move', files, folders, failed, targetId);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Bulk sensitive flag flip (files only). */
+  const doBulkSensitive = async (value: boolean, files: Media[]) => {
+    if (!backend?.drive || !sessionId || files.length === 0) return;
+    setBusy(true);
+    const results = await runPool(files, f => backend.drive!.updateFile(f.id, {isSensitive: value}), {
+      concurrency: 4,
+    });
+    const failed = results.flatMap((r, i) =>
+      r.ok ? [] : [{kind: 'file' as const, id: files[i]!.id, name: files[i]!.name, error: r.error}],
+    );
+    invalidate.folder(sessionId, folderId);
+    finishBulk('sensitive', files, [], failed, undefined, value);
+    setBusy(false);
+  };
+
+  /** Confirm + run a bulk delete (files pooled, folders depth-first). */
+  const confirmBulkDelete = async (
+    files: Media[],
+    folders: DriveFolder[],
+    walks: Map<string, WalkTree>,
+  ) => {
+    if (!backend?.drive || !sessionId || (files.length === 0 && folders.length === 0)) return;
+    setBusy(true);
+    const failed: Array<{kind: 'file' | 'folder'; id: string; name: string; error: unknown}> = [];
+    try {
+      const fileResults = await runPool(files, f => backend.drive!.deleteFile(f.id), {concurrency: 4});
+      fileResults.forEach((r, i) => {
+        if (!r.ok) failed.push({kind: 'file', id: files[i]!.id, name: files[i]!.name, error: r.error});
+      });
+      const deletedFileIds = new Set(files.filter((_, i) => fileResults[i]?.ok).map(f => f.id));
+      for (const folder of folders) {
+        const walk = walks.get(folder.id);
+        if (!walk) continue;
+        for (const doc of walk.files) {
+          if (deletedFileIds.has(doc.id)) continue;
+          try {
+            await backend.drive.deleteFile(doc.id);
+          } catch (err) {
+            failed.push({kind: 'file', id: doc.id, name: doc.name, error: err});
+          }
+        }
+        let ok = true;
+        for (const sub of [...walk.folders].reverse()) {
+          try {
+            await backend.drive.folders!.delete(sub.id);
+          } catch (err) {
+            ok = false;
+            failed.push({kind: 'folder', id: sub.id, name: sub.name, error: err});
+          }
+        }
+        try {
+          if (ok) await backend.drive.folders!.delete(folder.id);
+          else failed.push({kind: 'folder', id: folder.id, name: folder.name, error: new Error('child delete failed')});
+        } catch (err) {
+          failed.push({kind: 'folder', id: folder.id, name: folder.name, error: err});
+        }
+      }
+      invalidate.folder(sessionId, folderId);
+      finishBulk('delete', files, folders, failed);
+      setDeleteBulk(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const finishBulk = (
+    kind: 'move' | 'delete' | 'sensitive',
+    files: Media[],
+    folders: DriveFolder[],
+    failed: Array<{kind: 'file' | 'folder'; id: string; name: string; error: unknown}>,
+    targetId?: string | null,
+    value?: boolean,
+  ) => {
+    const total = files.length + folders.length;
+    const done = total - failed.length;
+    if (failed.length === 0) {
+      showToast(
+        kind === 'move'
+          ? i18n._(msg`Moved ${done} item(s).`)
+          : kind === 'delete'
+            ? i18n._(msg`Deleted ${done} item(s).`)
+            : i18n._(msg`Updated ${done} item(s).`),
+      );
+      setFailedOps(null);
+      setLastBulk(null);
+      dispatchSel({type: 'clear'});
+    } else {
+      setLastBulk({kind, files, folders, targetId, value});
+      setFailedOps(failed);
+    }
+  };
+
+  const retryFailed = async () => {
+    if (!lastBulk || !failedOps || failedOps.length === 0) return;
+    const failedIds = new Set(failedOps.map(f => `${f.kind}:${f.id}`));
+    const files = lastBulk.files.filter(f => failedIds.has(`file:${f.id}`));
+    const folders = lastBulk.folders.filter(f => failedIds.has(`folder:${f.id}`));
+    setFailedOps(null);
+    if (lastBulk.kind === 'move') {
+      await doBulkMove(lastBulk.targetId ?? null, files, folders);
+    } else if (lastBulk.kind === 'delete') {
+      const walks = new Map<string, WalkTree>();
+      if (backend?.drive) {
+        for (const folder of folders) {
+          try {
+            walks.set(folder.id, await walkFolderTree(backend.drive, folder.id));
+          } catch {
+            walks.set(folder.id, {folderId: folder.id, folders: [], files: [], truncated: false});
+          }
+        }
+      }
+      await confirmBulkDelete(files, folders, walks);
+    } else {
+      await doBulkSensitive(lastBulk.value ?? true, files);
+    }
   };
 
   const emptyMessage = Platform.OS === 'web'
@@ -445,20 +761,60 @@ export function DriveScreen() {
             ) : null}
           </View>
         }
+        selectionBar={
+          sel.selected.length > 0 ? (
+            <View style={[atoms.px_md]}>
+              <SelectionBar
+                count={sel.selected.length}
+                onClear={() => dispatchSel({type: 'clear'})}
+                testID="drive-selection"
+                actions={
+                  <>
+                    <Button
+                      label={i18n._(msg`Move to…`)}
+                      variant="secondary"
+                      compact
+                      disabled={busy}
+                      onPress={() => void openMoveTarget({bulk: {files: selectedFiles, folders: selectedFolders}})}
+                      testID="drive-bulk-move"
+                    />
+                    <Button
+                      label={i18n._(msg`Mark sensitive`)}
+                      variant="secondary"
+                      compact
+                      disabled={busy || selectedFiles.length === 0}
+                      onPress={() => void doBulkSensitive(true, selectedFiles)}
+                      testID="drive-bulk-sensitive"
+                    />
+                    <Button
+                      label={i18n._(msg`Unmark`)}
+                      variant="secondary"
+                      compact
+                      disabled={busy || selectedFiles.length === 0}
+                      onPress={() => void doBulkSensitive(false, selectedFiles)}
+                      testID="drive-bulk-unsensitive"
+                    />
+                    <Button
+                      label={i18n._(msg`Delete`)}
+                      variant="secondary"
+                      compact
+                      disabled={busy}
+                      onPress={() => void openBulkDelete()}
+                      testID="drive-bulk-delete"
+                    />
+                  </>
+                }
+              />
+            </View>
+          ) : undefined
+        }
         items={items}
         render={{
-          selected: () => false,
-          selectionMode: false,
-          onOpen: key => {
-            const folder = visibleFolders.find(f => f.id === key);
-            if (folder) {
-              openFolder(folder.id);
-              return;
-            }
-            const file = visibleFiles.find(f => f.id === key);
-            if (file) setDetailFile(file);
-          },
-          onToggle: () => {},
+          selected: key => isSelected(sel, key),
+          selectionMode: selectMode,
+          onOpen: handlePress,
+          onToggle: key => dispatchSel({type: 'toggle', key}),
+          onLongPress: key => dispatchSel({type: 'enterMode', key}),
           menu: item => {
             const folder = visibleFolders.find(f => f.id === item.key);
             if (folder) {
@@ -624,6 +980,62 @@ export function DriveScreen() {
             disabled={busy}
             onPress={() => setDeleteFolder(null)}
             testID="drive-folder-delete-cancel"
+          />
+        </Dialog>
+      ) : null}
+      {deleteBulk ? (
+        <Dialog
+          open
+          onClose={() => setDeleteBulk(null)}
+          title={i18n._(msg`Delete ${deleteBulk.files.length + deleteBulk.folders.length} selected item(s)? This is permanent.`)}
+          testID="drive-bulk-delete-dialog">
+          <Caption color="faint" testID="drive-bulk-delete-names">
+            {[...deleteBulk.files.slice(0, 5).map(f => f.name), ...deleteBulk.folders.slice(0, 5).map(f => f.name)].join(', ')}
+          </Caption>
+          <Button
+            label={busy ? i18n._(msg`Deleting…`) : i18n._(msg`Confirm delete`)}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => void confirmBulkDelete(deleteBulk.files, deleteBulk.folders, deleteBulk.walks)}
+            testID="drive-bulk-delete-confirm"
+          />
+          <Button
+            label={i18n._(msg`Keep`)}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => setDeleteBulk(null)}
+            testID="drive-bulk-delete-cancel"
+          />
+        </Dialog>
+      ) : null}
+      {failedOps && failedOps.length > 0 ? (
+        <Dialog
+          open
+          onClose={() => {
+            setFailedOps(null);
+            setLastBulk(null);
+          }}
+          title={i18n._(msg`Some items could not be processed.`)}
+          testID="drive-bulk-failed">
+          <Caption color="faint" testID="drive-bulk-failed-names">
+            {failedOps.slice(0, 5).map(f => `${f.name} (${errorText(i18n, f.error, i18n._(msg`failed`))})`).join(', ')}
+          </Caption>
+          <Button
+            label={i18n._(msg`Retry failed`)}
+            variant="primary"
+            disabled={busy}
+            onPress={() => void retryFailed()}
+            testID="drive-bulk-retry"
+          />
+          <Button
+            label={i18n._(msg`Dismiss`)}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => {
+              setFailedOps(null);
+              setLastBulk(null);
+            }}
+            testID="drive-bulk-dismiss"
           />
         </Dialog>
       ) : null}

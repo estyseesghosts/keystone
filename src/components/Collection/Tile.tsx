@@ -2,6 +2,7 @@
 // two-line title; Row = 48px thumb, name, meta line, overflow menu.
 // Selection renders a check badge; web Enter opens, Space toggles.
 
+import {useState} from 'react';
 import {StyleSheet, View} from 'react-native';
 
 import {atoms} from '#/alf/atoms';
@@ -42,12 +43,17 @@ export function Tile({
   selectionMode: boolean;
   onOpen: () => void;
   onToggle: () => void;
+  /** Native long-press enters selection mode (slice 6). */
+  onLongPress?: () => void;
   dataSaver?: boolean;
   blurhash?: string | null;
   /** Top-right overlay (grid overflow menu). Hidden in selection mode. */
   corner?: React.ReactNode;
   testID?: string;
 }) {
+  // Web hover checkbox (slice 6): affordance without entering mode.
+  const [hovered, setHovered] = useState(false);
+  const showCheck = selectionMode || selected || hovered;
   const label = item.a11yHint ? `${item.title}, ${item.a11yHint}` : item.title;
   return (
     <Pressable
@@ -60,7 +66,7 @@ export function Tile({
       <View style={styles.tile}>
         <View style={styles.thumbWrap}>
           <Thumb thumb={item.thumb} blurhash={blurhash} dataSaver={dataSaver} />
-          {selectionMode ? (
+          {showCheck ? (
             <View style={styles.check} testID={testID ? `${testID}-check` : undefined}>
               {selected ? <CheckIcon size={14} /> : null}
             </View>
@@ -96,6 +102,7 @@ export function Row({
   selectionMode,
   onOpen,
   onToggle,
+  onLongPress,
   menu,
   dataSaver,
   blurhash,
@@ -106,16 +113,23 @@ export function Row({
   selectionMode: boolean;
   onOpen: () => void;
   onToggle: () => void;
+  /** Native long-press enters selection mode (slice 6). */
+  onLongPress?: () => void;
   /** Overflow menu node (slice screens own their menus). */
   menu?: React.ReactNode;
   dataSaver?: boolean;
   blurhash?: string | null;
   testID?: string;
 }) {
+  const [hovered, setHovered] = useState(false);
+  const showCheck = selectionMode || selected || hovered;
   const label = item.a11yHint ? `${item.title}, ${item.a11yHint}` : item.title;
   return (
     <Pressable
       onPress={() => (selectionMode ? onToggle() : onOpen())}
+      onLongPress={onLongPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       accessibilityRole="button"
       accessibilityState={{selected}}
       accessibilityLabel={label}
@@ -145,7 +159,11 @@ export function Row({
           ) : null}
           {item.detail}
         </View>
-        {selectionMode && selected ? <CheckIcon size={14} /> : null}
+        {showCheck ? (
+          <View style={[styles.check, {position: 'relative', top: 0}]} testID={testID ? `${testID}-check` : undefined}>
+            {selected ? <CheckIcon size={14} /> : null}
+          </View>
+        ) : null}
         {menu}
       </View>
     </Pressable>

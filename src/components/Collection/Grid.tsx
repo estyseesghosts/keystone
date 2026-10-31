@@ -17,6 +17,7 @@ export interface CollectionBodyProps {
   selectionMode: boolean;
   onOpen: (key: string) => void;
   onToggle: (key: string) => void;
+  onLongPress?: (key: string) => void;
   menu?: (item: CollectionItem) => React.ReactNode;
   dataSaver?: boolean;
   testID?: string;
@@ -47,6 +48,7 @@ export function CollectionGrid({
   selectionMode,
   onOpen,
   onToggle,
+  onLongPress,
   menu,
   dataSaver,
   renderItem: renderItemOverride,
@@ -84,6 +86,7 @@ export function CollectionGrid({
         selectionMode={selectionMode}
         onOpen={() => onOpen(item.key)}
         onToggle={() => onToggle(item.key)}
+        onLongPress={onLongPress ? () => onLongPress(item.key) : undefined}
         dataSaver={dataSaver}
         corner={menu?.(item)}
         testID={testID ? `${testID}-${item.key}` : undefined}
@@ -123,6 +126,7 @@ export function CollectionList({
   selectionMode,
   onOpen,
   onToggle,
+  onLongPress,
   menu,
   dataSaver,
   renderItem: renderItemOverride,
@@ -154,6 +158,7 @@ export function CollectionList({
         selectionMode={selectionMode}
         onOpen={() => onOpen(item.key)}
         onToggle={() => onToggle(item.key)}
+        onLongPress={onLongPress ? () => onLongPress(item.key) : undefined}
         menu={menu?.(item)}
         dataSaver={dataSaver}
         testID={testID ? `${testID}-${item.key}` : undefined}
