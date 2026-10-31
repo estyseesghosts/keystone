@@ -300,6 +300,27 @@ describe('Clips screen', () => {
     }
   })
 
+  it('dedupes a repeated page: one clip on the server renders one tile', async () => {
+    const backend = fullBackend()
+    // Server ignores paging params: same clip, same cursor, twice.
+    backend.clips.list.mockImplementation(async () => ({items: [clip()], cursor: 'c1', end: false}) as never)
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByTestId('clips-clip-c1')).toBeTruthy()
+      // Short list: reaching the end fetches the repeated page (as in
+      // production), the guard settles, and the dupe never renders.
+      fireEvent(screen.getByTestId('clips-collection-grid'), 'endReached')
+      await waitFor(() => expect(backend.clips.list).toHaveBeenCalledTimes(2))
+      // Guard settles (count appears only when !hasNextPage); the repeated
+      // page never renders a second tile.
+      expect(await screen.findByTestId('clips-count')).toBeTruthy()
+      expect(screen.queryAllByTestId('clips-clip-c1')).toHaveLength(1)
+      expect(screen.getByText('1 / 10')).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
+
   it('grid and list render the same items', async () => {
     const backend = fullBackend()
     const {done} = await setup({backend})

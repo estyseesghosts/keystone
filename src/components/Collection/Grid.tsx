@@ -18,6 +18,10 @@ export interface CollectionBodyProps {
   onOpen: (key: string) => void;
   onToggle: (key: string) => void;
   onLongPress?: (key: string) => void;
+  /** Web DnD (slice 8): keys the item drags (undefined = not draggable). */
+  dragKeys?: (key: string) => string[] | undefined;
+  /** Web DnD (slice 8): drop handlers when the item is a folder target. */
+  dropProps?: (key: string) => Record<string, unknown> | undefined;
   menu?: (item: CollectionItem) => React.ReactNode;
   dataSaver?: boolean;
   testID?: string;
@@ -49,6 +53,8 @@ export function CollectionGrid({
   onOpen,
   onToggle,
   onLongPress,
+  dragKeys,
+  dropProps,
   menu,
   dataSaver,
   renderItem: renderItemOverride,
@@ -87,6 +93,8 @@ export function CollectionGrid({
         onOpen={() => onOpen(item.key)}
         onToggle={() => onToggle(item.key)}
         onLongPress={onLongPress ? () => onLongPress(item.key) : undefined}
+        dragKeys={dragKeys?.(item.key)}
+        dropProps={dropProps?.(item.key)}
         dataSaver={dataSaver}
         corner={menu?.(item)}
         testID={testID ? `${testID}-${item.key}` : undefined}
@@ -127,6 +135,8 @@ export function CollectionList({
   onOpen,
   onToggle,
   onLongPress,
+  dragKeys,
+  dropProps,
   menu,
   dataSaver,
   renderItem: renderItemOverride,
@@ -159,6 +169,8 @@ export function CollectionList({
         onOpen={() => onOpen(item.key)}
         onToggle={() => onToggle(item.key)}
         onLongPress={onLongPress ? () => onLongPress(item.key) : undefined}
+        dragKeys={dragKeys?.(item.key)}
+        dropProps={dropProps?.(item.key)}
         menu={menu?.(item)}
         dataSaver={dataSaver}
         testID={testID ? `${testID}-${item.key}` : undefined}

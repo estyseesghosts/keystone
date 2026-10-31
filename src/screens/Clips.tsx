@@ -7,7 +7,7 @@
 // tile — Favourites tile calls `bookmarks.add`, clips call
 // `clips.addNote` — then closes.
 
-import {useState} from 'react';
+import {useMemo, useState} from 'react';
 import {View} from 'react-native';
 import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native';
 import {msg} from '@lingui/macro';
@@ -49,7 +49,15 @@ export function ClipsScreen() {
   const invalidateClip = useInvalidateClip();
   const {me} = useMe(sessionId);
   const dataSaver = useDataSaver();
-  const items = (clips.data?.pages ?? []).flatMap(p => p.items);
+  // Dedupe by id: a server that ignores paging params returns the
+  // same page twice before the repeat-cursor guard settles (and any
+  // overlapping pages would double-render). First occurrence wins.
+  const items = useMemo(() => {
+    const seen = new Set<string>();
+    return (clips.data?.pages ?? [])
+      .flatMap(p => p.items)
+      .filter(c => (seen.has(c.id) ? false : (seen.add(c.id), true)));
+  }, [clips.data]);
   const [dialog, setDialog] = useState<{clip: ClipSummary | null} | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClipSummary | null>(null);
   const [busy, setBusy] = useState(false);

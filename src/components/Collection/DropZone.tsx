@@ -6,6 +6,12 @@ import type {ReactNode} from 'react';
 
 export interface DropZoneProps {
   children: ReactNode;
+  /** Current target folder id (null = root). Web-only; ignored on native. */
+  targetKey?: string | null;
+  targetName?: string;
+  draggedKeys?: () => string[];
+  onFiles?: (files: File[], targetKey: string | null) => void;
+  onItems?: (keys: string[], targetKey: string | null) => void;
   testID?: string;
 }
 

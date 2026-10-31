@@ -40,20 +40,20 @@ export function clipTileItem(
   const clip = item.clip!;
   const notes = clip.notesCount;
   const clipped = clip.lastClippedAt ? formatRelativeTime(clip.lastClippedAt) : null;
-  const notesPart = notes == null ? '?' : `${notes}`;
-  const notesLabel = i18n._(
-    plural(notes ?? 0, {one: '# note', other: '# notes'}),
-  );
+  const notesLabel =
+    notes == null
+      ? i18n._(msg`? notes`)
+      : i18n._(plural(notes, {one: '# note', other: '# notes'}));
   return {
     key: clip.id,
     title: clip.name,
-    subtitle: `${notesPart} ${notesLabel} · ${clip.isPublic ? i18n._(msg`Public`) : i18n._(msg`Private`)}${clipped ? ` · ${clipped}` : ''}`,
+    subtitle: `${notesLabel} · ${clip.isPublic ? i18n._(msg`Public`) : i18n._(msg`Private`)}${clipped ? ` · ${clipped}` : ''}`,
     thumb:
       mosaic && mosaic.images.length > 0
         ? {kind: 'mosaic', images: mosaic.images}
         : {kind: 'icon', icon: 'clip'},
     badges: clip.isPublic ? [] : [{key: 'private', label: i18n._(msg`Private`)}],
-    a11yHint: i18n._(msg`clip, ${notesPart} notes`),
+    a11yHint: i18n._(msg`clip, ${notes ?? '?'} notes`),
   };
 }
 

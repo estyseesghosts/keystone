@@ -3,7 +3,7 @@
 // Selection renders a check badge; web Enter opens, Space toggles.
 
 import {useState} from 'react';
-import {StyleSheet, View} from 'react-native';
+import {Platform, StyleSheet, View} from 'react-native';
 
 import {atoms} from '#/alf/atoms';
 import {Body, Caption} from '#/alf/typography';
@@ -27,12 +27,60 @@ const styles = StyleSheet.create({
   badge: {paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4},
 });
 
+/**
+ * Web-only DnD source props (P6.6 slice 8, DC-11): `draggable` tiles set
+ * the key payload on dragstart; a multi-drag gets a count badge via
+ * `setDragImage`. Native trees never receive these props (gated on
+ * `Platform.OS`, same DOM-forwarding seam as `onContextMenu`). Pure.
+ */
+/** Keys of the in-flight collection drag (web-only, set on dragstart,
+ * cleared on dragend). Lets drop targets validate during dragover, when
+ * the dataTransfer payload itself is unreadable. */
+let activeDragKeys: string[] | null = null;
+
+export function getActiveDragKeys(): string[] | null {
+  return activeDragKeys;
+}
+
+export function dragSourceDomProps(keys: string[]): Record<string, unknown> {
+  return {
+    draggable: true,
+    onDragStart: (e: {
+      dataTransfer?: {
+        setData?: (type: string, value: string) => void;
+        setDragImage?: (node: unknown, x: number, y: number) => void;
+        effectAllowed?: string;
+      } | null;
+    }) => {
+      e.dataTransfer?.setData?.('application/x-keystone-keys', JSON.stringify(keys));
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+      activeDragKeys = keys;
+      if (keys.length > 1 && typeof document !== 'undefined' && e.dataTransfer?.setDragImage) {
+        const badge = document.createElement('div');
+        badge.textContent = `${keys.length} items`;
+        badge.setAttribute(
+          'style',
+          'position:fixed;top:-100px;background:#333;color:#fff;padding:4px 8px;border-radius:8px;font-size:12px;',
+        );
+        document.body.appendChild(badge);
+        e.dataTransfer.setDragImage(badge, 0, 0);
+        setTimeout(() => badge.remove(), 0);
+      }
+    },
+    onDragEnd: () => {
+      activeDragKeys = null;
+    },
+  };
+}
+
 export function Tile({
   item,
   selected,
   selectionMode,
   onOpen,
   onToggle,
+  dragKeys,
+  dropProps,
   dataSaver,
   blurhash,
   corner,
@@ -45,6 +93,10 @@ export function Tile({
   onToggle: () => void;
   /** Native long-press enters selection mode (slice 6). */
   onLongPress?: () => void;
+  /** Web DnD source keys (slice 8): the tile drags these keys. */
+  dragKeys?: string[];
+  /** Web DnD target props for this tile (slice 8): folders get drop handlers. */
+  dropProps?: Record<string, unknown>;
   dataSaver?: boolean;
   blurhash?: string | null;
   /** Top-right overlay (grid overflow menu). Hidden in selection mode. */
@@ -62,7 +114,9 @@ export function Tile({
       accessibilityState={{selected}}
       accessibilityLabel={label}
       style={styles.pressable}
-      testID={testID}>
+      testID={testID}
+      {...(Platform.OS === 'web' && dragKeys && dragKeys.length > 0 ? dragSourceDomProps(dragKeys) : {})}
+      {...(Platform.OS === 'web' && dropProps ? dropProps : {})}>
       <View style={styles.tile}>
         <View style={styles.thumbWrap}>
           <Thumb thumb={item.thumb} blurhash={blurhash} dataSaver={dataSaver} />
@@ -103,6 +157,8 @@ export function Row({
   onOpen,
   onToggle,
   onLongPress,
+  dragKeys,
+  dropProps,
   menu,
   dataSaver,
   blurhash,
@@ -115,6 +171,10 @@ export function Row({
   onToggle: () => void;
   /** Native long-press enters selection mode (slice 6). */
   onLongPress?: () => void;
+  /** Web DnD source keys (slice 8): the row drags these keys. */
+  dragKeys?: string[];
+  /** Web DnD target props for this row (slice 8): folders get drop handlers. */
+  dropProps?: Record<string, unknown>;
   /** Overflow menu node (slice screens own their menus). */
   menu?: React.ReactNode;
   dataSaver?: boolean;
@@ -134,7 +194,9 @@ export function Row({
       accessibilityState={{selected}}
       accessibilityLabel={label}
       style={styles.pressable}
-      testID={testID}>
+      testID={testID}
+      {...(Platform.OS === 'web' && dragKeys && dragKeys.length > 0 ? dragSourceDomProps(dragKeys) : {})}
+      {...(Platform.OS === 'web' && dropProps ? dropProps : {})}>
       <View style={styles.row}>
         <View style={styles.rowThumb}>
           <Thumb thumb={item.thumb} blurhash={blurhash} dataSaver={dataSaver} />

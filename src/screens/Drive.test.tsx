@@ -5,6 +5,7 @@
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
+import {Platform} from 'react-native'
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
 
 import {ApiError, createMemoryStore} from '@keystone/fedi'
@@ -462,6 +463,129 @@ describe('Drive upload queue (slice 7)', () => {
       fireEvent.press(await screen.findByText('Files'))
       expect(await screen.findByTestId('drive-upload-refused')).toBeTruthy()
       expect(backend.uploadMedia).not.toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+})
+
+describe('Drive web drag and drop (slice 8)', () => {
+  const realOS = Platform.OS
+  beforeEach(() => {
+    Platform.OS = 'web'
+  })
+  afterEach(() => {
+    Platform.OS = realOS
+  })
+
+  const fileDt = (files: Array<{name: string; size: number; type: string}>) => ({
+    types: ['Files'],
+    files,
+  })
+  const keysDt = (keys: string[]) => ({
+    types: ['application/x-keystone-keys'],
+    getData: () => JSON.stringify(keys),
+  })
+  const dropEvent = (dataTransfer: unknown) => ({
+    preventDefault: jest.fn(),
+    stopPropagation: jest.fn(),
+    dataTransfer,
+  })
+
+  it('file drop on a folder tile enqueues an upload into that folder', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      const tile = await screen.findByTestId('drive-collection-grid-d1')
+      fireEvent(tile, 'onDrop', dropEvent(fileDt([{name: 'drop.png', size: 10, type: 'image/png'}])))
+      await waitFor(() => expect(backend.uploadMedia).toHaveBeenCalledTimes(1))
+      const [file, opts] = backend.uploadMedia.mock.calls[0]! as unknown as [unknown, unknown]
+      expect((file as {name: string}).name).toBe('drop.png')
+      expect((opts as {folderId: string}).folderId).toBe('d1')
+      expect(await screen.findByTestId('drive-upload-queue')).toBeTruthy()
+    } finally {
+      done()
+    }
+  })
+
+  it('item drop on a folder moves the whole selection, with undo', async () => {
+    const backend = fullBackend()
+    backend.drive.folders.list.mockImplementation(async (opts: unknown) => {
+      if ((opts as {parentId?: string | null}).parentId) return {items: [], cursor: null, end: true}
+      return {items: [folder({id: 'd1'}), folder({id: 'd2', name: 'Two'})], cursor: null, end: true}
+    })
+    const {done} = await setup({backend})
+    try {
+      fireEvent(await screen.findByTestId('drive-collection-grid-f1'), 'longPress')
+      fireEvent.press(screen.getByTestId('drive-collection-grid-d1'))
+      // Dragging the selected file drags the selection (file + folder).
+      const setData = jest.fn()
+      fireEvent(screen.getByTestId('drive-collection-grid-f1'), 'onDragStart', {dataTransfer: {setData}})
+      expect(JSON.parse(setData.mock.calls[0]![1]).sort()).toEqual(['d1', 'f1'])
+      // Drop onto the second folder.
+      fireEvent(screen.getByTestId('drive-collection-grid-d2'), 'onDrop', dropEvent(keysDt(['f1', 'd1'])))
+      await waitFor(() => expect(backend.drive.moveMany).toHaveBeenCalledWith(['f1'], 'd2'))
+      await waitFor(() => expect(backend.drive.folders.update).toHaveBeenCalledWith('d1', {parentId: 'd2'}))
+      // Undo returns both items to the root.
+      fireEvent.press(await screen.findByTestId('drive-undo-move'))
+      await waitFor(() => expect(backend.drive.updateFile).toHaveBeenCalledWith('f1', {folderId: null}))
+      await waitFor(() => expect(backend.drive.folders.update).toHaveBeenCalledWith('d1', {parentId: null}))
+      expect(screen.queryByTestId('drive-undo-move')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('self drop is rejected with no move', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      const tile = await screen.findByTestId('drive-collection-grid-d1')
+      fireEvent(tile, 'onDrop', dropEvent(keysDt(['d1'])))
+      expect(backend.drive.folders.update).not.toHaveBeenCalled()
+      expect(backend.drive.moveMany).not.toHaveBeenCalled()
+      expect(screen.queryByTestId('drive-undo-move')).toBeNull()
+    } finally {
+      done()
+    }
+  })
+
+  it('text/link drops are ignored', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      const tile = await screen.findByTestId('drive-collection-grid-d1')
+      fireEvent(
+        tile,
+        'onDrop',
+        dropEvent({types: ['text/plain'], getData: () => 'https://example.com'}),
+      )
+      expect(backend.drive.folders.update).not.toHaveBeenCalled()
+      expect(backend.uploadMedia).not.toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+
+  it('crumb drop moves items to that ancestor', async () => {
+    const backend = fullBackend()
+    backend.drive.folders.list.mockImplementation(async (opts: unknown) => {
+      if ((opts as {parentId?: string | null}).parentId === 'd1') {
+        return {items: [], cursor: null, end: true}
+      }
+      return {items: [folder({id: 'd1', name: 'One'})], cursor: null, end: true}
+    })
+    backend.drive.files.mockImplementation(async () => ({
+      items: [file({id: 'f1', folderId: 'd1'})],
+      cursor: null,
+      end: true,
+    }))
+    const {done} = await setup({backend, folderId: 'd1'})
+    try {
+      await screen.findByTestId('drive-collection-grid-f1')
+      const rootPressable = screen.getByTestId('drive-crumbs-root')
+      fireEvent(rootPressable.parent!, 'onDrop', dropEvent(keysDt(['f1'])))
+      await waitFor(() => expect(backend.drive.moveMany).toHaveBeenCalledWith(['f1'], null))
     } finally {
       done()
     }

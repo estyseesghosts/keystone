@@ -11,6 +11,8 @@ import {atoms} from '#/alf/atoms';
 import {Body} from '#/alf/typography';
 import {i18n} from '#/locale/i18n';
 
+import {getActiveDragKeys} from './Tile';
+
 export interface DropZoneWebProps {
   children: ReactNode;
   /** Current target folder id (null = root) for the overlay + files. */
@@ -28,6 +30,93 @@ function hasFiles(e: {dataTransfer?: {types?: ArrayLike<string>; files?: ArrayLi
   if (!types) return false;
   for (let i = 0; i < types.length; i++) if (types[i] === 'Files') return true;
   return (e.dataTransfer?.files?.length ?? 0) > 0;
+}
+
+export interface DropTargetOptions {
+  /** Folder the drop lands in (null = root). */
+  targetKey: string | null;
+  /** Keys of the dragged items (selection-aware; falls back to the
+   * in-flight drag when set). */
+  getDraggedKeys: () => string[];
+  /** False → `dropEffect: 'none'` on hover and the drop is ignored. */
+  isValidTarget: (targetKey: string | null, keys: string[]) => boolean;
+  onFiles: (files: File[], targetKey: string | null) => void;
+  onItems: (keys: string[], targetKey: string | null) => void;
+  onEnter?: (targetKey: string | null) => void;
+  onLeave?: (targetKey: string | null) => void;
+}
+
+type DomDragEvent = {
+  preventDefault(): void;
+  stopPropagation?: () => void;
+  dataTransfer?: {
+    types?: ArrayLike<string>;
+    files?: ArrayLike<File>;
+    getData?: (t: string) => string;
+    dropEffect?: string;
+  } | null;
+};
+
+/**
+ * Drop-target DOM props (P6.6 slice 8): folder tiles and breadcrumb
+ * crumbs spread these onto their view. Files and our key payload land
+ * via `onFiles`/`onItems`; text/links are ignored. Invalid targets get
+ * no drop cursor and ignore the drop (the server guards too).
+ */
+export function dropTargetDomProps(opts: DropTargetOptions): Record<string, unknown> {
+  const draggedNow = (): string[] => getActiveDragKeys() ?? opts.getDraggedKeys();
+  const validNow = (): boolean => {
+    try {
+      return opts.isValidTarget(opts.targetKey, draggedNow());
+    } catch {
+      return true;
+    }
+  };
+  return {
+    onDragEnter: (e: DomDragEvent) => {
+      e.preventDefault();
+      opts.onEnter?.(opts.targetKey);
+    },
+    onDragOver: (e: DomDragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = validNow() ? 'copy' : 'none';
+    },
+    onDragLeave: (e: DomDragEvent) => {
+      e.preventDefault();
+      opts.onLeave?.(opts.targetKey);
+    },
+    onDrop: (e: DomDragEvent) => {
+      e.preventDefault();
+      e.stopPropagation?.();
+      const dt = e.dataTransfer;
+      if (!dt) return;
+      if (hasFiles({dataTransfer: dt as never})) {
+        const files: File[] = [];
+        const list = dt.files;
+        if (list) for (let i = 0; i < list.length; i++) files.push(list[i]!);
+        if (files.length > 0) opts.onFiles(files, opts.targetKey);
+        return;
+      }
+      const raw = dt.getData?.('application/x-keystone-keys');
+      if (raw) {
+        try {
+          const parsed: unknown = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.every(k => typeof k === 'string') && parsed.length > 0) {
+            const keys = parsed as string[];
+            if (opts.isValidTarget(opts.targetKey, keys)) opts.onItems(keys, opts.targetKey);
+            return;
+          }
+        } catch {
+          // Not our payload: ignore (text/links never move).
+        }
+        return;
+      }
+      const fallback = draggedNow();
+      if (fallback.length > 0 && opts.isValidTarget(opts.targetKey, fallback)) {
+        opts.onItems(fallback, opts.targetKey);
+      }
+    },
+  };
 }
 
 export function DropZone({

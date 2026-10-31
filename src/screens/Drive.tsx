@@ -41,6 +41,8 @@ import {useQueryClient} from '@tanstack/react-query';
 import {driveFilesQueryKey, driveUsageQueryKey} from '#/state/queries/keys';
 
 import {CollectionScreen} from '#/components/Collection/CollectionScreen';
+import {DropZone} from '#/components/Collection/DropZone';
+import {dropTargetDomProps} from '#/components/Collection/DropZone.web';
 import {Toolbar} from '#/components/Collection/Toolbar';
 import {SelectionBar} from '#/components/Collection/SelectionBar';
 import {initSelection, isSelected, selectionReducer} from '#/components/Collection/useSelection';
@@ -173,12 +175,24 @@ export function DriveScreen() {
   >(null);
   const [moveDescendants, setMoveDescendants] = useState<string[]>([]);
   const modRef = useRef({ctrl: false, meta: false, shift: false});
+  const dropFolderRef = useRef<{id: string | null; name: string} | null>(null);
   const lastTap = useRef<{key: string; at: number} | null>(null);
   const [deleteFolder, setDeleteFolder] = useState<{folder: DriveFolder; walk: WalkTree} | null>(null);
   const [deleteFile, setDeleteFile] = useState<Media | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [refused, setRefused] = useState<Array<{name: string; reason: string}> | null>(null);
+  const [dropFolder, setDropFolder] = useState<{id: string | null; name: string} | null>(null);
+  const [lastDnDMove, setLastDnDMove] = useState<{
+    files: Array<{id: string; from: string | null}>;
+    folders: Array<{id: string; from: string | null}>;
+    to: string | null;
+  } | null>(null);
+  const pendingUndoRef = useRef<{
+    files: Array<{id: string; from: string | null}>;
+    folders: Array<{id: string; from: string | null}>;
+    to: string | null;
+  } | null>(null);
   const queue = useUploadQueue(backend, {
     onDone: (item, media) => {
       // Insert into the current folder's cache when it matches; usage
@@ -347,6 +361,9 @@ export function DriveScreen() {
   useEffect(() => {
     setDetailFile(null);
     setFilter('');
+    setDropFolder(null);
+    setLastDnDMove(null);
+    pendingUndoRef.current = null;
     dispatchSel({type: 'clear'});
   }, [folderId]);
 
@@ -396,10 +413,10 @@ export function DriveScreen() {
     ...visibleFiles.map(f => fileItem(f, f.createdAt)),
   ];
 
-  const enqueuePicked = async (sources: UploadSource[]) => {
+  const enqueuePicked = async (sources: UploadSource[], targetFolderId: string | null = folderId) => {
     if (sources.length === 0 || !sessionId) return;
     const free = usage.data ? Math.max(0, usage.data.capacity - usage.data.usage) : null;
-    const {accepted, refused: rejected} = queue.enqueue(sources, folderId, {freeBytes: free});
+    const {accepted, refused: rejected} = queue.enqueue(sources, targetFolderId, {freeBytes: free});
     if (rejected.length > 0) setRefused(rejected);
     if (accepted === 0 && rejected.length === sources.length) return;
     showToast(
@@ -579,6 +596,132 @@ export function DriveScreen() {
     }
   };
 
+  /** False when a dragged item IS the target (plan slice 8 step 2:
+   * self-drops get no drop cursor and are ignored). Descendant targets
+   * need no check here: they render inside the dragged folder, never
+   * beside it, so no tile/crumb can ever be one (the server still guards
+   * `RECURSIVE_NESTING` for any other path). */
+  const isValidDnDTarget = (targetKey: string | null, keys: string[]) =>
+    !keys.some(key => key === targetKey);
+
+  /** Item drop (web DnD, slice 8): same move path as slice 6, with undo. */
+  const doDnDMove = async (keys: string[], targetKey: string | null) => {
+    if (!backend?.drive || !sessionId || keys.length === 0) return;
+    const files = fileItems.filter(f => keys.includes(f.id));
+    const folders = folderItems.filter(f => keys.includes(f.id));
+    if (files.length === 0 && folders.length === 0) return;
+    if (!isValidDnDTarget(targetKey, keys)) return;
+    // No-op drop (everything already in the target folder): stay silent.
+    if (
+      files.every(f => (f.folderId ?? null) === targetKey) &&
+      folders.every(f => (f.parentId ?? null) === targetKey)
+    ) {
+      return;
+    }
+    pendingUndoRef.current = {
+      files: files.map(f => ({id: f.id, from: folderId})),
+      folders: folders.map(f => ({id: f.id, from: folderId})),
+      to: targetKey,
+    };
+    setLastDnDMove(null);
+    await doBulkMove(targetKey, files, folders);
+  };
+
+  /** Undo the last drag move (plan slice 8 step 3): every item back to
+   * the folder it came from. */
+  const undoDnDMove = async () => {
+    if (!backend?.drive || !sessionId || !lastDnDMove) return;
+    setBusy(true);
+    try {
+      const fileResults = await runPool(lastDnDMove.files, f => backend.drive!.updateFile(f.id, {folderId: f.from}), {
+        concurrency: 4,
+      });
+      const folderResults = await runPool(
+        lastDnDMove.folders,
+        f => backend.drive!.folders!.update(f.id, {parentId: f.from}),
+        {concurrency: 4},
+      );
+      const failed = fileResults.filter(r => !r.ok).length + folderResults.filter(r => !r.ok).length;
+      invalidate.folder(sessionId, folderId);
+      if (lastDnDMove.to !== folderId) invalidate.folder(sessionId, lastDnDMove.to);
+      setLastDnDMove(null);
+      if (failed > 0) {
+        setActionError(i18n._(msg`Could not undo the whole move (${failed} item(s) failed).`));
+      } else {
+        showToast(i18n._(msg`Move undone.`));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const setDropTarget = (target: {id: string | null; name: string} | null) => {
+    dropFolderRef.current = target;
+    setDropFolder(target);
+  };
+
+  const currentFolderName = crumbs.length > 0 ? crumbs[crumbs.length - 1]!.label : i18n._(msg`My Uploads`);
+
+  /** File drop (web DnD, slice 8 step 1): OS files enqueue into the
+   * hovered folder, else the current one. Text/links never reach here. */
+  const dropFiles = (files: File[], targetKey: string | null) => {
+    setDropTarget(null);
+    void enqueuePicked(
+      files.map(f => ({file: f as UploadSource['file'], name: f.name, size: f.size, mimeType: f.type || 'application/octet-stream'})),
+      dropFolderRef.current?.id ?? targetKey,
+    );
+  };
+
+  const dropItemsOn = (keys: string[], targetKey: string | null) => {
+    setDropTarget(null);
+    void doDnDMove(keys, targetKey);
+  };
+
+  const folderDropProps = (folder: DriveFolder): Record<string, unknown> | undefined => {
+    if (Platform.OS !== 'web') return undefined;
+    return dropTargetDomProps({
+      targetKey: folder.id,
+      getDraggedKeys: () => selRef.current.selected,
+      isValidTarget: isValidDnDTarget,
+      onFiles: (files, target) => {
+        setDropTarget(null);
+        void enqueuePicked(
+          files.map(f => ({file: f as UploadSource['file'], name: f.name, size: f.size, mimeType: f.type || 'application/octet-stream'})),
+          target,
+        );
+      },
+      onItems: dropItemsOn,
+      onEnter: () => setDropTarget({id: folder.id, name: folder.name}),
+      onLeave: () => {
+        if (dropFolderRef.current?.id === folder.id) setDropTarget(null);
+      },
+    });
+  };
+
+  const crumbDropProps = (key: string | null): Record<string, unknown> | undefined => {
+    if (Platform.OS !== 'web') return undefined;
+    const label = key == null ? i18n._(msg`My Uploads`) : (crumbs.find(c => c.key === key)?.label ?? key);
+    return dropTargetDomProps({
+      targetKey: key,
+      getDraggedKeys: () => selRef.current.selected,
+      // Crumbs are the current folder + ancestors: never self/descendant
+      // of anything dragged from this view.
+      isValidTarget: () => true,
+      onFiles: (files, target) => {
+        setDropTarget(null);
+        void enqueuePicked(
+          files.map(f => ({file: f as UploadSource['file'], name: f.name, size: f.size, mimeType: f.type || 'application/octet-stream'})),
+          target,
+        );
+      },
+      onItems: dropItemsOn,
+      onEnter: () => setDropTarget({id: key, name: label}),
+      onLeave: () => {
+        if (dropFolderRef.current?.id === key) setDropTarget(null);
+      },
+    });
+  };
+
   /** Bulk sensitive flag flip (files only). */
   const doBulkSensitive = async (value: boolean, files: Media[]) => {
     if (!backend?.drive || !sessionId || files.length === 0) return;
@@ -665,9 +808,17 @@ export function DriveScreen() {
       setFailedOps(null);
       setLastBulk(null);
       dispatchSel({type: 'clear'});
+      // Drag moves (slice 8) record undo; every other success clears it.
+      if (kind === 'move' && pendingUndoRef.current) {
+        setLastDnDMove(pendingUndoRef.current);
+      } else {
+        setLastDnDMove(null);
+      }
+      pendingUndoRef.current = null;
     } else {
       setLastBulk({kind, files, folders, targetId, value});
       setFailedOps(failed);
+      pendingUndoRef.current = null;
     }
   };
 
@@ -708,12 +859,19 @@ export function DriveScreen() {
 
   return (
     <View style={atoms.flex1} testID="drive-screen">
+      <DropZone
+        targetKey={dropFolder?.id ?? folderId}
+        targetName={dropFolder?.name ?? currentFolderName}
+        draggedKeys={() => selRef.current.selected}
+        onFiles={dropFiles}
+        onItems={dropItemsOn}
+        testID="drive-dropzone">
       <CollectionScreen
         screen="drive"
         title={i18n._(msg`My Uploads`)}
         header={
           <View style={[atoms.gap_sm, atoms.px_md, {paddingTop: 8}]}>
-            <Breadcrumbs trail={crumbs} onNavigate={openFolder} testID="drive-crumbs" />
+            <Breadcrumbs trail={crumbs} onNavigate={openFolder} dropProps={isWeb ? crumbDropProps : undefined} testID="drive-crumbs" />
             <UsageBar
               used={usage.data?.usage ?? null}
               capacity={usage.data?.capacity ?? null}
@@ -754,6 +912,18 @@ export function DriveScreen() {
               }
               testID="drive-toolbar"
             />
+            {lastDnDMove ? (
+              <View style={[atoms.px_md, atoms.py_sm]}>
+                <Button
+                  label={i18n._(msg`Undo move`)}
+                  variant="secondary"
+                  compact
+                  disabled={busy}
+                  onPress={() => void undoDnDMove()}
+                  testID="drive-undo-move"
+                />
+              </View>
+            ) : null}
           </View>
         }
         selectionBar={
@@ -810,6 +980,12 @@ export function DriveScreen() {
           onOpen: handlePress,
           onToggle: key => dispatchSel({type: 'toggle', key}),
           onLongPress: key => dispatchSel({type: 'enterMode', key}),
+          dragKeys: key => (isWeb ? (isSelected(sel, key) ? [...sel.selected] : [key]) : undefined),
+          dropProps: key => {
+            if (!isWeb) return undefined;
+            const folder = visibleFolders.find(f => f.id === key);
+            return folder ? folderDropProps(folder) : undefined;
+          },
           menu: item => {
             const folder = visibleFolders.find(f => f.id === item.key);
             if (folder) {
@@ -868,6 +1044,7 @@ export function DriveScreen() {
         footer={files.isFetchingNextPage ? <Loader testID="drive-collection-more" /> : undefined}
         testID="drive-collection"
       />
+      </DropZone>
       {actionError ? (
         <Caption color="faint" testID="drive-action-error">
           {actionError}
