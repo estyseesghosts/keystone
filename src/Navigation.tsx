@@ -183,11 +183,18 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
   // reserved column.
   const viewportWidth = useViewportWidth()
   const panelMode = useWidgetsPanelMode()
-  const widgetsVisible = shouldShowWidgetsPanel(viewportWidth, panelMode)
+  // Pages section (index, reader, writer): center the content column at
+  // the wide readable cap (owner 2026-10-31). The widgets rail is
+  // unrelated to writing, so the writer unmounts it entirely (no
+  // collapse, no restore affordance); the viewer/index keep it.
+  const pagesSection =
+    leaf.name === 'Pages' || leaf.name === 'Page' || leaf.name === 'PageEdit'
+  const pagesWriter = leaf.name === 'PageEdit'
+  const widgetsVisible = !pagesWriter && shouldShowWidgetsPanel(viewportWidth, panelMode)
   // Restore affordance only where the panel would show on its own: narrow
   // windows stay panel-free (no squeeze) and mobile keeps its nav model.
   const panelRestoreVisible =
-    !mobile && panelMode === 'hidden' && autoWidgetsPanelVisible(viewportWidth)
+    !pagesWriter && !mobile && panelMode === 'hidden' && autoWidgetsPanelVisible(viewportWidth)
   // Feed width is fluid: on desktop the column fills everything between
   // the sidebar and the widgets panel (`flex: 1`, no max cap — a fixed cap
   // left dead gutters on wide windows). Mobile keeps the 600 cap so the
@@ -255,10 +262,14 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
               testID="feed-column"
               style={[
                 styles.feedcol,
-                mobile ? {maxWidth: butterflyPx.mainColMax} : null,
                 mobile
-                  ? null
+                  ? {maxWidth: butterflyPx.mainColMax}
                   : {borderEndColor: alf.palette.border, borderEndWidth: 1},
+                // Pages: centered readable column at the wide cap (the
+                // widgets rail is unmounted, so no divider to draw).
+                !mobile && pagesSection
+                  ? {maxWidth: butterflyPx.mainColMaxWide, borderEndWidth: 0}
+                  : null,
               ]}>
               <Stack.Navigator screenOptions={{headerShown: false, animation: 'none'}}>
               <Stack.Screen name="Main" component={MainTabs} />

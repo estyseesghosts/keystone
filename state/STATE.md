@@ -19,7 +19,9 @@ body (PEC-3). Page-writer settings panel is a card too (header row with
 settings icon + collapse chevron, fields in the body). New pages seed a
 starter (one section + two text blocks), settings start collapsed, first
 text field auto-focuses once; the seeded form is the dirty baseline
-(PEC-4).
+(PEC-4). Pages routes center the content column at `mainColMaxWide`; the
+page writer unmounts the widgets rail entirely while the pages index and
+reader keep it (PEC-5).
 Device/web visual inspection `not verified` (owner item).
 
 Prior: **P6.5 Pages + P6.6 Drive/Clips merged to `main` 2026-10-31**.
@@ -40,13 +42,13 @@ Owner actions (all collected in `docs/audit_20261025/device-checks.md` +
 Links:
 - Task: `docs/tasks/feat-page-editor-cards.md` (done, merge pending)
 - DECISIONS: `docs/DECISIONS.md` PEC-1/PEC-2 (PEC-2 reverses PG-2 default)
-- Latest logs: `state/logs/2026-10-31-new-page-starter.md` (starter
-  layout), `state/logs/2026-10-31-page-settings-card.md` (settings
-  card), `state/logs/2026-10-31-antennas-cards.md` (antennas follow-up),
+- Latest logs: `state/logs/2026-10-31-pages-section-layout.md` (pages
+  layout), `state/logs/2026-10-31-new-page-starter.md` (starter layout),
+  `state/logs/2026-10-31-page-settings-card.md` (settings card),
+  `state/logs/2026-10-31-antennas-cards.md` (antennas follow-up),
   `state/logs/2026-10-31-page-editor-cards.md` (editor slice),
   `state/logs/2026-10-31-merge-pages-drive-clips.md`,
-  `state/logs/2026-10-30-p6.6-9-integration.md`,
-  `state/logs/2026-10-30-p6.5-pages-slices-3-8.md`
+  `state/logs/2026-10-30-p6.6-9-integration.md`
 - P6.5 ADRs: 0014, 0015, 0016; tasks index: `docs/tasks/README.md`
 - Repair program: `docs/audit_20261025/repair.md` + `report.md` (COMPLETE)
 - Baseline: **292 suites / 4123 tests** green history in older logs;

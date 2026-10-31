@@ -56,6 +56,9 @@ defaults to on.
       and the first text block is auto-focused once (formatting row
       visible). Dirty baseline = seeded form, so a pristine start is not
       dirty; the starter saves as real content.
+- [x] 10. Pages section layout (owner 2026-10-31): pages routes center the
+      content column at `mainColMaxWide`; the page writer unmounts the
+      widgets rail entirely, the pages index and reader keep it.
 
 ## Acceptance
 

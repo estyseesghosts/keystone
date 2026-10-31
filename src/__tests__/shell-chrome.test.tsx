@@ -102,6 +102,32 @@ jest.mock('#/screens/Compose', () => {
   }
 })
 
+// Pages section routes (owner 2026-10-31: widgets rail unmounted, centered
+// column) — stub content, these tests pin shell chrome only.
+jest.mock('#/screens/Pages', () => {
+  const React = jest.requireActual('react')
+  const {View} = jest.requireActual('react-native')
+  return {
+    PagesScreen: () => React.createElement(View, {testID: 'pages-screen'}),
+  }
+})
+
+jest.mock('#/screens/Page', () => {
+  const React = jest.requireActual('react')
+  const {View} = jest.requireActual('react-native')
+  return {
+    PageScreen: () => React.createElement(View, {testID: 'page-screen'}),
+  }
+})
+
+jest.mock('#/screens/PageEdit', () => {
+  const React = jest.requireActual('react')
+  const {View} = jest.requireActual('react-native')
+  return {
+    PageEditScreen: () => React.createElement(View, {testID: 'page-edit-screen'}),
+  }
+})
+
 const memVault = (): TokenVault => ({
   getToken: () => Promise.resolve(null),
   setToken: () => Promise.resolve(),
@@ -610,5 +636,45 @@ describe('widgets panel (polish/2-shell: host only, widgets land in slices 3-4)'
     const rendered = body.getAllByTestId(/^widget-widget-placeholder-/).map(el => el.props.testID)
     expect(rendered).toEqual(['widget-widget-placeholder-1', 'widget-widget-placeholder-2'])
     expect(screen.getAllByText('Nothing here yet.')).toHaveLength(2)
+  })
+})
+
+describe('pages section layout (owner 2026-10-31)', () => {
+  function feedColumnMaxWidth(): unknown {
+    return StyleSheet.flatten(screen.getByTestId('feed-column').props.style)?.maxWidth
+  }
+
+  it('centers a capped column but keeps the widgets rail on the Pages index', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey', initialState: {routes: [{name: 'Pages'}]}})
+    expect(await screen.findByTestId('pages-screen')).toBeTruthy()
+    expect(screen.getByTestId('widgets-panel')).toBeTruthy()
+    expect(feedColumnMaxWidth()).toBe(butterflyPx.mainColMaxWide)
+  })
+
+  it('keeps the widgets rail on the page reader and centers the column', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey', initialState: {routes: [{name: 'Page'}]}})
+    expect(await screen.findByTestId('page-screen')).toBeTruthy()
+    expect(screen.getByTestId('widgets-panel')).toBeTruthy()
+    expect(feedColumnMaxWidth()).toBe(butterflyPx.mainColMaxWide)
+  })
+
+  it('unmounts the widgets rail entirely on the page writer and centers the column', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'misskey', initialState: {routes: [{name: 'PageEdit'}]}})
+    expect(await screen.findByTestId('page-edit-screen')).toBeTruthy()
+    // Gone, not collapsed: no panel and no restore affordance.
+    expect(screen.queryByTestId('widgets-panel')).toBeNull()
+    expect(screen.queryByTestId('widgets-panel-restore')).toBeNull()
+    expect(feedColumnMaxWidth()).toBe(butterflyPx.mainColMaxWide)
+  })
+
+  it('leaves other routes untouched', async () => {
+    widthHolder.width = 1280
+    await renderShell({signedIn: true, family: 'mastodon'})
+    expect(await screen.findByTestId('home-screen')).toBeTruthy()
+    expect(screen.getByTestId('widgets-panel')).toBeTruthy()
+    expect(feedColumnMaxWidth()).toBeUndefined()
   })
 })
