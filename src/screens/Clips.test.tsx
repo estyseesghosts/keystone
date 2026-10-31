@@ -1,9 +1,16 @@
-// Clips screen: signed-out, unsupported, list + navigate, create (with
-// the public toggle), rename, and two-tap delete.
+// Clips index on the kit (P6.6 slice 3): item order, pinned
+// Favourites folder, mosaics, limit gating, full-body edit (B1
+// regression), picker mode, grid/list parity.
 
 import {fireEvent, render, screen, waitFor} from '@testing-library/react-native'
+import {I18nProvider} from '@lingui/react'
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
 
 import {createMemoryStore} from '@keystone/fedi'
+import {i18n} from '#/locale/i18n'
+
+i18n.load('en', {})
+i18n.activate('en')
 
 import type {TokenVault} from '#/storage'
 import {__setStorageForTests, appStorage} from '#/storage'
@@ -65,11 +72,15 @@ async function setup({backend, params}: {backend?: any; params?: {addNoteId?: st
     })
   }
   render(
-    <ThemeProvider theme="light">
-      <SessionProvider store={sessionStore} homeOrigin={HOME_ORIGIN}>
-        <ClipsScreen />
-      </SessionProvider>
-    </ThemeProvider>,
+    <I18nProvider i18n={i18n}>
+      <ThemeProvider theme="light">
+        <SessionProvider store={sessionStore} homeOrigin={HOME_ORIGIN}>
+          <QueryClientProvider client={new QueryClient({defaultOptions: {queries: {retry: false}}})}>
+            <ClipsScreen />
+          </QueryClientProvider>
+        </SessionProvider>
+      </ThemeProvider>
+    </I18nProvider>,
   )
   return {
     done: () => {
@@ -79,24 +90,44 @@ async function setup({backend, params}: {backend?: any; params?: {addNoteId?: st
   }
 }
 
-const fullClips = () => ({
-  list: jest.fn(async () => [
-    {id: 'c1', name: 'Fun', isPublic: false, notesCount: 3},
-    {id: 'c2', name: 'Work', isPublic: true, notesCount: 0},
-  ]),
-  create: jest.fn(async (name: string, opts?: {isPublic?: boolean}) => ({
-    id: 'c3',
-    name,
-    isPublic: opts?.isPublic ?? false,
-  })),
-  update: jest.fn(async (id: string, patch: {name: string}) => ({id, name: patch.name})),
-  delete: jest.fn(async () => undefined),
+const clip = (over: Record<string, unknown> = {}) => ({
+  id: 'c1',
+  name: 'Fun',
+  isPublic: false,
+  description: null,
+  notesCount: 3,
+  ...over,
 })
 
 const fullBackend = () => ({
   family: 'misskey',
   capabilities: {clips: 'supported'},
-  clips: fullClips(),
+  clips: {
+    list: jest.fn(async () => ({
+      items: [clip(), clip({id: 'c2', name: 'Work', isPublic: true, notesCount: 0, description: 'd'})],
+      cursor: null,
+      end: true,
+    })),
+    notes: jest.fn(async () => ({items: [], cursor: null, end: true})),
+    show: jest.fn(async () => clip()),
+    create: jest.fn(async (name: string, opts?: {isPublic?: boolean; description?: string | null}) => ({
+      id: 'c3',
+      name,
+      isPublic: opts?.isPublic ?? false,
+      description: opts?.description ?? null,
+    })),
+    update: jest.fn(async (id: string, patch: {name: string; isPublic: boolean; description: string | null}) => ({
+      id,
+      ...patch,
+    })),
+    delete: jest.fn(async () => undefined),
+    addNote: jest.fn(async () => undefined),
+  },
+  bookmarks: {
+    list: jest.fn(async () => ({items: [], cursor: null, end: true})),
+    add: jest.fn(async () => undefined),
+  },
+  me: jest.fn(async () => ({id: 'alice', limits: {clipLimit: 10}})),
 })
 
 describe('Clips screen', () => {
@@ -110,7 +141,7 @@ describe('Clips screen', () => {
   })
 
   it('is honestly unavailable without a clips module', async () => {
-    const {done} = await setup({backend: {family: 'misskey', capabilities: {}}})
+    const {done} = await setup({backend: {family: 'mastodon', capabilities: {}}})
     try {
       expect(await screen.findByText('Clips are not available on this server.')).toBeTruthy()
     } finally {
@@ -118,112 +149,191 @@ describe('Clips screen', () => {
     }
   })
 
-  it('lists rows and navigates to the clip feed', async () => {
-    const {done} = await setup({backend: fullBackend()})
+  it('lists the Favourites folder first, then own clips', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
     try {
-      expect(await screen.findByText('Fun')).toBeTruthy()
-      expect(screen.getByText('Work')).toBeTruthy()
-      // X9.2: the count caption renders translated via plural (English source catalog).
-      expect(screen.getByText('3 notes')).toBeTruthy()
-      fireEvent.press(screen.getByTestId('clips-open-c1'))
+      expect(await screen.findByTestId('clips-fav')).toBeTruthy()
+      expect(screen.getByTestId('clips-clip-c1')).toBeTruthy()
+      expect(screen.getByTestId('clips-clip-c2')).toBeTruthy()
+      // Favourites tile opens the Favorites route, never a clips/* call.
+      fireEvent.press(screen.getByTestId('clips-fav'))
+      expect(mockNavigate).toHaveBeenCalledWith('Favorites')
+      fireEvent.press(screen.getByTestId('clips-clip-c1'))
       expect(mockNavigate).toHaveBeenCalledWith('Clip', {id: 'c1'})
     } finally {
       done()
     }
   })
 
-  it('creates a clip with the public flag', async () => {
+  it('Favourites folder has no edit/delete and never triggers clips/*', async () => {
     const backend = fullBackend()
     const {done} = await setup({backend})
     try {
-      expect(await screen.findByText('Fun')).toBeTruthy()
-      fireEvent.changeText(screen.getByTestId('clips-create-input'), 'Local')
-      fireEvent.press(screen.getByTestId('clips-create-public'))
-      fireEvent.press(screen.getByTestId('clips-create-submit'))
-      await waitFor(() => expect(backend.clips.create).toHaveBeenCalledWith('Local', {isPublic: true}))
-      expect(await screen.findByText('Local')).toBeTruthy()
+      await screen.findByTestId('clips-fav')
+      expect(backend.clips.list).toHaveBeenCalled()
+      expect(screen.queryByTestId('clips-menu-favourites')).toBeNull()
     } finally {
       done()
     }
   })
 
-  it('renames a clip inline (privacy flag rides along)', async () => {
+  it('shows the limit count and disables New clip at the limit', async () => {
     const backend = fullBackend()
+    backend.me.mockResolvedValueOnce({id: 'alice', limits: {clipLimit: 2}})
     const {done} = await setup({backend})
     try {
-      expect(await screen.findByText('Fun')).toBeTruthy()
-      fireEvent.press(screen.getByTestId('clips-rename-c1'))
-      fireEvent.changeText(screen.getByTestId('clips-rename-input-c1'), 'Play')
-      fireEvent.press(screen.getByTestId('clips-rename-save-c1'))
-      await waitFor(() =>
-        expect(backend.clips.update).toHaveBeenCalledWith('c1', {name: 'Play', isPublic: false}),
-      )
-      expect(await screen.findByText('Play')).toBeTruthy()
+      expect(await screen.findByText('2 / 2')).toBeTruthy()
+      expect(screen.getByTestId('clips-new').props.accessibilityState.disabled).toBe(true)
     } finally {
       done()
     }
   })
 
-  it('sends isPublic through updateClip from the existing editor', async () => {
+  it('creates a clip through the dialog (full body)', async () => {
     const backend = fullBackend()
     const {done} = await setup({backend})
     try {
-      expect(await screen.findByText('Fun')).toBeTruthy()
-      fireEvent.press(screen.getByTestId('clips-rename-c1'))
-      fireEvent.press(screen.getByTestId('clips-rename-public-c1'))
-      fireEvent.press(screen.getByTestId('clips-rename-save-c1'))
+      await screen.findByTestId('clips-clip-c1')
+      fireEvent.press(screen.getByTestId('clips-new'))
+      fireEvent.changeText(await screen.findByTestId('clips-dialog-name'), 'Local')
+      fireEvent.press(screen.getByTestId('clips-dialog-public'))
+      fireEvent.press(screen.getByTestId('clips-dialog-save'))
       await waitFor(() =>
-        expect(backend.clips.update).toHaveBeenCalledWith('c1', {name: 'Fun', isPublic: true}),
+        expect(backend.clips.create).toHaveBeenCalledWith('Local', {isPublic: true, description: null}),
       )
     } finally {
       done()
     }
   })
 
-  it('deletes only after a two-tap confirm', async () => {
+  it('edits send name + isPublic + description (B1: description survives)', async () => {
     const backend = fullBackend()
     const {done} = await setup({backend})
     try {
-      expect(await screen.findByText('Fun')).toBeTruthy()
-      fireEvent.press(screen.getByTestId('clips-delete-c1'))
-      expect(backend.clips.delete).not.toHaveBeenCalled()
-      expect(screen.getByTestId('clips-delete-confirm-c1')).toBeTruthy()
-      fireEvent.press(screen.getByTestId('clips-delete-confirm-c1'))
+      await screen.findByTestId('clips-clip-c2')
+      fireEvent.press(screen.getByTestId('clips-menu-c2'))
+      fireEvent.press(await screen.findByText('Edit'))
+      fireEvent.press(screen.getByTestId('clips-dialog-save'))
+      await waitFor(() =>
+        expect(backend.clips.update).toHaveBeenCalledWith('c2', {
+          name: 'Work',
+          isPublic: true,
+          description: 'd',
+        }),
+      )
+    } finally {
+      done()
+    }
+  })
+
+  it('deletes with a confirm naming the clip', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      await screen.findByTestId('clips-clip-c1')
+      fireEvent.press(screen.getByTestId('clips-menu-c1'))
+      fireEvent.press(await screen.findByText('Delete'))
+      expect(await screen.findByTestId('clips-delete')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('clips-delete-confirm'))
       await waitFor(() => expect(backend.clips.delete).toHaveBeenCalledWith('c1'))
-      await waitFor(() => expect(screen.queryByText('Fun')).toBeNull())
+    } finally {
+      done()
+    }
+  })
+
+  it('picker mode files the note into a clip and closes', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend, params: {addNoteId: 'n9'}})
+    try {
+      expect(await screen.findByText('Choose a clip for this post.')).toBeTruthy()
+      fireEvent.press(await screen.findByTestId('clips-clip-c1'))
+      await waitFor(() => expect(backend.clips.addNote).toHaveBeenCalledWith('c1', 'n9'))
+      expect(mockGoBack).toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+
+  it('picker mode Favourites tile calls bookmarks.add, never clips/*', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend, params: {addNoteId: 'n9'}})
+    try {
+      fireEvent.press(await screen.findByTestId('clips-fav'))
+      await waitFor(() => expect(backend.bookmarks.add).toHaveBeenCalledWith('n9'))
+      expect(backend.clips.addNote).not.toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+
+  it('picker mode maps ALREADY_CLIPPED to an inline error and stays open', async () => {
+    const backend = fullBackend()
+    const {ApiError} = jest.requireActual('@keystone/fedi') as typeof import('@keystone/fedi')
+    backend.clips.addNote.mockRejectedValueOnce(new ApiError('dup', 400, 'ALREADY_CLIPPED'))
+    const {done} = await setup({backend, params: {addNoteId: 'n9'}})
+    try {
+      fireEvent.press(await screen.findByTestId('clips-clip-c1'))
+      expect(await screen.findByTestId('clips-action-error')).toBeTruthy()
+      expect(mockGoBack).not.toHaveBeenCalled()
     } finally {
       done()
     }
   })
 
   it('retries after a load failure', async () => {
-    const list = jest
-      .fn()
-      .mockRejectedValueOnce(new Error('boom'))
-      .mockResolvedValue([{id: 'c1', name: 'Fun'}])
+    const list = jest.fn().mockRejectedValue(new Error('boom'))
     const {done} = await setup({
       backend: {family: 'misskey', capabilities: {clips: 'supported'}, clips: {list}},
     })
     try {
       expect(await screen.findByText('Could not load clips.')).toBeTruthy()
-      fireEvent.press(screen.getByTestId('clips-retry'))
+      list.mockResolvedValue({
+        items: [{id: 'c1', name: 'Fun'}],
+        cursor: null,
+        end: true,
+      })
+      fireEvent.press(screen.getByTestId('clips-collection-retry'))
       expect(await screen.findByText('Fun')).toBeTruthy()
     } finally {
       done()
     }
   })
 
-  it('files a note into the picked clip and leaves (menu add-note flow)', async () => {
-    const addNote = jest.fn(async () => undefined)
+  it('dedupes a repeated page: one clip on the server renders one tile', async () => {
     const backend = fullBackend()
-    ;(backend.clips as unknown as {addNote: unknown}).addNote = addNote
-    const {done} = await setup({backend, params: {addNoteId: 'n9'}})
+    // Server ignores paging params: same clip, same cursor, twice.
+    backend.clips.list.mockImplementation(async () => ({items: [clip()], cursor: 'c1', end: false}) as never)
+    const {done} = await setup({backend})
     try {
-      expect(await screen.findByText('Choose a clip for this post.')).toBeTruthy()
-      fireEvent.press(await screen.findByTestId('clips-add-c1'))
-      await waitFor(() => expect(addNote).toHaveBeenCalledWith('c1', 'n9'))
-      await waitFor(() => expect(mockGoBack).toHaveBeenCalled())
+      expect(await screen.findByTestId('clips-clip-c1')).toBeTruthy()
+      // Short list: reaching the end fetches the repeated page (as in
+      // production), the guard settles, and the dupe never renders.
+      fireEvent(screen.getByTestId('clips-collection-grid'), 'endReached')
+      await waitFor(() => expect(backend.clips.list).toHaveBeenCalledTimes(2))
+      // Guard settles (count appears only when !hasNextPage); the repeated
+      // page never renders a second tile.
+      expect(await screen.findByTestId('clips-count')).toBeTruthy()
+      expect(screen.queryAllByTestId('clips-clip-c1')).toHaveLength(1)
+      expect(screen.getByText('1 / 10')).toBeTruthy()
     } finally {
+      done()
+    }
+  })
+
+  it('grid and list render the same items', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByTestId('clips-collection-grid')).toBeTruthy()
+      expect(screen.getByTestId('clips-clip-c1')).toBeTruthy()
+      fireEvent.press(screen.getByTestId('clips-toolbar-view-list'))
+      expect(await screen.findByTestId('clips-collection-list')).toBeTruthy()
+      expect(screen.getByTestId('clips-clip-c1')).toBeTruthy()
+      expect(screen.getByTestId('clips-fav')).toBeTruthy()
+    } finally {
+      const {collectionPrefsStore} = await import('#/state/collectionPrefs')
+      collectionPrefsStore.set('clips', 'grid')
       done()
     }
   })

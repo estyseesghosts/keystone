@@ -130,6 +130,9 @@ export interface PostMenuInput {
      * first and shows the data-loss warning. */
     onRedraft?: (post: Post) => void | Promise<void>
     onClip?: (post: Post) => void
+    /** Remove `post` from the collection this screen shows (clip detail
+     * or Favourites). Set by those screens; absent = no row. */
+    removeFromCollection?: {label: string; run: (post: Post) => void | Promise<void>}
     user?: UserActionHandlers
   }
 }
@@ -386,6 +389,10 @@ export function buildPostMenu(input: PostMenuInput): PostMenuSection[] {
       : {key: 'bookmark', label: t`Add to ${bmLabel.toLowerCase()}`, disabled: true, reason: bookmark.gate.reason},
     clipRow(input),
   )
+  if (handlers.removeFromCollection) {
+    const {label, run} = handlers.removeFromCollection
+    group2.push({key: 'remove-from-collection', label, run: () => run(post)})
+  }
 
   if (input.isOwn) {
     const edit = caps?.status_editing

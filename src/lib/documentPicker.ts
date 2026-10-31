@@ -53,3 +53,46 @@ export async function pickTransferFile(): Promise<PickedTransferFile | null> {
     name,
   }
 }
+
+export interface PickedTransferFiles {
+  file: File
+  name: string
+  size: number
+  mimeType: string
+}
+
+/**
+ * Multi-file variant of `pickTransferFile` for the Drive upload queue
+ * (P6.6 slice 7): `multiple: true` where the platform picker supports
+ * it, single file otherwise. Returns [] on cancel (never an error).
+ * Throws when the picker itself fails. Whole-file reads apply per file
+ * (same Hermes guard as the single-file path).
+ */
+export async function pickTransferFiles(): Promise<PickedTransferFiles[]> {
+  const Picker = await import('expo-document-picker')
+  const result = await Picker.getDocumentAsync({
+    type: '*/*',
+    copyToCacheDirectory: true,
+    multiple: true,
+  })
+  if (result.canceled || !result.assets || result.assets.length === 0) return []
+  const out: PickedTransferFiles[] = []
+  for (const asset of result.assets) {
+    // Web exposes the File directly (no blob round-trip).
+    const webFile = (asset as {file?: unknown}).file
+    if (typeof File !== 'undefined' && webFile instanceof File) {
+      out.push({file: webFile, name: asset.name ?? webFile.name, size: webFile.size, mimeType: asset.mimeType ?? webFile.type})
+      continue
+    }
+    const res = await fetch(asset.uri)
+    const blob = await res.blob()
+    const name = asset.name ?? asset.uri.split('/').pop() ?? 'import'
+    out.push({
+      file: new File([blob], name, {type: asset.mimeType ?? blob.type ?? 'application/octet-stream'}),
+      name,
+      size: blob.size,
+      mimeType: asset.mimeType ?? blob.type ?? 'application/octet-stream',
+    })
+  }
+  return out
+}

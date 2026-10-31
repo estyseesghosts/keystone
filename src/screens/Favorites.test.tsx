@@ -5,7 +5,7 @@
 import {i18n} from '@lingui/core'
 import {I18nProvider} from '@lingui/react'
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query'
-import {render, screen} from '@testing-library/react-native'
+import {fireEvent, render, screen} from '@testing-library/react-native'
 
 import {createMemoryStore} from '@keystone/fedi'
 
@@ -18,6 +18,16 @@ import {ThemeProvider} from '#/alf/index'
 import {makePost} from '#/components/__tests__/fixtures'
 
 import {FavoritesScreen} from './Favorites'
+
+const mockNavigate = jest.fn()
+const mockGoBack = jest.fn()
+
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useNavigation: () => ({navigate: mockNavigate, goBack: mockGoBack, canGoBack: () => mockCanGoBack}),
+}))
+
+let mockCanGoBack = true
 
 const mockBackendHolder: {current: any} = {current: null}
 
@@ -36,6 +46,9 @@ const memVault = (): TokenVault => ({
 })
 
 async function setup({backend}: {backend?: any} = {}, locale: 'en' | 'fr' = 'en') {
+  mockNavigate.mockClear()
+  mockGoBack.mockClear()
+  mockCanGoBack = true
   const storage = createMemoryStore()
   const restore = appStorage()
   __setStorageForTests({storage})
@@ -127,5 +140,62 @@ describe('Favorites screen', () => {
       i18n.activate('en')
       done()
     }
+  })
+
+  it('header shows Favourites + Saved posts (Misskey)', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      expect(await screen.findByText('Favourites')).toBeTruthy()
+      expect(screen.getByText('Saved posts')).toBeTruthy()
+      expect(backend.bookmarks.list).toHaveBeenCalled()
+      // No clips/* traffic on this screen.
+      expect((backend as {clips?: unknown}).clips).toBeUndefined()
+    } finally {
+      done()
+    }
+  })
+
+  it('back button returns to Clips', async () => {
+    const backend = fullBackend()
+    const {done} = await setup({backend})
+    try {
+      mockCanGoBack = true
+      fireEvent.press(await screen.findByTestId('favorites-back-clips'))
+      expect(mockGoBack).toHaveBeenCalled()
+    } finally {
+      done()
+    }
+  })
+
+  it('buildRemoveFromFavourites removes and invalidates only the bookmarks feed', async () => {
+    const {QueryClient} = await import('@tanstack/react-query')
+    const {buildRemoveFromFavourites} = await import('./Favorites')
+    const {feedQueryKey} = await import('#/state/queries/keys')
+    const remove = jest.fn(async () => undefined)
+    const backend = {family: 'misskey', capabilities: {}, bookmarks: {remove}}
+    const qc = new QueryClient()
+    qc.setQueryData(feedQueryKey('s1', 'bookmarks'), {pages: []})
+    qc.setQueryData(feedQueryKey('s1', 'timeline|home'), {pages: []})
+    const row = buildRemoveFromFavourites({
+      backend: backend as never,
+      queryClient: qc,
+      sessionId: 's1',
+      descriptor: 'bookmarks' as never,
+      mastodon: false,
+    })
+    expect(row.label).toBe('Remove from Favourites')
+    await row.run({id: 'p9'} as never)
+    expect(remove).toHaveBeenCalledWith('p9')
+    expect(qc.getQueryState(feedQueryKey('s1', 'bookmarks'))?.isInvalidated).toBe(true)
+    expect(qc.getQueryState(feedQueryKey('s1', 'timeline|home'))?.isInvalidated).not.toBe(true)
+    const bm = buildRemoveFromFavourites({
+      backend: backend as never,
+      queryClient: qc,
+      sessionId: 's1',
+      descriptor: 'bookmarks' as never,
+      mastodon: true,
+    })
+    expect(bm.label).toBe('Remove from Bookmarks')
   })
 })

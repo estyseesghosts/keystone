@@ -30,6 +30,10 @@ export interface PostCardHandlers {
   ) => void
   /** Open the clip picker for `post` (add-to-clip flow). */
   onClip?: (post: Post) => void
+  /** Remove `post` from the collection this screen shows (clip detail →
+   * `clips.removeNote`, Favourites → `bookmarks.remove`). Set by the
+   * Clip/Favourites screens; absent everywhere else (no row). */
+  removeFromCollection?: {label: string; run: (post: Post) => void | Promise<void>}
   /** Viewer language for translation (BCP47 primary subtag). */
   targetLang?: string
   user?: UserActionHandlers

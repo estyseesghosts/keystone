@@ -617,9 +617,9 @@ describe("MisskeyBackend notifications, drive, emojis, translate", () => {
     const backend = createMisskeyBackend(transport);
     // The real backend exposes folders: the Drive folder section renders.
     expect(backend.drive!.folders).toBeDefined();
-    const listed = await backend.drive!.folders!.list();
-    expect(calls[0]).toEqual({ endpoint: "drive/folders", params: {} });
-    expect(listed).toEqual([{ id: "d1", name: "Uploads", parentId: null }]);
+    const listed = await backend.drive!.folders!.list({parentId: null});
+    expect(calls[0]).toEqual({endpoint: "drive/folders", params: {limit: 20}});
+    expect(listed.items).toEqual([{ id: "d1", name: "Uploads", parentId: null }]);
     const created = await backend.drive!.folders!.create("Memes");
     expect(calls[1]).toEqual({ endpoint: "drive/folders/create", params: { name: "Memes" } });
     expect(created).toEqual({ id: "d2", name: "Memes", parentId: null });

@@ -1,425 +1,348 @@
-// Clips index (`/clips`, v1 `Clips` parity): the viewer's clips, create
-// (name + public flag), rename + privacy toggle (inline), and delete
-// (two-tap confirm).
-// Tapping a row navigates to `Clip` with `{id}`. Gated on
-// `backend.clips`; every `ClipsApi` member is required, so the controls
-// are never disabled by capability — only by empty input or busy state.
+// Clips index on the collection kit (P6.6 slice 3): the pinned
+// Favourites folder (same tile/row/mosaic as a clip, own data source —
+// DC-3) + the viewer's clips with lazy mosaics (DC-4/DC-5).
+//
+// Create/edit/delete go through `ClipDialog` (full-body update, DC-6).
+// Picker mode (`route.params.addNoteId`) files the note into the tapped
+// tile — Favourites tile calls `bookmarks.add`, clips call
+// `clips.addNote` — then closes.
 
-import {useCallback, useEffect, useState} from 'react'
-import {FlatList, RefreshControl, View} from 'react-native'
-import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native'
+import {useMemo, useState} from 'react';
+import {View} from 'react-native';
+import {useNavigation, useRoute, type NavigationProp, type RouteProp} from '@react-navigation/native';
+import {msg} from '@lingui/macro';
 
-import {msg, plural} from '@lingui/macro'
+import type {ClipSummary} from '@keystone/fedi';
 
-import {isPermissionError, isUnsupportedError, type ClipSummary} from '@keystone/fedi'
-
-import {useTheme} from '#/alf'
-import {atoms} from '#/alf/atoms'
-import {Body, Caption} from '#/alf/typography'
-import {Button} from '#/components/Button'
-import {TextField} from '#/components/forms/TextField'
-import {SkeletonList} from '#/components/Skeleton'
-import {Pagehead} from '#/components/Pagehead'
-import {Pressable} from '#/components/Pressable'
-import {SignInButton} from '#/components/SignInButton'
-import {errorText} from '#/lib/localeErrors'
-import {i18n} from '#/locale/i18n'
-import {showToast} from '#/lib/toast'
-import type {RootParamList} from '#/routes'
-import {useActiveBackend} from '#/screens/HomeFeed'
-
-function CreateRow({onCreate}: {onCreate: (name: string, isPublic: boolean) => Promise<void>}) {
-  const [name, setName] = useState('')
-  const [isPublic, setIsPublic] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const submit = async () => {
-    const trimmed = name.trim()
-    if (trimmed.length === 0 || busy) return
-    setBusy(true)
-    setError(null)
-    try {
-      await onCreate(trimmed, isPublic)
-      setName('')
-      setIsPublic(false)
-    } catch (err) {
-      setError(errorText(i18n, err, i18n._(msg`Could not create the clip.`)))
-    } finally {
-      setBusy(false)
-    }
-  }
-  return (
-    <View style={[atoms.gap_sm, atoms.px_md, atoms.py_sm]} testID="clips-create">
-      <TextField
-        label={i18n._(msg`New clip`)}
-        value={name}
-        onChangeText={setName}
-        placeholder={i18n._(msg`Clip name`)}
-        error={error ?? undefined}
-        testID="clips-create-input"
-      />
-      <Button
-        label={isPublic ? i18n._(msg`Public: on`) : i18n._(msg`Public: off`)}
-        variant="secondary"
-        disabled={busy}
-        onPress={() => setIsPublic(v => !v)}
-        testID="clips-create-public"
-      />
-      <Button
-        label={busy ? i18n._(msg`Creating…`) : i18n._(msg`Create clip`)}
-        variant="primary"
-        disabled={busy || name.trim().length === 0}
-        onPress={() => void submit()}
-        testID="clips-create-submit"
-      />
-    </View>
-  )
-}
-
-function ClipRow({
-  clip,
-  onRename,
-  onDelete,
-  pendingDelete,
-  onArmDelete,
-  onCancelDelete,
-  onOpen,
-  onAdd,
-}: {
-  clip: ClipSummary
-  onRename: (name: string, isPublic: boolean) => Promise<void>
-  onDelete: () => Promise<void>
-  pendingDelete: boolean
-  onArmDelete: () => void
-  onCancelDelete: () => void
-  onOpen: () => void
-  /** Add-note flow (from the post menu): when set, the row offers an "Add
-   * here" button that files the note into this clip. */
-  onAdd?: () => Promise<void>
-}) {
-  const [draft, setDraft] = useState(clip.name)
-  const [pub, setPub] = useState(clip.isPublic ?? false)
-  const [editing, setEditing] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const save = async () => {
-    const trimmed = draft.trim()
-    if (trimmed.length === 0 || busy) return
-    setBusy(true)
-    setError(null)
-    try {
-      await onRename(trimmed, pub)
-      setEditing(false)
-    } catch (err) {
-      setError(errorText(i18n, err, i18n._(msg`Could not rename the clip.`)))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]} testID={`clips-row-${clip.id}`}>
-      <Pressable
-        onPress={onOpen}
-        accessibilityRole="link"
-        accessibilityLabel={i18n._(msg`${clip.name}. Open clip.`)}
-        testID={`clips-open-${clip.id}`}>
-        <Body>{clip.name}</Body>
-      </Pressable>
-      {clip.notesCount != null ? (
-        <Caption color="faint">
-          {i18n._(
-            plural(clip.notesCount, {
-              one: '# note',
-              other: '# notes',
-            }),
-          )}
-        </Caption>
-      ) : null}
-      {clip.isPublic ? <Caption color="faint">{i18n._(msg`Public`)}</Caption> : null}
-      {onAdd ? (
-        <Button
-          label={i18n._(msg`Add here`)}
-          variant="primary"
-          onPress={() => void onAdd()}
-          testID={`clips-add-${clip.id}`}
-        />
-      ) : null}
-      {editing ? (
-        <View style={[atoms.gap_sm]}>
-          <TextField
-            label={i18n._(msg`Clip name`)}
-            value={draft}
-            onChangeText={setDraft}
-            placeholder={i18n._(msg`Clip name`)}
-            error={error ?? undefined}
-            testID={`clips-rename-input-${clip.id}`}
-          />
-          <Button
-            label={pub ? i18n._(msg`Public: on`) : i18n._(msg`Public: off`)}
-            variant="secondary"
-            disabled={busy}
-            onPress={() => setPub(v => !v)}
-            testID={`clips-rename-public-${clip.id}`}
-          />
-          <View style={[atoms.row, atoms.gap_sm]}>
-            <Button
-              label={busy ? i18n._(msg`Saving…`) : i18n._(msg`Save`)}
-              variant="primary"
-              disabled={busy || draft.trim().length === 0}
-              onPress={() => void save()}
-              testID={`clips-rename-save-${clip.id}`}
-            />
-            <Button
-              label={i18n._(msg`Cancel`)}
-              variant="secondary"
-              disabled={busy}
-              onPress={() => {
-                setEditing(false)
-                setDraft(clip.name)
-              }}
-              testID={`clips-rename-cancel-${clip.id}`}
-            />
-          </View>
-        </View>
-      ) : (
-        <View style={[atoms.row, atoms.gap_sm]}>
-          <Button
-            label={i18n._(msg`Rename`)}
-            variant="secondary"
-            disabled={busy}
-            onPress={() => {
-              setDraft(clip.name)
-              setPub(clip.isPublic ?? false)
-              setEditing(true)
-            }}
-            testID={`clips-rename-${clip.id}`}
-          />
-        </View>
-      )}
-      {pendingDelete ? (
-        <View style={[atoms.gap_sm]}>
-          <Caption color="faint">{i18n._(msg`Delete “${clip.name}”? This cannot be undone.`)}</Caption>
-          <View style={[atoms.row, atoms.gap_sm]}>
-            <Button
-              label={i18n._(msg`Confirm delete`)}
-              variant="secondary"
-              disabled={busy}
-              onPress={() => void onDelete()}
-              testID={`clips-delete-confirm-${clip.id}`}
-            />
-            <Button
-              label={i18n._(msg`Keep`)}
-              variant="secondary"
-              disabled={busy}
-              onPress={onCancelDelete}
-              testID={`clips-delete-cancel-${clip.id}`}
-            />
-          </View>
-        </View>
-      ) : (
-        <View style={[atoms.row, atoms.gap_sm]}>
-          <Button
-            label={i18n._(msg`Delete`)}
-            variant="secondary"
-            disabled={busy}
-            onPress={onArmDelete}
-            testID={`clips-delete-${clip.id}`}
-          />
-        </View>
-      )}
-      {error && !editing ? <Caption color="faint">{error}</Caption> : null}
-    </View>
-  )
-}
+import {atoms} from '#/alf/atoms';
+import {Caption} from '#/alf/typography';
+import {Button} from '#/components/Button';
+import {Loader} from '#/components/Loader';
+import {Menu} from '#/components/Menu';
+import {CollectionScreen} from '#/components/Collection/CollectionScreen';
+import {Toolbar} from '#/components/Collection/Toolbar';
+import {MoreIcon} from '#/components/icons';
+import {useCollectionView} from '#/state/collectionPrefs';
+import type {CollectionItem} from '#/components/Collection/types';
+import {ClipDialog} from '#/components/Clips/ClipDialog';
+import {ClipTile, FavouritesTile} from '#/components/Clips/ClipTile';
+import {Dialog} from '#/components/Dialog';
+import {useDataSaver} from '#/state/appearance';
+import {errorText} from '#/lib/localeErrors';
+import {showToast} from '#/lib/toast';
+import {i18n} from '#/locale/i18n';
+import type {RootParamList} from '#/routes';
+import {useActiveBackend} from '#/screens/HomeFeed';
+import {useMe} from '#/state/queries/me';
+import {useClips, useInvalidateClip, useInvalidateClipMosaic, useInvalidateClips} from '#/state/queries/clips';
 
 export function ClipsScreen() {
-  const theme = useTheme()
-  const {session, backend} = useActiveBackend()
-  const navigation = useNavigation<NavigationProp<RootParamList>>()
-  const route = useRoute<RouteProp<RootParamList, 'Clips'>>()
-  // Add-note flow: the post menu lands here with `{addNoteId}` so the
-  // viewer picks the clip; the pick files the note and leaves.
-  const addNoteId = route.params?.addNoteId ?? null
-  const [clips, setClips] = useState<ClipSummary[] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [fetching, setFetching] = useState(false)
-  const [error, setError] = useState<unknown>(null)
-  const [unsupported, setUnsupported] = useState(false)
-  const [denied, setDenied] = useState(false)
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
+  const {session, backend} = useActiveBackend();
+  const navigation = useNavigation<NavigationProp<RootParamList>>();
+  const route = useRoute<RouteProp<RootParamList, 'Clips'>>();
+  const addNoteId = route.params?.addNoteId ?? null;
+  const sessionId = session?.id ?? null;
+  const clips = useClips(sessionId, backend ? {backend} : {});
+  const view = useCollectionView('clips');
+  const invalidateClips = useInvalidateClips();
+  const invalidateMosaic = useInvalidateClipMosaic();
+  const invalidateClip = useInvalidateClip();
+  const {me} = useMe(sessionId);
+  const dataSaver = useDataSaver();
+  // Dedupe by id: a server that ignores paging params returns the
+  // same page twice before the repeat-cursor guard settles (and any
+  // overlapping pages would double-render). First occurrence wins.
+  const items = useMemo(() => {
+    const seen = new Set<string>();
+    return (clips.data?.pages ?? [])
+      .flatMap(p => p.items)
+      .filter(c => (seen.has(c.id) ? false : (seen.add(c.id), true)));
+  }, [clips.data]);
+  const [dialog, setDialog] = useState<{clip: ClipSummary | null} | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ClipSummary | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!session || !backend) {
-      setLoading(false)
-      return
-    }
-    if (!backend.clips || backend.capabilities.clips === 'unsupported') {
-      setUnsupported(true)
-      setLoading(false)
-      return
-    }
-    setFetching(true)
-    setError(null)
+  const clipLimit = me?.limits?.clipLimit;
+  const atLimit = clipLimit !== undefined && items.length >= clipLimit;
+  const canUseClips = backend?.clips != null;
+  const showFavourites = backend?.bookmarks != null;
+
+  const addNoteTo = async (clip: ClipSummary | null) => {
+    if (!addNoteId || !sessionId) return;
+    setActionError(null);
     try {
-      setClips(await backend.clips.list())
-      setUnsupported(false)
-      setDenied(false)
+      if (clip === null) {
+        if (!backend?.bookmarks) throw new Error('no bookmarks backend');
+        await backend.bookmarks.add(addNoteId);
+      } else {
+        if (!backend?.clips) return;
+        await backend.clips.addNote(clip.id, addNoteId);
+        invalidateMosaic(sessionId, clip.id);
+      }
+      invalidateClips(sessionId);
+      showToast(
+        clip === null ? i18n._(msg`Added to Favourites`) : i18n._(msg`Added to ${clip.name}`),
+      );
+      navigation.goBack();
     } catch (err) {
-      if (isUnsupportedError(err)) setUnsupported(true)
-      else if (isPermissionError(err)) setDenied(true)
-      else setError(err)
-    } finally {
-      setLoading(false)
-      setFetching(false)
+      setActionError(
+        errorText(i18n, err, i18n._(msg`Could not add to ${clip === null ? 'Favourites' : 'the clip'}.`)),
+      );
     }
-  }, [session, backend])
+  };
 
-  useEffect(() => {
-    setClips(null)
-    setUnsupported(false)
-    setDenied(false)
-    setError(null)
-    setLoading(true)
-    void load()
-  }, [load])
+  const saveDialog = async (values: {name: string; isPublic: boolean; description: string | null}) => {
+    if (!backend?.clips || !sessionId) return;
+    if (dialog?.clip) {
+      const updated = await backend.clips.update(dialog.clip.id, values);
+      invalidateClips(sessionId);
+      invalidateClip(sessionId, updated.id);
+    } else {
+      const created = await backend.clips.create(values.name, {
+        isPublic: values.isPublic,
+        description: values.description,
+      });
+      invalidateClips(sessionId);
+      if (addNoteId) {
+        setDialog(null);
+        await addNoteTo(created);
+        return;
+      }
+    }
+    setDialog(null);
+  };
 
-  if (!session || !backend) {
+  const doDelete = async () => {
+    if (!backend?.clips || !deleteTarget || !sessionId) return;
+    setBusy(true);
+    try {
+      await backend.clips.delete(deleteTarget.id);
+      invalidateClips(sessionId);
+      invalidateClip(sessionId, deleteTarget.id);
+      invalidateMosaic(sessionId, deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err) {
+      setActionError(errorText(i18n, err, i18n._(msg`Could not delete the clip.`)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openClip = (clip: ClipSummary) => {
+    if (addNoteId) {
+      void addNoteTo(clip);
+      return;
+    }
+    navigation.navigate('Clip', {id: clip.id});
+  };
+
+  const openFavourites = () => {
+    if (addNoteId) {
+      void addNoteTo(null);
+      return;
+    }
+    navigation.navigate('Favorites');
+  };
+
+  const collectionItems: CollectionItem[] = [
+    ...(showFavourites
+      ? [
+          {
+            key: 'favourites',
+            title: 'Favourites',
+            subtitle: 'Saved posts',
+            thumb: {kind: 'icon', icon: 'star'} as const,
+            a11yHint: 'folder',
+          },
+        ]
+      : []),
+    ...items.map(
+      (clip): CollectionItem => ({
+        key: clip.id,
+        title: clip.name,
+        subtitle: `${clip.notesCount ?? '?'} notes · ${clip.isPublic ? 'Public' : 'Private'}`,
+        thumb: {kind: 'icon', icon: 'clip'} as const,
+        a11yHint: 'clip',
+      }),
+    ),
+  ];
+  const byId = new Map(items.map(c => [c.id, c]));
+
+  if (!sessionId || !backend) {
     return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="clips-screen">
-        <Pagehead title={i18n._(msg`Clips`)} />
-        <Body>{i18n._(msg`Sign in to see your clips.`)}</Body>
-        <Caption color="faint">{i18n._(msg`Clips never show sample data when signed out.`)}</Caption>
-        <SignInButton />
+      <View style={atoms.flex1} testID="clips-screen">
+        <CollectionScreen
+          screen="clips"
+          title={i18n._(msg`Clips`)}
+          items={[]}
+          render={{
+            selected: () => false,
+            selectionMode: false,
+            onOpen: () => {},
+            onToggle: () => {},
+          }}
+          session={undefined}
+          signedOut
+          signedOutMessage={i18n._(msg`Sign in to see your clips.`)}
+          testID="clips-collection"
+        />
       </View>
-    )
+    );
   }
 
-  if (unsupported || (!backend.clips && !loading)) {
+  if (!canUseClips) {
     return (
-      <View style={[atoms.flex1, atoms.centered, atoms.p_md]} testID="clips-screen">
-        <Pagehead title={i18n._(msg`Clips`)} />
-        <Body>{i18n._(msg`Clips are not available on this server.`)}</Body>
+      <View style={atoms.flex1} testID="clips-screen">
+        <CollectionScreen
+          screen="clips"
+          title={i18n._(msg`Clips`)}
+          items={[]}
+          render={{
+            selected: () => false,
+            selectionMode: false,
+            onOpen: () => {},
+            onToggle: () => {},
+          }}
+          session={session}
+          unsupportedMessage={i18n._(msg`Clips are not available on this server.`)}
+          testID="clips-collection"
+        />
       </View>
-    )
+    );
   }
 
   return (
     <View style={atoms.flex1} testID="clips-screen">
-      <Pagehead title={i18n._(msg`Clips`)} />
-      {addNoteId ? <Caption color="faint">{i18n._(msg`Choose a clip for this post.`)}</Caption> : null}
-      {/* Misskey favourites live here too: the sidebar has one collections
-          row per concept, so Clips carries the entry point to Favourites. */}
-      {session?.family === 'misskey' ? (
-        <View style={[atoms.px_md, atoms.py_sm]}>
-          <Button
-            label={i18n._(msg`Favourites`)}
-            variant="secondary"
-            onPress={() => navigation.navigate('Favorites')}
-            testID="clips-favourites-link"
-          />
-        </View>
-      ) : null}
-      <CreateRow
-        onCreate={async (name, isPublic) => {
-          if (!backend.clips) return
-          const created = await backend.clips.create(name, {isPublic})
-          setClips(prev => (prev ? [created, ...prev] : [created]))
-        }}
-      />
-      {actionError ? <Caption color="faint">{actionError}</Caption> : null}
-      {loading ? (
-        <SkeletonList variant="row" testID="clips-loading" />
-      ) : denied ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>{i18n._(msg`Your account cannot view clips here.`)}</Body>
-          <Button
-            label={i18n._(msg`Retry`)}
-            variant="secondary"
-            onPress={() => void load()}
-            testID="clips-retry"
-          />
-        </View>
-      ) : error ? (
-        <View style={[atoms.flex1, atoms.centered, atoms.gap_sm, atoms.p_md]}>
-          <Body>{i18n._(msg`Could not load clips.`)}</Body>
-          <Button
-            label={i18n._(msg`Retry`)}
-            variant="secondary"
-            onPress={() => void load()}
-            testID="clips-retry"
-          />
-        </View>
-      ) : (
-        <FlatList
-          data={clips ?? []}
-          keyExtractor={item => item.id}
-          renderItem={({item}) => (
-            <ClipRow
-              clip={item}
-              onRename={async (name, isPublic) => {
-                if (!backend.clips) return
-                setActionError(null)
-                try {
-                  const updated = await backend.clips.update(item.id, {name, isPublic})
-                  setClips(prev => (prev ?? []).map(c => (c.id === item.id ? updated : c)))
-                } catch (err) {
-                  setActionError(errorText(i18n, err, i18n._(msg`Could not rename the clip.`)))
-                  throw err
-                }
-              }}
-              onDelete={async () => {
-                if (!backend.clips) return
-                setActionError(null)
-                try {
-                  await backend.clips.delete(item.id)
-                  setClips(prev => (prev ?? []).filter(c => c.id !== item.id))
-                  setPendingDeleteId(null)
-                } catch (err) {
-                  setActionError(errorText(i18n, err, i18n._(msg`Could not delete the clip.`)))
-                }
-              }}
-              pendingDelete={pendingDeleteId === item.id}
-              onArmDelete={() => {
-                setPendingDeleteId(item.id)
-              }}
-              onCancelDelete={() => setPendingDeleteId(null)}
-              onOpen={() => navigation.navigate('Clip', {id: item.id})}
-              onAdd={
-                addNoteId && backend?.clips
-                  ? async () => {
-                      setActionError(null)
-                      try {
-                        await backend.clips!.addNote(item.id, addNoteId)
-                        showToast(i18n._(msg`Added to ${item.name}`))
-                        navigation.goBack()
-                      } catch (err) {
-                        setActionError(errorText(i18n, err, i18n._(msg`Could not add to the clip.`)))
-                      }
-                    }
-                  : undefined
+      <CollectionScreen
+        screen="clips"
+        title={i18n._(msg`Clips`)}
+        toolbar={
+          <View style={[atoms.px_md, atoms.py_sm, atoms.gap_sm]}>
+            {addNoteId ? <Caption color="faint">{i18n._(msg`Choose a clip for this post.`)}</Caption> : null}
+            <Toolbar
+              screen="clips"
+              actions={
+                <>
+                  {clipLimit !== undefined && !clips.hasNextPage ? (
+                    <Caption color="faint" testID="clips-count">
+                      {i18n._(msg`${items.length} / ${clipLimit}`)}
+                    </Caption>
+                  ) : null}
+                  <Button
+                    label={i18n._(msg`New clip`)}
+                    variant="primary"
+                    compact
+                    disabled={atLimit || busy}
+                    disabledReason={atLimit ? i18n._(msg`Clip limit reached (${clipLimit}).`) : undefined}
+                    onPress={() => setDialog({clip: null})}
+                    testID="clips-new"
+                  />
+                </>
               }
+              testID="clips-toolbar"
             />
-          )}
-          refreshControl={
-            <RefreshControl
-              refreshing={fetching}
-              onRefresh={() => void load()}
-              testID="clips-refresh"
-              tintColor={theme.palette.muted}
-              colors={[theme.palette.muted]}
-              progressBackgroundColor={theme.palette.bg}
-            />
-          }
-          ListEmptyComponent={
-            <View style={[atoms.centered, atoms.p_md]}>
-              <Body>{i18n._(msg`You have no clips yet.`)}</Body>
-            </View>
-          }
-        />
-      )}
+          </View>
+        }
+        items={collectionItems}
+        render={{
+          selected: () => false,
+          selectionMode: false,
+          onOpen: key => {
+            if (key === 'favourites') {
+              openFavourites();
+              return;
+            }
+            const clip = byId.get(key);
+            if (clip) openClip(clip);
+          },
+          onToggle: () => {},
+          dataSaver,
+          testID: 'clips-item',
+          renderItem: item => {
+            const tileId = item.key === 'favourites' ? 'clips-fav' : `clips-clip-${item.key}`;
+            if (item.key === 'favourites') {
+              return (
+                <FavouritesTile
+                  sessionId={sessionId}
+                  onOpen={openFavourites}
+                  dataSaver={dataSaver}
+                  testID={tileId}
+                />
+              );
+            }
+            const clip = byId.get(item.key);
+            if (!clip) return null;
+            return (
+              <ClipTile
+                clip={clip}
+                sessionId={sessionId}
+                selected={false}
+                selectionMode={false}
+                onOpen={() => openClip(clip)}
+                onToggle={() => {}}
+                menu={
+                  <Menu
+                    label={i18n._(msg`Clip options`)}
+                    items={[
+                      {key: 'edit', label: i18n._(msg`Edit`), onSelect: () => setDialog({clip})},
+                      {key: 'delete', label: i18n._(msg`Delete`), onSelect: () => setDeleteTarget(clip)},
+                    ]}
+                    trigger={<MoreIcon size={16} />}
+                    testID={`clips-menu-${clip.id}`}
+                  />
+                }
+                dataSaver={dataSaver}
+                testID={tileId}
+                variant={view === 'list' ? 'row' : 'tile'}
+              />
+            );
+          },
+        }}
+        session={session}
+        loading={clips.isPending}
+        error={clips.isError ? clips.error : undefined}
+        errorMessage={i18n._(msg`Could not load clips.`)}
+        onRetry={() => void clips.refetch()}
+        emptyMessage={showFavourites ? undefined : i18n._(msg`You have no clips yet.`)}
+        onEndReached={() => {
+          if (clips.hasNextPage && !clips.isFetchingNextPage) void clips.fetchNextPage();
+        }}
+        refreshing={clips.isRefetching}
+        onRefresh={() => void clips.refetch()}
+        footer={clips.isFetchingNextPage ? <Loader testID="clips-more" /> : null}
+        testID="clips-collection"
+      />
+      {actionError ? (
+        <Caption color="faint" testID="clips-action-error">
+          {actionError}
+        </Caption>
+      ) : null}
+      {dialog ? (
+        <ClipDialog clip={dialog.clip} onSave={saveDialog} onClose={() => setDialog(null)} testID="clips-dialog" />
+      ) : null}
+      {deleteTarget ? (
+        <Dialog
+          open
+          onClose={() => setDeleteTarget(null)}
+          title={i18n._(msg`Delete “${deleteTarget.name}”? This cannot be undone.`)}
+          testID="clips-delete">
+          <Button
+            label={busy ? i18n._(msg`Deleting…`) : i18n._(msg`Confirm delete`)}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => void doDelete()}
+            testID="clips-delete-confirm"
+          />
+          <Button
+            label={i18n._(msg`Keep`)}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => setDeleteTarget(null)}
+            testID="clips-delete-cancel"
+          />
+        </Dialog>
+      ) : null}
     </View>
-  )
+  );
 }

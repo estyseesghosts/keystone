@@ -896,12 +896,12 @@ describe("misskey/softMute", () => {
 describe("misskey/clips", () => {
   const packed = { id: "c1", name: "clip", isPublic: true, description: null, notesCount: 3 };
 
-  it("list adapts rows; junk rows degrade to empty ids/names, never throw", async () => {
+  it("list adapts rows paged; junk rows degrade to empty ids/names, never throw", async () => {
     const { call, calls } = stubCall(() => [packed, { id: 1 }]);
-    const clips = await listClips(call);
-    expect(clips[0]).toMatchObject({ id: "c1", name: "clip", notesCount: 3 });
-    expect(clips[1]).toMatchObject({ id: "", name: "" });
-    expect(calls[0]).toEqual({ endpoint: "clips/list", params: { limit: 100 } });
+    const page = await listClips(call);
+    expect(page.items[0]).toMatchObject({ id: "c1", name: "clip", notesCount: 3 });
+    expect(page.items[1]).toMatchObject({ id: "", name: "" });
+    expect(calls[0]).toEqual({ endpoint: "clips/list", params: { limit: 20 } });
   });
 
   it("create/update/delete/add/remove hit their endpoints", async () => {
@@ -909,8 +909,11 @@ describe("misskey/clips", () => {
     const created = await createClip(call, "n", { isPublic: false });
     expect(created.id).toBe("c1"); // the adapter echoes the server row
     expect(calls[0].params).toMatchObject({ name: "n", isPublic: false });
-    await updateClip(call, "c1", { name: "m" });
-    expect(calls[1]).toEqual({ endpoint: "clips/update", params: { clipId: "c1", name: "m" } });
+    await updateClip(call, "c1", { name: "m", isPublic: true, description: null });
+    expect(calls[1]).toEqual({
+      endpoint: "clips/update",
+      params: { clipId: "c1", name: "m", isPublic: true, description: null },
+    });
     await deleteClip(call, "c1");
     await addNoteToClip(call, "c1", "n1");
     await removeNoteFromClip(call, "c1", "n1");

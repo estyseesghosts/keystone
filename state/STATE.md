@@ -1,16 +1,23 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase: **P6.5 Pages program COMPLETE (slices 0–8)** (plan `docs/p6.5-pages.md`;
-task `docs/tasks/p6.5-pages.md`; branch `p6.5-pages`; do NOT
-merge without owner approval; never `git push`). All slices DONE
-(0 spike → ADR 0016 option B; 1 fedi data; 2 reader `f98362a`;
-3–8 index/editor/toolbar/preview/pin/live-checks, pending commit).
-Next: owner slice-8 live-checks (§13–17) + merge approval.
-ADR 0014 is taken — the plan's "ADR 0014" is filed as **0016**.
-Gate (this program): per-slice `pnpm typecheck && pnpm lint && pnpm test`
-green, pasted in each log; full-suite flat at pre-existing 90 required
-before any merge. Web/device evidence per plan §6 or `not verified`
-(owner owns rig checks: `:3101`/`:3102`/Mastodon refused to agents).
+
+Phase: **P6.5 Pages + P6.6 Drive/Clips merged to `main` 2026-10-31**
+(P6.5 slices 0–8: reader/index/editor/toolbar/preview/pin/live-checks;
+P6.6 slices 1–9: collection kit, Clips, Drive, bulk, uploads, DnD,
+integration. Owner-reported regressions fixed: infinite Clips loading,
+duplicate clip tile, `2 2 notes` subtitle.)
+Gate (merge): typecheck + lint clean; full suite flat at pre-existing 90
+required; live-checks + device screenshots are owner items (rig refused
+to agents). Web/device inspection `not verified`.
+Prior: **like-button + picker groups merged to `main` 2026-10-30**
+(`2264634` + `ae638e4` + bookkeeping; fast-forward, both branches
+pruned, pushed to github). Only branch left is `main`. Tree clean.
+Gate (merge): typecheck (ios+android+web) + lint clean; `pnpm test`
+→ 305 suites / 4278 tests: 4188 pass, 90 fail — all 90 the pre-existing
+content/linkpreview/richtext/post set (13 suites). Zero attributable
+failures (one self-caught pre-merge regression fixed: provider-less
+`CustomGroupsRow` crash — see merge log).
+Web/device inspection `not verified` (owner checks open).
 Gate (merge commit): typecheck (ios+android+web) + lint clean; `pnpm test`
 → 303 suites / 4260 tests: 4170 pass, 90 fail — all 90 the pre-existing
 content/linkpreview/richtext/post set (13 suites), unchanged from the
@@ -41,9 +48,10 @@ Links:
 - P6.5 ADR: `docs/adr/0014-notification-unread-source.md` (accepted)
 - Fix ADR: `docs/adr/0015-gapfill-keeps-mounted-pages.md` (accepted)
 - Fix task: `docs/tasks/fix-feed-gapfill-jump.md` (merged; owner repros open)
-- Latest logs: `state/logs/2026-10-30-p6.5-pages-program.md` (setup + slices 0–1),
-  `state/logs/2026-10-30-p6.5-pages-slice-2.md` (slice 2: reader),
-  `state/logs/2026-10-30-p6.5-pages-slices-3-8.md` (slices 3–8: index, editor, toolbar, preview, pin, live-checks),
+- Latest logs: `state/logs/2026-10-31-merge-pages-drive-clips.md` (this merge),
+  `state/logs/2026-10-30-p6.6-9-integration.md` (P6.6 close),
+  `state/logs/2026-10-30-p6.5-pages-slices-3-8.md` (P6.5 slices 3–8),
+  `state/logs/2026-10-30-p6.5-pages-slice-2.md` (P6.5 reader),
   `state/logs/2026-10-30-merge-like-picker.md` (last merge),
   `state/logs/2026-10-29-fix-feed-gapfill-jump*.md` (gap-fill rounds 1–2),
   `state/logs/2026-10-29-polish-*.md` (polish 1–8, one per slice)

@@ -70,6 +70,7 @@ import {NotificationsScreen} from '#/screens/Notifications'
 import {ProfileEditorScreen} from '#/screens/ProfileEditor'
 import {SettingsScreen} from '#/screens/Settings'
 import {SysDebugScreen} from '#/screens/SysDebug'
+import {CollectionDebugScreen} from '#/screens/CollectionDebug'
 import {TagScreen} from '#/screens/Tag'
 import {UserScreen} from '#/screens/User'
 import {Sidebar} from '#/components/shell/Sidebar'
@@ -305,6 +306,7 @@ export function Navigation({initialState}: {initialState?: InitialState}) {
                   same screen (`/auth/callback` stays canonical). */}
               <Stack.Screen name="KeystoneCallback" component={AuthCallbackScreen} />
               <Stack.Screen name="SysDebug" component={SysDebugScreen} />
+              <Stack.Screen name="CollectionDebug" component={CollectionDebugScreen} />
               <Stack.Screen
                 name="Compose"
                 component={ComposeScreen}

@@ -33,6 +33,7 @@
 
 import type {
   Account,
+  AccountLimits,
   AccountFieldModel,
   Content,
   Cursor,
@@ -138,9 +139,32 @@ export function adaptAccount(user: UserLite | UserDetailed): Account {
 
 /** `MeDetailed` -> Account with the raw `i` bag in `ext.me` (the profile
  * editor round-trips it verbatim). */
+/** Role-policy limits from the `i.policies` bag (absent fields stay
+ * absent — never defaulted). Pure. */
+export function accountLimitsOf(me: MeDetailed): AccountLimits | undefined {
+  const bag = me.policies;
+  if (typeof bag !== "object" || bag === null) return undefined;
+  const rec = bag as Record<string, unknown>;
+  const num = (key: string): number | undefined =>
+    typeof rec[key] === "number" && Number.isFinite(rec[key] as number)
+      ? (rec[key] as number)
+      : undefined;
+  const limits: AccountLimits = {};
+  const clipLimit = num("clipLimit");
+  if (clipLimit !== undefined) limits.clipLimit = clipLimit;
+  const noteEachClipsLimit = num("noteEachClipsLimit");
+  if (noteEachClipsLimit !== undefined) limits.noteEachClipsLimit = noteEachClipsLimit;
+  const driveCapacityMb = num("driveCapacityMb");
+  if (driveCapacityMb !== undefined) limits.driveCapacityMb = driveCapacityMb;
+  return Object.keys(limits).length > 0 ? limits : undefined;
+}
+
 export function adaptMe(me: MeDetailed): Account {
+  const account = adaptAccount(me);
+  const limits = accountLimitsOf(me);
   return {
-    ...adaptAccount(me),
+    ...account,
+    ...(limits !== undefined ? {limits} : {}),
     ext: {
       me: { ...(me as unknown as Record<string, unknown>) },
     },

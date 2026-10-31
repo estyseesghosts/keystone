@@ -140,7 +140,8 @@ export type RootParamList = {
    * mutations. Mastodon fetches the row fresh; Misskey renders the shared
    * list row (no show endpoint upstream). */
   AdminReport: {id: string}
-  Drive: undefined
+  /** Drive folder (`/drive/:folderId?`, DC-13): absent = root. */
+  Drive: {folderId?: string} | undefined
   Favorites: undefined
   Followers: {id: string}
   Following: {id: string}
@@ -154,6 +155,7 @@ export type RootParamList = {
   /** v1 root-base callback URL (`/keystone/callback`) — same screen. */
   KeystoneCallback: undefined
   SysDebug: undefined
+  CollectionDebug: undefined
   Compose:
     | {
         replyToId?: string
@@ -198,7 +200,7 @@ export const paths: Record<keyof RootParamList, string> = {
   AdminInsight: '/admin/insight',
   AdminReports: '/admin/reports',
   AdminReport: '/admin/reports/:id',
-  Drive: '/drive',
+  Drive: '/drive/:folderId?',
   Favorites: '/favorites',
   Followers: '/users/:id/followers',
   Following: '/users/:id/following',
@@ -209,6 +211,7 @@ export const paths: Record<keyof RootParamList, string> = {
   AuthCallback: AUTH_CALLBACK_PATH,
   KeystoneCallback: LEGACY_AUTH_CALLBACK_PATH,
   SysDebug: '/sys/debug',
+  CollectionDebug: '/sys/collection',
   Compose: '/compose',
 }
 
@@ -352,10 +355,12 @@ export function linkingScreens(): LinkingScreens {
     // resolve (clickstone §1.13).
     KeystoneCallback: leaf('KeystoneCallback'),
     SysDebug: leaf('SysDebug'),
+    CollectionDebug: leaf('CollectionDebug'),
     Compose: leaf('Compose'),
   }
   if (!isDevBuild()) {
     delete screens.SysDebug
+    delete screens.CollectionDebug
   }
   return screens
 }
@@ -470,6 +475,8 @@ export function titleForRoute(
       return t`Sign in`
     case 'SysDebug':
       return t`Debug`
+    case 'CollectionDebug':
+      return t`Collection debug`
     case 'Compose':
       return t`New post`
     default:

@@ -118,6 +118,11 @@ export type FeatureKey =
   // verdict (the `like.ts` pattern) — a flavor label never proves a
   // backport absent or present.
   | "notification_requests"
+  // Drive sort + bulk-move (P6.6 DC-7): newer upstream; probed once per
+  // origin and cached (the `like.ts` pattern). Default unknown for every
+  // flavor; no flavor row below seeds them.
+  | "drive_sort"
+  | "drive_move_bulk"
   // Server services
   | "translation"
   | "streaming"
@@ -168,6 +173,8 @@ export const FEATURE_KEYS: readonly FeatureKey[] = [
   "bookmarks",
   "favourites_distinct_from_reactions",
   "notification_requests",
+  "drive_sort",
+  "drive_move_bulk",
   "translation",
   "streaming",
   "password_grant",

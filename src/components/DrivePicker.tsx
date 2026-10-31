@@ -53,10 +53,10 @@ function BrowseTab({
     setError(null)
     try {
       const [folderList, filePage] = await Promise.all([
-        backend.folders ? backend.folders.list() : Promise.resolve(null),
+        backend.folders ? backend.folders.list({parentId: folderId, limit: PAGE_SIZE}) : Promise.resolve(null),
         backend.files({limit: PAGE_SIZE, folderId}),
       ])
-      setFolders(folderList)
+      setFolders(folderList ? folderList.items : null)
       // Image-only picker: filter client-side (server `type` varies).
       setFiles(filePage.items.filter(isImage))
       setCursor(filePage.cursor)

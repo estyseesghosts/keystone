@@ -70,6 +70,7 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p6.3-reports-queue](p6.3-reports-queue.md) | clickstone §3.2 | done | `p6.3-reports-queue` | `state/logs/2026-10-22-p6.3-reports-queue.md` |
 | [p6.4-sidebar-reshuffle](p6.4-sidebar-reshuffle.md) | sidebar.jpg sketch (pre-W3) | in progress | `p6.4-sidebar-reshuffle` | `state/logs/2026-10-22-sidebar-reshuffle.md` |
 | [p6.5-unread-counter](p6.5-unread-counter.md) | P6.5 unread bell badge (server count + dot fallback) | done, merged | `main` | `state/logs/2026-10-28-p6.5-unread-counter.md` |
+| [p6.6-drive-clips](p6.6-drive-clips.md) | P6.6 Drive + Clips (9 slices) | done, merged | `main` | `state/logs/2026-10-31-merge-pages-drive-clips.md` |
 
 ## Repair program 2026-10-25 (`docs/audit_20261025/repair.md`)
 
@@ -143,6 +144,6 @@ Status values: `not started` | `in progress` | `blocked` | `done`.
 | Task | Plan ref | Status | Branch | Latest log |
 | [fix-feed-gapfill-jump](fix-feed-gapfill-jump.md) | ADR-0015 | done, merged | `main` | `state/logs/2026-10-30-merge-batch.md` |
 | [fix-like-button-state](fix-like-button-state.md) | Like pill = liked-only; custom-like art, never raw code | done, merged | `main` | `state/logs/2026-10-30-like-button-state.md` |
-| [p6.5-pages](p6.5-pages.md) | Misskey Pages (reader, index, editor, preview, pin) | in progress (slices 0–7 done; slice 8 owner checks open) | `p6.5-pages` | `state/logs/2026-10-30-p6.5-pages-slices-3-8.md` |
+| [p6.5-pages](p6.5-pages.md) | Misskey Pages (reader, index, editor, preview, pin) | done, merged | `main` | `state/logs/2026-10-31-merge-pages-drive-clips.md` |
 | [feat-emoji-picker-groups](feat-emoji-picker-groups.md) | Picker groups v1 parity (collapse/pin/hide/favourites/right-click) | done, merged | `main` | `state/logs/2026-10-30-emoji-picker-groups.md` |
 | [visual-polish](visual-polish.md) | Visual polish + widgets (D1–D6 + feed-fill + media-caps) | done, merged | `main` | `state/logs/2026-10-29-polish-8-media-caps.md` |
