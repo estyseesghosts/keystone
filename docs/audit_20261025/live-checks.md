@@ -210,3 +210,53 @@ node scripts/fedi-capture.ts --family mastodon --origin https://mastodon.example
      toolchain. Documented + accepted.
 - Owner action: accept or override; re-audit after the next Expo SDK bump
   (DECISIONS line 2026-10-25 X11.1).
+
+## P6.6 — Drive + Clips live checks (owner; rig refused to agents)
+
+Program branch `p6.6-drive-clips`, slices 1–9 (`docs/p6.6-drive-clips.md` §5
+slice 9; logs `state/logs/2026-10-30-p6.6-*.md`). Agent-verified: `pnpm
+typecheck` + `pnpm lint` clean, targeted suites green per slice log, full
+suite flat at the 90 pre-existing failures (13 suites). Everything below
+needs the rig (`:3101` Misskey / `:3102` Sharkey) or a browser and is
+`not verified` until the owner runs it. Mark each `[ ]` → `[x]` with
+server version + result.
+
+- [ ] L1 Probe verdicts: open Drive on `:3101` and `:3102`; record
+  `drive_sort` / `drive_move_bulk` verdicts per origin (plan §5 slice 1
+  step 3: `drive/files {limit:1, sort:'-createdAt'}` → 400 = unsupported;
+  `drive/files/move-bulk {fileIds: []}` → 404 = unsupported). Sort menu
+  hidden on the unsupported server (fixed newest-first); bulk move uses
+  `moveMany` where supported, per-file `update` pool elsewhere.
+- [ ] L2 Clip limits: account with 200-note clips — Clip screen shows
+  `{n} / {noteEachClipsLimit}`; Clips index shows `{own} / {clipLimit}`;
+  "New clip" disabled with reason at the limit.
+- [ ] L3 B1 regression: rename a clip without touching the description —
+  description survives (full-body `update`, slice 1).
+- [ ] L4 Nesting: create folders 3 deep, breadcrumb trail `My Uploads › a
+  › b › c`, middle collapses via menu on long paths; browser back walks
+  the history (`Drive: '/drive/:folderId?'`).
+- [ ] L5 Delete flow: delete a non-empty folder — confirm shows file +
+  subfolder counts + first-5 names; deletes depth-first; abort path past
+  1000 items shows the too-large message instead of a partial delete.
+- [ ] L6 Uploads: 20 files incl. one oversize — queue runs 2 at a time,
+  oversize refused with reason before upload, per-file progress, cancel +
+  retry, usage bar moves, inserted into the current folder's list.
+- [ ] L7 DnD (Chrome + Firefox + Safari, web): OS files onto the body →
+  current folder; onto a folder tile → that folder ("Upload to {folder}"
+  overlay); tile drag onto folder/crumb moves the selection with toast +
+  Undo; self-drop shows no drop cursor and does nothing; text/link drag
+  ignored. (`not verified` — no agent browser tooling.)
+- [ ] L8 Favourites: the Favourites folder in Clips opens the `Favorites`
+  route (never a `clips/*` call); star badge + "Saved posts" render;
+  Misskey sessions show no separate Favourites sidebar entry; Mastodon
+  Bookmarks screen unchanged.
+- [ ] L9 Side-by-side: `dvd.chat` vs `localhost:8081` screenshots for Clips
+  grid/list, Clip screen, Favourites screen, Drive grid/list, nested
+  folder, selection bar, upload queue, DnD overlay (plan §8 item 5).
+- [ ] L10 Owner-reported regressions from this program, re-check on device:
+  grid no longer overflows the center column; tile menus are corner icons
+  (not full-width buttons); breadcrumbs + usage bar visible; titles use
+  middle ellipsis; one-clip account loads once, renders one tile, count
+  reads `1 / {limit}` (repeat-cursor guard + screen dedupe, slices 7–8).
+- [ ] L11 Fixture refresh: `scripts/fedi-capture.ts` per §0 above
+  (Misskey + Sharkey + Mastodon), review the diff before tests consume it.

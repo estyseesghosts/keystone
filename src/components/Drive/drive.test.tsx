@@ -212,7 +212,8 @@ describe('MoveToDialog', () => {
       );
       expect(await screen.findByTestId('mv-root')).toBeTruthy();
       // Self is disabled with a reason; unrelated folders stay enabled.
-      expect(screen.getByTestId('mv-move-self').props.accessibilityState.disabled).toBe(true);
+      // (findBy: the rows land a tick after the static root row.)
+      expect((await screen.findByTestId('mv-move-self')).props.accessibilityState.disabled).toBe(true);
       expect(screen.getByTestId('mv-move-other').props.accessibilityState.disabled).toBe(false);
     } finally {
       mockBackends.clear();

@@ -1,6 +1,8 @@
 # STATE.md — current pointer (keep under ~60 lines)
 
-Phase: **like-button + picker groups merged to `main` 2026-10-30**
+Phase: **P6.6 Drive + Clips complete on `p6.6-drive-clips` 2026-10-30 (9/9 slices, unmerged — owner review)**
+Gate: typecheck + lint clean; full suite 316/4373 → 4283 pass, 90 fail (pre-existing 13 suites, flat). Live-checks L1–L11 in `docs/audit_20261025/live-checks.md` are owner items (rig + browsers refused to agents). Owner-reported regressions fixed in-program: infinite Clips loading (repeat-cursor guard), duplicate clip tile (screen dedupe), `2 2 notes` subtitle. Do NOT merge/push without owner approval.
+Prior: **like-button + picker groups merged to `main` 2026-10-30**
 (`2264634` + `ae638e4` + bookkeeping; fast-forward, both branches
 pruned, pushed to github). Only branch left is `main`. Tree clean.
 Gate (merge): typecheck (ios+android+web) + lint clean; `pnpm test`
@@ -39,7 +41,8 @@ Links:
 - P6.5 ADR: `docs/adr/0014-notification-unread-source.md` (accepted)
 - Fix ADR: `docs/adr/0015-gapfill-keeps-mounted-pages.md` (accepted)
 - Fix task: `docs/tasks/fix-feed-gapfill-jump.md` (merged; owner repros open)
-- Latest logs: `state/logs/2026-10-30-emoji-picker-groups.md` (this slice),
+- Latest logs: `state/logs/2026-10-30-p6.6-9-integration.md` (P6.6 slice 9, program close),
+  `state/logs/2026-10-30-p6.6-8-drive-dnd.md`, `state/logs/2026-10-30-emoji-picker-groups.md` (this slice),
   `state/logs/2026-10-30-like-button-state.md` (carried slice),
   `state/logs/2026-10-30-merge-batch.md` (the merge),
   `state/logs/2026-10-29-fix-feed-gapfill-jump*.md` (gap-fill rounds 1–2),

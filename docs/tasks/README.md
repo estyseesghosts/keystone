@@ -70,6 +70,7 @@ end of session (see `AGENTS.md` §2 checklist).
 | [p6.3-reports-queue](p6.3-reports-queue.md) | clickstone §3.2 | done | `p6.3-reports-queue` | `state/logs/2026-10-22-p6.3-reports-queue.md` |
 | [p6.4-sidebar-reshuffle](p6.4-sidebar-reshuffle.md) | sidebar.jpg sketch (pre-W3) | in progress | `p6.4-sidebar-reshuffle` | `state/logs/2026-10-22-sidebar-reshuffle.md` |
 | [p6.5-unread-counter](p6.5-unread-counter.md) | P6.5 unread bell badge (server count + dot fallback) | done, merged | `main` | `state/logs/2026-10-28-p6.5-unread-counter.md` |
+| [p6.6-drive-clips](p6.6-drive-clips.md) | P6.6 Drive + Clips (9 slices) | done, unmerged (owner review) | `p6.6-drive-clips` | `state/logs/2026-10-30-p6.6-9-integration.md` |
 
 ## Repair program 2026-10-25 (`docs/audit_20261025/repair.md`)
 
