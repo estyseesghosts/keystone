@@ -161,8 +161,8 @@ describe('FeedView live insert + pill (WS-G S4)', () => {
       store,
     )
     expect(await screen.findByText('first post')).toBeTruthy()
-    expect(screen.getByTestId('stream-status')).toBeTruthy()
-    expect(screen.getByText('Live')).toBeTruthy()
+    // No live indicator row: connection state is not surfaced in the feed.
+    expect(screen.queryByTestId('stream-status')).toBeNull()
     expect(screen.queryByTestId('new-posts-pill')).toBeNull()
 
     await act(async () => { harness.emitPost(livePost('p2', 'live post')) })
@@ -244,56 +244,8 @@ describe('FeedView live insert + pill (WS-G S4)', () => {
   })
 })
 
-describe('FeedView stream badge (WS-G S4)', () => {
-  it('shows connected/reconnecting and retries on error (no unread count)', async () => {
-    const {store, sessionId} = await signedIn()
-    const harness = makeLiveHandle()
-    const backend = liveBackend(harness)
-    renderWithProviders(
-      <FeedView sessionId={sessionId} descriptor="timeline|home" backend={backend} retry={false} testID="feed" />,
-      store,
-    )
-    expect(await screen.findByText('first post')).toBeTruthy()
-    expect(screen.getByText('Live')).toBeTruthy()
-
-    await act(async () => { harness.emitState('reconnecting') })
-    expect(screen.getByText('Reconnecting…')).toBeTruthy()
-
-    await act(async () => { harness.emitState('error') })
-    expect(screen.getByText('Live updates unavailable')).toBeTruthy()
-    const subscribes = harness.subscribes()
-    fireEvent.press(screen.getByTestId('stream-retry'))
-    await waitFor(() => expect(harness.subscribes()).toBeGreaterThan(subscribes))
-    // The new live reads the handle state; the badge recovers when the
-    // socket does.
-    await act(async () => { harness.emitState('connected') })
-    expect(screen.getByText('Live')).toBeTruthy()
-
-    // The second badge rule: connection state only, never a count — and
-    // the W4 unread badge stays out of the feed.
-    expect(screen.queryByTestId('notifications-badge')).toBeNull()
-  })
-
-  it('shows the honest dead state with a working retry (never a stuck "Reconnecting…")', async () => {
-    const {store, sessionId} = await signedIn()
-    const harness = makeLiveHandle()
-    const backend = liveBackend(harness)
-    renderWithProviders(
-      <FeedView sessionId={sessionId} descriptor="timeline|home" backend={backend} retry={false} testID="feed" />,
-      store,
-    )
-    expect(await screen.findByText('first post')).toBeTruthy()
-
-    await act(async () => { harness.emitState('stopped') })
-    expect(screen.getByText('Live updates stopped')).toBeTruthy()
-    expect(screen.queryByText('Reconnecting…')).toBeNull()
-
-    const subscribes = harness.subscribes()
-    fireEvent.press(screen.getByTestId('stream-retry'))
-    await waitFor(() => expect(harness.subscribes()).toBeGreaterThan(subscribes))
-  })
-
-  it('hides the badge on paging-only feeds and keeps the local-diff pill', async () => {
+describe('FeedView live indicator removed', () => {
+  it('keeps the local-diff pill on paging-only feeds', async () => {
     const {store, sessionId} = await signedIn()
     const timeline = jest.fn(async () => ({items: [livePost('p1', 'old post')], cursor: null, end: true}))
     const backend = liveBackend(makeLiveHandle(), {

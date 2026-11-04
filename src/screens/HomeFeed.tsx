@@ -46,7 +46,6 @@ import {feedScrollKey, readFeedScroll, saveFeedScroll} from '#/state/feedMemory'
 import {useSuspendOnBlur} from '#/state/activePlayer'
 import {LIVE_CAPTURE_LIMIT, useFeedLive} from '#/state/streaming'
 import {useSessionStore} from '#/state/session/SessionProvider'
-import {StreamStatusBadge} from '#/components/StreamBadge'
 
 // --- Session / backend access -----------------------------------------------
 
@@ -204,7 +203,7 @@ export function FeedView({  sessionId,
     [visibleItems],
   )
   const feedLive = useFeedLive({sessionId, descriptor, backend: resolved, watchIds})
-  const {active: liveActive, pendingCount: livePending, status: liveStatus, flush: flushLive} = feedLive
+  const {active: liveActive, pendingCount: livePending, flush: flushLive} = feedLive
   // Seamless infinite scroll: the next page starts ~1200px before the
   // bottom edge, well ahead of `onEndReached` (which is itself raised to
   // 2.5 screens). BOTH this handler and `onEndReached` go through the
@@ -398,7 +397,6 @@ export function FeedView({  sessionId,
           {stickyBar}
         </View>
       ) : null}
-      {liveActive ? <StreamStatusBadge status={liveStatus} onRetry={feedLive.resubscribe} /> : null}
       <FlatList
         ref={listRef}
         testID="feed-list"

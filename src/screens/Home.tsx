@@ -6,6 +6,7 @@ import {msg} from '@lingui/macro'
 
 import {useTheme} from '#/alf/index'
 import {atoms} from '#/alf/atoms'
+import {useShellLayout} from '#/alf/breakpoints'
 import {Button} from '#/components/Button'
 import {ComposeFab} from '#/components/ComposeFab'
 import {CompactComposer} from '#/components/Composer/CompactComposer'
@@ -89,6 +90,17 @@ export function HomeScreen() {
       </View>
     ) : undefined
 
+  const layout = useShellLayout()
+  const configureButton = (
+    <Button
+      label={i18n._(msg`Configure recommendations`)}
+      variant="secondary"
+      compact
+      onPress={() => setSettingsOpen(true)}
+      testID="home-configure-recommendations"
+    />
+  )
+
   const select = (next: HomeTab) => {
     if (next === active) {
       // Re-pressing the active tab re-ranks from the top.
@@ -114,7 +126,10 @@ export function HomeScreen() {
 
   return (
     <View style={atoms.flex1} testID="home-screen">
-      <Pagehead title={i18n._(msg({id: 'home.title', message: 'Home', context: 'home timeline screen'}))} />
+      <Pagehead
+        title={i18n._(msg({id: 'home.title', message: 'Home', context: 'home timeline screen'}))}
+        right={active === 'recommendations' ? configureButton : undefined}
+      />
       {showRec ? (
         <Tabs<HomeTab>
           tabs={[
@@ -128,16 +143,11 @@ export function HomeScreen() {
           accessibilityLabel={i18n._(msg`Home timelines`)}
         />
       ) : null}
-      {active === 'recommendations' ? (
+      {active === 'recommendations' && layout === 'mobile' ? (
+        // No pagehead on the mobile layout, so the button keeps its own row.
         <View style={{borderBottomWidth: 1, borderBottomColor: theme.palette.border}}>
           <View style={[atoms.px_md, atoms.py_sm, atoms.row, {justifyContent: 'flex-end'}]}>
-            <Button
-              label={i18n._(msg`Configure recommendations`)}
-              variant="secondary"
-              compact
-              onPress={() => setSettingsOpen(true)}
-              testID="home-configure-recommendations"
-            />
+            {configureButton}
           </View>
         </View>
       ) : null}

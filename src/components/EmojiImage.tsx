@@ -10,7 +10,7 @@
 //   never a fabricated URL, never a local lookalike for a remote code.
 
 import {useEffect, useState} from 'react'
-import {StyleSheet, Text, type StyleProp, type TextStyle} from 'react-native'
+import {Platform, StyleSheet, Text, type ImageStyle, type StyleProp, type TextStyle} from 'react-native'
 
 import {
   DEFAULT_EMOJI_STYLE,
@@ -30,6 +30,12 @@ const GLYPH = 16
 const styles = StyleSheet.create({
   fallback: {fontSize: GLYPH, lineHeight: GLYPH + 4},
 })
+
+// Inline emoji images sit in the text flow. On web the default baseline
+// alignment drops them below the line's x-height, so center them on the
+// text instead (RN-web passes `verticalAlign` straight to CSS).
+const inlineImage: StyleProp<ImageStyle> =
+  Platform.OS === 'web' ? ({verticalAlign: 'middle'} as ImageStyle) : null
 
 export type UnicodeEmojiProps = {
   sequence: string
@@ -60,7 +66,7 @@ export function UnicodeEmoji({sequence, style = DEFAULT_EMOJI_STYLE, size = GLYP
       uri={url}
       contentFit="contain"
       recyclingKey={`unicode-emoji:${style}:${sequence}`}
-      style={{width: size, height: size}}
+      style={[{width: size, height: size}, inlineImage]}
       onError={() => setFailed(true)}
       accessibilityRole="image"
       accessibilityLabel={sequence}
@@ -176,7 +182,7 @@ export function CustomEmojiGlyph({
       uri={candidates[index]}
       contentFit="contain"
       recyclingKey={candidates[index]}
-      style={{width: size, height: size}}
+      style={[{width: size, height: size}, inlineImage]}
       onError={() => setIndex(i => i + 1)}
       accessibilityRole="image"
       accessibilityLabel={code}
